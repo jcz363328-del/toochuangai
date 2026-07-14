@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报告历史记录 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        html {
+            width: 100%;
+            overflow-x: hidden;
+        }
+        body {
+            margin: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(129, 140, 248, 0.10), transparent 24%),
+                radial-gradient(circle at top right, rgba(34, 197, 94, 0.08), transparent 20%),
+                #f4f6fb;
+            color: #1f2a44;
+            overflow-x: hidden;
+        }
+        body.detail-open {
+            overflow: hidden;
+        }
+        .head {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            min-height: 70px;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(14px);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 22px;
+            font-weight: 700;
+            color: #25324d;
+        }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6d5efc 0%, #8d7bff 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            box-shadow: 0 10px 24px rgba(109, 94, 252, 0.24);
+        }
+        .head-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-link, .btn {
+            border: 1px solid #dbe2f0;
+            background: #fff;
+            color: #334155;
+            padding: 10px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all .18s ease;
+        }
+        .btn-link:hover, .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+        }
+        .btn.primary {
+            background: linear-gradient(135deg, #6a5cff 0%, #7c72ff 100%);
+            color: #fff;
+            border-color: #6a5cff;
+            box-shadow: 0 12px 28px rgba(106, 92, 255, 0.24);
+        }
+        .container {
+            max-width: 1480px;
+            margin: 0 auto;
+            padding: 18px;
+            display: grid;
+            gap: 14px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(226, 232, 240, 0.92);
+            border-radius: 20px;
+            padding: 18px;
+            box-shadow: 0 10px 36px rgba(15, 23, 42, 0.05);
+        }
+        .hero-card {
+            padding: 16px 18px 14px;
+        }
+        .hero-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .hero-title {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+        .hero-controls {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+        }
+        .hero-title h2 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.2;
+            color: #27344c;
+        }
+        .status-line {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: #ecfdf5;
+            color: #0f9f6e;
+            border: 1px solid #c9f5e4;
+            font-weight: 600;
+        }
+        .filter-row {
+            display: grid;
+            grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr) 148px 24px 148px auto;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #eceffd;
+            border-radius: 16px;
+            background: #f8f9fe;
+        }
+        .history-filter-actions {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        .history-search-row {
+            grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(140px, 0.85fr) 148px 24px 148px auto;
+        }
+        .field {
+            border: 1px solid #dde4f0;
+            border-radius: 12px;
+            padding: 11px 13px;
+            font-size: 14px;
+            width: 100%;
+            background: #fff;
+            color: #334155;
+            outline: none;
+        }
+        .field:focus {
+            border-color: #9088ff;
+            box-shadow: 0 0 0 3px rgba(106, 92, 255, 0.10);
+        }
+        .range-split {
+            text-align: center;
+            color: #94a3b8;
+            font-weight: 700;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #e8edf6;
+            border-radius: 16px;
+            padding: 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+            min-height: 88px;
+        }
+        .stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex: 0 0 auto;
+        }
+        .stat-icon.purple { background: #f0ebff; color: #6d5efc; }
+        .stat-icon.blue { background: #e9f2ff; color: #3b82f6; }
+        .stat-icon.green { background: #e8fbf5; color: #10b981; }
+        .stat-icon.orange { background: #fff5e7; color: #f59e0b; }
+        .stat-icon.indigo { background: #eef2ff; color: #6366f1; }
+        .stat-title {
+            color: #708198;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 34px;
+            line-height: 1;
+            font-weight: 700;
+            color: #25324d;
+            letter-spacing: -0.02em;
+        }
+        .sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .section-card {
+            padding: 14px 14px 12px;
+        }
+        .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            font-size: 18px;
+            color: #26344d;
+        }
+        .section-title i {
+            color: #7a6dff;
+            font-size: 14px;
+        }
+        .section-meta {
+            font-size: 13px;
+            color: #94a3b8;
+        }
+        .section-filters {
+            display: inline-flex;
+            gap: 6px;
+            background: #f8f9fe;
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid #eceffd;
+        }
+        .filter-chip {
+            border: 0;
+            background: transparent;
+            color: #718198;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: default;
+        }
+        .filter-chip.active {
+            background: #eeebff;
+            color: #6a5cff;
+            box-shadow: inset 0 0 0 1px #ddd7ff;
+        }
+        .list {
+            display: grid;
+            gap: 12px;
+            max-height: 72vh;
+            overflow: auto;
+            padding-right: 4px;
+        }
+        .list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .list::-webkit-scrollbar-thumb {
+            background: #d8def0;
+            border-radius: 999px;
+        }
+        .item {
+            border: 1px solid #e7ecf5;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fff 0%, #fcfdff 100%);
+            padding: 16px 16px 14px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.03);
+        }
+        .item-h {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: #7b879a;
+            margin-bottom: 8px;
+        }
+        .time-text {
+            font-weight: 600;
+            color: #7b879a;
+        }
+        .tag {
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid #d7ddff;
+            background: #eef2ff;
+            color: #6476ff;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .item-title {
+            font-size: 27px;
+            font-weight: 700;
+            line-height: 1.22;
+            margin-bottom: 10px;
+            color: #24324a;
+            letter-spacing: -0.03em;
+        }
+        .item-submeta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 13px;
+            color: #8a96a8;
+            margin-bottom: 12px;
+        }
+        .item-submeta strong {
+            font-weight: 600;
+            color: #6b7280;
+        }
+        .item-raw {
+            padding: 0;
+            background: transparent;
+            max-height: none;
+            overflow: visible;
+            line-height: 1.82;
+            font-size: 14px;
+            color: #4a566d;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            min-width: 0;
+            width: 100%;
+            max-width: 100%;
+        }
+        .item-raw * {
+            box-sizing: border-box;
+            min-width: 0;
+            max-width: 100%;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+        }
+        .item-raw :where(p, div, span, li, a, strong, em, blockquote, h1, h2, h3, h4, h5, h6, td, th) {
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+        }
+        .item-raw table {
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+            white-space: normal !important;
+        }
+        .item-raw td,
+        .item-raw th {
+            width: auto !important;
+            white-space: normal !important;
+            word-break: break-all !important;
+            overflow-wrap: anywhere !important;
+        }
+        .item-raw pre,
+        .item-raw code {
+            white-space: pre-wrap !important;
+            word-break: break-all !important;
+            overflow-wrap: anywhere !important;
+        }
+        .item-raw video,
+        .item-raw iframe {
+            max-width: 100%;
+            border: 0;
+        }
+        .item-raw > *:first-child {
+            margin-top: 0;
+        }
+        .item-raw img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 10px 0;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+        }
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .image-thumb {
+            display: block;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+        .image-thumb img {
+            width: 100%;
+            height: 76px;
+            object-fit: cover;
+            display: block;
+        }
+        .image-empty {
+            color: #9ca3af;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .item-empty {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .pager {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding-top: 10px;
+            flex-wrap: wrap;
+        }
+        .pager-info {
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .pager-btn {
+            min-width: 88px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px solid #dbe2f0;
+            background: #fff;
+            color: #334155;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .pager-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .debug-tools {
+            padding: 12px 14px;
+            border-radius: 14px;
+            border: 1px dashed #cbd5e1;
+            background: rgba(248, 250, 252, 0.92);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+        .debug-tools strong {
+            color: #0f172a;
+            font-size: 14px;
+            line-height: 40px;
+        }
+        .debug-tools .field {
+            max-width: 260px;
+        }
+        .debug-note {
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.6;
+            flex: 1 1 260px;
+        }
+        .meta {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+        .feedback-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #edf1f7;
+        }
+        .feedback-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 0;
+        }
+        .feedback-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            border: 1px solid #e9e5ff;
+            background: #f8f6ff;
+            color: #7a6dff;
+            font-weight: 600;
+        }
+        .feedback-pill.like-on {
+            border-color: #fecdd3;
+            background: #fff1f2;
+            color: #e11d48;
+        }
+        .comment-box {
+            margin-top: 10px;
+            border-radius: 14px;
+            background: #f9fbff;
+            padding: 12px 14px;
+            border: 1px solid #eef2f9;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+        }
+        .comment-box.like-box {
+            background: linear-gradient(180deg, #fff6f8 0%, #fffafb 100%);
+            border-color: #ffd6df;
+        }
+        .comment-box.comment-section {
+            background: linear-gradient(180deg, #f7fbff 0%, #fbfdff 100%);
+            border-color: #dbeafe;
+        }
+        .comment-box.reply-section {
+            background: linear-gradient(180deg, #f7f7ff 0%, #fcfcff 100%);
+            border-color: #ddd6fe;
+        }
+        .feedback-entry-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .feedback-entry {
+            border: 1px solid #e7ecf5;
+            background: #fff;
+            border-radius: 12px;
+            padding: 10px 12px;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        }
+        .feedback-entry-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .feedback-entry-user {
+            font-weight: 700;
+            color: #334155;
+        }
+        .feedback-entry-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #dbeafe;
+            background: #eff6ff;
+            color: #2563eb;
+        }
+        .feedback-entry-type.reply {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #7c3aed;
+        }
+        .feedback-entry-target {
+            color: #4f46e5;
+            font-weight: 600;
+        }
+        .feedback-entry-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 13px;
+            line-height: 1.75;
+            color: #334155;
+        }
+        .comment-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #334155;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        .comment-text {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 13px;
+            line-height: 1.75;
+            color: #334155;
+        }
+        .like-user-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .like-user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid #fecdd3;
+            background: #fff;
+            color: #be123c;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .item-action {
+            border: 0;
+            background: transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #6a5cff;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            cursor: pointer;
+            padding: 0;
+        }
+        .item-action i {
+            font-size: 12px;
+        }
+        .feedback-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .feedback-btn {
+            border: 1px solid #d8def0;
+            background: #fff;
+            color: #4f46e5;
+            border-radius: 999px;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .feedback-btn.primary {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+        }
+        .feedback-btn.like-on {
+            background: #fff1f2;
+            color: #e11d48;
+            border-color: #fecdd3;
+        }
+        .feedback-entry-remove {
+            border: 0;
+            background: transparent;
+            color: #ef4444;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+        }
+        .comment-editor {
+            margin-top: 10px;
+            border-radius: 14px;
+            border: 1px solid #e6ebf5;
+            background: #fbfcff;
+            padding: 12px;
+        }
+        .comment-input {
+            width: 100%;
+            min-height: 88px;
+            resize: vertical;
+            border: 1px solid #dbe3f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #334155;
+            background: #fff;
+            outline: none;
+        }
+        .comment-editor-actions {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .reply-target-select {
+            width: 100%;
+            margin-bottom: 10px;
+            border: 1px solid #dbe3f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 13px;
+            color: #334155;
+            background: #fff;
+        }
+        .comment-status {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #7c3aed;
+        }
+        .delivery-box {
+            margin-top: 12px;
+            padding: 12px 14px;
+            border: 1px solid #e7ecf5;
+            border-radius: 14px;
+            background: #fbfcff;
+        }
+        .delivery-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .delivery-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+        }
+        .delivery-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #475569;
+        }
+        .delivery-status.can-edit {
+            border-color: #fde68a;
+            background: #fffbeb;
+            color: #92400e;
+        }
+        .delivery-status.all-read {
+            border-color: #dbeafe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        .delivery-status.partial-read {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #7c3aed;
+        }
+        .delivery-status.unknown {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        .delivery-meta {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.7;
+        }
+        .detail-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.42);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            z-index: 30;
+        }
+        .detail-mask.show {
+            display: flex;
+        }
+        .detail-dialog {
+            width: min(980px, 100%);
+            max-height: 88vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 22px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+            padding: 18px 18px 20px;
+        }
+        .detail-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .detail-head > div {
+            min-width: 0;
+        }
+        .detail-title {
+            margin: 0;
+            font-size: 26px;
+            line-height: 1.25;
+            color: #24324a;
+            overflow-wrap: anywhere;
+        }
+        .detail-close {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            border-radius: 12px;
+            border: 1px solid #dbe2f0;
+            background: #fff;
+            color: #64748b;
+            cursor: pointer;
+        }
+        .detail-body {
+            border-top: 1px solid #edf1f7;
+            padding-top: 14px;
+            min-width: 0;
+        }
+        @media (max-width: 1100px) {
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .sections { grid-template-columns: 1fr; }
+            .hero-top { flex-direction: column; }
+            .hero-controls { width: 100%; }
+            .filter-row,
+            .history-search-row {
+                width: 100%;
+                grid-template-columns: 1fr 1fr;
+            }
+            .filter-row .field:first-child { grid-column: 1 / -1; }
+            .range-split { display: none; }
+        }
+        @media (max-width: 640px) {
+            body {
+                background: #f5f7fb;
+            }
+            .head {
+                padding: 12px 14px;
+                flex-direction: column;
+                align-items: stretch;
+                position: relative;
+            }
+            .brand {
+                font-size: 18px;
+            }
+            .avatar {
+                width: 34px;
+                height: 34px;
+                border-radius: 12px;
+                font-size: 15px;
+            }
+            .head-actions {
+                width: 100%;
+            }
+            .head-actions .btn-link {
+                width: 100%;
+                text-align: center;
+            }
+            .container {
+                padding: 10px;
+                gap: 10px;
+            }
+            .card {
+                border-radius: 16px;
+                padding: 12px;
+            }
+            .hero-card {
+                padding: 12px;
+            }
+            .hero-title h2 {
+                font-size: 22px;
+            }
+            .stats { grid-template-columns: 1fr; }
+            .filter-row,
+            .history-search-row {
+                grid-template-columns: 1fr;
+                padding: 10px;
+                border-radius: 14px;
+            }
+            .history-filter-actions {
+                justify-content: stretch;
+            }
+            .history-filter-actions .btn {
+                flex: 1 1 130px;
+                min-height: 42px;
+            }
+            .section-head {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+            .section-filters {
+                width: 100%;
+                overflow-x: auto;
+            }
+            .list {
+                max-height: none;
+                overflow: visible;
+                padding-right: 0;
+            }
+            .item {
+                padding: 13px 12px;
+                border-radius: 14px;
+            }
+            .debug-tools .field { max-width: none; }
+            .debug-tools strong { line-height: 1.4; }
+            .item-title {
+                font-size: 21px;
+                letter-spacing: 0;
+            }
+            .item-submeta {
+                gap: 8px;
+            }
+            .item-submeta span {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+            .item-raw {
+                font-size: 14px;
+                line-height: 1.78;
+                word-break: break-all;
+                overflow-wrap: anywhere;
+            }
+            .item-raw * {
+                word-break: break-all !important;
+                overflow-wrap: anywhere !important;
+            }
+            .image-gallery {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .image-thumb img {
+                height: 118px;
+            }
+            .feedback-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .feedback-actions,
+            .comment-editor-actions {
+                width: 100%;
+                justify-content: stretch;
+            }
+            .feedback-actions .feedback-btn,
+            .feedback-actions .item-action,
+            .comment-editor-actions .feedback-btn,
+            .comment-editor-actions .item-action {
+                min-height: 38px;
+                justify-content: center;
+                flex: 1 1 120px;
+                padding: 9px 12px;
+                white-space: normal;
+                text-align: center;
+            }
+            .comment-box,
+            .comment-editor,
+            .delivery-box {
+                padding: 10px;
+                border-radius: 12px;
+            }
+            .feedback-entry-meta {
+                align-items: flex-start;
+            }
+            .feedback-entry-content,
+            .comment-text,
+            .delivery-meta {
+                overflow-wrap: anywhere;
+            }
+            .pager {
+                gap: 8px;
+            }
+            .pager-btn {
+                flex: 1 1 120px;
+                min-height: 40px;
+            }
+            .pager-info {
+                width: 100%;
+                text-align: center;
+                order: -1;
+            }
+            .detail-mask {
+                align-items: stretch;
+                justify-content: stretch;
+                height: 100vh;
+                height: 100dvh;
+                padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+                overflow: hidden;
+            }
+            .detail-dialog {
+                width: 100%;
+                height: calc(100vh - 16px);
+                height: calc(100dvh - 16px);
+                max-height: none;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                border-radius: 18px;
+                padding: 12px;
+            }
+            .detail-head {
+                flex: 0 0 auto;
+                margin-bottom: 10px;
+                gap: 10px;
+            }
+            .detail-title {
+                font-size: 20px;
+                line-height: 1.35;
+                letter-spacing: 0;
+            }
+            .detail-close {
+                width: 38px;
+                height: 38px;
+                flex-basis: 38px;
+                border-radius: 14px;
+            }
+            .detail-body {
+                flex: 1 1 auto;
+                overflow-y: auto;
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+                padding: 12px 2px max(22px, env(safe-area-inset-bottom)) 0;
+            }
+            #detailTags {
+                align-items: flex-start;
+            }
+            #detailTags .item-action {
+                width: 100%;
+                min-height: 38px;
+                justify-content: center;
+                border: 1px solid #dbe2f0;
+                border-radius: 999px;
+                background: #fff;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="head">
+    <div class="brand">
+        <div class="avatar"><i class="fas fa-clock-rotate-left"></i></div>
+        <span>报告历史记录</span>
+    </div>
+    <div class="head-actions">
+        <a href="{{ url_for('dashboard_xiaotu_report_center') }}" class="btn-link">返回报告智能体</a>
+    </div>
+</div>
+
+<div class="container">
+    <div class="card hero-card">
+        <div class="hero-top">
+            <div class="hero-title">
+                <h2>历史总览</h2>
+                <div class="status-line">
+                    <span>状态</span>
+                    <span class="status-badge"><i class="fas fa-circle-check"></i><span id="queryMeta">查询完成</span></span>
+                </div>
+            </div>
+            <div class="hero-controls">
+                <div class="filter-row history-search-row">
+                    <input id="filterName" class="field" placeholder="{{ '按姓名筛选（默认显示所有提报记录）' if history_can_view_all_uploads else ('按姓名筛选（默认显示可见范围内提报）' if history_restricted_to_allowed_departments else '按姓名筛选（默认当前用户）') }}" value="{{ history_filter_name or '' }}">
+                    <input id="filterKeyword" class="field" placeholder="搜索内容关键词（标题/正文/图片/AI分析）">
+                    <select id="filterDepartment" class="field">
+                        <option value="">全部部门</option>
+                    </select>
+                    <input id="filterDateStart" class="field" type="date">
+                    <div class="range-split">~</div>
+                    <input id="filterDateEnd" class="field" type="date">
+                    <div class="history-filter-actions">
+                        <button id="searchBtn" class="btn primary">查询</button>
+                        <button id="downloadHistoryBtn" class="btn" type="button"><i class="fas fa-download"></i>下载</button>
+                    </div>
+                </div>
+                {% if history_debug_enabled %}
+                <div class="debug-tools">
+                    <strong>权限测试</strong>
+                    <select id="debugScopeMode" class="field">
+                        {% for one in history_debug_options %}
+                        <option value="{{ one.value }}">{{ one.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="debug-note">仅对飞书名为周俊成显示，用于临时模拟历史记录权限视角。</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="stats" id="statsBox"></div>
+    </div>
+
+    <div class="card section-card" style="margin-bottom:16px;">
+        <div class="section-head">
+            <h3 class="section-title"><i class="fas fa-file-code"></i>生成离线 HTML 报告</h3>
+            <div class="section-meta">生成后的文件会出现在下方报告历史记录中</div>
+        </div>
+        <div class="filter-row" style="margin-top:12px;">
+            <input id="historyReportUserName" class="field" value="{{ user_name or history_filter_name or '' }}" placeholder="飞书用户名" {% if not history_analysis_is_department_leader %}readonly{% endif %}>
+            <input id="historyReportStartDate" class="field" type="date">
+            <div class="range-split">~</div>
+            <input id="historyReportEndDate" class="field" type="date">
+            <button id="historyGenerateReportBtn" class="btn primary" type="button">整合分析</button>
+        </div>
+        <div class="section-meta" id="historyGenerateMeta" style="margin-top:10px;">状态：待生成</div>
+        <div id="historyGenerateResult" class="item-raw" style="margin-top:10px;">请选择日期范围后生成。</div>
+        <div class="section-head" style="margin-top:14px;">
+            <h3 class="section-title"><i class="fas fa-folder-open"></i>离线 HTML 报告历史</h3>
+            <button id="refreshHistoryAnalysisBtn" type="button" class="btn">刷新</button>
+        </div>
+        <div id="historyAnalysisList" class="list" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="sections">
+        <div class="card section-card">
+            <div class="section-head">
+                <h3 class="section-title"><i class="fas fa-cloud-arrow-up"></i>{{ '全部提报' if history_can_view_all_uploads else ('可见范围内的提报' if history_restricted_to_allowed_departments else '我提报的') }}</h3>
+                <div class="section-meta" id="uploadedMeta">共 0 条</div>
+            </div>
+            <div id="uploadedList" class="list"></div>
+            <div id="uploadedPager" class="pager"></div>
+        </div>
+        <div class="card section-card">
+            <div class="section-head">
+                <h3 class="section-title"><i class="fas fa-inbox"></i>提报给我的</h3>
+                <div class="section-filters" id="receivedMeta">
+                    <button type="button" class="filter-chip active">全部</button>
+                    <button type="button" class="filter-chip">未点赞</button>
+                    <button type="button" class="filter-chip">已点赞</button>
+                </div>
+            </div>
+            <div id="receivedList" class="list"></div>
+            <div id="receivedPager" class="pager"></div>
+        </div>
+    </div>
+</div>
+<div id="detailMask" class="detail-mask">
+    <div class="detail-dialog">
+        <div class="detail-head">
+            <div>
+                <h3 id="detailTitle" class="detail-title">详情</h3>
+                <div id="detailMeta" class="item-submeta"></div>
+            </div>
+            <button id="detailCloseBtn" type="button" class="detail-close"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="detail-body">
+            <div id="detailTags" class="item-h"></div>
+            <div id="detailContent" class="item-raw"></div>
+            <div id="detailFeedback"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let HISTORY_DATA = { uploaded: [], received: [], stats: {} };
+    let HISTORY_PAGINATION = {
+        uploaded: { page: 1, page_size: 10, total: 0, total_pages: 1 },
+        received: { page: 1, page_size: 10, total: 0, total_pages: 1 }
+    };
+    let HISTORY_DEPARTMENTS = [];
+    const HISTORY_ALLOWED_DEPARTMENT_NAMES = {{ (history_allowed_department_names or [])|tojson }};
+    const HISTORY_RESTRICTED_TO_ALLOWED_DEPARTMENTS = {{ 'true' if history_restricted_to_allowed_departments else 'false' }};
+    const HISTORY_DEBUG_ENABLED = {{ 'true' if history_debug_enabled else 'false' }};
+    const HISTORY_DEBUG_DEFAULT_MODE = {{ (history_debug_default_mode or 'current')|tojson }};
+    const HISTORY_USER_NAME = {{ (user_name or history_filter_name or '')|tojson }};
+    const HISTORY_ANALYSIS_IS_DEPARTMENT_LEADER = {{ 'true' if history_analysis_is_department_leader else 'false' }};
+    let RECEIVED_FILTER = 'all';
+    let CURRENT_DETAIL = { source: '', index: -1 };
+    let ACTIVE_FOCUS_WID = new URLSearchParams(window.location.search).get('wendangid') || '';
+    let ACTIVE_DEPARTMENT_ID = new URLSearchParams(window.location.search).get('department_id') || '';
+    let AUTO_OPEN_DONE = false;
+    const DELIVERY_STATUS_CACHE = {};
+    const DELIVERY_STATUS_LOADING = {};
+    function safeText(v) { return String(v == null ? '' : v); }
+    function escapeHtml(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    function escapeRegExp(v) {
+        return String(v == null ? '' : v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    function imageFileName(path) {
+        const p = safeText(path).trim().replace(/\\/g, '/');
+        if (!p) return '';
+        const arr = p.split('/');
+        return safeText(arr[arr.length - 1]).trim();
+    }
+    function buildImageUrl(path) {
+        const raw = safeText(path).trim();
+        if (!raw) return '';
+        if (/^https?:\/\//i.test(raw) || /^data:/i.test(raw) || /^\/api\/xiaotu\/report_image\?/i.test(raw)) {
+            return raw;
+        }
+        return '/api/xiaotu/report_image?path=' + encodeURIComponent(raw);
+    }
+    function buildImageTag(path, idx) {
+        const url = escapeHtml(buildImageUrl(path));
+        return `<img src="${url}" alt="报告图片 ${idx + 1}" loading="lazy">`;
+    }
+    function stripHtmlText(raw) {
+        const box = document.createElement('div');
+        box.innerHTML = safeText(raw);
+        return safeText(box.textContent || box.innerText || '').replace(/\s+/g, ' ').trim();
+    }
+    function normalizeBreakableText(raw) {
+        return safeText(raw)
+            .replace(/[\u00a0\u2007\u202f]/g, ' ')
+            .replace(/[\u2060\ufeff]/g, '');
+    }
+    function normalizeStoredImageSource(raw) {
+        let src = safeText(raw).trim();
+        if (!src) return '';
+        src = src.replace(/&amp;/g, '&').trim();
+        src = src.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+        if (/^https?%3A/i.test(src)) {
+            try { src = decodeURIComponent(src); } catch (e) {}
+        }
+        src = src.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+        return src;
+    }
+    function tryExtractGalleryImageSource(el) {
+        if (!el) return '';
+        const direct = normalizeStoredImageSource(el.getAttribute('data-src') || el.getAttribute('src'));
+        if (direct) return direct;
+        const raw = safeText(el.getAttribute('data-ace-gallery-json')).trim();
+        if (!raw) return '';
+        try {
+            const text = raw.replace(/&quot;/g, '"');
+            const obj = JSON.parse(text);
+            const item = Array.isArray(obj && obj.items) ? obj.items[0] : null;
+            return normalizeStoredImageSource(item && (item.src || item.url || item.originSrc));
+        } catch (e) {
+            return '';
+        }
+    }
+    function normalizeComparePath(raw) {
+        return safeText(raw).trim().replace(/\\/g, '/').replace(/^https?:\/\/[^/]+/i, '');
+    }
+    function isNoisyTextFragment(text) {
+        const t = safeText(text).replace(/\s+/g, ' ').trim();
+        if (!t) return false;
+        if (/(?:^|[\s"'`])(src|alt|style|class|data-[a-z0-9_-]+)\s*=\s*["'`]/i.test(t)) return true;
+        if (/(data-snapshot|data-suite|data-local-image|data-ace-gallery-json|data-lark-image-uri|lark-record|file_token|drivetoken:\/\/|internal-api-drive-stream\.feishu\.cn)/i.test(t)) return true;
+        return false;
+    }
+    function cleanupRichHtml(rawHtml, imagePaths) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = safeText(rawHtml);
+        wrap.querySelectorAll('script,style,.lark-record-clipboard,[data-lark-record-data]').forEach((el) => el.remove());
+        const walker = document.createTreeWalker(wrap, NodeFilter.SHOW_TEXT);
+        const trashNodes = [];
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            if (node) node.nodeValue = normalizeBreakableText(node.nodeValue);
+            if (isNoisyTextFragment(node && node.nodeValue)) {
+                trashNodes.push(node);
+            }
+        }
+        trashNodes.forEach((node) => {
+            if (node && node.parentNode) {
+                node.parentNode.removeChild(node);
+            }
+        });
+        let imageCursor = 0;
+        const usedImagePaths = [];
+        const nextFallbackImage = () => {
+            while (imageCursor < imagePaths.length) {
+                const one = safeText(imagePaths[imageCursor] || '').trim();
+                imageCursor += 1;
+                if (one) return one;
+            }
+            return '';
+        };
+        wrap.querySelectorAll('*').forEach((el) => {
+            Array.from(el.attributes || []).forEach((attr) => {
+                const name = safeText(attr.name).toLowerCase();
+                if (name.startsWith('on') || name.startsWith('data-') || name === 'style' || name === 'nowrap' || name === 'width') {
+                    el.removeAttribute(attr.name);
+                }
+            });
+            if (safeText(el.tagName).toLowerCase() !== 'img') return;
+            const rawSrc = tryExtractGalleryImageSource(el);
+            let src = normalizeStoredImageSource(rawSrc);
+            if (!src) src = nextFallbackImage();
+            if (!src) {
+                el.remove();
+                return;
+            }
+            usedImagePaths.push(src);
+            const clean = document.createElement('img');
+            clean.setAttribute('src', buildImageUrl(src));
+            clean.setAttribute('alt', safeText(el.getAttribute('alt')).trim() || '报告图片');
+            clean.setAttribute('loading', 'lazy');
+            el.replaceWith(clean);
+        });
+        wrap.querySelectorAll('*').forEach((el) => {
+            if (!el.attributes) return;
+            if (!el.attributes.length && !safeText(el.textContent).trim() && !el.querySelector('img')) {
+                el.remove();
+            }
+        });
+        return {
+            html: wrap.innerHTML.trim(),
+            usedImagePaths
+        };
+    }
+    function renderContentWithImages(v, rawImageList) {
+        const raw = normalizeBreakableText(v).trim();
+        if (!raw) return '<div class="item-empty">（无正文）</div>';
+        const imagePaths = parseImageList(rawImageList);
+        const used = new Set();
+        const hasHtmlTag = /<[^>]+>/.test(raw);
+        let html = '';
+        if (hasHtmlTag) {
+            const cleaned = cleanupRichHtml(raw, imagePaths);
+            html = safeText(cleaned && cleaned.html).trim();
+            (cleaned && cleaned.usedImagePaths || []).forEach((src) => {
+                const normalizedSrc = normalizeComparePath(src);
+                imagePaths.forEach((one, idx) => {
+                    if (normalizeComparePath(one) === normalizedSrc || imageFileName(one) === imageFileName(src)) {
+                        used.add(idx);
+                    }
+                });
+            });
+            if (!html) return renderImageGallery(rawImageList);
+        } else {
+            html = escapeHtml(raw);
+            imagePaths.forEach((p, idx) => {
+                const fname = imageFileName(p);
+                if (!fname) return;
+                const reg = new RegExp(escapeRegExp(fname), 'gi');
+                if (reg.test(html)) {
+                    html = html.replace(reg, buildImageTag(p, idx));
+                    used.add(idx);
+                }
+            });
+        }
+        let cursor = 0;
+        html = html.replace(/(\[图片\]|\[image\]|image\.(?:png|jpe?g|gif|webp|bmp))/gi, function () {
+            while (cursor < imagePaths.length && used.has(cursor)) {
+                cursor += 1;
+            }
+            if (cursor >= imagePaths.length) {
+                return '';
+            }
+            used.add(cursor);
+            const tag = buildImageTag(imagePaths[cursor], cursor);
+            cursor += 1;
+            return tag;
+        });
+        html = html.replace(/(^|\n)\s*图片\s*(?=\n|$)/gi, function () {
+            while (cursor < imagePaths.length && used.has(cursor)) {
+                cursor += 1;
+            }
+            if (cursor >= imagePaths.length) {
+                return '';
+            }
+            used.add(cursor);
+            const tag = buildImageTag(imagePaths[cursor], cursor);
+            cursor += 1;
+            return '\n' + tag + '\n';
+        });
+        const remain = [];
+        imagePaths.forEach((p, idx) => {
+            if (!used.has(idx)) {
+                remain.push(buildImageTag(p, idx));
+            }
+        });
+        if (remain.length > 0) {
+            html += '<div>' + remain.join('') + '</div>';
+        }
+        return html;
+    }
+    function parseImageList(raw) {
+        return safeText(raw).split('|').map((x) => safeText(x).trim()).filter(Boolean);
+    }
+    function renderImageGallery(raw) {
+        const paths = parseImageList(raw);
+        if (!paths.length) {
+            return '<div class="image-empty">无图片</div>';
+        }
+        return `<div class="image-gallery">${paths.map((one, idx) => {
+            const url = escapeHtml(buildImageUrl(one));
+            return `<a class="image-thumb" href="${url}" target="_blank" title="查看图片 ${idx + 1}"><img src="${url}" alt="报告图片 ${idx + 1}"></a>`;
+        }).join('')}</div>`;
+    }
+    function renderStats(stats) {
+        const box = document.getElementById('statsBox');
+        const s = stats || {};
+        box.innerHTML = [
+            ['提报总数', s.uploaded_total || 0, 'fa-cloud-arrow-up', 'purple'],
+            ['收到提报', s.received_total || 0, 'fa-download', 'blue'],
+            ['今日提报', s.uploaded_today || 0, 'fa-paper-plane', 'green'],
+            ['今日收到', s.received_today || 0, 'fa-inbox', 'orange'],
+            ['提报来源人数', s.received_unique_senders || 0, 'fa-users', 'indigo'],
+        ].map((x) => `
+            <div class="stat-item">
+                <div class="stat-icon ${x[3]}"><i class="fas ${x[2]}"></i></div>
+                <div class="stat-content">
+                    <div class="stat-title">${x[0]}</div>
+                    <div class="stat-value">${x[1]}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+    function renderFeedbackEditor(idx, sourceType, detailMode, actionName) {
+        const source = safeText(sourceType).trim();
+        const action = safeText(actionName).trim();
+        const canComment = source === 'received' && action === 'comment';
+        const canReply = source === 'uploaded' && action === 'reply';
+        if (!canComment && !canReply) return '';
+        const inputClass = action === 'reply' ? 'reply-input' : 'comment-input';
+        const cancelClass = action === 'reply' ? 'reply-cancel' : 'comment-cancel';
+        const submitClass = action === 'reply' ? 'reply-submit' : 'comment-submit';
+        const placeholder = action === 'reply' ? '输入回复评价后点击提交' : '输入评论后点击提交';
+        const submitText = action === 'reply' ? '提交回复' : '提交评论';
+        const row = getHistoryRow(source, idx) || {};
+        const replyTargets = Array.isArray(row.reply_targets) ? row.reply_targets : [];
+        const targetSelectHtml = action === 'reply' && replyTargets.length
+            ? `<select class="reply-target-select"><option value="">请选择回复对象</option>${replyTargets.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}</select>`
+            : '';
+        return `<div class="comment-editor" data-role="${escapeHtml(action)}-editor" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}" style="display:none;">
+            ${targetSelectHtml}
+            <textarea class="${inputClass}" placeholder="${placeholder}"></textarea>
+            <div class="comment-editor-actions">
+                <button type="button" class="feedback-btn ${cancelClass}" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">取消</button>
+                <button type="button" class="feedback-btn primary ${submitClass}" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">${submitText}</button>
+            </div>
+            <div class="comment-status" data-role="${escapeHtml(action)}-status"></div>
+        </div>`;
+    }
+    function renderFeedbackEntry(item, type, itemIndex, sourceType, rowIndex, detailMode) {
+        const one = item || {};
+        const actor = escapeHtml(safeText(one.actor || '匿名用户'));
+        const ts = escapeHtml(safeText(one.ts || ''));
+        const target = escapeHtml(safeText(one.target || ''));
+        const content = escapeHtml(safeText(one.content || ''));
+        const actorRaw = safeText(one.actor || '').trim();
+        const canRemove = !!actorRaw && actorRaw === safeText(HISTORY_USER_NAME).trim();
+        const removeAction = type === 'reply' ? 'remove_reply' : 'remove_comment';
+        const removeHtml = canRemove
+            ? `<button type="button" class="feedback-entry-remove history-feedback-remove" data-action="${removeAction}" data-source="${escapeHtml(sourceType)}" data-index="${rowIndex}" data-detail="${detailMode ? '1' : '0'}" data-item-index="${itemIndex}">撤销</button>`
+            : '';
+        const typeLabel = type === 'reply'
+            ? '<span class="feedback-entry-type reply"><i class="fas fa-reply"></i>回复</span>'
+            : '<span class="feedback-entry-type"><i class="fas fa-comment-dots"></i>评论</span>';
+        const targetHtml = type === 'reply' && safeText(target).trim()
+            ? `<span class="feedback-entry-target">回复给 ${target}</span>`
+            : '';
+        return `<div class="feedback-entry">
+            <div class="feedback-entry-meta">
+                ${typeLabel}
+                <span class="feedback-entry-user">${actor}</span>
+                ${ts ? `<span>${ts}</span>` : ''}
+                ${targetHtml}
+                ${removeHtml}
+            </div>
+            <div class="feedback-entry-content">${content || '-'}</div>
+        </div>`;
+    }
+    function renderFeedbackSection(title, items, type, emptyText, sourceType, rowIndex, detailMode) {
+        const rows = Array.isArray(items) ? items : [];
+        const sectionClass = type === 'reply' ? 'reply-section' : 'comment-section';
+        const titleIcon = type === 'reply'
+            ? '<i class="fas fa-reply"></i>'
+            : '<i class="fas fa-comment-dots"></i>';
+        if (!rows.length) {
+            return `<div class="comment-box ${sectionClass}"><div class="comment-title">${titleIcon}${title}</div><div class="comment-text">${escapeHtml(emptyText)}</div></div>`;
+        }
+        return `<div class="comment-box ${sectionClass}"><div class="comment-title">${titleIcon}${title}</div><div class="feedback-entry-list">${rows.map((one, itemIdx) => renderFeedbackEntry(one, type, itemIdx, sourceType, rowIndex, detailMode)).join('')}</div></div>`;
+    }
+    function getLikeUsers(x) {
+        if (Array.isArray(x && x.like_users)) {
+            return x.like_users
+                .map((one) => safeText(one).trim())
+                .filter((one, idx, arr) => one && arr.indexOf(one) === idx);
+        }
+        return safeText(x && x.yonghu)
+            .split(/[|\n,，;；]+/)
+            .map((one) => safeText(one).trim())
+            .filter((one, idx, arr) => one && arr.indexOf(one) === idx);
+    }
+    function renderLikeUsersSection(x) {
+        const likeUsers = getLikeUsers(x);
+        if (!likeUsers.length) return '';
+        return `<div class="comment-box like-box"><div class="comment-title"><i class="fas fa-heart"></i>点赞人</div><div class="like-user-list">${likeUsers.map((one) => `<span class="like-user-chip"><i class="fas fa-user"></i>${escapeHtml(one)}</span>`).join('')}</div></div>`;
+    }
+    function renderFeedback(x, idx, sourceType, detailMode) {
+        const source = safeText(sourceType).trim();
+        const reportUrl = safeText(x.report_url || '').trim();
+        const commentItems = Array.isArray(x.comment_items) ? x.comment_items : [];
+        const replyItems = Array.isArray(x.reply_items) ? x.reply_items : [];
+        const likeUsers = getLikeUsers(x);
+        const currentUserLiked = !!safeText(HISTORY_USER_NAME).trim() && likeUsers.indexOf(safeText(HISTORY_USER_NAME).trim()) >= 0;
+        const liked = currentUserLiked;
+        const likeCount = Math.max(0, Number(x && x.like_count) || likeUsers.length);
+        const pills = [
+            `<span class="feedback-pill ${liked ? 'like-on' : ''}"><i class="fas ${liked ? 'fa-heart' : 'fa-heart-crack'}"></i>${liked ? '已点赞' : '未点赞'}</span>`
+        ];
+        if (liked && likeCount > 0) {
+            pills.push(`<span class="feedback-pill like-on"><i class="fas fa-users"></i>${likeCount}人点赞</span>`);
+        }
+        const actionParts = [];
+        if (reportUrl) {
+            actionParts.push(`<a class="item-action" href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener">查看日报 <i class="fas fa-up-right-from-square"></i></a>`);
+        }
+        if (source === 'received') {
+            actionParts.push(`<button type="button" class="feedback-btn ${liked ? 'like-on' : 'primary'} history-like-btn" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">${liked ? '取消点赞' : '点赞'}</button>`);
+            actionParts.push(`<button type="button" class="feedback-btn history-comment-toggle" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">评论</button>`);
+        }
+        if (source === 'uploaded' && commentItems.length) {
+            actionParts.push(`<button type="button" class="feedback-btn history-reply-toggle" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">回复评价</button>`);
+        }
+        if (!detailMode) {
+            actionParts.push(`<button type="button" class="item-action detail-trigger" data-source="${escapeHtml(source)}" data-index="${idx}">查看详情 <i class="fas fa-arrow-right"></i></button>`);
+        }
+        let html = `<div class="feedback-row"><div class="feedback-bar">${pills.join('')}</div><div class="feedback-actions">${actionParts.join('')}</div></div>`;
+        if (source === 'uploaded') {
+            html += renderDeliveryStatus(x, idx, detailMode);
+        }
+        html += renderLikeUsersSection(x);
+        html += renderFeedbackEditor(idx, source, detailMode, 'comment');
+        html += renderFeedbackEditor(idx, source, detailMode, 'reply');
+        html += renderFeedbackSection('评论记录', commentItems, 'comment', '暂无评论', source, idx, detailMode);
+        html += renderFeedbackSection('回复记录', replyItems, 'reply', '暂无回复', source, idx, detailMode);
+        return html;
+    }
+    function getHistoryRows(sourceType) {
+        return safeText(sourceType).trim() === 'received'
+            ? (Array.isArray(HISTORY_DATA.received) ? HISTORY_DATA.received : [])
+            : (Array.isArray(HISTORY_DATA.uploaded) ? HISTORY_DATA.uploaded : []);
+    }
+    function getHistoryRow(sourceType, index) {
+        const rows = getHistoryRows(sourceType);
+        const idx = Number(index);
+        return rows[idx] || null;
+    }
+    function getDeliveryStatusCache(wendangid) {
+        return DELIVERY_STATUS_CACHE[safeText(wendangid).trim()] || null;
+    }
+    function buildDeliveryStatusClass(statusCode, canRecallEdit) {
+        const code = safeText(statusCode).trim();
+        if (canRecallEdit) return 'delivery-status can-edit';
+        if (code === 'all_read' || code === 'no_external_targets') return 'delivery-status all-read';
+        if (code === 'partial_read') return 'delivery-status partial-read';
+        if (code === 'unknown') return 'delivery-status unknown';
+        return 'delivery-status';
+    }
+    function renderDeliveryStatus(x, idx, detailMode) {
+        const wid = safeText(x && x.wendangid).trim();
+        if (!wid) return '';
+        const cached = getDeliveryStatusCache(wid);
+        const status = cached && cached.status ? cached.status : {};
+        const editable = !!(cached && cached.editable_by_current_user);
+        const hasStatus = !!cached;
+        const statusCode = safeText(status.status_code).trim();
+        const statusText = safeText(status.status_text).trim()
+            || (DELIVERY_STATUS_LOADING[wid] ? '投递状态查询中...' : '投递状态待查询');
+        const canRecallEdit = editable && !!status.can_recall_edit;
+        const actionParts = [
+            `<button type="button" class="feedback-btn history-delivery-refresh" data-wendangid="${escapeHtml(wid)}" data-source="uploaded" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">${DELIVERY_STATUS_LOADING[wid] ? '查询中...' : '刷新投递状态'}</button>`
+        ];
+        if (editable) {
+            actionParts.push(`<button type="button" class="feedback-btn primary history-prepare-edit" data-wendangid="${escapeHtml(wid)}" ${canRecallEdit ? '' : 'disabled'}>撤回并修改</button>`);
+        }
+        const totalTargets = Math.max(0, Number(status.total_targets) || 0);
+        const targetNames = (Array.isArray(status.notify_targets) ? status.notify_targets : [])
+            .map((one) => safeText((one && one.name) || '').trim())
+            .filter((x) => x);
+        const targetLine = targetNames.length
+            ? ('已发送给：' + targetNames.join('、'))
+            : (totalTargets > 0 ? ('已发送给其他 ' + totalTargets + ' 人') : '');
+        const statusItems = Array.isArray(status.items) ? status.items : [];
+        const errorDetails = statusItems
+            .map((one) => {
+                const name = safeText((one && one.name) || '').trim() || '未命名对象';
+                const err = safeText((one && one.error) || '').trim();
+                if (!err) return '';
+                return name + '：' + err;
+            })
+            .filter((x) => x);
+        let detailMeta = '';
+        if (statusCode === 'unknown') {
+            detailMeta = [targetLine, errorDetails[0] || '读取状态获取失败'].filter((x) => x).join(' | ');
+        } else if (statusCode === 'no_external_targets') {
+            detailMeta = '这条日报当前只发送给了提报人自己。';
+        } else {
+            const counts = [];
+            if (typeof status.read_count === 'number') counts.push('已读 ' + status.read_count + ' 人');
+            if (typeof status.unread_count === 'number') counts.push('未读 ' + status.unread_count + ' 人');
+            detailMeta = [targetLine, counts.join(' | ')].filter((x) => x).join(' | ');
+        }
+        const fallbackMeta = DELIVERY_STATUS_LOADING[wid]
+            ? '正在读取互动卡片已读状态，请稍候。'
+            : (hasStatus
+                ? (editable
+                    ? ((statusCode === 'unknown')
+                        ? '当前已发送对象已列出，但读取状态获取失败，可直接尝试撤回并修改。'
+                        : '仅在全部未读时支持撤回并修改原记录。')
+                    : '仅本人提报的日报支持撤回并修改。')
+                : '点击“刷新投递状态”后，可判断是否支持撤回并修改。');
+        return `<div class="delivery-box">
+            <div class="delivery-head">
+                <div class="delivery-title">互动卡片投递状态</div>
+                <span class="${buildDeliveryStatusClass(statusCode, canRecallEdit)}">${escapeHtml(statusText)}</span>
+            </div>
+            <div class="delivery-meta">${escapeHtml(detailMeta || fallbackMeta)}</div>
+            <div class="comment-editor-actions">${actionParts.join('')}</div>
+        </div>`;
+    }
+    function updateHistoryFeedback(wendangid, feedback) {
+        const wid = safeText(wendangid).trim();
+        if (!wid) return;
+        const applyOne = (arr) => {
+            (Array.isArray(arr) ? arr : []).forEach((one) => {
+                if (safeText(one && one.wendangid).trim() !== wid) return;
+                one.dianzan = safeText(feedback && feedback.dianzan).trim();
+                one.pinglun = safeText(feedback && feedback.pinglun).trim();
+                one.huifu = safeText(feedback && feedback.huifu).trim();
+                one.yonghu = safeText(feedback && feedback.yonghu).trim();
+                one.like_users = Array.isArray(feedback && feedback.like_users) ? feedback.like_users : [];
+                one.like_count = Math.max(0, Number(feedback && feedback.like_count) || one.like_users.length);
+                one.comment_items = Array.isArray(feedback && feedback.comment_items) ? feedback.comment_items : [];
+                one.reply_items = Array.isArray(feedback && feedback.reply_items) ? feedback.reply_items : [];
+                one.reply_targets = Array.isArray(feedback && feedback.reply_targets) ? feedback.reply_targets : [];
+            });
+        };
+        applyOne(HISTORY_DATA.uploaded);
+        applyOne(HISTORY_DATA.received);
+    }
+    function updateDeliveryStatusCache(wendangid, payload) {
+        const wid = safeText(wendangid).trim();
+        if (!wid) return;
+        DELIVERY_STATUS_CACHE[wid] = payload || {};
+    }
+    async function ensureDeliveryStatusLoaded(wendangid, options) {
+        const wid = safeText(wendangid).trim();
+        const opts = options || {};
+        if (!wid) return null;
+        if (!opts.force && DELIVERY_STATUS_CACHE[wid]) {
+            return DELIVERY_STATUS_CACHE[wid];
+        }
+        if (DELIVERY_STATUS_LOADING[wid]) {
+            return DELIVERY_STATUS_LOADING[wid];
+        }
+        const task = (async () => {
+            const resp = await fetch('/api/xiaotu/report_delivery_status?wendangid=' + encodeURIComponent(wid));
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const payload = data.data || {};
+            updateDeliveryStatusCache(wid, payload);
+            refreshHistoryView();
+            return payload;
+        })();
+        DELIVERY_STATUS_LOADING[wid] = task;
+        refreshHistoryView();
+        try {
+            return await task;
+        } finally {
+            delete DELIVERY_STATUS_LOADING[wid];
+            refreshHistoryView();
+        }
+    }
+    async function prepareEditReport(wendangid) {
+        const wid = safeText(wendangid).trim();
+        if (!wid) {
+            alert('缺少日报ID');
+            return;
+        }
+        const cached = getDeliveryStatusCache(wid);
+        const statusText = safeText(cached && cached.status && cached.status.status_text).trim();
+        const ok = confirm('确认撤回这条日报的原互动卡片，并进入修改吗？' + (statusText ? '\n当前状态：' + statusText : ''));
+        if (!ok) return;
+        const resp = await fetch('/api/xiaotu/report_prepare_edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wendangid: wid })
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        const redirectUrl = safeText(data && data.data && data.data.redirect_url).trim();
+        if (!redirectUrl) {
+            throw new Error('未返回编辑跳转地址');
+        }
+        window.location.href = redirectUrl;
+    }
+    function findFeedbackEditor(sourceType, index, detailMode, actionName) {
+        const source = safeText(sourceType).trim();
+        const idx = String(index);
+        const detail = detailMode ? '1' : '0';
+        const role = safeText(actionName).trim() + '-editor';
+        const editors = Array.from(document.querySelectorAll(`.comment-editor[data-role="${role}"]`));
+        return editors.find((el) => el.getAttribute('data-source') === source && el.getAttribute('data-index') === idx && el.getAttribute('data-detail') === detail) || null;
+    }
+    function refreshHistoryView() {
+        renderStats(HISTORY_DATA.stats || {});
+        renderList('uploadedList', HISTORY_DATA.uploaded, 'uploaded');
+        renderList('receivedList', HISTORY_DATA.received, 'received');
+        renderPager('uploaded');
+        renderPager('received');
+        if (document.getElementById('detailMask').classList.contains('show') && CURRENT_DETAIL.index >= 0) {
+            openDetail(CURRENT_DETAIL.source, CURRENT_DETAIL.index);
+        }
+    }
+    async function submitHistoryFeedback(actionName, sourceType, index, commentText, targetName, itemIndex) {
+        const row = getHistoryRow(sourceType, index);
+        if (!row || !safeText(row.wendangid).trim()) throw new Error('未找到当前日报');
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = controller ? window.setTimeout(() => controller.abort(), 15000) : 0;
+        let resp = null;
+        try {
+            resp = await fetch('/api/xiaotu/report_feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: actionName,
+                    wendangid: safeText(row.wendangid).trim(),
+                    comment_text: safeText(commentText).trim(),
+                    target_name: safeText(targetName).trim(),
+                    item_index: typeof itemIndex === 'undefined' ? '' : String(itemIndex)
+                }),
+                signal: controller ? controller.signal : undefined
+            });
+        } catch (e) {
+            if (e && e.name === 'AbortError') {
+                throw new Error('请求超时，请重试');
+            }
+            throw e;
+        } finally {
+            if (timer) window.clearTimeout(timer);
+        }
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        updateHistoryFeedback(row.wendangid, (data.data || {}).feedback || {});
+        refreshHistoryView();
+    }
+    function toggleFeedbackEditor(sourceType, index, detailMode, actionName, forceShow) {
+        const editor = findFeedbackEditor(sourceType, index, detailMode, actionName);
+        if (!editor) return;
+        const nextShow = typeof forceShow === 'boolean' ? forceShow : editor.style.display === 'none';
+        editor.style.display = nextShow ? 'block' : 'none';
+        if (nextShow) {
+            const input = editor.querySelector('textarea');
+            if (input) input.focus();
+        }
+    }
+    function findHistoryIndexByWendangid(sourceType, wendangid) {
+        const wid = safeText(wendangid).trim();
+        if (!wid) return -1;
+        const rows = getHistoryRows(sourceType);
+        return rows.findIndex((one) => safeText(one && one.wendangid).trim() === wid);
+    }
+    function maybeAutoOpenFocusedReport() {
+        const wid = safeText(ACTIVE_FOCUS_WID).trim();
+        if (!wid || AUTO_OPEN_DONE) return;
+        let source = 'received';
+        let idx = findHistoryIndexByWendangid('received', wid);
+        if (idx < 0) {
+            source = 'uploaded';
+            idx = findHistoryIndexByWendangid('uploaded', wid);
+        }
+        if (idx < 0) return;
+        AUTO_OPEN_DONE = true;
+        openDetail(source, idx);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('wendangid');
+        window.history.replaceState({}, '', url.toString());
+        ACTIVE_FOCUS_WID = '';
+    }
+    function getFilteredReceivedRows(rows) {
+        const items = Array.isArray(rows) ? rows : [];
+        if (RECEIVED_FILTER === 'liked') {
+            return items.filter((x) => safeText(x.dianzan).trim().toUpperCase() === 'Y');
+        }
+        if (RECEIVED_FILTER === 'unliked') {
+            return items.filter((x) => safeText(x.dianzan).trim().toUpperCase() !== 'Y');
+        }
+        return items;
+    }
+    function renderReceivedFilterBar(totalRows) {
+        const rows = Array.isArray(totalRows) ? totalRows : [];
+        const likedCount = rows.filter((x) => safeText(x.dianzan).trim().toUpperCase() === 'Y').length;
+        const unlikedCount = rows.length - likedCount;
+        const box = document.getElementById('receivedMeta');
+        if (!box) return;
+        const btn = (key, label, count) => `<button type="button" class="filter-chip ${RECEIVED_FILTER === key ? 'active' : ''}" data-filter="${key}">${label}${typeof count === 'number' ? ' ' + count : ''}</button>`;
+        box.innerHTML = [
+            btn('all', '全部', rows.length),
+            btn('unliked', '未点赞', unlikedCount),
+            btn('liked', '已点赞', likedCount)
+        ].join('');
+    }
+    function renderPager(sourceType) {
+        const key = safeText(sourceType).trim() === 'received' ? 'received' : 'uploaded';
+        const box = document.getElementById(key === 'received' ? 'receivedPager' : 'uploadedPager');
+        if (!box) return;
+        const pageInfo = HISTORY_PAGINATION[key] || {};
+        const page = Math.max(1, Number(pageInfo.page) || 1);
+        const totalPages = Math.max(1, Number(pageInfo.total_pages) || 1);
+        const total = Math.max(0, Number(pageInfo.total) || 0);
+        box.innerHTML = `
+            <button type="button" class="pager-btn" data-page-source="${escapeHtml(key)}" data-page-target="${page - 1}" ${page <= 1 ? 'disabled' : ''}>上一页</button>
+            <span class="pager-info">第 ${page} / ${totalPages} 页，共 ${total} 条</span>
+            <button type="button" class="pager-btn" data-page-source="${escapeHtml(key)}" data-page-target="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>下一页</button>
+        `;
+    }
+    function renderList(elId, list, sourceType) {
+        const box = document.getElementById(elId);
+        const rawRows = Array.isArray(list) ? list : [];
+        const rows = sourceType === 'received' ? getFilteredReceivedRows(rawRows) : rawRows;
+        const metaId = elId === 'uploadedList' ? 'uploadedMeta' : 'receivedMeta';
+        const metaEl = document.getElementById(metaId);
+        if (metaEl && elId === 'uploadedList') {
+            const pageInfo = HISTORY_PAGINATION.uploaded || {};
+            metaEl.textContent = '共 ' + (pageInfo.total || 0) + ' 条 | 第 ' + (pageInfo.page || 1) + ' / ' + (pageInfo.total_pages || 1) + ' 页';
+        }
+        if (metaEl && elId !== 'uploadedList') renderReceivedFilterBar(rawRows);
+        if (!rows.length) {
+            box.innerHTML = '<div class="item"><div class="item-empty">暂无数据</div></div>';
+            return;
+        }
+        box.innerHTML = rows.map((x) => {
+            const dataIndex = Array.isArray(rawRows) ? rawRows.indexOf(x) : -1;
+            const riqi = escapeHtml(safeText(x.riqi));
+            const xingming = escapeHtml(safeText(x.xingming));
+            const biaoti = escapeHtml(stripHtmlText(x.biaoti || '未命名标题') || '未命名标题');
+            const leixing = escapeHtml(safeText(x.leixing || '-'));
+            const renyuan = escapeHtml(safeText(x.renyuanleixing || '-'));
+            const jieshouren = escapeHtml(safeText(x.jieshouren || '-'));
+            const tupianlujin = safeText(x.tupianlujin || '');
+            return `<div class="item">
+                <div class="item-h">
+                    <span class="time-text">${riqi}</span>
+                    <span class="tag">${leixing}</span>
+                    <span class="tag">${renyuan}</span>
+                </div>
+                <div class="item-title">${biaoti}</div>
+                <div class="item-submeta">
+                    <span><strong>提报人:</strong> ${xingming}</span>
+                    <span><strong>接收人:</strong> ${jieshouren}</span>
+                </div>
+                <div class="item-raw">${renderContentWithImages(x.zhengwen, tupianlujin)}</div>
+                ${renderFeedback(x, dataIndex, sourceType, false)}
+            </div>`;
+        }).join('');
+    }
+    function openDetail(sourceType, index) {
+        const sourceKey = safeText(sourceType).trim() === 'received' ? 'received' : 'uploaded';
+        const rows = Array.isArray(HISTORY_DATA[sourceKey]) ? HISTORY_DATA[sourceKey] : [];
+        const idx = Number(index);
+        const one = rows[idx];
+        if (!one) return;
+        CURRENT_DETAIL = { source: sourceKey, index: idx };
+        document.getElementById('detailTitle').textContent = stripHtmlText(one.biaoti || '未命名标题') || '未命名标题';
+        document.getElementById('detailMeta').innerHTML = `
+            <span><strong>时间:</strong> ${escapeHtml(safeText(one.riqi))}</span>
+            <span><strong>提报人:</strong> ${escapeHtml(safeText(one.xingming || '-'))}</span>
+            <span><strong>接收人:</strong> ${escapeHtml(safeText(one.jieshouren || '-'))}</span>
+        `;
+        document.getElementById('detailTags').innerHTML = `
+            <span class="tag">${escapeHtml(safeText(one.leixing || '-'))}</span>
+            <span class="tag">${escapeHtml(safeText(one.renyuanleixing || '-'))}</span>
+            ${safeText(one.report_url).trim() ? `<a class="item-action" href="${escapeHtml(safeText(one.report_url))}" target="_blank" rel="noopener">查看日报 <i class="fas fa-up-right-from-square"></i></a>` : ''}
+        `;
+        document.getElementById('detailContent').innerHTML = renderContentWithImages(one.zhengwen, one.tupianlujin);
+        document.getElementById('detailFeedback').innerHTML = renderFeedback(one, idx, sourceKey, true);
+        document.body.classList.add('detail-open');
+        document.getElementById('detailMask').classList.add('show');
+        if (sourceKey === 'uploaded' && safeText(one.wendangid).trim()) {
+            ensureDeliveryStatusLoaded(one.wendangid).catch(() => {});
+        }
+    }
+    function closeDetail() {
+        CURRENT_DETAIL = { source: '', index: -1 };
+        document.body.classList.remove('detail-open');
+        document.getElementById('detailMask').classList.remove('show');
+    }
+    function buildHistoryQueryParams(options) {
+        const opts = options || {};
+        const name = safeText(document.getElementById('filterName').value).trim();
+        const keyword = safeText(document.getElementById('filterKeyword').value).trim();
+        const departmentId = safeText(document.getElementById('filterDepartment').value).trim();
+        const dateStart = safeText(document.getElementById('filterDateStart').value).trim();
+        const dateEnd = safeText(document.getElementById('filterDateEnd').value).trim();
+        const debugScopeModeEl = document.getElementById('debugScopeMode');
+        const debugScopeMode = debugScopeModeEl ? safeText(debugScopeModeEl.value).trim() : '';
+        const qs = new URLSearchParams();
+        if (name) qs.set('name', name);
+        if (departmentId) qs.set('department_id', departmentId);
+        if (dateStart) qs.set('date_start', dateStart);
+        if (dateEnd) qs.set('date_end', dateEnd);
+        if (keyword) qs.set('keyword', keyword);
+        if (HISTORY_DEBUG_ENABLED && debugScopeMode && debugScopeMode !== 'current') qs.set('debug_scope_mode', debugScopeMode);
+        if (safeText(ACTIVE_FOCUS_WID).trim()) qs.set('wendangid', safeText(ACTIVE_FOCUS_WID).trim());
+        return qs;
+    }
+    async function loadHistory(options) {
+        const opts = options || {};
+        const qs = buildHistoryQueryParams(opts);
+        const uploadedPage = Math.max(1, Number(opts.uploadedPage || HISTORY_PAGINATION.uploaded.page || 1));
+        const receivedPage = Math.max(1, Number(opts.receivedPage || HISTORY_PAGINATION.received.page || 1));
+        const meta = document.getElementById('queryMeta');
+        meta.textContent = '查询中...';
+        try {
+            qs.set('uploaded_page', String(uploadedPage));
+            qs.set('received_page', String(receivedPage));
+            const resp = await fetch('/api/xiaotu/report_history?' + qs.toString());
+            const data = await resp.json().catch(() => null);
+            if (data && data.auth_url) {
+                window.location.href = data.auth_url;
+                return;
+            }
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const d = data.data || {};
+            HISTORY_DATA = {
+                uploaded: Array.isArray(d.uploaded) ? d.uploaded : [],
+                received: Array.isArray(d.received) ? d.received : [],
+                stats: d.stats || {}
+            };
+            const pagination = d.pagination || {};
+            HISTORY_PAGINATION = {
+                uploaded: pagination.uploaded || { page: uploadedPage, page_size: 10, total: 0, total_pages: 1 },
+                received: pagination.received || { page: receivedPage, page_size: 10, total: 0, total_pages: 1 }
+            };
+            renderStats(d.stats || {});
+            renderList('uploadedList', HISTORY_DATA.uploaded, 'uploaded');
+            renderList('receivedList', HISTORY_DATA.received, 'received');
+            renderPager('uploaded');
+            renderPager('received');
+            meta.textContent = '查询完成';
+            maybeAutoOpenFocusedReport();
+        } catch (e) {
+            const msg = safeText((e && e.message) || e);
+            meta.textContent = '查询失败 - ' + msg;
+            HISTORY_DATA = { uploaded: [], received: [], stats: {} };
+            HISTORY_PAGINATION = {
+                uploaded: { page: 1, page_size: 10, total: 0, total_pages: 1 },
+                received: { page: 1, page_size: 10, total: 0, total_pages: 1 }
+            };
+            renderStats({});
+            renderList('uploadedList', [], 'uploaded');
+            renderList('receivedList', [], 'received');
+            renderPager('uploaded');
+            renderPager('received');
+        }
+    }
+    function downloadHistoryRecords() {
+        const dateStart = safeText(document.getElementById('filterDateStart').value).trim();
+        const dateEnd = safeText(document.getElementById('filterDateEnd').value).trim();
+        if (dateStart && dateEnd && dateEnd < dateStart) {
+            alert('结束日期不能早于开始日期');
+            return;
+        }
+        const qs = buildHistoryQueryParams();
+        window.location.href = '/api/xiaotu/report_history_download?' + qs.toString();
+    }
+    async function loadHistoryDepartments() {
+        const depSel = document.getElementById('filterDepartment');
+        try {
+            depSel.innerHTML = '<option value="">部门加载中...</option>';
+            const resp = await fetch('/api/xiaotu/notify/departments');
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            HISTORY_DEPARTMENTS = Array.isArray(data.data) ? data.data : [];
+            if (HISTORY_RESTRICTED_TO_ALLOWED_DEPARTMENTS && Array.isArray(HISTORY_ALLOWED_DEPARTMENT_NAMES) && HISTORY_ALLOWED_DEPARTMENT_NAMES.length) {
+                const allowed = new Set(HISTORY_ALLOWED_DEPARTMENT_NAMES.map((x) => safeText(x).trim()).filter(Boolean));
+                HISTORY_DEPARTMENTS = HISTORY_DEPARTMENTS.filter((d) => allowed.has(safeText(d && d.department_name).trim()));
+            }
+            const defaultLabel = (HISTORY_RESTRICTED_TO_ALLOWED_DEPARTMENTS && HISTORY_ALLOWED_DEPARTMENT_NAMES.length)
+                ? '全部可见部门'
+                : '全部部门';
+            const opts = [`<option value="">${escapeHtml(defaultLabel)}</option>`];
+            HISTORY_DEPARTMENTS.forEach((d) => {
+                const id = safeText(d.department_id).trim();
+                if (!id) return;
+                const nm = safeText(d.department_name).trim() || id;
+                const mark = d.is_user_department ? '（我的部门）' : '';
+                opts.push(`<option value="${escapeHtml(id)}">${escapeHtml(nm + mark)}</option>`);
+            });
+            depSel.innerHTML = opts.join('');
+            if (ACTIVE_DEPARTMENT_ID) {
+                const allowedIds = new Set(HISTORY_DEPARTMENTS.map((d) => safeText(d && d.department_id).trim()).filter(Boolean));
+                depSel.value = allowedIds.has(ACTIVE_DEPARTMENT_ID) ? ACTIVE_DEPARTMENT_ID : '';
+            }
+        } catch (e) {
+            depSel.innerHTML = '<option value="">部门加载失败</option>';
+        }
+    }
+
+    function initHistoryReportDates() {
+        const startInput = document.getElementById('historyReportStartDate');
+        const endInput = document.getElementById('historyReportEndDate');
+        const formatLocalDate = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+        const today = new Date();
+        const start = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+        if (startInput && !startInput.value) startInput.value = formatLocalDate(start);
+        if (endInput && !endInput.value) endInput.value = formatLocalDate(today);
+        const userInput = document.getElementById('historyReportUserName');
+        if (userInput && !HISTORY_ANALYSIS_IS_DEPARTMENT_LEADER) {
+            userInput.value = safeText(HISTORY_USER_NAME).trim();
+            userInput.readOnly = true;
+        }
+    }
+    async function generateHistoryAnalysisReport() {
+        const btn = document.getElementById('historyGenerateReportBtn');
+        const userInput = document.getElementById('historyReportUserName');
+        const startInput = document.getElementById('historyReportStartDate');
+        const endInput = document.getElementById('historyReportEndDate');
+        const meta = document.getElementById('historyGenerateMeta');
+        const resultBox = document.getElementById('historyGenerateResult');
+        const userName = safeText(userInput && userInput.value).trim();
+        const startDate = safeText(startInput && startInput.value).trim();
+        const endDate = safeText(endInput && endInput.value).trim();
+        if (!userName) { alert('请填写飞书用户名'); return; }
+        if (!startDate || !endDate) { alert('请选择开始日期和结束日期'); return; }
+        if (endDate < startDate) { alert('结束日期不能早于开始日期'); return; }
+        const oldText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '提交中...';
+        meta.textContent = '状态：正在提交后台生成任务...';
+        resultBox.textContent = 'AI 已在后台开始生成 HTML，可以离开页面，稍后刷新历史记录查看。';
+        try {
+            const resp = await fetch('/api/ai/xiaotu/period_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_name: userName, start_date: startDate, end_date: endDate })
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const d = data.data || {};
+            meta.textContent = '状态：AI后台生成中 | 用户: ' + safeText(d.user_name) + ' | 日报条数: ' + safeText(d.row_count) + ' | 时间范围: ' + safeText(d.date_range);
+            resultBox.textContent = '任务已提交。生成完成后会出现在“离线 HTML 报告历史”中。';
+            scheduleHistoryAnalysisRefresh();
+        } catch (e) {
+            const msg = safeText((e && e.message) || e);
+            meta.textContent = '状态：生成失败 - ' + msg;
+            resultBox.textContent = msg;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
+    }
+    function renderHistoryAnalysisList(items) {
+        const box = document.getElementById('historyAnalysisList');
+        if (!box) return;
+        const rows = Array.isArray(items) ? items : [];
+        if (!rows.length) {
+            box.innerHTML = '<div class="item-card"><div class="item-submeta">暂无已生成的离线 HTML 报告。</div></div>';
+            return;
+        }
+        box.innerHTML = rows.map((one) => {
+            const range = `${safeText(one.start_date || '-')} ~ ${safeText(one.end_date || '-')}`;
+            const url = safeText(one.file_url || '').trim();
+            const user = safeText(one.user_name || '-');
+            const status = one.exists ? '已生成' : '文件缺失';
+            return `
+                <div class="item-card">
+                    <div class="item-h">
+                        <span class="tag">${escapeHtml(user)}</span>
+                        <span class="tag">${escapeHtml(status)}</span>
+                    </div>
+                    <div class="item-title">${escapeHtml(range)}</div>
+                    <div class="item-submeta">${safeText(one.id).trim() ? 'ID: ' + escapeHtml(one.id) : ''}</div>
+                    <div style="margin-top:10px;">
+                        ${url ? `<a class="item-action" href="${escapeHtml(url)}" target="_blank" rel="noopener">打开 HTML 报告 <i class="fas fa-up-right-from-square"></i></a>` : '<span class="item-submeta">离线文件不可用</span>'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    async function loadHistoryAnalysisList() {
+        const box = document.getElementById('historyAnalysisList');
+        if (!box) return;
+        box.innerHTML = '<div class="item-card"><div class="item-submeta">正在读取离线 HTML 报告历史...</div></div>';
+        try {
+            const resp = await fetch('/api/xiaotu/report_history_analysis_list');
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const d = data.data || {};
+            renderHistoryAnalysisList(d.items || []);
+        } catch (e) {
+            box.innerHTML = `<div class="item-card"><div class="item-submeta">${escapeHtml(safeText((e && e.message) || e))}</div></div>`;
+        }
+    }
+    function scheduleHistoryAnalysisRefresh() {
+        loadHistoryAnalysisList();
+        [8000, 20000, 45000, 90000].forEach((delay) => {
+            window.setTimeout(loadHistoryAnalysisList, delay);
+        });
+    }
+
+    document.getElementById('searchBtn').addEventListener('click', () => loadHistory({ uploadedPage: 1, receivedPage: 1 }));
+    document.getElementById('downloadHistoryBtn').addEventListener('click', downloadHistoryRecords);
+    document.getElementById('historyGenerateReportBtn').addEventListener('click', generateHistoryAnalysisReport);
+    document.getElementById('refreshHistoryAnalysisBtn').addEventListener('click', loadHistoryAnalysisList);
+    ['filterName', 'filterKeyword'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loadHistory({ uploadedPage: 1, receivedPage: 1 });
+        });
+    });
+    if (HISTORY_DEBUG_ENABLED) {
+        const debugScopeModeEl = document.getElementById('debugScopeMode');
+        if (debugScopeModeEl) {
+            debugScopeModeEl.value = HISTORY_DEBUG_DEFAULT_MODE || 'current';
+            debugScopeModeEl.addEventListener('change', () => loadHistory({ uploadedPage: 1, receivedPage: 1 }));
+        }
+    }
+    document.getElementById('receivedMeta').addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest('[data-filter]');
+        if (!btn) return;
+        RECEIVED_FILTER = safeText(btn.getAttribute('data-filter')).trim() || 'all';
+        renderList('receivedList', HISTORY_DATA.received, 'received');
+        renderPager('received');
+    });
+    document.addEventListener('click', (e) => {
+        const pagerBtn = e.target && e.target.closest('[data-page-source][data-page-target]');
+        if (pagerBtn) {
+            const source = safeText(pagerBtn.getAttribute('data-page-source')).trim();
+            const pageTarget = Math.max(1, Number(pagerBtn.getAttribute('data-page-target')) || 1);
+            if (source === 'received') {
+                loadHistory({ receivedPage: pageTarget });
+            } else {
+                loadHistory({ uploadedPage: pageTarget });
+            }
+            return;
+        }
+        const btn = e.target && e.target.closest('.detail-trigger');
+        if (btn) {
+            openDetail(btn.getAttribute('data-source'), btn.getAttribute('data-index'));
+            return;
+        }
+        const toggleBtn = e.target && e.target.closest('.history-comment-toggle');
+        if (toggleBtn) {
+            toggleFeedbackEditor(toggleBtn.getAttribute('data-source'), toggleBtn.getAttribute('data-index'), toggleBtn.getAttribute('data-detail') === '1', 'comment');
+            return;
+        }
+        const replyToggleBtn = e.target && e.target.closest('.history-reply-toggle');
+        if (replyToggleBtn) {
+            toggleFeedbackEditor(replyToggleBtn.getAttribute('data-source'), replyToggleBtn.getAttribute('data-index'), replyToggleBtn.getAttribute('data-detail') === '1', 'reply');
+            return;
+        }
+        const cancelBtn = e.target && e.target.closest('.comment-cancel');
+        if (cancelBtn) {
+            toggleFeedbackEditor(cancelBtn.getAttribute('data-source'), cancelBtn.getAttribute('data-index'), cancelBtn.getAttribute('data-detail') === '1', 'comment', false);
+            return;
+        }
+        const replyCancelBtn = e.target && e.target.closest('.reply-cancel');
+        if (replyCancelBtn) {
+            toggleFeedbackEditor(replyCancelBtn.getAttribute('data-source'), replyCancelBtn.getAttribute('data-index'), replyCancelBtn.getAttribute('data-detail') === '1', 'reply', false);
+            return;
+        }
+        const likeBtn = e.target && e.target.closest('.history-like-btn');
+        if (likeBtn) {
+            submitHistoryFeedback('like', likeBtn.getAttribute('data-source'), likeBtn.getAttribute('data-index'), '')
+                .catch((err) => alert('点赞失败：' + safeText((err && err.message) || err)));
+            return;
+        }
+        const feedbackRemoveBtn = e.target && e.target.closest('.history-feedback-remove');
+        if (feedbackRemoveBtn) {
+            const action = safeText(feedbackRemoveBtn.getAttribute('data-action')).trim();
+            const label = action === 'remove_reply' ? '回复' : '评论';
+            if (!confirm('确认撤销这条' + label + '吗？')) return;
+            submitHistoryFeedback(
+                action,
+                feedbackRemoveBtn.getAttribute('data-source'),
+                feedbackRemoveBtn.getAttribute('data-index'),
+                '',
+                '',
+                feedbackRemoveBtn.getAttribute('data-item-index')
+            ).catch((err) => alert('撤销失败：' + safeText((err && err.message) || err)));
+            return;
+        }
+        const deliveryRefreshBtn = e.target && e.target.closest('.history-delivery-refresh');
+        if (deliveryRefreshBtn) {
+            ensureDeliveryStatusLoaded(deliveryRefreshBtn.getAttribute('data-wendangid'), { force: true })
+                .catch((err) => alert('读取投递状态失败：' + safeText((err && err.message) || err)));
+            return;
+        }
+        const prepareEditBtn = e.target && e.target.closest('.history-prepare-edit');
+        if (prepareEditBtn) {
+            if (prepareEditBtn.disabled) return;
+            prepareEditReport(prepareEditBtn.getAttribute('data-wendangid'))
+                .catch((err) => alert('撤回并进入修改失败：' + safeText((err && err.message) || err)));
+            return;
+        }
+        const submitBtn = e.target && e.target.closest('.comment-submit');
+        if (submitBtn) {
+            const detailMode = submitBtn.getAttribute('data-detail') === '1';
+            const editor = findFeedbackEditor(submitBtn.getAttribute('data-source'), submitBtn.getAttribute('data-index'), detailMode, 'comment');
+            const input = editor && editor.querySelector('.comment-input');
+            const status = editor && editor.querySelector('[data-role="comment-status"]');
+            const commentText = safeText(input && input.value).trim();
+            if (!commentText) {
+                if (status) status.textContent = '请输入评论内容';
+                return;
+            }
+            if (status) status.textContent = '提交中...';
+            submitHistoryFeedback('comment', submitBtn.getAttribute('data-source'), submitBtn.getAttribute('data-index'), commentText)
+                .then(() => {
+                    if (status) status.textContent = '评论已提交';
+                })
+                .catch((err) => {
+                    if (status) status.textContent = '提交失败：' + safeText((err && err.message) || err);
+                });
+            return;
+        }
+        const replySubmitBtn = e.target && e.target.closest('.reply-submit');
+        if (replySubmitBtn) {
+            const detailMode = replySubmitBtn.getAttribute('data-detail') === '1';
+            const editor = findFeedbackEditor(replySubmitBtn.getAttribute('data-source'), replySubmitBtn.getAttribute('data-index'), detailMode, 'reply');
+            const input = editor && editor.querySelector('.reply-input');
+            const targetSelect = editor && editor.querySelector('.reply-target-select');
+            const status = editor && editor.querySelector('[data-role="reply-status"]');
+            const replyText = safeText(input && input.value).trim();
+            const targetName = safeText(targetSelect && targetSelect.value).trim();
+            if (!replyText) {
+                if (status) status.textContent = '请输入回复内容';
+                return;
+            }
+            if (!targetName) {
+                if (status) status.textContent = '请选择回复对象';
+                return;
+            }
+            if (status) status.textContent = '提交中...';
+            submitHistoryFeedback('reply', replySubmitBtn.getAttribute('data-source'), replySubmitBtn.getAttribute('data-index'), replyText, targetName)
+                .then(() => {
+                    if (status) status.textContent = '回复已提交';
+                })
+                .catch((err) => {
+                    if (status) status.textContent = '提交失败：' + safeText((err && err.message) || err);
+                });
+            return;
+        }
+    });
+    document.getElementById('detailCloseBtn').addEventListener('click', closeDetail);
+    document.getElementById('detailMask').addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'detailMask') closeDetail();
+    });
+    async function initHistoryPage() {
+        initHistoryReportDates();
+        await loadHistoryDepartments();
+        await Promise.all([loadHistory(), loadHistoryAnalysisList()]);
+    }
+    initHistoryPage();
+</script>
+</body>
+</html>

@@ -1,0 +1,3260 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>定时邮件 - 图创AI系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+            .template-content-preview {
+                max-height: 150px;
+                overflow-y: auto;
+                border: 1px solid #dee2e6;
+                padding: 10px;
+                border-radius: 4px;
+                background-color: #f8f9fa;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+
+            .template-image-preview {
+                text-align: center;
+                border: 1px solid #dee2e6;
+                padding: 10px;
+                border-radius: 4px;
+                background-color: #f8f9fa;
+                min-height: 100px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+            }
+
+            .template-image-preview img {
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: transform 0.2s ease;
+            }
+
+            .template-image-preview img:hover {
+                transform: scale(1.05);
+            }
+
+            #templateDetailsSection .card {
+                border: 1px solid #e3f2fd;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+
+            #templateDetailsSection .card-header {
+                background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+                border-bottom: 1px solid #e3f2fd;
+            }
+
+            #templateDetailsSection .card-header h6 {
+                color: #1976d2;
+                font-weight: 600;
+            }
+
+            .template-detail-label {
+                color: #424242;
+                font-weight: 600;
+                margin-bottom: 5px;
+            }
+
+        .email-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+        }
+        .email-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd6 0%, #6a3d9a 100%);
+        }
+        .table-responsive {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .table td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+            vertical-align: middle;
+        }
+
+        #templateManageModal .template-actions-cell {
+            max-width: none;
+            overflow: visible;
+            text-overflow: initial;
+            white-space: nowrap;
+            min-width: 170px;
+        }
+
+        #templateManageModal .template-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #templateManageModal .template-action-btn {
+            border-radius: 0 !important;
+            width: 88px !important;
+            height: 32px !important;
+            padding: 0 10px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px;
+        }
+
+        #templateManageModal .modal-dialog {
+            max-width: 96vw;
+        }
+        .pagination .page-item.active .page-link {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+        }
+        .pagination .page-link {
+            color: #667eea;
+        }
+        /* 确保表单区域高度一致 */
+        .form-area {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-area .email-card {
+            flex-grow: 1;
+        }
+        /* 表格列宽控制 */
+        .table-email-list {
+            table-layout: fixed;
+            width: 100%;
+        }
+        /* 响应式调整 */
+        @media (max-width: 992px) {
+            .table td, .table th {
+                padding: 0.5rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* 模板输入框样式优化 */
+        .template-textarea {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .template-textarea:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .template-rich-hidden {
+            display: none;
+        }
+
+        .template-rich-editor {
+            min-height: 180px;
+            padding: 12px 14px;
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            background: #fff;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow-y: auto;
+            white-space: normal;
+            word-break: break-word;
+        }
+
+        .template-rich-editor:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .template-rich-editor.is-disabled {
+            background: #f8f9fa;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .template-rich-editor h1,
+        .template-rich-editor h2,
+        .template-rich-editor h3,
+        .template-rich-editor h4,
+        .template-rich-editor p,
+        .template-rich-editor ul,
+        .template-rich-editor ol,
+        .template-rich-editor blockquote {
+            margin: 0 0 10px;
+        }
+
+        .template-rich-editor blockquote {
+            margin-left: 0;
+            padding-left: 12px;
+            border-left: 3px solid #c7d2fe;
+            color: #4b5563;
+        }
+
+        .template-rich-menu {
+            position: fixed;
+            z-index: 30050;
+            min-width: 180px;
+            padding: 8px;
+            border-radius: 10px;
+            background: #1f2937;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+            display: none;
+        }
+
+        .template-rich-menu.show {
+            display: block;
+        }
+
+        .template-rich-menu-item {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        .template-rich-menu-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .modal {
+            z-index: 20000;
+        }
+
+        .modal-backdrop {
+            z-index: 19990;
+        }
+    </style>
+    <style>
+        :root {
+            --mail-bg: #f4f7fb;
+            --mail-ink: #142033;
+            --mail-muted: #6d7a8a;
+            --mail-line: #dce5f2;
+            --mail-line-soft: #eaf0f7;
+            --mail-surface: #ffffff;
+            --mail-surface-soft: #f8fbff;
+            --mail-primary: #0a84ff;
+            --mail-primary-hover: #0071e3;
+            --mail-cyan: #12b8c6;
+            --mail-green: #1fa974;
+            --mail-red: #d9485f;
+            --mail-warning: #b7791f;
+            --mail-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+        }
+
+        body {
+            background:
+                radial-gradient(circle at 14% 0%, rgba(10, 132, 255, 0.12), transparent 28%),
+                radial-gradient(circle at 88% 8%, rgba(18, 184, 198, 0.12), transparent 26%),
+                var(--mail-bg);
+            color: var(--mail-ink);
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1440px;
+        }
+
+        .navbar {
+            min-height: 52px;
+            background: rgba(12, 20, 34, 0.96) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+        }
+
+        .navbar-brand {
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+        }
+
+        .navbar .nav-link {
+            border-radius: 9px;
+            padding: 6px 10px !important;
+            color: rgba(255, 255, 255, 0.78) !important;
+        }
+
+        .navbar .nav-link:hover {
+            background: rgba(255, 255, 255, 0.09);
+            color: #fff !important;
+        }
+
+        .breadcrumb {
+            margin: 12px 0;
+            padding: 0;
+            font-size: 13px;
+        }
+
+        .breadcrumb a {
+            color: var(--mail-primary);
+            text-decoration: none;
+        }
+
+        .email-header {
+            padding: 22px 0;
+            text-align: left;
+            background:
+                linear-gradient(135deg, rgba(10, 132, 255, 0.18), transparent 45%),
+                linear-gradient(90deg, #0b1422 0%, #132238 100%);
+            color: #fff;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid rgba(10, 132, 255, 0.24);
+        }
+
+        .email-header h1 {
+            margin: 0;
+            font-size: 25px;
+            line-height: 1.2;
+            font-weight: 850;
+        }
+
+        .email-header .lead {
+            margin: 7px 0 0;
+            color: rgba(255, 255, 255, 0.68);
+            font-size: 13px;
+        }
+
+        .container.py-5 {
+            padding-top: 22px !important;
+            padding-bottom: 28px !important;
+        }
+
+        .row.mb-4,
+        .row.mt-4 {
+            margin-bottom: 14px !important;
+            margin-top: 14px !important;
+        }
+
+        .email-card {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid var(--mail-line);
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: var(--mail-shadow);
+            margin-bottom: 14px;
+        }
+
+        .email-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 0 14px !important;
+            color: var(--mail-ink);
+            font-size: 17px;
+            line-height: 1.25;
+            font-weight: 850;
+        }
+
+        .email-card h3 i {
+            color: var(--mail-primary);
+            font-size: 15px;
+        }
+
+        .form-label {
+            margin-bottom: 5px;
+            color: #334155;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .form-text,
+        .text-muted,
+        small {
+            color: var(--mail-muted) !important;
+        }
+
+        .mb-3 {
+            margin-bottom: 12px !important;
+        }
+
+        .form-control,
+        .form-select,
+        .dropdown-toggle {
+            min-height: 38px;
+            border: 1px solid #ccd7e6;
+            border-radius: 9px;
+            color: var(--mail-ink);
+            background-color: #fff;
+            font-size: 13px;
+            box-shadow: none !important;
+        }
+
+        textarea.form-control {
+            min-height: 118px;
+            line-height: 1.5;
+        }
+
+        .form-control:focus,
+        .form-select:focus,
+        .dropdown-toggle:focus {
+            border-color: var(--mail-primary);
+            box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.14) !important;
+        }
+
+        .form-control[readonly],
+        .form-control:disabled,
+        .form-select:disabled,
+        .btn:disabled {
+            opacity: 0.62;
+        }
+
+        .btn {
+            min-height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border-radius: 9px;
+            border-width: 1px;
+            font-size: 13px;
+            font-weight: 750;
+            box-shadow: none !important;
+            transition: background-color .16s ease, border-color .16s ease, transform .12s ease, opacity .16s ease;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .btn-sm {
+            min-height: 32px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .btn-primary {
+            background: var(--mail-primary);
+            border-color: var(--mail-primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover,
+        .btn-primary:focus {
+            background: var(--mail-primary-hover);
+            border-color: var(--mail-primary-hover);
+        }
+
+        .btn-success {
+            background: var(--mail-green);
+            border-color: var(--mail-green);
+            color: #fff;
+        }
+
+        .btn-info {
+            background: var(--mail-cyan);
+            border-color: var(--mail-cyan);
+            color: #fff;
+        }
+
+        .btn-danger {
+            background: var(--mail-red);
+            border-color: var(--mail-red);
+        }
+
+        .btn-secondary,
+        .btn-outline-secondary,
+        .btn-outline-primary {
+            background: #f4f7fb;
+            border-color: #d6e0ec;
+            color: #334155;
+        }
+
+        .btn-outline-primary:hover,
+        .btn-outline-secondary:hover,
+        .btn-secondary:hover {
+            background: #e9f2ff;
+            border-color: #c7dbf2;
+            color: #16324f;
+        }
+
+        .alert {
+            border-radius: 8px;
+            border: 1px solid #cfe0f4;
+            background: #f2f8ff;
+            color: #31506f;
+        }
+
+        .alert-warning {
+            border-color: #f2dfb8;
+            background: #fff8ea;
+            color: #725019;
+        }
+
+        .table-responsive {
+            border: 1px solid var(--mail-line);
+            border-radius: 8px;
+            overflow: auto;
+            background: #fff;
+        }
+
+        .table {
+            margin-bottom: 0;
+            color: var(--mail-ink);
+        }
+
+        .table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f3f7fc !important;
+            color: #4d5d70;
+            border-bottom: 1px solid var(--mail-line);
+            padding: 10px 10px;
+            font-size: 12px;
+            font-weight: 850;
+        }
+
+        .table td {
+            padding: 10px 10px;
+            border-color: var(--mail-line-soft);
+            font-size: 13px;
+            max-width: 240px;
+        }
+
+        .table-striped > tbody > tr:nth-of-type(odd) > * {
+            background-color: #fbfdff;
+        }
+
+        .table-hover > tbody > tr:hover > * {
+            background-color: #eef6ff;
+        }
+
+        .form-check-input {
+            border-color: #afbdcc;
+            border-radius: 5px;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--mail-primary);
+            border-color: var(--mail-primary);
+        }
+
+        #selectedCount {
+            display: inline-flex;
+            align-items: center;
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: #edf6ff;
+            color: #275f91 !important;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .dropdown-menu {
+            border: 1px solid var(--mail-line);
+            border-radius: 8px;
+            box-shadow: var(--mail-shadow);
+            font-size: 13px;
+        }
+
+        .dropdown-item {
+            border-radius: 7px;
+        }
+
+        .pagination {
+            margin-bottom: 0;
+            gap: 5px;
+        }
+
+        .pagination .page-link {
+            min-width: 34px;
+            border-radius: 8px !important;
+            border-color: var(--mail-line);
+            color: #41627f;
+            font-size: 13px;
+        }
+
+        .pagination .page-item.active .page-link {
+            background: var(--mail-primary);
+            border-color: var(--mail-primary);
+        }
+
+        .modal-content {
+            border: 1px solid var(--mail-line);
+            border-radius: 8px;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+        }
+
+        .modal-header {
+            background: #f6f9fd;
+            border-bottom: 1px solid var(--mail-line);
+        }
+
+        .modal-title {
+            font-weight: 850;
+            color: var(--mail-ink);
+        }
+
+        .modal-footer {
+            background: #fbfdff;
+            border-top: 1px solid var(--mail-line);
+        }
+
+        .template-content-preview,
+        .template-image-preview,
+        .template-rich-editor,
+        #modalContent {
+            border-color: var(--mail-line) !important;
+            border-radius: 8px !important;
+            background: var(--mail-surface-soft) !important;
+        }
+
+        .template-rich-editor:focus {
+            border-color: var(--mail-primary);
+            box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.14);
+        }
+
+        .template-rich-menu {
+            border-radius: 8px;
+            background: #111827;
+        }
+
+        .account-item {
+            border: 1px solid var(--mail-line) !important;
+            border-radius: 8px !important;
+            background: #fff !important;
+            transition: background-color .16s ease, border-color .16s ease;
+        }
+
+        .account-item:hover {
+            background: #f2f8ff !important;
+            border-color: #c8dcf2 !important;
+        }
+
+        footer.bg-light {
+            background: transparent !important;
+            padding-top: 8px !important;
+            margin-top: 16px !important;
+        }
+
+        @media (max-width: 992px) {
+            .email-header {
+                padding: 18px 0;
+            }
+
+            .email-card {
+                padding: 15px;
+            }
+
+            .d-flex.justify-content-between.align-items-center.mb-4 {
+                align-items: flex-start !important;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .table td,
+            .table th {
+                padding: 9px 8px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar .container,
+            .email-header .container,
+            body > .container,
+            .container.py-5,
+            footer .container {
+                width: min(100% - 20px, 1440px);
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            .email-header h1 {
+                font-size: 22px;
+            }
+
+            .email-card h3 {
+                font-size: 16px;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% set is_tech_email = api_prefix == '/tk_email_register_js' %}
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-cube"></i> 图创AI系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                {% if is_tech_email %}
+                <a class="nav-link" href="{{ url_for('tech_dept') }}">
+                    <i class="fas fa-laptop-code"></i> 返回技术部
+                </a>
+                {% else %}
+                <a class="nav-link" href="{{ url_for('tk_project') }}">
+                    <i class="fas fa-project-diagram"></i> 返回TK项目
+                </a>
+                {% endif %}
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 返回首页
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 面包屑导航 -->
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mt-3">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
+                {% if is_tech_email %}
+                <li class="breadcrumb-item"><a href="{{ url_for('tech_dept') }}">技术部功能</a></li>
+                {% else %}
+                <li class="breadcrumb-item"><a href="{{ url_for('tk_project') }}">TK项目组功能</a></li>
+                {% endif %}
+                {% if is_tech_email %}
+                <li class="breadcrumb-item active" aria-current="page">定时邮件_技术部</li>
+                {% else %}
+                <li class="breadcrumb-item active" aria-current="page">定时邮件</li>
+                {% endif %}
+            </ol>
+        </nav>
+    </div>
+
+    <!-- 页面头部 -->
+    <div class="email-header">
+        <div class="container">
+            {% if is_tech_email %}
+            <h1><i class="fas fa-envelope"></i> 定时邮件_技术部</h1>
+            <p class="lead">管理和跟踪技术部的邮件往来记录</p>
+            {% else %}
+            <h1><i class="fas fa-envelope"></i> 定时邮件</h1>
+            <p class="lead">统一管理TK项目组邮件登记、模板与定时发送</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 主要内容 -->
+    <div class="container py-5">
+        <!-- 上方：表单区域 -->
+        <div class="row mb-4">
+            <!-- 左侧：登记表单 -->
+            <div class="col-lg-6">
+                <div class="email-card h-100">
+                    <h3 class="mb-4"><i class="fas fa-plus-circle"></i> 新增邮件登记</h3>
+                    <form id="emailRegisterForm">
+                        <div class="mb-3">
+                            <label for="youxiang" class="form-label">邮箱地址 <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="youxiang" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="xingming" class="form-label">网红名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="xingming" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="shenQingRen" class="form-label">申请人</label>
+                            <input type="text" class="form-control" id="shenQingRen" placeholder="请输入申请人姓名" value="{{ current_user.username }}" readonly>
+                            <div class="invalid-feedback" id="shenQingRenFeedback"></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save"></i> 保存登记</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 右侧：批量导入 -->
+            <div class="col-lg-6">
+                <div class="email-card h-100">
+                    <h3 class="mb-4"><i class="fas fa-file-import"></i> 批量导入</h3>
+                    <form id="batchImportForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="importFile" class="form-label">选择Excel或CSV文件</label>
+                            <input type="file" class="form-control" id="importFile" accept=".xlsx,.xls,.csv" required>
+                            <div class="form-text">文件必须包含YouXiang和XingMing列</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="batchShenQingRen" class="form-label">申请人</label>
+                            <input type="text" class="form-control" id="batchShenQingRen" placeholder="请输入申请人姓名" value="{{ session.get('feishu_user_name', '') }}" readonly>
+                            <div class="invalid-feedback" id="batchShenQingRenFeedback"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="senderEmailsDropdown" class="form-label">选择发件邮箱（可多选） <span class="text-danger">*</span></label>
+                            <div class="dropdown" id="senderEmailsDropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button" id="senderEmailsButton" data-bs-toggle="dropdown" aria-expanded="false" disabled>
+                                    <span id="senderEmailsButtonText">加载中...</span>
+                                </button>
+                                <ul class="dropdown-menu w-100" id="senderEmailsMenu" style="max-height: 300px; overflow-y: auto;">
+                                    <li><span class="dropdown-item-text text-muted">加载中...</span></li>
+                                </ul>
+                            </div>
+                            <div class="form-text">选中的邮箱将进行轮询平均分配，至少选择一个</div>
+                            <div id="selectedEmailsDisplay" class="mt-2" style="display: none;">
+                                <small class="text-muted">已选择：</small>
+                                <div id="selectedEmailsTags" class="d-flex flex-wrap gap-1 mt-1"></div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-upload"></i> 导入数据</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 邮箱账户管理 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="email-card">
+                    <h3 id="emailAccountsManageHeader" class="mb-3" style="cursor: pointer;"><i class="fas fa-user-cog"></i> 邮箱账户管理</h3>
+                    <div class="alert alert-info py-2 px-3">
+                        <small>
+                            <i class="fas fa-circle-info"></i>
+                            保存前会自动检测发件箱的授权码或密码是否可用；校验失败不会保存。
+                            QQ/企业邮箱优先填写授权码，不建议直接填写登录密码。
+                        </small>
+                    </div>
+
+                    <div id="emailAccountsContainer">
+                        <div class="text-muted">加载中...</div>
+                    </div>
+                    <div class="mt-3">
+                        <button id="saveEmailAccounts" class="btn btn-sm btn-primary" style="display:none;"><i class="fas fa-save"></i> 保存更改</button>
+                        <button id="addEmailAccount" class="btn btn-sm btn-success ms-2"><i class="fas fa-plus"></i> 新增发件箱</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 下方：数据列表 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="email-card">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3><i class="fas fa-list"></i> 邮件登记列表</h3>
+                        <div>
+                            <button id="btnSetSendTime" class="btn btn-sm btn-success me-2" disabled>
+                                <i class="fas fa-check"></i> 标记为已发送
+                            </button>
+                            <button id="btnSetSpecifiedTime" class="btn btn-sm btn-info me-2" disabled>
+                                <i class="fas fa-clock"></i> 设置指定时间
+                            </button>
+                            <button id="btnManageTemplates" class="btn btn-sm btn-primary">
+                                <i class="fas fa-envelope-open-text"></i> 模板管理
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 日期筛选和批量操作区域 -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <label for="dateFilter" class="form-label me-2 mb-0">选择日期:</label>
+                                <input type="date" class="form-control me-2" id="dateFilter" style="width: auto;">
+                                <button id="btnSelectByDate" class="btn btn-sm btn-outline-primary me-2">
+                                    <i class="fas fa-calendar-check"></i> 全选该日期
+                                </button>
+                                <button id="btnClearSelection" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-times"></i> 清空选择
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-end align-items-center">
+                                <label for="pageSizeSelect" class="form-label me-2 mb-0">每页显示:</label>
+                                <select class="form-select me-3" id="pageSizeSelect" style="width: auto;">
+                                    <option value="20" selected>20条</option>
+                                    <option value="50">50条</option>
+                                    <option value="100">100条</option>
+                                    <option value="200">200条</option>
+                                </select>
+                                <span class="text-muted me-2" id="selectedCount">已选择: 0 项</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-email-list">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="selectAll">
+                                        </div>
+                                    </th>
+                                    <th style="width: 20%">邮箱</th>
+                                    <th style="width: 10%">网红名</th>
+                                    <th style="width: 10%">申请人</th>
+                                    <th style="width: 17%">申请时间</th>
+                                    <th style="width: 15%">发送时间</th>
+                                    <th style="width: 18%">指定时间</th>
+                                </tr>
+                            </thead>
+                            <tbody id="emailTableBody">
+                                <!-- 数据将通过JavaScript动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页控件 -->
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center" id="pagination">
+                            <!-- 分页将通过JavaScript动态生成 -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量标记已回复邮箱功能 -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="email-card">
+                    <h3 class="mb-4"><i class="fas fa-reply"></i> 批量标记已回复邮箱</h3>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="repliedEmails" class="form-label">已回复的邮箱地址 <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="repliedEmails" rows="6" placeholder="请输入已回复的邮箱地址，每行一个邮箱地址\n例如：\nexample1@gmail.com\nexample2@yahoo.com\nexample3@hotmail.com"></textarea>
+                                <div class="form-text">请每行输入一个邮箱地址，系统将自动标记这些邮箱为已回复状态</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex flex-column h-100">
+                                <div class="mb-3">
+                                    <label class="form-label">操作说明</label>
+                                    <div class="alert alert-info">
+                                        <small>
+                                            <i class="fas fa-info-circle"></i> 标记为已回复后：<br>
+                                            • 邮箱将从登记列表中隐藏<br>
+                                            • shifouhuifu字段将设为Y<br>
+                                            • 操作不可撤销，请谨慎操作
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="mt-auto">
+                                    <button type="button" class="btn btn-success w-100" id="btnMarkReplied">
+                                        <i class="fas fa-check-circle"></i> 批量标记为已回复
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置指定时间的模态框 -->
+    <div class="modal fade" id="specifiedTimeModal" tabindex="-1" aria-labelledby="specifiedTimeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="specifiedTimeModalLabel">设置指定发送时间</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="specifiedDateTime" class="form-label">选择日期和时间 <span class="text-danger">*</span></label>
+                        <input type="datetime-local" class="form-control" id="specifiedDateTime" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="emailTemplate" class="form-label">选择邮件模板 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="emailTemplate" required>
+                            <option value="">请选择模板</option>
+                            <!-- 模板选项将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+
+                    <!-- 模板详细信息显示区域 -->
+                    <div id="templateDetailsSection" class="mb-3" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">模板详细信息</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <div class="template-detail-label">模板名称：</div>
+                                    <span id="templateDetailName" class="text-primary fw-semibold"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="template-detail-label">邮件标题：</div>
+                                    <span id="templateDetailTitle" class="text-dark"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="template-detail-label">模板内容：</div>
+                                    <div id="templateDetailContent" class="template-content-preview" style="cursor: pointer;" title="点击查看完整内容"></div>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="template-detail-label">模板图片：</div>
+                                    <div id="templateDetailImage" class="template-image-preview" style="cursor: pointer;" title="点击查看大图">
+                                        <span class="text-muted">无图片</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveSpecifiedTime">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增邮箱账户模态框 -->
+    <div class="modal fade" id="addEmailAccountModal" tabindex="-1" aria-labelledby="addEmailAccountModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addEmailAccountModalLabel">新增邮箱账户</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning py-2 px-3">
+                        <small>
+                            <i class="fas fa-shield-alt"></i>
+                            保存时会自动校验授权码/密码能否正常登录邮箱服务器，失败将直接拦截。
+                            QQ、企业邮箱、163 等常见邮箱建议填写客户端授权码。
+                        </small>
+                    </div>
+                    <div id="addEmailAccountForm">
+                        <div class="text-muted">加载中...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveNewEmailAccount">
+                        <i class="fas fa-save"></i> 保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模板管理模态框 -->
+    <div class="modal fade" id="templateManageModal" tabindex="-1" aria-labelledby="templateManageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="templateManageModalLabel">邮件模板管理</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <button type="button" class="btn btn-primary" id="addNewTemplateBtn">
+                                <i class="bi bi-plus-circle"></i> 新增模板
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row" id="addTemplateForm" style="display: none;">
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header">新增模板</div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="newTemplateName" class="form-label">模板名称 <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="newTemplateName" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="newTemplateTitle" class="form-label">邮件标题</label>
+                                        <input type="text" class="form-control" id="newTemplateTitle" placeholder="请输入邮件标题">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="newTemplateImage" class="form-label">邮件图片</label>
+                                        <input type="file" class="form-control" id="newTemplateImage" accept="image/*">
+                                        <div class="form-text">支持JPG、PNG、GIF等图片格式，最大5MB</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="newTemplateContent" class="form-label">模板内容 <span class="text-danger">*</span></label>
+                                        <textarea class="form-control template-textarea template-rich-hidden" id="newTemplateContent" rows="8" required placeholder="请输入邮件模板内容，支持加粗、斜体等格式..."></textarea>
+                                        <div id="newTemplateContentEditor" class="template-rich-editor" contenteditable="true" data-target-textarea="newTemplateContent" data-placeholder="请输入邮件模板内容，支持加粗、斜体、换行等格式，右击可打开富文本菜单..."></div>
+                                        <div class="form-text">提示：右击内容区域可使用富文本格式（加粗、斜体、标题、列表、链接等）</div>
+                                    </div>
+                                    <div class="d-flex justify-content-end">
+                                        <button type="button" class="btn btn-secondary me-2" id="cancelAddTemplate">取消</button>
+                                        <button type="button" class="btn btn-primary" id="saveNewTemplate">保存</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>模板名称</th>
+                                    <th>邮件标题</th>
+                                    <th>模板内容</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="templateTableBody">
+                                <!-- 模板列表将通过JavaScript动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改模板模态框 -->
+    <div class="modal fade" id="editTemplateModal" tabindex="-1" aria-labelledby="editTemplateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editTemplateModalLabel">修改邮件模板</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editTemplateForm">
+                        <input type="hidden" id="editTemplateId">
+                        <div class="mb-3">
+                            <label for="editTemplateName" class="form-label">模板名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editTemplateName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTemplateTitle" class="form-label">邮件标题</label>
+                            <input type="text" class="form-control" id="editTemplateTitle" placeholder="请输入邮件标题">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTemplateImage" class="form-label">邮件图片</label>
+                            <input type="file" class="form-control" id="editTemplateImage" accept="image/*">
+                            <div class="form-text">支持JPG、PNG、GIF等图片格式，最大5MB</div>
+                            <div id="editImagePreview" style="display: none; margin-top: 10px;">
+                                <img id="editPreviewImg" src="" alt="图片预览" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTemplateContent" class="form-label">模板内容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control template-textarea template-rich-hidden" id="editTemplateContent" rows="12" required placeholder="请输入邮件模板内容，支持加粗、斜体等格式..."></textarea>
+                            <div id="editTemplateContentEditor" class="template-rich-editor" contenteditable="true" data-target-textarea="editTemplateContent" data-placeholder="请输入邮件模板内容，支持加粗、斜体、换行等格式，右击可打开富文本菜单..."></div>
+                            <div class="form-text">提示：右击内容区域可使用富文本格式（加粗、斜体、标题、列表、链接等）。您可以直接在原内容基础上进行修改。</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger template-action-btn" id="deleteEditTemplate">
+                        <i class="bi bi-trash"></i> 删除模板
+                    </button>
+                    <button type="button" class="btn btn-primary" id="saveEditTemplate">保存修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查看模板内容模态框 -->
+    <div class="modal fade" id="templateContentModal" tabindex="-1" aria-labelledby="templateContentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="templateContentModalLabel">查看模板内容</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">模板名称：</label>
+                        <span id="viewTemplateName"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">模板内容：</label>
+                        <div id="viewTemplateContent" class="p-3 bg-light border rounded" style="min-height: 200px; max-height: 70vh; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="templateRichMenu" class="template-rich-menu">
+        <button type="button" class="template-rich-menu-item" data-cmd="bold">加粗</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="italic">斜体</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="underline">下划线</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="insertUnorderedList">无序列表</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="insertOrderedList">有序列表</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="formatBlock" data-value="blockquote">引用</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="formatBlock" data-value="h3">标题</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="formatBlock" data-value="p">正文</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="createLink">链接</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="unlink">取消链接</button>
+        <button type="button" class="template-rich-menu-item" data-cmd="removeFormat">清除格式</button>
+    </div>
+
+    <!-- 模板内容查看模态框 -->
+    <div class="modal fade" id="contentViewModal" tabindex="-1" aria-labelledby="contentViewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="contentViewModalLabel">模板内容</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="modalContent" style="max-height: 60vh; overflow-y: auto; padding: 15px; border: 1px solid #dee2e6; border-radius: 5px; background-color: #f8f9fa;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片查看模态框 -->
+    <div class="modal fade" id="imageViewModal" tabindex="-1" aria-labelledby="imageViewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageViewModalLabel">图片查看</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" src="" alt="图片" class="img-fluid" style="max-width: 100%; max-height: 70vh;">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="bg-light py-4 mt-5">
+        <div class="container text-center">
+            <p class="text-muted mb-0">&copy; 2025 图创AI系统 - 定时邮件工作台</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js"></script>
+    <script>
+        // 全局变量
+        let currentPage = 1;
+        let totalPages = 1;
+        let selectedIds = [];
+        let currentPageSize = 20; // 当前每页显示条数
+        const API_PREFIX = "{{ api_prefix or '' }}";
+
+        function apiPath(path) {
+            return API_PREFIX + path;
+        }
+
+        function showBsModal(modalId) {
+            const el = document.getElementById(modalId);
+            if (!el) return;
+            bootstrap.Modal.getOrCreateInstance(el).show();
+        }
+
+        function hideBsModal(modalId) {
+            const el = document.getElementById(modalId);
+            if (!el) return;
+            const instance = bootstrap.Modal.getInstance(el) || bootstrap.Modal.getOrCreateInstance(el);
+            instance.hide();
+        }
+
+        (function() {
+            document.addEventListener('show.bs.modal', function(event) {
+                const modal = event.target;
+                if (modal && modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+
+                const openCount = document.querySelectorAll('.modal.show').length;
+                const baseZIndex = 20000;
+                const zIndex = baseZIndex + (openCount * 20);
+                modal.style.zIndex = zIndex;
+
+                setTimeout(function() {
+                    const backdrops = document.querySelectorAll('.modal-backdrop:not(.modal-stack)');
+                    const backdrop = backdrops[backdrops.length - 1];
+                    if (backdrop) {
+                        backdrop.classList.add('modal-stack');
+                        backdrop.style.zIndex = zIndex - 1;
+                    }
+                }, 0);
+            }, true);
+        })();
+
+        // 页面加载完成后执行
+        $(document).ready(function() {
+            // 加载邮件数据
+            loadEmailData(1);
+
+            // 每页显示条数选择器变化事件
+            $('#pageSizeSelect').on('change', function() {
+                currentPageSize = parseInt($(this).val());
+                currentPage = 1; // 重置到第一页
+                selectedIds = []; // 清空选择
+                loadEmailData(1);
+            });
+
+            // 表单提交事件
+            $('#emailRegisterForm').on('submit', function(e) {
+                e.preventDefault();
+                registerEmail();
+            });
+
+            // 批量导入表单提交事件
+            $('#batchImportForm').on('submit', function(e) {
+                e.preventDefault();
+                batchImportEmails();
+            });
+
+            // 全选/取消全选
+            $('#selectAll').on('change', function() {
+                const isChecked = $(this).prop('checked');
+                $('.email-checkbox').prop('checked', isChecked);
+                updateSelectedIds();
+            });
+
+            // 按日期全选
+            $('#btnSelectByDate').on('click', function() {
+                const selectedDate = $('#dateFilter').val();
+                if (!selectedDate) {
+                    alert('请先选择日期');
+                    return;
+                }
+                selectEmailsByDate(selectedDate);
+            });
+
+            // 清空选择
+            $('#btnClearSelection').on('click', function() {
+                $('.email-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false);
+                selectedIds = []; // 清空所有选中的ID
+                updateButtonsAndCount();
+            });
+
+            // 标记为已发送按钮点击事件
+            $('#btnSetSendTime').on('click', function() {
+                if (selectedIds.length > 0) {
+                    updateEmailSendTime();
+                }
+            });
+
+            // 设置指定时间按钮点击事件
+            $('#btnSetSpecifiedTime').on('click', function() {
+                if (selectedIds.length > 0) {
+                    showBsModal('specifiedTimeModal');
+                }
+            });
+
+            // 页面加载时获取邮件模板、当前用户发件邮箱与账户信息
+            loadEmailTemplates();
+            loadSenderEmails();
+            window.autoOpenAddModalOnce = true; // 首次无字段时自动打开新增窗口
+            loadMyEmailAccounts();
+
+            // 点击“邮箱账户管理”展示列表，选择后弹模态编辑
+            $('#emailAccountsContainer').show();
+            $('#saveEmailAccounts').hide();
+            $('#emailAccountsManageHeader').on('click', function() {
+                loadMyEmailAccounts('#emailAccountsContainer', '#saveEmailAccounts');
+                const y = $('#emailAccountsContainer').offset() ? $('#emailAccountsContainer').offset().top - 20 : 0;
+                $('html, body').animate({ scrollTop: y }, 300);
+            });
+
+            // 保存邮箱账户信息
+            $('#saveEmailAccounts').on('click', function() {
+                saveMyEmailAccounts('#emailAccountsContainer');
+            });
+
+            // 保存指定时间按钮点击事件
+            $('#saveSpecifiedTime').on('click', function() {
+                const specifiedTime = $('#specifiedDateTime').val();
+                const templateId = $('#emailTemplate').val();
+                let moban = '';
+
+                if (!specifiedTime) {
+                    alert('请选择指定发送时间');
+                    return;
+                }
+
+                if (!templateId) {
+                    alert('请选择邮件模板');
+                    return;
+                }
+
+                // 如果选择了自定义模板，则获取自定义内容
+                if (templateId === 'custom') {
+                    const customContent = tinymce.get('customTemplate') ? tinymce.get('customTemplate').getContent() : $('#customTemplate').val();
+                    moban = 'custom:' + customContent;
+                    if (!customContent || customContent.trim() === '') {
+                        alert('请输入自定义模板内容');
+                        return;
+                    }
+                } else {
+                    // 获取选中的模板名称
+                    const selectedOption = $('#emailTemplate option:selected');
+                    moban = selectedOption.text();
+                }
+
+                // 直接更新指定时间和模板
+                updateEmailSpecifiedTime(specifiedTime, moban);
+                hideBsModal('specifiedTimeModal');
+            });
+
+            // 模板选择变化事件
+            $('#emailTemplate').on('change', function() {
+                const selectedValue = $(this).val();
+                if (selectedValue === 'custom') {
+                    $('#customTemplate').prop('disabled', false).show();
+                    // 清空邮件标题和图片预览
+                    $('#emailTitle').val('');
+                    $('#imagePreview').hide();
+                    // 隐藏模板详细信息
+                    $('#templateDetailsSection').hide();
+                } else {
+                    $('#customTemplate').prop('disabled', true).hide();
+
+                    // 如果选择了具体模板，自动填充邮件标题并显示模板详细信息
+                    if (selectedValue && selectedValue !== '') {
+                        const selectedOption = $(this).find('option:selected');
+                        const templateName = selectedOption.text();
+                        const templateYoujianbiaoti = selectedOption.data('youjianbiaoti');
+                        const templateContent = selectedOption.data('content') || '暂无内容';
+
+                        // 填充邮件标题
+                        if (templateYoujianbiaoti) {
+                            $('#emailTitle').val(templateYoujianbiaoti);
+                        }
+
+                        // 显示模板详细信息
+                        $('#templateDetailName').text(templateName);
+                        $('#templateDetailTitle').text(templateYoujianbiaoti || '无标题');
+                        $('#templateDetailContent').html(templateContent);
+
+                        // 为模板内容添加点击事件
+                        $('#templateDetailContent').off('click').on('click', function(e) {
+                            e.preventDefault();
+                            showContentModal(templateContent);
+                        });
+
+                        // 按需加载图片数据
+                        loadTemplateImage(templateName);
+
+                        // 显示模板详细信息区域
+                        $('#templateDetailsSection').show();
+                    } else {
+                        // 没有选择模板，隐藏详细信息
+                        $('#templateDetailsSection').hide();
+                    }
+                }
+            });
+
+            // 按需加载模板图片的函数
+            function loadTemplateImage(templateName) {
+                console.log('开始加载模板图片:', templateName);
+                // 先显示加载状态
+                $('#templateDetailImage').html('<span class="text-muted">加载中...</span>').show();
+
+                $.ajax({
+                    url: apiPath('/get_template_image'),
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        templateName: templateName
+                    }),
+                    xhrFields: {
+                        withCredentials: true  // 确保携带会话cookie
+                    },
+                    success: function(response) {
+                        console.log('API响应:', response);
+                        if (response.success && response.tupian) {
+                            // 检查是否为Base64数据
+                            let imageSrc = '';
+                            if (response.tupian.startsWith('data:image/')) {
+                                imageSrc = response.tupian;
+                            } else if (response.tupian.trim() !== '') {
+                                // 假设是文件路径
+                                imageSrc = '/static/uploads/' + response.tupian;
+                            }
+
+                            if (imageSrc) {
+                                const imgElement = `<img src="${imageSrc}" alt="模板图片" style="max-width: 200px; max-height: 150px; border-radius: 5px; cursor: pointer;" onclick="showImageModal('${imageSrc}')">`;
+                                $('#templateDetailImage').html(imgElement);
+                                console.log('图片显示成功');
+                            } else {
+                                $('#templateDetailImage').html('<span class="text-muted">无图片</span>');
+                                console.log('图片数据为空');
+                            }
+                        } else {
+                            $('#templateDetailImage').html('<span class="text-muted">无图片</span>');
+                            console.log('API返回无图片或失败:', response);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX请求失败:', xhr.status, xhr.responseText);
+                        // 如果是权限问题，显示更友好的错误信息
+                        if (xhr.status === 302 || xhr.responseText.includes('<!DOCTYPE html>')) {
+                            $('#templateDetailImage').html('<span class="text-muted">权限验证失败，请刷新页面重试</span>');
+                        } else {
+                            $('#templateDetailImage').html('<span class="text-muted">图片加载失败</span>');
+                        }
+                    }
+                });
+            }
+
+            // 加载当前用户的发件邮箱并填充下拉勾选UI
+            function loadSenderEmails() {
+                // 初始加载状态
+                $('#senderEmailsButton').prop('disabled', true);
+                $('#senderEmailsButtonText').text('加载中...');
+                $('#senderEmailsMenu').html('<li><span class="dropdown-item-text text-muted">加载中...</span></li>');
+                $('#selectedEmailsDisplay').hide();
+
+                $.ajax({
+                    url: apiPath('/get_sender_emails'),
+                    type: 'GET',
+                    success: function(res) {
+                        if (res.success) {
+                            const emails = res.emails || [];
+                            if (!emails.length) {
+                                $('#senderEmailsButtonText').text('无可用邮箱');
+                                $('#senderEmailsMenu').html('<li><span class="dropdown-item-text text-muted">未找到属于你的邮箱</span></li>');
+                                $('#senderEmailsButton').prop('disabled', true);
+                                return;
+                            }
+
+                            // 构建下拉勾选菜单
+                            const menu = $('#senderEmailsMenu');
+                            menu.empty();
+
+                            emails.forEach(function(email, index) {
+                                const li = $('<li></li>');
+                                const label = $('<label class="dropdown-item mb-0"></label>');
+                                const checkbox = $('<input type="checkbox" class="form-check-input me-2">')
+                                    .val(email)
+                                    .attr('id', 'senderEmail_' + index);
+
+                                // 默认选中第一个邮箱
+                                if (index === 0) {
+                                    checkbox.prop('checked', true);
+                                }
+
+                                label.append(checkbox).append(email);
+                                li.append(label);
+                                menu.append(li);
+
+                                // 绑定勾选事件
+                                checkbox.on('change', updateSelectedEmailsDisplay);
+                            });
+
+                            $('#senderEmailsButton').prop('disabled', false);
+                            updateSelectedEmailsDisplay();
+                        } else {
+                            $('#senderEmailsButtonText').text('加载失败');
+                            $('#senderEmailsMenu').html('<li><span class="dropdown-item-text text-danger">加载失败: ' + (res.message || '未知错误') + '</span></li>');
+                            $('#senderEmailsButton').prop('disabled', true);
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#senderEmailsButtonText').text('加载失败');
+                        $('#senderEmailsMenu').html('<li><span class="dropdown-item-text text-danger">加载失败: ' + xhr.statusText + '</span></li>');
+                        $('#senderEmailsButton').prop('disabled', true);
+                    }
+                });
+            }
+
+            // 更新已选择邮箱的显示
+            function updateSelectedEmailsDisplay() {
+                const selectedEmails = [];
+                $('#senderEmailsMenu input[type="checkbox"]:checked').each(function() {
+                    selectedEmails.push($(this).val());
+                });
+
+                const buttonText = $('#senderEmailsButtonText');
+                const display = $('#selectedEmailsDisplay');
+                const tagsContainer = $('#selectedEmailsTags');
+
+                if (selectedEmails.length === 0) {
+                    buttonText.text('请选择发件邮箱');
+                    display.hide();
+                } else {
+                    buttonText.text(`已选择 ${selectedEmails.length} 个邮箱`);
+                    display.show();
+
+                    // 显示选中的邮箱标签
+                    tagsContainer.empty();
+                    selectedEmails.forEach(function(email) {
+                        const tag = $('<span class="badge bg-primary me-1 mb-1"></span>').text(email);
+                        tagsContainer.append(tag);
+                    });
+                }
+            }
+
+            // 防止下拉菜单点击时关闭
+            $('#senderEmailsMenu').on('click', function(e) {
+                e.stopPropagation();
+            });
+
+            function isEnableYnField(fieldName) {
+                const raw = String(fieldName || '').trim();
+                const normalized = raw.replace(/\s+/g, '').toUpperCase();
+                return normalized === '是否启用'
+                    || normalized === '启用'
+                    || normalized.includes('是否启用')
+                    || normalized.includes('启用(Y/N)')
+                    || normalized.includes('Y/N');
+            }
+
+            function normalizeYnValue(value, fallbackValue) {
+                const normalized = String(value || '').trim().toUpperCase();
+                if (normalized === 'Y' || normalized === 'N') {
+                    return normalized;
+                }
+                return fallbackValue || 'Y';
+            }
+
+            function normalizeGroupValue(value) {
+                const raw = String(value || '').trim();
+                if (!raw) {
+                    return '';
+                }
+                const match = raw.match(/([1-4])/);
+                if (match) {
+                    return `${match[1]}组`;
+                }
+                return raw;
+            }
+
+            function getEmailAccountMeta() {
+                return window.emailAccountMeta || {};
+            }
+
+            function isAuthCodeField(fieldName) {
+                const raw = String(fieldName || '').trim().toLowerCase();
+                return raw.includes('授权码') || raw.includes('app密码') || raw.includes('smtp密码') || raw.includes('客户端密码');
+            }
+
+            function isPasswordField(fieldName) {
+                const raw = String(fieldName || '').trim().toLowerCase();
+                return (raw === '密码' || raw.includes('登录密码') || raw.includes('邮箱密码') || raw.includes('password') || raw.endsWith('pwd') || raw.includes('mima'))
+                    && !raw.includes('授权');
+            }
+
+            function appendEmailCredentialHint(container) {
+                if (!container || !container.length) return;
+                container.find('.email-credential-hint').remove();
+                const hasAuthField = container.find('[data-field]').toArray().some(function(el) {
+                    return isAuthCodeField($(el).attr('data-field'));
+                });
+                const hasPasswordField = container.find('[data-field]').toArray().some(function(el) {
+                    return isPasswordField($(el).attr('data-field'));
+                });
+                if (!hasAuthField && !hasPasswordField) {
+                    return;
+                }
+                const hint = $(
+                    '<div class="col-12 email-credential-hint">' +
+                    '  <div class="alert alert-warning py-2 px-3 mb-0">' +
+                    '    <small><i class="fas fa-key"></i> 授权码/密码保存前会自动校验。QQ或企业邮箱请优先填写授权码，校验失败将不会保存。</small>' +
+                    '  </div>' +
+                    '</div>'
+                );
+                container.append(hint);
+            }
+
+            function toggleEmailAccountSavingState(button, saving, savingText, defaultHtml) {
+                const btn = $(button);
+                if (!btn.length) return;
+                if (saving) {
+                    if (!btn.data('origin-html')) {
+                        btn.data('origin-html', btn.html());
+                    }
+                    btn.prop('disabled', true).html(savingText || '正在校验...');
+                    return;
+                }
+                btn.prop('disabled', false).html(defaultHtml || btn.data('origin-html') || btn.html());
+                btn.removeData('origin-html');
+            }
+
+            function isGroupField(fieldName) {
+                const meta = getEmailAccountMeta();
+                return String(meta.group_field || '') === String(fieldName || '');
+            }
+
+            function isLeaderField(fieldName) {
+                const meta = getEmailAccountMeta();
+                return String(meta.leader_field || '') === String(fieldName || '');
+            }
+
+            function applyGroupLeaderToScope(scope) {
+                const meta = getEmailAccountMeta();
+                const groupField = meta.group_field;
+                const leaderField = meta.leader_field;
+                const leaderMap = meta.leader_map || {};
+                if (!scope || !groupField || !leaderField) {
+                    return;
+                }
+                const groupControl = scope.find(`[data-field="${groupField}"]`);
+                const leaderControl = scope.find(`[data-field="${leaderField}"]`);
+                if (!groupControl.length || !leaderControl.length) {
+                    return;
+                }
+                const normalizedGroup = normalizeGroupValue(groupControl.val());
+                const leaderName = leaderMap[normalizedGroup] || '';
+                if (normalizedGroup && groupControl.val() !== normalizedGroup) {
+                    groupControl.val(normalizedGroup);
+                }
+                leaderControl.val(leaderName);
+            }
+
+            function bindGroupLeaderLink(scope) {
+                const meta = getEmailAccountMeta();
+                if (!scope || !meta.group_field || !meta.leader_field) {
+                    return;
+                }
+                const selector = `[data-field="${meta.group_field}"]`;
+                scope.off('change.emailGroupLeader', selector).on('change.emailGroupLeader', selector, function() {
+                    applyGroupLeaderToScope(scope);
+                });
+                applyGroupLeaderToScope(scope);
+            }
+
+            function buildEmailAccountFieldControl(fieldName, value, options) {
+                const opts = options || {};
+                const disabled = !!opts.disabled;
+                const placeholder = opts.placeholder || '';
+                const fallbackYnValue = opts.fallbackYnValue || 'Y';
+                const meta = getEmailAccountMeta();
+
+                if (isEnableYnField(fieldName)) {
+                    const select = $('<select class="form-select"></select>')
+                        .attr('data-field', fieldName)
+                        .append('<option value="Y">Y</option>')
+                        .append('<option value="N">N</option>')
+                        .val(normalizeYnValue(value, fallbackYnValue));
+                    if (disabled) {
+                        select.prop('disabled', true).addClass('bg-light text-muted');
+                    }
+                    return select;
+                }
+
+                if (isGroupField(fieldName)) {
+                    const select = $('<select class="form-select"></select>')
+                        .attr('data-field', fieldName);
+                    select.append('<option value="">请选择小组</option>');
+                    (meta.group_options || ['1组', '2组', '3组', '4组']).forEach(function(groupName) {
+                        select.append($('<option></option>').val(groupName).text(groupName));
+                    });
+                    select.val(normalizeGroupValue(value));
+                    if (disabled) {
+                        select.prop('disabled', true).addClass('bg-light text-muted');
+                    }
+                    return select;
+                }
+
+                if (isLeaderField(fieldName)) {
+                    const input = $('<input type="text" class="form-control bg-light">')
+                        .attr('data-field', fieldName)
+                        .attr('readonly', true)
+                        .val(value || '');
+                    if (disabled) {
+                        input.prop('disabled', true).addClass('text-muted');
+                    }
+                    return input;
+                }
+
+                const input = $('<input type="text" class="form-control">')
+                    .attr('data-field', fieldName)
+                    .val(value || '');
+                if (placeholder) {
+                    input.attr('placeholder', placeholder);
+                }
+                if (disabled) {
+                    input.prop('disabled', true).addClass('bg-light text-muted');
+                }
+                return input;
+            }
+
+            // 获取并展示、保存邮箱账户信息（默认列表展示，选择后在模态中编辑）
+            function loadMyEmailAccounts(targetSelector, saveButtonSelector) {
+                const container = $(targetSelector || '#emailAccountsContainer');
+                const saveBtn = $(saveButtonSelector || '#saveEmailAccounts');
+                container.html('<div class="text-muted">加载中...</div>');
+                $.ajax({
+                    url: apiPath('/get_my_email_accounts'),
+                    type: 'GET',
+                    success: function(res) {
+                        if (res.success) {
+                            window.myEmailAccountsCache = res; // 缓存以便打开模态时快速渲染
+                            window.emailAccountMeta = res;
+                            const editable = res.editable !== false;
+                            const message = res.message || '';
+                            const records = res.records || [];
+                            const emailCols = res.email_cols || [];
+
+                            // 列表视图（仅主容器）
+                            if ((!targetSelector || targetSelector === '#emailAccountsContainer') && records.length > 0) {
+                                const list = $('<div class="list-group"></div>');
+                                records.forEach(function(rec) {
+                                    let emailDisplay = '';
+                                    // 优先用后端识别的邮箱列
+                                    if (emailCols && emailCols.length > 0) {
+                                        for (let i = 0; i < emailCols.length; i++) {
+                                            const col = emailCols[i];
+                                            const f = (rec.fields || []).find(ff => ff.name === col);
+                                            if (f && f.value && f.value.indexOf('@') >= 0) { emailDisplay = f.value; break; }
+                                        }
+                                    }
+                                    // 回退：找任何包含@的字段
+                                    if (!emailDisplay) {
+                                        const f2 = (rec.fields || []).find(ff => typeof ff.value === 'string' && ff.value.indexOf('@') >= 0);
+                                        emailDisplay = f2 ? f2.value : '';
+                                    }
+                                    const item = $('<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center account-item"></button>');
+                                    item.attr('data-id', rec.id);
+                                    item.append($('<span></span>').text(emailDisplay || '未识别邮箱'));
+                                    item.append($('<span class="badge bg-primary"></span>').text('编辑'));
+                                    list.append(item);
+                                });
+                                container.empty().append('<div class="mb-2 text-muted">点击一条记录打开模态框进行修改</div>').append(list);
+                                saveBtn.hide();
+                                // 绑定列表项点击打开模态
+                                container.off('click', '.account-item').on('click', '.account-item', function(){
+                                    const rid = $(this).data('id');
+                                    openEmailAccountModal(rid);
+                                });
+                                return;
+                            }
+
+                            // 兼容：如果没有多条记录或在模态中渲染，使用表单视图
+                            if ((!targetSelector || targetSelector === '#emailAccountsContainer') && records.length === 0) {
+                                container.html('<div class="text-muted">当前还没有发件箱记录，可以直接点击下方“新增发件箱”添加。</div>');
+                                saveBtn.hide();
+                                return;
+                            }
+
+                            const fields = res.fields || [];
+                            if (!fields.length) {
+                                container.html('<div class="text-muted">暂无字段或无权限</div>');
+                                if (message) { container.append('<div class="text-muted">' + message + '</div>'); }
+                                saveBtn.toggle(editable);
+                                if (window.autoOpenAddModalOnce) {
+                                    window.autoOpenAddModalOnce = false;
+                                    $('#currentUserName').text('{{ session.get("user_name", "未知用户") }}');
+                                    showBsModal('addEmailAccountModal');
+                                }
+                                return;
+                            }
+                            const row = $('<div class="row"></div>');
+                            fields.forEach(function(f) {
+                                const col = $('<div class="col-md-6 mb-3"></div>');
+                                const label = $('<label class="form-label"></label>').text(f.name);
+                                const fieldControl = buildEmailAccountFieldControl(f.name, f.value || '', {
+                                    disabled: (f.name === 'ID' || f.name === '姓名') || !editable
+                                });
+                                col.append(label).append(fieldControl);
+                                row.append(col);
+                            });
+                            container.empty().append(row);
+                            appendEmailCredentialHint(container);
+                            bindGroupLeaderLink(container);
+                            if (message) { container.append('<div class="text-muted">' + message + '</div>'); }
+                            saveBtn.toggle(editable);
+                        } else {
+                            container.html('<div class="text-danger">加载失败: ' + (res.message || '未知错误') + '</div>');
+                            saveBtn.hide();
+                        }
+                    },
+                    error: function(xhr) {
+                        container.html('<div class="text-danger">加载失败: ' + xhr.statusText + '</div>');
+                    }
+                });
+            }
+
+            function saveMyEmailAccounts(targetSelector) {
+                const scope = $(targetSelector || '#emailAccountsContainer');
+                const updates = {};
+                scope.find('[data-field]').each(function(){
+                    const k = $(this).attr('data-field');
+                    const v = $(this).val();
+                    updates[k] = v;
+                });
+                const recordId = scope.attr('data-record-id');
+                const payload = recordId ? { updates_by_id: [{ id: recordId, updates }] } : { updates };
+                const saveButton = targetSelector === '#emailAccountsContainerModal' ? '#modalSaveEmailAccounts' : '#saveEmailAccounts';
+                toggleEmailAccountSavingState(saveButton, true, '<i class="fas fa-spinner fa-spin"></i> 正在校验授权码/密码...');
+                $.ajax({
+                    url: apiPath('/update_my_email_accounts'),
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(payload),
+                    success: function(res) {
+                        toggleEmailAccountSavingState(saveButton, false);
+                        if (res.success) {
+                            alert('保存成功');
+                            if (recordId) { hideBsModal('emailAccountsManageModal'); }
+                            // 重新加载列表与发件邮箱选择
+                            loadMyEmailAccounts('#emailAccountsContainer');
+                            loadSenderEmails();
+                        } else {
+                            alert('保存失败: ' + (res.message || '未知错误'));
+                        }
+                    },
+                    error: function(xhr) {
+                        toggleEmailAccountSavingState(saveButton, false);
+                        alert('保存失败: ' + xhr.statusText);
+                    }
+                });
+            }
+
+            // 选择列表项后打开模态并渲染该记录字段
+            function openEmailAccountModal(recordId) {
+                // 确保模态结构存在
+                if (!$('#emailAccountsManageModal').length) {
+                    const modalHtml = `
+                    <div class="modal fade" id="emailAccountsManageModal" tabindex="-1" aria-labelledby="emailAccountsManageModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="emailAccountsManageModalLabel">邮箱账户管理</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="emailAccountsContainerModal"><div class="text-muted">加载中...</div></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button id="modalSaveEmailAccounts" type="button" class="btn btn-primary"><i class="fas fa-save"></i> 保存更改</button>
+                                    <button id="modalAddEmailAccount" type="button" class="btn btn-success"><i class="fas fa-plus"></i> 新增邮箱账户</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                    $('body').append(modalHtml);
+                }
+
+                const modalContainer = $('#emailAccountsContainerModal');
+                modalContainer.attr('data-record-id', recordId);
+                modalContainer.html('<div class="text-muted">加载中...</div>');
+
+                function renderForRecord(rec) {
+                    const fields = rec.fields || [];
+                    const editable = (window.myEmailAccountsCache && window.myEmailAccountsCache.editable !== false);
+                    const row = $('<div class="row"></div>');
+                    fields.forEach(function(f) {
+                        const col = $('<div class="col-md-6 mb-3"></div>');
+                        const label = $('<label class="form-label"></label>').text(f.name);
+                        const fieldControl = buildEmailAccountFieldControl(f.name, f.value || '', {
+                            disabled: (f.name === 'ID' || f.name === '姓名') || !editable
+                        });
+                        col.append(label).append(fieldControl);
+                        row.append(col);
+                    });
+                    modalContainer.empty().append(row);
+                    appendEmailCredentialHint(modalContainer);
+                    bindGroupLeaderLink(modalContainer);
+                    showBsModal('emailAccountsManageModal');
+                }
+
+                const cache = window.myEmailAccountsCache;
+                let rec = null;
+                if (cache && Array.isArray(cache.records)) {
+                    rec = cache.records.find(r => String(r.id) === String(recordId));
+                }
+                if (rec) {
+                    renderForRecord(rec);
+                } else {
+                    $.ajax({
+                        url: apiPath('/get_my_email_accounts'),
+                        type: 'GET',
+                        success: function(res) {
+                            if (res.success && Array.isArray(res.records)) {
+                                window.myEmailAccountsCache = res;
+                                const found = res.records.find(r => String(r.id) === String(recordId));
+                                if (found) { renderForRecord(found); }
+                                else { modalContainer.html('<div class="text-danger">未找到记录</div>'); }
+                            } else {
+                                modalContainer.html('<div class="text-danger">加载失败: ' + (res.message || '未知错误') + '</div>');
+                            }
+                        },
+                        error: function(xhr) {
+                            modalContainer.html('<div class="text-danger">加载失败: ' + xhr.statusText + '</div>');
+                        }
+                    });
+                }
+
+                // 绑定模态按钮（委托避免重复绑定）
+                $(document).off('click', '#modalSaveEmailAccounts').on('click', '#modalSaveEmailAccounts', function(){
+                    saveMyEmailAccounts('#emailAccountsContainerModal');
+                });
+                $(document).off('click', '#modalAddEmailAccount').on('click', '#modalAddEmailAccount', function(){
+                    hideBsModal('emailAccountsManageModal');
+                    $('#currentUserName').text('{{ session.get("user_name", "未知用户") }}');
+                    showBsModal('addEmailAccountModal');
+                });
+            }
+
+            // 新增邮箱账户相关函数
+            function loadAddEmailAccountForm() {
+                const container = $('#addEmailAccountForm');
+                container.html('<div class="text-muted">加载中...</div>');
+
+                // 获取可用的邮箱字段
+                $.ajax({
+                    url: apiPath('/get_my_email_accounts'),
+                    type: 'GET',
+                    success: function(res) {
+                        if (res.success) {
+                            window.emailAccountMeta = res;
+                            const fields = res.fields || [];
+                            if (!fields.length) {
+                                container.html('<div class="text-danger">未识别到邮箱字段，请联系管理员维护表结构</div>');
+                                $('#saveNewEmailAccount').prop('disabled', true);
+                                return;
+                            }
+
+                            const row = $('<div class="row"></div>');
+                            fields.forEach(function(f) {
+                                const col = $('<div class="col-md-6 mb-3"></div>');
+                                const label = $('<label class="form-label"></label>').text(f.name);
+                                const fieldControl = buildEmailAccountFieldControl(f.name, '', {
+                                    disabled: f.name === 'ID',
+                                    placeholder: f.name === 'ID' ? '自动生成' : ('请输入' + f.name),
+                                    fallbackYnValue: 'Y'
+                                });
+                                col.append(label).append(fieldControl);
+                                row.append(col);
+                            });
+                            container.empty().append(row);
+                            // 默认将“姓名”预填为当前飞书用户名（仍可修改）
+                            const feishuUserName = '{{ session.get("feishu_user_name", "未知用户") }}';
+                            const nameInput = container.find('[data-field="姓名"]');
+                            if (nameInput.length && !nameInput.val()) {
+                                nameInput.val(feishuUserName);
+                            }
+                            bindGroupLeaderLink(container);
+                            appendEmailCredentialHint(container);
+                            $('#saveNewEmailAccount').prop('disabled', false);
+                        } else {
+                            container.html('<div class="text-danger">加载失败: ' + (res.message || '未知错误') + '</div>');
+                            $('#saveNewEmailAccount').prop('disabled', true);
+                        }
+                    },
+                    error: function(xhr) {
+                        container.html('<div class="text-danger">加载失败: ' + xhr.statusText + '</div>');
+                        $('#saveNewEmailAccount').prop('disabled', true);
+                    }
+                });
+            }
+
+            function saveNewEmailAccount() {
+                const email_data = {};
+                $('#addEmailAccountForm [data-field]').each(function(){
+                    const k = $(this).attr('data-field');
+                    const v = $(this).val().trim();
+                    if (v) { // 只保存非空值
+                        email_data[k] = v;
+                    }
+                });
+
+                if (Object.keys(email_data).length === 0) {
+                    alert('请至少填写一个邮箱字段');
+                    return;
+                }
+
+                toggleEmailAccountSavingState('#saveNewEmailAccount', true, '<i class="fas fa-spinner fa-spin"></i> 正在校验授权码/密码...');
+                $.ajax({
+                    url: apiPath('/add_my_email_account'),
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ email_data }),
+                    success: function(res) {
+                        toggleEmailAccountSavingState('#saveNewEmailAccount', false);
+                        if (res.success) {
+                            alert('新增成功');
+                            hideBsModal('addEmailAccountModal');
+                            loadMyEmailAccounts(); // 刷新账户管理区域
+                            loadSenderEmails(); // 刷新发件邮箱选择
+                        } else {
+                            alert('新增失败: ' + (res.message || '未知错误'));
+                        }
+                    },
+                    error: function(xhr) {
+                        toggleEmailAccountSavingState('#saveNewEmailAccount', false);
+                        alert('新增失败: ' + xhr.statusText);
+                    }
+                });
+            }
+
+            // 新增邮箱账户按钮点击事件
+            $('#addEmailAccount').on('click', function() {
+                // 设置当前用户名
+                hideBsModal('emailAccountsManageModal');
+                $('#currentUserName').text('{{ session.get("user_name", "未知用户") }}');
+                showBsModal('addEmailAccountModal');
+            });
+
+            // 新增邮箱账户模态框显示事件
+            $('#addEmailAccountModal').on('show.bs.modal', function() {
+                loadAddEmailAccountForm();
+            });
+
+            // 保存新邮箱账户按钮点击事件
+            $('#saveNewEmailAccount').on('click', function() {
+                saveNewEmailAccount();
+            });
+
+            // 模板管理模态框显示事件
+            $('#templateManageModal').on('show.bs.modal', function() {
+                loadTemplateManageList();
+            });
+
+            // 新增模板按钮点击事件
+            $('#addNewTemplateBtn').on('click', function() {
+                // 关闭邮箱账户管理模态，避免遮挡新增模板
+                hideBsModal('emailAccountsManageModal');
+                $('#addTemplateForm').show();
+                initTemplateRichEditors();
+            });
+
+            // 取消添加模板按钮点击事件
+            $('#cancelAddTemplate').on('click', function() {
+                $('#newTemplateName').val('');
+                setTemplateRichContent('newTemplateContent', '');
+                $('#addTemplateForm').hide();
+            });
+
+            // 保存新模板按钮点击事件
+            $('#saveNewTemplate').on('click', function() {
+                const templateName = $('#newTemplateName').val().trim();
+                const templateTitle = $('#newTemplateTitle').val().trim();
+                const templateContent = getTemplateRichContent('newTemplateContent');
+                const imageFile = $('#newTemplateImage')[0].files[0];
+
+                if (!templateName) {
+                    alert('请输入模板名称');
+                    return;
+                }
+
+                if (!templateContent || templateContent.trim() === '') {
+                    alert('请输入模板内容');
+                    return;
+                }
+
+                // 如果有图片，先上传图片
+                if (imageFile) {
+                    uploadEmailImage(imageFile, function(imagePath) {
+                        addNewEmailTemplate(templateName, templateContent, templateTitle, imagePath);
+                    });
+                } else {
+                    addNewEmailTemplate(templateName, templateContent, templateTitle, '');
+                }
+            });
+
+            // 模板管理按钮点击事件
+            $('#btnManageTemplates').on('click', function() {
+                // 关闭邮箱账户管理模态，避免遮挡模板管理
+                hideBsModal('emailAccountsManageModal');
+                showBsModal('templateManageModal');
+            });
+        });
+
+        // 加载邮件数据
+        function loadEmailData(page) {
+            currentPage = page;
+            $.ajax({
+                url: apiPath('/get_email_data'),
+                type: 'GET',
+                data: { page: page, page_size: currentPageSize },
+                success: function(response) {
+                    if (response.success) {
+                        renderEmailTable(response.data);
+                        renderPagination(response.pagination);
+                    } else {
+                        alert('加载数据失败: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('请求失败: ' + xhr.statusText);
+                }
+            });
+        }
+
+        // 渲染邮件表格
+        function renderEmailTable(data) {
+            const tableBody = $('#emailTableBody');
+            tableBody.empty();
+
+            if (data.length === 0) {
+                tableBody.append('<tr><td colspan="7" class="text-center">暂无数据</td></tr>');
+                return;
+            }
+
+            data.forEach(function(item) {
+                const isSelected = selectedIds.includes(item.ID.toString());
+                const row = $('<tr></tr>');
+                row.append(`
+                    <td>
+                        <div class="form-check">
+                            <input class="form-check-input email-checkbox" type="checkbox" value="${item.ID}" ${isSelected ? 'checked' : ''}>
+                        </div>
+                    </td>
+                    <td title="${item.YouXiang}">${item.YouXiang}</td>
+                    <td title="${item.XingMing}">${item.XingMing}</td>
+                    <td title="${item.ShenQingRen}">${item.ShenQingRen}</td>
+                    <td title="${item.ShenQingShiJian}">${item.ShenQingShiJian}</td>
+                    <td title="${item.FaSongShiJian || '-'}">${item.FaSongShiJian || '-'}</td>
+                    <td title="${item.ZhiDingShiJian || '-'}">${item.ZhiDingShiJian || '-'}</td>
+                `);
+                tableBody.append(row);
+            });
+
+            // 为新添加的复选框绑定变化事件
+            $('.email-checkbox').off('change').on('change', function() {
+                updateSelectedIdsFromPage();
+            });
+
+            // 更新全选复选框状态
+            updateSelectAllCheckbox();
+        }
+
+        // 渲染分页
+        function renderPagination(pagination) {
+            const paginationElement = $('#pagination');
+            paginationElement.empty();
+            totalPages = pagination.total_pages;
+
+            // 上一页按钮
+            paginationElement.append(`
+                <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+                    <a class="page-link" style="cursor: pointer;" onclick="loadEmailData(${currentPage - 1})" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            `);
+
+            // 页码按钮
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, startPage + 4);
+
+            for (let i = startPage; i <= endPage; i++) {
+                paginationElement.append(`
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" style="cursor: pointer;" onclick="loadEmailData(${i})">${i}</a>
+                    </li>
+                `);
+            }
+
+            // 下一页按钮
+            paginationElement.append(`
+                <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+                    <a class="page-link" style="cursor: pointer;" onclick="loadEmailData(${currentPage + 1})" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            `);
+        }
+
+        // 更新选中的ID列表（仅基于当前页面）
+        function updateSelectedIdsFromPage() {
+            // 先移除当前页面的所有ID
+            const currentPageIds = [];
+            $('.email-checkbox').each(function() {
+                currentPageIds.push($(this).val());
+            });
+
+            // 从selectedIds中移除当前页面的ID
+            selectedIds = selectedIds.filter(id => !currentPageIds.includes(id));
+
+            // 添加当前页面选中的ID
+            $('.email-checkbox:checked').each(function() {
+                selectedIds.push($(this).val());
+            });
+
+            // 更新按钮状态和计数
+            updateButtonsAndCount();
+
+            // 更新全选复选框状态
+            updateSelectAllCheckbox();
+        }
+
+        // 更新选中的ID列表（完全重置）
+        function updateSelectedIds() {
+            selectedIds = [];
+            $('.email-checkbox:checked').each(function() {
+                selectedIds.push($(this).val());
+            });
+
+            updateButtonsAndCount();
+        }
+
+        // 更新按钮状态和计数显示
+        function updateButtonsAndCount() {
+            // 更新按钮状态
+            $('#btnSetSendTime, #btnSetSpecifiedTime').prop('disabled', selectedIds.length === 0);
+
+            // 更新选择计数显示
+            $('#selectedCount').text(`已选择: ${selectedIds.length} 项`);
+        }
+
+        // 更新全选复选框状态
+        function updateSelectAllCheckbox() {
+            const totalCurrentPageCheckboxes = $('.email-checkbox').length;
+            const checkedCurrentPageCheckboxes = $('.email-checkbox:checked').length;
+            $('#selectAll').prop('checked', checkedCurrentPageCheckboxes === totalCurrentPageCheckboxes && totalCurrentPageCheckboxes > 0);
+        }
+
+        // 按日期选择邮件（支持跨页面）
+        function selectEmailsByDate(selectedDate) {
+            // 调用后端接口获取指定日期的所有邮件ID
+            $.ajax({
+                url: apiPath('/get_emails_by_date'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    date: selectedDate
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        // 清空当前选择
+                        $('.email-checkbox').prop('checked', false);
+
+                        // 将获取到的ID列表设置为选中状态
+                        selectedIds = response.email_ids;
+
+                        // 选中当前页面中存在的邮件
+                        let currentPageSelectedCount = 0;
+                        $('.email-checkbox').each(function() {
+                            const emailId = $(this).val();
+                            if (selectedIds.includes(emailId)) {
+                                $(this).prop('checked', true);
+                                currentPageSelectedCount++;
+                            }
+                        });
+
+                        // 更新全选复选框状态（如果当前页所有邮件都被选中）
+                        const totalCurrentPageCheckboxes = $('.email-checkbox').length;
+                        const checkedCurrentPageCheckboxes = $('.email-checkbox:checked').length;
+                        $('#selectAll').prop('checked', checkedCurrentPageCheckboxes === totalCurrentPageCheckboxes && totalCurrentPageCheckboxes > 0);
+
+                        // 更新按钮状态和选择计数
+                        $('#btnSetSendTime, #btnSetSpecifiedTime').prop('disabled', selectedIds.length === 0);
+                        $('#selectedCount').text(`已选择: ${selectedIds.length} 项`);
+
+                        if (response.count > 0) {
+                            alert(`已选择 ${response.count} 个 ${selectedDate} 的邮件记录（跨所有页面）`);
+                        } else {
+                            alert(`未找到 ${selectedDate} 的邮件记录`);
+                        }
+                    } else {
+                        alert('获取邮件数据失败: ' + response.message);
+                    }
+                },
+                error: function() {
+                    alert('网络错误，请重试');
+                }
+            });
+        }
+
+        // 登记邮件
+        function registerEmail() {
+            const youxiang = $('#youxiang').val();
+            const xingming = $('#xingming').val();
+            const shenQingRen = $('#shenQingRen').val();
+
+            // 重置验证状态
+            $('#shenQingRen').removeClass('is-invalid');
+            $('#shenQingRenFeedback').text('');
+
+            // 验证申请人
+            if (!shenQingRen) {
+                $('#shenQingRen').addClass('is-invalid');
+                $('#shenQingRenFeedback').text('请输入申请人姓名');
+                return;
+            }
+
+            $.ajax({
+                url: apiPath('/add_email_register'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    YouXiang: youxiang,
+                    XingMing: xingming,
+                    ShenQingRen: shenQingRen
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        alert('邮件登记成功');
+                        // 清空表单但保留申请人
+                        $('#youxiang').val('');
+                        $('#xingming').val('');
+                        loadEmailData(1); // 重新加载第一页数据
+                    } else {
+                        if (response.field === 'ShenQingRen') {
+                            $('#shenQingRen').addClass('is-invalid');
+                            $('#shenQingRenFeedback').text(response.message);
+                        }
+                        alert('邮件登记失败: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('请求失败: ' + xhr.statusText);
+                }
+            });
+        }
+
+        // 批量导入邮箱
+        function batchImportEmails() {
+            const fileInput = $('#importFile')[0];
+            const batchShenQingRen = $('#batchShenQingRen').val();
+
+            // 获取选中的发件邮箱
+            const selectedSenderEmails = [];
+            $('#senderEmailsMenu input[type="checkbox"]:checked').each(function() {
+                selectedSenderEmails.push($(this).val());
+            });
+
+            // 重置验证状态
+            $('#batchShenQingRen').removeClass('is-invalid');
+            $('#batchShenQingRenFeedback').text('');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('请选择要导入的文件');
+                return;
+            }
+
+            // 验证申请人
+            if (!batchShenQingRen) {
+                $('#batchShenQingRen').addClass('is-invalid');
+                $('#batchShenQingRenFeedback').text('请输入申请人姓名');
+                return;
+            }
+
+            // 验证发件邮箱选择
+            if (selectedSenderEmails.length === 0) {
+                alert('请至少选择一个发件邮箱');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('shenQingRen', batchShenQingRen);
+
+            // 使用第一个选中的邮箱作为默认邮箱，其余作为额外邮箱
+            formData.append('default_sender_email', selectedSenderEmails[0]);
+            for (let i = 1; i < selectedSenderEmails.length; i++) {
+                formData.append('extra_sender_emails[]', selectedSenderEmails[i]);
+            }
+
+            $.ajax({
+                url: apiPath('/batch_import_emails'),
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        // 清空文件选择但保留选项
+                        $('#importFile').val('');
+                        loadEmailData(1); // 重新加载第一页数据
+                    } else {
+                        if (response.field === 'ShenQingRen') {
+                            $('#batchShenQingRen').addClass('is-invalid');
+                            $('#batchShenQingRenFeedback').text(response.message);
+                        }
+                        alert('导入失败: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('请求失败: ' + xhr.statusText);
+                }
+            });
+        }
+
+        // 更新邮件发送时间
+        function updateEmailSendTime() {
+            $.ajax({
+                url: apiPath('/update_email_send_time'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    ids: selectedIds
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        loadEmailData(currentPage); // 重新加载当前页数据
+                    } else {
+                        alert('更新失败: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('请求失败: ' + xhr.statusText);
+                }
+            });
+        }
+
+        // 加载邮件模板
+        function loadEmailTemplates() {
+            $.ajax({
+                url: apiPath('/get_email_templates'),
+                type: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        const templates = response.templates;
+                        const templateSelect = $('#emailTemplate');
+                        templateSelect.empty();
+                        templateSelect.append('<option value="">请选择模板</option>');
+
+                        // 添加模板选项，只包含邮件标题和模板内容（移除图片数据处理）
+                        templates.forEach(function(template) {
+                            const option = $(`<option value="${template.id}">${template.name}</option>`);
+                            option.data('youjianbiaoti', template.youjianbiaoti || '');
+                            option.data('content', template.content || '');
+                            templateSelect.append(option);
+                        });
+
+                        // 添加自定义模板选项
+                        templateSelect.append('<option value="custom">自定义模板</option>');
+
+                        // 默认隐藏自定义模板输入框
+                        $('#customTemplate').hide();
+                    } else {
+                        console.error('获取模板失败:', response.message);
+                    }
+                },
+                error: function() {
+                    console.error('获取模板请求失败');
+                }
+            });
+        }
+
+        // 加载模板管理列表
+        function loadTemplateManageList() {
+            console.log('开始加载模板管理列表...');
+            $.ajax({
+                url: apiPath('/get_email_templates'),
+                type: 'GET',
+                success: function(response) {
+                    console.log('API响应:', response);
+                    if (response.success) {
+                        const templates = response.templates;
+                        const tableBody = $('#templateTableBody');
+                        tableBody.empty();
+
+                        console.log(`找到 ${templates.length} 个模板`);
+
+                        if (templates.length === 0) {
+                            const emptyRow = $('<tr><td colspan="5" class="text-center text-muted">暂无模板数据</td></tr>');
+                            tableBody.append(emptyRow);
+                            return;
+                        }
+
+                        templates.forEach(function(template) {
+                                const row = $('<tr></tr>');
+                                row.append(`<td>${template.id}</td>`);
+                                row.append(`<td>${template.name}</td>`);
+
+                                // 添加邮件标题列
+                                row.append(`<td>${template.youjianbiaoti || '无'}</td>`);
+
+                                // 移除邮件图片列显示 - 为了提高加载速度，不再显示图片
+
+                                // 创建模板内容单元格，使用data属性存储原始数据（移除图片数据处理）
+                                const contentCell = $('<td></td>');
+                                const contentDiv = $('<div class="template-content"></div>')
+                                    .html(template.content)
+                                    .attr('data-name', template.name)
+                                    .attr('data-content', template.content)
+                                    .attr('data-youjianbiaoti', template.youjianbiaoti || '')
+                                    .on('click', function(e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const name = $(this).attr('data-name');
+                                        const content = $(this).attr('data-content');
+                                        const youjianbiaoti = $(this).attr('data-youjianbiaoti');
+                                        showTemplateContentModal(name, content, youjianbiaoti);
+                                    });
+                                contentCell.append(contentDiv);
+                                row.append(contentCell);
+
+                                // 添加修改按钮
+                                const actionCell = $('<td class="template-actions-cell"></td>');
+                                const btnGroup = $('<div class="template-actions"></div>');
+                                const isDefaultTemplate = String(template.name || '').trim() === '默认模板';
+                                if (isDefaultTemplate) {
+                                    btnGroup.append('<span class="text-muted">默认模板不可修改/删除</span>');
+                                } else {
+                                    const editBtn = $('<button type="button" class="btn btn-sm btn-primary template-action-btn"></button>')
+                                        .html('<i class="bi bi-pencil"></i> 修改')
+                                        .attr('data-id', template.id)
+                                        .attr('data-name', template.name)
+                                        .attr('data-content', template.content)
+                                        .attr('data-youjianbiaoti', template.youjianbiaoti || '')
+                                        .on('click', function() {
+                                            const id = $(this).attr('data-id');
+                                            const name = $(this).attr('data-name');
+                                            const content = $(this).attr('data-content');
+                                            const youjianbiaoti = $(this).attr('data-youjianbiaoti');
+                                            const tupian = $(this).attr('data-tupian');
+                                            editTemplate(id, name, content, youjianbiaoti);
+                                        });
+
+                                    const deleteBtn = $('<button type="button" class="btn btn-sm btn-danger template-action-btn"></button>')
+                                        .html('<i class="bi bi-trash"></i> 删除')
+                                        .attr('data-id', template.id)
+                                        .attr('data-name', template.name)
+                                        .on('click', function() {
+                                            const id = $(this).attr('data-id');
+                                            const name = $(this).attr('data-name');
+                                            deleteEmailTemplate(id, name);
+                                        });
+                                    btnGroup.append(editBtn);
+                                    btnGroup.append(deleteBtn);
+                                }
+                                actionCell.append(btnGroup);
+
+                                row.append(actionCell);
+
+                                tableBody.append(row);
+                            });
+
+                        // 限制模板内容显示高度并保持HTML格式，添加点击样式
+                        $('.template-content').css({
+                            'max-height': '100px',
+                            'overflow-y': 'auto',
+                            'word-wrap': 'break-word',
+                            'font-size': '12px',
+                            'line-height': '1.4',
+                            'margin': '0',
+                            'padding': '8px',
+                            'background-color': '#f8f9fa',
+                            'border': '1px solid #dee2e6',
+                            'border-radius': '4px',
+                            'cursor': 'pointer'
+                        }).hover(function() {
+                            $(this).css('background-color', '#e9ecef');
+                        }, function() {
+                            $(this).css('background-color', '#f8f9fa');
+                        });
+
+                    } else {
+                        console.error('获取模板失败:', response.message);
+                        const tableBody = $('#templateTableBody');
+                        tableBody.empty();
+                        const errorRow = $('<tr><td colspan="5" class="text-center text-danger">加载模板失败: ' + (response.message || '未知错误') + '</td></tr>');
+                        tableBody.append(errorRow);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('获取模板请求失败:', error);
+                    const tableBody = $('#templateTableBody');
+                    tableBody.empty();
+                    const errorRow = $('<tr><td colspan="5" class="text-center text-danger">网络请求失败，请检查网络连接</td></tr>');
+                    tableBody.append(errorRow);
+                }
+            });
+        }
+
+        function deleteEmailTemplate(templateId, templateName) {
+            if (!templateId) return;
+            if (String(templateName || '').trim() === '默认模板') {
+                alert('默认模板不可删除');
+                return;
+            }
+            const ok = confirm(`确定要删除模板「${templateName || templateId}」吗？删除后不可恢复。`);
+            if (!ok) return;
+            $.ajax({
+                url: apiPath('/delete_email_template'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ id: templateId }),
+                success: function(response) {
+                    if (response && response.success) {
+                        alert(response.message || '删除成功');
+                        loadTemplateManageList();
+                        loadEmailTemplates();
+                    } else {
+                        alert((response && response.message) ? response.message : '删除失败');
+                    }
+                },
+                error: function(xhr) {
+                    alert('删除失败: ' + xhr.statusText);
+                }
+            });
+        }
+
+        // 添加新模板
+        function addNewEmailTemplate(templateName, templateContent, youjianbiaoti, tupian) {
+            $.ajax({
+                url: apiPath('/add_email_template'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    mobanMing: templateName,
+                    moban: templateContent,
+                    youjianbiaoti: youjianbiaoti || '',
+                    tupian: tupian || ''
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        $('#newTemplateName').val('');
+                        $('#newTemplateTitle').val('');
+                        $('#newTemplateImage').val('');
+                        setTemplateRichContent('newTemplateContent', '');
+                        $('#addTemplateForm').hide();
+                        loadTemplateManageList();
+                        loadEmailTemplates(); // 刷新下拉选择框
+                    } else {
+                        alert(response.message);
+                    }
+                },
+                error: function() {
+                    alert('添加模板失败，请稍后重试');
+                }
+            });
+        }
+
+        // 修改模板（移除图片参数和处理）
+        function editTemplate(templateId, templateName, templateContent, youjianbiaoti) {
+            // 解码HTML实体
+            templateName = templateName.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            templateContent = templateContent.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            youjianbiaoti = youjianbiaoti ? youjianbiaoti.replace(/&#39;/g, "'").replace(/&quot;/g, '"') : '';
+
+            // 填充编辑表单数据，直接在原内容基础上修改
+            $('#editTemplateId').val(templateId);
+            $('#editTemplateName').val(templateName);
+            $('#editTemplateTitle').val(youjianbiaoti);
+
+            // 隐藏图片预览区域（不再处理图片）
+            $('#editImagePreview').hide();
+            $('#editPreviewImg').removeAttr('data-original-tupian');
+
+            const isDefaultTemplate = String(templateName || '').trim() === '默认模板';
+            $('#editTemplateName').prop('disabled', isDefaultTemplate);
+            $('#editTemplateTitle').prop('disabled', isDefaultTemplate);
+            $('#editTemplateImage').prop('disabled', isDefaultTemplate);
+            setTemplateRichContent('editTemplateContent', templateContent || '');
+            setTemplateRichDisabled('editTemplateContent', isDefaultTemplate);
+            $('#saveEditTemplate').prop('disabled', isDefaultTemplate).toggle(!isDefaultTemplate);
+            $('#deleteEditTemplate').toggle(!isDefaultTemplate);
+
+            // 显示修改模态框
+            showBsModal('editTemplateModal');
+        }
+
+        // 保存修改的模板（移除图片处理）
+        $('#saveEditTemplate').on('click', function() {
+            const templateId = $('#editTemplateId').val();
+            const templateName = $('#editTemplateName').val().trim();
+            const templateTitle = $('#editTemplateTitle').val().trim();
+            const templateContent = getTemplateRichContent('editTemplateContent');
+
+            if (!templateName) {
+                alert('请输入模板名称');
+                return;
+            }
+
+            if (!templateContent || templateContent.trim() === '') {
+                alert('请输入模板内容');
+                return;
+            }
+
+            // 直接更新模板数据，不处理图片
+            updateTemplateWithData(templateId, templateName, templateContent, templateTitle, '');
+        });
+
+        $('#deleteEditTemplate').on('click', function() {
+            const templateId = $('#editTemplateId').val();
+            const templateName = $('#editTemplateName').val().trim();
+            deleteEmailTemplate(templateId, templateName);
+            hideBsModal('editTemplateModal');
+        });
+
+        // 更新模板数据的辅助函数
+        function updateTemplateWithData(templateId, templateName, templateContent, templateTitle, imagePath) {
+            $.ajax({
+                url: apiPath('/update_email_template'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    id: templateId,
+                    mobanMing: templateName,
+                    moban: templateContent,
+                    youjianbiaoti: templateTitle,
+                    tupian: imagePath
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        hideBsModal('editTemplateModal');
+                        loadTemplateManageList();
+                        loadEmailTemplates(); // 刷新下拉选择框
+                    } else {
+                        alert(response.message);
+                    }
+                },
+                error: function() {
+                    alert('修改模板失败，请稍后重试');
+                }
+            });
+        }
+
+        // 显示模板内容查看模态框（移除图片参数和处理）
+        function showTemplateContentModal(templateName, templateContent, youjianbiaoti) {
+            // 解码HTML实体
+            templateName = templateName.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            templateContent = templateContent.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            youjianbiaoti = youjianbiaoti ? youjianbiaoti.replace(/&#39;/g, "'").replace(/&quot;/g, '"') : '';
+
+            $('#viewTemplateName').text(templateName);
+            $('#viewTemplateContent').html(templateContent);
+
+            // 如果有邮件标题，显示邮件标题
+            if (youjianbiaoti) {
+                if ($('#viewTemplateTitle').length === 0) {
+                    $('#viewTemplateName').parent().after(`
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">邮件标题：</label>
+                            <span id="viewTemplateTitle"></span>
+                        </div>
+                    `);
+                }
+                $('#viewTemplateTitle').text(youjianbiaoti);
+            }
+
+            showBsModal('templateContentModal');
+        }
+
+        // 更新邮件指定发送时间
+        function updateEmailSpecifiedTime(specifiedTime, moban, youjiantou, tupian) {
+            $.ajax({
+                url: apiPath('/update_email_specified_time'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    ids: selectedIds,
+                    specified_time: specifiedTime,
+                    moban: moban,
+                    youjiantou: youjiantou || '',
+                    tupian: tupian || ''
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        alert(response.message);
+                        loadEmailData(currentPage); // 重新加载当前页数据
+                    } else {
+                        alert('更新失败: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('请求失败: ' + xhr.statusText);
+                }
+            });
+        }
+
+        // 上传邮件图片
+        function uploadEmailImage(file, callback) {
+            // 验证文件类型
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            const nameParts = String(file && file.name ? file.name : '').split('.');
+            const ext = nameParts.length > 1 ? nameParts[nameParts.length - 1].toLowerCase() : '';
+            const allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            if ((file.type && !allowedTypes.includes(file.type)) && (!ext || !allowedExts.includes(ext))) {
+                alert('只支持JPG、PNG、GIF、WEBP格式的图片');
+                return;
+            }
+
+            // 验证文件大小（5MB）
+            if (file.size > 5 * 1024 * 1024) {
+                alert('图片大小不能超过5MB');
+                return;
+            }
+
+            // 将图片转换为Base64格式
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+
+                // 发送Base64数据到后端
+                $.ajax({
+                    url: apiPath('/upload_email_image'),
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        image_data: base64Data,
+                        filename: file.name,
+                        file_type: file.type
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            // 后端返回的是image_data字段，不是file_path
+                            callback(response.image_data);
+                        } else {
+                            alert('图片上传失败：' + response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('图片上传失败，请重试');
+                    }
+                });
+            };
+
+            reader.onerror = function() {
+                alert('读取图片文件失败');
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        // 批量标记已回复邮箱
+        function markEmailsAsReplied() {
+            const emailsText = $('#repliedEmails').val().trim();
+            if (!emailsText) {
+                alert('请输入要标记的邮箱地址');
+                return;
+            }
+
+            // 按行分割邮箱地址并过滤空行
+            const emails = emailsText.split('\n')
+                .map(email => email.trim())
+                .filter(email => email.length > 0);
+
+            if (emails.length === 0) {
+                alert('请输入有效的邮箱地址');
+                return;
+            }
+
+            // 简单的邮箱格式验证
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const invalidEmails = emails.filter(email => !emailRegex.test(email));
+
+            if (invalidEmails.length > 0) {
+                alert('以下邮箱格式不正确：\n' + invalidEmails.join('\n'));
+                return;
+            }
+
+            if (!confirm(`确定要将以下 ${emails.length} 个邮箱标记为已回复吗？\n\n${emails.join('\n')}\n\n注意：此操作不可撤销！`)) {
+                return;
+            }
+
+            // 发送请求到后端
+            $.ajax({
+                url: apiPath('/batch_mark_replied'),
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    emails: emails
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        alert(`成功标记 ${response.updated_count} 个邮箱为已回复状态`);
+                        $('#repliedEmails').val(''); // 清空输入框
+                        loadEmailData(currentPage); // 重新加载邮件列表
+                    } else {
+                        alert('标记失败: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('请求失败: ' + xhr.statusText);
+                }
+            });
+        }
+
+        let activeTemplateRichEditor = null;
+        let templateRichSelection = null;
+
+        function getTinyMceBaseConfig() {
+            return {
+                menubar: false,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'table', 'help', 'wordcount', 'quickbars'
+                ],
+                toolbar: 'undo redo | blocks | bold italic underline strikethrough | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                contextmenu: 'undo redo | blocks | bold italic underline strikethrough | bullist numlist | link | removeformat',
+                quickbars_selection_toolbar: 'bold italic underline strikethrough | blocks | bullist numlist | link',
+                content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif; font-size: 14px; }',
+                branding: false,
+                elementpath: false,
+                statusbar: false,
+                setup: function(editor) {
+                    editor.on('change input undo redo', function() {
+                        editor.save();
+                    });
+                }
+            };
+        }
+
+        function ensureTinyEditor(textareaId, height) {
+            const textarea = document.getElementById(textareaId);
+            if (!textarea || typeof tinymce === 'undefined') {
+                return;
+            }
+            if (tinymce.get(textareaId)) {
+                return;
+            }
+            tinymce.init(Object.assign(getTinyMceBaseConfig(), {
+                selector: `#${textareaId}`,
+                height: height || 200
+            }));
+        }
+
+        function setTinyEditorContent(textareaId, content) {
+            const editor = tinymce.get(textareaId);
+            if (editor) {
+                editor.setContent(content || '');
+                editor.save();
+            } else {
+                $(`#${textareaId}`).val(content || '');
+            }
+        }
+
+        function escapeTemplateHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function normalizeTemplateEditorHtml(content) {
+            const raw = String(content || '');
+            if (!raw.trim()) {
+                return '<p><br></p>';
+            }
+            if (/<[a-z][\s\S]*>/i.test(raw)) {
+                return raw;
+            }
+            return `<p>${escapeTemplateHtml(raw).replace(/\r?\n/g, '<br>')}</p>`;
+        }
+
+        function syncTemplateRichPlaceholder(editor) {
+            if (!editor) return;
+            const text = (editor.textContent || '').replace(/\u200B/g, '').trim();
+            editor.dataset.empty = text ? '0' : '1';
+        }
+
+        function syncTemplateRichToTextarea(textareaId) {
+            const textarea = document.getElementById(textareaId);
+            const editor = document.querySelector(`.template-rich-editor[data-target-textarea="${textareaId}"]`);
+            if (!textarea || !editor) return '';
+            const html = editor.innerHTML === '<br>' ? '' : editor.innerHTML;
+            textarea.value = html.trim();
+            syncTemplateRichPlaceholder(editor);
+            return textarea.value;
+        }
+
+        function setTemplateRichContent(textareaId, content) {
+            const textarea = document.getElementById(textareaId);
+            const editor = document.querySelector(`.template-rich-editor[data-target-textarea="${textareaId}"]`);
+            if (!textarea || !editor) return;
+            textarea.value = String(content || '');
+            editor.innerHTML = normalizeTemplateEditorHtml(content);
+            syncTemplateRichPlaceholder(editor);
+        }
+
+        function getTemplateRichContent(textareaId) {
+            return syncTemplateRichToTextarea(textareaId).trim();
+        }
+
+        function setTemplateRichDisabled(textareaId, disabled) {
+            const textarea = document.getElementById(textareaId);
+            const editor = document.querySelector(`.template-rich-editor[data-target-textarea="${textareaId}"]`);
+            if (textarea) {
+                textarea.disabled = !!disabled;
+            }
+            if (editor) {
+                editor.contentEditable = disabled ? 'false' : 'true';
+                editor.classList.toggle('is-disabled', !!disabled);
+            }
+        }
+
+        function saveTemplateRichSelection() {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) return;
+            templateRichSelection = selection.getRangeAt(0).cloneRange();
+        }
+
+        function restoreTemplateRichSelection() {
+            if (!activeTemplateRichEditor || !templateRichSelection) return;
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(templateRichSelection);
+        }
+
+        function closeTemplateRichMenu() {
+            const menu = document.getElementById('templateRichMenu');
+            if (menu) {
+                menu.classList.remove('show');
+            }
+        }
+
+        function openTemplateRichMenu(event) {
+            if (!event.currentTarget || event.currentTarget.contentEditable === 'false') return;
+            event.preventDefault();
+            activeTemplateRichEditor = event.currentTarget;
+            activeTemplateRichEditor.focus();
+            saveTemplateRichSelection();
+            const menu = document.getElementById('templateRichMenu');
+            if (!menu) return;
+            menu.style.left = `${Math.min(event.clientX, window.innerWidth - 210)}px`;
+            menu.style.top = `${Math.min(event.clientY, window.innerHeight - 320)}px`;
+            menu.classList.add('show');
+        }
+
+        function execTemplateRichCommand(cmd, value) {
+            if (!activeTemplateRichEditor || activeTemplateRichEditor.contentEditable === 'false') return;
+            activeTemplateRichEditor.focus();
+            restoreTemplateRichSelection();
+            if (cmd === 'createLink') {
+                const url = prompt('请输入链接地址', 'https://');
+                if (!url) {
+                    closeTemplateRichMenu();
+                    return;
+                }
+                document.execCommand('createLink', false, url);
+            } else if (cmd === 'formatBlock') {
+                document.execCommand('formatBlock', false, value || 'p');
+            } else {
+                document.execCommand(cmd, false, value || null);
+            }
+            const textareaId = activeTemplateRichEditor.getAttribute('data-target-textarea');
+            syncTemplateRichToTextarea(textareaId);
+            saveTemplateRichSelection();
+            closeTemplateRichMenu();
+        }
+
+        function initTemplateRichEditors() {
+            document.querySelectorAll('.template-rich-editor').forEach((editor) => {
+                const textareaId = editor.getAttribute('data-target-textarea');
+                if (!textareaId || editor.dataset.bound === '1') return;
+                editor.dataset.bound = '1';
+                setTemplateRichContent(textareaId, document.getElementById(textareaId)?.value || '');
+                editor.addEventListener('input', () => syncTemplateRichToTextarea(textareaId));
+                editor.addEventListener('blur', () => syncTemplateRichToTextarea(textareaId));
+                editor.addEventListener('keyup', saveTemplateRichSelection);
+                editor.addEventListener('mouseup', saveTemplateRichSelection);
+                editor.addEventListener('contextmenu', openTemplateRichMenu);
+            });
+            document.querySelectorAll('.template-rich-menu-item').forEach((btn) => {
+                if (btn.dataset.bound === '1') return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', () => execTemplateRichCommand(btn.getAttribute('data-cmd'), btn.getAttribute('data-value') || ''));
+            });
+        }
+
+        // 初始化TinyMCE富文本编辑器
+        $(document).ready(function() {
+            initTemplateRichEditors();
+            ensureTinyEditor('customTemplate', 200);
+
+            // 绑定批量标记已回复按钮事件
+            $('#btnMarkReplied').click(function() {
+                markEmailsAsReplied();
+            });
+
+            $('#templateManageModal').on('shown.bs.modal', function() {
+                initTemplateRichEditors();
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!event.target.closest('.template-rich-menu')) {
+                    closeTemplateRichMenu();
+                }
+            });
+
+            document.addEventListener('scroll', closeTemplateRichMenu, true);
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeTemplateRichMenu();
+                }
+            });
+
+            // 图片预览功能
+            $('#emailImage').on('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        $('#previewImg').attr('src', e.target.result);
+                        $('#imagePreview').show();
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    $('#imagePreview').hide();
+                }
+            });
+
+            // 为编辑模板的图片输入添加预览功能
+            $('#editTemplateImage').on('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        $('#editPreviewImg').attr('src', e.target.result);
+                        $('#editImagePreview').show();
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    $('#editImagePreview').hide();
+                }
+            });
+        });
+
+        // 显示图片模态框函数
+        function showImageModal(imageSrc) {
+            $('#modalImage').attr('src', imageSrc);
+            showBsModal('imageViewModal');
+        }
+
+        // 显示模板内容模态框函数
+        function showContentModal(content) {
+            $('#modalContent').html(content || '暂无内容');
+            showBsModal('contentViewModal');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1522 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ page_title or 'TK整体看板' }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background:#f7f8fa; color:#1f2937; }
+        .container { max-width: 1080px; margin: 30px auto; padding: 20px; box-sizing:border-box; }
+        .card { background:white; border-radius:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); padding: 22px; margin-bottom: 20px; }
+        h1 { font-size: 24px; margin: 0 0 10px 0; }
+        .desc { color:#6b7280; margin-bottom: 18px; }
+        .form-row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+        .form-group { flex: 1 1 200px; max-width: 320px; }
+        .form-group.compact { flex: 0 0 200px; max-width: 200px; }
+        .form-group.action { flex: 0 0 auto; }
+        label { display:block; margin-bottom:8px; color:#374151; font-weight:600; }
+        input, select { width:100%; padding:8px 10px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; height:36px; box-sizing:border-box; }
+        .multiselect { position: relative; }
+        .dropdown-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:2px solid #e5e7eb; border-radius:10px; background:white; cursor:pointer; height:36px; box-sizing:border-box; }
+        .dropdown-panel { position:absolute; top:42px; left:0; right:0; background:white; border:2px solid #e5e7eb; border-radius:10px; box-shadow: 0 10px 20px rgba(0,0,0,0.06); padding:8px; display:none; z-index:10; max-height:220px; overflow:auto; }
+        .tags { display:none; }
+        .tag { background:#eef2ff; color:#1f2937; padding:3px 6px; border-radius:8px; font-size:12px; }
+        .shop-row { display:flex; align-items:center; gap:8px; padding:3px 2px; font-size:12px; }
+        .select-all { display:flex; align-items:center; justify-content:flex-start; gap:6px; margin-bottom:6px; font-size:12px; }
+        #selectAll { width:14px; height:14px; transform: scale(0.85); transform-origin: center; }
+        .shop-item { width:14px; height:14px; transform: scale(0.85); transform-origin: center; }
+        .btn { background: linear-gradient(135deg, #6EE7B7 0%, #3B82F6 100%); color:white; padding: 10px 18px; border:none; border-radius: 10px; cursor:pointer; font-weight:600; }
+        .btn.sm { padding:8px 14px; height:36px; }
+        .btn i { margin-right:8px; }
+        .metrics { display:flex; gap:16px; flex-wrap:wrap; }
+        .metric { flex:1; min-width:280px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:14px; padding:12px; }
+        .metric-center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+        .metric h3 { margin:0 0 10px 0; font-size:16px; color:#374151; }
+        .metric .value { font-size:24px; font-weight:700; color:#111827; }
+        .progress { height: 12px; background:#e5e7eb; border-radius: 10px; overflow:hidden; }
+        .progress > div { height:100%; background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%); }
+        .footer { color:#6b7280; font-size:12px; margin-top:4px; }
+        .error { color:#ef4444; }
+        .text-danger { color:#dc3545; font-weight:700; }
+        .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+        .cost-card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:14px; padding:16px; }
+        .cost-card h4 { margin:0 0 8px 0; font-size:15px; color:#374151; }
+        .cost-card .value { font-size:22px; font-weight:700; color:#111827; }
+        .module-block { display:flex; align-items:stretch; border:1px solid #e5e7eb; border-radius:14px; overflow:hidden; background:white; }
+        .module-label { width:140px; flex:0 0 140px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; padding:12px; }
+        .module-content { flex:1; background:#fff; }
+        .data-table { width:100%; border-collapse: collapse; border-spacing: 0; table-layout: fixed; }
+        .data-table th, .data-table td { border-bottom:1px solid #e5e7eb; padding:10px 12px; text-align:left; font-size:14px; }
+        .data-table td:first-child { white-space: nowrap; word-break: keep-all; }
+        .data-table thead th { background:#f9fafb; color:#374151; font-weight:600; }
+        .data-table td.value { text-align:right; font-weight:700; color:#111827; }
+        .col-label { width: 260px; }
+        .col-value { width: 160px; }
+        .col-ratio { width: 120px; text-align:right; color:#374151; border-left:1px solid #e5e7eb; }
+        .ratio-header { text-align:right; font-weight:600; color:#374151; }
+        .col-target { width: 120px; text-align:right; color:#374151; border-left:1px solid #e5e7eb; }
+        .target-header { text-align:right; font-weight:600; color:#374151; }
+        .col-achieved { width: 120px; text-align:right; color:#374151; border-left:1px solid #e5e7eb; }
+        .achieved-header { text-align:right; font-weight:600; color:#374151; }
+        .col-achratio { width: 120px; text-align:right; color:#374151; border-left:1px solid #e5e7eb; }
+        .achratio-header { text-align:right; font-weight:600; color:#374151; }
+        @media (max-width: 640px) {
+            body { font-size: 14px; }
+            .container { max-width: 100%; margin: 10px auto; padding: 10px; }
+            .scroll-area { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .card { padding: 14px; margin-bottom: 12px; }
+            h1 { font-size: 20px; }
+            .desc { font-size: 13px; }
+            .form-row { flex-direction: column; align-items: stretch; }
+            .form-group, .form-group.compact, .form-group.action { flex: 1 1 auto; max-width: 100%; }
+            .metrics { flex-direction: column; }
+            .metric { min-width: auto; }
+            .stack { min-width: 900px; }
+            .data-table { min-width: 900px; table-layout: fixed; }
+            .data-table th, .data-table td { padding:4px 6px; font-size:12px; }
+            .col-label { width: 90px; }
+            .col-value { width: 90px; }
+            .col-ratio, .col-target, .col-achieved, .col-achratio { width: 80px; }
+            .data-table tbody tr td:first-child { white-space: normal; word-break: break-all; }
+            .module-block { position: relative; }
+            .module-label { width: 56px; flex: 0 0 56px; font-size: 12px; padding: 4px; position: sticky; left: 0; z-index: 5; }
+        }
+        .stack { background:white; border-radius:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
+        .stack .card { margin: 0; padding: 0; background: transparent; border-radius: 0; box-shadow: none; }
+        .stack .card .module-block { border-radius: 0; border: none; }
+        .stack .card .module-content { background: transparent; }
+        .stack .card:first-child .module-block { border-top-left-radius: 16px; border-top-right-radius: 16px; }
+        .stack .card:last-child .module-block { border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }
+        .module-label.period { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+        .module-label.business { background: linear-gradient(135deg, #f43f5e 0%, #ef4444 100%); }
+        .module-label.promo { background: linear-gradient(135deg, #22c55e 0%, #10b981 100%); }
+        .module-label.variable { background: linear-gradient(135deg, #3b82f6 0%, #0ea5e9 100%); }
+        .module-label.plcost { background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); }
+        .module-label.fixed { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
+        .loading-overlay { position: fixed; left:0; top:0; right:0; bottom:0; background: rgba(255,255,255,0.75); display:none; align-items:center; justify-content:center; z-index:1000; }
+        .loading-box { background:white; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.08); padding:14px 18px; display:flex; align-items:center; gap:10px; color:#374151; font-size:15px; }
+        .loading-box i { color:#3B82F6; font-size:18px; }
+        .sub-label { padding-left: 22px; color:#4b5563; }
+        .collapse-toggle { cursor: pointer; }
+        .collapse-toggle-icon { margin-left: 6px; font-size: 12px; color:#9ca3af; }
+        .achratio-chart { padding:12px 16px; }
+        .achratio-chart-title { font-size:14px; font-weight:600; color:#374151; margin-bottom:8px; }
+        .achratio-bar-row { display:flex; align-items:center; margin:4px 0; font-size:13px; }
+        .achratio-bar-label { width:170px; color:#4b5563; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .achratio-bar-track { flex:1; height:14px; background:#e5e7eb; border-radius:999px; overflow:hidden; margin:0 8px; }
+        .achratio-bar-fill { height:100%; background: linear-gradient(135deg, #3b82f6 0%, #10b981 100%); }
+        .achratio-bar-value { width:70px; text-align:right; color:#374151; }
+    </style>
+    <script>
+        const DEFAULT_SHOP_DATA = {{ default_payload|tojson }};
+        const DEFAULT_SHOP_NAME = {{ default_shop_name|tojson }};
+        const PRECOMPUTED_SHOPS = {{ precomputed_shops|tojson }};
+        const PRECOMPUTED_SHOP_PAYLOADS = {{ precomputed_shop_payloads|tojson }};
+        const PRECOMPUTED_WEEK_SHOP_PAYLOADS = {{ precomputed_week_shop_payloads|default({})|tojson }};
+        const FIXED_SHOP = {{ fixed_shop|tojson }};
+        const RESTRICT_LIKE_82 = {{ restrict_like_82|default(false)|tojson }};
+
+        function setLoading(show) {
+            const ov = document.getElementById('loadingOverlay');
+            if (ov) ov.style.display = show ? 'flex' : 'none';
+        }
+
+        function renderMetrics(data) {
+            if (!data || !data.success) return;
+            const salesHeaderEl = document.getElementById('salesHeader');
+            const yday = data.yesterday || '';
+            if (salesHeaderEl) {
+                salesHeaderEl.title = yday ? (`所选店铺在 ${yday} 的实时结算销售额`) : '昨日实时结算销售额（USD）';
+            }
+            document.getElementById('salesValue').textContent = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((data.total_sales || 0));
+            const pct = Math.max(0, Math.min(100, data.progress_pct || 0));
+            document.getElementById('progressBar').style.width = pct + '%';
+            const pctStr = pct.toFixed(2) + '%';
+            document.getElementById('progressText').textContent = pctStr;
+            document.getElementById('progressFooter').textContent = `${data.progress_day}/${data.month_total_days}`;
+            const tip = `当月时间进度百分比：${pctStr}`;
+            const ph = document.getElementById('progressHeader');
+            if (ph) ph.title = tip;
+            const prog = document.querySelector('.progress');
+            if (prog) prog.title = tip;
+            const fc = data.fixed_costs || {};
+            const plc = data.product_logistics_costs || {};
+            const promo = data.promotional_costs || {};
+            const vc = data.variable_costs || {};
+            const br = data.business_results || {};
+            const fmt = v => new Intl.NumberFormat('zh-CN', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(v || 0);
+            const fmtAbs = v => fmt(Math.abs(Number(v || 0)));
+            const storageDetailPrev = plc.storage_return_cost_detail || {};
+            const prodDetailPrev = plc.product_cost_detail || {};
+            const monthStr = (fc.period || plc.period || br.period) ? (((fc.period || plc.period || br.period).end || (fc.period || plc.period || br.period).start || '').slice(0,7)) : '';
+            const periodEl = document.getElementById('periodMonth');
+            if (periodEl) periodEl.textContent = monthStr;
+            const ratioHeaderEl = document.querySelector('.ratio-header');
+            if (ratioHeaderEl) ratioHeaderEl.textContent = (monthStr ? (monthStr.slice(5,7) + '月占比') : '上个月占比');
+            const endInput = document.getElementById('end_date');
+            let targetMonthLabel = '';
+            if (endInput && endInput.value) {
+                const mm = endInput.value.slice(5, 7);
+                const mmInt = parseInt(mm, 10);
+                if (!isNaN(mmInt)) {
+                    targetMonthLabel = mmInt + '月';
+                }
+            }
+            const targetHeaderEl = document.querySelector('.target-header');
+            if (targetHeaderEl) targetHeaderEl.textContent = targetMonthLabel ? (targetMonthLabel + '目标') : '月份目标';
+            const salesProgressHeaderEl = document.getElementById('salesProgressHeader');
+            if (salesProgressHeaderEl) salesProgressHeaderEl.textContent = targetMonthLabel ? (targetMonthLabel + '销售目标达成') : '月份销售目标达成';
+            document.getElementById('prodCost').textContent = fmtAbs(plc.product_cost);
+            document.getElementById('prodCostPlatform').textContent = fmtAbs(prodDetailPrev.platform_product_cost);
+            document.getElementById('prodCostSample').textContent = fmtAbs(prodDetailPrev.sample_cost);
+            document.getElementById('prodCostSelfSample').textContent = fmtAbs(prodDetailPrev.self_sample_cost);
+            document.getElementById('prodCostAfterSales').textContent = fmtAbs(prodDetailPrev.aftersales_cost);
+            document.getElementById('touChengCost').textContent = fmt(plc.tou_cheng_cost);
+            document.getElementById('weiChengCost').textContent = fmtAbs(plc.wei_cheng_cost);
+            document.getElementById('storageReturnCost').textContent = fmtAbs(plc.storage_return_cost);
+            document.getElementById('storageReturnInbound').textContent = fmtAbs(storageDetailPrev.inbound_fee);
+            document.getElementById('storageReturnStorage').textContent = fmtAbs(storageDetailPrev.storage_fee);
+            document.getElementById('storageReturnReturn').textContent = fmtAbs(storageDetailPrev.return_fee);
+            const promoCommDetail = promo.influencer_commission_detail || {};
+            document.getElementById('influencerCommission').textContent = fmtAbs(promo.influencer_commission);
+            document.getElementById('influencerCommissionCreator').textContent = fmtAbs(promoCommDetail.creator_commission);
+            document.getElementById('influencerCommissionPartner').textContent = fmtAbs(promoCommDetail.partner_commission);
+            document.getElementById('influencerCommissionAdOrder').textContent = fmtAbs(promoCommDetail.ad_order_commission);
+            const channelCommVal = promoCommDetail.channel_commission || 0;
+            document.getElementById('influencerCommissionChannel').textContent = fmtAbs(channelCommVal);
+            document.getElementById('influencerCount').textContent = String(promo.influencer_count || 0);
+            document.getElementById('influencerVideoFee').textContent = fmtAbs(promo.influencer_video_fee);
+            const promoVideoDetail = promo.influencer_video_fee_detail || {};
+            document.getElementById('influencerVideoFeeShuaDan').textContent = fmtAbs(promoVideoDetail.shuadan_fee);
+            document.getElementById('influencerVideoFeeShouHou').textContent = fmtAbs(promoVideoDetail.shouhou_fee);
+            document.getElementById('influencerVideoFeeKengWei').textContent = fmtAbs(promoVideoDetail.wanghong_kengwei_fee);
+            document.getElementById('influencerVideoFeeBuyProduct').textContent = fmtAbs(promoVideoDetail.buy_product_for_influencer_fee);
+            document.getElementById('influencerVideoFeeGift').textContent = fmtAbs(promoVideoDetail.influencer_gift_fee);
+            document.getElementById('videoCount').textContent = String(promo.video_count || 0);
+            document.getElementById('activityServiceFee').textContent = fmtAbs(promo.activity_service_fee);
+            document.getElementById('adFee').textContent = fmtAbs(promo.ad_fee);
+
+            document.getElementById('platformCommission').textContent = fmtAbs(vc.platform_commission);
+            document.getElementById('vatFee').textContent = fmtAbs(vc.vat_fee);
+            document.getElementById('adjustmentFee').textContent = fmtAbs(vc.adjustment_fee);
+            document.getElementById('otherPlatformFee').textContent = fmtAbs(vc.other_platform_fee);
+            document.getElementById('opMgmtQD').textContent = fmtAbs(vc.op_mgmt_qd);
+            document.getElementById('opMgmtSZ').textContent = fmtAbs(vc.op_mgmt_sz);
+
+            const breakEvenEl = document.getElementById('breakEvenRevenue');
+            const profitTargetEl = document.getElementById('profitTargetRevenue');
+            const warnText = '预警，毛利为负！';
+            const warnHtml = '<span class="text-danger">' + warnText + '</span>';
+            if (breakEvenEl) {
+                if (Number(br.break_even_revenue || 0) < 0) {
+                    breakEvenEl.innerHTML = warnHtml;
+                } else {
+                    breakEvenEl.textContent = fmt(br.break_even_revenue);
+                }
+            }
+            document.getElementById('orderCount').textContent = String(br.order_count || 0);
+            if (profitTargetEl) {
+                if (Number(br.profit_target_revenue || 0) < 0) {
+                    profitTargetEl.innerHTML = warnHtml;
+                } else {
+                    profitTargetEl.textContent = fmt(br.profit_target_revenue);
+                }
+            }
+            document.getElementById('monthlySalesPrev').textContent = fmtAbs(br.monthly_sales);
+            document.getElementById('netProfit').textContent = fmt(br.net_profit);
+            document.getElementById('grossProfit').textContent = fmt(br.gross_profit);
+
+            document.getElementById('qdWage').textContent = fmtAbs(fc.qingdao_wage);
+            document.getElementById('szWage').textContent = fmtAbs(fc.shenzhen_wage);
+            document.getElementById('qdRent').textContent = fmtAbs(fc.qingdao_rent);
+            document.getElementById('szRent').textContent = fmtAbs(fc.shenzhen_rent);
+
+            const sales = Number(br.monthly_sales || 0);
+            const salesAbs = Math.abs(sales);
+            const fmtPct = (val) => {
+                if (!salesAbs || salesAbs <= 0 || val === undefined || val === null) return '—';
+                const p = (Math.abs(Number(val)) / salesAbs) * 100;
+                return (isFinite(p) ? p.toFixed(2) + '%' : '—');
+            };
+            const fmtPctSigned = (val) => {
+                if (!sales || sales === 0 || val === undefined || val === null) return '—';
+                const p = (Number(val) / sales) * 100;
+                return (isFinite(p) ? p.toFixed(2) + '%' : '—');
+            };
+
+            document.getElementById('monthlySalesPrevRatio').textContent = salesAbs > 0 ? '100%' : '—';
+            document.getElementById('netProfitRatio').textContent = fmtPctSigned(br.net_profit);
+            document.getElementById('grossProfitRatio').textContent = fmtPctSigned(br.gross_profit);
+
+            document.getElementById('influencerCommissionRatio').textContent = fmtPct(promo.influencer_commission);
+            document.getElementById('influencerCommissionCreatorRatio').textContent = fmtPct(promoCommDetail.creator_commission);
+            document.getElementById('influencerCommissionPartnerRatio').textContent = fmtPct(promoCommDetail.partner_commission);
+            document.getElementById('influencerCommissionAdOrderRatio').textContent = fmtPct(promoCommDetail.ad_order_commission);
+            document.getElementById('influencerCommissionChannelRatio').textContent = fmtPct(channelCommVal);
+            document.getElementById('influencerVideoFeeRatio').textContent = fmtPct(promo.influencer_video_fee);
+            document.getElementById('influencerVideoFeeShuaDanRatio').textContent = fmtPct(promoVideoDetail.shuadan_fee);
+            document.getElementById('influencerVideoFeeShouHouRatio').textContent = fmtPct(promoVideoDetail.shouhou_fee);
+            document.getElementById('influencerVideoFeeKengWeiRatio').textContent = fmtPct(promoVideoDetail.wanghong_kengwei_fee);
+            document.getElementById('influencerVideoFeeBuyProductRatio').textContent = fmtPct(promoVideoDetail.buy_product_for_influencer_fee);
+            document.getElementById('influencerVideoFeeGiftRatio').textContent = fmtPct(promoVideoDetail.influencer_gift_fee);
+            document.getElementById('activityServiceFeeRatio').textContent = fmtPct(promo.activity_service_fee);
+            document.getElementById('adFeeRatio').textContent = fmtPct(promo.ad_fee);
+
+            document.getElementById('platformCommissionRatio').textContent = fmtPct(vc.platform_commission);
+            document.getElementById('vatFeeRatio').textContent = fmtPct(vc.vat_fee);
+            document.getElementById('adjustmentFeeRatio').textContent = fmtPct(vc.adjustment_fee);
+            document.getElementById('otherPlatformFeeRatio').textContent = fmtPct(vc.other_platform_fee);
+            document.getElementById('opMgmtQDRatio').textContent = fmtPct(vc.op_mgmt_qd);
+            document.getElementById('opMgmtSZRatio').textContent = fmtPct(vc.op_mgmt_sz);
+
+            document.getElementById('prodCostRatio').textContent = fmtPct(plc.product_cost);
+            document.getElementById('prodCostPlatformRatio').textContent = fmtPct(prodDetailPrev.platform_product_cost);
+            document.getElementById('prodCostSampleRatio').textContent = fmtPct(prodDetailPrev.sample_cost);
+            document.getElementById('prodCostSelfSampleRatio').textContent = fmtPct(prodDetailPrev.self_sample_cost);
+            document.getElementById('prodCostAfterSalesRatio').textContent = fmtPct(prodDetailPrev.aftersales_cost);
+            document.getElementById('touChengCostRatio').textContent = fmtPct(plc.tou_cheng_cost);
+            document.getElementById('weiChengCostRatio').textContent = fmtPct(plc.wei_cheng_cost);
+            document.getElementById('storageReturnCostRatio').textContent = fmtPct(plc.storage_return_cost);
+            document.getElementById('storageReturnInboundRatio').textContent = fmtPct(storageDetailPrev.inbound_fee);
+            document.getElementById('storageReturnStorageRatio').textContent = fmtPct(storageDetailPrev.storage_fee);
+            document.getElementById('storageReturnReturnRatio').textContent = fmtPct(storageDetailPrev.return_fee);
+
+            document.getElementById('qdWageRatio').textContent = fmtPct(fc.qingdao_wage);
+            document.getElementById('szWageRatio').textContent = fmtPct(fc.shenzhen_wage);
+            document.getElementById('qdRentRatio').textContent = fmtPct(fc.qingdao_rent);
+            document.getElementById('szRentRatio').textContent = fmtPct(fc.shenzhen_rent);
+
+            const mt = data.monthly_targets || {};
+            document.getElementById('breakEvenRevenueTarget').textContent = fmtAbs(mt.break_even_revenue);
+            document.getElementById('orderCountTarget').textContent = String(mt.order_count || 0);
+            document.getElementById('profitTargetRevenueTarget').textContent = '—';
+            document.getElementById('monthlySalesPrevTarget').textContent = fmtAbs(mt.monthly_sales);
+            document.getElementById('netProfitTarget').textContent = fmt(mt.net_profit);
+            document.getElementById('grossProfitTarget').textContent = fmt(mt.gross_profit);
+
+            document.getElementById('influencerCommissionTarget').textContent = fmtAbs(mt.influencer_commission);
+            document.getElementById('influencerCountTarget').textContent = String(mt.influencer_count || 0);
+            document.getElementById('influencerVideoFeeTarget').textContent = fmtAbs(mt.influencer_video_fee);
+            document.getElementById('videoCountTarget').textContent = String(mt.video_count || 0);
+            document.getElementById('activityServiceFeeTarget').textContent = fmtAbs(mt.activity_service_fee);
+            document.getElementById('adFeeTarget').textContent = fmtAbs(mt.ad_fee);
+
+            const mtCommDetail = mt.influencer_commission_detail || {};
+            const mtVideoDetail = mt.influencer_video_fee_detail || {};
+            const mtStorageDetail = mt.storage_return_cost_detail || {};
+            const setTarget = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.textContent = val !== undefined && val !== null ? fmtAbs(val) : '—';
+                }
+            };
+            setTarget('influencerCommissionCreatorTarget', mtCommDetail.creator_commission);
+            setTarget('influencerCommissionPartnerTarget', mtCommDetail.partner_commission);
+            setTarget('influencerCommissionAdOrderTarget', mtCommDetail.ad_order_commission);
+            setTarget('influencerCommissionChannelTarget', mtCommDetail.channel_commission);
+            setTarget('influencerVideoFeeShuaDanTarget', mtVideoDetail.shuadan_fee);
+            setTarget('influencerVideoFeeShouHouTarget', mtVideoDetail.shouhou_fee);
+            setTarget('influencerVideoFeeKengWeiTarget', mtVideoDetail.wanghong_kengwei_fee);
+            setTarget('influencerVideoFeeBuyProductTarget', mtVideoDetail.buy_product_for_influencer_fee);
+            setTarget('influencerVideoFeeGiftTarget', mtVideoDetail.influencer_gift_fee);
+            setTarget('storageReturnInboundTarget', mtStorageDetail.inbound_fee);
+            setTarget('storageReturnStorageTarget', mtStorageDetail.storage_fee);
+            setTarget('storageReturnReturnTarget', mtStorageDetail.return_fee);
+
+            document.getElementById('platformCommissionTarget').textContent = fmtAbs(mt.platform_commission);
+            document.getElementById('vatFeeTarget').textContent = fmtAbs(mt.vat_fee);
+            document.getElementById('adjustmentFeeTarget').textContent = fmtAbs(mt.adjustment_fee);
+            document.getElementById('otherPlatformFeeTarget').textContent = fmtAbs(mt.other_platform_fee);
+            document.getElementById('opMgmtQDTarget').textContent = fmtAbs(mt.op_mgmt_qd);
+            document.getElementById('opMgmtSZTarget').textContent = fmtAbs(mt.op_mgmt_sz);
+
+            document.getElementById('prodCostTarget').textContent = fmtAbs(mt.product_cost);
+            const mtProdDetail = mt.product_cost_detail || {};
+            const setProdTarget = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.textContent = val !== undefined && val !== null ? fmtAbs(val) : '—';
+                }
+            };
+            setProdTarget('prodCostPlatformTarget', mtProdDetail.platform_product_cost);
+            setProdTarget('prodCostSampleTarget', mtProdDetail.sample_cost);
+            setProdTarget('prodCostSelfSampleTarget', mtProdDetail.self_sample_cost);
+            setProdTarget('prodCostAfterSalesTarget', mtProdDetail.aftersales_cost);
+            document.getElementById('touChengCostTarget').textContent = fmt(mt.tou_cheng_cost);
+            document.getElementById('weiChengCostTarget').textContent = fmtAbs(mt.wei_cheng_cost);
+            document.getElementById('storageReturnCostTarget').textContent = fmtAbs(mt.storage_return_cost);
+
+            document.getElementById('qdWageTarget').textContent = fmtAbs(mt.qingdao_wage);
+            document.getElementById('szWageTarget').textContent = fmtAbs(mt.shenzhen_wage);
+            document.getElementById('qdRentTarget').textContent = fmtAbs(mt.qingdao_rent);
+            document.getElementById('szRentTarget').textContent = fmtAbs(mt.shenzhen_rent);
+
+            const act = data.actuals || {};
+
+            const targetSalesVal = Number(mt.monthly_sales || 0);
+            const actualSalesVal = Number(act.monthly_sales || 0);
+            let salesPct = 0;
+            if (targetSalesVal > 0) {
+                salesPct = (actualSalesVal / targetSalesVal) * 100;
+            }
+            const salesPctClamped = Math.max(0, Math.min(100, salesPct || 0));
+            const salesBar = document.getElementById('salesProgressBar');
+            if (salesBar) {
+                salesBar.style.width = salesPctClamped + '%';
+            }
+            const salesText = document.getElementById('salesProgressText');
+            if (salesText) {
+                salesText.textContent = (salesPct || 0).toFixed(2) + '%';
+            }
+            const salesDetail = document.getElementById('salesProgressDetail');
+            if (salesDetail) {
+                salesDetail.textContent = fmtAbs(actualSalesVal) + ' / ' + fmtAbs(targetSalesVal);
+            }
+
+            const targetInfluencerVal = Number(mt.influencer_count || 0);
+            const actualInfluencerVal = Number(act.influencer_count || 0);
+            let inflPct = 0;
+            if (targetInfluencerVal > 0) {
+                inflPct = (actualInfluencerVal / targetInfluencerVal) * 100;
+            }
+            const inflPctClamped = Math.max(0, Math.min(100, inflPct || 0));
+            const inflBar = document.getElementById('influencerProgressBar');
+            if (inflBar) {
+                inflBar.style.width = inflPctClamped + '%';
+            }
+            const inflText = document.getElementById('influencerProgressText');
+            if (inflText) {
+                inflText.textContent = (inflPct || 0).toFixed(2) + '%';
+            }
+            const inflDetail = document.getElementById('influencerProgressDetail');
+            if (inflDetail) {
+                inflDetail.textContent = String(actualInfluencerVal) + ' / ' + String(targetInfluencerVal);
+            }
+
+            const targetVideoVal = Number(mt.video_count || 0);
+            const actualVideoVal = Number(act.video_count || 0);
+            let videoPct = 0;
+            if (targetVideoVal > 0) {
+                videoPct = (actualVideoVal / targetVideoVal) * 100;
+            }
+            const videoPctClamped = Math.max(0, Math.min(100, videoPct || 0));
+            const videoBar = document.getElementById('videoProgressBar');
+            if (videoBar) {
+                videoBar.style.width = videoPctClamped + '%';
+            }
+            const videoText = document.getElementById('videoProgressText');
+            if (videoText) {
+                videoText.textContent = (videoPct || 0).toFixed(2) + '%';
+            }
+            const videoDetail = document.getElementById('videoProgressDetail');
+            if (videoDetail) {
+                videoDetail.textContent = String(actualVideoVal) + ' / ' + String(targetVideoVal);
+            }
+            const breakEvenActualEl = document.getElementById('breakEvenRevenueActual');
+            const profitTargetActualEl = document.getElementById('profitTargetRevenueActual');
+            if (breakEvenActualEl) {
+                if (Number(act.break_even_revenue || 0) < 0) {
+                    breakEvenActualEl.innerHTML = warnHtml;
+                } else {
+                    breakEvenActualEl.textContent = fmt(act.break_even_revenue);
+                }
+            }
+            document.getElementById('orderCountActual').textContent = String(act.order_count || 0);
+            if (profitTargetActualEl) {
+                if (Number(act.profit_target_revenue || 0) < 0) {
+                    profitTargetActualEl.innerHTML = warnHtml;
+                } else {
+                    profitTargetActualEl.textContent = fmt(act.profit_target_revenue);
+                }
+            }
+            document.getElementById('monthlySalesPrevActual').textContent = fmtAbs(act.monthly_sales);
+            document.getElementById('netProfitActual').textContent = fmt(act.net_profit);
+            document.getElementById('grossProfitActual').textContent = fmt(act.gross_profit);
+
+            const actCommDetail = act.influencer_commission_detail || {};
+            document.getElementById('influencerCommissionActual').textContent = fmtAbs(act.influencer_commission);
+            document.getElementById('influencerCommissionCreatorActual').textContent = fmtAbs(actCommDetail.creator_commission);
+            document.getElementById('influencerCommissionPartnerActual').textContent = fmtAbs(actCommDetail.partner_commission);
+            document.getElementById('influencerCommissionAdOrderActual').textContent = fmtAbs(actCommDetail.ad_order_commission);
+            const actChannelCommVal = actCommDetail.channel_commission || 0;
+            document.getElementById('influencerCommissionChannelActual').textContent = fmtAbs(actChannelCommVal);
+            document.getElementById('influencerCountActual').textContent = String(act.influencer_count || 0);
+            document.getElementById('influencerVideoFeeActual').textContent = fmtAbs(act.influencer_video_fee);
+            const actVideoDetail = act.influencer_video_fee_detail || {};
+            document.getElementById('influencerVideoFeeShuaDanActual').textContent = fmtAbs(actVideoDetail.shuadan_fee);
+            document.getElementById('influencerVideoFeeShouHouActual').textContent = fmtAbs(actVideoDetail.shouhou_fee);
+            document.getElementById('influencerVideoFeeKengWeiActual').textContent = fmtAbs(actVideoDetail.wanghong_kengwei_fee);
+            document.getElementById('influencerVideoFeeBuyProductActual').textContent = fmtAbs(actVideoDetail.buy_product_for_influencer_fee);
+            document.getElementById('influencerVideoFeeGiftActual').textContent = fmtAbs(actVideoDetail.influencer_gift_fee);
+            document.getElementById('videoCountActual').textContent = String(act.video_count || 0);
+            document.getElementById('activityServiceFeeActual').textContent = fmtAbs(act.activity_service_fee);
+            document.getElementById('adFeeActual').textContent = fmtAbs(act.ad_fee);
+
+            document.getElementById('platformCommissionActual').textContent = fmtAbs(act.platform_commission);
+            document.getElementById('vatFeeActual').textContent = fmtAbs(act.vat_fee);
+            document.getElementById('adjustmentFeeActual').textContent = fmtAbs(act.adjustment_fee);
+            document.getElementById('otherPlatformFeeActual').textContent = fmtAbs(act.other_platform_fee);
+            document.getElementById('opMgmtQDActual').textContent = fmtAbs(act.op_mgmt_qd);
+            document.getElementById('opMgmtSZActual').textContent = fmtAbs(act.op_mgmt_sz);
+
+            const actProdDetail = act.product_cost_detail || {};
+            document.getElementById('prodCostActual').textContent = fmtAbs(act.product_cost);
+            document.getElementById('prodCostPlatformActual').textContent = fmtAbs(actProdDetail.platform_product_cost);
+            document.getElementById('prodCostSampleActual').textContent = fmtAbs(actProdDetail.sample_cost);
+            document.getElementById('prodCostSelfSampleActual').textContent = fmtAbs(actProdDetail.self_sample_cost);
+            document.getElementById('prodCostAfterSalesActual').textContent = fmtAbs(actProdDetail.aftersales_cost);
+            document.getElementById('touChengCostActual').textContent = fmt(act.tou_cheng_cost);
+            document.getElementById('weiChengCostActual').textContent = fmtAbs(act.wei_cheng_cost);
+            document.getElementById('storageReturnCostActual').textContent = fmtAbs(act.storage_return_cost);
+
+            document.getElementById('qdWageActual').textContent = fmtAbs(act.qingdao_wage);
+            document.getElementById('szWageActual').textContent = fmtAbs(act.shenzhen_wage);
+            document.getElementById('qdRentActual').textContent = fmtAbs(act.qingdao_rent);
+            document.getElementById('szRentActual').textContent = fmtAbs(act.shenzhen_rent);
+
+            const actSales = Number(act.monthly_sales || 0);
+            const actSalesAbs = Math.abs(actSales);
+            const fmtPctAct = (val) => {
+                if (!actSalesAbs || actSalesAbs <= 0 || val === undefined || val === null) return '—';
+                const p = (Math.abs(Number(val)) / actSalesAbs) * 100;
+                return (isFinite(p) ? p.toFixed(2) + '%' : '—');
+            };
+            const fmtPctActSigned = (val) => {
+                if (!actSalesAbs || actSalesAbs <= 0 || val === undefined || val === null) return '—';
+                const p = (Number(val) / actSalesAbs) * 100;
+                return (isFinite(p) ? p.toFixed(2) + '%' : '—');
+            };
+            const actStorageDetail = act.storage_return_cost_detail || {};
+
+            document.getElementById('monthlySalesPrevAchRatio').textContent = actSalesAbs > 0 ? '100%' : '—';
+            document.getElementById('influencerCommissionCreatorAchRatio').textContent = fmtPctAct(actCommDetail.creator_commission);
+            document.getElementById('influencerCommissionPartnerAchRatio').textContent = fmtPctAct(actCommDetail.partner_commission);
+            document.getElementById('influencerCommissionAdOrderAchRatio').textContent = fmtPctAct(actCommDetail.ad_order_commission);
+            document.getElementById('influencerCommissionChannelAchRatio').textContent = fmtPctAct(actChannelCommVal);
+            document.getElementById('influencerVideoFeeShuaDanAchRatio').textContent = fmtPctAct(actVideoDetail.shuadan_fee);
+            document.getElementById('influencerVideoFeeShouHouAchRatio').textContent = fmtPctAct(actVideoDetail.shouhou_fee);
+            document.getElementById('influencerVideoFeeKengWeiAchRatio').textContent = fmtPctAct(actVideoDetail.wanghong_kengwei_fee);
+            document.getElementById('influencerVideoFeeBuyProductAchRatio').textContent = fmtPctAct(actVideoDetail.buy_product_for_influencer_fee);
+            document.getElementById('influencerVideoFeeGiftAchRatio').textContent = fmtPctAct(actVideoDetail.influencer_gift_fee);
+            document.getElementById('netProfitAchRatio').textContent = fmtPctActSigned(act.net_profit);
+            document.getElementById('grossProfitAchRatio').textContent = fmtPctActSigned(act.gross_profit);
+            document.getElementById('influencerCommissionAchRatio').textContent = fmtPctAct(act.influencer_commission);
+            document.getElementById('influencerVideoFeeAchRatio').textContent = fmtPctAct(act.influencer_video_fee);
+            document.getElementById('activityServiceFeeAchRatio').textContent = fmtPctAct(act.activity_service_fee);
+            document.getElementById('adFeeAchRatio').textContent = fmtPctAct(act.ad_fee);
+            document.getElementById('platformCommissionAchRatio').textContent = fmtPctAct(act.platform_commission);
+            document.getElementById('vatFeeAchRatio').textContent = fmtPctAct(act.vat_fee);
+            document.getElementById('adjustmentFeeAchRatio').textContent = fmtPctAct(act.adjustment_fee);
+            document.getElementById('otherPlatformFeeAchRatio').textContent = fmtPctAct(act.other_platform_fee);
+            document.getElementById('opMgmtQDAchRatio').textContent = fmtPctAct(act.op_mgmt_qd);
+            document.getElementById('opMgmtSZAchRatio').textContent = fmtPctAct(act.op_mgmt_sz);
+            document.getElementById('prodCostAchRatio').textContent = fmtPctAct(act.product_cost);
+            document.getElementById('prodCostPlatformAchRatio').textContent = fmtPctAct(actProdDetail.platform_product_cost);
+            document.getElementById('prodCostSampleAchRatio').textContent = fmtPctAct(actProdDetail.sample_cost);
+            document.getElementById('prodCostSelfSampleAchRatio').textContent = fmtPctAct(actProdDetail.self_sample_cost);
+            document.getElementById('prodCostAfterSalesAchRatio').textContent = fmtPctAct(actProdDetail.aftersales_cost);
+            document.getElementById('touChengCostAchRatio').textContent = fmtPctAct(act.tou_cheng_cost);
+            document.getElementById('weiChengCostAchRatio').textContent = fmtPctAct(act.wei_cheng_cost);
+            document.getElementById('storageReturnCostAchRatio').textContent = fmtPctAct(act.storage_return_cost);
+            document.getElementById('storageReturnInboundActual').textContent = fmtAbs(actStorageDetail.inbound_fee);
+            document.getElementById('storageReturnStorageActual').textContent = fmtAbs(actStorageDetail.storage_fee);
+            document.getElementById('storageReturnReturnActual').textContent = fmtAbs(actStorageDetail.return_fee);
+            document.getElementById('storageReturnInboundAchRatio').textContent = fmtPctAct(actStorageDetail.inbound_fee);
+            document.getElementById('storageReturnStorageAchRatio').textContent = fmtPctAct(actStorageDetail.storage_fee);
+            document.getElementById('storageReturnReturnAchRatio').textContent = fmtPctAct(actStorageDetail.return_fee);
+            document.getElementById('qdWageAchRatio').textContent = fmtPctAct(act.qingdao_wage);
+            document.getElementById('szWageAchRatio').textContent = fmtPctAct(act.shenzhen_wage);
+
+            if (FIXED_SHOP === '82' || FIXED_SHOP === '88' || FIXED_SHOP === '90' || RESTRICT_LIKE_82) {
+                const hideIds = [
+                    'breakEvenRevenue','breakEvenRevenueTarget','breakEvenRevenueActual','breakEvenRevenueAchRatio',
+                    'profitTargetRevenue','profitTargetRevenueTarget','profitTargetRevenueActual','profitTargetRevenueAchRatio',
+                    'netProfit','netProfitRatio','netProfitTarget','netProfitActual','netProfitAchRatio',
+                    'opMgmtQD','opMgmtQDRatio','opMgmtQDTarget','opMgmtQDActual','opMgmtQDAchRatio',
+                    'opMgmtSZ','opMgmtSZRatio','opMgmtSZTarget','opMgmtSZActual','opMgmtSZAchRatio',
+                    'qdWage','qdWageRatio','qdWageTarget','qdWageActual','qdWageAchRatio',
+                    'szWage','szWageRatio','szWageTarget','szWageActual','szWageAchRatio',
+                    'qdRent','qdRentRatio','qdRentTarget','qdRentActual','qdRentAchRatio',
+                    'szRent','szRentRatio','szRentTarget','szRentActual','szRentAchRatio'
+                ];
+                hideIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '—';
+                });
+            }
+            document.getElementById('qdRentAchRatio').textContent = fmtPctAct(act.qingdao_rent);
+            document.getElementById('szRentAchRatio').textContent = fmtPctAct(act.shenzhen_rent);
+
+            renderAchRatioChart();
+        }
+
+        function initCacheSelect() {
+            const sel = document.getElementById('cacheSelect');
+            if (!sel || !Array.isArray(PRECOMPUTED_SHOPS)) return;
+            let hasAll = false;
+            PRECOMPUTED_SHOPS.forEach(item => {
+                if (item && item.key === 'ALL') {
+                    hasAll = true;
+                }
+            });
+            if (hasAll || PRECOMPUTED_SHOPS.length > 0) {
+                const optAll = document.createElement('option');
+                optAll.value = 'ALL';
+                const allItem = PRECOMPUTED_SHOPS.find(it => it && it.key === 'ALL');
+                optAll.textContent = (allItem && allItem.label) ? allItem.label : '全部店铺';
+                sel.appendChild(optAll);
+            }
+            PRECOMPUTED_SHOPS.forEach(item => {
+                if (!item || item.key === 'ALL') return;
+                const opt = document.createElement('option');
+                opt.value = item.key;
+                opt.textContent = item.label;
+                sel.appendChild(opt);
+            });
+        }
+
+        async function loadCachedMetrics() {
+            const sel = document.getElementById('cacheSelect');
+            if (!sel) return;
+            const key = sel.value;
+            if (!key) return;
+            const modeSel = document.getElementById('cacheRangeSelect');
+            const mode = (modeSel && modeSel.value) ? modeSel.value : 'month';
+            const today = new Date();
+            const endStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            let startStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+            if (mode === 'week') {
+                const startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - 6);
+                startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+            }
+            document.getElementById('start_date').value = startStr;
+            document.getElementById('end_date').value = endStr;
+            const shops = [];
+            if (key === 'ALL') {
+                const list = document.querySelectorAll('.shop-item');
+                list.forEach(cb => {
+                    shops.push(cb.value);
+                    cb.checked = true;
+                });
+                updateShopTags();
+            } else {
+                const list = document.querySelectorAll('.shop-item');
+                list.forEach(cb => {
+                    cb.checked = (cb.value === key);
+                    if (cb.checked) shops.push(cb.value);
+                });
+                updateShopTags();
+            }
+            const payloadMap = (mode === 'week') ? PRECOMPUTED_WEEK_SHOP_PAYLOADS : PRECOMPUTED_SHOP_PAYLOADS;
+            const payload = (payloadMap && payloadMap[key]) ? payloadMap[key] : null;
+            if (payload && payload.success !== false) {
+                renderMetrics(payload);
+            } else if (shops.length > 0) {
+                const body = { start_date: startStr, end_date: endStr, shops: shops };
+                const resp = await fetch('/tk/metrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await resp.json();
+                renderMetrics(data);
+            }
+        }
+
+        function renderAchRatioChart() {
+            const container = document.getElementById('achRatioChart');
+            if (!container) return;
+            const rows = document.querySelectorAll('.module-content table.data-table tbody tr');
+            const items = [];
+            rows.forEach(row => {
+                const labelCell = row.querySelector('td');
+                const achCell = row.querySelector('td.col-achratio');
+                if (!labelCell || !achCell) return;
+                const label = (labelCell.textContent || '').trim();
+                if (!label || label === '销售额' || label === '毛利润' || label === '净利润') return;
+                const isDetail = labelCell.classList.contains('sub-label');
+                if (!isDetail && row.classList.contains('collapse-toggle')) return;
+                const text = (achCell.textContent || '').trim();
+                if (!text || text === '—') return;
+                const num = parseFloat(text.replace('%', '').trim());
+                if (!isFinite(num)) return;
+                items.push({ label, value: num });
+            });
+            items.sort((a, b) => a.value - b.value);
+            container.innerHTML = '';
+            const title = document.createElement('div');
+            title.className = 'achratio-chart-title';
+            title.textContent = '实际达成（各项支出占销售额的比例（从小到大））';
+            container.appendChild(title);
+            items.forEach(it => {
+                const row = document.createElement('div');
+                row.className = 'achratio-bar-row';
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'achratio-bar-label';
+                labelDiv.textContent = it.label;
+                const track = document.createElement('div');
+                track.className = 'achratio-bar-track';
+                const fill = document.createElement('div');
+                fill.className = 'achratio-bar-fill';
+                const width = Math.max(0, Math.min(100, it.value));
+                fill.style.width = width + '%';
+                track.appendChild(fill);
+                const valDiv = document.createElement('div');
+                valDiv.className = 'achratio-bar-value';
+                valDiv.textContent = it.value.toFixed(2) + '%';
+                row.appendChild(labelDiv);
+                row.appendChild(track);
+                row.appendChild(valDiv);
+                container.appendChild(row);
+            });
+        }
+
+        function toggleInfluencerCommissionDetail() {
+            const rows = document.querySelectorAll('.influencer-commission-detail-row');
+            if (!rows || rows.length === 0) return;
+            let anyHidden = false;
+            rows.forEach(r => {
+                const display = r.style.display || window.getComputedStyle(r).display;
+                if (display === 'none') anyHidden = true;
+            });
+            rows.forEach(r => {
+                r.style.display = anyHidden ? '' : 'none';
+            });
+            const icon = document.getElementById('influencerCommissionToggleIcon');
+            if (icon) icon.textContent = anyHidden ? '▼' : '▶';
+        }
+
+        function toggleInfluencerVideoDetail() {
+            const rows = document.querySelectorAll('.influencer-video-detail-row');
+            if (!rows || rows.length === 0) return;
+            let anyHidden = false;
+            rows.forEach(r => {
+                const display = r.style.display || window.getComputedStyle(r).display;
+                if (display === 'none') anyHidden = true;
+            });
+            rows.forEach(r => {
+                r.style.display = anyHidden ? '' : 'none';
+            });
+            const icon = document.getElementById('influencerVideoToggleIcon');
+            if (icon) icon.textContent = anyHidden ? '▼' : '▶';
+        }
+
+        function toggleStorageReturnDetail() {
+            const rows = document.querySelectorAll('.storage-return-detail-row');
+            if (!rows || rows.length === 0) return;
+            let anyHidden = false;
+            rows.forEach(r => {
+                const display = r.style.display || window.getComputedStyle(r).display;
+                if (display === 'none') anyHidden = true;
+            });
+            rows.forEach(r => {
+                r.style.display = anyHidden ? '' : 'none';
+            });
+            const icon = document.getElementById('storageReturnToggleIcon');
+            if (icon) icon.textContent = anyHidden ? '▼' : '▶';
+        }
+        function toggleProductCostDetail() {
+            const rows = document.querySelectorAll('.product-cost-detail-row');
+            if (!rows || rows.length === 0) return;
+            let anyHidden = false;
+            rows.forEach(r => {
+                const display = r.style.display || window.getComputedStyle(r).display;
+                if (display === 'none') anyHidden = true;
+            });
+            rows.forEach(r => {
+                r.style.display = anyHidden ? '' : 'none';
+            });
+            const icon = document.getElementById('productCostToggleIcon');
+            if (icon) icon.textContent = anyHidden ? '▼' : '▶';
+        }
+        async function loadShops() {
+            const listBox = document.getElementById('shopsList');
+            const tagsBox = document.getElementById('shopTags');
+            const titleEl = document.querySelector('#shopMultiselect .dropdown-toggle span');
+            const selectAll = document.getElementById('selectAll');
+            if (FIXED_SHOP) {
+                if (listBox) {
+                    listBox.innerHTML = '';
+                    const label = document.createElement('label');
+                    label.className = 'shop-row';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = FIXED_SHOP;
+                    cb.className = 'shop-item';
+                    cb.checked = true;
+                    cb.disabled = true;
+                    const span = document.createElement('span');
+                    span.textContent = FIXED_SHOP;
+                    label.appendChild(cb);
+                    label.appendChild(span);
+                    listBox.appendChild(label);
+                }
+                if (tagsBox) {
+                    tagsBox.innerHTML = '';
+                    const el = document.createElement('span');
+                    el.className = 'tag';
+                    el.textContent = FIXED_SHOP;
+                    tagsBox.appendChild(el);
+                }
+                if (selectAll) {
+                    selectAll.checked = true;
+                    selectAll.disabled = true;
+                }
+                if (titleEl) {
+                    titleEl.textContent = '店铺 ' + FIXED_SHOP;
+                }
+                return;
+            }
+            try {
+                const resp = await fetch('/tk/shops');
+                const data = await resp.json();
+                if (!listBox) return;
+                listBox.innerHTML = '';
+                if (data.success) {
+                    (data.shops || []).forEach(s => {
+                        const label = document.createElement('label');
+                        label.className = 'shop-row';
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.value = s;
+                        cb.className = 'shop-item';
+                        cb.addEventListener('change', updateShopTags);
+                        const span = document.createElement('span');
+                        span.textContent = s;
+                        label.appendChild(cb);
+                        label.appendChild(span);
+                        listBox.appendChild(label);
+                        if (typeof DEFAULT_SHOP_NAME === 'string' && s === DEFAULT_SHOP_NAME) {
+                            cb.checked = true;
+                        }
+                    });
+                    updateShopTags();
+                } else {
+                    document.getElementById('shopsError').textContent = data.message || '店铺列表加载失败';
+                }
+            } catch (e) {
+                document.getElementById('shopsError').textContent = '网络错误，无法加载店铺列表';
+            }
+        }
+
+        function getSelectedShops() {
+            if (FIXED_SHOP) {
+                return [FIXED_SHOP];
+            }
+            return Array.from(document.querySelectorAll('.shop-item:checked')).map(cb => cb.value);
+        }
+
+        function openShopPanel() { document.getElementById('shopPanel').style.display = 'block'; }
+        function closeShopPanel() { document.getElementById('shopPanel').style.display = 'none'; }
+        function toggleShopPanel() { const p = document.getElementById('shopPanel'); p.style.display = (p.style.display === 'none' || p.style.display === '') ? 'block' : 'none'; }
+
+        function updateShopTags() {
+            const tagsBox = document.getElementById('shopTags');
+            const shops = getSelectedShops();
+            tagsBox.innerHTML = '';
+            shops.forEach(s => {
+                const el = document.createElement('span');
+                el.className = 'tag';
+                el.textContent = s;
+                tagsBox.appendChild(el);
+            });
+            const titleEl = document.querySelector('#shopMultiselect .dropdown-toggle span');
+            if (titleEl) titleEl.textContent = shops.length ? ('已选' + shops.length + '个') : '选择店铺';
+        }
+
+        function toggleSelectAll(ele) {
+            const checked = ele.checked;
+            document.querySelectorAll('.shop-item').forEach(cb => { cb.checked = checked; });
+            updateShopTags();
+        }
+
+        async function queryMetrics() {
+            const start = document.getElementById('start_date').value;
+            const end = document.getElementById('end_date').value;
+            const shops = getSelectedShops();
+            if (!start || !end) { alert('请选择开始日期和结束日期'); return; }
+            setLoading(true);
+            try {
+                const apiUrl = (FIXED_SHOP === '82') ? '/tk/metrics_82'
+                    : (FIXED_SHOP === '88') ? '/tk/metrics_88'
+                    : (FIXED_SHOP === '90') ? '/tk/metrics_90'
+                    : '/tk/metrics';
+                const resp = await fetch(apiUrl, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_date: start, end_date: end, shops })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    renderMetrics(data);
+                    setLoading(false);
+                } else {
+                    alert(data.message || '查询失败');
+                    setLoading(false);
+                }
+            } catch (e) {
+                alert('网络错误，请重试');
+                setLoading(false);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('start_date').value = `${yyyy}-${mm}-01`;
+            document.getElementById('end_date').value = `${yyyy}-${mm}-${dd}`;
+            if (!FIXED_SHOP) {
+                loadShops();
+            }
+            if (DEFAULT_SHOP_DATA && DEFAULT_SHOP_DATA.success) {
+                renderMetrics(DEFAULT_SHOP_DATA);
+            }
+            initCacheSelect();
+            if (!FIXED_SHOP) {
+                const ms = document.getElementById('shopMultiselect');
+                if (ms) {
+                    ms.addEventListener('click', function(e){
+                        const panel = document.getElementById('shopPanel');
+                        if (panel && !panel.contains(e.target)) openShopPanel();
+                    });
+                }
+                window.addEventListener('click', function(e){
+                    const msEl = document.getElementById('shopMultiselect');
+                    const panel = document.getElementById('shopPanel');
+                    if (msEl && panel && !msEl.contains(e.target)) closeShopPanel();
+                });
+            }
+
+            if (window.innerWidth <= 640) {
+                const scrollContainer = document.querySelector('.scroll-area') || document.querySelector('.container');
+                if (scrollContainer) {
+                    const labels = Array.prototype.slice.call(
+                        scrollContainer.querySelectorAll('.module-label')
+                    );
+                    const firstCells = Array.prototype.slice.call(
+                        scrollContainer.querySelectorAll('.data-table tbody tr td:first-child')
+                    );
+                    for (let i = 0; i < firstCells.length; i++) {
+                        const cell = firstCells[i];
+                        cell.style.position = 'relative';
+                        cell.style.zIndex = '4';
+                        cell.style.backgroundColor = '#ffffff';
+                    }
+                    const updateLabelOffset = function () {
+                        const sl = scrollContainer.scrollLeft || 0;
+                        for (let i = 0; i < labels.length; i++) {
+                            labels[i].style.transform = 'translateX(' + sl + 'px)';
+                        }
+                        for (let i = 0; i < firstCells.length; i++) {
+                            firstCells[i].style.transform = 'translateX(' + sl + 'px)';
+                        }
+                    };
+                    scrollContainer.addEventListener('scroll', updateLabelOffset);
+                    updateLabelOffset();
+                }
+            }
+        });
+    </script>
+    
+</head>
+<body>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-box">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            <div>
+                <div>正在加载相关数据，请稍候</div>
+                <div style="font-size:13px;color:#6b7280;margin-top:4px;">
+                    为提升加载速度，建议使用缓存数据展示，数据每 2 小时自动刷新一次，结果秒级呈现！
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="card">
+            <h1>{{ page_title or 'TK整体看板' }}</h1>
+            <div class="desc">{{ page_desc or '选择日期范围和店铺，查看昨日实时结算销售额（USD）与时间进度' }}</div>
+
+            <div class="form-row">
+                <div class="form-group compact">
+                    <label for="start_date">开始日期</label>
+                    <input id="start_date" type="date" />
+                </div>
+                <div class="form-group compact">
+                    <label for="end_date">结束日期</label>
+                    <input id="end_date" type="date" />
+                </div>
+                <div class="form-group compact">
+                    <label>店铺（可多选）</label>
+                    <div id="shopMultiselect" class="multiselect">
+                        <div class="dropdown-toggle" onclick="openShopPanel()">
+                            <span>选择店铺</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div id="shopPanel" class="dropdown-panel">
+                            <label class="select-all">
+                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+                                <span>全选</span>
+                            </label>
+                            <div id="shopsList"></div>
+                        </div>
+                        <div id="shopTags" class="tags"></div>
+                    </div>
+                    <div id="shopsError" class="error"></div>
+                </div>
+                <div class="form-group action" style="display:flex; align-items:flex-end;">
+                    <button class="btn sm" onclick="queryMetrics()"><i class="fas fa-search"></i> 查询</button>
+                </div>
+                <div class="form-group compact">
+                    <label for="cacheRangeSelect">缓存范围</label>
+                    <select id="cacheRangeSelect" onchange="if (document.getElementById('cacheSelect').value) loadCachedMetrics()">
+                        <option value="month">本月缓存</option>
+                        <option value="week">一周缓存</option>
+                    </select>
+                </div>
+                <div class="form-group compact">
+                    <label for="cacheSelect">加载缓存</label>
+                    <select id="cacheSelect" onchange="loadCachedMetrics()">
+                        <option value="">不使用缓存</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="metrics">
+                <div class="metric metric-center">
+                    <h3 id="salesHeader" title="昨日实时结算销售额（USD）"><i class="fas fa-dollar-sign"></i> 昨日实时结算销售额（USD）</h3>
+                    <div class="value" id="salesValue">$0.00</div>
+                </div>
+                
+                <div class="metric" style="flex:2;">
+                    <h3 id="progressHeader" title="当前日期前一天占当前月的进度占比"><i class="fas fa-hourglass-half"></i> 时间进度</h3>
+                    <div class="progress"><div id="progressBar" style="width:0%"></div></div>
+                    <div class="footer"><span id="progressText">0%</span> · <span id="progressFooter"></span></div>
+                    <div style="margin-top:4px;">
+                        <h4 id="salesProgressHeader" style="font-size:14px; margin-bottom:6px;"></h4>
+                        <div class="progress"><div id="salesProgressBar" style="width:0%"></div></div>
+                        <div class="footer">
+                            <span id="salesProgressText">0%</span>
+                            ·
+                            <span id="salesProgressDetail"></span>
+                        </div>
+                        <div style="margin-top:8px;">
+                            <h4 style="font-size:14px; margin-bottom:6px;">达人数达成率</h4>
+                            <div class="progress"><div id="influencerProgressBar" style="width:0%"></div></div>
+                            <div class="footer">
+                                <span id="influencerProgressText">0%</span>
+                                ·
+                                <span id="influencerProgressDetail"></span>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;">
+                            <h4 style="font-size:14px; margin-bottom:6px;">视频数达成率</h4>
+                            <div class="progress"><div id="videoProgressBar" style="width:0%"></div></div>
+                            <div class="footer">
+                                <span id="videoProgressText">0%</span>
+                                ·
+                                <span id="videoProgressDetail"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="scroll-area">
+        <div class="stack">
+        <div class="card">
+            <div class="module-block">
+                <div class="module-label period">统计期</div>
+                <div class="module-content">
+                    <table class="data-table">
+                        <colgroup>
+                            <col class="col-label">
+                            <col class="col-value">
+                            <col class="col-ratio">
+                            <col class="col-target">
+                            <col class="col-achieved">
+                            <col class="col-achratio">
+                        </colgroup>
+                        <tbody>
+                            <tr {% if fixed_shop == '82' or fixed_shop == '88' or fixed_shop == '90' or restrict_like_82 %}style="display:none;"{% endif %}>
+                                <td>结束日期的上个月</td>
+                                <td class="value col-value" id="periodMonth"></td>
+                                <td class="col-ratio ratio-header">上个月占比</td>
+                                <td class="col-target target-header">本月目标</td>
+                                <td class="col-achieved achieved-header">实际达成</td>
+                                <td class="col-achratio achratio-header">实际达成（各项明细占销售额的比例）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="module-block">
+                <div class="module-label business">经营成果</div>
+                <div class="module-content">
+                    <table class="data-table">
+                        <colgroup>
+                            <col class="col-label">
+                            <col class="col-value">
+                            <col class="col-ratio">
+                            <col class="col-target">
+                            <col class="col-achieved">
+                            <col class="col-achratio">
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <td title="数据来源:（经营管理费（青岛）+经营管理费（深圳）+工资（青岛）+工资（深圳）+房租（青岛）+房租（深圳））/毛利率">实时保本额</td>
+                                <td class="value col-value" id="breakEvenRevenue">0.00</td>
+                                <td class="col-ratio">—</td>
+                                <td class="col-target" id="breakEvenRevenueTarget">—</td>
+                                <td class="col-achieved" id="breakEvenRevenueActual">—</td>
+                                <td class="col-achratio" id="breakEvenRevenueAchRatio">—</td>
+                            </tr>
+                            <tr {% if fixed_shop == '82' or fixed_shop == '88' or fixed_shop == '90' or restrict_like_82 %}style="display:none;"{% endif %}>
+                                <td title="数据来源:所选时间段内该店铺的实际销售数量（赛狐订单数据）">销售量</td>
+                                <td class="value col-value" id="orderCount">0</td>
+                                <td class="col-ratio">—</td>
+                                <td class="col-target" id="orderCountTarget">—</td>
+                                <td class="col-achieved" id="orderCountActual">—</td>
+                                <td class="col-achratio" id="orderCountAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td title="数据来源:（经营管理费（青岛）+经营管理费（深圳）+工资（青岛）+工资（深圳）+房租（青岛）+房租（深圳））+本月目标净利/毛利率">实时保利额</td>
+                                <td class="value col-value" id="profitTargetRevenue">0.00</td>
+                                <td class="col-ratio">—</td>
+                                <td class="col-target" id="profitTargetRevenueTarget">—</td>
+                                <td class="col-achieved" id="profitTargetRevenueActual">—</td>
+                                <td class="col-achratio" id="profitTargetRevenueAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>销售额</td>
+                                <td class="value col-value" id="monthlySalesPrev">0.00</td>
+                                <td class="col-ratio" id="monthlySalesPrevRatio">—</td>
+                                <td class="col-target" id="monthlySalesPrevTarget">—</td>
+                                <td class="col-achieved" id="monthlySalesPrevActual">—</td>
+                                <td class="col-achratio" id="monthlySalesPrevAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>净利润</td>
+                                <td class="value col-value" id="netProfit">0.00</td>
+                                <td class="col-ratio" id="netProfitRatio">—</td>
+                                <td class="col-target" id="netProfitTarget">—</td>
+                                <td class="col-achieved" id="netProfitActual">—</td>
+                                <td class="col-achratio" id="netProfitAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>毛利润</td>
+                                <td class="value col-value" id="grossProfit">0.00</td>
+                                <td class="col-ratio" id="grossProfitRatio">—</td>
+                                <td class="col-target" id="grossProfitTarget">—</td>
+                                <td class="col-achieved" id="grossProfitActual">—</td>
+                                <td class="col-achratio" id="grossProfitAchRatio">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="module-block">
+                <div class="module-label promo">推广成本</div>
+                <div class="module-content">
+                    <table class="data-table">
+                        <colgroup>
+                            <col class="col-label">
+                            <col class="col-value">
+                            <col class="col-ratio">
+                            <col class="col-target">
+                            <col class="col-achieved">
+                            <col class="col-achratio">
+                        </colgroup>
+        <tbody>
+            <tr class="collapse-toggle" onclick="toggleInfluencerCommissionDetail()">
+                                <td>
+                                    达人佣金
+                                    <span id="influencerCommissionToggleIcon" class="collapse-toggle-icon">▶</span>
+                                </td>
+                                <td class="value col-value" id="influencerCommission">0.00</td>
+                                <td class="col-ratio" id="influencerCommissionRatio">—</td>
+                                <td class="col-target" id="influencerCommissionTarget">—</td>
+                                <td class="col-achieved" id="influencerCommissionActual">—</td>
+                                <td class="col-achratio" id="influencerCommissionAchRatio">—</td>
+                            </tr>
+                            <tr class="influencer-commission-detail-row" style="display:none;">
+                <td class="sub-label">└ 创作者佣金</td>
+                <td class="value col-value" id="influencerCommissionCreator">0.00</td>
+                <td class="col-ratio" id="influencerCommissionCreatorRatio">—</td>
+                <td class="col-target" id="influencerCommissionCreatorTarget">—</td>
+                <td class="col-achieved" id="influencerCommissionCreatorActual">—</td>
+                <td class="col-achratio" id="influencerCommissionCreatorAchRatio">—</td>
+            </tr>
+            <tr class="influencer-commission-detail-row" style="display:none;">
+                <td class="sub-label">└ 联盟伙伴佣金</td>
+                <td class="value col-value" id="influencerCommissionPartner">0.00</td>
+                <td class="col-ratio" id="influencerCommissionPartnerRatio">—</td>
+                <td class="col-target" id="influencerCommissionPartnerTarget">—</td>
+                <td class="col-achieved" id="influencerCommissionPartnerActual">—</td>
+                <td class="col-achratio" id="influencerCommissionPartnerAchRatio">—</td>
+            </tr>
+            <tr class="influencer-commission-detail-row" style="display:none;">
+                <td class="sub-label">└ 广告订单佣金</td>
+                <td class="value col-value" id="influencerCommissionAdOrder">0.00</td>
+                <td class="col-ratio" id="influencerCommissionAdOrderRatio">—</td>
+                <td class="col-target" id="influencerCommissionAdOrderTarget">—</td>
+                <td class="col-achieved" id="influencerCommissionAdOrderActual">—</td>
+                <td class="col-achratio" id="influencerCommissionAdOrderAchRatio">—</td>
+            </tr>
+            <tr class="influencer-commission-detail-row" style="display:none;">
+                <td class="sub-label">└ 达人渠道号佣金</td>
+                <td class="value col-value" id="influencerCommissionChannel">0.00</td>
+                <td class="col-ratio" id="influencerCommissionChannelRatio">—</td>
+                <td class="col-target" id="influencerCommissionChannelTarget">—</td>
+                <td class="col-achieved" id="influencerCommissionChannelActual">—</td>
+                <td class="col-achratio" id="influencerCommissionChannelAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>达人数</td>
+                                <td class="value col-value" id="influencerCount">0</td>
+                                <td class="col-ratio">—</td>
+                                <td class="col-target" id="influencerCountTarget">—</td>
+                                <td class="col-achieved" id="influencerCountActual">—</td>
+                                <td class="col-achratio" id="influencerCountAchRatio">—</td>
+                            </tr>
+                            <tr class="collapse-toggle" onclick="toggleInfluencerVideoDetail()">
+                                <td>
+                                    渠道推广及维护费用
+                                    <span id="influencerVideoToggleIcon" class="collapse-toggle-icon">▶</span>
+                                </td>
+                                <td class="value col-value" id="influencerVideoFee">0.00</td>
+                                <td class="col-ratio" id="influencerVideoFeeRatio">—</td>
+                                <td class="col-target" id="influencerVideoFeeTarget">—</td>
+                                <td class="col-achieved" id="influencerVideoFeeActual">—</td>
+                                <td class="col-achratio" id="influencerVideoFeeAchRatio">—</td>
+                            </tr>
+            <tr class="influencer-video-detail-row" style="display:none;">
+                <td class="sub-label">└ 刷单费</td>
+                <td class="value col-value" id="influencerVideoFeeShuaDan">0.00</td>
+                <td class="col-ratio" id="influencerVideoFeeShuaDanRatio">—</td>
+                <td class="col-target" id="influencerVideoFeeShuaDanTarget">—</td>
+                <td class="col-achieved" id="influencerVideoFeeShuaDanActual">—</td>
+                <td class="col-achratio" id="influencerVideoFeeShuaDanAchRatio">—</td>
+            </tr>
+            <tr class="influencer-video-detail-row" style="display:none;">
+                <td class="sub-label">└ 售后</td>
+                <td class="value col-value" id="influencerVideoFeeShouHou">0.00</td>
+                <td class="col-ratio" id="influencerVideoFeeShouHouRatio">—</td>
+                <td class="col-target" id="influencerVideoFeeShouHouTarget">—</td>
+                <td class="col-achieved" id="influencerVideoFeeShouHouActual">—</td>
+                <td class="col-achratio" id="influencerVideoFeeShouHouAchRatio">—</td>
+            </tr>
+            <tr class="influencer-video-detail-row" style="display:none;">
+                <td class="sub-label">└ 网红坑位费</td>
+                <td class="value col-value" id="influencerVideoFeeKengWei">0.00</td>
+                <td class="col-ratio" id="influencerVideoFeeKengWeiRatio">—</td>
+                <td class="col-target" id="influencerVideoFeeKengWeiTarget">—</td>
+                <td class="col-achieved" id="influencerVideoFeeKengWeiActual">—</td>
+                <td class="col-achratio" id="influencerVideoFeeKengWeiAchRatio">—</td>
+            </tr>
+            <tr class="influencer-video-detail-row" style="display:none;">
+                <td class="sub-label">└ 给网红购买产品费</td>
+                <td class="value col-value" id="influencerVideoFeeBuyProduct">0.00</td>
+                <td class="col-ratio" id="influencerVideoFeeBuyProductRatio">—</td>
+                <td class="col-target" id="influencerVideoFeeBuyProductTarget">—</td>
+                <td class="col-achieved" id="influencerVideoFeeBuyProductActual">—</td>
+                <td class="col-achratio" id="influencerVideoFeeBuyProductAchRatio">—</td>
+            </tr>
+            <tr class="influencer-video-detail-row" style="display:none;">
+                <td class="sub-label">└ 达人礼品费</td>
+                <td class="value col-value" id="influencerVideoFeeGift">0.00</td>
+                <td class="col-ratio" id="influencerVideoFeeGiftRatio">—</td>
+                <td class="col-target" id="influencerVideoFeeGiftTarget">—</td>
+                <td class="col-achieved" id="influencerVideoFeeGiftActual">—</td>
+                <td class="col-achratio" id="influencerVideoFeeGiftAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>视频数</td>
+                                <td class="value col-value" id="videoCount">0</td>
+                                <td class="col-ratio">—</td>
+                                <td class="col-target" id="videoCountTarget">—</td>
+                                <td class="col-achieved" id="videoCountActual">—</td>
+                                <td class="col-achratio" id="videoCountAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>活动服务费</td>
+                                <td class="value col-value" id="activityServiceFee">0.00</td>
+                                <td class="col-ratio" id="activityServiceFeeRatio">—</td>
+                                <td class="col-target" id="activityServiceFeeTarget">—</td>
+                                <td class="col-achieved" id="activityServiceFeeActual">—</td>
+                                <td class="col-achratio" id="activityServiceFeeAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>广告费</td>
+                                <td class="value col-value" id="adFee">0.00</td>
+                                <td class="col-ratio" id="adFeeRatio">—</td>
+                                <td class="col-target" id="adFeeTarget">—</td>
+                                <td class="col-achieved" id="adFeeActual">—</td>
+                                <td class="col-achratio" id="adFeeAchRatio">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="module-block">
+                <div class="module-label variable">变动成本</div>
+                <div class="module-content">
+                    <table class="data-table">
+                        <colgroup>
+                            <col class="col-label">
+                            <col class="col-value">
+                            <col class="col-ratio">
+                            <col class="col-target">
+                            <col class="col-achieved">
+                            <col class="col-achratio">
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <td>平台佣金</td>
+                                <td class="value col-value" id="platformCommission">0.00</td>
+                                <td class="col-ratio" id="platformCommissionRatio">—</td>
+                                <td class="col-target" id="platformCommissionTarget">—</td>
+                                <td class="col-achieved" id="platformCommissionActual">—</td>
+                                <td class="col-achratio" id="platformCommissionAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>税金</td>
+                                <td class="value col-value" id="vatFee">0.00</td>
+                                <td class="col-ratio" id="vatFeeRatio">—</td>
+                                <td class="col-target" id="vatFeeTarget">—</td>
+                                <td class="col-achieved" id="vatFeeActual">—</td>
+                                <td class="col-achratio" id="vatFeeAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>调整费</td>
+                                <td class="value col-value" id="adjustmentFee">0.00</td>
+                                <td class="col-ratio" id="adjustmentFeeRatio">—</td>
+                                <td class="col-target" id="adjustmentFeeTarget">—</td>
+                                <td class="col-achieved" id="adjustmentFeeActual">—</td>
+                                <td class="col-achratio" id="adjustmentFeeAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>其他</td>
+                                <td class="value col-value" id="otherPlatformFee">0.00</td>
+                                <td class="col-ratio" id="otherPlatformFeeRatio">—</td>
+                                <td class="col-target" id="otherPlatformFeeTarget">—</td>
+                                <td class="col-achieved" id="otherPlatformFeeActual">—</td>
+                                <td class="col-achratio" id="otherPlatformFeeAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>经营管理费（青岛团队）</td>
+                                <td class="value col-value" id="opMgmtQD">0.00</td>
+                                <td class="col-ratio" id="opMgmtQDRatio">—</td>
+                                <td class="col-target" id="opMgmtQDTarget">—</td>
+                                <td class="col-achieved" id="opMgmtQDActual">—</td>
+                                <td class="col-achratio" id="opMgmtQDAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>经营管理费（深圳团队）</td>
+                                <td class="value col-value" id="opMgmtSZ">0.00</td>
+                                <td class="col-ratio" id="opMgmtSZRatio">—</td>
+                                <td class="col-target" id="opMgmtSZTarget">—</td>
+                                <td class="col-achieved" id="opMgmtSZActual">—</td>
+                                <td class="col-achratio" id="opMgmtSZAchRatio">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="module-block">
+                <div class="module-label plcost">产品&物流成本</div>
+                <div class="module-content">
+                    <table class="data-table">
+                        <colgroup>
+                            <col class="col-label">
+                            <col class="col-value">
+                            <col class="col-ratio">
+                            <col class="col-target">
+                            <col class="col-achieved">
+                            <col class="col-achratio">
+                        </colgroup>
+                        <tbody>
+                            <tr class="collapse-toggle" onclick="toggleProductCostDetail()">
+                                <td>
+                                    产品成本
+                                    <span id="productCostToggleIcon" class="collapse-toggle-icon">▶</span>
+                                </td>
+                                <td class="value col-value" id="prodCost">0.00</td>
+                                <td class="col-ratio" id="prodCostRatio">—</td>
+                                <td class="col-target" id="prodCostTarget">—</td>
+                                <td class="col-achieved" id="prodCostActual">—</td>
+                                <td class="col-achratio" id="prodCostAchRatio">—</td>
+                            </tr>
+                            <tr class="product-cost-detail-row" style="display:none;">
+                                <td class="sub-label">└ 平台产品成本</td>
+                                <td class="value col-value" id="prodCostPlatform">0.00</td>
+                                <td class="col-ratio" id="prodCostPlatformRatio">—</td>
+                                <td class="col-target" id="prodCostPlatformTarget">—</td>
+                                <td class="col-achieved" id="prodCostPlatformActual">—</td>
+                                <td class="col-achratio" id="prodCostPlatformAchRatio">—</td>
+                            </tr>
+                            <tr class="product-cost-detail-row" style="display:none;">
+                                <td class="sub-label">└ 样品成本</td>
+                                <td class="value col-value" id="prodCostSample">0.00</td>
+                                <td class="col-ratio" id="prodCostSampleRatio">—</td>
+                                <td class="col-target" id="prodCostSampleTarget">—</td>
+                                <td class="col-achieved" id="prodCostSampleActual">—</td>
+                                <td class="col-achratio" id="prodCostSampleAchRatio">—</td>
+                            </tr>
+                            <tr class="product-cost-detail-row" style="display:none;">
+                                <td class="sub-label">└ 自发样品成本</td>
+                                <td class="value col-value" id="prodCostSelfSample">0.00</td>
+                                <td class="col-ratio" id="prodCostSelfSampleRatio">—</td>
+                                <td class="col-target" id="prodCostSelfSampleTarget">—</td>
+                                <td class="col-achieved" id="prodCostSelfSampleActual">—</td>
+                                <td class="col-achratio" id="prodCostSelfSampleAchRatio">—</td>
+                            </tr>
+                            <tr class="product-cost-detail-row" style="display:none;">
+                                <td class="sub-label">└ 售后订单成本</td>
+                                <td class="value col-value" id="prodCostAfterSales">0.00</td>
+                                <td class="col-ratio" id="prodCostAfterSalesRatio">—</td>
+                                <td class="col-target" id="prodCostAfterSalesTarget">—</td>
+                                <td class="col-achieved" id="prodCostAfterSalesActual">—</td>
+                                <td class="col-achratio" id="prodCostAfterSalesAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>头程费用</td>
+                                <td class="value col-value" id="touChengCost">0.00</td>
+                                <td class="col-ratio" id="touChengCostRatio">—</td>
+                                <td class="col-target" id="touChengCostTarget">—</td>
+                                <td class="col-achieved" id="touChengCostActual">—</td>
+                                <td class="col-achratio" id="touChengCostAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>尾程费用</td>
+                                <td class="value col-value" id="weiChengCost">0.00</td>
+                                <td class="col-ratio" id="weiChengCostRatio">—</td>
+                                <td class="col-target" id="weiChengCostTarget">—</td>
+                                <td class="col-achieved" id="weiChengCostActual">—</td>
+                                <td class="col-achratio" id="weiChengCostAchRatio">—</td>
+                            </tr>
+                            <tr class="collapse-toggle" onclick="toggleStorageReturnDetail()">
+                                <td>
+                                    项目尾程仓储费+退货费
+                                    <span id="storageReturnToggleIcon" class="collapse-toggle-icon">▶</span>
+                                </td>
+                                <td class="value col-value" id="storageReturnCost">0.00</td>
+                                <td class="col-ratio" id="storageReturnCostRatio">—</td>
+                                <td class="col-target" id="storageReturnCostTarget">—</td>
+                                <td class="col-achieved" id="storageReturnCostActual">—</td>
+                                <td class="col-achratio" id="storageReturnCostAchRatio">—</td>
+                            </tr>
+            <tr class="storage-return-detail-row" style="display:none;">
+                <td class="sub-label">└ 入库费</td>
+                <td class="value col-value" id="storageReturnInbound">0.00</td>
+                <td class="col-ratio" id="storageReturnInboundRatio">—</td>
+                <td class="col-target" id="storageReturnInboundTarget">—</td>
+                <td class="col-achieved" id="storageReturnInboundActual">—</td>
+                <td class="col-achratio" id="storageReturnInboundAchRatio">—</td>
+            </tr>
+            <tr class="storage-return-detail-row" style="display:none;">
+                <td class="sub-label">└ 仓储费</td>
+                <td class="value col-value" id="storageReturnStorage">0.00</td>
+                <td class="col-ratio" id="storageReturnStorageRatio">—</td>
+                <td class="col-target" id="storageReturnStorageTarget">—</td>
+                <td class="col-achieved" id="storageReturnStorageActual">—</td>
+                <td class="col-achratio" id="storageReturnStorageAchRatio">—</td>
+            </tr>
+            <tr class="storage-return-detail-row" style="display:none;">
+                <td class="sub-label">└ 退货费</td>
+                <td class="value col-value" id="storageReturnReturn">0.00</td>
+                <td class="col-ratio" id="storageReturnReturnRatio">—</td>
+                <td class="col-target" id="storageReturnReturnTarget">—</td>
+                <td class="col-achieved" id="storageReturnReturnActual">—</td>
+                <td class="col-achratio" id="storageReturnReturnAchRatio">—</td>
+            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="module-block">
+                <div class="module-label fixed">固定成本</div>
+                <div class="module-content">
+                    <table class="data-table">
+                        <colgroup>
+                            <col class="col-label">
+                            <col class="col-value">
+                            <col class="col-ratio">
+                            <col class="col-target">
+                            <col class="col-achieved">
+                            <col class="col-achratio">
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <td>工资（青岛团队）</td>
+                                <td class="value col-value" id="qdWage">0.00</td>
+                                <td class="col-ratio" id="qdWageRatio">—</td>
+                                <td class="col-target" id="qdWageTarget">—</td>
+                                <td class="col-achieved" id="qdWageActual">—</td>
+                                <td class="col-achratio" id="qdWageAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>工资（深圳团队）</td>
+                                <td class="value col-value" id="szWage">0.00</td>
+                                <td class="col-ratio" id="szWageRatio">—</td>
+                                <td class="col-target" id="szWageTarget">—</td>
+                                <td class="col-achieved" id="szWageActual">—</td>
+                                <td class="col-achratio" id="szWageAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>房租（青岛）</td>
+                                <td class="value col-value" id="qdRent">0.00</td>
+                                <td class="col-ratio" id="qdRentRatio">—</td>
+                                <td class="col-target" id="qdRentTarget">—</td>
+                                <td class="col-achieved" id="qdRentActual">—</td>
+                                <td class="col-achratio" id="qdRentAchRatio">—</td>
+                            </tr>
+                            <tr>
+                                <td>房租（深圳）</td>
+                                <td class="value col-value" id="szRent">0.00</td>
+                                <td class="col-ratio" id="szRentRatio">—</td>
+                                <td class="col-target" id="szRentTarget">—</td>
+                                <td class="col-achieved" id="szRentActual">—</td>
+                                <td class="col-achratio" id="szRentAchRatio">—</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="module-block">
+                <div class="module-label business">占比排序</div>
+                <div class="module-content">
+                    <div id="achRatioChart" class="achratio-chart">
+                        <div class="achratio-chart-title">实际达成（各项占销售额的比例（从小到大））</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        </div>
+    </body>
+
+</html>

@@ -1,0 +1,1057 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>TK数据看板 - 图创AI系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+        }
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .chart-box {
+            width: 100%;
+            height: 500px;
+        }
+        .control-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* 固定表头和固定列的样式 */
+        .fixed-table-container {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            max-height: 600px;
+        }
+
+        .fixed-table-wrapper {
+            display: flex;
+            height: 100%;
+        }
+
+        /* 固定左侧列容器 */
+         .fixed-columns {
+             flex-shrink: 0;
+             background: white;
+             border-right: 2px solid #dee2e6;
+             z-index: 3;
+             position: relative;
+             overflow-y: auto;
+             max-height: 600px;
+         }
+
+        /* 可滚动列容器 */
+         .scrollable-columns {
+             flex: 1;
+             overflow-x: auto;
+             overflow-y: auto;
+             max-height: 600px;
+         }
+
+         /* 添加水平滚动条样式 */
+         .scrollable-columns::-webkit-scrollbar {
+             width: 8px;
+             height: 12px;
+         }
+
+         .scrollable-columns::-webkit-scrollbar-track {
+             background: #f1f1f1;
+             border-radius: 6px;
+         }
+
+         .scrollable-columns::-webkit-scrollbar-thumb {
+             background: #888;
+             border-radius: 6px;
+         }
+
+         .scrollable-columns::-webkit-scrollbar-thumb:hover {
+             background: #555;
+         }
+
+         /* 对于Firefox浏览器 */
+         .scrollable-columns {
+             scrollbar-width: thin;
+             scrollbar-color: #888 #f1f1f1;
+         }
+
+        /* 固定表头样式 */
+        .fixed-header {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #343a40;
+            color: white;
+        }
+
+        /* 固定左侧列的表头 */
+        .fixed-columns .fixed-header {
+            z-index: 4;
+        }
+
+        /* 表格基础样式 */
+        .data-table {
+            margin: 0;
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+        }
+
+        .fixed-columns .data-table {
+            width: auto;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px 8px;
+            border-bottom: 1px solid #dee2e6;
+            white-space: nowrap;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .data-table th {
+            background: #343a40;
+            color: white;
+            font-weight: 600;
+            border-right: 1px solid #495057;
+        }
+
+        .data-table td {
+            background: white;
+            border-right: 1px solid #dee2e6;
+        }
+
+        /* 固定列宽度 */
+        .col-year { min-width: 60px; }
+        .col-month { min-width: 60px; }
+        .col-leader { min-width: 80px; }
+        .col-position { min-width: 80px; }
+        .col-bd { min-width: 80px; }
+        .col-talent-count { min-width: 80px; }
+        .col-talent-target { min-width: 100px; }
+        .col-actual-talent { min-width: 100px; }
+        .col-talent-rate { min-width: 120px; }
+        .col-video-count { min-width: 80px; }
+        .col-video-publish { min-width: 100px; }
+        .col-video-rate { min-width: 120px; }
+        .col-gmv-target { min-width: 100px; }
+        .col-gmv { min-width: 80px; }
+        .col-gmv-rate { min-width: 120px; }
+
+        /* 表格行悬停效果 */
+        .data-table tbody tr:hover td {
+            background-color: #f8f9fa;
+        }
+
+        /* 隐藏固定列的滚动条但保持滚动功能 */
+        .fixed-columns::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        /* 对于Firefox浏览器 */
+        .fixed-columns {
+            scrollbar-width: none;
+        }
+
+        /* 响应式调整 */
+         @media (max-width: 768px) {
+             .data-table th,
+             .data-table td {
+                 padding: 8px 4px;
+                 font-size: 0.9rem;
+             }
+         }
+    .breadcrumb {
+        background: transparent;
+        padding: 20px 0;
+    }
+    .stats-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .stats-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+    .stats-label {
+        color: #666;
+        font-size: 0.9rem;
+    }
+</style>
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-cube"></i> 图创AI系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('tk_project') }}">
+                    <i class="fas fa-project-diagram"></i> 返回TK项目
+                </a>
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 返回首页
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 面包屑导航 -->
+    <div class="container">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('tk_project') }}">TK项目组功能</a></li>
+                <li class="breadcrumb-item active" aria-current="page">数据看板</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- 页面头部 -->
+    <div class="dashboard-header">
+        <div class="container">
+            <h1><i class="fas fa-chart-bar"></i> TK数据看板</h1>
+            <p class="lead">TK项目组数据可视化分析平台</p>
+            <div class="user-info-panel mt-3">
+                <div class="alert alert-info" id="userInfoAlert" style="display: none;">
+                    <i class="fas fa-user"></i>
+                    <span id="userInfoText">正在加载用户信息...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要内容 -->
+    <div class="container mt-4">
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <h5><i class="fas fa-filter"></i> 数据筛选</h5>
+                </div>
+                <div class="col-md-8">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <select id="yearSelect" class="form-select">
+                                <option value="2025">2025年</option>
+                                <option value="2024">2024年</option>
+                                <option value="2023">2023年</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="monthSelect" class="form-select">
+                                <option value="1">1月</option>
+                                <option value="2">2月</option>
+                                <option value="3">3月</option>
+                                <option value="4">4月</option>
+                                <option value="5">5月</option>
+                                <option value="6">6月</option>
+                                <option value="7">7月</option>
+                                <option value="8">8月</option>
+                                <option value="9" selected>9月</option>
+                                <option value="10">10月</option>
+                                <option value="11">11月</option>
+                                <option value="12">12月</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select id="locationSelect" class="form-select">
+                                <option value="">全部位置</option>
+                                <option value="青岛">青岛</option>
+                                <option value="深圳">深圳</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button id="loadDataBtn" class="btn btn-primary w-100">
+                                <i class="fas fa-sync-alt"></i> 加载数据
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div id="statsCards" class="row" style="display: none;">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="totalReach">-</div>
+                    <div class="stats-label">总达人数</div>
+                    <div class="stats-indicator" id="totalReachIndicator" style="font-size: 0.7rem; color: #6c757d; margin-top: 2px;">指标: -</div>
+                    <div class="stats-rate" id="totalReachRate" style="font-size: 0.8rem; color: #28a745; margin-top: 5px;">-</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="totalVideos">-</div>
+                    <div class="stats-label">总视频数</div>
+                    <div class="stats-indicator" id="totalVideoIndicator" style="font-size: 0.7rem; color: #6c757d; margin-top: 2px;">指标: -</div>
+                    <div class="stats-rate" id="totalVideoRate" style="font-size: 0.8rem; color: #28a745; margin-top: 5px;">-</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="totalGMV">-</div>
+                    <div class="stats-label">联盟总GMV</div>
+                    <div class="stats-indicator" id="totalGMVIndicator" style="font-size: 0.7rem; color: #6c757d; margin-top: 2px;">指标: -</div>
+                    <div class="stats-rate" id="totalGMVRate" style="font-size: 0.8rem; color: #28a745; margin-top: 5px;">-</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stats-number" id="tkProjectGMV">-</div>
+                    <div class="stats-label" id="tkProjectGMVLabel">86店总GMV（包含短视频）</div>
+                    <div class="stats-indicator" id="tkProjectGMVIndicator" style="font-size: 0.7rem; color: #6c757d; margin-top: 2px;">指标: -</div>
+                    <div class="stats-rate" id="tkProjectGMVRate" style="font-size: 0.8rem; color: #28a745; margin-top: 5px;">-</div>
+                    <div class="stats-note" id="tkProjectGMVNote" style="font-size: 0.6rem; color: #007bff; margin-top: 2px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="row">
+            <!-- 柱状图 -->
+            <div class="col-lg-8">
+                <div class="chart-container">
+                    <div class="chart-title">各组达人数，视频数和GMV对比</div>
+                    <div id="barChart" class="chart-box"></div>
+                </div>
+            </div>
+
+            <!-- 扇形图 -->
+            <div class="col-lg-4">
+                <div class="chart-container">
+                    <div class="chart-title">GMV分布情况</div>
+                    <div id="pieChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 达成率图表 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-container">
+                    <div class="chart-title">各分组达成率分析</div>
+                    <div id="rateChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据表格 -->
+        <div class="row">
+            <div class="col-12 mb-4">
+                <div class="chart-container">
+                     <div class="chart-title">详细数据表格</div>
+                     <div class="fixed-table-container">
+                         <div class="fixed-table-wrapper">
+                             <!-- 固定左侧列 -->
+                             <div class="fixed-columns">
+                                 <table class="data-table">
+                                     <thead class="fixed-header">
+                                         <tr>
+                                             <th class="col-year">年</th>
+                                             <th class="col-month">月</th>
+                                             <th class="col-leader">组长</th>
+                                             <th class="col-position">位置</th>
+                                             <th class="col-bd">BD</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody id="fixedTableBody">
+                                         <!-- 固定列数据将通过JavaScript动态填充 -->
+                                     </tbody>
+                                 </table>
+                             </div>
+
+                             <!-- 可滚动列 -->
+                             <div class="scrollable-columns">
+                                 <table class="data-table">
+                                     <thead class="fixed-header">
+                                         <tr>
+                                             <th class="col-talent-target">达人数指标</th>
+                                             <th class="col-actual-talent">实际达人数</th>
+                                             <th class="col-talent-rate">达人数达成率</th>
+                                             <th class="col-video-count">视频数</th>
+                                             <th class="col-video-publish">视频发布数</th>
+                                             <th class="col-video-rate">视频达成率</th>
+                                             <th class="col-gmv-target">GMV指标</th>
+                                             <th class="col-gmv">GMV</th>
+                                             <th class="col-gmv-rate">GMV达成率</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody id="scrollableTableBody">
+                                         <!-- 可滚动列数据将通过JavaScript动态填充 -->
+                                     </tbody>
+                                 </table>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div id="loadingDiv" class="loading">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-3">正在加载数据...</p>
+        </div>
+
+        <!-- 错误信息 -->
+        <div id="errorDiv" class="error-message" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="errorMessage">加载数据时出现错误</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let barChart, pieChart, rateChart;
+        let currentData = [];
+
+        // 初始化图表
+        function initCharts() {
+            barChart = echarts.init(document.getElementById('barChart'));
+            pieChart = echarts.init(document.getElementById('pieChart'));
+            rateChart = echarts.init(document.getElementById('rateChart'));
+
+            // 响应式调整
+            window.addEventListener('resize', function() {
+                barChart.resize();
+                pieChart.resize();
+                rateChart.resize();
+            });
+        }
+
+        // 加载数据
+        function loadData() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+            const location = document.getElementById('locationSelect').value;
+
+            showLoading();
+            hideError();
+
+            let url = `/api/tk_dashboard_data?year=${year}&month=${month}`;
+            if (location) {
+                url += `&location=${encodeURIComponent(location)}`;
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    hideLoading();
+                    if (data.success) {
+                        currentData = data.data;
+                        updateCharts(data.data);
+                        updateStats(data.data, data.tk_project_gmv, data.shenzhen_alliance_gmv, data.qingdao_86_gmv);  // 传递所有GMV数据
+                        updateUserInfo(data.user_info);
+                        showCharts();
+                    } else {
+                        showError(data.message || '获取数据失败');
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    showError('网络请求失败: ' + error.message);
+                    console.error('Error:', error);
+                });
+        }
+
+        // 更新统计卡片
+        function updateStats(data, tkProjectGMV = 0, shenzhenAllianceGMV = 0, qingdao86GMV = 0) {
+            if (!data || data.length === 0) return;
+
+            let totalReach = 0;
+            let totalVideos = 0;
+            let totalGMV = 0;
+            let totalReachRate = 0;
+            let totalVideoRate = 0;
+            let totalGMVRate = 0;
+            let totalReachTarget = 0;
+            let totalVideoTarget = 0;
+            let totalGMVTarget = 0;
+
+            // 分别计算青岛和深圳的GMV指标
+            let qingdaoGMVTarget = 0;
+            let shenzhenGMVTarget = 0;
+            let qingdaoBDGMVTarget = 0; // 青岛BD的GMV指标（不包括86店）
+            
+            data.forEach(item => {
+                totalReach += parseFloat(item['实际达人数'] || 0);
+                totalVideos += parseFloat(item['视频发布数'] || 0);
+                totalGMV += parseFloat(item['GMV'] || 0);
+                totalReachRate += parseFloat(item['达人数达成率'] || 0);
+                totalVideoRate += parseFloat(item['视频达成率'] || 0);
+                totalGMVRate += parseFloat(item['GMV达成率'] || 0);
+                totalReachTarget += parseFloat(item['达人数指标'] || 0);
+                totalVideoTarget += parseFloat(item['视频数'] || 0);
+                
+                // 根据位置分别累加GMV指标
+                const itemLocation = item['位置'] || '';
+                const itemGMVTarget = parseFloat(item['GMV指标'] || 0);
+                
+                if (itemLocation === '青岛') {
+                    qingdaoBDGMVTarget += itemGMVTarget; // 青岛BD的指标累加
+                } else if (itemLocation === '深圳') {
+                    shenzhenGMVTarget += itemGMVTarget;
+                } else {
+                    totalGMVTarget += itemGMVTarget;
+                }
+            });
+            
+            // 青岛86店GMV指标设置为固定值720000（独立于BD指标）
+            qingdaoGMVTarget = 600000;
+            
+            // 深圳86店GMV指标 = 深圳BD的GMV指标之和（根据业务逻辑：深圳86店GMV等于深圳联盟GMV）
+            const shenzhen86GMVTarget = shenzhenGMVTarget;
+            
+            // 联盟总GMV指标 = 所有BD的GMV指标之和（青岛BD + 深圳BD）
+            const allianceGMVTarget = qingdaoBDGMVTarget + shenzhenGMVTarget;
+            
+            // 计算总GMV指标 = 青岛86店GMV指标 + 深圳86店GMV指标
+            totalGMVTarget = qingdaoGMVTarget + shenzhen86GMVTarget;
+
+            // 计算总体达成率
+            const overallReachRate = totalReachTarget > 0 ? (totalReach / totalReachTarget * 100) : 0;
+            const overallVideoRate = totalVideoTarget > 0 ? (totalVideos / totalVideoTarget * 100) : 0;
+            const allianceGMVRate = allianceGMVTarget > 0 ? (totalGMV / allianceGMVTarget * 100) : 0; // 联盟GMV达成率基于BD指标之和
+
+            document.getElementById('totalReach').textContent = totalReach.toFixed(0);
+            document.getElementById('totalVideos').textContent = totalVideos.toFixed(0);
+            document.getElementById('totalGMV').textContent = totalGMV.toFixed(2);
+
+            // 获取当前选择的位置
+            const selectedLocation = document.getElementById('locationSelect').value;
+
+            // 根据筛选条件动态更新86店GMV显示
+            let displayGMV = tkProjectGMV;
+            let displayLabel = '86店总GMV（包含短视频）';
+            let displayNote = '';
+            let displayGMVTarget = totalGMVTarget; // 默认使用总指标
+
+            if (selectedLocation === '青岛') {
+                displayGMV = qingdao86GMV;
+                displayLabel = '青岛86店GMV（包含短视频）';
+                displayGMVTarget = 600000; // 青岛86店使用固定指标720000
+
+            } else if (selectedLocation === '深圳') {
+                displayGMV = shenzhenAllianceGMV;
+                displayLabel = '深圳86店GMV';
+                displayGMVTarget = shenzhenGMVTarget; // 深圳使用计算出的指标
+
+            } else {
+                displayGMVTarget = totalGMVTarget; // 全部位置使用总指标
+            }
+
+            // 更新86店GMV显示
+            document.getElementById('tkProjectGMV').textContent = (displayGMV || 0).toFixed(2);
+            document.getElementById('tkProjectGMVLabel').textContent = displayLabel;
+            document.getElementById('tkProjectGMVNote').textContent = displayNote;
+            document.getElementById('tkProjectGMVIndicator').textContent = '指标: '+displayGMVTarget.toFixed(2);
+            document.getElementById('tkProjectGMVRate').textContent = '达成率:'+((displayGMV || 0)/displayGMVTarget*100).toFixed(2)+'%';
+
+            // 更新指标显示
+            document.getElementById('totalReachIndicator').textContent = '指标: ' + totalReachTarget.toFixed(0);
+            document.getElementById('totalVideoIndicator').textContent = '指标: ' + totalVideoTarget.toFixed(0);
+            document.getElementById('totalGMVIndicator').textContent = '指标: ' + allianceGMVTarget.toFixed(2); // 显示联盟GMV指标（BD指标之和）
+
+
+            // 更新达成率显示
+            document.getElementById('totalReachRate').textContent = '达成率: ' + overallReachRate.toFixed(1) + '%';
+            document.getElementById('totalVideoRate').textContent = '达成率: ' + overallVideoRate.toFixed(1) + '%';
+            document.getElementById('totalGMVRate').textContent = '达成率: ' + allianceGMVRate.toFixed(1) + '%'; // 显示联盟GMV达成率
+
+            // 根据达成率设置颜色
+            const reachRateElement = document.getElementById('totalReachRate');
+            const videoRateElement = document.getElementById('totalVideoRate');
+            const gmvRateElement = document.getElementById('totalGMVRate');
+
+            reachRateElement.style.color = overallReachRate >= 100 ? '#28a745' : overallReachRate >= 80 ? '#ffc107' : '#dc3545';
+            videoRateElement.style.color = overallVideoRate >= 100 ? '#28a745' : overallVideoRate >= 80 ? '#ffc107' : '#dc3545';
+            gmvRateElement.style.color = allianceGMVRate >= 100 ? '#28a745' : allianceGMVRate >= 80 ? '#ffc107' : '#dc3545'; // 使用联盟GMV达成率设置颜色
+        }
+
+        // 更新数据表格
+         function updateDataTable(data) {
+             const fixedTbody = document.getElementById('fixedTableBody');
+             const scrollableTbody = document.getElementById('scrollableTableBody');
+
+             fixedTbody.innerHTML = '';
+             scrollableTbody.innerHTML = '';
+
+             if (!data || data.length === 0) {
+                 fixedTbody.innerHTML = '<tr><td colspan="5" class="text-center">暂无数据</td></tr>';
+                 scrollableTbody.innerHTML = '<tr><td colspan="10" class="text-center">暂无数据</td></tr>';
+                 return;
+             }
+
+             data.forEach(item => {
+                 // 固定列数据（包括BD列）
+                 const fixedRow = document.createElement('tr');
+                 fixedRow.innerHTML = `
+                     <td>${item['年'] || '-'}</td>
+                     <td>${item['月'] || '-'}</td>
+                     <td>${item['组长'] || '-'}</td>
+                     <td>${item['位置'] || '-'}</td>
+                     <td>${item['BD'] || '-'}</td>
+                 `;
+                 fixedTbody.appendChild(fixedRow);
+
+                 // 可滚动列数据
+                 const scrollableRow = document.createElement('tr');
+                 scrollableRow.innerHTML = `
+
+                     <td>${item['达人数指标'] || '-'}</td>
+                     <td>${item['实际达人数'] || '-'}</td>
+                     <td>${parseFloat(item['达人数达成率'] || 0).toFixed(1)}%</td>
+                     <td>${item['视频数'] || '-'}</td>
+                     <td>${item['视频发布数'] || '-'}</td>
+                     <td>${parseFloat(item['视频达成率'] || 0).toFixed(1)}%</td>
+                     <td>${item['GMV指标'] || '-'}</td>
+                     <td>${parseFloat(item['GMV'] || 0).toFixed(2)}</td>
+                     <td>${item['GMV达成率'] || '-'}</td>
+                 `;
+                 scrollableTbody.appendChild(scrollableRow);
+             });
+
+             // 同步滚动
+             syncTableScroll();
+         }
+
+        // 同步表格滚动
+         function syncTableScroll() {
+             const fixedColumns = document.querySelector('.fixed-columns');
+             const scrollableColumns = document.querySelector('.scrollable-columns');
+
+             if (!fixedColumns || !scrollableColumns) return;
+
+             // 监听可滚动区域的垂直滚动，同步到固定列
+             scrollableColumns.addEventListener('scroll', function() {
+                 fixedColumns.scrollTop = scrollableColumns.scrollTop;
+             });
+
+             // 监听固定列的垂直滚动，同步到可滚动区域
+             fixedColumns.addEventListener('scroll', function() {
+                 scrollableColumns.scrollTop = fixedColumns.scrollTop;
+             });
+         }
+
+         // 更新图表
+        function updateCharts(data) {
+            if (!data || data.length === 0) {
+                showError('暂无数据');
+                return;
+            }
+
+            updateBarChart(data);
+            updatePieChart(data);
+            updateRateChart(data);
+            updateDataTable(data);
+        }
+
+        // 更新横向柱状图 - 按人员显示指标
+        function updateBarChart(data) {
+            // 按BD组长数据
+            const bdData = {};
+            data.forEach(item => {
+                const bd = item['BD'] || '未知';
+                if (!bdData[bd]) {
+                    bdData[bd] = {
+                        name: bd,
+                        reach: 0,
+                        videos: 0,
+                        gmv: 0
+                    };
+                }
+                bdData[bd].reach += parseFloat(item['实际达人数'] || 0);
+                bdData[bd].videos += parseFloat(item['视频发布数'] || 0);
+                bdData[bd].gmv += parseFloat(item['GMV'] || 0);
+            });
+
+            const names = Object.keys(bdData);
+            const reachData = names.map(name => bdData[name].reach);
+            const videoData = names.map(name => bdData[name].videos);
+            const gmvData = names.map(name => parseFloat(bdData[name].gmv.toFixed(2)));
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    }
+                },
+                legend: {
+                    data: ['实际达人数', '视频发布数', 'GMV']
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'value',
+                    boundaryGap: [0, 0.01]
+                },
+                yAxis: {
+                    type: 'category',
+                    data: names,
+                    axisLabel: {
+                        interval: 0,
+                        fontSize: 12,
+                        margin: 10
+                    }
+                },
+                series: [
+                    {
+                        name: '实际达人数',
+                        type: 'bar',
+                        data: reachData,
+                        itemStyle: {
+                            color: '#667eea'
+                        }
+                    },
+                    {
+                        name: '视频发布数',
+                        type: 'bar',
+                        data: videoData,
+                        itemStyle: {
+                            color: '#764ba2'
+                        }
+                    },
+                    {
+                        name: 'GMV',
+                        type: 'bar',
+                        data: gmvData,
+                        itemStyle: {
+                            color: '#f093fb'
+                        }
+                    }
+                ]
+            };
+
+            barChart.setOption(option);
+        }
+
+        // 更新饼状图 - 根据位置筛选显示不同的GMV分布
+        function updatePieChart(data) {
+            const location = document.getElementById('locationSelect').value;
+            let pieData = [];
+            let chartTitle = 'GMV分布';
+
+            if (!location || location === '') {
+                // 全部位置：显示青岛和深圳的占比
+                const locationData = {};
+                data.forEach(item => {
+                    const itemLocation = item['位置'] || '未知';
+                    if (!locationData[itemLocation]) {
+                        locationData[itemLocation] = 0;
+                    }
+                    locationData[itemLocation] += parseFloat(item['GMV'] || 0);
+                });
+
+                pieData = Object.keys(locationData).map(loc => ({
+                    name: loc,
+                    value: locationData[loc]
+                })).filter(item => item.value > 0);
+
+                chartTitle = 'GMV分布 - 按位置';
+
+            } else if (location === '青岛') {
+                // 青岛：显示各组长的占比
+                const groupData = {};
+                data.forEach(item => {
+                    const leader = item['组长'] || '未知';
+                    if (!groupData[leader]) {
+                        groupData[leader] = 0;
+                    }
+                    groupData[leader] += parseFloat(item['GMV'] || 0);
+                });
+
+                pieData = Object.keys(groupData).map(leader => ({
+                    name: `${leader}组`,
+                    value: groupData[leader]
+                })).filter(item => item.value > 0);
+
+                chartTitle = 'GMV分布 - 青岛各小组';
+
+            } else if (location === '深圳') {
+                // 深圳：显示各组长的占比
+                const groupData = {};
+                data.forEach(item => {
+                    const leader = item['组长'] || '未知';
+                    if (!groupData[leader]) {
+                        groupData[leader] = 0;
+                    }
+                    groupData[leader] += parseFloat(item['GMV'] || 0);
+                });
+
+                pieData = Object.keys(groupData).map(leader => ({
+                    name: `${leader}组`,
+                    value: groupData[leader]
+                })).filter(item => item.value > 0);
+
+                chartTitle = 'GMV分布 - 深圳各小组';
+            }
+
+            const option = {
+                title: {
+                    text: chartTitle,
+                    left: 'center',
+                    textStyle: {
+                        fontSize: 16,
+                        fontWeight: 'bold'
+                    }
+                },
+                tooltip: {
+                    trigger: 'item',
+                    formatter: function(params) {
+                        return `${params.name}<br/>GMV: ${params.value.toFixed(2)}<br/>占比: ${params.percent}%`;
+                    }
+                },
+                legend: {
+                    orient: 'horizontal',
+                    left: 'center',
+                    bottom: '10%',
+                    itemWidth: 14,
+                    itemHeight: 14,
+                    textStyle: {
+                        fontSize: 12
+                    }
+                },
+                series: [
+                    {
+                        name: 'GMV分布',
+                        type: 'pie',
+                        radius: ['35%', '65%'],
+                        center: ['50%', '45%'],
+                        data: pieData,
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        label: {
+                            show: true,
+                            formatter: '{b}: {d}%',
+                            position: 'outside',
+                            fontSize: 11,
+                            distanceToLabelLine: 5
+                        },
+                        labelLine: {
+                            show: true,
+                            length: 15,
+                            length2: 10
+                        }
+                    }
+                ]
+            };
+
+            pieChart.setOption(option);
+        }
+
+        // 更新达成率图表
+        function updateRateChart(data) {
+            const categories = data.map(item => item['BD'] || '未知');
+            const reachRateData = data.map(item => parseFloat(item['达人数达成率'] || 0));
+            const videoRateData = data.map(item => parseFloat(item['视频达成率'] || 0));
+            const GMVRateData = data.map(item => parseFloat(item['GMV达成率'] || 0));
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        let result = params[0].name + '<br/>';
+                        params.forEach(function(item) {
+                            result += item.marker + item.seriesName + ': ' + item.value.toFixed(1) + '%<br/>';
+                        });
+                        return result;
+                    }
+                },
+                legend: {
+                    data: ['达人数达成率', '视频达成率', 'GMV达成率']
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '15%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: categories,
+                    axisLabel: {
+                        interval: 0,
+                        rotate: 45,
+                        fontSize: 12,
+                        margin: 10
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '达成率(%)',
+                    max: 300,
+                    axisLabel: {
+                        formatter: '{value}%'
+                    }
+                },
+                series: [
+                    {
+                        name: '达人数达成率',
+                        type: 'line',
+                        data: reachRateData,
+                        itemStyle: {
+                            color: '#667eea'
+                        }
+                    },
+                    {
+                        name: '视频达成率',
+                        type: 'line',
+                        data: videoRateData,
+                        itemStyle: {
+                            color: '#764ba2'
+                        }
+                    },
+                    {
+                        name: 'GMV达成率',
+                        type: 'line',
+                        data: GMVRateData,
+                        itemStyle: {
+                            color: '#f093fb'
+                        }
+                    }
+                ]
+            };
+
+            rateChart.setOption(option);
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            document.getElementById('loadingDiv').style.display = 'block';
+            hideCharts();
+        }
+
+        // 隐藏加载状态
+        function hideLoading() {
+            document.getElementById('loadingDiv').style.display = 'none';
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorDiv').style.display = 'block';
+            hideCharts();
+        }
+
+        // 隐藏错误信息
+        function hideError() {
+            document.getElementById('errorDiv').style.display = 'none';
+        }
+
+        // 显示图表
+        function showCharts() {
+            document.getElementById('statsCards').style.display = 'flex';
+            document.querySelectorAll('.chart-container').forEach(container => {
+                container.style.display = 'block';
+            });
+        }
+
+        // 隐藏图表
+        function hideCharts() {
+            document.getElementById('statsCards').style.display = 'none';
+            document.querySelectorAll('.chart-container').forEach(container => {
+                container.style.display = 'none';
+            });
+        }
+
+        // 更新用户信息显示
+        function updateUserInfo(userInfo) {
+            if (!userInfo) return;
+            
+            const userInfoAlert = document.getElementById('userInfoAlert');
+            const userInfoText = document.getElementById('userInfoText');
+            
+            if (userInfo.is_admin) {
+                userInfoText.innerHTML = `<strong>管理员</strong> - ${userInfo.user_name} | 权限：查看所有组数据 (${userInfo.accessible_groups}/${userInfo.total_groups})`;
+                userInfoAlert.className = 'alert alert-success';
+            } else {
+                userInfoText.innerHTML = `<strong>普通用户</strong> - ${userInfo.user_name} | 权限：查看本组数据 (${userInfo.accessible_groups}/${userInfo.total_groups})`;
+                userInfoAlert.className = 'alert alert-info';
+            }
+            
+            userInfoAlert.style.display = 'block';
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            
+            // 设置当前年月
+            const now = new Date();
+            document.getElementById('yearSelect').value = now.getFullYear();
+            document.getElementById('monthSelect').value = now.getMonth() + 1;
+            
+            // 绑定事件
+            document.getElementById('loadDataBtn').addEventListener('click', loadData);
+            document.getElementById('yearSelect').addEventListener('change', loadData);
+            document.getElementById('monthSelect').addEventListener('change', loadData);
+            document.getElementById('locationSelect').addEventListener('change', loadData);
+            
+            // 自动加载数据
+            loadData();
+        });
+    </script>
+</body>
+</html>

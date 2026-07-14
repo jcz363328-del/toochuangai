@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报告评论</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 24px 16px;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background: #f5f7fb;
+            color: #111827;
+        }
+        .wrap {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.04);
+        }
+        h1 {
+            margin: 0 0 12px;
+            font-size: 22px;
+        }
+        .meta {
+            color: #6b7280;
+            font-size: 13px;
+            line-height: 1.8;
+            margin-bottom: 14px;
+        }
+        .status {
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .status.ok {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+        }
+        .status.err {
+            background: #fef2f2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+        .feedback {
+            margin-bottom: 14px;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #fafafa;
+        }
+        .feedback-title {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .feedback-section {
+            margin-top: 10px;
+        }
+        .feedback-section + .feedback-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #e5e7eb;
+        }
+        .feedback-section-title {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+        .pill {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            border: 1px solid #fbcfe8;
+            background: #fdf2f8;
+            color: #be185d;
+            margin-bottom: 8px;
+        }
+        .pill.off {
+            border-color: #e5e7eb;
+            background: #f9fafb;
+            color: #6b7280;
+        }
+        .comment-list {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+        .entry-list {
+            display: grid;
+            gap: 10px;
+        }
+        .entry-card {
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+        .entry-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .entry-user {
+            font-weight: 700;
+            color: #111827;
+        }
+        .entry-target {
+            color: #4f46e5;
+        }
+        .entry-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 13px;
+            line-height: 1.8;
+            color: #334155;
+        }
+        select {
+            width: 100%;
+            margin-bottom: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 14px;
+            background: #fff;
+            color: #111827;
+            outline: none;
+        }
+        textarea {
+            width: 100%;
+            min-height: 160px;
+            resize: vertical;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 14px;
+            outline: none;
+        }
+        textarea:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+        }
+        .tips {
+            margin: 8px 0 0;
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .btn {
+            appearance: none;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #111827;
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 14px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .btn.primary {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <h1>报告评论</h1>
+        <div class="meta">
+            文档ID：{{ report.wendangid or '-' }}<br>
+            标题：{{ report.biaoti or '未命名标题' }}<br>
+            提交人：{{ report.xingming or '-' }}<br>
+            日期：{{ report.riqi or '-' }}
+        </div>
+
+        {% if success %}
+        <div class="status ok">{{ success_text or '提交成功。' }}</div>
+        {% endif %}
+        {% if error %}
+        <div class="status err">{{ error }}</div>
+        {% endif %}
+
+        <div class="feedback">
+            <div class="feedback-title">当前反馈</div>
+            <div class="pill {% if (feedback.dianzan or '').upper() != 'Y' %}off{% endif %}">
+                {% if (feedback.dianzan or '').upper() == 'Y' %}已点赞{% else %}未点赞{% endif %}
+            </div>
+            <div class="feedback-section">
+                <div class="feedback-section-title">评论记录</div>
+                {% if feedback.comment_items %}
+                <div class="entry-list">
+                    {% for item in feedback.comment_items %}
+                    <div class="entry-card">
+                        <div class="entry-meta">
+                            <span class="entry-user">{{ item.actor or '匿名用户' }}</span>
+                            {% if item.ts %}<span>{{ item.ts }}</span>{% endif %}
+                        </div>
+                        <div class="entry-content">{{ item.content or '-' }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="comment-list">暂无评论</div>
+                {% endif %}
+            </div>
+            <div class="feedback-section">
+                <div class="feedback-section-title">回复记录</div>
+                {% if feedback.reply_items %}
+                <div class="entry-list">
+                    {% for item in feedback.reply_items %}
+                    <div class="entry-card">
+                        <div class="entry-meta">
+                            <span class="entry-user">{{ item.actor or '匿名用户' }}</span>
+                            {% if item.ts %}<span>{{ item.ts }}</span>{% endif %}
+                            {% if item.target %}<span class="entry-target">回复给 {{ item.target }}</span>{% endif %}
+                        </div>
+                        <div class="entry-content">{{ item.content or '-' }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="comment-list">暂无回复</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <form method="post">
+            <input type="hidden" name="action" value="comment">
+            <textarea name="comment" placeholder="请输入评论内容" required></textarea>
+            <div class="tips">提交后会追加到该报告的评论记录中。</div>
+            <div class="actions">
+                <button type="submit" class="btn primary">提交评论</button>
+                <a class="btn" href="{{ url_for('dashboard_xiaotu_report_history') }}">查看历史记录</a>
+            </div>
+        </form>
+        <form method="post" style="margin-top: 14px;">
+            <input type="hidden" name="action" value="reply">
+            {% if feedback.reply_targets %}
+            <select name="reply_target" required>
+                <option value="">请选择回复对象</option>
+                {% for name in feedback.reply_targets %}
+                <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <textarea name="reply" placeholder="请输入回复评价内容" required></textarea>
+            <div class="tips">提交后会追加到该报告的回复记录中。</div>
+            <div class="actions">
+                <button type="submit" class="btn primary">提交回复</button>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

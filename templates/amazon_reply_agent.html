@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>亚马逊站内信回复智能体 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: #1f2937;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        .header-content {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        .logo-section, .nav-links, .tabs, .actions, .chips, .item-head {
+            display: flex;
+            align-items: center;
+        }
+        .logo-section { gap: 14px; }
+        .logo-section i { font-size: 1.4rem; }
+        .logo-section h1 { font-size: 1.25rem; font-weight: 800; }
+        .nav-links { gap: 12px; flex-wrap: wrap; }
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.12);
+            white-space: nowrap;
+        }
+        .nav-links a:hover { background: rgba(255, 255, 255, 0.22); }
+        .tabs {
+            max-width: 1320px;
+            margin: 22px auto 0;
+            padding: 0 20px;
+            gap: 10px;
+        }
+        .tab-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 11px 22px;
+            background: rgba(255, 255, 255, 0.74);
+            color: #374151;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+        .tab-btn.active {
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .qa-layout {
+            display: grid;
+            grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+            gap: 24px;
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 18px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.11);
+            border: 1px solid rgba(255, 255, 255, 0.65);
+            padding: 26px;
+        }
+        .output-panel {
+            min-height: 640px;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin-bottom: 18px;
+            color: #111827;
+        }
+        .panel-title i { color: #667eea; }
+        .form-group { margin-bottom: 18px; }
+        .form-label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        textarea, input {
+            width: 100%;
+            border: 1px solid #d8dee9;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 0.96rem;
+            line-height: 1.55;
+            outline: none;
+            background: #fbfdff;
+            color: #111827;
+        }
+        textarea { resize: vertical; min-height: 150px; }
+        textarea:focus, input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.13);
+        }
+        .context-area { min-height: 110px; }
+        .actions { gap: 12px; flex-wrap: wrap; }
+        .primary-btn, .secondary-btn, .danger-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 11px 21px;
+            font-weight: 800;
+            cursor: pointer;
+            font-size: 0.94rem;
+            white-space: nowrap;
+        }
+        .primary-btn {
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.24);
+        }
+        .secondary-btn { color: #374151; background: #eef2ff; }
+        .danger-btn { color: #b91c1c; background: #fee2e2; }
+        .primary-btn:disabled { opacity: 0.62; cursor: not-allowed; }
+        .empty-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #6b7280;
+            border: 1px dashed #c7d2fe;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(238, 242, 255, 0.7), rgba(255, 255, 255, 0.65));
+            min-height: 360px;
+            padding: 24px;
+        }
+        .empty-state i {
+            display: block;
+            font-size: 2.3rem;
+            color: #667eea;
+            margin-bottom: 12px;
+        }
+        .result {
+            display: none;
+            gap: 16px;
+            flex-direction: column;
+        }
+        .reply-card, .meta-card, .manager-card {
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            padding: 18px;
+        }
+        .reply-header, .item-head {
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .copy-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 14px;
+            cursor: pointer;
+            background: #111827;
+            color: white;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .reply-text {
+            white-space: pre-wrap;
+            line-height: 1.75;
+            font-size: 1rem;
+            color: #111827;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .meta-card { background: white; min-height: 96px; }
+        .meta-card h4, .manager-card h3 {
+            font-size: 0.96rem;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        .meta-card div { color: #111827; line-height: 1.6; white-space: pre-wrap; }
+        .chips { flex-wrap: wrap; gap: 8px; }
+        .chip {
+            display: inline-flex;
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: #eef2ff;
+            color: #4338ca;
+            font-weight: 700;
+            font-size: 0.84rem;
+        }
+        .chip.danger { background: #fef2f2; color: #b91c1c; }
+        .status-line {
+            display: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+        .status-line.error {
+            display: block;
+            color: #991b1b;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+        .status-line.ok {
+            display: block;
+            color: #166534;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+        .rules-layout {
+            display: grid;
+            grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+            gap: 24px;
+        }
+        .manager-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .manager-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .manager-card.full { grid-column: 1 / -1; }
+        .hint-text {
+            color: #6b7280;
+            font-size: 0.86rem;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+        .list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 420px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+        .list-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .item-title {
+            font-weight: 800;
+            color: #111827;
+            overflow-wrap: anywhere;
+        }
+        .item-sub {
+            margin-top: 6px;
+            color: #6b7280;
+            font-size: 0.86rem;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+        .delete-link {
+            border: none;
+            background: #fef2f2;
+            color: #b91c1c;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .small-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        @media (max-width: 980px) {
+            .qa-layout, .rules-layout, .manager-grid, .meta-grid {
+                grid-template-columns: 1fr;
+            }
+            .manager-card.full { grid-column: auto; }
+            .output-panel { min-height: 420px; }
+        }
+        @media (max-width: 640px) {
+            .header-content { align-items: flex-start; flex-direction: column; }
+            .container { padding: 14px 12px; }
+            .panel { padding: 18px; }
+            .tabs { padding: 0 12px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <i class="fas fa-envelope-open-text"></i>
+                <h1>亚马逊站内信回复智能体</h1>
+            </div>
+            <div class="nav-links">
+                <a href="{{ return_url or url_for('ai_modules') }}"><i class="fas fa-arrow-left"></i> {{ return_label or '返回AI功能' }}</a>
+                <a href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> 主页</a>
+            </div>
+        </div>
+    </header>
+
+    <nav class="tabs">
+        <button id="tabQa" class="tab-btn active" type="button" onclick="switchTab('qa')">问答生成</button>
+        <button id="tabRules" class="tab-btn" type="button" onclick="switchTab('rules')">规则管理</button>
+    </nav>
+
+    <main id="qaView" class="container qa-layout">
+        <section class="panel">
+            <div class="panel-title"><i class="fas fa-pen-nib"></i> 输入内容</div>
+            <div class="form-group">
+                <label class="form-label" for="buyerQuestion">买家站内信</label>
+                <textarea id="buyerQuestion" placeholder="粘贴买家的英文或中文问题"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="extraContext">补充信息</label>
+                <textarea id="extraContext" class="context-area" placeholder="可填写订单情况、产品问题、处理方案、限制条件等"></textarea>
+            </div>
+            <div class="actions">
+                <button id="generateBtn" class="primary-btn" type="button" onclick="generateReply()">
+                    <i class="fas fa-wand-magic-sparkles"></i> 生成回复
+                </button>
+                <button class="secondary-btn" type="button" onclick="clearForm()">清空</button>
+            </div>
+        </section>
+
+        <section class="panel output-panel">
+            <div class="panel-title"><i class="fas fa-message"></i> 生成结果</div>
+            <div id="statusLine" class="status-line"></div>
+            <div id="emptyState" class="empty-state">
+                <div>
+                    <i class="fas fa-inbox"></i>
+                    <strong>结果会显示在这里</strong>
+                </div>
+            </div>
+            <div id="result" class="result">
+                <div class="reply-card">
+                    <div class="reply-header">
+                        <h3>英文回复</h3>
+                        <button class="copy-btn" type="button" onclick="copyReply()">复制</button>
+                    </div>
+                    <div id="englishReply" class="reply-text"></div>
+                </div>
+                <div class="meta-grid">
+                    <div class="meta-card"><h4>中文说明</h4><div id="chineseExplanation"></div></div>
+                    <div class="meta-card"><h4>需要补充</h4><div id="requiredInfo"></div></div>
+                    <div class="meta-card"><h4>风险提示</h4><div id="riskNotes"></div></div>
+                    <div class="meta-card"><h4>匹配场景</h4><div id="matchedScenarios" class="chips"></div></div>
+                    <div class="meta-card"><h4>禁用词命中</h4><div id="prohibitedHits" class="chips"></div></div>
+                    <div class="meta-card"><h4>分类</h4><div id="category"></div></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <main id="rulesView" class="container rules-layout" style="display:none;">
+        <section class="panel manager-stack">
+            <div class="panel-title"><i class="fas fa-sliders"></i> 新增规则</div>
+            <div class="manager-card">
+                <h3>禁用词</h3>
+                <p class="hint-text">生成结果中会自动检查这些词，命中后会在结果里提醒。</p>
+                <div class="form-group">
+                    <input id="prohibitedInput" placeholder="例如 refund、review、five stars">
+                </div>
+                <button class="primary-btn" type="button" onclick="addRule('prohibited')">添加禁用词</button>
+            </div>
+            <div class="manager-card">
+                <h3>敏感词</h3>
+                <p class="hint-text">填写敏感表达和安全替代表述，模型生成时会参考这些规则。</p>
+                <div class="form-group">
+                    <input id="sensitiveInput" placeholder="敏感词或短语">
+                </div>
+                <div class="form-group">
+                    <input id="sensitiveHintInput" placeholder="安全提示或替代说法">
+                </div>
+                <button class="primary-btn" type="button" onclick="addRule('sensitive')">添加敏感词</button>
+            </div>
+            <div class="manager-card">
+                <h3>场景</h3>
+                <p class="hint-text">关键词和买家示例可用逗号或换行分隔。</p>
+                <div class="form-group"><input id="scenarioTitle" placeholder="场景标题"></div>
+                <div class="form-group"><input id="scenarioKeywords" placeholder="关键词，如 broken, missing, wrong item"></div>
+                <div class="form-group"><textarea id="scenarioExamples" class="context-area" placeholder="买家问题示例"></textarea></div>
+                <div class="form-group"><textarea id="scenarioReplyEn" class="context-area" placeholder="英文回复模板"></textarea></div>
+                <div class="form-group"><textarea id="scenarioReplyZh" class="context-area" placeholder="中文说明"></textarea></div>
+                <div class="form-group"><textarea id="scenarioNotes" class="context-area" placeholder="内部备注"></textarea></div>
+                <button class="primary-btn" type="button" onclick="addScenario()">添加场景</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-title"><i class="fas fa-list-check"></i> 当前规则</div>
+            <div id="rulesStatus" class="status-line"></div>
+            <div class="manager-grid">
+                <div class="manager-card">
+                    <h3>禁用词</h3>
+                    <div id="prohibitedList" class="list"></div>
+                </div>
+                <div class="manager-card">
+                    <h3>敏感词</h3>
+                    <div id="sensitiveList" class="list"></div>
+                </div>
+                <div class="manager-card full">
+                    <h3>场景</h3>
+                    <div id="scenarioList" class="list"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let rulesLoaded = false;
+
+        function setStatus(message, type) {
+            const box = document.getElementById('statusLine');
+            box.textContent = message || '';
+            box.className = 'status-line' + (message ? ' ' + type : '');
+        }
+
+        function setRulesStatus(message, type) {
+            const box = document.getElementById('rulesStatus');
+            box.textContent = message || '';
+            box.className = 'status-line' + (message ? ' ' + type : '');
+        }
+
+        function switchTab(tab) {
+            const isRules = tab === 'rules';
+            document.getElementById('qaView').style.display = isRules ? 'none' : 'grid';
+            document.getElementById('rulesView').style.display = isRules ? 'grid' : 'none';
+            document.getElementById('tabQa').classList.toggle('active', !isRules);
+            document.getElementById('tabRules').classList.toggle('active', isRules);
+            if (isRules && !rulesLoaded) loadRules();
+        }
+
+        function setLoading(isLoading) {
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = isLoading;
+            btn.innerHTML = isLoading
+                ? '<i class="fas fa-spinner fa-spin"></i> 生成中...'
+                : '<i class="fas fa-wand-magic-sparkles"></i> 生成回复';
+        }
+
+        function renderChips(targetId, items, danger) {
+            const target = document.getElementById(targetId);
+            target.innerHTML = '';
+            const values = Array.isArray(items) ? items : [];
+            if (!values.length) {
+                target.innerHTML = '<span class="chip">无</span>';
+                return;
+            }
+            values.forEach(function(item) {
+                const value = typeof item === 'string' ? item : (item.title || item.name || item.id || '');
+                if (!value) return;
+                const span = document.createElement('span');
+                span.className = 'chip' + (danger ? ' danger' : '');
+                span.textContent = value;
+                target.appendChild(span);
+            });
+        }
+
+        function showResult(data) {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('result').style.display = 'flex';
+            document.getElementById('englishReply').textContent = data.englishReply || '';
+            document.getElementById('chineseExplanation').textContent = data.chineseExplanation || '无';
+            document.getElementById('requiredInfo').textContent = data.requiredInfo || '无';
+            document.getElementById('riskNotes').textContent = data.riskNotes || '无';
+            document.getElementById('category').textContent = data.category || '未分类';
+            renderChips('matchedScenarios', data.matchedScenarios || [], false);
+            renderChips('prohibitedHits', data.prohibitedHits || [], true);
+            const elapsedText = data.elapsedMs ? (' 用时 ' + (Number(data.elapsedMs) / 1000).toFixed(1) + ' 秒。') : '';
+            if (data.source === 'template') {
+                setStatus('已按匹配场景快速生成，已完成禁用词检查。' + elapsedText, 'ok');
+            } else if (data.modelOk) {
+                setStatus('模型生成完成，已完成禁用词检查。' + elapsedText, 'ok');
+            } else {
+                setStatus('模型暂不可用，已使用数据库模板兜底。' + elapsedText, 'error');
+            }
+        }
+
+        function generateReply() {
+            const buyerQuestion = document.getElementById('buyerQuestion').value.trim();
+            const extraContext = document.getElementById('extraContext').value.trim();
+            if (!buyerQuestion) {
+                setStatus('请先填写买家站内信内容。', 'error');
+                return;
+            }
+            setLoading(true);
+            setStatus('', '');
+            fetch('/api/ai/amazon_reply/generate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({buyerQuestion, extraContext})
+            }).then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok || !data.success) throw new Error(data.message || '生成失败');
+                    return data;
+                });
+            }).then(function(data) {
+                showResult(data.data || {});
+            }).catch(function(error) {
+                setStatus('生成失败：' + (error.message || error), 'error');
+            }).finally(function() {
+                setLoading(false);
+            });
+        }
+
+        function copyReply() {
+            const text = document.getElementById('englishReply').textContent || '';
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(function() {
+                setStatus('英文回复已复制。', 'ok');
+            }).catch(function() {
+                setStatus('复制失败，请手动选择文本复制。', 'error');
+            });
+        }
+
+        function clearForm() {
+            document.getElementById('buyerQuestion').value = '';
+            document.getElementById('extraContext').value = '';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'flex';
+            setStatus('', '');
+        }
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, function(ch) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch];
+            });
+        }
+
+        function renderRuleList(targetId, items) {
+            const target = document.getElementById(targetId);
+            const rows = Array.isArray(items) ? items : [];
+            if (!rows.length) {
+                target.innerHTML = '<div class="hint-text">暂无内容</div>';
+                return;
+            }
+            target.innerHTML = rows.map(function(item) {
+                return '<div class="list-item">'
+                    + '<div class="item-head">'
+                    + '<div class="item-title">' + escapeHtml(item.content) + '</div>'
+                    + '<button class="delete-link" type="button" onclick="deleteRule(' + Number(item.id) + ')">删除</button>'
+                    + '</div>'
+                    + (item.safeHint ? '<div class="item-sub">' + escapeHtml(item.safeHint) + '</div>' : '')
+                    + '</div>';
+            }).join('');
+        }
+
+        function renderScenarioList(items) {
+            const target = document.getElementById('scenarioList');
+            const rows = Array.isArray(items) ? items : [];
+            if (!rows.length) {
+                target.innerHTML = '<div class="hint-text">暂无场景</div>';
+                return;
+            }
+            target.innerHTML = rows.map(function(item) {
+                const keywords = (item.keywords || []).join('、');
+                const examples = (item.buyerExamples || []).join('\\n');
+                return '<div class="list-item">'
+                    + '<div class="item-head">'
+                    + '<div class="item-title">' + escapeHtml(item.title) + '</div>'
+                    + '<button class="delete-link" type="button" onclick="deleteScenario(' + Number(item.id) + ')">删除</button>'
+                    + '</div>'
+                    + (keywords ? '<div class="item-sub">关键词：' + escapeHtml(keywords) + '</div>' : '')
+                    + (examples ? '<div class="item-sub">示例：' + escapeHtml(examples) + '</div>' : '')
+                    + (item.sellerReplyEn ? '<div class="item-sub">英文模板：' + escapeHtml(item.sellerReplyEn) + '</div>' : '')
+                    + '</div>';
+            }).join('');
+        }
+
+        function renderRules(data) {
+            renderRuleList('prohibitedList', data.prohibitedTerms || []);
+            renderRuleList('sensitiveList', data.sensitivePhrases || []);
+            renderScenarioList(data.scenarios || []);
+        }
+
+        function loadRules() {
+            setRulesStatus('正在加载规则...', 'ok');
+            fetch('/api/ai/amazon_reply/rules')
+                .then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok || !data.success) throw new Error(data.message || '加载失败');
+                        return data;
+                    });
+                })
+                .then(function(data) {
+                    rulesLoaded = true;
+                    renderRules(data.data || {});
+                    setRulesStatus('', '');
+                })
+                .catch(function(error) {
+                    setRulesStatus('加载失败：' + (error.message || error), 'error');
+                });
+        }
+
+        function addRule(type) {
+            const isSensitive = type === 'sensitive';
+            const input = document.getElementById(isSensitive ? 'sensitiveInput' : 'prohibitedInput');
+            const hint = document.getElementById('sensitiveHintInput');
+            const content = input.value.trim();
+            if (!content) {
+                setRulesStatus(isSensitive ? '请先填写敏感词。' : '请先填写禁用词。', 'error');
+                return;
+            }
+            fetch('/api/ai/amazon_reply/rules', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    ruleType: type,
+                    content: content,
+                    safeHint: isSensitive ? hint.value.trim() : ''
+                })
+            }).then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok || !data.success) throw new Error(data.message || '添加失败');
+                    return data;
+                });
+            }).then(function() {
+                input.value = '';
+                if (isSensitive) hint.value = '';
+                setRulesStatus('已添加。', 'ok');
+                loadRules();
+            }).catch(function(error) {
+                setRulesStatus('添加失败：' + (error.message || error), 'error');
+            });
+        }
+
+        function deleteRule(id) {
+            if (!id || !confirm('确认删除这条规则吗？')) return;
+            fetch('/api/ai/amazon_reply/rules/' + id, {method: 'DELETE'})
+                .then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok || !data.success) throw new Error(data.message || '删除失败');
+                        return data;
+                    });
+                })
+                .then(function() {
+                    setRulesStatus('已删除。', 'ok');
+                    loadRules();
+                })
+                .catch(function(error) {
+                    setRulesStatus('删除失败：' + (error.message || error), 'error');
+                });
+        }
+
+        function addScenario() {
+            const payload = {
+                title: document.getElementById('scenarioTitle').value.trim(),
+                keywords: document.getElementById('scenarioKeywords').value.trim(),
+                buyerExamples: document.getElementById('scenarioExamples').value.trim(),
+                sellerReplyEn: document.getElementById('scenarioReplyEn').value.trim(),
+                sellerReplyZh: document.getElementById('scenarioReplyZh').value.trim(),
+                internalNotes: document.getElementById('scenarioNotes').value.trim()
+            };
+            if (!payload.title) {
+                setRulesStatus('请先填写场景标题。', 'error');
+                return;
+            }
+            fetch('/api/ai/amazon_reply/scenarios', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok || !data.success) throw new Error(data.message || '添加失败');
+                    return data;
+                });
+            }).then(function() {
+                ['scenarioTitle', 'scenarioKeywords', 'scenarioExamples', 'scenarioReplyEn', 'scenarioReplyZh', 'scenarioNotes'].forEach(function(id) {
+                    document.getElementById(id).value = '';
+                });
+                setRulesStatus('场景已添加。', 'ok');
+                loadRules();
+            }).catch(function(error) {
+                setRulesStatus('添加场景失败：' + (error.message || error), 'error');
+            });
+        }
+
+        function deleteScenario(id) {
+            if (!id || !confirm('确认删除这个场景吗？')) return;
+            fetch('/api/ai/amazon_reply/scenarios/' + id, {method: 'DELETE'})
+                .then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok || !data.success) throw new Error(data.message || '删除失败');
+                        return data;
+                    });
+                })
+                .then(function() {
+                    setRulesStatus('场景已删除。', 'ok');
+                    loadRules();
+                })
+                .catch(function(error) {
+                    setRulesStatus('删除场景失败：' + (error.message || error), 'error');
+                });
+        }
+    </script>
+</body>
+</html>

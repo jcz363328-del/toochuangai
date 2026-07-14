@@ -1,0 +1,1391 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seedance 视频生成</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: "Microsoft YaHei", sans-serif; margin: 0; background: #f7f8fc; color: #111827; }
+    .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    h1 { margin: 0 0 8px; font-size: 28px; text-align: center; }
+    .desc { margin: 0 0 14px; color: #6b7280; text-align: center; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .full { grid-column: 1 / -1; }
+    .section-title { margin: 4px 0 0; font-size: 13px; color: #6b7280; font-weight: 600; }
+    .param-panel {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fcfdff;
+    }
+    .param-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      align-items: start;
+    }
+    .param-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    label { display: block; font-size: 13px; color: #374151; margin-bottom: 6px; }
+    input, select, textarea, button {
+      width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 8px;
+      padding: 8px 10px; font-size: 14px; background: #fff;
+    }
+    textarea { min-height: 82px; resize: vertical; }
+    .row2 { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .row3 { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .row4 { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .hint { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .mention-box { margin-top: 8px; padding: 8px; border: 1px dashed #d1d5db; border-radius: 8px; background: #fafafa; }
+    .mention-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .mention-item {
+      width: auto;
+      padding: 4px 8px;
+      font-size: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      background: #fff;
+      color: #111827;
+      cursor: pointer;
+    }
+    .mention-item:hover { background: #eff6ff; border-color: #93c5fd; }
+    .preview-grid { margin-top: 10px; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+    .preview-card { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; }
+    .preview-img { width: 100%; height: 120px; object-fit: cover; display: block; background: #f3f4f6; }
+    .preview-meta { padding: 6px 8px; font-size: 12px; color: #374151; }
+    .preview-error { color: #b91c1c; }
+    .preview-ref { color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .picked-list { margin-top: 8px; font-size: 12px; color: #374151; }
+    .picked-item { display: inline-block; margin: 0 6px 6px 0; padding: 3px 8px; border: 1px solid #e5e7eb; border-radius: 999px; background: #fff; }
+    .autocomplete { margin-top: 6px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; max-height: 180px; overflow: auto; }
+    .autocomplete-item { padding: 6px 8px; font-size: 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item.active { background: #eff6ff; }
+    .autocomplete.hidden { display: none; }
+    .progress-wrap { margin-top: 8px; }
+    .progress-bar-bg { width: 100%; height: 10px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
+    .progress-bar-fg { height: 100%; width: 0%; background: #2563eb; transition: width .2s ease; }
+    .progress-text { margin-top: 6px; font-size: 12px; color: #374151; }
+    .video-grid { margin-top: 12px; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+    .history-media-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+    .video-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fff; }
+    .video-card video { width: 100%; border-radius: 8px; background: #111827; }
+    .history-media-grid .video-card { padding: 8px; }
+    .history-media-grid .video-card video {
+      aspect-ratio: 9 / 16;
+      object-fit: cover;
+      max-height: 320px;
+    }
+    .history-frame-img {
+      width: 100%;
+      aspect-ratio: 9 / 16;
+      object-fit: cover;
+      max-height: 320px;
+      border-radius: 8px;
+      display: block;
+      background: #f3f4f6;
+    }
+    .last-frame { margin-top: 8px; }
+    .last-frame img { width: 100%; border-radius: 8px; border: 1px solid #e5e7eb; display: block; background: #f3f4f6; }
+    .video-title { font-size: 12px; color: #374151; margin: 6px 0; }
+    .video-actions a { font-size: 12px; margin-right: 10px; color: #2563eb; text-decoration: none; }
+    .history-list { display: grid; gap: 10px; }
+    .history-item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fff; }
+    .history-title { font-size: 13px; color: #111827; margin-bottom: 6px; }
+    .history-meta { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+    .history-prompt { font-size: 12px; color: #111827; background: #f8fafc; padding: 8px; border-radius: 6px; }
+    button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
+    button:disabled { background: #93c5fd; cursor: not-allowed; }
+    @media (max-width: 900px) {
+      .row4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .param-grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .grid, .row4, .row3, .row2 { grid-template-columns: 1fr; }
+      .param-grid-5 { grid-template-columns: 1fr; }
+      .wrap { padding: 0 12px; }
+    }
+  </style>
+  <style>
+    :root {
+      --ink: #242129;
+      --muted: #746a72;
+      --soft-muted: #9b8f97;
+      --line: #eadfe5;
+      --line-strong: #ddc9d3;
+      --surface: rgba(255, 255, 255, 0.94);
+      --surface-soft: #fff8fa;
+      --canvas: #fbf7f8;
+      --rose: #c65a7b;
+      --coral: #e27872;
+      --teal: #2f8d8a;
+      --lavender: #8176b5;
+      --gold: #b88945;
+      --shadow: 0 18px 42px rgba(91, 66, 81, 0.12);
+      --soft-shadow: 0 10px 24px rgba(91, 66, 81, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: linear-gradient(180deg, #fff6f8 0%, #f7fbfa 42%, #f6f7fb 100%);
+      color: var(--ink);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 7px;
+      background: linear-gradient(90deg, var(--rose), var(--teal), var(--gold));
+      z-index: 0;
+    }
+    .wrap {
+      position: relative;
+      z-index: 1;
+      width: min(100% - 32px, 1180px);
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+    .app-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 16px;
+    }
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--rose);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 6px 0 0;
+      color: var(--ink);
+      font-size: 30px;
+      line-height: 1.2;
+      text-align: left;
+      font-weight: 800;
+    }
+    .desc {
+      margin: 8px 0 0;
+      color: var(--muted);
+      text-align: left;
+      font-size: 14px;
+    }
+    .header-pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.74);
+      color: #5b4f58;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(91, 66, 81, 0.06);
+    }
+    .pill i { color: var(--teal); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+    .grid { gap: 16px; }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0 -2px;
+      color: var(--rose);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .section-title i {
+      color: var(--teal);
+      font-size: 14px;
+    }
+    .param-panel {
+      border: 1px solid #f0e4e9;
+      border-radius: 8px;
+      padding: 14px;
+      background: var(--surface-soft);
+    }
+    label {
+      color: #3f3841;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    input, select, textarea {
+      min-height: 42px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--ink);
+      background: #fff;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    textarea {
+      min-height: 132px;
+      line-height: 1.55;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--rose);
+      box-shadow: 0 0 0 3px rgba(198, 90, 123, 0.14);
+      background: #fffdfd;
+    }
+    input[type="file"] {
+      border-style: dashed;
+      border-color: #d8b8c5;
+      background: #fffafd;
+      cursor: pointer;
+    }
+    .upload-block {
+      border: 1px dashed #ead4dd;
+      border-radius: 8px;
+      padding: 14px;
+      background: #fff;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .mention-box {
+      border-color: #ead4dd;
+      background: #fff8fb;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .mention-list { gap: 7px; }
+    .mention-item, .picked-item {
+      border-color: #ead4dd;
+      background: rgba(255, 255, 255, 0.86);
+      color: #6d3d50;
+      box-shadow: none;
+    }
+    .mention-item:hover {
+      background: #f8edf2;
+      border-color: var(--rose);
+    }
+    .autocomplete {
+      border-color: var(--line-strong);
+      box-shadow: var(--soft-shadow);
+    }
+    .autocomplete-item.active { background: #fff0f5; color: #7b2f4e; }
+    button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      font-weight: 700;
+      background: var(--rose);
+      color: #fff;
+      box-shadow: none;
+      transition: background-color .18s ease, border-color .18s ease, transform .12s ease, opacity .18s ease;
+    }
+    button:hover:not(:disabled) {
+      background: #b74f70;
+      transform: translateY(-1px);
+    }
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+      opacity: 0.92;
+    }
+    button:disabled {
+      background: #e5c3ce;
+      color: rgba(255, 255, 255, 0.86);
+      cursor: not-allowed;
+    }
+    #run_btn {
+      min-height: 50px;
+      font-size: 15px;
+      background: var(--rose);
+      box-shadow: none;
+    }
+    #run_btn:hover:not(:disabled) {
+      background: #b74f70;
+    }
+    .secondary-btn {
+      background: #f8eef3;
+      color: var(--rose);
+      border: 1px solid transparent;
+      box-shadow: none;
+    }
+    .secondary-btn:hover:not(:disabled) {
+      background: #f3e3eb;
+      box-shadow: none;
+    }
+    .progress-wrap { margin-top: 10px; }
+    .progress-bar-bg {
+      height: 12px;
+      background: #f0e6ea;
+      border-radius: 999px;
+    }
+    .progress-bar-fg {
+      background: linear-gradient(90deg, var(--rose), var(--teal));
+      border-radius: inherit;
+    }
+    .progress-text { color: #544b53; }
+    .preview-grid { gap: 12px; }
+    .preview-card, .video-card, .history-item {
+      border-color: var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: var(--soft-shadow);
+      overflow: hidden;
+    }
+    .preview-card { padding-bottom: 2px; }
+    .preview-img {
+      height: 132px;
+      background: #f3eef2;
+    }
+    .preview-meta, .video-title, .history-title {
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .preview-ref, .history-meta { color: var(--muted); }
+    .video-grid { gap: 14px; }
+    .video-card { padding: 10px; }
+    .video-card video, .history-frame-img, .last-frame img {
+      border-radius: 8px;
+      background: #17141a;
+    }
+    .video-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .video-actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin: 0;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: #f7fbfa;
+      color: #24706e;
+      font-weight: 700;
+    }
+    .history-list { margin-top: 12px; }
+    .history-item { padding: 14px; }
+    .history-title { font-size: 14px; }
+    .history-prompt {
+      background: #fff8fb;
+      border: 1px solid #f0e4e9;
+      color: #3f3841;
+      line-height: 1.55;
+    }
+    .row3 {
+      align-items: start;
+      grid-template-columns: minmax(0, 1fr) 0 minmax(150px, 220px);
+    }
+    @media (max-width: 900px) {
+      .app-header { align-items: flex-start; flex-direction: column; }
+      .header-pills { justify-content: flex-start; }
+      .wrap { width: min(100% - 24px, 1180px); padding-top: 22px; }
+    }
+    @media (max-width: 640px) {
+      h1 { font-size: 24px; }
+      .card { padding: 16px; }
+      .row3 { grid-template-columns: 1fr; }
+      .row3 > div:empty { display: none; }
+    }
+  </style>
+  <style>
+    :root {
+      --ink: #eef7ff;
+      --muted: #8ea1b4;
+      --soft-muted: #63758a;
+      --line: rgba(118, 218, 255, 0.18);
+      --line-strong: rgba(118, 218, 255, 0.34);
+      --surface: rgba(8, 15, 28, 0.86);
+      --surface-soft: rgba(13, 25, 43, 0.92);
+      --field: rgba(4, 10, 21, 0.88);
+      --cyan: #31d7f4;
+      --blue: #0a84ff;
+      --violet: #7c5cff;
+      --magenta: #f0529c;
+      --green: #28d8a7;
+      --shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+      --soft-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background:
+        linear-gradient(135deg, rgba(10, 132, 255, 0.12), transparent 28%),
+        linear-gradient(225deg, rgba(240, 82, 156, 0.12), transparent 30%),
+        #060a14;
+      color: var(--ink);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      height: auto;
+      background:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.8), rgba(0,0,0,0.1));
+      pointer-events: none;
+      z-index: 0;
+    }
+    .wrap {
+      position: relative;
+      z-index: 1;
+      width: min(100% - 36px, 1280px);
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 18px 0 30px;
+    }
+    .app-header {
+      min-height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 12px;
+    }
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 4px 0 0;
+      color: var(--ink);
+      font-size: 30px;
+      line-height: 1.12;
+      text-align: left;
+      font-weight: 850;
+    }
+    .desc {
+      margin: 6px 0 0;
+      color: var(--muted);
+      text-align: left;
+      font-size: 13px;
+    }
+    .header-pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 0 11px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      color: #dcecff;
+      font-size: 12px;
+      font-weight: 750;
+      box-shadow: none;
+      backdrop-filter: blur(10px);
+    }
+    .pill i { color: var(--cyan); }
+    .console-layout {
+      display: grid;
+      grid-template-columns: minmax(620px, 1fr) minmax(330px, 400px);
+      gap: 12px;
+      align-items: start;
+    }
+    .side-panel {
+      display: grid;
+      gap: 12px;
+      position: sticky;
+      top: 12px;
+    }
+    .card {
+      position: relative;
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 0;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), transparent);
+      opacity: .8;
+    }
+    .grid {
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 7px 0 -2px;
+      color: #e8f6ff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .section-title i {
+      color: var(--cyan);
+      font-size: 13px;
+    }
+    .param-panel {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 10px;
+      background: var(--surface-soft);
+    }
+    .param-grid {
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+    .param-grid-5 {
+      grid-template-columns: repeat(5, minmax(112px, 1fr));
+    }
+    label {
+      color: #dcecff;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+    label i { color: var(--cyan); }
+    input, select, textarea {
+      min-height: 38px;
+      border: 1px solid rgba(164, 215, 255, 0.2);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--ink);
+      background: var(--field);
+      font-size: 13px;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    textarea {
+      min-height: 104px;
+      line-height: 1.55;
+      resize: vertical;
+    }
+    input::placeholder, textarea::placeholder { color: #718196; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(49, 215, 244, 0.14);
+      background: rgba(5, 13, 27, 0.98);
+    }
+    select option {
+      color: #101827;
+      background: #fff;
+    }
+    input[type="file"] {
+      min-height: 36px;
+      border-style: solid;
+      border-color: rgba(118, 218, 255, 0.2);
+      background: rgba(255,255,255,0.045);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .upload-block {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(255,255,255,0.035);
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 5px;
+    }
+    .mention-box {
+      margin-top: 8px;
+      border: 1px solid rgba(118, 218, 255, 0.16);
+      background: rgba(255,255,255,0.035);
+      border-radius: 8px;
+      padding: 8px;
+    }
+    .mention-list { gap: 6px; margin-top: 6px; }
+    .mention-item, .picked-item {
+      width: auto;
+      min-height: 28px;
+      padding: 0 9px;
+      border: 1px solid rgba(118, 218, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      color: #dcecff;
+      box-shadow: none;
+    }
+    .mention-item:hover {
+      background: rgba(49, 215, 244, 0.12);
+      border-color: rgba(49, 215, 244, 0.42);
+    }
+    .picked-list { margin-top: 7px; color: var(--muted); }
+    .autocomplete {
+      border-color: rgba(118, 218, 255, 0.24);
+      background: #0b1424;
+      box-shadow: var(--soft-shadow);
+    }
+    .autocomplete-item {
+      color: #dcecff;
+      border-bottom-color: rgba(255,255,255,0.06);
+    }
+    .autocomplete-item.active {
+      background: rgba(49, 215, 244, 0.12);
+      color: #fff;
+    }
+    button {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      font-weight: 780;
+      background: var(--blue);
+      color: #fff;
+      box-shadow: none;
+      transition: background-color .18s ease, border-color .18s ease, transform .12s ease, opacity .18s ease;
+    }
+    button:hover:not(:disabled) {
+      background: #2f96ff;
+      transform: translateY(-1px);
+    }
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+    button:disabled {
+      background: rgba(10, 132, 255, 0.35);
+      color: rgba(255, 255, 255, 0.62);
+      cursor: not-allowed;
+    }
+    #run_btn {
+      min-height: 44px;
+      font-size: 14px;
+      background: var(--blue);
+      box-shadow: none;
+    }
+    #run_btn:hover:not(:disabled) { background: #2f96ff; }
+    .secondary-btn {
+      background: rgba(255,255,255,0.08);
+      color: #dcecff;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: none;
+    }
+    .secondary-btn:hover:not(:disabled) {
+      background: rgba(255,255,255,0.12);
+      box-shadow: none;
+    }
+    .progress-wrap { margin-top: 8px; }
+    .progress-bar-bg {
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+    }
+    .progress-bar-fg {
+      background: linear-gradient(90deg, var(--blue), var(--cyan), var(--green));
+      border-radius: inherit;
+    }
+    .progress-text { color: var(--muted); }
+    .preview-grid {
+      margin-top: 8px;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+    }
+    .preview-card, .video-card, .history-item {
+      border-color: rgba(255,255,255,0.08);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.045);
+      box-shadow: none;
+      overflow: hidden;
+    }
+    .preview-card { padding-bottom: 2px; }
+    .preview-img {
+      height: 98px;
+      background: #0a101d;
+    }
+    .preview-meta, .video-title, .history-title {
+      color: #dcecff;
+      font-weight: 700;
+    }
+    .preview-ref, .history-meta { color: var(--muted); }
+    .video-grid {
+      margin-top: 10px;
+      gap: 10px;
+      grid-template-columns: 1fr;
+    }
+    .video-card { padding: 8px; }
+    .video-card video, .history-frame-img, .last-frame img {
+      border-radius: 8px;
+      background: #02050b;
+    }
+    .video-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .video-actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      margin: 0;
+      padding: 0 9px;
+      border-radius: 999px;
+      background: rgba(49, 215, 244, 0.1);
+      color: #9eeeff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .history-list { margin-top: 10px; gap: 10px; }
+    .history-item { padding: 10px; }
+    .history-title { font-size: 13px; }
+    .history-prompt {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid rgba(255,255,255,0.07);
+      color: #c8d6e5;
+      line-height: 1.5;
+      max-height: 86px;
+      overflow: auto;
+    }
+    .history-media-grid {
+      grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    }
+    .history-media-grid .video-card video,
+    .history-frame-img {
+      max-height: 220px;
+    }
+    .row3 {
+      align-items: center;
+      grid-template-columns: minmax(0, 1fr) 0 minmax(130px, 160px);
+    }
+    @media (max-width: 1080px) {
+      .console-layout { grid-template-columns: 1fr; }
+      .side-panel { position: static; }
+      .video-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      .app-header { align-items: flex-start; flex-direction: column; }
+      .header-pills { justify-content: flex-start; }
+      .wrap { width: min(100% - 24px, 1280px); padding-top: 16px; }
+      .param-grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      h1 { font-size: 24px; }
+      .card { padding: 12px; }
+      .grid, .row4, .row3, .row2, .param-grid-5 { grid-template-columns: 1fr; }
+      .row3 > div:empty { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="app-header">
+      <div>
+        <div class="kicker"><i class="fa-solid fa-wand-magic-sparkles"></i> Seedance Studio</div>
+        <h1>Seedance 视频生成</h1>
+        <p class="desc">轻盈、清晰地完成每一次创意生成</p>
+      </div>
+      <div class="header-pills" aria-label="当前常用参数">
+        <span class="pill"><i class="fa-solid fa-mobile-screen-button"></i> 9:16</span>
+        <span class="pill"><i class="fa-solid fa-gauge-high"></i> 720p / 1080p</span>
+        <span class="pill"><i class="fa-regular fa-clock"></i> 任务轮询</span>
+      </div>
+    </header>
+
+    <main class="console-layout">
+    <section class="card composer-card">
+      <div class="grid">
+        <div class="full">
+          <label><i class="fa-regular fa-pen-to-square"></i> 提示词</label>
+          <textarea id="prompt" placeholder="输入你的提示词"></textarea>
+          <div class="mention-box">
+            <div class="hint">可在提示词中使用 `@img序号` / `@vid序号` / `@aud序号` 指定参考素材，例如：`@img1 @vid1 @aud1`</div>
+            <div id="mention_list" class="mention-list"></div>
+            <div id="mention_autocomplete" class="autocomplete hidden"></div>
+          </div>
+        </div>
+
+        <div class="full section-title"><i class="fa-solid fa-sliders"></i> 基础参数</div>
+        <div class="full param-panel">
+          <div class="param-grid param-grid-5">
+            <div>
+              <label>视频比例</label>
+              <select id="ratio">
+                <option>智能</option>
+                <option>21:9</option>
+                <option>16:9</option>
+                <option>4:3</option>
+                <option>1:1</option>
+                <option>3:4</option>
+                <option selected>9:16</option>
+              </select>
+            </div>
+            <div>
+              <label>分辨率</label>
+              <select id="resolution">
+                <option selected>720p</option>
+                <option>1080p</option>
+              </select>
+            </div>
+            <div>
+              <label>时长(秒)</label>
+              <input id="duration" type="number" min="1" value="5" />
+            </div>
+            <div>
+              <label>视频数量</label>
+              <input id="count" type="number" min="1" max="10" value="1" />
+            </div>
+            <div>
+              <label>模型</label>
+              <select id="model">
+                <option value="doubao-seedance-2-0-260128" selected>Seedance 2.0</option>
+                <option value="doubao-seedance-2-0-fast-260128">Seedance 2.0 Fast</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="full section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> 音频与增强</div>
+        <div class="full param-panel">
+          <div class="param-grid param-grid-5">
+            <div>
+              <label>有声视频</label>
+              <select id="generate_audio">
+                <option value="false">关闭</option>
+                <option value="true" selected>开启</option>
+              </select>
+            </div>
+            <div>
+              <label>自动下载首尾帧</label>
+              <select id="auto_download_frames">
+                <option value="false">关闭</option>
+                <option value="true" selected>开启</option>
+              </select>
+            </div>
+            <div>
+              <label>离线推理层级</label>
+              <select id="service_tier">
+                <option value="" selected>默认</option>
+                <option value="flex">flex</option>
+              </select>
+            </div>
+            <div>
+              <label>联网搜索</label>
+              <select id="enable_search">
+                <option value="false" selected>关闭</option>
+                <option value="true">开启</option>
+              </select>
+            </div>
+            <div>
+              <label>视频水印</label>
+              <select id="watermark">
+                <option value="true">开启</option>
+                <option value="false" selected>关闭</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="full section-title"><i class="fa-regular fa-folder-open"></i> 参考素材</div>
+        <div class="full upload-block">
+          <label><i class="fa-regular fa-image"></i> 图片参考</label>
+          <input id="image_files" type="file" accept="image/*" multiple />
+          <div class="hint">请直接选择本地图片文件（支持多张）。</div>
+          <div id="image_preview_grid" class="preview-grid"></div>
+        </div>
+
+        <div class="full upload-block">
+          <label><i class="fa-solid fa-film"></i> 视频参考（仅支持本地文件）</label>
+          <input id="video_files" type="file" accept="video/*" multiple />
+          <div id="picked_video_names" class="picked-list"></div>
+          <div class="hint">请直接选择本地视频文件作为参考，可用 @vid 序号在提示词中指定。</div>
+        </div>
+
+        <div class="full upload-block">
+          <label><i class="fa-solid fa-music"></i> 音频参考（仅支持本地文件）</label>
+          <input id="audio_files" type="file" accept="audio/*" multiple />
+          <div id="picked_audio_names" class="picked-list"></div>
+          <div class="hint">请直接选择本地音频文件作为参考，可用 @aud 序号在提示词中指定。</div>
+        </div>
+
+        <div class="full">
+          <button id="run_btn" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i> 开始生成</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+    <section class="card result-card">
+      <label><i class="fa-regular fa-circle-play"></i> 结果</label>
+      <div class="progress-wrap">
+        <div class="progress-bar-bg"><div id="progress_bar" class="progress-bar-fg"></div></div>
+        <div id="progress_text" class="progress-text">未开始</div>
+      </div>
+      <div id="video_results" class="video-grid"></div>
+    </section>
+
+    <section class="card history-card">
+      <div class="row3">
+        <div>
+          <label><i class="fa-regular fa-clock"></i> 历史记录</label>
+          <div class="hint">按当前飞书用户名查看历史提示词和生成视频。</div>
+        </div>
+        <div></div>
+        <div><button id="refresh_history_btn" class="secondary-btn" type="button"><i class="fa-solid fa-rotate-right"></i> 刷新历史</button></div>
+      </div>
+      <div id="history_list" class="history-list"></div>
+    </section>
+    </aside>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = window.location.pathname.startsWith("/seedance-web") ? "/seedance-web" : "";
+    let mentionState = {
+      visible: false,
+      activeIndex: 0,
+      candidates: [],
+      tokenStart: -1,
+      tokenEnd: -1,
+    };
+
+    function displayNameFromRef(ref) {
+      if (!ref) return "";
+      if (ref.startsWith("data:")) return "[上传图片]";
+      const normalized = ref.replaceAll("\\", "/");
+      const last = normalized.split("/").pop() || normalized;
+      try {
+        return decodeURIComponent(last);
+      } catch {
+        return last;
+      }
+    }
+
+    function getImageOptions() {
+      return Array.from(document.getElementById("image_files").files || [])
+        .map((f, i) => ({ token: `img${i + 1}`, index: i + 1, label: `[图] ${f.name}` }));
+    }
+
+    function getAudioOptions() {
+      return Array.from(document.getElementById("audio_files").files || [])
+        .map((f, i) => ({ token: `aud${i + 1}`, index: i + 1, label: `[音] ${f.name}` }));
+    }
+
+    function getVideoOptions() {
+      return Array.from(document.getElementById("video_files").files || [])
+        .map((f, i) => ({ token: `vid${i + 1}`, index: i + 1, label: `[视频] ${f.name}` }));
+    }
+
+    function insertAtCursor(el, text) {
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      const prefix = el.value.slice(0, start);
+      const suffix = el.value.slice(end);
+      el.value = prefix + text + suffix;
+      const pos = start + text.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    }
+
+    function refreshMentionButtons() {
+      const refs = [...getImageOptions(), ...getVideoOptions(), ...getAudioOptions()];
+      const listEl = document.getElementById("mention_list");
+      listEl.innerHTML = "";
+      if (!refs.length) {
+        listEl.innerHTML = '<span class="hint">先选择图片/视频/音频参考，再点击这里插入 @img / @vid / @aud 标记。</span>';
+        return;
+      }
+      refs.forEach((item) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "mention-item";
+        const label = item.label.length > 28 ? item.label.slice(0, 28) + "..." : item.label;
+        btn.textContent = `@${item.token} ${label}`;
+        btn.title = `${item.label}（点击插入 @${item.token}）`;
+        btn.addEventListener("click", () => {
+          const promptEl = document.getElementById("prompt");
+          insertAtCursor(promptEl, ` @${item.token} `);
+        });
+        listEl.appendChild(btn);
+      });
+    }
+
+    function refreshPickedVideoNames() {
+      const el = document.getElementById("picked_video_names");
+      const files = Array.from(document.getElementById("video_files").files || []);
+      if (!files.length) {
+        el.innerHTML = "";
+        return;
+      }
+      el.innerHTML = files
+        .map((file, i) => `<span class="picked-item">#${i + 1} ${escapeHtml(file.name)}</span>`)
+        .join("");
+    }
+
+    function refreshPickedAudioNames() {
+      const el = document.getElementById("picked_audio_names");
+      const files = Array.from(document.getElementById("audio_files").files || []);
+      if (!files.length) {
+        el.innerHTML = "";
+        return;
+      }
+      el.innerHTML = files
+        .map((file, i) => `<span class="picked-item">#${i + 1} ${escapeHtml(file.name)}</span>`)
+        .join("");
+    }
+
+    function hideMentionAutocomplete() {
+      mentionState.visible = false;
+      const box = document.getElementById("mention_autocomplete");
+      box.classList.add("hidden");
+      box.innerHTML = "";
+    }
+
+    function renderMentionAutocomplete() {
+      const box = document.getElementById("mention_autocomplete");
+      if (!mentionState.candidates.length) {
+        hideMentionAutocomplete();
+        return;
+      }
+      box.innerHTML = mentionState.candidates.map((item, i) => {
+        const cls = i === mentionState.activeIndex ? "autocomplete-item active" : "autocomplete-item";
+        return `<div class="${cls}" data-i="${i}">@${item.token} ${item.label}</div>`;
+      }).join("");
+      box.classList.remove("hidden");
+      mentionState.visible = true;
+    }
+
+    function applyMentionCandidate(candidate) {
+      const promptEl = document.getElementById("prompt");
+      const start = mentionState.tokenStart;
+      const end = mentionState.tokenEnd;
+      if (start < 0 || end < 0) return;
+      const prefix = promptEl.value.slice(0, start);
+      const suffix = promptEl.value.slice(end);
+      const insert = `@${candidate.token} `;
+      promptEl.value = prefix + insert + suffix;
+      const pos = start + insert.length;
+      promptEl.focus();
+      promptEl.setSelectionRange(pos, pos);
+      hideMentionAutocomplete();
+    }
+
+    function updateMentionAutocomplete() {
+      const promptEl = document.getElementById("prompt");
+      const cursor = promptEl.selectionStart ?? promptEl.value.length;
+      const left = promptEl.value.slice(0, cursor);
+      const atHalf = left.lastIndexOf("@");
+      const atFull = left.lastIndexOf("＠");
+      const atPos = Math.max(atHalf, atFull);
+      if (atPos < 0) {
+        hideMentionAutocomplete();
+        return;
+      }
+      const queryRaw = left.slice(atPos + 1);
+      if (/\s/.test(queryRaw)) {
+        hideMentionAutocomplete();
+        return;
+      }
+      const query = queryRaw.toLowerCase();
+      mentionState.tokenStart = atPos;
+      mentionState.tokenEnd = cursor;
+      const all = [...getImageOptions(), ...getVideoOptions(), ...getAudioOptions()];
+      let candidates = all;
+      if (query) {
+        candidates = all.filter(x => (x.token.includes(query) || x.label.toLowerCase().includes(query)));
+      }
+      mentionState.candidates = candidates.slice(0, 30);
+      mentionState.activeIndex = 0;
+      renderMentionAutocomplete();
+    }
+
+    async function fileToDataUrl(file) {
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function escapeHtml(text) {
+      return String(text ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    }
+
+    function renderVideos(tasks = []) {
+      const container = document.getElementById("video_results");
+      const okTasks = tasks.filter(t => (t.local_preview_url || t.video_url));
+      if (!okTasks.length) {
+        container.innerHTML = "";
+        return;
+      }
+      container.innerHTML = okTasks.map((t, idx) => {
+        const preview = t.local_preview_url || t.video_url;
+        const download = t.local_download_url || t.video_url;
+        const title = `任务 ${idx + 1} · ${t.task_id || ""}`;
+        const lastFramePreview = t.last_frame_local_preview_url || t.last_frame_url || "";
+        const lastFrameBlock = lastFramePreview
+          ? `<div class="last-frame"><img src="${escapeHtml(lastFramePreview)}" alt="last-frame-${idx + 1}" /></div>`
+          : "";
+        return `
+          <div class="video-card">
+            <video controls preload="metadata" src="${preview}"></video>
+            ${lastFrameBlock}
+            <div class="video-title">${escapeHtml(title)}</div>
+            <div class="video-actions">
+              <a href="${preview}" target="_blank">在线预览</a>
+              <a href="${download}" target="_blank">下载视频</a>
+              ${lastFramePreview ? `<a href="${escapeHtml(lastFramePreview)}" target="_blank">查看尾帧</a>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderProgress(job) {
+      const pct = Math.max(0, Math.min(100, Number(job.progress || 0)));
+      document.getElementById("progress_bar").style.width = `${pct}%`;
+      const text = `${pct}% · ${job.stage || "-"} · ${job.message || ""}`;
+      document.getElementById("progress_text").textContent = text;
+    }
+
+    async function refreshHistory() {
+      const listEl = document.getElementById("history_list");
+      listEl.innerHTML = '<div class="hint">历史加载中...</div>';
+      try {
+        const resp = await fetch(`${API_BASE}/api/history?limit=30`);
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) {
+          listEl.innerHTML = `<div class="hint">历史加载失败：${escapeHtml((data && (data.error || data.message)) || "未知错误")}</div>`;
+          return;
+        }
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (!items.length) {
+          listEl.innerHTML = '<div class="hint">暂无历史记录</div>';
+          return;
+        }
+        listEl.innerHTML = items.map((it, idx) => {
+          const videos = (it.video_preview_urls || []).map((url, i) => {
+            const dl = (it.video_download_urls || [])[i] || url;
+            return `
+              <div class="video-card">
+                <video controls preload="metadata" src="${escapeHtml(url)}"></video>
+                <div class="video-title">视频 ${i + 1}</div>
+                <div class="video-actions">
+                  <a href="${escapeHtml(url)}" target="_blank">在线预览</a>
+                  <a href="${escapeHtml(dl)}" target="_blank">下载视频</a>
+                </div>
+              </div>
+            `;
+          }).join("");
+          const firstFrames = (it.first_frame_preview_urls || []).map((url, i) => {
+            const dl = (it.first_frame_download_urls || [])[i] || url;
+            return `
+              <div class="video-card">
+                <img class="history-frame-img" src="${escapeHtml(url)}" alt="history-first-frame-${idx + 1}-${i + 1}" />
+                <div class="video-title">首帧 ${i + 1}</div>
+                <div class="video-actions">
+                  <a href="${escapeHtml(url)}" target="_blank">查看首帧</a>
+                  <a href="${escapeHtml(dl)}" target="_blank">下载首帧</a>
+                </div>
+              </div>
+            `;
+          }).join("");
+          const frames = (it.last_frame_preview_urls || []).map((url, i) => {
+            const dl = (it.last_frame_download_urls || [])[i] || url;
+            return `
+              <div class="video-card">
+                <img class="history-frame-img" src="${escapeHtml(url)}" alt="history-last-frame-${idx + 1}-${i + 1}" />
+                <div class="video-title">尾帧 ${i + 1}</div>
+                <div class="video-actions">
+                  <a href="${escapeHtml(url)}" target="_blank">查看尾帧</a>
+                  <a href="${escapeHtml(dl)}" target="_blank">下载尾帧</a>
+                </div>
+              </div>
+            `;
+          }).join("");
+          return `
+            <div class="history-item">
+              <div class="history-title">#${idx + 1} ${escapeHtml(it.riqi || "")}</div>
+              <div class="history-meta">分辨率: ${escapeHtml(it.fenbianlv || "-")} | 时长: ${escapeHtml(it.shichang || "-")} | 数量: ${escapeHtml(it.shuliang || "-")}</div>
+              <div class="history-prompt">${escapeHtml(it.tishici || "")}</div>
+              <div class="video-grid history-media-grid">${videos}${firstFrames}${frames}</div>
+            </div>
+          `;
+        }).join("");
+      } catch (err) {
+        listEl.innerHTML = `<div class="hint">历史加载失败：${escapeHtml(String(err))}</div>`;
+      }
+    }
+
+    async function pollJobUntilDone(jobId) {
+      while (true) {
+        const resp = await fetch(`${API_BASE}/api/generate/${jobId}`);
+        const job = await resp.json();
+        renderProgress(job);
+        if (job.result && job.result.tasks) {
+          renderVideos(job.result.tasks);
+        }
+        if (job.status === "succeeded" || job.status === "failed") {
+          return job;
+        }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+
+    async function refreshImagePreviews() {
+      const files = Array.from(document.getElementById("image_files").files || []);
+      const grid = document.getElementById("image_preview_grid");
+      if (!files.length) {
+        grid.innerHTML = "";
+        return;
+      }
+      const htmlFiles = files.map((file, i) => {
+        const idx = i + 1;
+        const src = URL.createObjectURL(file);
+        return `
+          <div class="preview-card">
+            <img class="preview-img" src="${src}" alt="img${idx}" />
+            <div class="preview-meta">#${idx} / @img${idx}</div>
+            <div class="preview-meta preview-ref" title="${file.name}">[上传] ${file.name}</div>
+          </div>
+        `;
+      }).join("");
+      grid.innerHTML = htmlFiles;
+    }
+
+    function applyModelResolutionRule() {
+      const modelEl = document.getElementById("model");
+      const resolutionEl = document.getElementById("resolution");
+      const selectedModel = (modelEl.value || "").trim();
+      const isFast = selectedModel.includes("-fast-");
+      const options = isFast ? ["720p"] : ["720p", "1080p"];
+      const current = resolutionEl.value;
+      resolutionEl.innerHTML = options.map((v) => `<option value="${v}">${v}</option>`).join("");
+      resolutionEl.value = options.includes(current) ? current : "720p";
+    }
+
+    document.getElementById("run_btn").addEventListener("click", async () => {
+      const btn = document.getElementById("run_btn");
+      btn.disabled = true;
+      renderVideos([]);
+      renderProgress({ progress: 1, stage: "submit", message: "准备提交..." });
+
+      try {
+        const files = Array.from(document.getElementById("image_files").files || []);
+        const baseImageRefs = files.length ? await Promise.all(files.map(fileToDataUrl)) : [];
+        const videoFiles = Array.from(document.getElementById("video_files").files || []);
+        const uploadedVideos = videoFiles.length ? await Promise.all(videoFiles.map(fileToDataUrl)) : [];
+        const audioFiles = Array.from(document.getElementById("audio_files").files || []);
+        const uploadedAudios = audioFiles.length ? await Promise.all(audioFiles.map(fileToDataUrl)) : [];
+        const boolVal = (id) => document.getElementById(id).value === "true";
+        const payload = {
+          prompt: document.getElementById("prompt").value.trim(),
+          model: document.getElementById("model").value,
+          ratio: document.getElementById("ratio").value,
+          resolution: document.getElementById("resolution").value,
+          duration: Number(document.getElementById("duration").value),
+          count: Number(document.getElementById("count").value),
+          generate_audio: boolVal("generate_audio"),
+          auto_download_frames: boolVal("auto_download_frames"),
+          service_tier: document.getElementById("service_tier").value,
+          enable_search: boolVal("enable_search"),
+          watermark: boolVal("watermark"),
+          image_refs: baseImageRefs,
+          video_refs: uploadedVideos,
+          audio_refs: uploadedAudios,
+        };
+
+        const resp = await fetch(`${API_BASE}/api/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (!data.ok || !data.job_id) {
+          const msg = data && data.error ? String(data.error) : "提交失败";
+          renderProgress({ progress: 100, stage: "failed", message: msg });
+          return;
+        }
+        const finalJob = await pollJobUntilDone(data.job_id);
+        const finalMsg = (finalJob && finalJob.message) ? String(finalJob.message) : "生成完成";
+        const hasAnyVideo = !!(finalJob && finalJob.result && Array.isArray(finalJob.result.tasks) && finalJob.result.tasks.some(t => !!(t.local_preview_url || t.video_url)));
+        if (finalJob.status === "failed") {
+          renderProgress({ progress: 100, stage: hasAnyVideo ? "done" : "failed", message: hasAnyVideo ? finalMsg : (finalJob.error || "生成失败") });
+        } else {
+          renderProgress({ progress: 100, stage: "done", message: finalMsg });
+        }
+        if (finalJob && finalJob.result && finalJob.result.postprocess && finalJob.result.postprocess.status === "pending") {
+          setTimeout(refreshHistory, 12000);
+        } else {
+          refreshHistory();
+        }
+      } catch (err) {
+        renderProgress({ progress: 100, stage: "failed", message: "请求失败: " + String(err) });
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("image_files").addEventListener("change", () => {
+      refreshMentionButtons();
+      refreshImagePreviews();
+    });
+    document.getElementById("video_files").addEventListener("change", refreshPickedVideoNames);
+    document.getElementById("video_files").addEventListener("change", refreshMentionButtons);
+    document.getElementById("audio_files").addEventListener("change", () => {
+      refreshPickedAudioNames();
+      refreshMentionButtons();
+    });
+    document.getElementById("model").addEventListener("change", applyModelResolutionRule);
+    document.getElementById("refresh_history_btn").addEventListener("click", refreshHistory);
+
+    const promptEl = document.getElementById("prompt");
+    hideMentionAutocomplete();
+    refreshPickedVideoNames();
+    refreshPickedAudioNames();
+
+    refreshMentionButtons();
+    refreshImagePreviews();
+    applyModelResolutionRule();
+    refreshHistory();
+  </script>
+</body>
+</html>

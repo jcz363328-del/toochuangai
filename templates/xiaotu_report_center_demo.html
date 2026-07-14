@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报告智能体电脑端 Demo</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --bg: #eef1f5;
+            --surface: #ffffff;
+            --surface-soft: #f7f8fa;
+            --surface-muted: #f1f3f6;
+            --line: #dfe3e9;
+            --line-strong: #cdd3dc;
+            --text: #171a1f;
+            --muted: #707782;
+            --blue: #2f6feb;
+            --blue-soft: #edf4ff;
+            --green: #14805e;
+            --green-soft: #edf9f4;
+            --amber: #a66b17;
+            --amber-soft: #fff7e6;
+            --red: #c53e4d;
+            --shadow: 0 10px 30px rgba(22, 30, 44, 0.08);
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+        body {
+            color: var(--text);
+            background: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            letter-spacing: 0;
+        }
+        button, input, select, textarea { font: inherit; }
+        button, a { -webkit-tap-highlight-color: transparent; }
+        button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, [contenteditable]:focus-visible {
+            outline: 3px solid rgba(47, 111, 235, 0.2);
+            outline-offset: 1px;
+        }
+        .app-frame {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-rows: 62px minmax(0, 1fr);
+        }
+        .app-header {
+            position: relative;
+            z-index: 20;
+            min-width: 0;
+            padding: 0 18px;
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) auto minmax(300px, 1fr);
+            align-items: center;
+            gap: 18px;
+            background: rgba(255, 255, 255, 0.97);
+            border-bottom: 1px solid var(--line);
+        }
+        .brand {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 8px;
+            background: #1d2129;
+            color: #fff;
+            font-size: 17px;
+        }
+        .brand-copy { min-width: 0; }
+        .brand-title {
+            margin: 0;
+            font-size: 17px;
+            line-height: 1.2;
+            font-weight: 750;
+        }
+        .brand-subtitle {
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .main-nav {
+            height: 42px;
+            padding: 4px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(100px, 1fr));
+            gap: 4px;
+            border-radius: 9px;
+            background: var(--surface-muted);
+        }
+        .nav-button {
+            min-width: 0;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: #656c76;
+            font-size: 13px;
+            font-weight: 650;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .nav-button.active {
+            background: #fff;
+            color: var(--text);
+            box-shadow: 0 1px 5px rgba(22, 30, 44, 0.12);
+        }
+        .header-actions {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 7px;
+        }
+        .demo-status {
+            min-height: 30px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 7px;
+            background: var(--green-soft);
+            color: var(--green);
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .demo-status::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+        }
+        .button {
+            min-height: 36px;
+            padding: 0 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            background: #fff;
+            color: #414852;
+            font-size: 12px;
+            font-weight: 650;
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .button:hover { background: #f4f6f8; border-color: #aeb6c2; }
+        .button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .button.primary:hover { background: #245fcf; border-color: #245fcf; }
+        .button.dark { background: #1d2129; border-color: #1d2129; color: #fff; }
+        .button.success { background: var(--green); border-color: var(--green); color: #fff; }
+        .button.quiet { background: var(--surface-soft); }
+        .button.icon-only { width: 36px; padding: 0; }
+        .button:disabled { opacity: .62; cursor: not-allowed; }
+        .screen {
+            min-width: 0;
+            min-height: 0;
+            display: none;
+        }
+        .screen.active { display: grid; }
+        .compose-screen {
+            grid-template-columns: 274px minmax(520px, 1fr) 326px;
+            background: var(--bg);
+        }
+        .settings-sidebar,
+        .inspector {
+            min-width: 0;
+            min-height: 0;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #c9ced6 transparent;
+            background: var(--surface-soft);
+        }
+        .settings-sidebar { border-right: 1px solid var(--line); }
+        .inspector { border-left: 1px solid var(--line); }
+        .side-section {
+            padding: 15px 16px;
+            border-bottom: 1px solid var(--line);
+        }
+        .side-section:last-child { border-bottom: 0; }
+        .section-title-row {
+            min-height: 26px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .section-title {
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 750;
+        }
+        .section-title i { color: var(--blue); }
+        .mini-action {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line-strong);
+            border-radius: 7px;
+            background: #fff;
+            color: #5c6470;
+            cursor: pointer;
+        }
+        .field-group { display: grid; gap: 7px; margin-bottom: 12px; }
+        .field-group:last-child { margin-bottom: 0; }
+        .field-label { color: #59616d; font-size: 11px; font-weight: 700; }
+        .field,
+        .select {
+            width: 100%;
+            min-height: 38px;
+            padding: 0 10px;
+            border: 1px solid var(--line-strong);
+            border-radius: 8px;
+            background: #fff;
+            color: var(--text);
+            font-size: 13px;
+            outline: none;
+        }
+        .field:focus, .select:focus { border-color: #7aa5ed; box-shadow: 0 0 0 3px rgba(47,111,235,.1); }
+        .segmented {
+            padding: 4px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 4px;
+            border-radius: 8px;
+            background: #e9ecf1;
+        }
+        .segmented button {
+            min-height: 32px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: #656c77;
+            font-size: 12px;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        .segmented button.active {
+            background: #fff;
+            color: #1d2129;
+            box-shadow: 0 1px 4px rgba(22, 30, 44, 0.12);
+        }
+        .person-list { display: grid; gap: 6px; }
+        .person-option {
+            min-height: 44px;
+            padding: 7px 9px;
+            display: grid;
+            grid-template-columns: 30px minmax(0, 1fr) 18px;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e1e5eb;
+            border-radius: 8px;
+            background: #fff;
+            text-align: left;
+            cursor: pointer;
+        }
+        .person-option.active { border-color: #81a9eb; background: var(--blue-soft); }
+        .person-icon {
+            width: 30px;
+            height: 30px;
+            display: grid;
+            place-items: center;
+            border-radius: 7px;
+            background: #f0f2f5;
+            color: #66707d;
+            font-size: 12px;
+        }
+        .person-option.active .person-icon { background: #dceaff; color: var(--blue); }
+        .person-name { display: block; font-size: 12px; font-weight: 700; }
+        .person-focus {
+            display: block;
+            margin-top: 2px;
+            color: #858c96;
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .person-check { color: var(--blue); font-size: 12px; visibility: hidden; }
+        .person-option.active .person-check { visibility: visible; }
+        .focus-hint {
+            margin-top: 9px;
+            padding: 8px 9px;
+            border-left: 3px solid #78a4ea;
+            border-radius: 0 7px 7px 0;
+            background: #f0f5fc;
+            color: #657080;
+            font-size: 10px;
+            line-height: 1.5;
+        }
+        .notify-list { display: grid; gap: 6px; }
+        .notify-row {
+            min-height: 42px;
+            padding: 6px 8px;
+            display: grid;
+            grid-template-columns: 28px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e4e7ec;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .avatar {
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-items: center;
+            border-radius: 7px;
+            background: #eaf1fb;
+            color: #2a5fae;
+            font-size: 10px;
+            font-weight: 750;
+        }
+        .notify-name { font-size: 11px; font-weight: 700; }
+        .notify-dept { margin-top: 1px; color: #9198a2; font-size: 9px; }
+        .switch {
+            width: 34px;
+            height: 20px;
+            padding: 2px;
+            display: flex;
+            justify-content: flex-start;
+            border: 0;
+            border-radius: 999px;
+            background: #cfd5dd;
+            cursor: pointer;
+        }
+        .switch::after {
+            content: "";
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,.18);
+        }
+        .switch.active { justify-content: flex-end; background: var(--green); }
+        .mini-stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 5px;
+        }
+        .mini-stat {
+            min-width: 0;
+            padding: 8px 4px;
+            border: 1px solid #e3e7ed;
+            border-radius: 7px;
+            background: #fff;
+            text-align: center;
+        }
+        .mini-stat strong { display: block; font-size: 14px; line-height: 1.2; }
+        .mini-stat span { display: block; margin-top: 3px; color: #9097a1; font-size: 8px; }
+        .editor-workspace {
+            min-width: 0;
+            min-height: 0;
+            margin: 12px;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: var(--shadow);
+        }
+        .workspace-head {
+            min-width: 0;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid var(--line);
+        }
+        .workspace-title-wrap { min-width: 0; }
+        .workspace-title {
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.3;
+            font-weight: 750;
+        }
+        .workspace-meta { margin-top: 3px; color: var(--muted); font-size: 10px; }
+        .save-state {
+            min-height: 27px;
+            padding: 0 9px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border-radius: 7px;
+            background: var(--amber-soft);
+            color: var(--amber);
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .editor-stage {
+            min-width: 0;
+            min-height: 0;
+            padding: 12px 14px 0;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr) auto;
+        }
+        .source-row {
+            min-width: 0;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 7px;
+            margin-bottom: 9px;
+        }
+        .toolbar {
+            min-height: 40px;
+            padding: 4px 6px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-bottom: 0;
+            border-radius: 8px 8px 0 0;
+            background: #f7f8fa;
+            scrollbar-width: none;
+        }
+        .toolbar::-webkit-scrollbar { display: none; }
+        .tool-button {
+            width: 32px;
+            height: 30px;
+            flex: 0 0 32px;
+            padding: 0;
+            display: grid;
+            place-items: center;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            color: #535b66;
+            cursor: pointer;
+        }
+        .tool-button:hover { border-color: #d8dde4; background: #fff; }
+        .tool-separator { width: 1px; height: 18px; flex: 0 0 1px; margin: 0 3px; background: #dce0e6; }
+        .editor {
+            min-width: 0;
+            min-height: 0;
+            padding: 24px max(32px, 7%);
+            overflow-y: auto;
+            overflow-x: hidden;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: #303640;
+            font-size: 14px;
+            line-height: 1.8;
+            outline: none;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .editor:empty::before { content: attr(data-placeholder); color: #a0a6af; }
+        .editor h3 { margin: 18px 0 7px; color: #1f242b; font-size: 16px; }
+        .editor h3:first-child { margin-top: 0; }
+        .editor p { margin: 5px 0; }
+        .editor ul { margin: 6px 0; padding-left: 22px; }
+        .editor img { max-width: 100%; height: auto; border-radius: 6px; }
+        .asset-row {
+            min-width: 0;
+            min-height: 48px;
+            padding: 7px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border: 1px solid var(--line);
+            border-top: 0;
+            border-radius: 0 0 8px 8px;
+            background: #fbfcfd;
+        }
+        .asset-actions, .asset-meta, .thumbs { min-width: 0; display: flex; align-items: center; gap: 7px; }
+        .asset-meta { color: var(--muted); font-size: 10px; white-space: nowrap; }
+        .thumbs { overflow-x: auto; }
+        .thumb {
+            width: 30px;
+            height: 30px;
+            flex: 0 0 30px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #eef2f7;
+            color: #66707d;
+            font-size: 9px;
+        }
+        .thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .workspace-foot {
+            min-width: 0;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-top: 1px solid var(--line);
+            background: #fbfcfd;
+        }
+        .submit-copy { min-width: 0; }
+        .submit-copy strong { display: block; font-size: 11px; }
+        .submit-copy span {
+            display: block;
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .submit-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+        .inspector-head {
+            position: sticky;
+            top: 0;
+            z-index: 4;
+            padding: 12px 12px 0;
+            background: var(--surface-soft);
+        }
+        .inspector-tabs {
+            padding: 4px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 4px;
+            border-radius: 8px;
+            background: #e7eaef;
+        }
+        .inspector-tab {
+            min-height: 32px;
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: #6d7480;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .inspector-tab.active { background: #fff; color: #21262d; box-shadow: 0 1px 4px rgba(22,30,44,.1); }
+        .inspector-body { padding: 12px; }
+        .inspector-pane { display: none; }
+        .inspector-pane.active { display: block; }
+        .score-block {
+            min-height: 86px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 70px minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+        }
+        .score-value {
+            width: 66px;
+            height: 66px;
+            display: grid;
+            place-items: center;
+            border: 7px solid #e2eaf6;
+            border-top-color: var(--blue);
+            border-radius: 50%;
+            color: #1d2129;
+            font-size: 22px;
+            font-weight: 800;
+        }
+        .score-copy strong { display: block; font-size: 13px; }
+        .score-copy span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+        .check-list { display: grid; gap: 7px; margin-top: 9px; }
+        .check-row {
+            min-width: 0;
+            padding: 9px;
+            display: grid;
+            grid-template-columns: 30px minmax(0, 1fr);
+            gap: 9px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+        }
+        .check-icon {
+            width: 30px;
+            height: 30px;
+            display: grid;
+            place-items: center;
+            border-radius: 7px;
+            background: var(--blue-soft);
+            color: var(--blue);
+            font-size: 11px;
+        }
+        .check-icon.good { background: var(--green-soft); color: var(--green); }
+        .check-icon.warn { background: var(--amber-soft); color: var(--amber); }
+        .check-title { font-size: 11px; font-weight: 750; }
+        .check-desc { margin-top: 3px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+        .preview-paper {
+            min-height: 490px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+            color: #3b424c;
+            font-size: 11px;
+            line-height: 1.7;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .preview-paper.empty { display: grid; place-items: center; color: #9ba1aa; }
+        .preview-paper h3 { margin: 14px 0 6px; color: #1d2129; font-size: 13px; }
+        .activity-list { display: grid; gap: 0; }
+        .activity-row {
+            min-height: 58px;
+            padding: 8px 0;
+            display: grid;
+            grid-template-columns: 26px minmax(0, 1fr);
+            gap: 9px;
+            border-bottom: 1px solid var(--line);
+        }
+        .activity-row:last-child { border-bottom: 0; }
+        .activity-dot {
+            width: 24px;
+            height: 24px;
+            display: grid;
+            place-items: center;
+            border-radius: 7px;
+            background: #e9edf3;
+            color: #7f8792;
+            font-size: 9px;
+        }
+        .activity-row.done .activity-dot { background: var(--green-soft); color: var(--green); }
+        .activity-row.active .activity-dot { background: var(--blue-soft); color: var(--blue); }
+        .activity-title { font-size: 11px; font-weight: 700; }
+        .activity-desc { margin-top: 3px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+        .recent-list { display: grid; gap: 7px; margin-top: 12px; }
+        .recent-item {
+            padding: 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+        }
+        .recent-item strong { display: block; font-size: 11px; }
+        .recent-item span { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+        .wide-screen {
+            min-height: 0;
+            overflow-y: auto;
+            padding: 20px;
+            background: var(--bg);
+        }
+        .screen-container { width: min(1180px, 100%); margin: 0 auto; }
+        .screen-heading {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .screen-heading h1 { margin: 0; font-size: 24px; font-weight: 780; }
+        .screen-heading p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+        .summary-layout, .knowledge-layout {
+            display: grid;
+            grid-template-columns: 292px minmax(0, 1fr);
+            gap: 14px;
+            align-items: start;
+        }
+        .surface {
+            min-width: 0;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 5px 18px rgba(22,30,44,.04);
+        }
+        .surface-head {
+            min-height: 48px;
+            padding: 11px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border-bottom: 1px solid var(--line);
+        }
+        .surface-head h2 { margin: 0; font-size: 14px; }
+        .surface-body { padding: 14px; }
+        .quick-ranges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+        .range-button {
+            min-height: 32px;
+            border: 1px solid var(--line-strong);
+            border-radius: 7px;
+            background: #fff;
+            color: #59616d;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        .range-button.active { border-color: #7aa5ed; background: var(--blue-soft); color: #1c56ad; }
+        .generate-status {
+            padding: 10px;
+            border-radius: 8px;
+            background: var(--surface-soft);
+            color: var(--muted);
+            font-size: 10px;
+            line-height: 1.5;
+        }
+        .report-table { width: 100%; border-collapse: collapse; }
+        .report-table th, .report-table td {
+            padding: 11px 10px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            font-size: 11px;
+        }
+        .report-table th { color: #727986; background: #fafbfc; font-size: 10px; }
+        .report-table tr:last-child td { border-bottom: 0; }
+        .status-tag {
+            min-height: 24px;
+            padding: 0 8px;
+            display: inline-flex;
+            align-items: center;
+            border-radius: 6px;
+            background: var(--green-soft);
+            color: var(--green);
+            font-size: 9px;
+            font-weight: 700;
+        }
+        .summary-preview {
+            min-height: 220px;
+            margin-top: 14px;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fcfcfd;
+            color: #454d58;
+            font-size: 12px;
+            line-height: 1.75;
+        }
+        .summary-preview h3 { margin: 12px 0 6px; color: #1d2129; font-size: 14px; }
+        .question-list { display: grid; gap: 6px; }
+        .question-item {
+            padding: 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fff;
+            color: #4d5560;
+            font-size: 10px;
+            line-height: 1.45;
+            text-align: left;
+            cursor: pointer;
+        }
+        .question-item:hover { border-color: #9cb9e8; background: #f6f9fe; }
+        .knowledge-search {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+        }
+        .answer-box {
+            min-height: 430px;
+            margin-top: 12px;
+            padding: 22px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #fcfcfd;
+            color: #424a55;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+        .answer-box.empty { display: grid; place-items: center; color: #9ba1aa; }
+        .answer-box h3 { margin: 14px 0 7px; color: #1d2129; font-size: 15px; }
+        .source-list { display: grid; gap: 7px; margin-top: 12px; }
+        .source-item {
+            padding: 9px 10px;
+            border-left: 3px solid #88ace7;
+            border-radius: 0 7px 7px 0;
+            background: #f4f7fb;
+            color: #687180;
+            font-size: 10px;
+        }
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            z-index: 60;
+            min-width: 220px;
+            max-width: min(420px, 90vw);
+            padding: 11px 14px;
+            transform: translate(-50%, 18px);
+            border-radius: 8px;
+            background: rgba(29, 33, 41, .94);
+            color: #fff;
+            box-shadow: 0 12px 30px rgba(0,0,0,.18);
+            font-size: 12px;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: .2s ease;
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+        #inspectorToggle { display: none; }
+        @media (max-width: 1320px) {
+            .app-header { grid-template-columns: minmax(190px, .8fr) auto minmax(250px, .8fr); padding: 0 12px; gap: 10px; }
+            .compose-screen { grid-template-columns: 250px minmax(500px, 1fr) 300px; }
+            .nav-button { padding: 0 10px; }
+            .demo-status { display: none; }
+        }
+        @media (max-width: 1120px) {
+            .app-header { grid-template-columns: 190px minmax(330px, auto) minmax(180px, 1fr); }
+            .compose-screen { grid-template-columns: 240px minmax(0, 1fr); }
+            .inspector {
+                position: fixed;
+                top: 62px;
+                right: 0;
+                bottom: 0;
+                z-index: 30;
+                width: 320px;
+                transform: translateX(102%);
+                box-shadow: -12px 0 30px rgba(22,30,44,.12);
+                transition: transform .2s ease;
+            }
+            body.inspector-open .inspector { transform: translateX(0); }
+            #inspectorToggle { display: inline-flex; }
+            .header-actions .button span { display: none; }
+            .header-actions .button { width: 36px; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-frame">
+    <header class="app-header">
+        <div class="brand">
+            <div class="brand-mark"><i class="fa-solid fa-file-pen"></i></div>
+            <div class="brand-copy">
+                <h1 class="brand-title">报告智能体</h1>
+                <div class="brand-subtitle">{{ user_name or '用户' }} · 电脑端 Demo</div>
+            </div>
+        </div>
+        <nav class="main-nav" aria-label="报告智能体功能">
+            <button type="button" class="nav-button active" data-screen-target="compose"><i class="fa-solid fa-pen-to-square"></i>写报告</button>
+            <button type="button" class="nav-button" data-screen-target="summary"><i class="fa-solid fa-chart-line"></i>智能汇总</button>
+            <button type="button" class="nav-button" data-screen-target="knowledge"><i class="fa-solid fa-magnifying-glass"></i>知识搜索</button>
+        </nav>
+        <div class="header-actions">
+            <span class="demo-status">安全演示</span>
+            <button id="inspectorToggle" class="button icon-only" type="button" title="智能检查" aria-label="智能检查"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <a class="button" href="{{ url_for('dashboard_xiaotu_report_history') }}"><i class="fa-solid fa-clock-rotate-left"></i><span>历史记录</span></a>
+            <a class="button" href="{{ url_for('dashboard_xiaotu_report_center') }}?desktop=1"><i class="fa-solid fa-arrow-up-right-from-square"></i><span>正式页面</span></a>
+        </div>
+    </header>
+
+    <section class="screen compose-screen active" data-screen="compose">
+        <aside class="settings-sidebar">
+            <section class="side-section">
+                <div class="section-title-row"><h2 class="section-title"><i class="fa-solid fa-sliders"></i>报告设置</h2></div>
+                <div class="field-group">
+                    <label class="field-label">报告类型</label>
+                    <div class="segmented" id="reportType">
+                        <button type="button" class="active" data-type="day">日报</button>
+                        <button type="button" data-type="week">周报</button>
+                        <button type="button" data-type="month">月报</button>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">人员类型</label>
+                    <div class="person-list" id="personType">
+                        <button type="button" class="person-option active" data-person="formal_staff"><span class="person-icon"><i class="fa-solid fa-briefcase"></i></span><span><span class="person-name">正式员工</span><span class="person-focus">执行、流程、质量与协同</span></span><i class="fa-solid fa-check person-check"></i></button>
+                        <button type="button" class="person-option" data-person="management"><span class="person-icon"><i class="fa-solid fa-user-tie"></i></span><span><span class="person-name">管理层</span><span class="person-focus">经营、团队、资源与风险</span></span><i class="fa-solid fa-check person-check"></i></button>
+                        <button type="button" class="person-option" data-person="improvement_staff"><span class="person-icon"><i class="fa-solid fa-arrow-trend-up"></i></span><span><span class="person-name">改进人员</span><span class="person-focus">诊断、纠偏、指标与闭环</span></span><i class="fa-solid fa-check person-check"></i></button>
+                        <button type="button" class="person-option" data-person="intern_trainee"><span class="person-icon"><i class="fa-solid fa-seedling"></i></span><span><span class="person-name">管培生 / 实习</span><span class="person-focus">学习、执行、复盘与成长</span></span><i class="fa-solid fa-check person-check"></i></button>
+                    </div>
+                    <div class="focus-hint" id="focusHint">侧重点：执行质量、流程优化、协作效率、结果稳定性。</div>
+                </div>
+            </section>
+
+            <section class="side-section">
+                <div class="section-title-row">
+                    <h2 class="section-title"><i class="fa-solid fa-user-group"></i>通知人员</h2>
+                    <button id="addNotifyBtn" type="button" class="mini-action" title="添加人员" aria-label="添加人员"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="notify-list" id="notifyList"></div>
+                <div class="field-group" style="margin-top:11px;">
+                    <label class="field-label" for="remindTime">未提交提醒</label>
+                    <input id="remindTime" class="field" type="time" value="18:30">
+                </div>
+            </section>
+
+            <section class="side-section">
+                <div class="section-title-row"><h2 class="section-title"><i class="fa-solid fa-gauge-high"></i>当前概览</h2></div>
+                <div class="mini-stats">
+                    <div class="mini-stat"><strong id="wordMetric">0</strong><span>字数</span></div>
+                    <div class="mini-stat"><strong id="imageMetric">0</strong><span>图片</span></div>
+                    <div class="mini-stat"><strong id="notifyMetric">3</strong><span>通知</span></div>
+                    <div class="mini-stat"><strong id="readyMetric">50%</strong><span>完整度</span></div>
+                </div>
+            </section>
+        </aside>
+
+        <main class="editor-workspace">
+            <div class="workspace-head">
+                <div class="workspace-title-wrap">
+                    <h2 class="workspace-title" id="workspaceTitle">新建日报</h2>
+                    <div class="workspace-meta">今天 · {{ user_name or '用户' }}</div>
+                </div>
+                <div class="save-state" id="autosaveState"><i class="fa-solid fa-cloud"></i>已自动保存</div>
+            </div>
+            <div class="editor-stage">
+                <div class="source-row">
+                    <input id="docUrl" class="field" placeholder="粘贴飞书云文档链接（可选）">
+                    <button id="templateBtn" type="button" class="button quiet"><i class="fa-solid fa-wand-magic-sparkles"></i>套用模板</button>
+                    <button id="clearBtn" type="button" class="button icon-only" title="清空内容" aria-label="清空内容"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+                <div class="toolbar" aria-label="编辑工具">
+                    <button class="tool-button" type="button" data-cmd="bold" title="加粗"><i class="fa-solid fa-bold"></i></button>
+                    <button class="tool-button" type="button" data-cmd="italic" title="斜体"><i class="fa-solid fa-italic"></i></button>
+                    <button class="tool-button" type="button" data-cmd="underline" title="下划线"><i class="fa-solid fa-underline"></i></button>
+                    <span class="tool-separator"></span>
+                    <button class="tool-button" type="button" data-cmd="insertUnorderedList" title="无序列表"><i class="fa-solid fa-list-ul"></i></button>
+                    <button class="tool-button" type="button" data-cmd="insertOrderedList" title="有序列表"><i class="fa-solid fa-list-ol"></i></button>
+                    <button class="tool-button" type="button" data-cmd="formatBlock" data-value="blockquote" title="引用"><i class="fa-solid fa-quote-left"></i></button>
+                    <button class="tool-button" type="button" data-cmd="formatBlock" data-value="h3" title="标题"><i class="fa-solid fa-heading"></i></button>
+                    <span class="tool-separator"></span>
+                    <button class="tool-button" type="button" data-action="link" title="链接"><i class="fa-solid fa-link"></i></button>
+                    <button class="tool-button" type="button" data-cmd="removeFormat" title="清除格式"><i class="fa-solid fa-eraser"></i></button>
+                    <span class="tool-separator"></span>
+                    <button class="tool-button" type="button" data-cmd="undo" title="撤销"><i class="fa-solid fa-rotate-left"></i></button>
+                    <button class="tool-button" type="button" data-cmd="redo" title="重做"><i class="fa-solid fa-rotate-right"></i></button>
+                </div>
+                <div id="editor" class="editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="写下今天的工作内容、问题处理、协同事项和明日计划。"></div>
+                <div class="asset-row">
+                    <div class="asset-actions">
+                        <input id="imageInput" type="file" accept="image/*" multiple hidden>
+                        <button id="imageBtn" type="button" class="button quiet"><i class="fa-regular fa-image"></i>添加图片</button>
+                        <div class="thumbs" id="thumbs"></div>
+                    </div>
+                    <div class="asset-meta" id="editorMeta">0 字 · 0 张图片</div>
+                </div>
+            </div>
+            <div class="workspace-foot">
+                <div class="submit-copy"><strong id="submitTitle">Demo 安全模式</strong><span id="submitDesc">所有操作仅用于体验页面，不会写入正式数据。</span></div>
+                <div class="submit-actions">
+                    <button id="saveBtn" type="button" class="button"><i class="fa-regular fa-floppy-disk"></i>保存草稿</button>
+                    <button id="previewBtn" type="button" class="button success"><i class="fa-regular fa-eye"></i>预览</button>
+                    <button id="submitBtn" type="button" class="button primary"><i class="fa-solid fa-paper-plane"></i>模拟提交</button>
+                </div>
+            </div>
+        </main>
+
+        <aside class="inspector">
+            <div class="inspector-head">
+                <div class="inspector-tabs">
+                    <button type="button" class="inspector-tab active" data-inspector-target="checks">智能检查</button>
+                    <button type="button" class="inspector-tab" data-inspector-target="preview">报告预览</button>
+                    <button type="button" class="inspector-tab" data-inspector-target="activity">处理进度</button>
+                </div>
+            </div>
+            <div class="inspector-body">
+                <div class="inspector-pane active" data-inspector-pane="checks">
+                    <div class="score-block">
+                        <div class="score-value" id="scoreValue">58</div>
+                        <div class="score-copy"><strong>内容完整度</strong><span id="scoreHint">补充工作结果和明日计划后更完整。</span></div>
+                    </div>
+                    <div class="check-list" id="checkList"></div>
+                </div>
+                <div class="inspector-pane" data-inspector-pane="preview">
+                    <div id="previewPaper" class="preview-paper empty">暂无预览内容</div>
+                </div>
+                <div class="inspector-pane" data-inspector-pane="activity">
+                    <div class="activity-list" id="activityList"></div>
+                    <div class="recent-list">
+                        <div class="recent-item"><strong>运营日报 · 2026-07-13</strong><span>已评价 · 3 条建议 · 2 张图片</span></div>
+                        <div class="recent-item"><strong>周复盘 · 第 28 周</strong><span>已生成完整报告 · 可继续汇总</span></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </section>
+
+    <section class="screen wide-screen" data-screen="summary">
+        <div class="screen-container">
+            <div class="screen-heading">
+                <div><h1>智能汇总</h1><p>按时间范围整合已提交报告，生成阶段性总结。</p></div>
+                <button id="refreshSummaryBtn" type="button" class="button"><i class="fa-solid fa-rotate"></i>刷新记录</button>
+            </div>
+            <div class="summary-layout">
+                <aside class="surface">
+                    <div class="surface-head"><h2>生成条件</h2></div>
+                    <div class="surface-body">
+                        <div class="field-group"><label class="field-label">快捷范围</label><div class="quick-ranges" id="quickRanges"><button class="range-button" data-range="today">今日</button><button class="range-button active" data-range="week">近 7 天</button><button class="range-button" data-range="month">本月</button></div></div>
+                        <div class="field-group"><label class="field-label" for="summaryUser">报告用户</label><input id="summaryUser" class="field" value="{{ user_name or '用户' }}" readonly></div>
+                        <div class="field-group"><label class="field-label" for="summaryStart">开始日期</label><input id="summaryStart" class="field" type="date"></div>
+                        <div class="field-group"><label class="field-label" for="summaryEnd">结束日期</label><input id="summaryEnd" class="field" type="date"></div>
+                        <button id="generateSummaryBtn" type="button" class="button dark" style="width:100%;"><i class="fa-solid fa-wand-magic-sparkles"></i>开始整合分析</button>
+                        <div id="summaryStatus" class="generate-status" style="margin-top:10px;">已选择近 7 天，等待生成。</div>
+                    </div>
+                </aside>
+                <main>
+                    <section class="surface">
+                        <div class="surface-head"><h2>已生成报告</h2><span class="status-tag">3 份可用</span></div>
+                        <div class="surface-body" style="padding:0;">
+                            <table class="report-table">
+                                <thead><tr><th>报告范围</th><th>内容数量</th><th>生成时间</th><th>状态</th><th>操作</th></tr></thead>
+                                <tbody>
+                                    <tr><td>2026-07-07 至 2026-07-13</td><td>7 条日报</td><td>今天 09:42</td><td><span class="status-tag">已完成</span></td><td><button class="button open-summary" type="button">查看</button></td></tr>
+                                    <tr><td>2026-07-01 至 2026-07-06</td><td>6 条日报</td><td>07-07 10:18</td><td><span class="status-tag">已完成</span></td><td><button class="button open-summary" type="button">查看</button></td></tr>
+                                    <tr><td>2026-06-01 至 2026-06-30</td><td>24 条日报</td><td>07-01 08:56</td><td><span class="status-tag">已完成</span></td><td><button class="button open-summary" type="button">查看</button></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                    <div id="summaryPreview" class="summary-preview">
+                        <h3>近 7 天工作汇总</h3>
+                        <p>本周期围绕重点项目推进、跨部门协同和流程优化展开，关键任务均按计划完成。</p>
+                        <h3>关键进展</h3>
+                        <p>1. 完成核心项目阶段交付，并沉淀可复用的执行流程。</p>
+                        <p>2. 协调多个部门解决交付节点问题，整体进度稳定。</p>
+                        <h3>下阶段重点</h3>
+                        <p>继续跟进数据反馈，补充风险预案并确认下周关键节点。</p>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </section>
+
+    <section class="screen wide-screen" data-screen="knowledge">
+        <div class="screen-container">
+            <div class="screen-heading"><div><h1>知识搜索</h1><p>从自己提交过的报告正文和图片识别内容中查找答案。</p></div></div>
+            <div class="knowledge-layout">
+                <aside class="surface">
+                    <div class="surface-head"><h2>最近问题</h2></div>
+                    <div class="surface-body">
+                        <div class="question-list" id="questionList">
+                            <button class="question-item" type="button">上次客服跟单的处理结论是什么？</button>
+                            <button class="question-item" type="button">本月有哪些需要继续跟进的风险？</button>
+                            <button class="question-item" type="button">最近沉淀了哪些可复用流程？</button>
+                            <button class="question-item" type="button">整理我本周完成的关键事项</button>
+                        </div>
+                    </div>
+                </aside>
+                <main class="surface">
+                    <div class="surface-head"><h2>向我的报告提问</h2><span class="status-tag">仅搜索个人内容</span></div>
+                    <div class="surface-body">
+                        <div class="knowledge-search">
+                            <input id="knowledgeInput" class="field" placeholder="输入想查找的问题">
+                            <button id="knowledgeBtn" type="button" class="button dark"><i class="fa-solid fa-magnifying-glass"></i>搜索</button>
+                        </div>
+                        <div id="answerBox" class="answer-box empty">输入问题后，答案会显示在这里。</div>
+                        <div id="sourceList" class="source-list"></div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const editor = document.getElementById('editor');
+const PERSON_HINTS = {
+    formal_staff: '侧重点：执行质量、流程优化、协作效率、结果稳定性。',
+    management: '侧重点：经营洞察、管理复盘、团队成长、资源配置与风险预警。',
+    improvement_staff: '侧重点：绩效差距、改进动作、指标变化、问题根因与闭环。',
+    intern_trainee: '侧重点：学习进展、任务理解、执行规范、问题处理与成长反馈。'
+};
+const TEMPLATE_HTML = {
+    formal_staff: '<h3>1. 今日核心工作</h3><ul><li>关键事项：</li><li>完成结果：</li></ul><h3>2. 问题与处理</h3><ul><li>遇到的问题：</li><li>解决方式：</li></ul><h3>3. 协同与支持</h3><ul><li>协同事项：</li><li>需要支持：</li></ul><h3>4. 明日计划</h3><ul><li>明日重点：</li></ul>',
+    management: '<h3>1. 今日经营与管理重点</h3><ul><li>关键推进：</li><li>核心判断：</li></ul><h3>2. 团队与资源</h3><ul><li>管理动作：</li><li>资源安排：</li></ul><h3>3. 风险与机会</h3><ul><li>风险点：</li><li>应对动作：</li></ul><h3>4. 明日计划</h3><ul><li>重点安排：</li></ul>',
+    improvement_staff: '<h3>1. 今日改进目标</h3><ul><li>改进项：</li><li>目标值：</li></ul><h3>2. 执行动作</h3><ul><li>已执行动作：</li><li>过程问题：</li></ul><h3>3. 结果与差距</h3><ul><li>指标变化：</li><li>原因分析：</li></ul><h3>4. 后续计划</h3><ul><li>纠偏动作：</li></ul>',
+    intern_trainee: '<h3>1. 当日工作内容</h3><ul><li>今天学习 / 工作了什么：</li><li>各事项用时：</li></ul><h3>2. 问题与解决</h3><ul><li>遇到的问题：</li><li>解决思路：</li></ul><h3>3. 明日计划</h3><ul><li>明日重点：</li></ul><h3>4. 方法与积累</h3><ul><li>沉淀的方法或素材：</li></ul>'
+};
+let currentPersonType = 'formal_staff';
+let imageCount = 0;
+let notifyPeople = [
+    { name: '陶晓飞', dept: '总经办', active: true },
+    { name: '张越', dept: '运营一部', active: true },
+    { name: '曹丽霞', dept: '运营二部', active: true },
+    { name: '陈莹', dept: '视觉设计部', active: false }
+];
+let toastTimer = null;
+
+function safeText(value) {
+    return String(value == null ? '' : value);
+}
+
+function escapeHtml(value) {
+    return safeText(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function setScreen(name) {
+    document.querySelectorAll('[data-screen]').forEach(node => node.classList.toggle('active', node.dataset.screen === name));
+    document.querySelectorAll('[data-screen-target]').forEach(button => button.classList.toggle('active', button.dataset.screenTarget === name));
+    document.body.classList.remove('inspector-open');
+}
+
+function setInspectorPane(name) {
+    document.querySelectorAll('[data-inspector-pane]').forEach(node => node.classList.toggle('active', node.dataset.inspectorPane === name));
+    document.querySelectorAll('[data-inspector-target]').forEach(button => button.classList.toggle('active', button.dataset.inspectorTarget === name));
+}
+
+function textCount() {
+    return safeText(editor.innerText).replace(/\s+/g, '').length;
+}
+
+function getSafeEditorHtml() {
+    const clone = editor.cloneNode(true);
+    clone.querySelectorAll('script,style').forEach(node => node.remove());
+    clone.querySelectorAll('*').forEach(node => {
+        Array.from(node.attributes || []).forEach(attr => {
+            if (attr.name.toLowerCase().startsWith('on')) node.removeAttribute(attr.name);
+        });
+    });
+    return clone.innerHTML.trim();
+}
+
+function renderNotifyList() {
+    const box = document.getElementById('notifyList');
+    box.innerHTML = notifyPeople.map((person, index) => `
+        <div class="notify-row">
+            <span class="avatar">${escapeHtml(person.name.slice(0, 1))}</span>
+            <span><span class="notify-name">${escapeHtml(person.name)}</span><span class="notify-dept">${escapeHtml(person.dept)}</span></span>
+            <button type="button" class="switch ${person.active ? 'active' : ''}" data-notify-index="${index}" aria-label="切换通知"></button>
+        </div>
+    `).join('');
+}
+
+function updateMetrics() {
+    const words = textCount();
+    const activeNotify = notifyPeople.filter(person => person.active).length;
+    let ready = 42;
+    if (words >= 40) ready += 14;
+    if (words >= 100) ready += 14;
+    if (/明日|计划/.test(editor.innerText)) ready += 10;
+    if (/问题|风险/.test(editor.innerText)) ready += 10;
+    if (imageCount > 0) ready += 10;
+    ready = Math.min(100, ready);
+    document.getElementById('wordMetric').textContent = words;
+    document.getElementById('imageMetric').textContent = imageCount;
+    document.getElementById('notifyMetric').textContent = activeNotify;
+    document.getElementById('readyMetric').textContent = ready + '%';
+    document.getElementById('editorMeta').textContent = words + ' 字 · ' + imageCount + ' 张图片';
+    document.getElementById('scoreValue').textContent = ready;
+    document.getElementById('scoreHint').textContent = ready >= 80 ? '内容结构完整，可以提交。' : '补充工作结果和明日计划后更完整。';
+    renderChecks(words, ready);
+    document.getElementById('autosaveState').innerHTML = '<i class="fa-solid fa-cloud"></i>已自动保存';
+}
+
+function renderChecks(words, ready) {
+    const content = editor.innerText;
+    const checks = [
+        { good: /完成|结果|产出/.test(content), icon: 'fa-list-check', title: '工作结果', desc: '说明关键事项的完成情况和产出。' },
+        { good: /问题|风险|困难/.test(content), icon: 'fa-triangle-exclamation', title: '问题与风险', desc: '记录问题、原因和处理动作。' },
+        { good: /明日|计划|下一步/.test(content), icon: 'fa-calendar-check', title: '后续计划', desc: '明确下一步重点和时间节点。' },
+        { good: imageCount > 0, icon: 'fa-image', title: '图片材料', desc: '需要时补充现场截图或数据图。' }
+    ];
+    document.getElementById('checkList').innerHTML = checks.map(item => `
+        <div class="check-row">
+            <span class="check-icon ${item.good ? 'good' : 'warn'}"><i class="fa-solid ${item.good ? 'fa-check' : item.icon}"></i></span>
+            <span><span class="check-title">${item.title}${item.good ? '已覆盖' : '待补充'}</span><span class="check-desc">${item.desc}</span></span>
+        </div>
+    `).join('');
+}
+
+function renderActivity(activeIndex) {
+    const steps = [
+        ['草稿检查', '识别报告类型、人员类型和内容完整度'],
+        ['图片处理', '上传图片后进入识别和附件归档'],
+        ['AI 评价', '生成总结、问题提醒和改进建议'],
+        ['消息通知', '按已选人员发送飞书互动卡片']
+    ];
+    document.getElementById('activityList').innerHTML = steps.map((step, index) => {
+        const state = index < activeIndex ? 'done' : (index === activeIndex ? 'active' : '');
+        const icon = index < activeIndex ? 'fa-check' : (index === activeIndex ? 'fa-spinner' : 'fa-circle');
+        return `<div class="activity-row ${state}"><span class="activity-dot"><i class="fa-solid ${icon}"></i></span><span><span class="activity-title">${step[0]}</span><span class="activity-desc">${step[1]}</span></span></div>`;
+    }).join('');
+}
+
+function refreshPreview() {
+    const paper = document.getElementById('previewPaper');
+    const html = getSafeEditorHtml();
+    if (!safeText(editor.innerText).trim() && imageCount === 0) {
+        paper.className = 'preview-paper empty';
+        paper.textContent = '暂无预览内容';
+        return;
+    }
+    paper.className = 'preview-paper';
+    paper.innerHTML = html || '<p>仅包含图片材料。</p>';
+}
+
+function applyTemplate() {
+    editor.innerHTML = TEMPLATE_HTML[currentPersonType] || TEMPLATE_HTML.formal_staff;
+    updateMetrics();
+    showToast('已套用当前人员类型模板');
+}
+
+document.querySelectorAll('[data-screen-target]').forEach(button => {
+    button.addEventListener('click', () => setScreen(button.dataset.screenTarget));
+});
+
+document.querySelectorAll('[data-inspector-target]').forEach(button => {
+    button.addEventListener('click', () => setInspectorPane(button.dataset.inspectorTarget));
+});
+
+document.getElementById('reportType').addEventListener('click', event => {
+    const button = event.target.closest('[data-type]');
+    if (!button) return;
+    document.querySelectorAll('#reportType [data-type]').forEach(node => node.classList.toggle('active', node === button));
+    document.getElementById('workspaceTitle').textContent = '新建' + ({ day: '日报', week: '周报', month: '月报' }[button.dataset.type] || '报告');
+});
+
+document.getElementById('personType').addEventListener('click', event => {
+    const button = event.target.closest('[data-person]');
+    if (!button) return;
+    currentPersonType = button.dataset.person;
+    document.querySelectorAll('#personType [data-person]').forEach(node => node.classList.toggle('active', node === button));
+    document.getElementById('focusHint').textContent = PERSON_HINTS[currentPersonType] || PERSON_HINTS.formal_staff;
+});
+
+document.querySelectorAll('[data-cmd], [data-action]').forEach(button => {
+    button.addEventListener('mousedown', event => event.preventDefault());
+    button.addEventListener('click', () => {
+        editor.focus();
+        if (button.dataset.action === 'link') {
+            const url = window.prompt('请输入链接地址', 'https://');
+            if (url) document.execCommand('createLink', false, url);
+        } else {
+            document.execCommand(button.dataset.cmd, false, button.dataset.value || null);
+        }
+        updateMetrics();
+    });
+});
+
+document.getElementById('templateBtn').addEventListener('click', () => {
+    if (safeText(editor.innerText).trim() && !window.confirm('套用模板会替换当前内容，是否继续？')) return;
+    applyTemplate();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!safeText(editor.innerText).trim() || window.confirm('确定清空当前内容吗？')) {
+        editor.innerHTML = '';
+        imageCount = 0;
+        document.getElementById('thumbs').innerHTML = '';
+        updateMetrics();
+    }
+});
+
+document.getElementById('imageBtn').addEventListener('click', () => document.getElementById('imageInput').click());
+document.getElementById('imageInput').addEventListener('change', event => {
+    const files = Array.from(event.target.files || []).filter(file => file.type.startsWith('image/'));
+    imageCount += files.length;
+    const thumbs = document.getElementById('thumbs');
+    files.forEach(file => {
+        const node = document.createElement('span');
+        node.className = 'thumb';
+        const image = document.createElement('img');
+        image.alt = file.name;
+        image.src = URL.createObjectURL(file);
+        node.appendChild(image);
+        thumbs.appendChild(node);
+    });
+    event.target.value = '';
+    updateMetrics();
+});
+
+document.getElementById('notifyList').addEventListener('click', event => {
+    const button = event.target.closest('[data-notify-index]');
+    if (!button) return;
+    const index = Number(button.dataset.notifyIndex);
+    if (!notifyPeople[index]) return;
+    notifyPeople[index].active = !notifyPeople[index].active;
+    renderNotifyList();
+    updateMetrics();
+});
+
+document.getElementById('addNotifyBtn').addEventListener('click', () => showToast('正式版中会打开部门人员选择器'));
+document.getElementById('remindTime').addEventListener('change', () => showToast('提醒时间已更新'));
+editor.addEventListener('input', updateMetrics);
+
+document.getElementById('saveBtn').addEventListener('click', () => showToast('Demo 草稿已保存在当前页面'));
+document.getElementById('previewBtn').addEventListener('click', () => {
+    refreshPreview();
+    setInspectorPane('preview');
+});
+document.getElementById('submitBtn').addEventListener('click', () => {
+    const button = document.getElementById('submitBtn');
+    const old = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>处理中';
+    setInspectorPane('activity');
+    document.body.classList.add('inspector-open');
+    renderActivity(1);
+    setTimeout(() => renderActivity(2), 500);
+    setTimeout(() => renderActivity(3), 1000);
+    setTimeout(() => {
+        renderActivity(4);
+        button.disabled = false;
+        button.innerHTML = old;
+        showToast('模拟提交完成，未写入正式数据');
+    }, 1500);
+});
+
+document.getElementById('inspectorToggle').addEventListener('click', () => document.body.classList.toggle('inspector-open'));
+
+function formatDate(date) {
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+}
+
+function setSummaryRange(range) {
+    const end = new Date();
+    let start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
+    if (range === 'today') start = new Date(end);
+    if (range === 'month') start = new Date(end.getFullYear(), end.getMonth(), 1);
+    document.getElementById('summaryStart').value = formatDate(start);
+    document.getElementById('summaryEnd').value = formatDate(end);
+    document.querySelectorAll('[data-range]').forEach(button => button.classList.toggle('active', button.dataset.range === range));
+    document.getElementById('summaryStatus').textContent = '日期范围已更新，等待生成。';
+}
+
+document.getElementById('quickRanges').addEventListener('click', event => {
+    const button = event.target.closest('[data-range]');
+    if (button) setSummaryRange(button.dataset.range);
+});
+document.getElementById('generateSummaryBtn').addEventListener('click', () => {
+    const button = document.getElementById('generateSummaryBtn');
+    const old = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>正在分析';
+    document.getElementById('summaryStatus').textContent = '正在整合所选日期范围内的报告内容...';
+    setTimeout(() => {
+        button.disabled = false;
+        button.innerHTML = old;
+        document.getElementById('summaryStatus').textContent = '整合分析完成，已生成新的阶段报告。';
+        showToast('智能汇总 Demo 已完成');
+    }, 1200);
+});
+document.getElementById('refreshSummaryBtn').addEventListener('click', () => showToast('报告记录已刷新'));
+document.querySelectorAll('.open-summary').forEach(button => button.addEventListener('click', () => document.getElementById('summaryPreview').scrollIntoView({ behavior: 'smooth', block: 'center' })));
+
+function runKnowledgeSearch() {
+    const input = document.getElementById('knowledgeInput');
+    const question = input.value.trim();
+    if (!question) {
+        showToast('请先输入问题');
+        return;
+    }
+    const button = document.getElementById('knowledgeBtn');
+    const old = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>检索中';
+    const answer = document.getElementById('answerBox');
+    answer.className = 'answer-box';
+    answer.innerHTML = '<p>正在搜索你的历史报告并整理答案...</p>';
+    document.getElementById('sourceList').innerHTML = '';
+    setTimeout(() => {
+        answer.innerHTML = '<h3>检索结论</h3><p>最近一次相关记录中，你先核对了客户需求和历史沟通，再按优先级拆分跟进事项，并在当天完成了异常项闭环。</p><h3>可复用做法</h3><p>1. 先确认需求边界和交付时间。<br>2. 对异常事项单独建跟踪清单。<br>3. 完成后同步结果并保留关键截图。</p>';
+        document.getElementById('sourceList').innerHTML = '<div class="source-item">来源：运营日报 · 2026-07-09</div><div class="source-item">来源：运营日报 · 2026-07-11</div>';
+        button.disabled = false;
+        button.innerHTML = old;
+    }, 900);
+}
+
+document.getElementById('knowledgeBtn').addEventListener('click', runKnowledgeSearch);
+document.getElementById('knowledgeInput').addEventListener('keydown', event => { if (event.key === 'Enter') runKnowledgeSearch(); });
+document.getElementById('questionList').addEventListener('click', event => {
+    const button = event.target.closest('.question-item');
+    if (!button) return;
+    document.getElementById('knowledgeInput').value = button.textContent.trim();
+    runKnowledgeSearch();
+});
+
+setSummaryRange('week');
+renderNotifyList();
+renderActivity(0);
+updateMetrics();
+</script>
+</body>
+</html>

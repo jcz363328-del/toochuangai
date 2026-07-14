@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>培训视频 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f7f9fc;
+            color: #111827;
+        }
+        .page {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px 32px 32px;
+        }
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .title i { color: #5b7cff; }
+        .back-btn {
+            min-width: 78px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #4b5563;
+            text-decoration: none;
+            text-align: center;
+        }
+        .panel {
+            background: #fff;
+            border: 1px solid #edf1f7;
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .panel-hd {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .panel-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-title i { color: #5b7cff; font-size: 15px; }
+        .panel-sub {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .feature-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #edf1f7;
+            cursor: pointer;
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 12px;
+        }
+        .feature-card:hover {
+            border-color: #dbe4ff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        }
+        .feature-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .feature-name {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+        .feature-desc {
+            margin: 0;
+            font-size: 13px;
+            color: #8a8f98;
+            line-height: 1.35;
+        }
+        .footer {
+            text-align: center;
+            color: #c3cad8;
+            padding: 22px 0 12px;
+            font-size: 12px;
+        }
+        @media (max-width: 1200px) {
+            .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 768px) {
+            .page { padding: 24px 16px 32px; }
+            .grid { grid-template-columns: 1fr; }
+            .title { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="page-head">
+        <h1 class="title"><i class="fa-solid fa-video"></i>培训视频</h1>
+        <a class="back-btn" href="{{ url_for('dashboard') }}">
+            <i class="fas fa-home"></i> 返回首页
+        </a>
+    </div>
+
+    <div class="panel">
+        <div class="panel-hd">
+            <h2 class="panel-title"><i class="fa-regular fa-star"></i>常用培训</h2>
+            <span class="panel-sub">快速进入课程</span>
+        </div>
+        <div class="grid">
+            <div class="feature-card" data-href="{{ url_for('strategy_training_videos') }}">
+                <div class="feature-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+                <h3 class="feature-name">战略分解培训视频</h3>
+                <p class="feature-desc">战略拆解与实操课程</p>
+            </div>
+            <div class="feature-card" data-href="{{ url_for('rococo_training_videos') }}">
+                <div class="feature-icon"><i class="fas fa-layer-group"></i></div>
+                <h3 class="feature-name">洛可可培训</h3>
+                <p class="feature-desc">洛可可流程与规范课程</p>
+            </div>
+            <div class="feature-card" data-href="{{ url_for('chuanshi_training') }}">
+                <div class="feature-icon"><i class="fa-solid fa-photo-film"></i></div>
+                <h3 class="feature-name">传世培训</h3>
+                <p class="feature-desc">启动仪式图片与视频资料</p>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">© 2025 图创AI系统</footer>
+</div>
+<script>
+    document.querySelectorAll('.feature-card[data-href]').forEach(card => {
+        card.addEventListener('click', function () {
+            const href = card.getAttribute('data-href');
+            if (href) window.location.href = href;
+        });
+    });
+</script>
+</body>
+</html>

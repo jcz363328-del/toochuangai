@@ -1,0 +1,916 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI功能模块 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-section i {
+            font-size: 1.5rem;
+        }
+
+        .logo-section h1 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .page-title h2 {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .page-title p {
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .module-card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .module-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .module-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .module-card h3 {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .module-card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .coming-soon-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .feature-list {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .feature-list li {
+            color: #666;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .feature-list li::before {
+            content: '✨';
+            position: absolute;
+            left: 0;
+        }
+
+        .progress-section {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .progress-title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .progress-title h3 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .progress-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .progress-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            border-left: 4px solid #f093fb;
+        }
+
+        .progress-item h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .timeline {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .timeline-title {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .timeline-title h3 {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .timeline-items {
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline-items::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-left: 20px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -35px;
+            top: 25px;
+            width: 12px;
+            height: 12px;
+            background: #f093fb;
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+
+        .timeline-date {
+            font-weight: 600;
+            color: #f093fb;
+            margin-bottom: 5px;
+        }
+
+        .timeline-content h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .timeline-content p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .page-title h2 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <i class="fas fa-robot"></i>
+                <h1>AI功能模块</h1>
+            </div>
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 主页
+                </a>
+                <a href="{{ url_for('script_generator') }}">
+                    <i class="fas fa-file-alt"></i> 脚本生成器
+                </a>
+
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-title">
+            <h2>AI功能模块开发计划</h2>
+            <p>探索人工智能的无限可能，打造全方位的智能创作平台</p>
+        </div>
+
+        <div class="modules-grid">
+            <!-- 性能监控 -->
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <h3>性能监控</h3>
+                <p>查看系统性能和缓存状态，监控系统运行情况和资源使用情况</p>
+                <ul class="feature-list">
+                    <li>系统性能实时监控</li>
+                    <li>缓存状态查看</li>
+                    <li>资源使用统计</li>
+                    <li>性能优化建议</li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('performance_monitor') }}" style="display: inline-block; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+                        <i class="fas fa-play"></i> 立即使用
+                    </a>
+                </div>
+            </div>
+
+            <!-- 管理员功能 -->
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-cog"></i>
+                </div>
+                <h3>管理员功能</h3>
+                <p>系统管理和高级功能，包括用户管理、权限配置等</p>
+                <ul class="feature-list">
+                    <li>用户权限管理</li>
+                    <li>系统配置管理</li>
+                    <li>数据统计分析</li>
+                    <li>系统维护工具</li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('admin_dashboard') }}" style="display: inline-block; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+                        <i class="fas fa-play"></i> 立即使用
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-bullhorn"></i>
+                </div>
+                <h3>版本更新通知</h3>
+                <p>编辑完整话术与更新内容，可选择部门进行飞书消息推送</p>
+                <ul class="feature-list">
+                    <li>支持编辑完整版本更新话术模板</li>
+                    <li>仅需修改更新内容即可重复使用</li>
+                    <li>可选择一个部门或全员进行推送</li>
+                    <li>支持@所有人提醒查看</li>
+                </ul>
+                <div style="margin-top: 10px; text-align: left;">
+                    <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">当前模板预览：</div>
+                    <div style="background:#f8fafc; border-radius:8px; padding:10px; font-size:0.85rem; color:#333; line-height:1.5; white-space:pre-line;">
+                        {{ version_update_template or '🔔 系统更新通知\\n\\n更新时间： [更新日期]\\n\\n新功能： [简要描述]' }}
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 16px;">
+                    <button onclick="openVersionUpdateDialog()" style="display: inline-block; background: linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%); color: white; padding: 10px 26px; border-radius: 25px; border:none; font-weight:600; cursor:pointer;">
+                        <i class="fas fa-paper-plane"></i> 打开发送窗口
+                    </button>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-trash-alt"></i>
+                </div>
+                <h3>创新项目删除</h3>
+                <p>输入项目编号，一键删除对应的流转记录和提案记录</p>
+                <ul class="feature-list">
+                    <li>根据项目编号删除 chuangxin_liuzhuan1 中的流转记录</li>
+                    <li>同时删除 chuangxin_tibao1 中对应的提案记录</li>
+                    <li>仅限 AI部 和 总经办人员使用</li>
+                    <li>操作不可撤销，请谨慎输入编号</li>
+                </ul>
+                <div style="margin-top: 10px;">
+                    <input id="deleteProjectId" type="text" placeholder="请输入要删除的项目编号" style="width: 100%; max-width: 260px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.9rem;">
+                    <div style="font-size: 0.8rem; color: #dc2626; margin-top: 6px;">确认编号无误后再执行，删除后无法恢复</div>
+                    <div id="deleteProjectStatus" style="font-size: 0.85rem; margin-top: 6px;"></div>
+                </div>
+                <div style="text-align: center; margin-top: 16px;">
+                    <button id="deleteProjectBtn" onclick="deleteInnovationProject()" style="display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 10px 26px; border-radius: 25px; border:none; font-weight:600; cursor:pointer;">
+                        <i class="fas fa-trash"></i> 执行删除
+                    </button>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h3>小图问答</h3>
+                <p>基于飞书云文档进行问答与分析，支持选择可访问文档后进行智能问答</p>
+                <ul class="feature-list">
+                    <li>用户身份访问可见云文档</li>
+                    <li>支持问答与分析两种模式</li>
+                    <li>支持手动粘贴文档链接</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('dashboard_xiaotu') }}" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-play"></i> 进入小图问答
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-file-signature"></i>
+                </div>
+                <h3>小图周/月报中心</h3>
+                <p>将小图问答中的“提交周报”能力独立出来，并支持按飞书用户名一键生成周报或月报</p>
+                <ul class="feature-list">
+                    <li>独立提交周报：云文档入库 baogao 并推送结果</li>
+                    <li>一键周报/月报：按用户名汇总正文与图片内容生成</li>
+                    <li>按当前周/当前月范围自动提取并结构化输出</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('dashboard_xiaotu_report_center') }}" style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-play"></i> 进入周/月报中心
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <h3>Seedance 视频生成</h3>
+                <p>在 AI 项目内直接使用 Seedance 生成视频，支持提示词、图/视频参考、任务轮询与结果下载</p>
+                <ul class="feature-list">
+                    <li>支持多任务并发提交与进度展示</li>
+                    <li>支持图片路径和上传图片两种参考方式</li>
+                    <li>支持生成结果在线预览与本地下载</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('seedance_web.seedance_web_index') }}" style="display: inline-block; background: linear-gradient(135deg, #14b8a6 0%, #0ea5e9 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-play"></i> 进入 Seedance
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-envelope-open-text"></i>
+                </div>
+                <h3>亚马逊站内信回复智能体</h3>
+                <p>根据站内信内容匹配规则和回复场景，生成合规的英文卖家回复</p>
+                <ul class="feature-list">
+                    <li>自动匹配亚马逊回复场景</li>
+                    <li>生成英文回复与中文说明</li>
+                    <li>检查禁用词和风险提示</li>
+                    <li>模型异常时使用数据库模板兜底</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('amazon_reply_agent') }}" style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-play"></i> 进入智能体
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h3>权限身份切换（测试）</h3>
+                <p>仅用于 AI 部联调权限：可在当前会话模拟不同部门，验证功能卡片与接口权限是否生效</p>
+                <ul class="feature-list">
+                    <li>仅影响当前登录会话，不改飞书真实部门</li>
+                    <li>支持直接输入飞书用户名，按该用户的部门权限模拟</li>
+                    <li>切换后刷新首页即可看到权限变化</li>
+                    <li>支持一键恢复真实部门权限</li>
+                </ul>
+                <div style="margin-top: 8px; text-align: left;">
+                    <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">当前状态：</div>
+                    <div id="permissionDebugStatus" style="background:#f8fafc; border-radius:8px; padding:10px; font-size:0.85rem; color:#333; line-height:1.5;">加载中...</div>
+                </div>
+                <div style="margin-top: 10px; text-align: left;">
+                    <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">模拟用户：</div>
+                    <input id="permissionDebugUserName" type="text" placeholder="输入飞书用户名，优先按用户模拟" style="min-width: 220px; width: 100%; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db;">
+                    <div style="font-size: 0.78rem; color: #888; margin-top: 4px;">填写用户名后，将优先模拟该用户，仅展示其对应权限。</div>
+                </div>
+                <div style="margin-top: 10px; text-align: left;">
+                    <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">模拟部门：</div>
+                    <select id="permissionDebugDept" style="min-width: 220px; width: 100%; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db;">
+                        <option value="">加载中...</option>
+                    </select>
+                </div>
+                <div style="text-align: center; margin-top: 16px;">
+                    <button id="permissionDebugApplyBtn" onclick="applyPermissionDebugDepartment()" style="display: inline-block; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); color: white; padding: 10px 22px; border-radius: 25px; border:none; font-weight:600; cursor:pointer; margin-right:8px;">
+                        <i class="fas fa-random"></i> 切换身份
+                    </button>
+                    <button id="permissionDebugClearBtn" onclick="clearPermissionDebugDepartment()" style="display: inline-block; background: #fff; color: #1f2937; padding: 10px 20px; border-radius: 25px; border:1px solid #d1d5db; font-weight:600; cursor:pointer;">
+                        恢复真实身份
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+
+    </div>
+
+    <div id="versionUpdateModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:16px; max-width:620px; width:92%; padding:20px 22px; box-shadow:0 10px 30px rgba(15,23,42,0.25);">
+            <h3 style="margin:0 0 10px 0; font-size:1.1rem;">发送版本更新通知</h3>
+            <p style="margin:0 0 8px 0; font-size:0.9rem; color:#555;">可以直接编辑整段话术，系统会自动填充当前时间和更新内容：</p>
+            <textarea id="versionUpdateTemplate" rows="4" style="width:100%; border-radius:8px; border:1px solid #d1d5db; padding:8px 10px; font-size:0.9rem; resize:vertical; margin-bottom:8px;" placeholder="在这里编辑完整的话术模板，例如：&#10;🔔 系统更新通知&#10;&#10;更新时间： [更新日期]&#10;&#10;新功能： [简要描述]">{{ version_update_template or '🔔 系统更新通知\n\n更新时间： [更新日期]\n\n新功能： [简要描述]' }}</textarea>
+            <textarea id="versionUpdateText" rows="4" style="width:100%; border-radius:8px; border:1px solid #d1d5db; padding:8px 10px; font-size:0.9rem; resize:vertical;" placeholder="建议在这里填写本次更新的主要内容，方便下次复用模板时只改这一块。"></textarea>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; font-size:0.85rem; color:#666;">
+                <div>
+                    选择部门：
+                    <select id="versionUpdateDept" multiple style="min-width:220px; padding:4px 8px; border-radius:6px; border:1px solid #d1d5db; max-height:140px; overflow-y:auto;">
+                        <option value="">加载中...</option>
+                    </select>
+                    <div style="font-size:0.78rem; color:#999; margin-top:2px;">按 Ctrl/Command 键可多选，选择“全部部门”将忽略其他选择</div>
+                </div>
+                <label>
+                    <input type="checkbox" id="versionUpdateAtAll" checked style="margin-right:4px;"> @所有人
+                </label>
+                <span id="versionUpdateStatus" style="flex:1; text-align:right;"></span>
+            </div>
+            <div style="text-align:right; margin-top:14px;">
+                <button onclick="closeVersionUpdateDialog()" style="padding:7px 14px; border-radius:999px; border:1px solid #d1d5db; background:#fff; margin-right:8px; cursor:pointer; font-size:0.88rem;">取消</button>
+                <button onclick="sendVersionUpdate()" id="versionUpdateSendBtn" style="padding:7px 18px; border-radius:999px; border:none; background:linear-gradient(135deg,#10b981 0%,#22c55e 100%); color:#fff; cursor:pointer; font-size:0.88rem; font-weight:600;">
+                    发送
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openVersionUpdateDialog(){
+            var modal = document.getElementById('versionUpdateModal');
+            if(modal){ modal.style.display = 'flex'; }
+            loadVersionUpdateDepartments();
+        }
+        function closeVersionUpdateDialog(){
+            var modal = document.getElementById('versionUpdateModal');
+            if(modal){ modal.style.display = 'none'; }
+            var status = document.getElementById('versionUpdateStatus');
+            if(status){ status.textContent = ''; }
+        }
+        function sendVersionUpdate(){
+            var tpl = document.getElementById('versionUpdateTemplate');
+            var txt = document.getElementById('versionUpdateText');
+            var dept = document.getElementById('versionUpdateDept');
+            var atAll = document.getElementById('versionUpdateAtAll');
+            var btn = document.getElementById('versionUpdateSendBtn');
+            var status = document.getElementById('versionUpdateStatus');
+            if(!tpl || !txt || !btn) return;
+            var templateContent = (tpl.value || '').trim();
+            var content = (txt.value || '').trim();
+            if(!templateContent){
+                alert('请先填写完整的话术模板');
+                return;
+            }
+            if(!content){
+                if(!confirm('更新内容为空，将直接发送当前模板内容，是否继续？')){
+                    return;
+                }
+            }
+            var selectedDepartments = [];
+            if (dept && dept.options) {
+                for (var i = 0; i < dept.options.length; i++) {
+                    var opt = dept.options[i];
+                    if (opt.selected && opt.value) {
+                        selectedDepartments.push(opt.value);
+                    }
+                }
+            }
+            if (selectedDepartments.length === 0) {
+                alert('请选择要推送的部门');
+                return;
+            }
+            var useAll = selectedDepartments.includes('__ALL__');
+            var payload = {
+                template: templateContent,
+                content: content,
+                departments: useAll ? ['__ALL__'] : selectedDepartments,
+                at_all: !!(atAll && atAll.checked)
+            };
+            btn.disabled = true;
+            btn.textContent = '发送中...';
+            status.textContent = '';
+            fetch('/api/ai/version_update_notice', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(payload)
+            }).then(r=>r.json()).then(j=>{
+                if(j.success){
+                    status.textContent = '已发送：成功 ' + j.data.success + ' 人，失败 ' + j.data.failed + ' 人';
+                    status.style.color = '#16a34a';
+                    txt.value = '';
+                }else{
+                    status.textContent = '发送失败：' + (j.message || '未知错误');
+                    status.style.color = '#b91c1c';
+                }
+            }).catch(err=>{
+                status.textContent = '发送异常：' + (err.message || err);
+                status.style.color = '#b91c1c';
+            }).finally(()=>{
+                btn.disabled = false;
+                btn.textContent = '发送';
+            });
+        }
+        function loadVersionUpdateDepartments(){
+            var sel = document.getElementById('versionUpdateDept');
+            if(!sel) return;
+            fetch('/api/ai/version_update_departments').then(r=>r.json()).then(j=>{
+                if(!j.success){
+                    sel.innerHTML = '<option value="">加载失败</option>';
+                    return;
+                }
+                var options = j.data || [];
+                if(!options.length){
+                    sel.innerHTML = '<option value="">无可用部门</option>';
+                    return;
+                }
+                var html = '<option value="">请选择部门</option>';
+                html += '<option value="__ALL__">全部部门</option>';
+                options.forEach(function(d){
+                    html += '<option value="'+ (d.name || '') +'">'+ (d.name || '') +'</option>';
+                });
+                sel.innerHTML = html;
+            }).catch(function(){
+                if(sel){
+                    sel.innerHTML = '<option value="">加载失败</option>';
+                }
+            });
+        }
+        function deleteInnovationProject(){
+            var input = document.getElementById('deleteProjectId');
+            var status = document.getElementById('deleteProjectStatus');
+            var btn = document.getElementById('deleteProjectBtn');
+            if(!input || !btn){
+                return;
+            }
+            var projectId = (input.value || '').trim();
+            if(!projectId){
+                alert('请输入要删除的项目编号');
+                return;
+            }
+            if(!/^\d+$/.test(projectId)){
+                alert('项目编号必须为数字');
+                return;
+            }
+            if(!confirm('确定要删除编号为 ' + projectId + ' 的创新项目吗？此操作不可撤销。')){
+                return;
+            }
+            var oldText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '删除中...';
+            if(status){
+                status.textContent = '';
+                status.style.color = '#374151';
+            }
+            fetch('/api/ai/delete_innovation_project', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({project_id: projectId})
+            }).then(function(r){
+                return r.json();
+            }).then(function(j){
+                if(j && j.success){
+                    if(status){
+                        status.textContent = j.message || '删除成功';
+                        status.style.color = '#16a34a';
+                    }
+                    input.value = '';
+                }else{
+                    if(status){
+                        status.textContent = (j && j.message) ? j.message : '删除失败';
+                        status.style.color = '#b91c1c';
+                    }
+                }
+            }).catch(function(err){
+                if(status){
+                    status.textContent = '删除异常：' + (err && err.message ? err.message : err);
+                    status.style.color = '#b91c1c';
+                }
+            }).finally(function(){
+                btn.disabled = false;
+                btn.textContent = oldText;
+            });
+        }
+
+        function renderPermissionDebugStatus(data){
+            var box = document.getElementById('permissionDebugStatus');
+            var sel = document.getElementById('permissionDebugDept');
+            var userInput = document.getElementById('permissionDebugUserName');
+            if(!box || !sel) return;
+            var enabled = !!(data && data.enabled);
+            var mode = (data && data.mode) || '';
+            var current = (data && data.current_departments) || [];
+            var currentUserName = (data && data.current_user_name) || '';
+            var departments = (data && data.departments) || [];
+            var html = '当前为真实身份（未启用模拟）';
+            if(enabled && mode === 'user'){
+                html = '当前为模拟用户：' + currentUserName + (current.length ? (' | 部门：' + current.join('、')) : ' | 未识别到有效部门');
+            }else if(enabled){
+                html = '当前为模拟部门：' + current.join('、');
+            }
+            box.textContent = html;
+            var options = ['<option value="">请选择部门</option>'];
+            departments.forEach(function(name){
+                options.push('<option value="' + name + '">' + name + '</option>');
+            });
+            sel.innerHTML = options.join('');
+            if(enabled && mode === 'department' && current.length){
+                sel.value = current[0];
+            } else {
+                sel.value = '';
+            }
+            if(userInput){
+                userInput.value = mode === 'user' ? currentUserName : '';
+            }
+        }
+
+        function loadPermissionDebugStatus(){
+            fetch('/api/ai/permission_debug/status')
+                .then(function(r){ return r.json(); })
+                .then(function(j){
+                    if(!j || !j.success){
+                        throw new Error((j && j.message) || '加载失败');
+                    }
+                    renderPermissionDebugStatus(j.data || {});
+                })
+                .catch(function(err){
+                    var box = document.getElementById('permissionDebugStatus');
+                    if(box){
+                        box.textContent = '加载失败：' + (err && err.message ? err.message : err);
+                    }
+                });
+        }
+
+        function applyPermissionDebugDepartment(){
+            var sel = document.getElementById('permissionDebugDept');
+            var userInput = document.getElementById('permissionDebugUserName');
+            var btn = document.getElementById('permissionDebugApplyBtn');
+            if(!sel || !btn) return;
+            var dept = (sel.value || '').trim();
+            var userName = userInput ? (userInput.value || '').trim() : '';
+            if(!userName && !dept){
+                alert('请先输入要模拟的用户名，或选择要模拟的部门');
+                return;
+            }
+            btn.disabled = true;
+            var oldText = btn.innerHTML;
+            btn.innerHTML = '切换中...';
+            var payload = userName ? {user_name: userName, departments: []} : {departments: [dept]};
+            fetch('/api/ai/permission_debug/switch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(function(r){ return r.json(); })
+              .then(function(j){
+                if(!j || !j.success){
+                    throw new Error((j && j.message) || '切换失败');
+                }
+                loadPermissionDebugStatus();
+                alert((j.message || '切换成功') + '，请返回主页验证权限效果');
+              }).catch(function(err){
+                alert('切换失败：' + (err && err.message ? err.message : err));
+              }).finally(function(){
+                btn.disabled = false;
+                btn.innerHTML = oldText;
+              });
+        }
+
+        function clearPermissionDebugDepartment(){
+            var btn = document.getElementById('permissionDebugClearBtn');
+            if(!btn) return;
+            btn.disabled = true;
+            var oldText = btn.textContent;
+            btn.textContent = '恢复中...';
+            fetch('/api/ai/permission_debug/switch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({departments: []})
+            }).then(function(r){ return r.json(); })
+              .then(function(j){
+                if(!j || !j.success){
+                    throw new Error((j && j.message) || '恢复失败');
+                }
+                loadPermissionDebugStatus();
+                alert(j.message || '已恢复真实身份');
+              }).catch(function(err){
+                alert('恢复失败：' + (err && err.message ? err.message : err));
+              }).finally(function(){
+                btn.disabled = false;
+                btn.textContent = oldText;
+              });
+        }
+
+        function _logMenuClick(menu, href) {
+            const payload = JSON.stringify({ menu: menu || '', href: href || '' });
+            try {
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([payload], { type: 'application/json' });
+                    navigator.sendBeacon('/api/menu_click', blob);
+                    return;
+                }
+            } catch (e) {}
+            try {
+                fetch('/api/menu_click', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                    keepalive: true
+                }).catch(() => {});
+            } catch (e) {}
+        }
+
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest('.module-card a[href]');
+            if (a) {
+                const card = a.closest('.module-card');
+                const titleEl = card ? card.querySelector('h3') : null;
+                const menu = (titleEl ? titleEl.textContent : '').trim();
+                if (menu) _logMenuClick(menu, a.href || '');
+                return;
+            }
+            const btn = e.target.closest('.module-card button');
+            if (btn && btn.getAttribute('onclick')) {
+                const card = btn.closest('.module-card');
+                const titleEl = card ? card.querySelector('h3') : null;
+                const title = (titleEl ? titleEl.textContent : '').trim();
+                const action = (btn.textContent || '').trim();
+                const menu = (title && action) ? (title + '-' + action) : (title || action);
+                if (menu) _logMenuClick(menu, '');
+            }
+        });
+        // 添加页面加载动画
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPermissionDebugStatus();
+            const cards = document.querySelectorAll('.module-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+            
+            // 进度条动画
+            const progressBars = document.querySelectorAll('.progress-fill');
+            setTimeout(() => {
+                progressBars.forEach(bar => {
+                    const width = bar.style.width;
+                    bar.style.width = '0%';
+                    setTimeout(() => {
+                        bar.style.width = width;
+                    }, 500);
+                });
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,627 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小图问答 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+        .page {
+            display: grid;
+            grid-template-columns: 1fr;
+            min-height: 100vh;
+        }
+        .sidebar {
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            padding: 16px 14px;
+            overflow-y: auto;
+            display: none;
+        }
+        .main {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .head {
+            height: 62px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #ffffff;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .brand .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #111827;
+            padding: 7px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn.primary {
+            border-color: #4f46e5;
+            background: #4f46e5;
+            color: #fff;
+        }
+        .doc-add-box {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 14px;
+            background: #fafafa;
+        }
+        .field {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 13px;
+            padding: 8px 9px;
+            margin-bottom: 8px;
+        }
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 4px 0 10px;
+        }
+        .doc-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .doc-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .doc-item.active {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+        .doc-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+        .doc-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 6px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+        .doc-tools {
+            margin-top: 7px;
+            display: flex;
+            gap: 6px;
+        }
+        .mini-btn {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            border-radius: 6px;
+            font-size: 11px;
+            padding: 3px 6px;
+            cursor: pointer;
+        }
+        .chat-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .welcome {
+            padding: 18px 26px 10px;
+            font-size: 14px;
+            color: #4b5563;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 26px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .msg {
+            max-width: 78%;
+            border-radius: 14px;
+            padding: 11px 13px;
+            line-height: 1.65;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 14px;
+        }
+        .msg.user {
+            align-self: flex-end;
+            background: #4f46e5;
+            color: #fff;
+        }
+        .msg.ai {
+            align-self: flex-start;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            color: #111827;
+        }
+        .input-zone {
+            border-top: 1px solid #e5e7eb;
+            background: #fff;
+            padding: 12px 18px 16px;
+        }
+        .input-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .mode-tag {
+            border: 1px solid #d1d5db;
+            border-radius: 999px;
+            padding: 4px 11px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .mode-tag.active {
+            border-color: #4f46e5;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        .composer {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 8px;
+            align-items: center;
+        }
+        .attach-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #fff;
+            color: #4f46e5;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .composer textarea {
+            width: 100%;
+            min-height: 44px;
+            max-height: 140px;
+            resize: vertical;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            background: #4f46e5;
+            color: #fff;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        .hint {
+            margin-top: 7px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .doc-picker {
+            margin-top: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #fff;
+            max-height: 420px;
+            overflow-y: auto;
+            display: none;
+            padding: 8px;
+        }
+        .doc-picker.show {
+            display: block;
+        }
+        .doc-picker-search {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 7px 9px;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .doc-picker-count {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+        .doc-row {
+            width: 100%;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px;
+            text-align: left;
+            cursor: pointer;
+            margin-bottom: 6px;
+        }
+        .doc-row.active {
+            border-color: #4f46e5;
+            background: #eef2ff;
+        }
+        .selected-doc {
+            font-size: 12px;
+            color: #4338ca;
+            padding: 2px 8px;
+            border: 1px solid #c7d2fe;
+            border-radius: 999px;
+            background: #eef2ff;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        @media (max-width: 960px) {
+            .page {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            .msg {
+                max-width: 92%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <aside class="sidebar">
+        <div class="doc-add-box">
+            <input id="docName" class="field" placeholder="文档名称（可选）">
+            <input id="docUrl" class="field" placeholder="粘贴飞书云文档链接（docx/wiki）">
+            <button id="addDocBtn" class="btn primary" style="width: 100%;">加入我的文档</button>
+        </div>
+        <div class="sidebar-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>可选云文档</span>
+            <button id="refreshDocsBtn" class="mini-btn">刷新可见</button>
+        </div>
+        <div id="syncHint" style="display:none;font-size:12px;color:#d14343;line-height:1.4;margin-bottom:8px;"></div>
+        <div id="docList" class="doc-list"></div>
+    </aside>
+    <section class="main">
+        <div class="head">
+            <div class="brand">
+                <div class="avatar"><i class="fas fa-robot"></i></div>
+                <span>小图问答</span>
+            </div>
+            <div class="actions">
+                <a href="{{ url_for('dashboard') }}" class="btn" style="text-decoration: none;">返回主页</a>
+            </div>
+        </div>
+        <div class="chat-wrap">
+            <div class="welcome">Hi {{ user_name }}，点击输入框左侧+号选择云文档后，可直接问答或一键分析。</div>
+            <div id="messages" class="messages"></div>
+            <div class="input-zone">
+                <div class="input-top">
+                    <span id="modeQa" class="mode-tag active">问答模式</span>
+                    <span id="modeAnalysis" class="mode-tag">分析模式</span>
+                    <span id="selectedDocTip" class="selected-doc">未选择云文档</span>
+                </div>
+                <div class="composer">
+                    <button id="pickDocBtn" class="attach-btn" title="选择云文档"><i class="fas fa-plus"></i></button>
+                    <textarea id="questionInput" placeholder="请输入问题；分析模式可直接回车或点发送"></textarea>
+                    <button id="sendBtn" class="send-btn"><i class="fas fa-arrow-up"></i></button>
+                </div>
+                <div id="docPicker" class="doc-picker"></div>
+                <div class="hint">支持飞书云文档链接；分析模式会生成评分、亮点、不足与改进建议。</div>
+            </div>
+        </div>
+    </section>
+</div>
+<script>
+    let docs = [];
+    let docPickerKeyword = '';
+    let selectedDocId = '';
+    let selectedDocName = '';
+    let mode = 'qa';
+    let conversationId = 'web_' + Date.now();
+
+    function extractDocUrlFromInput(text) {
+        const s = String(text || '').trim();
+        const m = s.match(/https?:\/\/[^\s\u3002\uff0c,]+/i);
+        return m ? String(m[0]).replace(/\)+$/, '') : '';
+    }
+
+    function renderMessage(role, text) {
+        const box = document.getElementById('messages');
+        const item = document.createElement('div');
+        item.className = 'msg ' + (role === 'user' ? 'user' : 'ai');
+        item.textContent = text || '';
+        box.appendChild(item);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function setMode(nextMode) {
+        mode = nextMode;
+        document.getElementById('modeQa').classList.toggle('active', nextMode === 'qa');
+        document.getElementById('modeAnalysis').classList.toggle('active', nextMode === 'analysis');
+    }
+
+    function selectDoc(docId) {
+        selectedDocId = docId;
+        const found = (docs || []).find(x => String((x || {}).id || '') === String(docId || ''));
+        selectedDocName = found ? String(found.name || '未命名云文档') : '';
+        document.querySelectorAll('.doc-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.id === docId);
+        });
+        renderSelectedDocTip();
+        renderDocPicker();
+    }
+
+    function renderSelectedDocTip() {
+        const tip = document.getElementById('selectedDocTip');
+        if (!selectedDocId) {
+            tip.textContent = '未选择云文档';
+            return;
+        }
+        tip.textContent = selectedDocName || '已选择云文档';
+    }
+
+    function renderDocPicker() {
+        const picker = document.getElementById('docPicker');
+        if (!picker) return;
+        const keyword = String(docPickerKeyword || '').trim().toLowerCase();
+        const list = keyword
+            ? (docs || []).filter(doc => String((doc || {}).name || '').toLowerCase().includes(keyword))
+            : (docs || []);
+        const countHtml = `<div class="doc-picker-count">已加载 ${docs.length} 条，当前显示 ${list.length} 条</div>`;
+        if (!docs.length) {
+            picker.innerHTML = countHtml + '<div style="font-size:12px;color:#6b7280;padding:6px;">暂无可选云文档</div>';
+            return;
+        }
+        picker.innerHTML = `
+            <input id="docPickerSearch" class="doc-picker-search" placeholder="搜索文档名称">
+            ${countHtml}
+            ${list.map(doc => {
+            const id = String((doc || {}).id || '');
+            const name = String((doc || {}).name || '未命名云文档');
+            const source = sourceName(String((doc || {}).source || ''));
+            const activeCls = id === selectedDocId ? ' active' : '';
+            return `<button class="doc-row${activeCls}" data-doc-id="${id}"><div style="font-size:13px;font-weight:600;">${name}</div><div style="font-size:11px;color:#6b7280;margin-top:2px;">${source}</div></button>`;
+        }).join('')}
+        `;
+        const searchEl = document.getElementById('docPickerSearch');
+        if (searchEl) {
+            searchEl.value = docPickerKeyword;
+            searchEl.addEventListener('input', function () {
+                docPickerKeyword = this.value || '';
+                renderDocPicker();
+            });
+        }
+        picker.querySelectorAll('.doc-row').forEach(el => {
+            el.addEventListener('click', function () {
+                const id = this.getAttribute('data-doc-id') || '';
+                selectDoc(id);
+                picker.classList.remove('show');
+            });
+        });
+    }
+
+    function sourceName(v) {
+        if (v === 'shared') return '共享';
+        if (v === 'auto') return '可见';
+        return '我的';
+    }
+
+    function renderDocs() {
+        const root = document.getElementById('docList');
+        root.innerHTML = '';
+        if (!docs.length) {
+            const empty = document.createElement('div');
+            empty.className = 'doc-item';
+            empty.textContent = '暂无可用文档，请先加入一份你的云文档。';
+            root.appendChild(empty);
+            return;
+        }
+        docs.forEach(doc => {
+            const item = document.createElement('div');
+            item.className = 'doc-item' + (doc.id === selectedDocId ? ' active' : '');
+            item.dataset.id = doc.id;
+            item.innerHTML = `
+                <div class="doc-name">${doc.name || '未命名云文档'}</div>
+                <div class="doc-meta"><span>${sourceName(doc.source)}</span><span>${doc.created_at || ''}</span></div>
+                <div class="doc-tools">
+                    <button class="mini-btn" data-act="pick">选择</button>
+                    ${doc.source === 'personal' ? '<button class="mini-btn" data-act="del">移除</button>' : ''}
+                </div>
+            `;
+            item.addEventListener('click', function (e) {
+                const act = e.target && e.target.getAttribute ? e.target.getAttribute('data-act') : '';
+                if (act === 'del') {
+                    removeDoc(doc.id);
+                    return;
+                }
+                selectDoc(doc.id);
+            });
+            root.appendChild(item);
+        });
+        if (!selectedDocId && docs[0]) {
+            selectDoc(docs[0].id);
+        }
+    }
+
+    async function loadDocs(forceRefresh = false) {
+        const resp = await fetch('/api/xiaotu/docs' + (forceRefresh ? '?refresh=1' : ''));
+        const data = await resp.json().catch(() => null);
+        if (data && data.auth_url) {
+            window.location.href = data.auth_url;
+            return;
+        }
+        if (!resp.ok || !data || data.success !== true) {
+            alert((data && data.message) ? data.message : '加载文档失败');
+            return;
+        }
+        const hint = document.getElementById('syncHint');
+        if (data.sync_error) {
+            hint.style.display = 'block';
+            const msg = String(data.sync_error);
+            const applyUrl = String(data.sync_apply_url || '').trim();
+            if (applyUrl) {
+                hint.innerHTML = `<div>${msg}</div><div style="margin-top:4px;"><a href="${applyUrl}" target="_blank" rel="noopener noreferrer">点击开通云文档权限</a></div>`;
+            } else {
+                hint.textContent = msg;
+            }
+        } else {
+            hint.style.display = 'none';
+            hint.textContent = '';
+            hint.innerHTML = '';
+        }
+        docs = Array.isArray(data.data) ? data.data : [];
+        renderDocs();
+        renderDocPicker();
+        if (data.sync_error) {
+            renderMessage('ai', '可见文档同步提示：' + String(data.sync_error));
+        }
+    }
+
+    async function addDoc() {
+        const name = document.getElementById('docName').value.trim();
+        const url = document.getElementById('docUrl').value.trim();
+        if (!url) {
+            alert('请先填写云文档链接');
+            return;
+        }
+        const btn = document.getElementById('addDocBtn');
+        btn.disabled = true;
+        try {
+            const resp = await fetch('/api/xiaotu/docs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, url })
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                alert((data && data.message) ? data.message : '加入失败');
+                return;
+            }
+            document.getElementById('docName').value = '';
+            document.getElementById('docUrl').value = '';
+            await loadDocs();
+            if (data.data && data.data.id) {
+                selectDoc(data.data.id);
+            }
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async function removeDoc(docId) {
+        const resp = await fetch('/api/xiaotu/docs/' + encodeURIComponent(docId), { method: 'DELETE' });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success !== true) {
+            alert((data && data.message) ? data.message : '移除失败');
+            return;
+        }
+        if (selectedDocId === docId) {
+            selectedDocId = '';
+        }
+        await loadDocs();
+    }
+
+    async function sendQuestion() {
+        const questionEl = document.getElementById('questionInput');
+        const question = questionEl.value.trim();
+        if (!question && mode === 'qa') {
+            alert('问答模式下请输入问题');
+            return;
+        }
+        const ask = question || '请开始分析';
+        renderMessage('user', ask);
+        questionEl.value = '';
+        const loadingText = mode === 'analysis' ? '正在分析文档，请稍候…' : '正在读取文档并回答，请稍候…';
+        renderMessage('ai', loadingText);
+        const holder = document.querySelector('#messages .msg.ai:last-child');
+        const payload = {
+            doc_id: selectedDocId,
+            doc_url: extractDocUrlFromInput(question),
+            question: question,
+            mode: mode,
+            conversation_id: conversationId
+        };
+        const resp = await fetch('/api/xiaotu/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success !== true) {
+            holder.textContent = (data && data.message) ? data.message : '处理失败，请稍后再试';
+            return;
+        }
+        const answer = (((data || {}).data || {}).answer || '').trim();
+        holder.textContent = answer || '未生成有效结果';
+        if (((data || {}).data || {}).conversation_id) {
+            conversationId = data.data.conversation_id;
+        }
+    }
+
+    document.getElementById('modeQa').addEventListener('click', () => setMode('qa'));
+    document.getElementById('modeAnalysis').addEventListener('click', () => setMode('analysis'));
+    document.getElementById('addDocBtn').addEventListener('click', addDoc);
+    document.getElementById('refreshDocsBtn').addEventListener('click', () => loadDocs(true));
+    document.getElementById('pickDocBtn').addEventListener('click', async function () {
+        await loadDocs(true);
+        docPickerKeyword = '';
+        renderDocPicker();
+        document.getElementById('docPicker').classList.toggle('show');
+    });
+    document.getElementById('sendBtn').addEventListener('click', sendQuestion);
+    document.getElementById('questionInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendQuestion();
+        }
+    });
+
+    renderSelectedDocTip();
+    renderMessage('ai', '你好，我是小图。请在输入框左侧点击+号选择云文档，或直接粘贴云文档链接，然后输入问题开始问答或分析。');
+</script>
+</body>
+</html>

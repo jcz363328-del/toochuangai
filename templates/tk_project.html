@@ -1,0 +1,216 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>TK项目组功能 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Microsoft YaHei', Arial, sans-serif; background: #f7f9fc; color: #111827; }
+        .page { width: 100%; max-width: 1440px; margin: 0 auto; padding: 16px 24px 20px; }
+        .page-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        .title { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; margin: 0; }
+        .title i { color: #5b7cff; }
+        .back-btn { min-width: 72px; padding: 5px 9px; border-radius: 8px; background: #f3f4f6; font-size: 12px; color: #4b5563; text-decoration: none; text-align: center; }
+        .panel { background: #fff; border: 1px solid #edf1f7; border-radius: 12px; padding: 12px; margin-bottom: 16px; }
+        .panel-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+        .panel-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; margin: 0; }
+        .panel-title i { color: #5b7cff; }
+        .panel-sub { color: #94a3b8; font-size: 12px; }
+        .quick-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .quick-card { background: #fff; border: 1px solid #edf1f7; border-radius: 12px; min-height: 88px; padding: 12px; display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 10px; row-gap: 2px; align-content: center; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+        .quick-card:hover { border-color: #dbe4ff; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+        .quick-icon { width: 30px; height: 30px; border-radius: 8px; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+        .g1 { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); }
+        .g2 { background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); }
+        .g3 { background: linear-gradient(135deg, #14b8a6 0%, #22d3ee 100%); }
+        .g4 { background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); }
+        .quick-name { font-size: 14px; font-weight: 600; margin: 0; line-height: 1.2; grid-column: 2; grid-row: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .quick-desc { font-size: 12px; color: #8A8F98; margin: 0; line-height: 1.2; grid-column: 2; grid-row: 2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .group { padding-top: 4px; }
+        .group + .group { margin-top: 12px; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+        .group-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .group-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; margin: 0; }
+        .group-name i { color: #5b7cff; }
+        .mini-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .mini-card { background: #fff; border: 1px solid #edf1f7; border-radius: 12px; min-height: 74px; padding: 10px; display: grid; grid-template-columns: 24px minmax(0, 1fr); column-gap: 8px; row-gap: 2px; align-content: center; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+        .mini-card:hover { border-color: #dbe4ff; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
+        .mini-icon { width: 24px; height: 24px; border-radius: 50%; background: #eef2ff; color: #5b7cff; display: flex; align-items: center; justify-content: center; font-size: 11px; grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+        .mini-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; grid-column: 2; grid-row: 1 / span 2; }
+        .mini-name { font-size: 13px; font-weight: 600; margin: 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mini-desc { font-size: 11px; color: #8A8F98; margin: 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .footer { text-align: center; color: #c3cad8; padding: 8px 0 4px; font-size: 12px; }
+        @media (max-width: 1200px) {
+            .page { padding: 16px 16px 20px; }
+            .quick-grid, .mini-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        @media (max-width: 768px) {
+            .page { padding: 14px 10px 20px; }
+            .quick-grid, .mini-grid { grid-template-columns: 1fr; gap: 16px; }
+            .panel { margin-bottom: 12px; }
+            .title { font-size: 18px; }
+            .panel-sub { font-size: 12px; }
+            .group-name { font-size: 15px; }
+            .quick-card { min-height: 82px; padding: 10px; grid-template-columns: 26px minmax(0, 1fr); }
+            .quick-icon { width: 26px; height: 26px; font-size: 11px; }
+            .quick-name { font-size: 13px; }
+            .quick-desc { font-size: 11px; }
+            .mini-card { min-height: 70px; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+{% set ns = namespace(fnames=[]) %}
+{% for f in accessible_functions %}
+    {% set _ = ns.fnames.append(f.function_name) %}
+{% endfor %}
+{% set has_total = 'tk_total_dashboard' in ns.fnames %}
+{% set has_video_rt = 'tk_video_realtime' in ns.fnames %}
+{% set has_influencer = 'influencer_management' in ns.fnames %}
+
+{% macro quick_card(name, desc, href, icon, cls='g1') -%}
+<div class="quick-card" data-href="{{ href }}" data-menu="{{ name }}">
+    <div class="quick-icon {{ cls }}"><i class="{{ icon }}"></i></div>
+    <p class="quick-name">{{ name }}</p>
+    <p class="quick-desc">{{ desc }}</p>
+</div>
+{%- endmacro %}
+
+{% macro mini_card(name, desc, href, icon) -%}
+<div class="mini-card" data-href="{{ href }}" data-menu="{{ name }}">
+    <div class="mini-icon"><i class="{{ icon }}"></i></div>
+    <div class="mini-text">
+        <p class="mini-name">{{ name }}</p>
+        <p class="mini-desc">{{ desc }}</p>
+    </div>
+</div>
+{%- endmacro %}
+
+<div class="page">
+    <div class="page-head">
+        <h1 class="title"><i class="fas fa-project-diagram"></i>TK项目组功能中心</h1>
+        <a class="back-btn" href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> 返回首页</a>
+    </div>
+
+    <div class="panel">
+        <div class="panel-hd">
+            <div>
+                <h2 class="panel-title"><i class="fas fa-star"></i>常用功能</h2>
+                <div class="panel-sub">高频使用，快速访问</div>
+            </div>
+        </div>
+        <div class="quick-grid">
+            {% if has_video_rt %}{{ quick_card('实时视频数据', '实时查看视频数据', url_for('tk_video_realtime'), 'fas fa-video', 'g1') }}{% endif %}
+            {% if has_total %}{{ quick_card('OKAYLOVE数据看板', '核心数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-column', 'g2') }}{% endif %}
+            {% if has_influencer %}{{ quick_card('TK达人管理', '达人管理与数据分析', url_for('influencer_management.influencer_management'), 'fas fa-users', 'g3') }}{% endif %}
+            {% if has_total %}{{ quick_card('数据看板汇总', '多维度数据汇总', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie', 'g4') }}{% endif %}
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-hd">
+            <div>
+                <h2 class="panel-title"><i class="fas fa-sitemap"></i>业务模块</h2>
+                <div class="panel-sub">按业务类型分类，快速查找</div>
+            </div>
+        </div>
+
+        <div class="group">
+            <div class="group-hd">
+                <h3 class="group-name"><i class="fas fa-chart-line"></i>数据分析</h3>
+            </div>
+            <div class="mini-grid">
+                {% if has_total %}{{ mini_card('82号店看板', '实时数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-line') }}{% endif %}
+                {% if has_total %}{{ mini_card('数据看板汇总', '汇总各类数据', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie') }}{% endif %}
+                {% if has_total %}{{ mini_card('视频、商品卡、达人GMV占比', 'GMV占比分析', url_for('tk_dashboard.tk_gmv_ratio_page'), 'fas fa-chart-pie') }}{% endif %}
+                {% if has_total %}{{ mini_card('BD指标', 'BD核心指标', url_for('bd_metrics.tk_bd_metrics_page'), 'fas fa-bullseye') }}{% endif %}
+            </div>
+        </div>
+
+        <div class="group">
+            <div class="group-hd">
+                <h3 class="group-name"><i class="fas fa-user-tie"></i>BD管理</h3>
+            </div>
+            <div class="mini-grid">
+                {% if has_total %}{{ mini_card('BD月度目标导入', '导入月度目标数据', url_for('bd_metrics.tk_bd_metrics_import_page'), 'fas fa-file-import') }}{% endif %}
+                {{ mini_card('月度目标导入', '导入月度目标数据', url_for('tk_monthly_target_import'), 'fas fa-file-excel') }}
+            </div>
+        </div>
+
+        <div class="group">
+            <div class="group-hd">
+                <h3 class="group-name"><i class="fas fa-robot"></i>AI工具</h3>
+            </div>
+            <div class="mini-grid">
+                {{ mini_card('Seedance 视频生成', 'AI视频智能生成', url_for('tk_seedance'), 'fas fa-film') }}
+                {% if 'script_generator' in ns.fnames %}{{ mini_card('脚本生成器', '智能脚本生成工具', url_for('script_generator'), 'fas fa-file-alt') }}{% endif %}
+            </div>
+        </div>
+
+        <div class="group">
+            <div class="group-hd">
+                <h3 class="group-name"><i class="fas fa-shield-halved"></i>管理工具</h3>
+            </div>
+            <div class="mini-grid">
+                {% if has_total %}{{ mini_card('TK项目组部分权限看板', '权限管理看板', url_for('tk_dashboard.tk_dashboard_project_page'), 'fas fa-chart-area') }}{% endif %}
+                {{ mini_card('邀请ID实时监控', '邀请码实时预警', url_for('tk_invite_monitor'), 'fas fa-id-badge') }}
+                {{ mini_card('12小时之内未检查的邀请码', '有待检查邀请码', url_for('tk_invite_monitor') ~ '#unchecked_12h', 'fas fa-triangle-exclamation') }}
+                {{ mini_card('模特排队', '模特排队与排队', url_for('model_management.queue'), 'fas fa-user-friends') }}
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-hd">
+            <div>
+                <h2 class="panel-title"><i class="fas fa-ellipsis"></i>更多功能</h2>
+                <div class="panel-sub">其他工具与服务</div>
+            </div>
+        </div>
+        <div class="mini-grid">
+            {% if 'tk_email_register' in ns.fnames %}{{ mini_card('定时邮件', '邮件定时发送功能', url_for('influencer_management.tk_email_register'), 'fas fa-envelope') }}{% endif %}
+            {{ mini_card('客服', '客服跟单信息', url_for('tk_customer_service'), 'fas fa-headset') }}
+        </div>
+    </div>
+
+    <footer class="footer">© 2025 图创AI系统</footer>
+</div>
+
+<script>
+    function _logMenuClick(menu, href) {
+        const payload = JSON.stringify({ menu: menu || '', href: href || '' });
+        try {
+            if (navigator.sendBeacon) {
+                const blob = new Blob([payload], { type: 'application/json' });
+                navigator.sendBeacon('/api/menu_click', blob);
+                return;
+            }
+        } catch (e) {}
+        try {
+            fetch('/api/menu_click', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true
+            }).catch(() => {});
+        } catch (e) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var cards = document.querySelectorAll('[data-href]');
+        cards.forEach(function (card) {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', function (e) {
+                if (e.target.closest('a')) return;
+                var href = card.getAttribute('data-href');
+                if (!href) return;
+                var menu = (card.getAttribute('data-menu') || '').trim();
+                if (menu) _logMenuClick(menu, href);
+                window.location.href = href;
+            });
+        });
+    });
+</script>
+</body>
+</html>

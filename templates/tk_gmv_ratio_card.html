@@ -1,0 +1,191 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频，商品卡，达人的GMV占比</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #f5f7fb; }
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px 0;
+            margin-bottom: 20px;
+        }
+        .panel-card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+        .ratio-item {
+            border: 1px solid #edf1f7;
+            border-radius: 12px;
+            padding: 14px;
+            background: #fff;
+        }
+        .ratio-label {
+            font-weight: 600;
+            color: #344054;
+        }
+        .ratio-value {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #111827;
+        }
+        .ratio-percent {
+            font-weight: 600;
+            color: #4b5563;
+        }
+        .bar-wrap {
+            height: 10px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 999px;
+        }
+        .bar-video { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+        .bar-product { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .bar-influencer { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .muted-text { color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-1"><i class="fas fa-chart-pie me-2"></i>视频，商品卡，达人的GMV占比</h4>
+                <div class="small">独立卡片，按店铺和月份查看GMV构成占比</div>
+            </div>
+            <a class="btn btn-light btn-sm" href="{{ url_for('tk_project') }}">返回TK项目组</a>
+        </div>
+    </div>
+
+    <div class="container pb-4">
+        <div class="panel-card p-3 p-md-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">月份</label>
+                    <input id="monthPicker" type="month" class="form-control" value="{{ default_month }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">店铺</label>
+                    <select id="shopSelect" class="form-select">
+                        <option value="{{ default_shop }}">{{ default_shop }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-grid">
+                    <button id="loadBtn" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i>查询
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-3 mb-2 muted-text">
+                <span id="summaryText">正在加载...</span>
+            </div>
+
+            <div class="row g-3" id="ratioList"></div>
+        </div>
+    </div>
+
+    <script>
+        const colorClassMap = {
+            '视频产出': 'bar-video',
+            '商品卡': 'bar-product',
+            '达人产出': 'bar-influencer'
+        };
+
+        async function loadShops() {
+            const select = document.getElementById('shopSelect');
+            const defaultShop = '{{ default_shop }}';
+            try {
+                const resp = await fetch('/api/tk/gmv_ratio/shops');
+                const data = await resp.json();
+                if (!data.success) return;
+                const shops = Array.isArray(data.shops) ? data.shops : [];
+                const options = ['<option value="ALL">全部店铺</option>']
+                    .concat(shops.map(s => `<option value="${s}">${s}</option>`));
+                select.innerHTML = options.join('');
+                if (shops.includes(defaultShop)) {
+                    select.value = defaultShop;
+                } else {
+                    select.value = 'ALL';
+                }
+            } catch (e) {}
+        }
+
+        function renderRatios(rows, totalAmount, month, shop) {
+            const list = document.getElementById('ratioList');
+            const summary = document.getElementById('summaryText');
+            const safeRows = Array.isArray(rows) ? rows : [];
+
+            if (!safeRows.length) {
+                list.innerHTML = '<div class="col-12"><div class="alert alert-warning mb-0">当前条件下暂无数据</div></div>';
+                summary.textContent = `${month} ｜ 店铺：${shop} ｜ 总GMV：0`;
+                return;
+            }
+
+            summary.textContent = `${month} ｜ 店铺：${shop} ｜ 总GMV：${Number(totalAmount || 0).toFixed(2)}`;
+
+            list.innerHTML = safeRows.map(row => {
+                const name = row['项目'] || '';
+                const amount = Number(row['金额'] || 0);
+                const pct = Number(row['占比百分比'] || 0);
+                const c = colorClassMap[name] || 'bar-video';
+                const width = Math.max(0, Math.min(100, pct));
+                return `
+                    <div class="col-md-4">
+                        <div class="ratio-item h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="ratio-label">${name}</div>
+                                <div class="ratio-percent">${pct.toFixed(2)}%</div>
+                            </div>
+                            <div class="ratio-value mb-2">${amount.toFixed(2)}</div>
+                            <div class="bar-wrap">
+                                <div class="bar-fill ${c}" style="width:${width}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function loadData() {
+            const month = document.getElementById('monthPicker').value;
+            const shop = document.getElementById('shopSelect').value || 'ALL';
+            const summary = document.getElementById('summaryText');
+            summary.textContent = '正在加载...';
+            try {
+                const params = new URLSearchParams();
+                if (month) params.set('month', month);
+                if (shop) params.set('shop', shop);
+                const resp = await fetch(`/api/tk/gmv_ratio?${params.toString()}`);
+                const data = await resp.json();
+                if (!data.success) {
+                    renderRatios([], 0, month || '{{ default_month }}', shop);
+                    summary.textContent = data.message || '加载失败';
+                    return;
+                }
+                renderRatios(data.data, data.total_amount, data.month || month, data.shop || shop);
+            } catch (e) {
+                renderRatios([], 0, month || '{{ default_month }}', shop);
+                summary.textContent = `加载失败：${e.message || ''}`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            await loadShops();
+            await loadData();
+            document.getElementById('loadBtn').addEventListener('click', loadData);
+            document.getElementById('monthPicker').addEventListener('change', loadData);
+            document.getElementById('shopSelect').addEventListener('change', loadData);
+        });
+    </script>
+</body>
+</html>

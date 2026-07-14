@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}优秀案例 - 团队创新奖励管理系统{% endblock %}
+
+{% block content %}
+<style>
+.case-page-title {
+    font-size: 42px;
+    font-weight: 800;
+    text-align: center;
+    letter-spacing: 1px;
+    margin: 0;
+}
+.case-page-title .score {
+    color: #0b63ce;
+}
+.case-top-decor {
+    display: grid;
+    grid-template-columns: 360px 1fr 360px;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 12px;
+}
+.case-decor-slot {
+    height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.case-decor-slot img {
+    width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+    user-select: none;
+    pointer-events: none;
+}
+.case-wrap {
+    border: 1px solid #d6e6fb;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 22px;
+    background: #fff;
+}
+.case-head {
+    background: linear-gradient(90deg, #005ec7, #0b73de);
+    color: #fff;
+    font-weight: 700;
+}
+.case-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.case-table td, .case-table th {
+    border: 1px solid #d6e6fb;
+    padding: 10px 12px;
+    vertical-align: top;
+}
+.case-label {
+    width: 92px;
+    text-align: center;
+    font-weight: 700;
+    color: #1f2937;
+    background: #fbfdff;
+}
+.case-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+}
+.case-detail {
+    white-space: normal;
+    line-height: 1.7;
+}
+.case-bullets {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.case-bullets li {
+    margin: 0;
+}
+.innovation-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 14px 0 18px;
+}
+.innovation-tab {
+    border: 1px solid #cfe0f6;
+    background: #fff;
+    color: #17406f;
+    border-radius: 8px;
+    padding: 12px 10px;
+    font-weight: 800;
+    text-align: center;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.innovation-tab.active {
+    background: #0b63ce;
+    border-color: #0b63ce;
+    color: #fff;
+}
+.tab-panel {
+    display: none;
+}
+.tab-panel.active {
+    display: block;
+}
+.rank-hero {
+    display: grid;
+    grid-template-columns: 1fr 1.25fr 1fr;
+    align-items: end;
+    gap: 14px;
+    margin: 14px 0 18px;
+}
+.rank-card {
+    background: #fff;
+    border: 1px solid #d6e6fb;
+    border-radius: 8px;
+    padding: 18px;
+    text-align: center;
+    box-shadow: 0 10px 24px rgba(11, 99, 206, .08);
+}
+.rank-card.rank-1 {
+    min-height: 176px;
+    border-color: #f4c430;
+    background: linear-gradient(180deg, #fff8dc, #fff);
+}
+.rank-card.rank-2 {
+    min-height: 148px;
+    background: linear-gradient(180deg, #f4f7fb, #fff);
+}
+.rank-card.rank-3 {
+    min-height: 132px;
+    background: linear-gradient(180deg, #fff1e8, #fff);
+}
+.rank-medal {
+    font-size: 34px;
+    font-weight: 900;
+    color: #0b63ce;
+    line-height: 1;
+}
+.rank-name {
+    font-size: 22px;
+    font-weight: 900;
+    margin-top: 10px;
+    color: #10233f;
+}
+.rank-score {
+    font-size: 15px;
+    color: #5b6b80;
+    margin-top: 8px;
+}
+.rank-list {
+    background: #fff;
+    border: 1px solid #d6e6fb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.rank-row {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr) 120px;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border-bottom: 1px solid #edf4fd;
+}
+.rank-row:last-child {
+    border-bottom: 0;
+}
+.rank-row-no {
+    font-weight: 900;
+    color: #0b63ce;
+}
+.rank-row-name {
+    font-weight: 800;
+    color: #1f2937;
+}
+.rank-row-score {
+    text-align: right;
+    font-weight: 900;
+    color: #111827;
+}
+.empty-panel {
+    background: #fff;
+    border: 1px solid #d6e6fb;
+    border-radius: 8px;
+    padding: 56px 20px;
+    text-align: center;
+    color: #6b7280;
+    font-weight: 700;
+}
+@media (max-width: 992px) {
+    .case-page-title {
+        font-size: 30px;
+    }
+    .case-table td, .case-table th {
+        padding: 8px 10px;
+    }
+    .case-label {
+        width: 72px;
+    }
+    .case-top-decor {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .case-decor-slot {
+        height: 110px;
+    }
+    .case-decor-slot img {
+        max-height: 110px;
+    }
+    .innovation-tabs,
+    .rank-hero {
+        grid-template-columns: 1fr;
+    }
+    .rank-row {
+        grid-template-columns: 56px minmax(0, 1fr) 90px;
+    }
+}
+</style>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div></div>
+        <a href="{{ url_for('innovation.innovation_index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> 返回首页
+        </a>
+    </div>
+    <div class="case-top-decor">
+        <div class="case-decor-slot">
+            <img src="{{ url_for('innovation.innovation_uploaded_file', filename='20260416-181440.png') }}?v=1" alt="">
+        </div>
+        <div class="case-page-title">创新展示<span class="score">·荣誉专区</span></div>
+        <div class="case-decor-slot">
+            <img src="{{ url_for('innovation.innovation_uploaded_file', filename='20260416-181449.png') }}?v=1" alt="">
+        </div>
+    </div>
+
+    <div class="innovation-tabs" role="tablist">
+        <button class="innovation-tab active" type="button" data-tab="excellent">创新星鉴</button>
+        <button class="innovation-tab" type="button" data-tab="rank">创新星榜</button>
+        <button class="innovation-tab" type="button" data-tab="share">创新星享</button>
+        <button class="innovation-tab" type="button" data-tab="talk">创新星说</button>
+    </div>
+
+    <section id="tab-excellent" class="tab-panel active">
+    <div class="d-flex justify-content-end mb-2">
+        <span class="badge bg-danger">共 {{ total_count }} 条</span>
+    </div>
+    {% if not cases %}
+    <div class="card">
+        <div class="card-body text-center text-muted py-5">
+            暂无最高分为 50 分的创新提案
+        </div>
+    </div>
+    {% else %}
+    <div>
+        {% for c in cases %}
+        {% set case_no = c.get('_display_no', '未知编号') %}
+        {% set case_dept = c.get('_display_dept', '未知部门') %}
+        {% set case_name = c.get('_display_name', '未知') %}
+        {% set case_content = c.get('_display_content', '未填写') %}
+        {% set case_detail = c.get('_display_detail', '') %}
+        {% set case_time = c.get('_display_time', '') %}
+        <div class="case-wrap">
+            <table class="case-table">
+                <tr class="case-head">
+                    <td class="case-label">题号：</td>
+                    <td><strong>{{ case_no }}</strong></td>
+                    <td><strong>部门：{{ case_dept }}</strong></td>
+                    <td><strong>姓名：{{ case_name }}</strong></td>
+                </tr>
+                <tr>
+                    <td class="case-label">内容</td>
+                    <td colspan="3" class="case-content"><strong>提案内容：</strong>{{ case_content }}</td>
+                </tr>
+                <tr>
+                    <td class="case-label">详情</td>
+                    <td colspan="3" class="case-content case-detail">
+                        {% set detail_text = case_detail.replace('\r\n', '\n').replace('\r', '\n').replace('；', '\n').replace('。', '。\n') %}
+                        <ul class="case-bullets">
+                            {% for line in detail_text.split('\n') %}
+                            {% set cleaned = line.replace('　', ' ').strip() %}
+                            {% if cleaned %}
+                            <li>{{ cleaned }}</li>
+                            {% endif %}
+                            {% endfor %}
+                            {% if not detail_text.strip() %}
+                            <li>未填写</li>
+                            {% endif %}
+                        </ul>
+                        {% if case_time %}
+                        <div class="text-muted small mt-2">发起时间：{{ case_time }}</div>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    </section>
+
+    <section id="tab-rank" class="tab-panel">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h4 class="mb-0 fw-bold">创新新榜</h4>
+            <span class="badge bg-primary">2025-07-01 至 2026-05-31</span>
+        </div>
+        {% if not leaderboard %}
+        <div class="empty-panel">暂无榜单数据</div>
+        {% else %}
+        {% set top_three = leaderboard[:3] %}
+        {% set rest_list = leaderboard[3:] %}
+        <div class="rank-hero">
+            {% if top_three|length > 1 %}
+            {% set r = top_three[1] %}
+            <div class="rank-card rank-2">
+                <div class="rank-medal">No.2</div>
+                <div class="rank-name">{{ r.name }}</div>
+                <div class="rank-score">{{ r.score }} 分</div>
+            </div>
+            {% else %}
+            <div></div>
+            {% endif %}
+            {% if top_three|length > 0 %}
+            {% set r = top_three[0] %}
+            <div class="rank-card rank-1">
+                <div class="rank-medal">No.1</div>
+                <div class="rank-name">{{ r.name }}</div>
+                <div class="rank-score">{{ r.score }} 分</div>
+            </div>
+            {% endif %}
+            {% if top_three|length > 2 %}
+            {% set r = top_three[2] %}
+            <div class="rank-card rank-3">
+                <div class="rank-medal">No.3</div>
+                <div class="rank-name">{{ r.name }}</div>
+                <div class="rank-score">{{ r.score }} 分</div>
+            </div>
+            {% else %}
+            <div></div>
+            {% endif %}
+        </div>
+        {% if rest_list %}
+        <div class="rank-list">
+            {% for r in rest_list %}
+            <div class="rank-row">
+                <div class="rank-row-no">No.{{ r.rank }}</div>
+                <div class="rank-row-name">{{ r.name }}</div>
+                <div class="rank-row-score">{{ r.score }} 分</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endif %}
+    </section>
+
+    <section id="tab-share" class="tab-panel">
+        <div class="empty-panel">创新星享内容待配置</div>
+    </section>
+
+    <section id="tab-talk" class="tab-panel">
+        <div class="empty-panel">创新新说内容待配置</div>
+    </section>
+</div>
+<script>
+document.querySelectorAll('.innovation-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+        const key = btn.getAttribute('data-tab') || 'excellent';
+        document.querySelectorAll('.innovation-tab').forEach((one) => one.classList.toggle('active', one === btn));
+        document.querySelectorAll('.tab-panel').forEach((panel) => {
+            panel.classList.toggle('active', panel.id === 'tab-' + key);
+        });
+    });
+});
+</script>
+{% endblock %}

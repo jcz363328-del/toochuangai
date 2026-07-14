@@ -1,0 +1,3517 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小图报告智能体 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f7fb;
+            color: #111827;
+        }
+        .head {
+            height: 62px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #ffffff;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .brand .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .btn-link {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #111827;
+            padding: 7px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: none;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            gap: 16px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 16px;
+        }
+        .card h3 {
+            margin: 0 0 8px;
+            font-size: 18px;
+        }
+        .desc {
+            margin: 0 0 12px;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 8px;
+            align-items: center;
+        }
+        .row.single {
+            grid-template-columns: 1fr;
+        }
+        .field, .select, .btn {
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 9px 10px;
+            font-size: 14px;
+        }
+        .btn {
+            background: #4f46e5;
+            color: #fff;
+            cursor: pointer;
+            border-color: #4f46e5;
+        }
+        .btn:disabled {
+            background: #a5b4fc;
+            border-color: #a5b4fc;
+            cursor: not-allowed;
+        }
+        .meta {
+            margin-top: 8px;
+            color: #6b7280;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .radio-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 14px;
+            color: #374151;
+            margin-top: 8px;
+        }
+        .radio-group label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+            font-size: 14px;
+            color: #374151;
+            cursor: pointer;
+        }
+        .template-box {
+            margin-top: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: 10px;
+        }
+        .template-tools {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .template-select {
+            flex: 1;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 14px;
+            background: #fff;
+        }
+        .template-focus {
+            margin: 4px 0 8px;
+        }
+        .focus-title {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+        .focus-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .focus-tag {
+            font-size: 12px;
+            color: #1d4ed8;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            padding: 3px 10px;
+        }
+        .template-rich {
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 12px;
+            background: #fff;
+            color: #111827;
+            line-height: 1.65;
+        }
+        .template-rich h4 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: #111827;
+        }
+        .template-rich h5 {
+            margin: 10px 0 6px;
+            font-size: 13px;
+            color: #334155;
+        }
+        .template-rich ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+        .template-rich li {
+            margin: 2px 0;
+        }
+        .result {
+            margin-top: 10px;
+            background: #ffffff;
+            color: #111827;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            max-height: 420px;
+            overflow: auto;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        .report-empty {
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .report-h {
+            font-weight: 700;
+            color: #111827;
+            margin: 8px 0 6px;
+        }
+        .report-h.h1 { font-size: 20px; }
+        .report-h.h2 { font-size: 18px; }
+        .report-h.h3 { font-size: 16px; }
+        .report-h.h4, .report-h.h5, .report-h.h6 { font-size: 14px; }
+        .report-p {
+            margin: 4px 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .report-ol {
+            margin: 4px 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .report-ul {
+            margin: 4px 0 6px 18px;
+            padding: 0;
+        }
+        .report-ul li {
+            margin: 2px 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .report-sep {
+            height: 8px;
+        }
+        .moban-tools {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .moban-toolbar {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .moban-toolbar .btn {
+            width: auto;
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 8px;
+        }
+        .moban-editor {
+            min-height: 220px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            background: #fff;
+            padding: 12px;
+            line-height: 1.7;
+            font-size: 14px;
+            outline: none;
+            overflow: auto;
+        }
+        .moban-editor:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+        }
+        .moban-editor h4 {
+            margin: 10px 0 6px;
+            font-size: 16px;
+        }
+        .moban-editor ul {
+            margin: 6px 0 8px 18px;
+            padding: 0;
+        }
+        .moban-editor p {
+            margin: 4px 0;
+        }
+        .moban-editor img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin: 6px 0;
+        }
+        .upload-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .upload-list {
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .notify-box {
+            margin-top: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: 10px;
+        }
+        .notify-summary {
+            margin-top: 8px;
+            min-height: 42px;
+            max-height: 120px;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px;
+            font-size: 13px;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+        .notify-tag {
+            display: inline-flex;
+            align-items: center;
+            margin: 2px 4px 2px 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 12px;
+        }
+        .notify-empty {
+            color: #6b7280;
+        }
+        .notify-modal-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.42);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1300;
+            padding: 18px;
+        }
+        .notify-modal-mask.show {
+            display: flex;
+        }
+        .notify-modal {
+            width: min(980px, 96vw);
+            max-height: 86vh;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 18px 40px rgba(2, 6, 23, 0.2);
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            overflow: hidden;
+        }
+        .notify-modal-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .notify-close {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background: #fff;
+            cursor: pointer;
+            color: #475569;
+        }
+        .notify-modal-body {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 0;
+            min-height: 420px;
+            max-height: calc(86vh - 118px);
+        }
+        .notify-panel {
+            padding: 12px;
+        }
+        .notify-panel + .notify-panel {
+            border-left: 1px solid #e5e7eb;
+        }
+        .notify-panel-tools {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .notify-search {
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            width: 100%;
+        }
+        .notify-users {
+            margin-top: 0;
+            max-height: 100%;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px;
+        }
+        .notify-user-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 4px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+        }
+        .notify-user-row:last-child {
+            border-bottom: none;
+        }
+        .notify-user-row .sub {
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .notify-modal-foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 10px 16px 14px;
+            border-top: 1px solid #e5e7eb;
+            background: #fff;
+        }
+        .head {
+            height: 64px;
+            padding: 0 24px;
+            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+        }
+        .brand {
+            font-size: 22px;
+        }
+        .brand .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            font-size: 15px;
+            box-shadow: 0 10px 24px rgba(99, 102, 241, 0.24);
+        }
+        .btn-link {
+            border-radius: 12px;
+            padding: 8px 14px;
+            color: #475569;
+        }
+        .container {
+            max-width: 1420px;
+            padding: 24px;
+            gap: 20px;
+        }
+        .page-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.75fr) 320px;
+            gap: 20px;
+            align-items: start;
+        }
+        .page-main,
+        .page-side {
+            display: grid;
+            gap: 18px;
+        }
+        .surface-card {
+            background: #ffffff;
+            border: 1px solid #e7eaf3;
+            border-radius: 18px;
+            box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
+        }
+        .surface-card.pad-lg {
+            padding: 18px;
+        }
+        .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .section-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .section-note {
+            color: #64748b;
+            font-size: 12px;
+        }
+        .report-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .report-tab-input {
+            display: none;
+        }
+        .report-tab {
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .report-tab-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: #eef2ff;
+            color: #4f46e5;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: none;
+        }
+        .report-tab-title {
+            display: block;
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+        .report-tab-desc {
+            display: block;
+            font-size: 12px;
+            color: #8a94a6;
+            line-height: 1.5;
+        }
+        .report-tab-input:checked + .report-tab {
+            border-color: #6d5dfc;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .editor-card {
+            padding: 18px;
+        }
+        .editor-topline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .editor-tools-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .toolbar-lite {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 12px;
+            border: 1px solid #e8ebf3;
+            border-bottom: none;
+            border-radius: 14px 14px 0 0;
+            background: #fbfcff;
+        }
+        .toolbar-lite .btn {
+            width: auto;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            background: #ffffff;
+            color: #334155;
+            border-color: #e2e8f0;
+        }
+        .toolbar-divider {
+            width: 1px;
+            height: 20px;
+            background: #e5e7eb;
+            margin: 0 2px;
+        }
+        .btn-subtle {
+            background: #ffffff;
+            color: #334155;
+            border-color: #d7ddeb;
+        }
+        .btn-soft {
+            background: linear-gradient(135deg, #7c6cff 0%, #5b5ef7 100%);
+            border-color: #635bff;
+            color: #ffffff;
+            box-shadow: 0 8px 20px rgba(99, 91, 255, 0.24);
+        }
+        .btn-ghost {
+            background: #ffffff;
+            color: #4f46e5;
+            border-color: #c7d2fe;
+        }
+        .doc-link-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .field,
+        .select,
+        .btn,
+        .template-select {
+            min-height: 40px;
+            border-radius: 12px;
+            border-color: #d8deea;
+        }
+        .field:focus,
+        .select:focus,
+        .template-select:focus {
+            outline: none;
+            border-color: #7c6cff;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .moban-editor {
+            min-height: 420px;
+            border-radius: 0 0 14px 14px;
+            border-color: #e8ebf3;
+            background: #ffffff;
+        }
+        .editor-footbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 2px 0;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .editor-foot-left,
+        .editor-foot-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .status-dot {
+            color: #22c55e;
+        }
+        .notify-box {
+            margin-top: 0;
+            border-radius: 16px;
+            border-color: #e7eaf3;
+            background: #ffffff;
+            padding: 16px;
+        }
+        .notify-box .template-tools {
+            justify-content: space-between;
+        }
+        .notify-summary {
+            min-height: 56px;
+            border-radius: 12px;
+            border-color: #e8ebf3;
+            background: #fbfcff;
+        }
+        .smart-card .row {
+            grid-template-columns: minmax(0, 1fr) 160px auto;
+        }
+        .result {
+            border-radius: 14px;
+            border-color: #e8ebf3;
+            background: #fbfcff;
+            min-height: 240px;
+        }
+        .side-card {
+            padding: 16px;
+            position: sticky;
+            top: 20px;
+        }
+        .side-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .side-head h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .side-link {
+            color: #6d5dfc;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .side-stack {
+            display: grid;
+            gap: 12px;
+        }
+        .template-box {
+            margin-top: 0;
+            border: none;
+            padding: 0;
+            background: transparent;
+        }
+        .template-tools {
+            margin-bottom: 0;
+            flex-wrap: wrap;
+        }
+        .template-panel {
+            border: 1px solid #e8ebf3;
+            background: #fbfcff;
+            border-radius: 14px;
+            padding: 12px;
+        }
+        .template-preview {
+            min-height: 260px;
+            max-height: 420px;
+            overflow: auto;
+            border: 1px solid #e8ebf3;
+            border-radius: 14px;
+            background: #f7f8fc;
+            padding: 14px;
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        .template-preview h4,
+        .template-preview h5,
+        .template-preview p {
+            margin-top: 0;
+        }
+        .template-tip {
+            border: 1px solid #ece9ff;
+            background: #f7f5ff;
+            border-radius: 14px;
+            padding: 12px;
+            color: #6b5aed;
+            font-size: 12px;
+            line-height: 1.7;
+        }
+        .history-shortcut {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .history-pill {
+            flex: 1 1 120px;
+            min-width: 0;
+            border: 1px solid #e8ebf3;
+            border-radius: 14px;
+            padding: 12px;
+            background: #fbfcff;
+            color: #334155;
+            text-decoration: none;
+        }
+        .history-pill-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #0f172a;
+        }
+        .history-pill-sub {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .bottom-action-bar {
+            position: sticky;
+            bottom: 16px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 18px;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+        }
+        .bottom-action-left,
+        .bottom-action-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .draft-state {
+            color: #64748b;
+            font-size: 12px;
+        }
+        .kbd-tip {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .hidden-radio-group {
+            display: none;
+        }
+        @media (max-width: 1180px) {
+            .page-layout {
+                grid-template-columns: 1fr;
+            }
+            .side-card {
+                position: static;
+            }
+        }
+        @media (max-width: 860px) {
+            .container {
+                padding: 16px;
+            }
+            .report-tabs {
+                grid-template-columns: 1fr;
+            }
+            .doc-link-row,
+            .smart-card .row,
+            .row {
+                grid-template-columns: 1fr;
+            }
+            .bottom-action-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .bottom-action-right {
+                justify-content: space-between;
+            }
+        }
+        /* style override: keep existing ids & behavior, refresh to new visual style */
+        body {
+            background: #f6f7f9;
+        }
+        .head {
+            height: 58px;
+            padding: 0 18px;
+            border-bottom: 1px solid #eceff3;
+            box-shadow: none;
+        }
+        .brand {
+            font-size: 22px;
+        }
+        .brand .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #111827;
+            box-shadow: none;
+        }
+        .btn-link {
+            border-radius: 9px;
+            padding: 7px 11px;
+            background: #ffffff;
+            color: #475569;
+            border-color: #dbe1e8;
+        }
+        .container {
+            max-width: 1080px;
+            gap: 14px;
+            padding: 16px;
+        }
+        .card {
+            border: 1px solid #e9edf2;
+            border-radius: 12px;
+            box-shadow: none;
+            padding: 14px;
+        }
+        .card h3 {
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+        .section-label {
+            font-size: 12px;
+            color: #64748b;
+            margin: 2px 0 6px;
+            font-weight: 600;
+        }
+        .radio-group {
+            gap: 10px;
+            margin-top: 8px;
+            align-items: stretch;
+        }
+        .type-card {
+            flex: 1;
+            min-width: 160px;
+            border: 1px solid #e8ecf1;
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: #fff;
+            display: block;
+            cursor: pointer;
+            position: relative;
+        }
+        .type-card input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .type-title {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 3px;
+        }
+        .type-sub {
+            display: block;
+            font-size: 11px;
+            color: #8b95a7;
+        }
+        .type-card:has(input[type="radio"]:checked) {
+            border-color: #cfd6e1;
+            background: #f8fafc;
+            box-shadow: inset 0 0 0 1px #111827;
+        }
+        .field, .select, .btn, .template-select {
+            min-height: 36px;
+            border-radius: 8px;
+            border-color: #e2e8f0;
+            font-size: 13px;
+        }
+        .field,
+        .select,
+        .template-select {
+            width: 100%;
+            background: #fff;
+        }
+        .field:focus, .select:focus, .template-select:focus {
+            border-color: #c6ced9;
+            box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.05);
+        }
+        .btn {
+            width: auto;
+            min-width: 0;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            background: #ffffff;
+            border-color: #d9e0e8;
+            box-shadow: none;
+        }
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #cfd6df;
+        }
+        .btn:disabled {
+            color: #94a3b8;
+            background: #f8fafc;
+            border-color: #e5e7eb;
+        }
+        #submitReportBtn,
+        #generateBtn,
+        #knowledgeSearchBtn,
+        #notifyPickerConfirmBtn {
+            background: #111827;
+            color: #ffffff;
+            border-color: #111827;
+        }
+        #submitReportBtn:hover,
+        #generateBtn:hover,
+        #knowledgeSearchBtn:hover,
+        #notifyPickerConfirmBtn:hover {
+            background: #0f172a;
+            border-color: #0f172a;
+        }
+        #submitReportBtn,
+        #generateBtn,
+        #knowledgeSearchBtn,
+        #notifyPickerConfirmBtn,
+        #openNotifyPickerBtn {
+            min-width: 96px;
+        }
+        .moban-toolbar {
+            gap: 4px;
+            margin-bottom: 6px;
+            border: 1px solid #edf0f5;
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            padding: 6px;
+            background: #fff;
+        }
+        .moban-toolbar {
+            display: none;
+        }
+        .moban-toolbar .btn {
+            min-width: 30px;
+            padding: 5px 8px;
+            font-size: 11px;
+            border-radius: 6px;
+            background: #fff;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+        .template-box {
+            border: 1px solid #edf0f5;
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px;
+        }
+        .moban-editor {
+            min-height: 220px;
+            border-radius: 0 0 10px 10px;
+            border-color: #edf0f5;
+            border-top: 1px solid #edf0f5;
+        }
+        .editor-context-menu {
+            position: fixed;
+            z-index: 2000;
+            min-width: 180px;
+            max-width: 260px;
+            display: none;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+            padding: 6px;
+        }
+        .editor-context-menu.show {
+            display: block;
+        }
+        .editor-menu-item {
+            width: 100%;
+            border: none;
+            background: transparent;
+            text-align: left;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e293b;
+            cursor: pointer;
+        }
+        .editor-menu-item:hover {
+            background: #f1f5f9;
+        }
+        .editor-menu-sep {
+            height: 1px;
+            margin: 4px 0;
+            background: #e2e8f0;
+        }
+        .notify-box {
+            border: 1px solid #edf0f5;
+            border-radius: 10px;
+            background: #fff;
+            padding: 10px;
+        }
+        .template-tools,
+        .moban-tools,
+        .upload-line,
+        .notify-panel-tools,
+        .notify-modal-foot {
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .template-tools > .btn,
+        .moban-tools > .btn,
+        .upload-line > .btn,
+        .row > .btn,
+        .doc-link-row > .btn,
+        .notify-panel-tools > .btn,
+        .notify-modal-foot > .btn {
+            justify-self: start;
+        }
+        .notify-summary {
+            background: #fafbff;
+            border-color: #edf0f5;
+            border-radius: 8px;
+            min-height: 52px;
+        }
+        .main-card .row[style*="grid-template-columns:1fr auto"] .btn {
+            min-width: 96px;
+        }
+        .row {
+            gap: 8px;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content;
+        }
+        .quick-card .row {
+            grid-template-columns: minmax(0, 1fr) 104px max-content;
+        }
+        .result {
+            margin-top: 8px;
+            border: 1px solid #edf0f5;
+            border-radius: 10px;
+            background: #fff;
+            min-height: 180px;
+        }
+        .knowledge-box {
+            border: 1px solid #edf0f5;
+            border-radius: 10px;
+            background: #fff;
+            padding: 10px;
+        }
+        .knowledge-box .row {
+            grid-template-columns: minmax(0, 1fr) max-content;
+        }
+        .knowledge-result {
+            min-height: 120px;
+        }
+        .focus-guide {
+            display: none;
+            margin-top: 10px;
+            border: 1px solid #fde68a;
+            border-radius: 10px;
+            background: #fffbeb;
+            padding: 10px 12px;
+            color: #92400e;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        .focus-guide.show {
+            display: block;
+        }
+        .focus-guide strong {
+            color: #78350f;
+        }
+        .focus-guide-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .focus-guide-actions .btn {
+            border-color: #f59e0b;
+            color: #92400e;
+            background: #fff;
+        }
+        .focus-guide-list {
+            margin: 8px 0 0;
+            padding-left: 18px;
+        }
+        .focus-guide-list li + li {
+            margin-top: 4px;
+        }
+        .focus-guide-list li.is-primary {
+            font-weight: 700;
+        }
+        .edit-banner {
+            display: none;
+            margin-bottom: 12px;
+            border: 1px solid #fde68a;
+            border-radius: 10px;
+            background: #fffbeb;
+            padding: 10px 12px;
+            color: #92400e;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        .edit-banner.show {
+            display: block;
+        }
+        .edit-banner strong {
+            color: #78350f;
+        }
+        @media (max-width: 860px) {
+            .radio-group {
+                flex-direction: column;
+            }
+            .template-tools,
+            .moban-tools,
+            .upload-line,
+            .notify-panel-tools,
+            .notify-modal-foot {
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+            .template-tools > .btn,
+            .moban-tools > .btn,
+            .upload-line > .btn,
+            .row > .btn,
+            .notify-panel-tools > .btn,
+            .notify-modal-foot > .btn,
+            #knowledgeSearchBtn,
+            #submitReportBtn,
+            #generateBtn,
+            #openNotifyPickerBtn {
+                width: 100%;
+                justify-self: stretch;
+            }
+            .quick-card .row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <link href="{{ url_for('static', filename='css/xiaotu_report_center_desktop.css') }}?v=20260714-2" rel="stylesheet">
+</head>
+<body class="report-desktop">
+<header class="report-app-header">
+    <div class="report-brand">
+        <div class="report-brand-mark"><i class="fas fa-file-lines"></i></div>
+        <div class="report-brand-copy">
+            <strong>报告智能体</strong>
+            <span>{{ user_name or '当前用户' }} · 电脑端工作台</span>
+        </div>
+    </div>
+    <nav class="report-module-nav" aria-label="报告智能体功能">
+        <button type="button" class="report-module-tab active" data-report-screen="compose"><i class="fas fa-pen-to-square"></i>写报告</button>
+        <button type="button" class="report-module-tab" data-report-screen="summary"><i class="fas fa-chart-line"></i>智能汇总</button>
+        <button type="button" class="report-module-tab" data-report-screen="knowledge"><i class="fas fa-magnifying-glass"></i>知识搜索</button>
+    </nav>
+    <div class="report-header-actions">
+        <span class="report-safe-state">安全连接</span>
+        <a href="{{ url_for('dashboard_xiaotu_report_history') }}" class="report-head-link"><i class="fas fa-clock-rotate-left"></i>历史记录</a>
+        <button id="reportInspectorToggle" type="button" class="report-drawer-toggle" aria-label="打开智能检查"><i class="fas fa-panel-right"></i>智能检查</button>
+    </div>
+</header>
+
+<section class="report-screen report-compose-screen active" data-report-screen-panel="compose">
+    <aside class="report-settings">
+        <div class="report-settings-head"><i class="fas fa-sliders"></i>报告设置</div>
+        <div class="report-setting-section">
+            <div class="report-section-title">报告类型</div>
+            <div class="report-segment">
+                <label class="report-type-option"><input type="radio" name="submitReportType" value="day" checked><span>日报</span></label>
+                <label class="report-type-option"><input type="radio" name="submitReportType" value="week"><span>周报</span></label>
+                <label class="report-type-option"><input type="radio" name="submitReportType" value="month"><span>月报</span></label>
+            </div>
+        </div>
+        <div class="report-setting-section">
+            <div class="report-section-title">人员类型</div>
+            <select id="crowdTemplateType" class="report-visually-hidden" aria-label="人员类型">
+                <option value="formal_staff" selected>正式员工</option>
+                <option value="management">管理层</option>
+                <option value="improvement_staff">改进人员</option>
+                <option value="intern_trainee">管培生/实习</option>
+            </select>
+            <div class="report-person-list">
+                <button type="button" class="report-person-option active" data-person-type="formal_staff">
+                    <span class="report-person-icon"><i class="fas fa-briefcase"></i></span>
+                    <span class="report-person-copy"><strong>正式员工</strong><span>执行、流程、质量与协同</span></span>
+                    <span class="report-person-check"><i class="fas fa-check"></i></span>
+                </button>
+                <button type="button" class="report-person-option" data-person-type="management">
+                    <span class="report-person-icon"><i class="fas fa-user-tie"></i></span>
+                    <span class="report-person-copy"><strong>管理层</strong><span>经营、团队、资源与风险</span></span>
+                    <span class="report-person-check"><i class="fas fa-check"></i></span>
+                </button>
+                <button type="button" class="report-person-option" data-person-type="improvement_staff">
+                    <span class="report-person-icon"><i class="fas fa-arrow-trend-up"></i></span>
+                    <span class="report-person-copy"><strong>改进人员</strong><span>诊断、纠偏、指标与闭环</span></span>
+                    <span class="report-person-check"><i class="fas fa-check"></i></span>
+                </button>
+                <button type="button" class="report-person-option" data-person-type="intern_trainee">
+                    <span class="report-person-icon"><i class="fas fa-seedling"></i></span>
+                    <span class="report-person-copy"><strong>管培生 / 实习</strong><span>学习、执行、复盘与成长</span></span>
+                    <span class="report-person-check"><i class="fas fa-check"></i></span>
+                </button>
+            </div>
+            <div id="reportFocusHint" class="report-focus-note">侧重点：执行质量、流程优化、协作效率与结果稳定性。</div>
+            <div id="internGuideHint" class="focus-guide">
+                <strong>管培生/实习分析要求已启用</strong>
+                <div>优先检查当日工作内容，再分析问题处理、明日计划和方法积累。</div>
+                <div class="focus-guide-actions"><button id="openInternGuideBtn" type="button" class="report-text-action">查看详细要求</button></div>
+            </div>
+        </div>
+        <div class="report-setting-section">
+            <div class="report-section-title">
+                <span><i class="fas fa-user-group"></i> 通知人员</span>
+                <button id="openNotifyPickerBtn" type="button" class="report-mini-button" title="选择通知人员" aria-label="选择通知人员"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="notifySummary" class="notify-summary report-notify-summary"></div>
+            <div id="notifyMeta" class="report-helper">状态：请先选择部门后勾选通知人员</div>
+            <label class="report-field-label" for="notifyTimeInput">未提交提醒</label>
+            <input id="notifyTimeInput" type="time" class="report-compact-field" step="60">
+            <div class="report-helper">到达设定时间仍未提交时，系统自动推送一次提醒。</div>
+            <div class="report-inline-actions">
+                <button id="testReminderBtn" type="button" class="report-text-action"><i class="fas fa-paper-plane"></i>测试提醒</button>
+            </div>
+        </div>
+        <div class="report-setting-section">
+            <div class="report-section-title"><span><i class="fas fa-gauge-high"></i> 当前概览</span></div>
+            <div class="report-metrics">
+                <div class="report-metric"><strong id="desktopCharCount">0</strong><span>字数</span></div>
+                <div class="report-metric"><strong id="desktopImageCount">0</strong><span>图片</span></div>
+                <div class="report-metric"><strong id="desktopNotifyCount">0</strong><span>通知</span></div>
+                <div class="report-metric"><strong id="desktopScoreMini">36%</strong><span>完整度</span></div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="report-workspace">
+        <div class="report-workspace-head">
+            <div class="report-workspace-title">
+                <h1 id="reportWorkspaceTitle">新建日报</h1>
+                <p>今天 · {{ user_name or '当前用户' }}</p>
+            </div>
+            <div id="reportAutosaveState" class="report-autosave"><i class="fas fa-cloud"></i>草稿自动保存</div>
+        </div>
+        <div id="editModeBanner" class="edit-banner report-edit-banner"></div>
+        <div class="report-editor-stage">
+            <div class="report-source-row">
+                <input id="submitDocUrl" class="report-main-field" placeholder="粘贴飞书云文档链接（可选）">
+                <select id="mobanSelect" class="report-main-select" aria-label="选择富文本模板"><option value="">选择富文本模板</option></select>
+                <input id="mobanName" class="report-main-field" placeholder="模板名称">
+                <div class="report-source-actions">
+                    <button id="copyTemplateBtn" type="button" class="report-mini-button" title="复制正文" aria-label="复制正文"><i class="fas fa-copy"></i></button>
+                    <button id="mobanNewBtn" type="button" class="report-mini-button" title="新建模板" aria-label="新建模板"><i class="fas fa-file-circle-plus"></i></button>
+                    <button id="mobanSaveBtn" type="button" class="report-mini-button" title="保存模板" aria-label="保存模板"><i class="fas fa-floppy-disk"></i></button>
+                    <button id="mobanDeleteBtn" type="button" class="report-mini-button" title="删除模板" aria-label="删除模板"><i class="fas fa-trash-can"></i></button>
+                </div>
+            </div>
+            <div class="moban-toolbar report-toolbar" aria-label="编辑工具">
+                <button type="button" class="report-tool-button" data-cmd="bold" title="加粗"><i class="fas fa-bold"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="italic" title="斜体"><i class="fas fa-italic"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="underline" title="下划线"><i class="fas fa-underline"></i></button>
+                <span class="report-tool-separator"></span>
+                <button type="button" class="report-tool-button" data-cmd="insertUnorderedList" title="无序列表"><i class="fas fa-list-ul"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="insertOrderedList" title="有序列表"><i class="fas fa-list-ol"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="formatBlock" data-value="blockquote" title="引用"><i class="fas fa-quote-left"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="formatBlock" data-value="h4" title="标题"><i class="fas fa-heading"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="formatBlock" data-value="p" title="正文"><i class="fas fa-paragraph"></i></button>
+                <span class="report-tool-separator"></span>
+                <button type="button" class="report-tool-button" data-action="link" title="插入链接"><i class="fas fa-link"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="unlink" title="取消链接"><i class="fas fa-link-slash"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="removeFormat" title="清除格式"><i class="fas fa-eraser"></i></button>
+                <span class="report-tool-separator"></span>
+                <button type="button" class="report-tool-button" data-cmd="undo" title="撤销"><i class="fas fa-rotate-left"></i></button>
+                <button type="button" class="report-tool-button" data-cmd="redo" title="重做"><i class="fas fa-rotate-right"></i></button>
+            </div>
+            <div id="crowdTemplateRich" class="template-rich moban-editor report-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="写下今天的工作内容、问题处理、协同事项和明日计划。"></div>
+            <div class="report-asset-row">
+                <div>
+                    <input id="reportImageInput" type="file" accept="image/*" multiple hidden>
+                    <button id="insertImageBtn" type="button" class="report-work-button"><i class="far fa-image"></i>添加图片</button>
+                </div>
+                <span id="reportImageList" class="report-status-copy">已选图片：0 张</span>
+            </div>
+        </div>
+        <div class="report-workspace-foot">
+            <div class="report-submit-copy"><strong>正式提交模式</strong><span>内容、图片、人员类型和通知设置将写入现有报告流程。</span></div>
+            <div class="report-submit-actions">
+                <button id="saveDraftBtn" type="button" class="report-work-button"><i class="far fa-floppy-disk"></i>保存草稿</button>
+                <button id="productionPreviewBtn" type="button" class="report-work-button success"><i class="far fa-eye"></i>预览</button>
+                <button id="submitReportBtn" type="button" class="report-work-button primary"><i class="fas fa-paper-plane"></i>提交报告</button>
+            </div>
+        </div>
+    </main>
+
+    <aside class="report-inspector">
+        <div class="report-inspector-head">
+            <div class="report-inspector-tabs">
+                <button type="button" class="report-inspector-tab active" data-report-inspector="checks">智能检查</button>
+                <button type="button" class="report-inspector-tab" data-report-inspector="preview">报告预览</button>
+                <button type="button" class="report-inspector-tab" data-report-inspector="activity">处理进度</button>
+            </div>
+        </div>
+        <div class="report-inspector-body">
+            <div class="report-inspector-pane active" data-report-inspector-panel="checks">
+                <div class="report-score">
+                    <div id="desktopScoreValue" class="report-score-value">36</div>
+                    <div class="report-score-copy"><strong>内容完整度</strong><span id="desktopScoreHint">补充工作结果与明日计划后会更完整。</span></div>
+                </div>
+                <div id="desktopCheckList" class="report-check-list"></div>
+            </div>
+            <div class="report-inspector-pane" data-report-inspector-panel="preview">
+                <div id="desktopPreviewPaper" class="report-preview-paper empty">暂无预览内容</div>
+            </div>
+            <div class="report-inspector-pane" data-report-inspector-panel="activity">
+                <div class="report-activity">
+                    <div class="report-activity-item"><strong>提交状态</strong><div id="submitMeta" class="meta">状态：待提交</div><div id="submitDebug" class="meta"></div></div>
+                    <div class="report-activity-item"><strong>模板状态</strong><div id="mobanMeta" class="meta">状态：可直接编辑正文或选择已有模板</div></div>
+                    <div class="report-activity-item"><strong>草稿机制</strong><div class="meta">编辑内容会保存在本地与云端缓存，离开页面前自动记录。</div></div>
+                </div>
+            </div>
+        </div>
+    </aside>
+</section>
+
+<section class="report-screen report-wide-screen" data-report-screen-panel="summary">
+    <aside class="report-wide-aside">
+        <h2>智能汇总</h2>
+        <p>按时间范围整合本人已提交报告，并在后台生成离线 HTML 分析。</p>
+        <div class="report-filter-block">
+            <label for="reportUserName">报告人</label>
+            <input id="reportUserName" class="report-main-field" value="{{ user_name or '' }}" readonly>
+        </div>
+        <div class="report-filter-block">
+            <label>汇总范围</label>
+            <div class="report-date-stack">
+                <input id="reportStartDate" class="report-main-field" type="date" aria-label="开始日期">
+                <input id="reportEndDate" class="report-main-field" type="date" aria-label="结束日期">
+            </div>
+        </div>
+        <button id="generateBtn" type="button" class="report-work-button primary" style="width:100%;margin-top:16px;"><i class="fas fa-wand-magic-sparkles"></i>开始整合分析</button>
+    </aside>
+    <main class="report-wide-main">
+        <div class="report-wide-head">
+            <div><h2>汇总结果</h2><p>生成任务完成后，可从历史记录打开完整报告。</p></div>
+            <button id="refreshHistoryAnalysisBtn" type="button" class="report-work-button"><i class="fas fa-rotate"></i>刷新记录</button>
+        </div>
+        <div class="report-result-band">
+            <div id="genMeta" class="meta">状态：待生成</div>
+            <div id="genResult" class="result">等待生成...</div>
+        </div>
+        <div id="historyAnalysisList" class="result report-history-list">正在读取历史记录...</div>
+    </main>
+</section>
+
+<section class="report-screen report-wide-screen report-knowledge-layout" data-report-screen-panel="knowledge">
+    <aside class="report-wide-aside">
+        <h2>知识搜索</h2>
+        <p>仅检索你自己已提交报告的正文和图片内容，由 AI 基于命中记录总结回答。</p>
+        <div class="report-question-list">
+            <button type="button" class="report-question-chip" data-report-question="我最近遇到过哪些重复问题，分别是怎么处理的？">最近的重复问题和处理方式</button>
+            <button type="button" class="report-question-chip" data-report-question="我上次关于 TK 客服跟单的处理结论是什么？">TK 客服跟单的处理结论</button>
+            <button type="button" class="report-question-chip" data-report-question="请总结我最近一周的重点工作和未完成事项。">最近一周重点工作与待办</button>
+        </div>
+    </aside>
+    <main class="report-wide-main">
+        <div class="report-wide-head"><div><h2>向报告库提问</h2><p>回答会引用你个人报告库中的相关内容。</p></div></div>
+        <div class="report-search-row">
+            <input id="knowledgeSearchInput" class="report-main-field" placeholder="例如：我上次关于 TK 客服跟单的处理结论是什么？">
+            <button id="knowledgeSearchBtn" type="button" class="report-work-button primary"><i class="fas fa-magnifying-glass"></i>开始搜索</button>
+        </div>
+        <div id="knowledgeMeta" class="report-helper" style="margin:0 0 9px;">状态：待搜索</div>
+        <div id="knowledgeResult" class="result knowledge-result report-knowledge-result">请输入问题后开始搜索...</div>
+    </main>
+</section>
+
+<div id="notifyPickerMask" class="notify-modal-mask">
+    <div class="notify-modal">
+        <div class="notify-modal-head">
+            <span>选择人员</span>
+            <button id="notifyPickerCloseBtn" type="button" class="notify-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="notify-modal-body">
+            <div class="notify-panel">
+                <div class="notify-panel-tools">
+                    <select id="notifyModalDepartment" class="select">
+                        <option value="">请选择部门</option>
+                    </select>
+                    <button id="reloadNotifyDepartmentsBtn" type="button" class="btn">刷新</button>
+                </div>
+                <div class="notify-panel-tools">
+                    <input id="notifyModalSearch" class="notify-search" placeholder="搜索姓名，支持跨部门">
+                    <button id="notifySelectAllBtn" type="button" class="btn">全选</button>
+                </div>
+                <div id="notifyUsers" class="notify-users"></div>
+            </div>
+            <div class="notify-panel">
+                <div class="notify-panel-tools">
+                    <strong style="font-size:14px;color:#0f172a;">已选人员</strong>
+                    <button id="notifyClearBtn" type="button" class="btn">清空</button>
+                </div>
+                <div id="notifySelectedUsers" class="notify-users"></div>
+            </div>
+        </div>
+        <div class="notify-modal-foot">
+            <button id="notifyPickerCancelBtn" type="button" class="btn">取消</button>
+            <button id="notifyPickerConfirmBtn" type="button" class="btn">确认</button>
+        </div>
+    </div>
+</div>
+
+<div id="editorContextMenu" class="editor-context-menu">
+    <button type="button" class="editor-menu-item" data-editor-action="bold">加粗</button>
+    <button type="button" class="editor-menu-item" data-editor-action="italic">斜体</button>
+    <button type="button" class="editor-menu-item" data-editor-action="underline">下划线</button>
+    <div class="editor-menu-sep"></div>
+    <button type="button" class="editor-menu-item" data-editor-action="insertUnorderedList">无序列表</button>
+    <button type="button" class="editor-menu-item" data-editor-action="insertOrderedList">有序列表</button>
+    <button type="button" class="editor-menu-item" data-editor-action="blockquote">引用</button>
+    <button type="button" class="editor-menu-item" data-editor-action="h4">标题</button>
+    <button type="button" class="editor-menu-item" data-editor-action="p">正文</button>
+    <div class="editor-menu-sep"></div>
+    <button type="button" class="editor-menu-item" data-editor-action="link">链接</button>
+    <button type="button" class="editor-menu-item" data-editor-action="unlink">取消链接</button>
+    <div class="editor-menu-sep"></div>
+    <button type="button" class="editor-menu-item" data-editor-action="undo">撤销</button>
+    <button type="button" class="editor-menu-item" data-editor-action="redo">重做</button>
+    <button type="button" class="editor-menu-item" data-editor-action="removeFormat">清除格式</button>
+</div>
+
+<div id="internGuideMask" class="notify-modal-mask">
+    <div class="notify-modal" style="width:min(760px, 96vw);">
+        <div class="notify-modal-head">
+            <span>管培生/实习分析要求</span>
+            <button id="internGuideCloseBtn" type="button" class="notify-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="notify-modal-body" style="display:block;min-height:auto;max-height:calc(86vh - 118px);overflow:auto;padding:16px 18px;">
+            <div class="meta" style="margin-top:0;color:#92400e;">选择“管培生/实习”后，AI 会按以下要求进行分析，其中第 1 点优先级最高。</div>
+            <ol class="focus-guide-list" style="padding-left:22px;margin-top:12px;">
+                <li class="is-primary">当日工作内容
+                    <ul class="focus-guide-list">
+                        <li>今日学习 + 工作内容 + 用时情况</li>
+                        <li>学习知识点梳理总结</li>
+                    </ul>
+                </li>
+                <li>遇到的问题 & 解决方案 & 思路扩展
+                    <ul class="focus-guide-list">
+                        <li>遇到的问题（如学习难点、不理解的内容等）</li>
+                        <li>如何解决、思考路径</li>
+                        <li>以后应对类似问题的思路总结或扩展</li>
+                    </ul>
+                </li>
+                <li>明日计划
+                    <ul class="focus-guide-list">
+                        <li>明日需继续跟进的事项</li>
+                    </ul>
+                </li>
+                <li>好用的工作方法 & 素材积累</li>
+            </ol>
+        </div>
+        <div class="notify-modal-foot">
+            <button id="internGuideConfirmBtn" type="button" class="btn">我知道了</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CURRENT_USER_NAME = {{ (user_name or '')|tojson }};
+    const EDIT_WENDANGID = {{ (edit_wendangid or '')|tojson }};
+    let MOBAN_LIST = [];
+    let CURRENT_SOURCE_MOBAN = '';
+    let REPORT_IMAGE_FILES = [];
+    let DRAFT_IMAGE_PATHS = [];
+    let NOTIFY_DEPARTMENTS = [];
+    let NOTIFY_USERS = [];
+    let editorInlineCollectTimer = null;
+    let localDraftSnapshotTimer = null;
+    let notifyConfigSaveTimer = null;
+    let IS_REPORT_CENTER_INITIALIZING = true;
+    let HAS_SHOWN_INTERN_GUIDE = false;
+    const SELECTED_NOTIFY_OPEN_IDS = new Set();
+    const TEMP_SELECTED_NOTIFY_OPEN_IDS = new Set();
+    const CACHED_NOTIFY_NAME_MAP = {};
+    let PENDING_NOTIFY_TARGETS = [];
+    let TEMP_PENDING_NOTIFY_TARGETS = [];
+    let CURRENT_NOTIFY_DEPARTMENT_ID = '';
+    let CURRENT_NOTIFY_SEARCH_KEYWORD = '';
+    let notifySearchTimer = null;
+    let notifySearchSeq = 0;
+    const CROWD_TEMPLATES = {
+        formal_staff: {
+            title: "正式员工模板（SOP优化）",
+            focus: ["SOP执行质量", "流程优化动作", "效率与质量提升", "跨部门协同"],
+            sections: [
+                { heading: "1. 本期核心工作", items: ["目标：", "实际完成：", "关键产出："] },
+                { heading: "2. SOP执行与优化", items: ["当前执行SOP：", "发现的问题：", "本期优化动作：", "优化后效果（数据/案例）："] },
+                { heading: "3. 协作与支持需求", items: ["已完成协作：", "需支持事项："] },
+                { heading: "4. 下期执行计划", items: ["核心目标：", "关键节点与时间："] }
+            ]
+        },
+        management: {
+            title: "管理层模板（心得感悟）",
+            focus: ["经营洞察", "管理复盘", "团队成长", "资源配置建议"],
+            sections: [
+                { heading: "1. 本期整体经营/团队观察", items: ["关键结果：", "风险与机会：", "核心判断："] },
+                { heading: "2. 管理动作复盘", items: ["关键决策：", "执行反馈：", "经验与反思："] },
+                { heading: "3. 心得感悟", items: ["对团队/业务的理解：", "管理方法沉淀："] },
+                { heading: "4. 下期管理重点", items: ["重点事项：", "资源配置建议："] }
+            ]
+        },
+        improvement_staff: {
+            title: "改进人员模板（绩效改进）",
+            focus: ["绩效差距诊断", "改进闭环", "指标提升", "风险预警"],
+            sections: [
+                { heading: "1. 本期改进目标", items: ["改进项：", "目标值：", "衡量口径："] },
+                { heading: "2. 行动与执行", items: ["已执行动作：", "过程中的问题：", "纠偏措施："] },
+                { heading: "3. 改进结果", items: ["指标变化：", "与目标差异：", "原因分析："] },
+                { heading: "4. 下一步改进计划", items: ["具体动作：", "时间安排：", "需要支持："] }
+            ]
+        },
+        intern_trainee: {
+            title: "管培生/实习模板（学习成长）",
+            focus: ["当日工作内容（最高优先级）", "遇到的问题、解决方案与思路扩展", "明日计划", "好用的工作方法与素材积累"],
+            sections: [
+                { heading: "1. 当日工作内容", items: ["今日学习：", "今日工作内容：", "各事项用时情况：", "学习知识点梳理总结："] },
+                { heading: "2. 遇到的问题 & 解决方案 & 思路扩展", items: ["遇到的问题：", "如何解决：", "思考路径：", "以后应对类似问题的思路总结或扩展："] },
+                { heading: "3. 明日计划", items: ["明日需继续跟进的事项：", "明日重点目标："] },
+                { heading: "4. 好用的工作方法 & 素材积累", items: ["今日积累的方法/素材：", "适用场景：", "后续如何复用："] }
+            ]
+        }
+    };
+
+    function isEditMode() {
+        return !!safeText(EDIT_WENDANGID).trim();
+    }
+
+    function safeText(v) {
+        return String(v == null ? '' : v);
+    }
+
+    function escapeHtml(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function updateReportImageList() {
+        const total = REPORT_IMAGE_FILES.length + DRAFT_IMAGE_PATHS.length;
+        document.getElementById('reportImageList').textContent = '已选图片：' + total + ' 张';
+    }
+
+    function buildReportImageUrl(rawPath) {
+        const path = safeText(rawPath).trim();
+        if (!path) return '';
+        if (/^data:image\//i.test(path)) return path;
+        if (/^blob:/i.test(path)) return path;
+        if (/^https?:\/\//i.test(path)) return path;
+        if (path.startsWith('/api/xiaotu/report_image')) return path;
+        return '/api/xiaotu/report_image?path=' + encodeURIComponent(path);
+    }
+
+    function getNotifyTimeValue() {
+        const input = document.getElementById('notifyTimeInput');
+        return safeText(input && input.value).trim().slice(0, 5);
+    }
+
+    function clearCachedNotifyNameMap() {
+        Object.keys(CACHED_NOTIFY_NAME_MAP).forEach((k) => delete CACHED_NOTIFY_NAME_MAP[k]);
+    }
+
+    function rememberCachedNotifyTargets(targets) {
+        clearCachedNotifyNameMap();
+        (Array.isArray(targets) ? targets : []).forEach((one) => {
+            const openId = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (openId && name) {
+                CACHED_NOTIFY_NAME_MAP[openId] = name;
+            }
+        });
+    }
+
+    function buildNotifyNameToOpenIdMap(extraTargets) {
+        const nameToOpenId = {};
+        Object.keys(CACHED_NOTIFY_NAME_MAP).forEach((oid) => {
+            const openId = safeText(oid).trim();
+            const name = safeText(CACHED_NOTIFY_NAME_MAP[oid]).trim();
+            if (openId && name && !nameToOpenId[name]) {
+                nameToOpenId[name] = openId;
+            }
+        });
+        (Array.isArray(NOTIFY_USERS) ? NOTIFY_USERS : []).forEach((one) => {
+            const openId = safeText(one && one.open_id).trim();
+            const name = safeText((one && (one.display_name || one.name)) || '').trim();
+            if (openId && name && !nameToOpenId[name]) {
+                nameToOpenId[name] = openId;
+            }
+        });
+        (Array.isArray(extraTargets) ? extraTargets : []).forEach((one) => {
+            const openId = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (openId && name && !nameToOpenId[name]) {
+                nameToOpenId[name] = openId;
+            }
+        });
+        return nameToOpenId;
+    }
+
+    function hydrateNotifyTargets(targets, notifyOpenIds) {
+        const nameToOpenId = buildNotifyNameToOpenIdMap(targets);
+        const preferredOpenIds = Array.isArray(notifyOpenIds)
+            ? notifyOpenIds.map((x) => safeText(x).trim()).filter((x) => x)
+            : [];
+        const out = [];
+        const seen = new Set();
+        (Array.isArray(targets) ? targets : []).forEach((one, idx) => {
+            let openId = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (!openId && name && nameToOpenId[name]) {
+                openId = nameToOpenId[name];
+            }
+            if (!openId && name && preferredOpenIds.length === 1) {
+                openId = preferredOpenIds[0];
+            }
+            const key = openId ? ('oid:' + openId) : ('name:' + name + ':' + idx);
+            if ((!openId && !name) || seen.has(key)) return;
+            seen.add(key);
+            out.push({ open_id: openId, name: name });
+        });
+        preferredOpenIds.forEach((openId) => {
+            if (!openId || seen.has('oid:' + openId)) return;
+            seen.add('oid:' + openId);
+            out.push({
+                open_id: openId,
+                name: safeText(CACHED_NOTIFY_NAME_MAP[openId]).trim()
+            });
+        });
+        return out;
+    }
+
+    function normalizePendingNotifyTargets(targets) {
+        const out = [];
+        const seen = new Set();
+        (Array.isArray(targets) ? targets : []).forEach((one) => {
+            const openId = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (openId || !name || seen.has(name)) return;
+            seen.add(name);
+            out.push({ open_id: '', name: name });
+        });
+        return out;
+    }
+
+    function buildDraftEditorHtml(rawHtml, imagePaths) {
+        let html = normalizeEditorHtml(rawHtml);
+        html = html.replace(/(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi, (m, p1, src, p3) => {
+            const nextSrc = buildReportImageUrl(src);
+            return p1 + escapeHtml(nextSrc || src) + p3;
+        });
+        const paths = Array.isArray(imagePaths) ? imagePaths : [];
+        if (!html && paths.length) {
+            html = paths.map((p) => `<p><img src="${escapeHtml(buildReportImageUrl(p))}" alt="draft-image"></p>`).join('');
+        } else if (html && paths.length && !/<img\b/i.test(html)) {
+            html += paths.map((p) => `<p><img src="${escapeHtml(buildReportImageUrl(p))}" alt="draft-image"></p>`).join('');
+        }
+        return html;
+    }
+
+    function getReportDraftStorageKey() {
+        if (isEditMode()) {
+            return 'xiaotu_report_draft::' + safeText(CURRENT_USER_NAME).trim() + '::edit::' + safeText(EDIT_WENDANGID).trim();
+        }
+        return 'xiaotu_report_draft::' + safeText(CURRENT_USER_NAME).trim();
+    }
+
+    function hasAnyDraftContent(cacheData) {
+        const data = cacheData || {};
+        return !!safeText(data.draft_html).trim()
+            || (Array.isArray(data.image_paths) && data.image_paths.some((x) => safeText(x).trim()))
+            || (Array.isArray(data.notify_open_ids) && data.notify_open_ids.some((x) => safeText(x).trim()))
+            || !!safeText(data.notify_time).trim();
+    }
+
+    function saveDraftToLocal(cacheData) {
+        try {
+            const data = cacheData || {};
+            const payload = {
+                draft_html: safeText(data.draft_html),
+                image_paths: Array.isArray(data.image_paths) ? data.image_paths : [],
+                notify_targets: Array.isArray(data.notify_targets) ? data.notify_targets : [],
+                notify_open_ids: Array.isArray(data.notify_open_ids) ? data.notify_open_ids : [],
+                notify_time: safeText(data.notify_time).trim().slice(0, 5)
+            };
+            localStorage.setItem(getReportDraftStorageKey(), JSON.stringify(payload));
+        } catch (e) {}
+    }
+
+    function loadDraftFromLocal() {
+        try {
+            const raw = localStorage.getItem(getReportDraftStorageKey());
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return (parsed && typeof parsed === 'object') ? parsed : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearDraftFromLocal() {
+        try {
+            localStorage.removeItem(getReportDraftStorageKey());
+        } catch (e) {}
+    }
+
+    function buildEditorHtmlFromText(rawText) {
+        const text = safeText(rawText).replace(/\r\n/g, '\n').trim();
+        if (!text) return '';
+        return text.split(/\n{2,}/).map((block) => {
+            const lines = safeText(block).split('\n').map((line) => escapeHtml(line));
+            return '<p>' + lines.join('<br>') + '</p>';
+        }).join('');
+    }
+
+    function captureCurrentDraftState() {
+        const notifyOpenIds = Array.from(SELECTED_NOTIFY_OPEN_IDS);
+        const notifyTargets = getSelectedNotifyTargets();
+        return {
+            draft_html: normalizeEditorHtml(document.getElementById('crowdTemplateRich').innerHTML),
+            image_paths: DRAFT_IMAGE_PATHS.slice(),
+            notify_targets: notifyTargets,
+            notify_open_ids: notifyOpenIds,
+            notify_time: getNotifyTimeValue()
+        };
+    }
+
+    function getSelectedNotifyTargets() {
+        const targets = Array.from(SELECTED_NOTIFY_OPEN_IDS).map((oid) => {
+            const one = (NOTIFY_USERS || []).find((x) => safeText(x.open_id).trim() === oid);
+            return {
+                open_id: oid,
+                name: safeText((one && (one.display_name || one.name)) || CACHED_NOTIFY_NAME_MAP[oid] || '').trim()
+            };
+        });
+        return targets.concat(normalizePendingNotifyTargets(PENDING_NOTIFY_TARGETS));
+    }
+
+    function queueLocalDraftSnapshot(delay) {
+        if (IS_REPORT_CENTER_INITIALIZING) return;
+        if (localDraftSnapshotTimer) {
+            clearTimeout(localDraftSnapshotTimer);
+        }
+        localDraftSnapshotTimer = setTimeout(() => {
+            if (IS_REPORT_CENTER_INITIALIZING) return;
+            saveDraftToLocal(captureCurrentDraftState());
+        }, Math.max(0, Number(delay) || 0));
+    }
+
+    function buildTemplatePlainText(template) {
+        const lines = [template.title || ""];
+        const focus = Array.isArray(template.focus) ? template.focus : [];
+        if (focus.length) {
+            lines.push("");
+            lines.push("侧重点：");
+            focus.forEach((f) => lines.push(`- ${f}`));
+        }
+        (template.sections || []).forEach((sec) => {
+            lines.push("");
+            lines.push(sec.heading || "");
+            (sec.items || []).forEach((it) => lines.push(`- ${it}`));
+        });
+        return lines.join("\n").trim();
+    }
+
+    function buildTemplateRichHtml(template) {
+        if (!template || typeof template !== 'object') return '';
+        const parts = [];
+        if (template.title) {
+            parts.push(`<h4>${escapeHtml(template.title)}</h4>`);
+        }
+        const focus = Array.isArray(template.focus) ? template.focus : [];
+        if (focus.length) {
+            parts.push('<p><strong>侧重点：</strong></p>');
+            parts.push('<ul>');
+            focus.forEach((f) => {
+                parts.push(`<li>${escapeHtml(f)}</li>`);
+            });
+            parts.push('</ul>');
+        }
+        (template.sections || []).forEach((sec) => {
+            parts.push(`<h4>${escapeHtml(sec.heading || '')}</h4>`);
+            parts.push('<ul>');
+            (sec.items || []).forEach((it) => {
+                parts.push(`<li>${escapeHtml(it)}</li>`);
+            });
+            parts.push('</ul>');
+        });
+        return parts.join('');
+    }
+
+    function ensureCurrentTemplateLoaded(force) {
+        const editor = document.getElementById('crowdTemplateRich');
+        const currentHtml = normalizeEditorHtml(editor.innerHTML);
+        const hasContent = /<img\b/i.test(currentHtml) || safeText(editor.textContent).trim().length > 0;
+        if (!force && hasContent) return;
+        editor.innerHTML = '';
+        CURRENT_SOURCE_MOBAN = '';
+        document.getElementById('mobanMeta').textContent = '状态：当前为默认空白编辑区';
+    }
+
+    function getSelectedCrowdTemplate() {
+        const type = safeText(document.getElementById('crowdTemplateType').value).trim() || 'formal_staff';
+        return CROWD_TEMPLATES[type] || CROWD_TEMPLATES.formal_staff;
+    }
+
+    function isInternGuideSelected() {
+        return safeText(document.getElementById('crowdTemplateType').value).trim() === 'intern_trainee';
+    }
+
+    function openInternGuide() {
+        document.getElementById('internGuideMask').classList.add('show');
+    }
+
+    function closeInternGuide() {
+        document.getElementById('internGuideMask').classList.remove('show');
+    }
+
+    function updateInternGuideState(triggerModal) {
+        const hint = document.getElementById('internGuideHint');
+        const isIntern = isInternGuideSelected();
+        hint.classList.toggle('show', isIntern);
+        if (isIntern && triggerModal) {
+            openInternGuide();
+            HAS_SHOWN_INTERN_GUIDE = true;
+        }
+    }
+
+    function renderGeneratedReportRich(rawText) {
+        const src = safeText(rawText).replace(/\r\n/g, "\n").trim();
+        if (!src) {
+            return '<div class="report-empty">未生成有效内容</div>';
+        }
+        const lines = src.split("\n");
+        const out = [];
+        let inUl = false;
+        const closeUl = () => {
+            if (inUl) {
+                out.push("</ul>");
+                inUl = false;
+            }
+        };
+        for (const lineRaw of lines) {
+            const line = String(lineRaw || "");
+            const t = line.trim();
+            if (!t) {
+                closeUl();
+                out.push('<div class="report-sep"></div>');
+                continue;
+            }
+            const h = t.match(/^(#{1,6})\s+(.*)$/);
+            if (h) {
+                closeUl();
+                const lvl = h[1].length;
+                out.push(`<div class="report-h h${lvl}">${escapeHtml(h[2])}</div>`);
+                continue;
+            }
+            const li = t.match(/^[-*]\s+(.*)$/);
+            if (li) {
+                if (!inUl) {
+                    out.push('<ul class="report-ul">');
+                    inUl = true;
+                }
+                out.push(`<li>${escapeHtml(li[1])}</li>`);
+                continue;
+            }
+            const ol = t.match(/^(\d+)\.\s+(.*)$/);
+            if (ol) {
+                closeUl();
+                out.push(`<div class="report-ol"><strong>${escapeHtml(ol[1])}.</strong> ${escapeHtml(ol[2])}</div>`);
+                continue;
+            }
+            closeUl();
+            const content = escapeHtml(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+            out.push(`<div class="report-p">${content}</div>`);
+        }
+        closeUl();
+        return out.join("");
+    }
+
+    function normalizeEditorHtml(raw) {
+        let html = safeText(raw).trim();
+        if (!html) return '';
+        html = html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+        html = html.replace(/\son\w+="[^"]*"/gi, '');
+        return html.trim();
+    }
+
+    function renderEditModeBanner(payload, messageText) {
+        const box = document.getElementById('editModeBanner');
+        if (!box) return;
+        if (!isEditMode()) {
+            box.classList.remove('show');
+            box.innerHTML = '';
+            return;
+        }
+        const data = payload || {};
+        const reportKind = safeText(data.report_kind || '').trim() || '日报';
+        const riqi = safeText(data.riqi || '').trim();
+        const title = safeText(data.title || '').trim();
+        const parts = [
+            '本次提交会直接更新原日报记录，不会新建新的日报实例。'
+        ];
+        if (title || riqi || reportKind) {
+            parts.push('正在修改：' + [reportKind, riqi, title].filter((x) => safeText(x).trim()).join(' | '));
+        }
+        if (messageText) {
+            parts.push(safeText(messageText).trim());
+        }
+        box.innerHTML = '<div><strong>当前为撤回修改模式</strong></div>' + parts.map((one) => `<div>${escapeHtml(one)}</div>`).join('');
+        box.classList.add('show');
+    }
+
+    function updateEditModeButtons() {
+        if (!isEditMode()) return;
+        const saveDraftBtn = document.getElementById('saveDraftBtn');
+        const submitBtn = document.getElementById('submitReportBtn');
+        if (saveDraftBtn) saveDraftBtn.textContent = '保存本地草稿';
+        if (submitBtn) submitBtn.textContent = '更新原报告';
+    }
+
+    function applyEditPayloadData(payload, options) {
+        const data = payload || {};
+        const opts = options || {};
+        const reportType = safeText(data.report_type).trim() || 'day';
+        const personTypeValue = safeText(data.person_type_value).trim() || 'formal_staff';
+        const draftHtml = safeText(data.draft_html).trim() || buildEditorHtmlFromText(data.draft_text);
+        const cacheData = {
+            draft_html: draftHtml,
+            image_paths: Array.isArray(data.image_paths) ? data.image_paths : [],
+            notify_targets: Array.isArray(data.notify_targets) ? data.notify_targets : [],
+            notify_open_ids: Array.isArray(data.notify_open_ids) ? data.notify_open_ids : [],
+            notify_time: ''
+        };
+        const reportTypeInput = document.querySelector(`input[name="submitReportType"][value="${reportType}"]`);
+        if (reportTypeInput) reportTypeInput.checked = true;
+        document.getElementById('crowdTemplateType').value = personTypeValue;
+        document.getElementById('submitDocUrl').value = safeText(data.doc_url).trim();
+        applyReportCacheData(cacheData);
+        updateInternGuideState(false);
+        if (!opts.keepMeta) {
+            document.getElementById('submitMeta').textContent = '状态：已载入待修改日报';
+        }
+        renderEditModeBanner(data, opts.messageText || '');
+    }
+
+    async function loadEditPayload() {
+        const meta = document.getElementById('submitMeta');
+        meta.textContent = '状态：正在加载待修改日报...';
+        renderEditModeBanner({}, '正在读取原日报内容...');
+        const resp = await fetch('/api/xiaotu/report_edit_payload?wendangid=' + encodeURIComponent(safeText(EDIT_WENDANGID).trim()));
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        const payload = data.data || {};
+        applyEditPayloadData(payload);
+        const localDraft = loadDraftFromLocal();
+        if (localDraft && hasAnyDraftContent(localDraft)) {
+            applyReportCacheData(localDraft);
+            meta.textContent = '状态：已恢复当前日报的本地编辑草稿';
+            renderEditModeBanner(payload, '已优先恢复当前日报的本地编辑草稿。');
+        }
+        saveDraftToLocal(captureCurrentDraftState());
+        return payload;
+    }
+
+    function resetMobanEditor() {
+        const editor = document.getElementById('crowdTemplateRich');
+        document.getElementById('mobanSelect').value = '';
+        document.getElementById('mobanName').value = '';
+        editor.innerHTML = '';
+        CURRENT_SOURCE_MOBAN = '';
+        REPORT_IMAGE_FILES = [];
+        DRAFT_IMAGE_PATHS = [];
+        updateReportImageList();
+        document.getElementById('mobanMeta').textContent = '状态：已新建空白草稿，请输入内容后保存';
+        editor.focus();
+    }
+
+    function fillMobanSelect(list) {
+        const sel = document.getElementById('mobanSelect');
+        const oldValue = safeText(sel.value).trim();
+        const opts = ['<option value="">请选择已有模板</option>'];
+        (list || []).forEach((one) => {
+            const name = safeText(one.moban).trim();
+            const owner = safeText(one.xingming).trim();
+            const key = safeText(one.moban_key).trim() || (owner + '||' + name);
+            if (!name) return;
+            const label = owner ? (name + '（' + owner + '）') : name;
+            opts.push(`<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`);
+        });
+        sel.innerHTML = opts.join('');
+        if (oldValue && (list || []).some((x) => (safeText(x.moban_key).trim() || (safeText(x.xingming).trim() + '||' + safeText(x.moban).trim())) === oldValue)) {
+            sel.value = oldValue;
+        }
+    }
+
+    async function loadMobanList() {
+        const meta = document.getElementById('mobanMeta');
+        try {
+            const resp = await fetch('/api/xiaotu/moban');
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            MOBAN_LIST = Array.isArray(data.data) ? data.data : [];
+            fillMobanSelect(MOBAN_LIST);
+            meta.textContent = '状态：模板已加载（共 ' + MOBAN_LIST.length + ' 个）';
+        } catch (e) {
+            meta.textContent = '状态：模板加载失败 - ' + safeText((e && e.message) || e);
+        }
+    }
+
+    function onMobanSelected() {
+        const selectedKey = safeText(document.getElementById('mobanSelect').value).trim();
+        const one = MOBAN_LIST.find((x) => (safeText(x.moban_key).trim() || (safeText(x.xingming).trim() + '||' + safeText(x.moban).trim())) === selectedKey);
+        const editor = document.getElementById('crowdTemplateRich');
+        const name = safeText(one && one.moban).trim();
+        const owner = safeText(one && one.xingming).trim();
+        document.getElementById('mobanName').value = name;
+        editor.innerHTML = one ? safeText(one.neirong) : '';
+        CURRENT_SOURCE_MOBAN = (owner && owner === safeText(CURRENT_USER_NAME).trim()) ? name : '';
+        document.getElementById('mobanMeta').textContent = one
+            ? ('状态：已加载模板 - ' + name + (owner ? (' | 创建人: ' + owner) : '') + ' | 更新时间: ' + safeText(one.riqi || '-'))
+            : '状态：未找到模板';
+    }
+
+    function execMobanCommand(cmd, value) {
+        const editor = document.getElementById('crowdTemplateRich');
+        editor.focus();
+        try {
+            if (value) {
+                document.execCommand(cmd, false, value);
+            } else {
+                document.execCommand(cmd, false, null);
+            }
+        } catch (e) {}
+    }
+
+    function closeEditorContextMenu() {
+        const menu = document.getElementById('editorContextMenu');
+        if (menu) menu.classList.remove('show');
+    }
+
+    function openEditorContextMenu(evt) {
+        const menu = document.getElementById('editorContextMenu');
+        if (!menu) return;
+        evt.preventDefault();
+        const vw = window.innerWidth || document.documentElement.clientWidth || 1200;
+        const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+        menu.classList.add('show');
+        menu.style.left = '0px';
+        menu.style.top = '0px';
+        const mw = menu.offsetWidth || 220;
+        const mh = menu.offsetHeight || 300;
+        const x = Math.max(8, Math.min(evt.clientX, vw - mw - 8));
+        const y = Math.max(8, Math.min(evt.clientY, vh - mh - 8));
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+    }
+
+    function runEditorMenuAction(action) {
+        const editor = document.getElementById('crowdTemplateRich');
+        editor.focus();
+        if (action === 'link') {
+            const url = prompt('请输入链接地址（https://...）', 'https://');
+            if (!url) {
+                closeEditorContextMenu();
+                return;
+            }
+            execMobanCommand('createLink', url);
+            closeEditorContextMenu();
+            return;
+        }
+        if (action === 'blockquote') {
+            execMobanCommand('formatBlock', 'blockquote');
+            closeEditorContextMenu();
+            return;
+        }
+        if (action === 'h4') {
+            execMobanCommand('formatBlock', 'h4');
+            closeEditorContextMenu();
+            return;
+        }
+        if (action === 'p') {
+            execMobanCommand('formatBlock', 'p');
+            closeEditorContextMenu();
+            return;
+        }
+        execMobanCommand(action, '');
+        closeEditorContextMenu();
+    }
+
+    function queueReportImages(files) {
+        const list = Array.from(files || []);
+        if (!list.length) return [];
+        const existed = new Set(REPORT_IMAGE_FILES.map((f) => (f.name + '|' + f.size + '|' + f.lastModified)));
+        const accepted = [];
+        list.forEach((file) => {
+            if (!file || !String(file.type || '').startsWith('image/')) return;
+            const key = file.name + '|' + file.size + '|' + file.lastModified;
+            if (existed.has(key)) return;
+            REPORT_IMAGE_FILES.push(file);
+            existed.add(key);
+            accepted.push(file);
+        });
+        updateReportImageList();
+        return accepted;
+    }
+
+    function applyReportCacheData(cacheData) {
+        const data = cacheData || {};
+        const targets = hydrateNotifyTargets(
+            Array.isArray(data.notify_targets) ? data.notify_targets : [],
+            Array.isArray(data.notify_open_ids) ? data.notify_open_ids : []
+        );
+        const notifyOpenIds = Array.isArray(data.notify_open_ids) ? data.notify_open_ids : [];
+        const notifyTime = safeText(data.notify_time).trim().slice(0, 5);
+        rememberCachedNotifyTargets(targets);
+        SELECTED_NOTIFY_OPEN_IDS.clear();
+        targets.forEach((one) => {
+            const oid = safeText(one && one.open_id).trim();
+            if (oid) SELECTED_NOTIFY_OPEN_IDS.add(oid);
+        });
+        notifyOpenIds.forEach((oid) => {
+            const openId = safeText(oid).trim();
+            if (openId) SELECTED_NOTIFY_OPEN_IDS.add(openId);
+        });
+        PENDING_NOTIFY_TARGETS = normalizePendingNotifyTargets(targets);
+        document.getElementById('notifyTimeInput').value = notifyTime;
+        DRAFT_IMAGE_PATHS = Array.isArray(data.image_paths) ? data.image_paths.filter((x) => safeText(x).trim()) : [];
+        REPORT_IMAGE_FILES = [];
+        const draftHtml = buildDraftEditorHtml(data.draft_html || '', DRAFT_IMAGE_PATHS);
+        if (draftHtml) {
+            document.getElementById('crowdTemplateRich').innerHTML = draftHtml;
+            document.getElementById('submitMeta').textContent = '状态：已恢复上次草稿和通知人';
+        } else {
+            ensureCurrentTemplateLoaded(false);
+            if (notifyOpenIds.length) {
+                document.getElementById('submitMeta').textContent = '状态：已恢复上次通知人';
+            }
+        }
+        updateReportImageList();
+        renderNotifySummary();
+        saveDraftToLocal(data);
+    }
+
+    async function loadReportCache() {
+        const localDraft = loadDraftFromLocal();
+        if (localDraft && hasAnyDraftContent(localDraft)) {
+            applyReportCacheData(localDraft);
+            document.getElementById('submitMeta').textContent = '状态：已恢复本地草稿，正在同步云端缓存...';
+        }
+        try {
+            const resp = await fetch('/api/xiaotu/report_cache');
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const remoteCache = data.data || {};
+            const remoteHasDraft = hasAnyDraftContent(remoteCache);
+            const localHasDraft = !!(localDraft && hasAnyDraftContent(localDraft));
+            if (remoteHasDraft || !localHasDraft) {
+                applyReportCacheData(remoteCache);
+                document.getElementById('submitMeta').textContent = remoteHasDraft
+                    ? '状态：已恢复云端草稿'
+                    : '状态：已恢复上次通知人';
+            } else {
+                document.getElementById('submitMeta').textContent = '状态：已恢复本地草稿（云端暂无草稿）';
+            }
+            if (remoteHasDraft || !localHasDraft) {
+                saveDraftToLocal(remoteCache);
+            }
+        } catch (e) {
+            document.getElementById('submitMeta').textContent = '状态：缓存读取失败 - ' + safeText((e && e.message) || e);
+        }
+    }
+
+    async function persistNotifyConfig(silent) {
+        if (IS_REPORT_CENTER_INITIALIZING) return;
+        const notifyTime = getNotifyTimeValue();
+        try {
+            const resp = await fetch('/api/xiaotu/report_notify_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    notify_open_ids: Array.from(SELECTED_NOTIFY_OPEN_IDS),
+                    notify_targets: getSelectedNotifyTargets(),
+                    notify_time: notifyTime
+                })
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const cacheData = (data && data.data) || {};
+            rememberCachedNotifyTargets(Array.isArray(cacheData.notify_targets) ? cacheData.notify_targets : []);
+            saveDraftToLocal(Object.assign({}, captureCurrentDraftState(), {
+                notify_targets: Array.isArray(cacheData.notify_targets) ? cacheData.notify_targets : [],
+                notify_open_ids: Array.isArray(cacheData.notify_open_ids) ? cacheData.notify_open_ids : Array.from(SELECTED_NOTIFY_OPEN_IDS),
+                notify_time: safeText(cacheData.notify_time).trim().slice(0, 5) || notifyTime
+            }));
+            if (!silent) {
+                updateNotifyMeta('状态：提醒设置已保存' + (notifyTime ? ('，每日 ' + notifyTime + ' 检查未提交') : ''));
+            }
+        } catch (e) {
+            if (!silent) {
+                updateNotifyMeta('状态：提醒设置保存失败 - ' + safeText((e && e.message) || e));
+            }
+        }
+    }
+
+    function queueNotifyConfigSave(delayMs, silent) {
+        if (notifyConfigSaveTimer) {
+            clearTimeout(notifyConfigSaveTimer);
+        }
+        notifyConfigSaveTimer = setTimeout(() => {
+            notifyConfigSaveTimer = null;
+            persistNotifyConfig(!!silent).catch(() => {});
+        }, Math.max(0, Number(delayMs) || 0));
+    }
+
+    async function saveReportDraft() {
+        const btn = document.getElementById('saveDraftBtn');
+        const meta = document.getElementById('submitMeta');
+        await collectEditorInlineImages();
+        const richContentHtml = normalizeEditorHtml(document.getElementById('crowdTemplateRich').innerHTML);
+        if (!richContentHtml && REPORT_IMAGE_FILES.length <= 0) {
+            alert('请先输入内容或上传图片后再保存草稿');
+            return;
+        }
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '保存中...';
+        meta.textContent = '状态：草稿保存中...';
+        try {
+            const localCacheData = {
+                draft_html: richContentHtml,
+                image_paths: DRAFT_IMAGE_PATHS,
+                notify_targets: Array.from(SELECTED_NOTIFY_OPEN_IDS).map((oid) => ({ open_id: oid, name: CACHED_NOTIFY_NAME_MAP[oid] || '' })),
+                notify_open_ids: Array.from(SELECTED_NOTIFY_OPEN_IDS),
+                notify_time: getNotifyTimeValue()
+            };
+            saveDraftToLocal(localCacheData);
+            if (isEditMode()) {
+                meta.textContent = '状态：当前修改内容已保存到本地，仅对这条日报生效';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('rich_content_html', richContentHtml);
+            formData.append('notify_open_ids', JSON.stringify(Array.from(SELECTED_NOTIFY_OPEN_IDS)));
+            formData.append('notify_targets', JSON.stringify(getSelectedNotifyTargets()));
+            formData.append('notify_time', getNotifyTimeValue());
+            const uploadFiles = await buildReportUploadFiles();
+            uploadFiles.forEach((f) => formData.append('images', f, f.name));
+            const resp = await fetch('/api/xiaotu/report_draft', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            applyReportCacheData((data && data.data) || {});
+            saveDraftToLocal((data && data.data) || {});
+            meta.textContent = '状态：草稿已保存，下次打开会自动恢复';
+        } catch (e) {
+            meta.textContent = '状态：草稿保存失败 - ' + safeText((e && e.message) || e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
+    }
+
+    async function testReportReminder() {
+        const btn = document.getElementById('testReminderBtn');
+        const meta = document.getElementById('submitMeta');
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '发送中...';
+        meta.textContent = '状态：正在发送测试提醒...';
+        try {
+            const resp = await fetch('/api/xiaotu/report_test_reminder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    notify_time: getNotifyTimeValue()
+                })
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                const msg = (data && data.message) ? data.message : ('HTTP ' + resp.status);
+                const debugInfo = data && data.data ? data.data : {};
+                meta.textContent = '状态：测试提醒失败 - ' + msg
+                    + (safeText(debugInfo.resolved_open_id).trim() ? (' | open_id: ' + safeText(debugInfo.resolved_open_id)) : '')
+                    + (safeText(debugInfo.notify_time).trim() ? (' | 提醒时间: ' + safeText(debugInfo.notify_time)) : '');
+                return;
+            }
+            const debugInfo = data.data || {};
+            meta.textContent = '状态：测试提醒已发送'
+                + (safeText(debugInfo.notify_time).trim() ? (' | 提醒时间: ' + safeText(debugInfo.notify_time)) : '')
+                + (safeText(debugInfo.resolved_open_id).trim() ? (' | open_id: ' + safeText(debugInfo.resolved_open_id)) : '')
+                + ' | 今日已提交: ' + (debugInfo.has_submitted_today ? '是' : '否');
+        } catch (e) {
+            meta.textContent = '状态：测试提醒异常 - ' + safeText((e && e.message) || e);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
+    }
+
+    function addReportImages(files) {
+        const editor = document.getElementById('crowdTemplateRich');
+        const accepted = queueReportImages(files);
+        if (!accepted.length) return;
+        accepted.forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = function () {
+                editor.focus();
+                const html = `<p><img src="${reader.result}" alt="${escapeHtml(file.name)}" data-local-image="${escapeHtml(file.name)}"></p>`;
+                try {
+                    document.execCommand('insertHTML', false, html);
+                } catch (e) {
+                    editor.innerHTML += html;
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+        queueLocalDraftSnapshot(120);
+    }
+
+    function base64ToFile(dataUrl, fileName) {
+        const m = String(dataUrl || '').match(/^data:([^;,]+);base64,(.+)$/i);
+        if (!m) return null;
+        const mime = String(m[1] || 'image/jpeg').trim();
+        const b64 = String(m[2] || '').trim();
+        try {
+            const bin = atob(b64);
+            const len = bin.length;
+            const arr = new Uint8Array(len);
+            for (let i = 0; i < len; i += 1) arr[i] = bin.charCodeAt(i);
+            const ext = (mime.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
+            return new File([arr], fileName || ('inline_' + Date.now() + '.' + ext), { type: mime });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function compressReportImageFile(file) {
+        if (!file || !String(file.type || '').startsWith('image/')) return file;
+        const maxSide = 1800;
+        const quality = 0.82;
+        const shouldTry = Number(file.size || 0) > 2 * 1024 * 1024;
+        let objectUrl = '';
+        try {
+            objectUrl = URL.createObjectURL(file);
+            const img = await new Promise((resolve, reject) => {
+                const node = new Image();
+                node.onload = () => resolve(node);
+                node.onerror = reject;
+                node.src = objectUrl;
+            });
+            const width = Number(img.naturalWidth || img.width || 0);
+            const height = Number(img.naturalHeight || img.height || 0);
+            if (width <= 0 || height <= 0) return file;
+            const scale = Math.min(1, maxSide / Math.max(width, height));
+            if (!shouldTry && scale >= 1) return file;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(width * scale));
+            canvas.height = Math.max(1, Math.round(height * scale));
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return file;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+            if (!blob || blob.size <= 0) return file;
+            if (blob.size >= Number(file.size || 0) && scale >= 1) return file;
+            const baseName = String(file.name || 'report_image').replace(/\.[^.]+$/, '') || 'report_image';
+            return new File([blob], baseName + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+        } catch (e) {
+            return file;
+        } finally {
+            if (objectUrl) {
+                try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            }
+        }
+    }
+
+    async function buildReportUploadFiles() {
+        const out = [];
+        for (const file of REPORT_IMAGE_FILES) {
+            out.push(await compressReportImageFile(file));
+        }
+        return out;
+    }
+
+    async function imageElementToFile(img, fileName) {
+        const node = img;
+        if (!node) return null;
+        try {
+            if (!node.complete && typeof node.decode === 'function') {
+                await node.decode().catch(() => {});
+            }
+        } catch (e) {}
+        const width = Number(node.naturalWidth || node.width || 0);
+        const height = Number(node.naturalHeight || node.height || 0);
+        if (width <= 0 || height <= 0) return null;
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return null;
+            ctx.drawImage(node, 0, 0, width, height);
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 0.92));
+            if (!blob) return null;
+            return new File([blob], fileName || ('inline_' + Date.now() + '.png'), { type: blob.type || 'image/png' });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function canvasElementToFile(canvasEl, fileName) {
+        const node = canvasEl;
+        if (!node) return null;
+        const width = Number(node.width || node.clientWidth || 0);
+        const height = Number(node.height || node.clientHeight || 0);
+        if (width <= 0 || height <= 0) return null;
+        try {
+            const blob = await new Promise((resolve) => node.toBlob(resolve, 'image/png', 0.92));
+            if (!blob) return null;
+            return new File([blob], fileName || ('canvas_' + Date.now() + '.png'), { type: blob.type || 'image/png' });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function getEditorAssetDebugSummary() {
+        return '';
+    }
+
+    async function collectEditorInlineImages() {
+        const editor = document.getElementById('crowdTemplateRich');
+        const imgs = Array.from(editor.querySelectorAll('img'));
+        const canvases = Array.from(editor.querySelectorAll('canvas'));
+        if (!imgs.length && !canvases.length) return 0;
+        const newFiles = [];
+        for (let i = 0; i < imgs.length; i += 1) {
+            const img = imgs[i];
+            const src = safeText(img.getAttribute('src')).trim();
+            if (!src) continue;
+            if (img.hasAttribute('data-local-image')) continue;
+            if (/^data:image\//i.test(src)) {
+                const file = base64ToFile(src, 'inline_' + Date.now() + '_' + (i + 1) + '.png');
+                if (file) {
+                    img.setAttribute('data-local-image', file.name);
+                    newFiles.push(file);
+                }
+                continue;
+            }
+            if (/^blob:/i.test(src)) {
+                try {
+                    const resp = await fetch(src);
+                    const blob = await resp.blob();
+                    if (blob && String(blob.type || '').startsWith('image/')) {
+                        const ext = (String(blob.type || 'image/png').split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'png';
+                        const file = new File([blob], 'blob_' + Date.now() + '_' + (i + 1) + '.' + ext, { type: blob.type || 'image/png' });
+                        img.setAttribute('data-local-image', file.name);
+                        newFiles.push(file);
+                    }
+                } catch (e) {}
+                if (!img.hasAttribute('data-local-image')) {
+                    const file = await imageElementToFile(img, 'blob_canvas_' + Date.now() + '_' + (i + 1) + '.png');
+                    if (file) {
+                        img.setAttribute('data-local-image', file.name);
+                        newFiles.push(file);
+                    }
+                }
+                continue;
+            }
+            if (!/^https?:\/\//i.test(src) && !/^\/api\/xiaotu\/report_image\?/i.test(src) && !/^[a-z]:[\\/]/i.test(src) && !/^\//.test(src)) {
+                const file = await imageElementToFile(img, 'inline_canvas_' + Date.now() + '_' + (i + 1) + '.png');
+                if (file) {
+                    img.setAttribute('data-local-image', file.name);
+                    newFiles.push(file);
+                }
+            }
+        }
+        for (let i = 0; i < canvases.length; i += 1) {
+            const canvasEl = canvases[i];
+            const file = await canvasElementToFile(canvasEl, 'canvas_' + Date.now() + '_' + (i + 1) + '.png');
+            if (!file) continue;
+            newFiles.push(file);
+            try {
+                const previewUrl = URL.createObjectURL(file);
+                const img = document.createElement('img');
+                img.setAttribute('src', previewUrl);
+                img.setAttribute('data-local-image', file.name);
+                img.setAttribute('alt', file.name);
+                canvasEl.replaceWith(img);
+            } catch (e) {}
+        }
+        if (newFiles.length) {
+            queueReportImages(newFiles);
+        }
+        return newFiles.length;
+    }
+
+    function scheduleCollectEditorInlineImages(delayMs) {
+        const wait = Math.max(0, Number(delayMs || 0));
+        if (editorInlineCollectTimer) {
+            clearTimeout(editorInlineCollectTimer);
+        }
+        editorInlineCollectTimer = setTimeout(() => {
+            editorInlineCollectTimer = null;
+            collectEditorInlineImages().catch(() => {});
+        }, wait);
+    }
+
+    function extractImageFilesFromTransfer(dataTransfer) {
+        const out = [];
+        const dt = dataTransfer || {};
+        const items = Array.from(dt.items || []);
+        items.forEach((item) => {
+            if (!item || item.kind !== 'file') return;
+            const file = item.getAsFile ? item.getAsFile() : null;
+            if (file && String(file.type || '').startsWith('image/')) {
+                out.push(file);
+            }
+        });
+        if (!out.length) {
+            Array.from(dt.files || []).forEach((file) => {
+                if (file && String(file.type || '').startsWith('image/')) {
+                    out.push(file);
+                }
+            });
+        }
+        return out;
+    }
+
+    function handleEditorPaste(evt) {
+        const clipboard = evt && evt.clipboardData;
+        const files = extractImageFilesFromTransfer(clipboard);
+        if (files.length) {
+            evt.preventDefault();
+            addReportImages(files);
+            return;
+        }
+        const html = safeText(clipboard && clipboard.getData ? clipboard.getData('text/html') : '').trim();
+        if (html && /<img\b/i.test(html)) {
+            const holder = document.createElement('div');
+            holder.innerHTML = html;
+            const imgs = Array.from(holder.querySelectorAll('img'));
+            const pastedFiles = [];
+            imgs.forEach((img, idx) => {
+                const src = safeText(img.getAttribute('src')).trim();
+                if (!/^data:image\//i.test(src)) return;
+                const file = base64ToFile(src, 'paste_html_' + Date.now() + '_' + (idx + 1) + '.png');
+                if (!file) return;
+                pastedFiles.push(file);
+            });
+            if (pastedFiles.length) {
+                evt.preventDefault();
+                addReportImages(pastedFiles);
+                return;
+            }
+        }
+        scheduleCollectEditorInlineImages(80);
+        scheduleCollectEditorInlineImages(240);
+    }
+
+    function handleEditorDrop(evt) {
+        const files = extractImageFilesFromTransfer(evt && evt.dataTransfer);
+        if (!files.length) return;
+        evt.preventDefault();
+        addReportImages(files);
+    }
+
+    async function saveMoban() {
+        const meta = document.getElementById('mobanMeta');
+        const moban = safeText(document.getElementById('mobanName').value).trim();
+        const neirong = normalizeEditorHtml(document.getElementById('crowdTemplateRich').innerHTML);
+        if (!moban) {
+            alert('请输入模板名');
+            return;
+        }
+        if (!neirong) {
+            alert('模板内容不能为空');
+            return;
+        }
+        meta.textContent = '状态：保存中...';
+        try {
+            const resp = await fetch('/api/xiaotu/moban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    moban: moban,
+                    neirong: neirong,
+                    source_moban: CURRENT_SOURCE_MOBAN || moban
+                })
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            CURRENT_SOURCE_MOBAN = moban;
+            await loadMobanList();
+            document.getElementById('mobanSelect').value = moban;
+            meta.textContent = '状态：模板保存成功 - ' + moban;
+        } catch (e) {
+            meta.textContent = '状态：保存失败 - ' + safeText((e && e.message) || e);
+        }
+    }
+
+    async function deleteMoban() {
+        const meta = document.getElementById('mobanMeta');
+        const moban = safeText(document.getElementById('mobanName').value).trim() || safeText(document.getElementById('mobanSelect').value).trim();
+        if (!moban) {
+            alert('请先选择或输入要删除的模板名');
+            return;
+        }
+        if (!confirm('确认删除模板「' + moban + '」吗？')) {
+            return;
+        }
+        meta.textContent = '状态：删除中...';
+        try {
+            const resp = await fetch('/api/xiaotu/moban?moban=' + encodeURIComponent(moban), { method: 'DELETE' });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            resetMobanEditor();
+            await loadMobanList();
+            meta.textContent = '状态：模板删除成功 - ' + moban;
+        } catch (e) {
+            meta.textContent = '状态：删除失败 - ' + safeText((e && e.message) || e);
+        }
+    }
+
+    function refreshCrowdTemplate() {
+        updateInternGuideState(true);
+        ensureCurrentTemplateLoaded(false);
+        queueLocalDraftSnapshot(0);
+    }
+
+    function getNotifySelectMode() {
+        return 'multi';
+    }
+
+    function updateNotifyMeta(text) {
+        document.getElementById('notifyMeta').textContent = text;
+    }
+
+    function renderNotifySummary() {
+        const box = document.getElementById('notifySummary');
+        const resolvedTargets = Array.from(SELECTED_NOTIFY_OPEN_IDS).map((oid) => {
+            const one = (NOTIFY_USERS || []).find((x) => safeText(x.open_id).trim() === oid);
+            const name = safeText((one && (one.display_name || one.name)) || CACHED_NOTIFY_NAME_MAP[oid] || '').trim() || '未匹配姓名';
+            return `<span class="notify-tag">${escapeHtml(name)}</span>`;
+        });
+        const pendingTargets = normalizePendingNotifyTargets(PENDING_NOTIFY_TARGETS).map((one) => {
+            return `<span class="notify-tag">${escapeHtml(one.name)}（待匹配）</span>`;
+        });
+        const count = resolvedTargets.length + pendingTargets.length;
+        if (count <= 0) {
+            box.innerHTML = '<span class="notify-empty">未选择指定人员，将按系统默认策略通知。</span>';
+            return;
+        }
+        const tags = resolvedTargets.concat(pendingTargets);
+        box.innerHTML = tags.join('') + `<span class="notify-tag">共 ${count} 人</span>`;
+    }
+
+    function renderNotifyUsers() {
+        const box = document.getElementById('notifyUsers');
+        if (!Array.isArray(NOTIFY_USERS) || NOTIFY_USERS.length <= 0) {
+            box.innerHTML = `<div class="report-empty">${CURRENT_NOTIFY_SEARCH_KEYWORD ? '跨部门搜索无匹配人员' : '当前部门暂无可选人员'}</div>`;
+            renderSelectedUsers();
+            updateNotifyMeta(CURRENT_NOTIFY_SEARCH_KEYWORD ? ('状态：跨部门搜索无匹配人员 - ' + CURRENT_NOTIFY_SEARCH_KEYWORD) : '状态：当前部门无成员或读取失败');
+            return;
+        }
+        const keyword = safeText(document.getElementById('notifyModalSearch').value).trim().toLowerCase();
+        const filtered = NOTIFY_USERS.filter((u) => {
+            if (!keyword) return true;
+            const text = safeText(u.display_name || u.name).toLowerCase();
+            return text.includes(keyword);
+        });
+        const checkedCount = Array.from(TEMP_SELECTED_NOTIFY_OPEN_IDS).length;
+        const html = filtered.map((u, idx) => {
+            const openId = safeText(u.open_id).trim();
+            const displayName = safeText(u.display_name || u.name).trim() || '未匹配姓名';
+            const checked = TEMP_SELECTED_NOTIFY_OPEN_IDS.has(openId) ? 'checked' : '';
+            return `<label class="notify-user-row"><input type="checkbox" data-open-id="${escapeHtml(openId)}" ${checked}><span>${idx + 1}. ${escapeHtml(displayName)}</span></label>`;
+        }).join('');
+        box.innerHTML = html || '<div class="report-empty">无匹配人员</div>';
+        renderSelectedUsers();
+        updateNotifyMeta((CURRENT_NOTIFY_SEARCH_KEYWORD ? ('状态：跨部门搜索完成，共 ' + NOTIFY_USERS.length + ' 人') : ('状态：成员加载完成，共 ' + NOTIFY_USERS.length + ' 人')) + '，当前已选 ' + checkedCount + ' 人');
+    }
+
+    function renderSelectedUsers() {
+        const box = document.getElementById('notifySelectedUsers');
+        const arr = Array.from(TEMP_SELECTED_NOTIFY_OPEN_IDS);
+        const pendingArr = normalizePendingNotifyTargets(TEMP_PENDING_NOTIFY_TARGETS);
+        if (!arr.length && !pendingArr.length) {
+            box.innerHTML = '<div class="report-empty">尚未选择人员</div>';
+            return;
+        }
+        const html = [];
+        arr.forEach((oid, idx) => {
+            const one = (NOTIFY_USERS || []).find((x) => safeText(x.open_id).trim() === oid);
+            const displayName = safeText((one && (one.display_name || one.name)) || CACHED_NOTIFY_NAME_MAP[oid] || '').trim() || '未匹配姓名';
+            html.push(`<div class="notify-user-row"><span>${idx + 1}. ${escapeHtml(displayName)}</span></div>`);
+        });
+        pendingArr.forEach((one, idx) => {
+            html.push(`<div class="notify-user-row"><span>${arr.length + idx + 1}. ${escapeHtml(one.name)}（待匹配）</span></div>`);
+        });
+        box.innerHTML = html.join('');
+    }
+
+    function openNotifyPicker() {
+        TEMP_SELECTED_NOTIFY_OPEN_IDS.clear();
+        SELECTED_NOTIFY_OPEN_IDS.forEach((x) => TEMP_SELECTED_NOTIFY_OPEN_IDS.add(x));
+        TEMP_PENDING_NOTIFY_TARGETS = normalizePendingNotifyTargets(PENDING_NOTIFY_TARGETS);
+        document.getElementById('notifyPickerMask').classList.add('show');
+        renderNotifyUsers();
+    }
+
+    function closeNotifyPicker() {
+        document.getElementById('notifyPickerMask').classList.remove('show');
+    }
+
+    function confirmNotifyPicker() {
+        SELECTED_NOTIFY_OPEN_IDS.clear();
+        TEMP_SELECTED_NOTIFY_OPEN_IDS.forEach((x) => SELECTED_NOTIFY_OPEN_IDS.add(x));
+        PENDING_NOTIFY_TARGETS = normalizePendingNotifyTargets(TEMP_PENDING_NOTIFY_TARGETS);
+        renderNotifySummary();
+        updateNotifyMeta('状态：已选择通知人员 ' + (SELECTED_NOTIFY_OPEN_IDS.size + PENDING_NOTIFY_TARGETS.length) + ' 人');
+        queueLocalDraftSnapshot(0);
+        queueNotifyConfigSave(0, false);
+        closeNotifyPicker();
+    }
+
+    async function loadNotifyDepartments() {
+        const depSel = document.getElementById('notifyModalDepartment');
+        try {
+            depSel.innerHTML = '<option value="">加载中...</option>';
+            const resp = await fetch('/api/xiaotu/notify/departments');
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            NOTIFY_DEPARTMENTS = Array.isArray(data.data) ? data.data : [];
+            const opts = ['<option value="">请选择部门</option>'];
+            NOTIFY_DEPARTMENTS.forEach((d) => {
+                const id = safeText(d.department_id).trim();
+                if (!id) return;
+                const nm = safeText(d.department_name).trim() || id;
+                const mark = d.is_user_department ? '（我的部门）' : '';
+                opts.push(`<option value="${escapeHtml(id)}">${escapeHtml(nm + mark)}</option>`);
+            });
+            depSel.innerHTML = opts.join('');
+            if (!CURRENT_NOTIFY_DEPARTMENT_ID && NOTIFY_DEPARTMENTS.length) {
+                const firstMine = NOTIFY_DEPARTMENTS.find((x) => !!x.is_user_department);
+                CURRENT_NOTIFY_DEPARTMENT_ID = safeText((firstMine || NOTIFY_DEPARTMENTS[0]).department_id).trim();
+            }
+            depSel.value = CURRENT_NOTIFY_DEPARTMENT_ID;
+            updateNotifyMeta('状态：部门加载完成，共 ' + NOTIFY_DEPARTMENTS.length + ' 个，请选择部门');
+            if (CURRENT_NOTIFY_DEPARTMENT_ID) {
+                await loadNotifyUsersByDepartment(CURRENT_NOTIFY_DEPARTMENT_ID);
+            }
+        } catch (e) {
+            depSel.innerHTML = '<option value="">加载失败</option>';
+            updateNotifyMeta('状态：部门加载失败 - ' + safeText((e && e.message) || e));
+        }
+    }
+
+    async function loadNotifyUsersByDepartment(givenDepartmentId) {
+        const depId = safeText(givenDepartmentId || document.getElementById('notifyModalDepartment').value).trim();
+        CURRENT_NOTIFY_DEPARTMENT_ID = depId;
+        CURRENT_NOTIFY_SEARCH_KEYWORD = '';
+        NOTIFY_USERS = [];
+        if (!depId) {
+            renderNotifyUsers();
+            updateNotifyMeta('状态：请先选择部门后勾选通知人员');
+            return;
+        }
+        try {
+            updateNotifyMeta('状态：正在加载部门成员...');
+            const resp = await fetch('/api/xiaotu/notify/users?department_id=' + encodeURIComponent(depId));
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            NOTIFY_USERS = Array.isArray(data.data) ? data.data : [];
+            renderNotifyUsers();
+        } catch (e) {
+            NOTIFY_USERS = [];
+            renderNotifyUsers();
+            updateNotifyMeta('状态：成员加载失败 - ' + safeText((e && e.message) || e));
+        }
+    }
+
+    async function loadNotifyUsersBySearch(keyword) {
+        const q = safeText(keyword).trim();
+        CURRENT_NOTIFY_SEARCH_KEYWORD = q;
+        NOTIFY_USERS = [];
+        if (!q) {
+            await loadNotifyUsersByDepartment(CURRENT_NOTIFY_DEPARTMENT_ID);
+            return;
+        }
+        const seq = ++notifySearchSeq;
+        try {
+            updateNotifyMeta('状态：正在跨部门搜索...');
+            const resp = await fetch('/api/xiaotu/notify/search?keyword=' + encodeURIComponent(q));
+            const data = await resp.json().catch(() => null);
+            if (seq !== notifySearchSeq) return;
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            NOTIFY_USERS = Array.isArray(data.data) ? data.data : [];
+            NOTIFY_USERS.forEach((one) => {
+                const oid = safeText(one.open_id).trim();
+                const name = safeText(one.display_name || one.name).trim();
+                if (oid && name && !CACHED_NOTIFY_NAME_MAP[oid]) {
+                    CACHED_NOTIFY_NAME_MAP[oid] = name;
+                }
+            });
+            renderNotifyUsers();
+        } catch (e) {
+            if (seq !== notifySearchSeq) return;
+            NOTIFY_USERS = [];
+            renderNotifyUsers();
+            updateNotifyMeta('状态：跨部门搜索失败 - ' + safeText((e && e.message) || e));
+        }
+    }
+
+    function onNotifyUserCheckChanged(evt) {
+        const target = evt && evt.target;
+        if (!target || target.tagName !== 'INPUT' || target.type !== 'checkbox') return;
+        const openId = safeText(target.getAttribute('data-open-id')).trim();
+        if (!openId) return;
+        const mode = getNotifySelectMode();
+        if (target.checked) {
+            if (mode === 'single') {
+                TEMP_SELECTED_NOTIFY_OPEN_IDS.clear();
+                TEMP_SELECTED_NOTIFY_OPEN_IDS.add(openId);
+                document.querySelectorAll('#notifyUsers input[type="checkbox"]').forEach((cb) => {
+                    cb.checked = safeText(cb.getAttribute('data-open-id')).trim() === openId;
+                });
+            } else {
+                TEMP_SELECTED_NOTIFY_OPEN_IDS.add(openId);
+            }
+        } else {
+            TEMP_SELECTED_NOTIFY_OPEN_IDS.delete(openId);
+        }
+        renderNotifyUsers();
+    }
+
+    function onNotifyModeChanged() {
+        const mode = getNotifySelectMode();
+        if (mode === 'single' && SELECTED_NOTIFY_OPEN_IDS.size > 1) {
+            const firstSaved = Array.from(SELECTED_NOTIFY_OPEN_IDS)[0];
+            SELECTED_NOTIFY_OPEN_IDS.clear();
+            if (firstSaved) SELECTED_NOTIFY_OPEN_IDS.add(firstSaved);
+            renderNotifySummary();
+        }
+        if (mode === 'single' && TEMP_SELECTED_NOTIFY_OPEN_IDS.size > 1) {
+            const first = Array.from(TEMP_SELECTED_NOTIFY_OPEN_IDS)[0];
+            TEMP_SELECTED_NOTIFY_OPEN_IDS.clear();
+            if (first) TEMP_SELECTED_NOTIFY_OPEN_IDS.add(first);
+        }
+        renderNotifyUsers();
+    }
+
+    function selectAllNotifyUsers() {
+        if (!Array.isArray(NOTIFY_USERS) || NOTIFY_USERS.length <= 0) return;
+        const mode = getNotifySelectMode();
+        TEMP_SELECTED_NOTIFY_OPEN_IDS.clear();
+        if (mode === 'single') {
+            const first = safeText(NOTIFY_USERS[0].open_id).trim();
+            if (first) TEMP_SELECTED_NOTIFY_OPEN_IDS.add(first);
+        } else {
+            NOTIFY_USERS.forEach((u) => {
+                const oid = safeText(u.open_id).trim();
+                if (oid) TEMP_SELECTED_NOTIFY_OPEN_IDS.add(oid);
+            });
+        }
+        renderNotifyUsers();
+    }
+
+    function clearNotifyUsers() {
+        TEMP_SELECTED_NOTIFY_OPEN_IDS.clear();
+        TEMP_PENDING_NOTIFY_TARGETS = [];
+        renderNotifyUsers();
+    }
+
+    async function copyCurrentTemplate() {
+        const richHtml = safeText(document.getElementById('crowdTemplateRich').innerHTML);
+        const text = String(richHtml || '').replace(/<[^>]+>/g, '\n').replace(/\n{2,}/g, '\n').trim();
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+            alert('模板已复制');
+        } catch (e) {
+            alert('复制失败，请手动复制');
+        }
+    }
+
+    async function submitWeeklyReport() {
+        const btn = document.getElementById('submitReportBtn');
+        const docUrl = safeText(document.getElementById('submitDocUrl').value).trim();
+        const checkedReportType = document.querySelector('input[name="submitReportType"]:checked');
+        const reportType = safeText((checkedReportType && checkedReportType.value) || 'day').trim() || 'day';
+        const personType = safeText(document.getElementById('crowdTemplateType').value).trim() || 'formal_staff';
+        const meta = document.getElementById('submitMeta');
+        const debugBox = document.getElementById('submitDebug');
+        debugBox.textContent = '';
+        await collectEditorInlineImages();
+        const richContentHtml = normalizeEditorHtml(document.getElementById('crowdTemplateRich').innerHTML);
+        if (!docUrl && !richContentHtml && REPORT_IMAGE_FILES.length <= 0) {
+            alert('请填写云文档链接或富文本内容，或上传图片后再提交');
+            return;
+        }
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '提交中...';
+        meta.textContent = '状态：提交中...';
+        try {
+            const formData = new FormData();
+            formData.append('doc_url', docUrl);
+            formData.append('report_type', reportType);
+            formData.append('renyuanleixing', personType);
+            formData.append('redirect_endpoint', 'dashboard_xiaotu_report_center');
+            formData.append('rich_content_html', richContentHtml);
+            formData.append('notify_mode', 'selected_only');
+            formData.append('notify_open_ids', JSON.stringify(Array.from(SELECTED_NOTIFY_OPEN_IDS)));
+            formData.append('notify_targets', JSON.stringify(getSelectedNotifyTargets()));
+            formData.append('notify_time', getNotifyTimeValue());
+            if (isEditMode()) {
+                formData.append('edit_wendangid', safeText(EDIT_WENDANGID).trim());
+            }
+            const uploadFiles = await buildReportUploadFiles();
+            uploadFiles.forEach((f) => formData.append('images', f, f.name));
+            const resp = await fetch('/api/xiaotu/report_submit', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json().catch(() => null);
+            if (data && data.auth_url) {
+                window.location.href = data.auth_url;
+                return;
+            }
+            if (!resp.ok || !data || data.success !== true) {
+                const msg = (data && data.message) ? data.message : ('HTTP ' + resp.status);
+                const stage = (data && data.stage) ? ('（阶段:' + data.stage + '）') : '';
+                meta.textContent = '状态：提交失败 - ' + msg + stage;
+                return;
+            }
+            const d = data.data || {};
+            REPORT_IMAGE_FILES = [];
+            DRAFT_IMAGE_PATHS = [];
+            clearDraftFromLocal();
+            updateReportImageList();
+            const cacheWarning = safeText((d || {}).cache_warning || '').trim();
+            meta.textContent = '状态：' + safeText((data && data.message) || '提交成功')
+                + (cacheWarning ? '（草稿清理未完成，不影响日报历史）' : '');
+            debugBox.textContent = cacheWarning ? ('缓存提示：' + cacheWarning) : '';
+        } catch (e) {
+            meta.textContent = '状态：提交异常 - ' + safeText((e && e.message) || e);
+            debugBox.textContent = '';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
+    }
+
+    async function searchOwnKnowledge() {
+        const btn = document.getElementById('knowledgeSearchBtn');
+        const meta = document.getElementById('knowledgeMeta');
+        const resultBox = document.getElementById('knowledgeResult');
+        const question = safeText(document.getElementById('knowledgeSearchInput').value).trim();
+        if (!question) {
+            alert('请输入要搜索的问题');
+            return;
+        }
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '搜索中...';
+        meta.textContent = '状态：正在检索你已提交的日志正文与图片内容...';
+        resultBox.innerHTML = '<div class="report-empty">正在搜索并总结，请稍候...</div>';
+        try {
+            const resp = await fetch('/api/xiaotu/knowledge_search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question })
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                const msg = (data && data.message) ? data.message : ('HTTP ' + resp.status);
+                meta.textContent = '状态：搜索失败 - ' + msg;
+                resultBox.innerHTML = `<div class="report-empty">${escapeHtml(safeText(msg))}</div>`;
+                return;
+            }
+            const d = data.data || {};
+            meta.textContent = '状态：搜索完成 | 检索用户: ' + safeText(d.user_name || '-') + ' | 命中文档: ' + safeText(d.row_count || 0) + ' | 扫描总数: ' + safeText(d.searched_total || 0);
+            resultBox.innerHTML = renderGeneratedReportRich(d.answer || '');
+        } catch (e) {
+            const msg = safeText((e && e.message) || e);
+            meta.textContent = '状态：搜索异常 - ' + msg;
+            resultBox.innerHTML = `<div class="report-empty">${escapeHtml(msg)}</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
+    }
+
+    async function generatePeriodReport() {
+        const btn = document.getElementById('generateBtn');
+        const userName = safeText(document.getElementById('reportUserName').value).trim();
+        const startDate = safeText(document.getElementById('reportStartDate').value).trim();
+        const endDate = safeText(document.getElementById('reportEndDate').value).trim();
+        const meta = document.getElementById('genMeta');
+        const resultBox = document.getElementById('genResult');
+        if (!userName) {
+            alert('请填写飞书用户名');
+            return;
+        }
+        if (!startDate || !endDate) {
+            alert('请选择开始日期和结束日期');
+            return;
+        }
+        if (endDate < startDate) {
+            alert('结束日期不能早于开始日期');
+            return;
+        }
+        btn.disabled = true;
+        const oldText = btn.textContent;
+        btn.textContent = '提交中...';
+        meta.textContent = '状态：正在提交后台生成任务...';
+        resultBox.innerHTML = '<div class="report-empty">正在提交后台生成任务，请稍候...</div>';
+        try {
+            const resp = await fetch('/api/ai/xiaotu/period_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_name: userName, start_date: startDate, end_date: endDate })
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                const msg = (data && data.message) ? data.message : ('HTTP ' + resp.status);
+                meta.textContent = '状态：生成失败 - ' + msg;
+                resultBox.innerHTML = `<div class="report-empty">${escapeHtml(safeText(msg))}</div>`;
+                return;
+            }
+            const d = data.data || {};
+            meta.textContent = '状态：AI后台生成中 | 用户: ' + safeText(d.user_name) + ' | 日报条数: ' + safeText(d.row_count) + ' | 时间范围: ' + safeText(d.date_range);
+            resultBox.innerHTML = '<div class="report-empty">AI 已在后台生成报告。你可以离开当前页面，稍后回到“报告历史记录”中打开离线 HTML。</div>';
+            scheduleHistoryAnalysisRefresh();
+        } catch (e) {
+            const msg = safeText((e && e.message) || e);
+            meta.textContent = '状态：生成异常 - ' + msg;
+            resultBox.innerHTML = `<div class="report-empty">${escapeHtml(msg)}</div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = oldText;
+        }
+    }
+
+    function renderHistoryAnalysisList(items) {
+        const box = document.getElementById('historyAnalysisList');
+        const rows = Array.isArray(items) ? items : [];
+        if (!rows.length) {
+            box.innerHTML = '<div class="report-empty">暂无已生成的离线HTML报告。</div>';
+            return;
+        }
+        box.innerHTML = rows.map((one) => {
+            const range = `${safeText(one.start_date || '-')} ~ ${safeText(one.end_date || '-')}`;
+            const url = safeText(one.file_url || '').trim();
+            const status = one.exists ? '已生成' : '文件缺失';
+            return `
+                <div style="border-bottom:1px solid #edf2f7;padding:10px 0;">
+                    <div style="font-weight:700;color:#0f172a;">${escapeHtml(range)}</div>
+                    <div class="meta">状态：${escapeHtml(status)}${safeText(one.id).trim() ? ' | ID: ' + escapeHtml(one.id) : ''}</div>
+                    <div style="margin-top:8px;">
+                        ${url ? `<a class="btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">打开HTML报告</a>` : '<span class="meta">离线文件不可用</span>'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadHistoryAnalysisList() {
+        const box = document.getElementById('historyAnalysisList');
+        if (!box) return;
+        try {
+            const resp = await fetch('/api/xiaotu/report_history_analysis_list');
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || data.success !== true) {
+                const msg = (data && data.message) ? data.message : ('HTTP ' + resp.status);
+                box.innerHTML = `<div class="report-empty">${escapeHtml(safeText(msg))}</div>`;
+                return;
+            }
+            const d = data.data || {};
+            renderHistoryAnalysisList(d.items || []);
+        } catch (e) {
+            box.innerHTML = `<div class="report-empty">${escapeHtml(safeText((e && e.message) || e))}</div>`;
+        }
+    }
+
+    function scheduleHistoryAnalysisRefresh() {
+        loadHistoryAnalysisList();
+        [8000, 20000, 45000, 90000].forEach((delay) => {
+            window.setTimeout(loadHistoryAnalysisList, delay);
+        });
+    }
+
+    async function initReportCenterPage() {
+        document.getElementById('reportUserName').value = safeText(CURRENT_USER_NAME).trim();
+        const formatLocalDate = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+        const today = new Date();
+        const endDate = formatLocalDate(today);
+        const start = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+        const startDate = formatLocalDate(start);
+        const startInput = document.getElementById('reportStartDate');
+        const endInput = document.getElementById('reportEndDate');
+        if (startInput && !startInput.value) startInput.value = startDate;
+        if (endInput && !endInput.value) endInput.value = endDate;
+        updateEditModeButtons();
+        updateInternGuideState(false);
+        try {
+            updateReportImageList();
+            if (isEditMode()) {
+                await loadEditPayload();
+            } else {
+                await loadReportCache();
+            }
+            ensureCurrentTemplateLoaded(false);
+            await loadMobanList();
+            renderNotifySummary();
+            await loadNotifyDepartments();
+            await loadHistoryAnalysisList();
+        } finally {
+            IS_REPORT_CENTER_INITIALIZING = false;
+        }
+    }
+
+    document.getElementById('submitReportBtn').addEventListener('click', submitWeeklyReport);
+    document.getElementById('saveDraftBtn').addEventListener('click', saveReportDraft);
+    document.getElementById('testReminderBtn').addEventListener('click', testReportReminder);
+    document.getElementById('knowledgeSearchBtn').addEventListener('click', searchOwnKnowledge);
+    document.getElementById('refreshHistoryAnalysisBtn').addEventListener('click', loadHistoryAnalysisList);
+    document.getElementById('knowledgeSearchInput').addEventListener('keydown', (evt) => {
+        if (evt.key === 'Enter') {
+            evt.preventDefault();
+            searchOwnKnowledge();
+        }
+    });
+    document.getElementById('generateBtn').addEventListener('click', generatePeriodReport);
+    document.getElementById('crowdTemplateType').addEventListener('change', refreshCrowdTemplate);
+    document.getElementById('openInternGuideBtn').addEventListener('click', openInternGuide);
+    document.getElementById('copyTemplateBtn').addEventListener('click', copyCurrentTemplate);
+    document.getElementById('mobanSelect').addEventListener('change', onMobanSelected);
+    document.getElementById('mobanNewBtn').addEventListener('click', resetMobanEditor);
+    document.getElementById('mobanSaveBtn').addEventListener('click', saveMoban);
+    document.getElementById('mobanDeleteBtn').addEventListener('click', deleteMoban);
+    document.querySelectorAll('.moban-toolbar [data-cmd]').forEach((btn) => {
+        btn.addEventListener('click', () => execMobanCommand(btn.getAttribute('data-cmd'), btn.getAttribute('data-value') || ''));
+    });
+    document.querySelectorAll('.moban-toolbar [data-action="link"]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const url = prompt('请输入链接地址（https://...）', 'https://');
+            if (!url) return;
+            execMobanCommand('createLink', url);
+        });
+    });
+    document.getElementById('insertImageBtn').addEventListener('click', () => {
+        document.getElementById('reportImageInput').click();
+    });
+    document.getElementById('reportImageInput').addEventListener('change', (e) => {
+        addReportImages(e.target.files);
+        e.target.value = '';
+    });
+    document.getElementById('crowdTemplateRich').addEventListener('contextmenu', openEditorContextMenu);
+    document.getElementById('crowdTemplateRich').addEventListener('paste', handleEditorPaste);
+    document.getElementById('crowdTemplateRich').addEventListener('drop', handleEditorDrop);
+    document.getElementById('crowdTemplateRich').addEventListener('dragover', (evt) => evt.preventDefault());
+    document.getElementById('crowdTemplateRich').addEventListener('input', () => {
+        scheduleCollectEditorInlineImages(60);
+        queueLocalDraftSnapshot(180);
+    });
+    const editorObserver = new MutationObserver(() => {
+        scheduleCollectEditorInlineImages(60);
+        queueLocalDraftSnapshot(180);
+    });
+    editorObserver.observe(document.getElementById('crowdTemplateRich'), {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['src']
+    });
+    document.getElementById('editorContextMenu').addEventListener('click', (e) => {
+        const target = e.target && e.target.closest('[data-editor-action]');
+        if (!target) return;
+        const action = safeText(target.getAttribute('data-editor-action')).trim();
+        if (!action) return;
+        runEditorMenuAction(action);
+    });
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('editorContextMenu');
+        if (!menu || !menu.classList.contains('show')) return;
+        if (!menu.contains(e.target)) {
+            closeEditorContextMenu();
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeEditorContextMenu();
+        }
+    });
+    window.addEventListener('blur', closeEditorContextMenu);
+    window.addEventListener('scroll', closeEditorContextMenu, true);
+    window.addEventListener('beforeunload', () => saveDraftToLocal(captureCurrentDraftState()));
+    document.getElementById('openNotifyPickerBtn').addEventListener('click', openNotifyPicker);
+    document.getElementById('notifyPickerCloseBtn').addEventListener('click', closeNotifyPicker);
+    document.getElementById('notifyPickerCancelBtn').addEventListener('click', closeNotifyPicker);
+    document.getElementById('notifyPickerConfirmBtn').addEventListener('click', confirmNotifyPicker);
+    document.getElementById('reloadNotifyDepartmentsBtn').addEventListener('click', loadNotifyDepartments);
+    document.getElementById('notifyModalDepartment').addEventListener('change', (e) => loadNotifyUsersByDepartment(safeText(e.target.value).trim()));
+    document.getElementById('notifyModalSearch').addEventListener('input', (e) => {
+        const keyword = safeText(e && e.target && e.target.value).trim();
+        if (notifySearchTimer) {
+            clearTimeout(notifySearchTimer);
+            notifySearchTimer = null;
+        }
+        if (!keyword) {
+            notifySearchSeq += 1;
+            loadNotifyUsersByDepartment(CURRENT_NOTIFY_DEPARTMENT_ID);
+            return;
+        }
+        notifySearchTimer = setTimeout(() => {
+            notifySearchTimer = null;
+            loadNotifyUsersBySearch(keyword);
+        }, 220);
+    });
+    document.getElementById('notifyUsers').addEventListener('change', onNotifyUserCheckChanged);
+    document.getElementById('notifySelectAllBtn').addEventListener('click', selectAllNotifyUsers);
+    document.getElementById('notifyClearBtn').addEventListener('click', clearNotifyUsers);
+    document.getElementById('notifyTimeInput').addEventListener('change', () => {
+        queueLocalDraftSnapshot(0);
+        queueNotifyConfigSave(80, false);
+    });
+    document.getElementById('notifyTimeInput').addEventListener('input', () => {
+        queueLocalDraftSnapshot(0);
+        queueNotifyConfigSave(80, true);
+    });
+    document.getElementById('notifyPickerMask').addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'notifyPickerMask') {
+            closeNotifyPicker();
+        }
+    });
+    document.getElementById('internGuideCloseBtn').addEventListener('click', closeInternGuide);
+    document.getElementById('internGuideConfirmBtn').addEventListener('click', closeInternGuide);
+    document.getElementById('internGuideMask').addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'internGuideMask') {
+            closeInternGuide();
+        }
+    });
+    initReportCenterPage();
+</script>
+<script>
+(() => {
+    const editor = document.getElementById('crowdTemplateRich');
+    const reportTypeLabels = { day: '日报', week: '周报', month: '月报' };
+    const personHints = {
+        formal_staff: '侧重点：执行质量、流程优化、协作效率与结果稳定性。',
+        management: '侧重点：经营洞察、团队管理、资源配置与风险判断。',
+        improvement_staff: '侧重点：差距诊断、纠偏动作、指标改善与闭环结果。',
+        intern_trainee: '侧重点：学习内容、任务理解、问题复盘与成长积累。'
+    };
+
+    function setScreen(name) {
+        document.querySelectorAll('[data-report-screen]').forEach((button) => {
+            button.classList.toggle('active', button.dataset.reportScreen === name);
+        });
+        document.querySelectorAll('[data-report-screen-panel]').forEach((panel) => {
+            panel.classList.toggle('active', panel.dataset.reportScreenPanel === name);
+        });
+        document.body.classList.remove('report-inspector-open');
+    }
+
+    function setInspector(name) {
+        document.querySelectorAll('[data-report-inspector]').forEach((button) => {
+            button.classList.toggle('active', button.dataset.reportInspector === name);
+        });
+        document.querySelectorAll('[data-report-inspector-panel]').forEach((panel) => {
+            panel.classList.toggle('active', panel.dataset.reportInspectorPanel === name);
+        });
+    }
+
+    function syncReportType() {
+        const checked = document.querySelector('input[name="submitReportType"]:checked');
+        const label = reportTypeLabels[(checked && checked.value) || 'day'] || '日报';
+        document.getElementById('reportWorkspaceTitle').textContent = (isEditMode() ? '修改' : '新建') + label;
+    }
+
+    function syncPersonType() {
+        const select = document.getElementById('crowdTemplateType');
+        const value = safeText(select && select.value).trim() || 'formal_staff';
+        document.querySelectorAll('[data-person-type]').forEach((button) => {
+            button.classList.toggle('active', button.dataset.personType === value);
+        });
+        document.getElementById('reportFocusHint').textContent = personHints[value] || personHints.formal_staff;
+    }
+
+    function sanitizePreviewHtml(rawHtml) {
+        const template = document.createElement('template');
+        template.innerHTML = safeText(rawHtml);
+        template.content.querySelectorAll('script, iframe, object, embed, form').forEach((node) => node.remove());
+        template.content.querySelectorAll('*').forEach((node) => {
+            Array.from(node.attributes).forEach((attr) => {
+                const name = attr.name.toLowerCase();
+                const value = safeText(attr.value).trim();
+                if (name.startsWith('on') || (['href', 'src'].includes(name) && /^javascript:/i.test(value))) {
+                    node.removeAttribute(attr.name);
+                }
+            });
+            if (node.tagName === 'A') {
+                node.setAttribute('target', '_blank');
+                node.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+        return template.innerHTML;
+    }
+
+    function updatePreview() {
+        const paper = document.getElementById('desktopPreviewPaper');
+        const html = sanitizePreviewHtml(editor.innerHTML);
+        const hasContent = safeText(editor.textContent).trim() || editor.querySelector('img');
+        paper.classList.toggle('empty', !hasContent);
+        paper.innerHTML = hasContent ? html : '暂无预览内容';
+    }
+
+    function countSelectedNotifyUsers() {
+        try {
+            return SELECTED_NOTIFY_OPEN_IDS.size + PENDING_NOTIFY_TARGETS.length;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function updateDesktopMetrics() {
+        const text = safeText(editor.innerText).replace(/\s+/g, ' ').trim();
+        const charCount = text.replace(/\s/g, '').length;
+        let imageCount = editor.querySelectorAll('img').length;
+        try {
+            imageCount = Math.max(imageCount, REPORT_IMAGE_FILES.length + DRAFT_IMAGE_PATHS.length);
+        } catch (e) {}
+        const notifyCount = countSelectedNotifyUsers();
+        const hasStructure = !!editor.querySelector('h1, h2, h3, h4, ul, ol');
+        const hasPlan = /明日|下期|计划|下一步|跟进/.test(text);
+        const hasResult = /完成|结果|产出|进展|指标|结论/.test(text);
+        const hasReference = imageCount > 0 || safeText(document.getElementById('submitDocUrl').value).trim();
+        let score = 36;
+        if (charCount >= 20) score += 14;
+        if (charCount >= 80) score += 10;
+        if (hasStructure) score += 12;
+        if (hasResult) score += 10;
+        if (hasPlan) score += 10;
+        if (hasReference) score += 8;
+        score = Math.min(100, score);
+
+        document.getElementById('desktopCharCount').textContent = String(charCount);
+        document.getElementById('desktopImageCount').textContent = String(imageCount);
+        document.getElementById('desktopNotifyCount').textContent = String(notifyCount);
+        document.getElementById('desktopScoreMini').textContent = score + '%';
+        document.getElementById('desktopScoreValue').textContent = String(score);
+        document.getElementById('desktopScoreHint').textContent = score >= 85
+            ? '内容结构完整，可在预览确认后提交。'
+            : '补充工作结果与明日计划后会更完整。';
+
+        const checks = [
+            { done: charCount >= 20, title: '正文内容', desc: charCount >= 20 ? '已填写报告正文' : '至少填写一项具体工作内容' },
+            { done: hasStructure, title: '内容结构', desc: hasStructure ? '已使用标题或列表组织信息' : '建议使用标题和列表提高可读性' },
+            { done: hasResult, title: '结果与产出', desc: hasResult ? '已识别到结果或进展描述' : '补充完成结果、数据或结论' },
+            { done: hasPlan, title: '后续计划', desc: hasPlan ? '已包含计划或跟进事项' : '补充明日或下一阶段计划' },
+            { done: notifyCount > 0, title: '通知设置', desc: notifyCount > 0 ? `已选择 ${notifyCount} 位通知人` : '未指定人员，将按系统默认策略处理' }
+        ];
+        document.getElementById('desktopCheckList').innerHTML = checks.map((one) => `
+            <div class="report-check-item ${one.done ? 'done' : ''}">
+                <i class="fas ${one.done ? 'fa-circle-check' : 'fa-circle'}"></i>
+                <div><strong>${one.title}</strong><span>${one.desc}</span></div>
+            </div>
+        `).join('');
+    }
+
+    function markDraftState() {
+        const state = document.getElementById('reportAutosaveState');
+        state.innerHTML = '<i class="fas fa-cloud-arrow-up"></i>正在记录';
+        window.clearTimeout(markDraftState.timer);
+        markDraftState.timer = window.setTimeout(() => {
+            state.innerHTML = '<i class="fas fa-cloud"></i>草稿自动保存';
+        }, 900);
+    }
+
+    document.querySelectorAll('[data-report-screen]').forEach((button) => {
+        button.addEventListener('click', () => setScreen(button.dataset.reportScreen));
+    });
+    document.querySelectorAll('[data-report-inspector]').forEach((button) => {
+        button.addEventListener('click', () => setInspector(button.dataset.reportInspector));
+    });
+    document.querySelectorAll('[data-person-type]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const select = document.getElementById('crowdTemplateType');
+            select.value = button.dataset.personType;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            syncPersonType();
+        });
+    });
+    document.querySelectorAll('input[name="submitReportType"]').forEach((input) => {
+        input.addEventListener('change', syncReportType);
+    });
+    document.querySelectorAll('[data-report-question]').forEach((button) => {
+        button.addEventListener('click', () => {
+            document.getElementById('knowledgeSearchInput').value = button.dataset.reportQuestion;
+            document.getElementById('knowledgeSearchInput').focus();
+        });
+    });
+    document.getElementById('productionPreviewBtn').addEventListener('click', () => {
+        updatePreview();
+        setInspector('preview');
+        document.body.classList.add('report-inspector-open');
+    });
+    document.getElementById('reportInspectorToggle').addEventListener('click', () => {
+        document.body.classList.toggle('report-inspector-open');
+    });
+    document.getElementById('submitDocUrl').addEventListener('input', updateDesktopMetrics);
+    editor.addEventListener('input', () => {
+        updateDesktopMetrics();
+        updatePreview();
+        markDraftState();
+    });
+
+    const desktopObserver = new MutationObserver(() => {
+        updateDesktopMetrics();
+        updatePreview();
+    });
+    desktopObserver.observe(editor, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['src'] });
+    desktopObserver.observe(document.getElementById('notifySummary'), { childList: true, subtree: true, characterData: true });
+    desktopObserver.observe(document.getElementById('reportImageList'), { childList: true, subtree: true, characterData: true });
+
+    syncReportType();
+    syncPersonType();
+    updateDesktopMetrics();
+    updatePreview();
+    window.setInterval(syncPersonType, 800);
+})();
+</script>
+</body>
+</html>

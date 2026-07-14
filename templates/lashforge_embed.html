@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小哈 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f7f9fc;
+            color: #111827;
+        }
+        .page {
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+            padding: 8px 0 0;
+        }
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+            padding: 0 8px;
+        }
+        .title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0;
+        }
+        .title i { color: #5b7cff; }
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .back-btn,
+        .open-btn {
+            min-width: 72px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            text-decoration: none;
+            text-align: center;
+            white-space: nowrap;
+            border: 1px solid #e5e7eb;
+        }
+        .back-btn {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+        .open-btn {
+            background: #eef2ff;
+            color: #4338ca;
+            border-color: #c7d2fe;
+        }
+        .panel {
+            background: #fff;
+            border: 0;
+            border-radius: 0;
+            padding: 0;
+        }
+        .panel-hd {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+            padding: 0 8px;
+        }
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0;
+        }
+        .panel-title i { color: #5b7cff; }
+        .panel-sub { color: #94a3b8; font-size: 12px; }
+        .iframe-shell {
+            height: calc(100vh - 82px);
+            min-height: 760px;
+            border: 0;
+            border-radius: 0;
+            overflow: hidden;
+            background: #fff;
+        }
+        .iframe-shell iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+            background: #fff;
+        }
+        .iframe-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
+            background: linear-gradient(180deg, #f8fbff 0%, #f2f6fb 100%);
+            color: #475569;
+            font-size: 13px;
+        }
+        .iframe-shell {
+            position: relative;
+        }
+        .spinner {
+            width: 26px;
+            height: 26px;
+            border: 3px solid #dbeafe;
+            border-top-color: #5b7cff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        .loading-tip {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .retry-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .retry-btn[hidden] {
+            display: none;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .footer {
+            text-align: center;
+            color: #c3cad8;
+            padding: 8px 0 4px;
+            font-size: 12px;
+        }
+        @media (max-width: 768px) {
+            .page { padding: 6px 0 0; }
+            .title { font-size: 18px; }
+            .actions { flex-wrap: wrap; justify-content: flex-end; }
+            .iframe-shell {
+                height: calc(100vh - 120px);
+                min-height: 640px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-head">
+            <h1 class="title"><i class="fas fa-wand-magic-sparkles"></i>小哈</h1>
+            <div class="actions">
+                <a class="open-btn" href="{{ lashforge_url }}" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-up-right-from-square"></i> 新窗口打开
+                </a>
+                <a class="back-btn" href="{{ url_for('visual_design_dept') }}">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-hd">
+                <h2 class="panel-title"><i class="fas fa-star"></i>当前会话</h2>
+                <div class="panel-sub">当前用户：{{ user_name or '访客' }}</div>
+            </div>
+            <div class="iframe-shell">
+                <div class="iframe-loading" id="iframe-loading">
+                    <div class="spinner"></div>
+                    <div id="loading-text">正在打开小哈...</div>
+                    <div class="loading-tip">首次进入如果飞书内核抖动，系统会自动重试一次</div>
+                    <button type="button" class="retry-btn" id="retry-btn" hidden>重新加载</button>
+                </div>
+                <iframe
+                    data-src="{{ lashforge_url }}"
+                    title="小哈"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allow="clipboard-read; clipboard-write"
+                    id="lashforge-frame"
+                ></iframe>
+            </div>
+        </div>
+
+        <footer class="footer">© 2025 图创AI系统</footer>
+    </div>
+    <script>
+        (function () {
+            const frame = document.getElementById('lashforge-frame');
+            const loading = document.getElementById('iframe-loading');
+            const retryBtn = document.getElementById('retry-btn');
+            const loadingText = document.getElementById('loading-text');
+            const targetUrl = (frame && frame.dataset && frame.dataset.src) ? frame.dataset.src.trim() : '';
+            let triedAutoRetry = false;
+
+            function setLoading(message, showRetry) {
+                if (loadingText) {
+                    loadingText.textContent = message || '正在打开小哈...';
+                }
+                if (retryBtn) {
+                    retryBtn.hidden = !showRetry;
+                }
+                if (loading) {
+                    loading.style.display = 'flex';
+                }
+            }
+
+            function hideLoading() {
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }
+
+            function loadFrame(cacheBust) {
+                if (!frame || !targetUrl) {
+                    setLoading('小哈地址无效，请稍后重试', true);
+                    return;
+                }
+                const nextUrl = cacheBust
+                    ? targetUrl + (targetUrl.indexOf('?') >= 0 ? '&' : '?') + '_ts=' + Date.now()
+                    : targetUrl;
+                setLoading(cacheBust ? '正在重新连接小哈...' : '正在打开小哈...', false);
+                frame.src = nextUrl;
+            }
+
+            if (!frame) {
+                return;
+            }
+
+            const isFeishuClient = /lark|feishu|larkoffice/i.test(window.navigator.userAgent || '');
+            const forceEmbed = new URLSearchParams(window.location.search).get('embed') === '1';
+            if (isFeishuClient && targetUrl && !forceEmbed) {
+                window.location.replace(targetUrl);
+                return;
+            }
+
+            window.setTimeout(function () {
+                loadFrame(false);
+            }, 120);
+
+            frame.addEventListener('load', function () {
+                hideLoading();
+            });
+
+            frame.addEventListener('error', function () {
+                if (!triedAutoRetry) {
+                    triedAutoRetry = true;
+                    window.setTimeout(function () {
+                        loadFrame(true);
+                    }, 500);
+                    return;
+                }
+                setLoading('首次加载失败，请点击重新加载', true);
+            });
+
+            window.setTimeout(function () {
+                if (loading && loading.style.display !== 'none' && !triedAutoRetry) {
+                    triedAutoRetry = true;
+                    loadFrame(true);
+                }
+            }, 8000);
+
+            window.setTimeout(function () {
+                if (loading && loading.style.display !== 'none') {
+                    setLoading('小哈仍在加载，可手动重试或新窗口打开', true);
+                }
+            }, 20000);
+
+            if (retryBtn) {
+                retryBtn.addEventListener('click', function () {
+                    triedAutoRetry = true;
+                    loadFrame(true);
+                });
+            }
+        })();
+    </script>
+</body>
+</html>

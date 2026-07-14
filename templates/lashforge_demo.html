@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小哈工作台 Demo - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --bg: #08111d;
+            --sidebar: #0a1421;
+            --panel: #101b2a;
+            --panel-soft: #0c1726;
+            --panel-deep: #0a1321;
+            --line: #253349;
+            --line-soft: #1b2a3f;
+            --text: #eef4ff;
+            --muted: #8492a8;
+            --muted-2: #617086;
+            --purple: #7657ff;
+            --purple-2: #8a6dff;
+            --green: #32d583;
+            --blue: #5cc8ff;
+            --danger: #ff6262;
+            --shadow: 0 18px 60px rgba(0, 0, 0, .32);
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 78% 0%, rgba(91, 82, 255, .22), transparent 38%),
+                linear-gradient(180deg, #06101c 0%, #08111d 52%, #07101b 100%);
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            font-size: 14px;
+        }
+        button, input, select, textarea { font: inherit; }
+        button { cursor: pointer; }
+        .app {
+            width: min(1200px, 100vw);
+            min-height: 680px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 172px minmax(0, 1fr);
+            background: rgba(8, 17, 29, .96);
+            border: 1px solid rgba(88, 108, 142, .16);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0b1725 0%, #09131f 100%);
+            border-right: 1px solid var(--line-soft);
+            padding: 22px 10px 18px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 6px 24px;
+        }
+        .brand-mark {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, #8d72ff, #6548ff);
+            color: #fff;
+            font-weight: 950;
+            box-shadow: 0 10px 26px rgba(118, 87, 255, .38);
+        }
+        .brand-name {
+            font-size: 15px;
+            font-weight: 950;
+            line-height: 1.1;
+        }
+        .brand-sub {
+            margin-top: 3px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .nav {
+            display: grid;
+            gap: 7px;
+        }
+        .nav-btn {
+            width: 100%;
+            min-height: 35px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            background: transparent;
+            color: #a7b3c5;
+            display: grid;
+            grid-template-columns: 22px minmax(0, 1fr);
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            text-align: left;
+            font-weight: 850;
+        }
+        .nav-btn i {
+            width: 18px;
+            color: #9aa7bb;
+            text-align: center;
+        }
+        .nav-btn span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .nav-btn:hover {
+            border-color: #253349;
+            background: rgba(255, 255, 255, .04);
+        }
+        .nav-btn.active {
+            border-color: rgba(138, 109, 255, .66);
+            background: linear-gradient(135deg, #825cff, #6846f5);
+            color: #fff;
+            box-shadow: 0 10px 28px rgba(118, 87, 255, .28);
+        }
+        .nav-btn.active i { color: #fff; }
+        .main {
+            min-width: 0;
+            padding: 24px 10px 22px 14px;
+        }
+        .topbar {
+            min-height: 40px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+        .title-row {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        h1 {
+            margin: 0;
+            font-size: 27px;
+            line-height: 1.1;
+            font-weight: 950;
+            letter-spacing: 0;
+        }
+        .tag {
+            min-height: 24px;
+            border: 1px solid rgba(138, 109, 255, .45);
+            border-radius: 7px;
+            background: rgba(118, 87, 255, .12);
+            color: #d9d3ff;
+            display: inline-flex;
+            align-items: center;
+            padding: 0 9px;
+            font-size: 12px;
+            font-weight: 900;
+        }
+        .tag.neutral {
+            border-color: rgba(117, 135, 166, .28);
+            background: rgba(148, 163, 184, .08);
+            color: #b9c5d6;
+        }
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn {
+            min-height: 34px;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            background: #0d1827;
+            color: #d8e1ef;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 13px;
+            text-decoration: none;
+            white-space: nowrap;
+            font-weight: 900;
+        }
+        .btn:hover {
+            border-color: #53627a;
+            background: #121f31;
+        }
+        .btn.primary {
+            border-color: transparent;
+            background: linear-gradient(135deg, #8a6dff, #704cff);
+            color: #fff;
+            box-shadow: 0 12px 30px rgba(112, 76, 255, .30);
+        }
+        .btn.icon {
+            width: 34px;
+            padding: 0;
+        }
+        .workbench {
+            display: grid;
+            grid-template-columns: 230px minmax(420px, 1fr) 220px;
+            gap: 10px;
+            align-items: stretch;
+        }
+        .panel {
+            min-width: 0;
+            background: linear-gradient(180deg, rgba(16, 27, 42, .98), rgba(13, 24, 38, .98));
+            border: 1px solid var(--line-soft);
+            border-radius: 7px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, .12);
+        }
+        .panel-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 12px 12px 9px;
+            color: #eef4ff;
+            font-size: 14px;
+            font-weight: 950;
+        }
+        .panel-title small {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 750;
+        }
+        .panel-body {
+            padding: 0 12px 12px;
+        }
+        .upload-box {
+            height: 205px;
+            border: 1px dashed rgba(138, 109, 255, .70);
+            border-radius: 7px;
+            background: rgba(8, 18, 31, .68);
+            display: grid;
+            place-items: center;
+            padding: 10px;
+            text-align: center;
+            position: relative;
+        }
+        .upload-empty i {
+            font-size: 26px;
+            color: #b4a6ff;
+        }
+        .upload-empty strong {
+            display: block;
+            margin: 8px 0 3px;
+            color: #dce6f5;
+            font-size: 12px;
+        }
+        .upload-empty span {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+        .mock-person {
+            width: 58px;
+            height: 112px;
+            margin: 10px auto 0;
+            border-radius: 4px;
+            background:
+                radial-gradient(circle at 50% 20%, #f2c7ac 0 16%, transparent 17%),
+                radial-gradient(circle at 40% 12%, #c9986e 0 17%, transparent 18%),
+                linear-gradient(180deg, transparent 0 36%, #1c2430 37% 71%, transparent 72%),
+                linear-gradient(145deg, #e9ded0, #a67a5c 44%, #111827 45%, #f7f7f7);
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, .34);
+        }
+        .thumb-close {
+            position: absolute;
+            right: 72px;
+            top: 94px;
+            width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(8, 14, 24, .82);
+            color: #dce6f5;
+            display: grid;
+            place-items: center;
+            font-size: 11px;
+        }
+        .count-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 6px 0 8px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+        .thin-btn {
+            width: 100%;
+            min-height: 28px;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            background: #0c1726;
+            color: #dce6f5;
+            font-size: 12px;
+            font-weight: 900;
+        }
+        .section {
+            padding-top: 10px;
+            margin-top: 10px;
+            border-top: 1px solid rgba(37, 51, 73, .74);
+        }
+        .label {
+            margin-bottom: 7px;
+            color: #a9b6c9;
+            font-size: 12px;
+            font-weight: 900;
+        }
+        .helper {
+            margin-top: 5px;
+            color: var(--muted-2);
+            font-size: 11px;
+            line-height: 1.45;
+        }
+        .radio-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px 9px;
+        }
+        .radio {
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #e0e8f5;
+            font-size: 12px;
+            font-weight: 850;
+        }
+        .radio span:first-child {
+            width: 15px;
+            height: 15px;
+            border-radius: 999px;
+            border: 1px solid #51617a;
+            display: inline-grid;
+            place-items: center;
+        }
+        .radio.active span:first-child {
+            border-color: var(--purple-2);
+            background: var(--purple);
+        }
+        .radio.active span:first-child::after {
+            content: "";
+            width: 5px;
+            height: 5px;
+            border-radius: 999px;
+            background: #fff;
+        }
+        .control {
+            width: 100%;
+            min-height: 34px;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            background: #0a1523;
+            color: #eef4ff;
+            padding: 0 10px;
+            outline: none;
+            font-weight: 850;
+        }
+        .split-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .stepper {
+            display: grid;
+            grid-template-columns: 28px 1fr 28px auto;
+            align-items: center;
+            gap: 4px;
+        }
+        .mini-square {
+            min-height: 26px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #0a1523;
+            color: #dce6f5;
+        }
+        .slider-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 36px;
+            align-items: center;
+            gap: 8px;
+            color: #dce6f5;
+            font-size: 12px;
+            font-weight: 900;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--purple);
+        }
+        .advanced {
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #dce6f5;
+            font-weight: 900;
+            font-size: 12px;
+        }
+        .preview-panel {
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            min-height: 580px;
+        }
+        .preview-area {
+            min-height: 0;
+            padding: 20px 12px 16px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+            align-items: center;
+            gap: 10px;
+        }
+        .preview-column {
+            min-width: 0;
+            display: grid;
+            gap: 10px;
+        }
+        .preview-label {
+            text-align: center;
+            color: #a9b6c9;
+            font-size: 12px;
+            font-weight: 850;
+        }
+        .preview-box {
+            min-height: 306px;
+            border: 1px dashed rgba(117, 135, 166, .46);
+            border-radius: 8px;
+            background: rgba(8, 18, 31, .54);
+            display: grid;
+            place-items: center;
+            color: #7b89a0;
+            text-align: center;
+            padding: 18px;
+        }
+        .preview-box .plus {
+            color: var(--purple-2);
+            font-size: 32px;
+            line-height: 1;
+        }
+        .preview-box strong {
+            display: block;
+            margin-top: 18px;
+            color: #9fafc5;
+            font-size: 12px;
+            font-weight: 850;
+        }
+        .preview-box.is-cutout {
+            background-color: rgba(8, 18, 31, .68);
+            background-image:
+                linear-gradient(45deg, rgba(255,255,255,.05) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(255,255,255,.05) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, rgba(255,255,255,.05) 75%),
+                linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.05) 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+        }
+        .arrow {
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: #8290a6;
+            color: #0c1726;
+            font-size: 12px;
+        }
+        .note {
+            margin: 0 12px 14px;
+            padding: 12px;
+            border-top: 1px solid rgba(37, 51, 73, .76);
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+        .note strong {
+            color: #dce6f5;
+        }
+        .right-rail {
+            display: grid;
+            gap: 8px;
+            align-content: start;
+        }
+        .side-card {
+            background: linear-gradient(180deg, rgba(16, 27, 42, .98), rgba(13, 24, 38, .98));
+            border: 1px solid var(--line-soft);
+            border-radius: 7px;
+            padding: 12px;
+        }
+        .side-title {
+            margin-bottom: 12px;
+            color: #eef4ff;
+            font-size: 14px;
+            font-weight: 950;
+        }
+        .timeline {
+            display: grid;
+            gap: 10px;
+        }
+        .task-step {
+            display: grid;
+            grid-template-columns: 20px minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            color: #cdd7e6;
+            font-size: 12px;
+            font-weight: 850;
+        }
+        .num {
+            width: 20px;
+            height: 20px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: #142236;
+            color: #748298;
+            border: 1px solid #27364e;
+            font-size: 11px;
+        }
+        .task-step.done .num,
+        .task-step.active .num {
+            border-color: transparent;
+            background: linear-gradient(135deg, #8a6dff, #704cff);
+            color: #fff;
+        }
+        .task-step.done .meta { color: var(--green); }
+        .task-step.active .meta { color: #bfb5ff; }
+        .task-step .meta {
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .divider {
+            height: 1px;
+            margin: 12px 0;
+            background: var(--line-soft);
+        }
+        .config-row {
+            display: grid;
+            grid-template-columns: 76px minmax(0, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        .config-row span:first-child {
+            color: var(--muted);
+            font-weight: 850;
+        }
+        .config-row span:last-child {
+            color: #dce6f5;
+            text-align: right;
+            font-weight: 900;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .history-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .more {
+            color: #aab6c8;
+            font-size: 11px;
+            font-weight: 900;
+        }
+        .history-list {
+            display: grid;
+            gap: 8px;
+        }
+        .history-item {
+            display: grid;
+            grid-template-columns: 45px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+        }
+        .hist-thumb {
+            width: 45px;
+            height: 36px;
+            border-radius: 4px;
+            background: linear-gradient(135deg, #f4c7ae, #2c3a4c 68%, #0b1523);
+            overflow: hidden;
+        }
+        .hist-thumb.eye {
+            background:
+                radial-gradient(circle at 65% 58%, #3b2418 0 10%, transparent 11%),
+                linear-gradient(135deg, #f1c1a7, #f8ddd0 56%, #0b1523 57%);
+        }
+        .hist-thumb.face {
+            background:
+                radial-gradient(circle at 50% 30%, #e8bca0 0 24%, transparent 25%),
+                linear-gradient(135deg, #db9f83, #141c2a);
+        }
+        .history-text {
+            min-width: 0;
+        }
+        .history-text strong {
+            display: block;
+            color: #dce6f5;
+            font-size: 11px;
+            font-weight: 900;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .history-text span {
+            display: block;
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+        .done-text {
+            color: var(--green);
+            font-size: 10px;
+            font-weight: 900;
+        }
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%);
+            display: none;
+            z-index: 20;
+            padding: 10px 14px;
+            border: 1px solid #27364e;
+            border-radius: 8px;
+            color: #fff;
+            background: #0f1b2b;
+            box-shadow: var(--shadow);
+            font-size: 13px;
+        }
+        .toast.show { display: block; }
+        @media (max-width: 1180px) {
+            .app {
+                width: 100vw;
+                grid-template-columns: 72px minmax(0, 1fr);
+            }
+            .brand-text,
+            .nav-btn span { display: none; }
+            .nav-btn {
+                grid-template-columns: 1fr;
+                justify-items: center;
+                padding: 0;
+            }
+            .workbench {
+                grid-template-columns: 230px minmax(0, 1fr);
+            }
+            .right-rail {
+                grid-column: 1 / -1;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 780px) {
+            .app { display: block; }
+            .sidebar {
+                min-height: auto;
+                padding: 10px;
+                border-right: 0;
+                border-bottom: 1px solid var(--line-soft);
+            }
+            .brand { display: none; }
+            .nav {
+                display: flex;
+                overflow-x: auto;
+            }
+            .nav-btn {
+                width: auto;
+                grid-template-columns: 18px auto;
+                padding: 0 10px;
+            }
+            .nav-btn span { display: block; }
+            .main { padding: 14px; }
+            .topbar {
+                grid-template-columns: 1fr;
+                align-items: start;
+            }
+            .workbench,
+            .preview-area,
+            .right-rail,
+            .split-row {
+                grid-template-columns: 1fr;
+            }
+            .arrow { margin: 0 auto; transform: rotate(90deg); }
+            .preview-panel { min-height: auto; }
+            .preview-box { min-height: 240px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">AI</div>
+            <div class="brand-text">
+                <div class="brand-name">小哈</div>
+                <div class="brand-sub">图像处理工作台</div>
+            </div>
+        </div>
+        <nav class="nav" id="menuStack">
+            <button class="nav-btn" type="button" data-feature="canvas"><i class="fa-solid fa-bezier-curve"></i><span>无限画布</span></button>
+            <button class="nav-btn" type="button" data-feature="cutout"><i class="fa-solid fa-cube"></i><span>智能抠图</span></button>
+            <button class="nav-btn active" type="button" data-feature="hd"><i class="fa-solid fa-layer-group"></i><span>模特图批量高清</span></button>
+            <button class="nav-btn" type="button" data-feature="lash"><i class="fa-solid fa-wand-magic-sparkles"></i><span>批量去睫毛</span></button>
+            <button class="nav-btn" type="button" data-feature="pose"><i class="fa-regular fa-user"></i><span>模特换姿势</span></button>
+            <button class="nav-btn" type="button" data-feature="scene"><i class="fa-regular fa-image"></i><span>模特换场景</span></button>
+            <button class="nav-btn" type="button" data-feature="qa"><i class="fa-regular fa-comment-dots"></i><span>AI问答生图</span></button>
+            <button class="nav-btn" type="button" data-feature="agent"><i class="fa-regular fa-user"></i><span>Agent文生图</span></button>
+        </nav>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div class="title-row">
+                <h1 id="featureTitle">模特图批量高清</h1>
+                <span class="tag" id="modelTag">Nano Banana 2生图</span>
+                <span class="tag neutral" id="batchTag">批量 20 张</span>
+                <span class="tag neutral">4096px+</span>
+            </div>
+            <div class="top-actions">
+                <button class="btn" type="button"><i class="fa-solid fa-clock-rotate-left"></i>历史记录</button>
+                <button class="btn primary" type="button" id="runTop"><i class="fa-solid fa-play"></i>开始处理</button>
+            </div>
+        </header>
+
+        <section class="workbench">
+            <section class="panel">
+                <div class="panel-title">上传与参数</div>
+                <div class="panel-body">
+                    <div class="upload-box">
+                        <div class="upload-empty">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <strong id="uploadTitle">拖拽图片到这里</strong>
+                            <span id="uploadHint">支持 JPG / PNG / WEBP<br>单张最大 50MB</span>
+                            <div class="mock-person"></div>
+                        </div>
+                        <button class="thumb-close" type="button">×</button>
+                    </div>
+                    <div class="count-row">
+                        <span>已上传 1/20 张原图</span>
+                        <span>清空</span>
+                    </div>
+                    <button class="thin-btn" type="button">选择图片</button>
+
+                    <div class="section">
+                        <div class="label">肤质参考图（可选，1 张）</div>
+                        <button class="thin-btn" type="button">+ 选择参考图</button>
+                        <div class="helper">支持 Ctrl+V 直接粘贴图片到当前上传区域</div>
+                    </div>
+
+                    <div class="section">
+                        <div class="label">肌肤质感参考图库（单选）</div>
+                        <div class="radio-grid" id="skinOptions">
+                            <label class="radio active"><span></span><span>深色.png</span></label>
+                            <label class="radio"><span></span><span>白色.png</span></label>
+                            <label class="radio"><span></span><span>黄色.png</span></label>
+                            <label class="radio"><span></span><span>不使用图库选项</span></label>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="label">模型选择</div>
+                        <select class="control" id="modelSelect">
+                            <option>Nano Banana 2生图</option>
+                            <option>google/gemini-3.1-flash-image</option>
+                            <option>openai/gpt-5-image</option>
+                        </select>
+                        <div class="helper" id="modelHelp">即梦 4.6 高清已暂时关闭，当前仅保留 Nano Banana 2 生图。</div>
+                    </div>
+
+                    <div class="section split-row">
+                        <div>
+                            <div class="label">输出数量</div>
+                            <div class="stepper">
+                                <button class="mini-square" type="button">−</button>
+                                <button class="mini-square" type="button">1</button>
+                                <button class="mini-square" type="button">＋</button>
+                                <span style="color:#dce6f5;font-size:12px;font-weight:900;">张</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="label">细节强度</div>
+                            <div class="slider-row">
+                                <input id="detailRange" type="range" min="1" max="10" value="7">
+                                <span id="detailValue">70%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section advanced">
+                        <span>高级设置</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel preview-panel">
+                <div class="panel-title">
+                    <span>结果预览</span>
+                    <small id="statusText">处理完成后自动显示</small>
+                </div>
+                <div class="preview-area">
+                    <div class="preview-column">
+                        <div class="preview-label" id="beforeLabel">处理前（原图）</div>
+                        <div class="preview-box">
+                            <div>
+                                <div class="plus">＋</div>
+                                <strong>处理完成后在这里查看原图</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="preview-column">
+                        <div class="preview-label" id="afterLabel">处理后（高清）</div>
+                        <div class="preview-box" id="afterPreview">
+                            <div>
+                                <div class="plus">＋</div>
+                                <strong id="afterHint">处理完成后在这里查看结果图</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="note">
+                    <strong>处理提示</strong><br>
+                    <span id="noteText">模特图批量高清采用 Nano Banana 2生图模型，提升分辨率与细节，画质更清晰自然。</span>
+                </div>
+            </section>
+
+            <aside class="right-rail">
+                <section class="side-card">
+                    <div class="side-title">任务进度</div>
+                    <div class="timeline" id="stepList"></div>
+                </section>
+
+                <section class="side-card">
+                    <div class="side-title">当前配置</div>
+                    <div class="config-row"><span>模型</span><span id="configModel">Nano Banana 2生图</span></div>
+                    <div class="config-row"><span>输入图片</span><span>1 张</span></div>
+                    <div class="config-row"><span>输出数量</span><span>1 张</span></div>
+                    <div class="config-row"><span id="detailLabel">输出分辨率</span><span id="detailMeta">4096px+</span></div>
+                    <div class="config-row"><span>细节强度</span><span id="configDetail">70%</span></div>
+                    <div class="config-row"><span>提交时间</span><span>2026-07-11 10:04:07</span></div>
+                </section>
+
+                <section class="side-card">
+                    <div class="history-head">
+                        <div class="side-title" style="margin:0;">最近历史</div>
+                        <span class="more">查看更多 ></span>
+                    </div>
+                    <div class="history-list">
+                        <div class="history-item">
+                            <div class="hist-thumb eye"></div>
+                            <div class="history-text"><strong>模特图批量高清</strong><span>2026-07-11 09:47:38</span></div>
+                            <span class="done-text">已完成</span>
+                        </div>
+                        <div class="history-item">
+                            <div class="hist-thumb face"></div>
+                            <div class="history-text"><strong>模特图批量高清</strong><span>2026-07-10 20:17:22</span></div>
+                            <span class="done-text">已完成</span>
+                        </div>
+                        <div class="history-item">
+                            <div class="hist-thumb"></div>
+                            <div class="history-text"><strong>模特图批量高清</strong><span>2026-07-10 19:51:23</span></div>
+                            <span class="done-text">已完成</span>
+                        </div>
+                        <div class="history-item">
+                            <div class="hist-thumb face"></div>
+                            <div class="history-text"><strong>模特图批量高清</strong><span>2026-07-10 19:29:17</span></div>
+                            <span class="done-text">已完成</span>
+                        </div>
+                    </div>
+                </section>
+            </aside>
+        </section>
+    </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const toast = document.getElementById('toast');
+const detailRange = document.getElementById('detailRange');
+const featureMap = {
+    canvas: {
+        title: '无限画布',
+        batch: '组合处理',
+        before: '画布素材',
+        after: '组合结果',
+        upload: '拖拽多张素材到这里',
+        hint: '支持多图拼接 / 扩图 / 组合',
+        note: '无限画布适合把多张参考素材组合到同一工作区，统一生成最终视觉方案。'
+    },
+    cutout: {
+        title: '智能抠图',
+        batch: '透明 PNG',
+        before: '处理前（原图）',
+        after: '处理后（透明主体）',
+        upload: '上传需要抠图的商品图',
+        hint: 'Nano Banana 2生图，只生成主体形状，背景不要',
+        note: '智能抠图直接调用 Nano Banana 2生图，只保留有睫毛的长方形主体，主体外背景透明。'
+    },
+    hd: {
+        title: '模特图批量高清',
+        batch: '批量 20 张',
+        before: '处理前（原图）',
+        after: '处理后（高清）',
+        upload: '拖拽图片到这里',
+        hint: '支持 JPG / PNG / WEBP<br>单张最大 50MB',
+        note: '模特图批量高清采用 Nano Banana 2生图模型，提升分辨率与细节，画质更清晰自然。'
+    },
+    lash: {
+        title: '批量去睫毛',
+        batch: '批量处理',
+        before: '处理前（带睫毛）',
+        after: '处理后（去睫毛）',
+        upload: '上传需要去睫毛的图片',
+        hint: '保留眼型、肤质和原始构图',
+        note: '批量去睫毛会集中处理眼部区域，尽量保留人物身份和皮肤质感。'
+    },
+    pose: {
+        title: '模特换姿势',
+        batch: '参考姿势',
+        before: '原模特图',
+        after: '新姿势结果',
+        upload: '上传模特图与姿势参考',
+        hint: '主体不变，只调整姿态',
+        note: '模特换姿势适合在保留人物特征的前提下，生成更适合商品展示的姿态。'
+    },
+    scene: {
+        title: '模特换场景',
+        batch: '场景参考',
+        before: '原场景',
+        after: '新场景结果',
+        upload: '上传模特图与场景参考',
+        hint: '保留人物，替换背景场景',
+        note: '模特换场景会保持人物主体一致，把背景替换为更适合投放的场景。'
+    },
+    qa: {
+        title: 'AI问答生图',
+        batch: '文字指令',
+        before: '参考图',
+        after: '生成结果',
+        upload: '上传参考图或直接提问',
+        hint: '用文字描述你想要的画面',
+        note: 'AI问答生图适合用自然语言快速生成主图、海报或详情页素材。'
+    },
+    agent: {
+        title: 'Agent文生图',
+        batch: '智能生成',
+        before: '文字需求',
+        after: '生成结果',
+        upload: '输入文案或上传参考图',
+        hint: 'Agent 自动补全商品图思路',
+        note: 'Agent文生图适合从商品卖点出发，生成更完整的图片方案。'
+    }
+};
+const stepsByMode = {
+    hd: [
+        ['上传图片', '10:04:07', 'done'],
+        ['模型处理', '处理中...', 'active'],
+        ['生成结果', '等待中', ''],
+        ['完成', '等待中', '']
+    ],
+    cutout: [
+        ['上传商品图', '10:04:07', 'done'],
+        ['Nano Banana 2生图', '处理中...', 'active'],
+        ['透明主体图', '等待中', ''],
+        ['完成', '等待中', '']
+    ],
+    default: [
+        ['上传素材', '10:04:07', 'done'],
+        ['解析需求', '处理中...', 'active'],
+        ['生成结果', '等待中', ''],
+        ['完成', '等待中', '']
+    ]
+};
+let currentMode = 'hd';
+
+function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.remove('show'), 1700);
+}
+
+function renderSteps(doneAll = false) {
+    const steps = stepsByMode[currentMode] || stepsByMode.default;
+    document.getElementById('stepList').innerHTML = steps.map((item, index) => {
+        const state = doneAll ? 'done' : item[2];
+        const meta = doneAll ? (index === steps.length - 1 ? '已完成' : '完成') : item[1];
+        return `
+            <div class="task-step ${state}">
+                <div class="num">${index + 1}</div>
+                <div>${item[0]}</div>
+                <div class="meta">${meta}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function setMode(mode) {
+    currentMode = mode || 'hd';
+    const data = featureMap[currentMode] || featureMap.hd;
+    const isCutout = currentMode === 'cutout';
+    document.querySelectorAll('#menuStack .nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.feature === currentMode);
+    });
+    document.getElementById('featureTitle').textContent = data.title;
+    document.getElementById('batchTag').textContent = data.batch;
+    document.getElementById('beforeLabel').textContent = data.before;
+    document.getElementById('afterLabel').textContent = data.after;
+    document.getElementById('uploadTitle').textContent = data.upload;
+    document.getElementById('uploadHint').innerHTML = data.hint;
+    document.getElementById('noteText').textContent = data.note;
+    document.getElementById('afterHint').textContent = isCutout ? '只生成图片形状的透明图片，背景不要' : '处理完成后在这里查看结果图';
+    document.getElementById('afterPreview').classList.toggle('is-cutout', isCutout);
+    document.getElementById('detailLabel').textContent = isCutout ? '背景' : '输出分辨率';
+    document.getElementById('detailMeta').textContent = isCutout ? '透明 PNG' : '4096px+';
+    document.getElementById('modelHelp').textContent = isCutout ? '当前抠图直接调用 Nano Banana 2生图，只保留主体形状。' : '即梦 4.6 高清已暂时关闭，当前仅保留 Nano Banana 2 生图。';
+    renderSteps(false);
+}
+
+function simulateRun() {
+    document.getElementById('statusText').textContent = '任务处理中...';
+    renderSteps(false);
+    setTimeout(() => {
+        document.getElementById('statusText').textContent = currentMode === 'cutout' ? '透明主体图已生成' : '处理完成后自动显示';
+        renderSteps(true);
+        showToast(currentMode === 'cutout' ? '透明主体图已生成' : '模拟处理完成');
+    }, 780);
+}
+
+document.getElementById('menuStack').addEventListener('click', event => {
+    const btn = event.target.closest('.nav-btn');
+    if (!btn) return;
+    setMode(btn.dataset.feature);
+});
+document.getElementById('skinOptions').addEventListener('click', event => {
+    const option = event.target.closest('.radio');
+    if (!option) return;
+    document.querySelectorAll('#skinOptions .radio').forEach(item => item.classList.remove('active'));
+    option.classList.add('active');
+});
+detailRange.addEventListener('input', event => {
+    const value = `${Number(event.target.value) * 10}%`;
+    document.getElementById('detailValue').textContent = value;
+    document.getElementById('configDetail').textContent = value;
+});
+document.getElementById('runTop').addEventListener('click', simulateRun);
+setMode('hd');
+</script>
+</body>
+</html>

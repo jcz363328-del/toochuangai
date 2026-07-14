@@ -1,0 +1,1012 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>达人管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <!-- 页面标题 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2><i class="fas fa-users"></i> 达人管理</h2>
+            </div>
+        </div>
+
+        <!-- 达人列表视图 -->
+        <div id="influencerList">
+            <!-- 操作按钮区 -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <button class="btn btn-primary" onclick="showAddForm()">
+                        <i class="fas fa-plus"></i> 添加达人
+                    </button>
+                    <button class="btn btn-secondary ms-2" onclick="refreshData()">
+                        <i class="fas fa-refresh"></i> 刷新
+                    </button>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="text-muted">共 <span id="recordCount">0</span> 条记录</span>
+                </div>
+            </div>
+
+            <!-- 筛选区域 -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-filter"></i> 筛选条件</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <input type="text" class="form-control" id="filterBianHao" placeholder="编号">
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <input type="text" class="form-control" id="filterWangHongMing" placeholder="网红用户名">
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <input type="text" class="form-control" id="filterGuo" placeholder="国家" list="countryList">
+                            <datalist id="countryList"></datalist>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <input type="text" class="form-control" id="filterFuZeRen" placeholder="负责人" list="managerList">
+                            <datalist id="managerList"></datalist>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <button class="btn btn-primary" onclick="applyFilter()">
+                                <i class="fas fa-search"></i> 筛选
+                            </button>
+                            <button class="btn btn-outline-secondary ms-2" onclick="clearFilter()">
+                                <i class="fas fa-times"></i> 清除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>编号</th>
+                            <th>网红用户名</th>
+                            <th>国家</th>
+                            <th>首页链接</th>
+                            <th>负责人</th>
+                            <th>网红地址</th>
+                            <th>收费标准</th>
+                            <th>付款方式</th>
+                          
+                            <th>状态</th>
+                            <th>导入人</th>
+                            <th>
+                                导入时间
+                                <button class="btn btn-sm btn-link text-white p-0 ms-1" onclick="toggleSort()" title="切换排序">
+                                    <span id="sortIcon">▼</span>
+                                </button>
+                            </th>
+                            <th>常用联系方式</th>
+                            <th>其他联系方式</th>
+                            <th>标签</th>
+                              <th>BD备注</th>
+                            <th>运营备注</th>
+                        </tr>
+                    </thead>
+                    <tbody id="influencerTableBody">
+                        <tr>
+                            <td colspan="16" class="text-center py-4">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <div class="mt-2">正在加载数据...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div>
+                    <select class="form-select" id="pageSizeSelect" onchange="changePageSize()" style="width: auto; display: inline-block;">
+                        <option value="15">15条/页</option>
+                        <option value="30">30条/页</option>
+                        <option value="50">50条/页</option>
+                    </select>
+                </div>
+                <nav id="paginationTop">
+                    <ul class="pagination mb-0" id="paginationList">
+                        <!-- 分页按钮将通过JavaScript生成 -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- 添加/编辑表单视图 -->
+        <div id="addForm" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-plus"></i> 
+                        <span id="formTitle">添加达人</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="influencerForm">
+                        <input type="hidden" id="editMode" value="add">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">编号 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="BianHao" name="BianHao" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">网红用户名 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="WangHongMing" name="WangHongMing" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">国家</label>
+                                <input type="text" class="form-control" id="Guo" name="Guo">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">首页链接</label>
+                                <input type="url" class="form-control" id="shouye" name="shouye">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">负责人</label>
+                                <input type="text" class="form-control" id="FuZeRen" name="FuZeRen">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">网红地址</label>
+                                <input type="text" class="form-control" id="WangHongDiZhi" name="WangHongDiZhi">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">收费标准</label>
+                                <input type="text" class="form-control" id="ShouFeiBiaoZhun" name="ShouFeiBiaoZhun">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">付款方式</label>
+                                <select class="form-select" id="ShouFeiZhangHao" name="ShouFeiZhangHao">
+                                    <option value="">请选择</option>
+                                    <option value="paypal">PayPal</option>
+                                    <option value="cashapp">CashApp</option>
+                                    <option value="cashapp">PayPal,CashApp</option>
+                                    <option value="其他">其他</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">常用联系方式</label>
+                                <input type="text" class="form-control" id="ChangYongLianXiFangshi" name="ChangYongLianXiFangshi">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">其他联系方式</label>
+                                <input type="text" class="form-control" id="QiTaLianXiFangShi" name="QiTaLianXiFangShi">
+                            </div>
+
+                            
+                            <!-- 标签区域 -->
+                            <div class="col-12 mb-3">
+                                <label class="form-label">标签设置</label>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">肤色</label>
+                                                <select class="form-select" id="fuseTag">
+                                                    <option value="">请选择</option>
+                                                    <option value="深肤色">深肤色</option>
+                                                    <option value="浅肤色">浅肤色</option>
+                                               
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">配合度</label>
+                                                <select class="form-select" id="cooperationTag">
+                                                    <option value="">请选择</option>
+                                                    <option value="高">高</option>
+                                                    <option value="中">中</option>
+                                                    <option value="低">低</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">口播</label>
+                                                <select class="form-select" id="kouboTag">
+                                                    <option value="">请选择</option>
+                                                    <option value="可以">可以</option>
+                                                    <option value="不可以">不可以</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <label class="form-label">直播</label>
+                                                <select class="form-select" id="zhiboTag">
+                                                    <option value="">请选择</option>
+                                                    <option value="可以">可以</option>
+                                                    <option value="不可以">不可以</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- 款式标签 -->
+                                        <div class="mb-3">
+                                            <label class="form-label">款式（可多选）</label>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="styleTag" value="自然平扇" id="style1">
+                                                    <label class="form-check-label" for="style1">自然平扇</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="styleTag" value="浓密平扇" id="style2">
+                                                    <label class="form-check-label" for="style2">浓密平扇</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="styleTag" value="自然带款式" id="style3">
+                                                    <label class="form-check-label" for="style3">自然带款式</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="styleTag" value="浓密带款式" id="style4">
+                                                    <label class="form-check-label" for="style4">浓密带款式</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="styleTag" value="棕色睫毛" id="style5">
+                                                    <label class="form-check-label" for="style5">棕色睫毛</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="styleTag" value="下睫毛" id="style6">
+                                                    <label class="form-check-label" for="style6">下睫毛</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="styleTag" value="浓密自粘带款式" id="style7">
+                                                    <label class="form-check-label" for="style7">浓密自粘带款式</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- 自定义标签 -->
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label">自定义标签（可多选）</label>
+                                                <div class="input-group mb-2">
+                                                    <input type="text" class="form-control" id="customTagInput" placeholder="输入自定义标签">
+                                                    <button type="button" class="btn btn-outline-secondary" onclick="addCustomTag()">添加</button>
+                                                </div>
+                                                <div id="customTagsContainer" class="d-flex flex-wrap gap-2 mb-2">
+                                                    <!-- 自定义标签将通过JavaScript动态生成 -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <input type="hidden" id="BiaoQian" name="BiaoQian">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- BD备注和运营备注 -->
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">BD备注</label>
+                                <textarea class="form-control" id="BeiZhu1" name="BeiZhu1" rows="3"></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">运营备注</label>
+                                <textarea class="form-control" id="BeiZhu2" name="BeiZhu2" rows="3"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary" id="saveButton">
+                                    <i class="fas fa-save"></i> 保存达人信息
+                                </button>
+                                <button type="button" class="btn btn-secondary ms-2" onclick="hideAddForm()">
+                                    <i class="fas fa-times"></i> 取消
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 达人详情模态框 -->
+    <div class="modal fade" id="influencerDetailModal" tabindex="-1" aria-labelledby="influencerDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="influencerDetailModalLabel">
+                        <i class="fas fa-user"></i> 达人详情
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">编号:</label>
+                            <p id="detailBianHao" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">网红用户名:</label>
+                            <p id="detailWangHongMing" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">国家:</label>
+                            <p id="detailGuo" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">首页链接:</label>
+                            <p id="detailShouye" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">负责人:</label>
+                            <p id="detailFuZeRen" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">网红地址:</label>
+                            <p id="detailWangHongDiZhi" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">收费标准:</label>
+                            <p id="detailShouFeiBiaoZhun" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">收费账号:</label>
+                            <p id="detailShouFeiZhangHao" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">常用联系方式:</label>
+                            <p id="detailChangYongLianXiFangshi" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">其他联系方式:</label>
+                            <p id="detailQiTaLianXiFangShi" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">状态:</label>
+                            <p id="detailZhuangTai" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">导入人:</label>
+                            <p id="detailDaoRuRen" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">导入时间:</label>
+                            <p id="detailDaoRuShijian" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">备注1:</label>
+                            <p id="detailBeiZhu1" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">备注2:</label>
+                            <p id="detailBeiZhu2" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label fw-bold">标签:</label>
+                            <p id="detailBiaoQian" class="form-control-plaintext"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="editFromDetail()">
+                        <i class="fas fa-edit"></i> 修改达人信息
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> 关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 全局变量
+        let currentPage = 1;
+        let pageSize = 15;
+        let totalPages = 1;
+        let totalRecords = 0;
+        let isFiltering = false;
+        let currentFilters = {};
+        let currentSortOrder = 'DESC';
+        let isSubmittingInfluencer = false;
+        let currentInfluencerData = null; // 存储当前查看的达人数据
+
+        // 显示达人详情
+        function showInfluencerDetail(data) {
+            currentInfluencerData = data;
+            
+            // 填充详情数据
+            document.getElementById('detailBianHao').textContent = data.BianHao || '-';
+            document.getElementById('detailWangHongMing').textContent = data.WangHongMing || '-';
+            document.getElementById('detailGuo').textContent = data.Guo || '-';
+            
+            // 处理首页链接
+            const shouyeElement = document.getElementById('detailShouye');
+            if (data.shouye) {
+                const url = data.shouye.startsWith('http') ? data.shouye : 'https://' + data.shouye;
+                shouyeElement.innerHTML = `<a href="${url}" target="_blank">${data.shouye}</a>`;
+            } else {
+                shouyeElement.textContent = '-';
+            }
+            
+            document.getElementById('detailFuZeRen').textContent = data.FuZeRen || '-';
+            document.getElementById('detailWangHongDiZhi').textContent = data.WangHongDiZhi || '-';
+            document.getElementById('detailShouFeiBiaoZhun').textContent = data.ShouFeiBiaoZhun || '-';
+            document.getElementById('detailShouFeiZhangHao').textContent = data.ShouFeiZhangHao || '-';
+            document.getElementById('detailChangYongLianXiFangshi').textContent = data.ChangYongLianXiFangshi || '-';
+            document.getElementById('detailQiTaLianXiFangShi').textContent = data.QiTaLianXiFangShi || '-';
+            document.getElementById('detailZhuangTai').textContent = data.ZhuangTai || '-';
+            document.getElementById('detailDaoRuRen').textContent = data.DaoRuRen || '-';
+            
+            // 处理导入时间
+            const daoruTime = data.DaoRuShijian ? new Date(data.DaoRuShijian).toLocaleString('zh-CN') : '-';
+            document.getElementById('detailDaoRuShijian').textContent = daoruTime;
+            
+            document.getElementById('detailBeiZhu1').textContent = data.BeiZhu1 || '-';
+            document.getElementById('detailBeiZhu2').textContent = data.BeiZhu2 || '-';
+            document.getElementById('detailBiaoQian').textContent = data.BiaoQian || '-';
+            
+            // 显示模态框
+            const modal = new bootstrap.Modal(document.getElementById('influencerDetailModal'));
+            modal.show();
+        }
+
+        // 从详情页面进入编辑模式
+        function editFromDetail() {
+            // 隐藏详情模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('influencerDetailModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // 显示编辑表单
+            if (currentInfluencerData) {
+                showEditForm(currentInfluencerData);
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFilterOptions();
+            loadInfluencerData();
+            const sortIcon = document.getElementById('sortIcon');
+            if (sortIcon) {
+                sortIcon.textContent = '▼';
+            }
+        });
+
+        // 加载筛选选项
+        function loadFilterOptions() {
+            fetch('/get_filter_options')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const countryList = document.getElementById('countryList');
+                        countryList.innerHTML = '';
+                        data.data.countries.forEach(country => {
+                            const option = document.createElement('option');
+                            option.value = country;
+                            countryList.appendChild(option);
+                        });
+                        
+                        const managerList = document.getElementById('managerList');
+                        managerList.innerHTML = '';
+                        data.data.managers.forEach(manager => {
+                            const option = document.createElement('option');
+                            option.value = manager;
+                            managerList.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => console.error('加载筛选选项失败:', error));
+        }
+
+        // 显示添加表单
+        function showAddForm() {
+            document.getElementById('addForm').style.display = 'block';
+            document.getElementById('influencerList').style.display = 'none';
+            document.getElementById('editMode').value = 'add';
+            document.getElementById('formTitle').textContent = '添加达人';
+            document.getElementById('saveButton').innerHTML = '<i class="fas fa-save"></i> 保存达人信息';
+            document.getElementById('BianHao').readOnly = false;
+            document.getElementById('WangHongMing').readOnly = false;
+            document.getElementById('Guo').readOnly = false;
+        }
+
+        // 隐藏添加表单
+        function hideAddForm() {
+            document.getElementById('addForm').style.display = 'none';
+            document.getElementById('influencerList').style.display = 'block';
+            resetForm();
+        }
+
+        // 重置表单
+        function resetForm() {
+            document.getElementById('influencerForm').reset();
+            document.getElementById('fuseTag').value = '';
+            document.getElementById('cooperationTag').value = '';
+            document.getElementById('kouboTag').value = '';
+            document.getElementById('zhiboTag').value = '';
+            document.querySelectorAll('input[name="styleTag"], input[name="customTag"]').forEach(cb => {
+                cb.checked = false;
+            });
+            document.getElementById('BiaoQian').value = '';
+            // 清空自定义标签容器
+            document.getElementById('customTagsContainer').innerHTML = '';
+            // 重置编辑模式为添加模式
+            document.getElementById('editMode').value = 'add';
+        }
+
+        // 加载达人数据
+        function loadInfluencerData(page = 1) {
+            currentPage = page;
+            isFiltering = false;
+            
+            const tbody = document.getElementById('influencerTableBody');
+            tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 20px;">正在加载数据，请稍候...</td></tr>';
+            
+            const url = `/get_influencer_data?page=${page}&page_size=${pageSize}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        totalRecords = data.pagination.total;
+                        totalPages = data.pagination.total_pages;
+                        currentPage = data.pagination.current_page;
+                        
+                        displayInfluencerData(data.data);
+                        updatePagination();
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 20px; color: red;">加载数据失败: ' + data.message + '</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 20px; color: red;">加载数据时发生错误，请刷新页面重试</td></tr>';
+                });
+        }
+
+        // 显示达人数据
+        function displayInfluencerData(data) {
+            const tbody = document.getElementById('influencerTableBody');
+            tbody.innerHTML = '';
+            
+            document.getElementById('recordCount').textContent = totalRecords;
+            
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.innerHTML = `
+                    <td>${row.BianHao || ''}</td>
+                    <td>${row.WangHongMing || ''}</td>
+                    <td>${row.Guo || ''}</td>
+                    <td>${row.shouye ? `<a href="${row.shouye.startsWith('http') ? row.shouye : 'https://' + row.shouye}" target="_blank">查看</a>` : ''}</td>
+                    <td>${row.FuZeRen || ''}</td>
+                    <td>${row.WangHongDiZhi || ''}</td>
+                    <td>${row.ShouFeiBiaoZhun || ''}</td>
+                    <td>${row.ShouFeiZhangHao || ''}</td>
+                    <td>${row.ZhuangTai || ''}</td>
+                    <td>${row.DaoRuRen || ''}</td>
+                    <td>${row.DaoRuShijian ? new Date(row.DaoRuShijian).toLocaleString('zh-CN') : ''}</td>
+                    <td>${row.ChangYongLianXiFangshi || ''}</td>
+                    <td>${row.QiTaLianXiFangShi || ''}</td>
+                    <td>${row.BiaoQian || ''}</td>
+                    <td>${row.BeiZhu1 || ''}</td>
+                    <td>${row.BeiZhu2 || ''}</td>
+                `;
+                
+                tr.addEventListener('click', function(e) {
+                    if (e.target.tagName === 'A') return;
+                    showInfluencerDetail(row);
+                });
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 显示编辑表单
+        function showEditForm(data) {
+            // 显示表单并隐藏列表
+            document.getElementById('addForm').style.display = 'block';
+            document.getElementById('influencerList').style.display = 'none';
+            
+            // 设置编辑模式
+            document.getElementById('editMode').value = 'edit';
+            document.getElementById('formTitle').textContent = '编辑达人';
+            document.getElementById('saveButton').innerHTML = '<i class="fas fa-save"></i> 更新达人信息';
+            
+            // 填充表单数据
+            document.getElementById('BianHao').value = data.BianHao;
+            document.getElementById('BianHao').readOnly = true;
+            document.getElementById('WangHongMing').value = data.WangHongMing || '';
+            document.getElementById('WangHongMing').readOnly = true;
+            document.getElementById('Guo').value = data.Guo || '';
+            document.getElementById('Guo').readOnly = true;
+            document.getElementById('shouye').value = data.shouye || '';
+            document.getElementById('FuZeRen').value = data.FuZeRen || '';
+            document.getElementById('WangHongDiZhi').value = data.WangHongDiZhi || '';
+            document.getElementById('ShouFeiBiaoZhun').value = data.ShouFeiBiaoZhun || '';
+            document.getElementById('ShouFeiZhangHao').value = data.ShouFeiZhangHao || '';
+            document.getElementById('ChangYongLianXiFangshi').value = data.ChangYongLianXiFangshi || '';
+            document.getElementById('QiTaLianXiFangShi').value = data.QiTaLianXiFangShi || '';
+            document.getElementById('BeiZhu1').value = data.BeiZhu1 || '';
+            document.getElementById('BeiZhu2').value = data.BeiZhu2 || '';
+            
+            // 处理标签
+            if (data.BiaoQian) {
+                const tags = data.BiaoQian.split(';');
+                document.querySelectorAll('input[name="styleTag"], input[name="customTag"]').forEach(checkbox => checkbox.checked = false);
+                document.getElementById('fuseTag').value = '';
+                document.getElementById('cooperationTag').value = '';
+                document.getElementById('kouboTag').value = '';
+                document.getElementById('zhiboTag').value = '';
+                
+                // 清空自定义标签容器
+                document.getElementById('customTagsContainer').innerHTML = '';
+                
+                tags.forEach(tag => {
+                    const [type, value] = tag.split(':');
+                    switch (type) {
+                        case '肤色':
+                            document.getElementById('fuseTag').value = value;
+                            break;
+                        case '款式':
+                            value.split(',').forEach(style => {
+                                const checkbox = document.querySelector(`input[name="styleTag"][value="${style}"]`);
+                                if (checkbox) checkbox.checked = true;
+                            });
+                            break;
+                        case '配合度':
+                            document.getElementById('cooperationTag').value = value;
+                            break;
+                        case '口播':
+                            document.getElementById('kouboTag').value = value;
+                            break;
+                        case '直播':
+                            document.getElementById('zhiboTag').value = value;
+                            break;
+                        case '自定义':
+                            value.split(',').forEach(customTag => {
+                                if (customTag.trim()) {
+                                    const tagElement = document.createElement('div');
+                                    tagElement.className = 'custom-tag badge bg-secondary me-2 mb-2 d-flex align-items-center';
+                                    tagElement.dataset.value = customTag.trim();
+                                    tagElement.innerHTML = `
+                                        <span>${customTag.trim()}</span>
+                                        <button type="button" class="btn-close btn-close-white ms-2" onclick="removeCustomTag(this)" style="font-size: 0.7em;"></button>
+                                    `;
+                                    document.getElementById('customTagsContainer').appendChild(tagElement);
+                                }
+                            });
+                            break;
+                    }
+                });
+            }
+        }
+
+        // 收集标签数据
+        function collectTagData() {
+            const tags = [];
+            
+            const fuseValue = document.getElementById('fuseTag').value;
+            if (fuseValue) tags.push(`肤色:${fuseValue}`);
+            
+            const styleCheckboxes = document.querySelectorAll('input[name="styleTag"]:checked');
+            if (styleCheckboxes.length > 0) {
+                const styles = Array.from(styleCheckboxes).map(cb => cb.value);
+                tags.push(`款式:${styles.join(',')}`);
+            }
+            
+            const cooperationValue = document.getElementById('cooperationTag').value;
+            if (cooperationValue) tags.push(`配合度:${cooperationValue}`);
+            
+            const kouboValue = document.getElementById('kouboTag').value;
+            if (kouboValue) tags.push(`口播:${kouboValue}`);
+            
+            const zhiboValue = document.getElementById('zhiboTag').value;
+            if (zhiboValue) tags.push(`直播:${zhiboValue}`);
+            
+            // 收集自定义标签
+            const customTags = document.querySelectorAll('#customTagsContainer .custom-tag');
+            if (customTags.length > 0) {
+                const customTagValues = Array.from(customTags).map(tag => tag.dataset.value);
+                tags.push(`自定义:${customTagValues.join(',')}`);
+            }
+            
+            const tagString = tags.join(';');
+            document.getElementById('BiaoQian').value = tagString;
+            return tagString;
+        }
+
+        // 表单提交处理
+        document.getElementById('influencerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (isSubmittingInfluencer) return;
+            isSubmittingInfluencer = true;
+            
+            collectTagData();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // 添加编辑模式标识
+            data.editMode = document.getElementById('editMode').value;
+            
+            const method = document.getElementById('editMode').value === 'edit' ? 'PUT' : 'POST';
+            console.log('发送请求方法:', method, '编辑模式:', document.getElementById('editMode').value);
+            
+            fetch('/add_influencer', {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(method === 'PUT' ? '更新成功！' : '添加成功！');
+                    // 只有在添加模式下才隐藏表单，编辑模式下保持表单显示
+                    if (document.getElementById('editMode').value === 'add') {
+                        hideAddForm();
+                    } else {
+                        // 编辑模式下，重新加载数据但保持表单显示
+                        loadInfluencerData();
+                    }
+                } else {
+                    alert('操作失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('操作时发生错误');
+            })
+            .finally(() => {
+                isSubmittingInfluencer = false;
+            });
+        });
+
+        // 切换排序
+        function toggleSort() {
+            currentSortOrder = currentSortOrder === 'DESC' ? 'ASC' : 'DESC';
+            const sortIcon = document.getElementById('sortIcon');
+            sortIcon.textContent = currentSortOrder === 'DESC' ? '▼' : '▲';
+            
+            if (isFiltering) {
+                applyFilter(1);
+            } else {
+                loadInfluencerData(1);
+            }
+        }
+
+        // 应用筛选
+        function applyFilter(page = 1) {
+            currentPage = page;
+            isFiltering = true;
+            
+            currentFilters = {
+                bianhao: document.getElementById('filterBianHao').value.trim(),
+                wanghongming: document.getElementById('filterWangHongMing').value.trim(),
+                guo: document.getElementById('filterGuo').value.trim(),
+                fuzeren: document.getElementById('filterFuZeRen').value.trim()
+            };
+            
+            const hasFilters = Object.values(currentFilters).some(value => value !== '');
+            if (!hasFilters) {
+                alert('请至少输入一个筛选条件');
+                return;
+            }
+            
+            const tbody = document.getElementById('influencerTableBody');
+            tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 20px;">正在筛选数据，请稍候...</td></tr>';
+            
+            const requestData = {
+                page: page,
+                page_size: pageSize,
+                sortOrder: `DaoRuShiJian_${currentSortOrder}`,
+                ...currentFilters
+            };
+            
+            fetch('/filter_influencer_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        totalRecords = data.pagination.total;
+                        totalPages = data.pagination.total_pages;
+                        currentPage = data.pagination.current_page;
+                        
+                        displayInfluencerData(data.data);
+                        updatePagination();
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 20px; color: red;">筛选失败: ' + data.message + '</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    tbody.innerHTML = '<tr><td colspan="16" style="text-align: center; padding: 20px; color: red;">筛选时发生错误</td></tr>';
+                });
+        }
+
+        // 清除筛选
+        function clearFilter() {
+            document.getElementById('filterBianHao').value = '';
+            document.getElementById('filterWangHongMing').value = '';
+            document.getElementById('filterGuo').value = '';
+            document.getElementById('filterFuZeRen').value = '';
+            
+            isFiltering = false;
+            currentFilters = {};
+            loadInfluencerData(1);
+        }
+
+        // 更新分页
+        function updatePagination() {
+            if (totalPages > 1) {
+                document.getElementById('paginationTop').style.display = 'block';
+                generatePaginationButtons();
+            } else {
+                document.getElementById('paginationTop').style.display = 'none';
+            }
+        }
+
+        // 生成分页按钮
+        function generatePaginationButtons() {
+            const paginationList = document.getElementById('paginationList');
+            paginationList.innerHTML = generatePaginationHTML();
+        }
+
+        // 生成分页HTML
+        function generatePaginationHTML() {
+            let html = '';
+            
+            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">`;
+            html += `<a class="page-link" href="#" onclick="goToPage(${currentPage - 1})">上一页</a>`;
+            html += `</li>`;
+            
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+            
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            if (startPage > 1) {
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(1)">1</a></li>`;
+                if (startPage > 2) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}">`;
+                html += `<a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>`;
+                html += `</li>`;
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+                html += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(${totalPages})">${totalPages}</a></li>`;
+            }
+            
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">`;
+            html += `<a class="page-link" href="#" onclick="goToPage(${currentPage + 1})">下一页</a>`;
+            html += `</li>`;
+            
+            return html;
+        }
+
+        // 跳转到指定页
+        function goToPage(page) {
+            if (page < 1 || page > totalPages || page === currentPage) return;
+            
+            if (isFiltering) {
+                applyFilter(page);
+            } else {
+                loadInfluencerData(page);
+            }
+        }
+
+        // 改变每页显示数量
+        function changePageSize() {
+            const newPageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            pageSize = newPageSize;
+            currentPage = 1;
+            
+            if (isFiltering) {
+                applyFilter(1);
+            } else {
+                loadInfluencerData(1);
+            }
+        }
+
+        // 刷新数据
+        function refreshData() {
+            clearFilter();
+            loadInfluencerData();
+        }
+
+        // 添加自定义标签
+        function addCustomTag() {
+            const input = document.getElementById('customTagInput');
+            const tagValue = input.value.trim();
+            
+            if (!tagValue) {
+                alert('请输入标签内容');
+                return;
+            }
+            
+            // 检查是否已存在相同标签
+            const existingTags = document.querySelectorAll('#customTagsContainer .custom-tag');
+            for (let tag of existingTags) {
+                if (tag.dataset.value === tagValue) {
+                    alert('该标签已存在');
+                    return;
+                }
+            }
+            
+            // 创建标签元素
+            const tagElement = document.createElement('div');
+            tagElement.className = 'custom-tag badge bg-secondary me-2 mb-2 d-flex align-items-center';
+            tagElement.dataset.value = tagValue;
+            tagElement.innerHTML = `
+                <span>${tagValue}</span>
+                <button type="button" class="btn-close btn-close-white ms-2" onclick="removeCustomTag(this)" style="font-size: 0.7em;"></button>
+            `;
+            
+            // 添加到容器
+            document.getElementById('customTagsContainer').appendChild(tagElement);
+            
+            // 清空输入框
+            input.value = '';
+            
+            // 更新隐藏字段
+            updateCustomTagsData();
+        }
+
+        // 移除自定义标签
+        function removeCustomTag(button) {
+            const tagElement = button.closest('.custom-tag');
+            tagElement.remove();
+            updateCustomTagsData();
+        }
+
+        // 更新自定义标签数据
+        function updateCustomTagsData() {
+            const customTags = document.querySelectorAll('#customTagsContainer .custom-tag');
+            const tagValues = Array.from(customTags).map(tag => tag.dataset.value);
+            
+            // 这里可以将自定义标签数据存储到隐藏字段或其他地方
+            // 暂时存储在一个全局变量中
+            window.customTagsData = tagValues;
+        }
+
+        // 回车键添加标签
+        document.addEventListener('DOMContentLoaded', function() {
+            const customTagInput = document.getElementById('customTagInput');
+            if (customTagInput) {
+                customTagInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCustomTag();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

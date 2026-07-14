@@ -1,0 +1,479 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>邀请ID实时监控 - TK项目组</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+        .page-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 0; }
+        .upload-card { border-radius: 12px; box-shadow: 0 10px 24px rgba(0,0,0,0.08); }
+        .status-box { background: #f8f9fa; border-radius: 8px; padding: 12px; }
+        .hint { font-size: 0.9rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-cube"></i> 图创AI系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('tk_project') }}">
+                    <i class="fas fa-project-diagram"></i> 返回TK项目
+                </a>
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 返回首页
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 头部 -->
+    <div class="page-header">
+        <div class="container">
+            <h1><i class="fas fa-id-badge"></i> 邀请ID实时监控</h1>
+            <p class="lead">批量上传Excel（邀请id、截止日期、店铺），自动写入数据库 tk_yaoqingma</p>
+        </div>
+    </div>
+
+    <div class="container my-4">
+        <div class="card upload-card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">样品申请通知邀请码上传</h5>
+                <p class="hint">文件需包含三列：
+                    <span class="badge bg-secondary">邀请id/邀请码</span>、
+                    <span class="badge bg-secondary">截止日期/日期</span>（日期格式建议使用 YYYY-MM-DD）、
+                    <span class="badge bg-secondary">店铺</span>（示例：80、81、82 等数字）。
+                </p>
+
+                <div class="mb-3">
+                    <input type="file" class="form-control" id="inviteFile" accept=".xlsx,.xls">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" id="uploadBtn">
+                        <i class="fas fa-upload"></i> 开始上传
+                    </button>
+                    <button class="btn btn-outline-secondary" id="resetBtn">
+                        <i class="fas fa-undo"></i> 重置
+                    </button>
+                </div>
+
+                <hr>
+
+                <div class="status-box">
+                    <div id="statusText" class="text-muted">等待上传...</div>
+                    <div id="resultBox" class="mt-2" style="display:none;">
+                        <div class="alert alert-success py-2" id="successMsg" style="display:none;"></div>
+                        <div class="alert alert-danger py-2" id="errorMsg" style="display:none;"></div>
+                        <div id="errorList" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <div class="mt-3 hint">
+                    BD字段将自动记录为当前飞书登录用户名：<strong>{{ user_name }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container my-4">
+        <div class="card upload-card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">登记网红基本信息和合作记录</h5>
+                <p class="hint">上传Excel文件需包含两列：
+                    <span class="badge bg-secondary">网红名</span>、
+                    <span class="badge bg-secondary">店/店铺</span>（示例：80、81、82）。
+                    系统会将本次导入时间写入字段 <span class="badge bg-light text-dark">DaoRuShiJian</span>。
+                </p>
+
+                <div class="mb-3">
+                    <input type="file" class="form-control" id="wanghongFile" accept=".xlsx,.xls">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" id="wanghongUploadBtn">
+                        <i class="fas fa-upload"></i> 开始导入
+                    </button>
+                    <button class="btn btn-outline-secondary" id="wanghongResetBtn">
+                        <i class="fas fa-undo"></i> 重置
+                    </button>
+                </div>
+
+                <hr>
+
+                <div class="status-box">
+                    <div id="wanghongStatusText" class="text-muted">等待导入...</div>
+                    <div id="wanghongResultBox" class="mt-2" style="display:none;">
+                        <div class="alert alert-success py-2" id="wanghongSuccessMsg" style="display:none;"></div>
+                        <div class="alert alert-danger py-2" id="wanghongErrorMsg" style="display:none;"></div>
+                        <div id="wanghongErrorList" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <div class="mt-3 hint">
+                    BD字段将自动记录为当前飞书登录用户名：<strong>{{ user_name }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container my-4">
+        <div class="card upload-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">达人资料/合作记录登记展示</h5>
+                    <button class="btn btn-outline-primary btn-sm text-nowrap" id="refreshRegisterOverviewBtn">
+                        <i class="fas fa-sync"></i> 刷新
+                    </button>
+                </div>
+                <div id="registerOverviewBox">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container my-4">
+        <div class="card upload-card" id="unchecked_12h">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">12小时之内还未检查的邀请码</h5>
+                    <button class="btn btn-outline-danger btn-sm text-nowrap" id="refreshUncheckedBtn">
+                        <i class="fas fa-sync"></i> 刷新
+                    </button>
+                </div>
+                <div id="uncheckedInvites">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-danger" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container my-4">
+        <div class="card upload-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">我的邀请码记录</h5>
+                    <div class="d-flex align-items-center gap-2 flex-nowrap">
+                        <input type="text" class="form-control form-control-sm" id="inviteSearch" placeholder="输入邀请码搜索" style="max-width: 200px;">
+                        <button class="btn btn-outline-primary btn-sm text-nowrap" id="refreshInvitesBtn">
+                            <i class="fas fa-sync"></i> 刷新
+                        </button>
+                    </div>
+                </div>
+                <div id="myInvites">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('inviteFile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusText = document.getElementById('statusText');
+        const resultBox = document.getElementById('resultBox');
+        const successMsg = document.getElementById('successMsg');
+        const errorMsg = document.getElementById('errorMsg');
+        const errorList = document.getElementById('errorList');
+        const refreshInvitesBtn = document.getElementById('refreshInvitesBtn');
+        const myInvites = document.getElementById('myInvites');
+        const inviteSearch = document.getElementById('inviteSearch');
+        let allInviteRows = [];
+
+        const whFileInput = document.getElementById('wanghongFile');
+        const whUploadBtn = document.getElementById('wanghongUploadBtn');
+        const whResetBtn = document.getElementById('wanghongResetBtn');
+        const whStatusText = document.getElementById('wanghongStatusText');
+        const whResultBox = document.getElementById('wanghongResultBox');
+        const whSuccessMsg = document.getElementById('wanghongSuccessMsg');
+        const whErrorMsg = document.getElementById('wanghongErrorMsg');
+        const whErrorList = document.getElementById('wanghongErrorList');
+        const registerOverviewBox = document.getElementById('registerOverviewBox');
+        const refreshRegisterOverviewBtn = document.getElementById('refreshRegisterOverviewBtn');
+
+        resetBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            statusText.textContent = '等待上传...';
+            resultBox.style.display = 'none';
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            errorList.innerHTML = '';
+        });
+
+        uploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('请先选择Excel文件');
+                return;
+            }
+            statusText.textContent = '正在上传并处理，请稍候...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const resp = await fetch('/api/tk_invite_monitor/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                resultBox.style.display = 'block';
+                if (data.success) {
+                    successMsg.style.display = 'block';
+                    successMsg.textContent = data.message || `成功插入 ${data.inserted} 条记录`;
+                    errorMsg.style.display = 'none';
+                    errorList.innerHTML = '';
+                    if (data.errors && data.errors.length > 0) {
+                        const list = document.createElement('ul');
+                        list.className = 'mb-0';
+                        data.errors.forEach(e => {
+                            const li = document.createElement('li');
+                            li.textContent = e;
+                            list.appendChild(li);
+                        });
+                        errorList.innerHTML = '<strong>错误详情：</strong>';
+                        errorList.appendChild(list);
+                    }
+                    await loadMyInvites();
+                } else {
+                    successMsg.style.display = 'none';
+                    errorMsg.style.display = 'block';
+                    errorMsg.textContent = data.message || '上传失败';
+                    errorList.innerHTML = '';
+                }
+                statusText.textContent = '上传完成';
+            } catch (e) {
+                resultBox.style.display = 'block';
+                successMsg.style.display = 'none';
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = '网络或服务器错误：' + e.message;
+                statusText.textContent = '上传失败';
+            }
+        });
+
+        whResetBtn.addEventListener('click', () => {
+            whFileInput.value = '';
+            whStatusText.textContent = '等待导入...';
+            whResultBox.style.display = 'none';
+            whSuccessMsg.style.display = 'none';
+            whErrorMsg.style.display = 'none';
+            whErrorList.innerHTML = '';
+        });
+
+        whUploadBtn.addEventListener('click', async () => {
+            const file = whFileInput.files[0];
+            if (!file) {
+                alert('请先选择Excel文件');
+                return;
+            }
+            whStatusText.textContent = '正在上传并导入，请稍候...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const resp = await fetch('/api/tk_invite_monitor/wanghong_register_upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                whResultBox.style.display = 'block';
+                if (data.success) {
+                    whSuccessMsg.style.display = 'block';
+                    whSuccessMsg.textContent = data.message || '导入成功';
+                    whErrorMsg.style.display = 'none';
+                    whErrorList.innerHTML = '';
+                    if (data.errors && data.errors.length > 0) {
+                        const list = document.createElement('ul');
+                        list.className = 'mb-0';
+                        data.errors.forEach(e => {
+                            const li = document.createElement('li');
+                            li.textContent = e;
+                            list.appendChild(li);
+                        });
+                        whErrorList.innerHTML = '<strong>错误详情：</strong>';
+                        whErrorList.appendChild(list);
+                    }
+                    await loadRegisterOverview();
+                } else {
+                    whSuccessMsg.style.display = 'none';
+                    whErrorMsg.style.display = 'block';
+                    whErrorMsg.textContent = data.message || '导入失败';
+                    whErrorList.innerHTML = '';
+                }
+                whStatusText.textContent = '导入完成';
+            } catch (e) {
+                whResultBox.style.display = 'block';
+                whSuccessMsg.style.display = 'none';
+                whErrorMsg.style.display = 'block';
+                whErrorMsg.textContent = '网络或服务器错误：' + e.message;
+                whStatusText.textContent = '导入失败';
+            }
+        });
+
+        async function loadRegisterOverview() {
+            try {
+                registerOverviewBox.innerHTML = `
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>`;
+                const resp = await fetch('/api/tk_invite_monitor/wanghong_register_overview');
+                const data = await resp.json();
+                if (!data.success) {
+                    registerOverviewBox.innerHTML = `<p class="text-danger text-center">加载失败：${data.message || data.error || '未知错误'}</p>`;
+                    return;
+                }
+                const payload = data.data || {};
+                const latestTime = payload.latest_time || '暂无';
+                const remainingCount = Number(payload.remaining_count || 0);
+                const previewCount = Number(payload.preview_count || 0);
+                const rows = payload.items || [];
+                let html = `
+                    <div class="mb-2">
+                        <span class="badge bg-primary me-2">最新更新时间：${latestTime}</span>
+                        <span class="badge bg-danger me-2">剩余未登记：${remainingCount}</span>
+                        <span class="badge bg-secondary">当前展示：${previewCount} 条</span>
+                    </div>
+                `;
+                if (!rows.length) {
+                    html += '<p class="text-muted text-center mb-0">暂无未登记数据</p>';
+                    registerOverviewBox.innerHTML = html;
+                    return;
+                }
+                html += '<div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th>ID</th><th>BD</th><th>网红名</th><th>店铺</th><th>导入时间</th><th>通知时间</th></tr></thead><tbody>';
+                rows.forEach(r => {
+                    html += `<tr><td>${r.id ?? ''}</td><td>${r.bd || ''}</td><td>${r.wanghongming || ''}</td><td>${r.dian || ''}</td><td>${r.daorushijian || ''}</td><td>${r.tongzhishijian || ''}</td></tr>`;
+                });
+                html += '</tbody></table></div>';
+                registerOverviewBox.innerHTML = html;
+            } catch (e) {
+                registerOverviewBox.innerHTML = `<p class="text-danger text-center">网络错误：${e.message || e}</p>`;
+            }
+        }
+
+        function renderMyInvitesTable(rows, keyword) {
+            const k = (keyword || '').trim().toLowerCase();
+            let filtered = rows;
+            if (k) {
+                filtered = rows.filter(r => {
+                    const code = (r.invite_code || '').toString().toLowerCase();
+                    return code.includes(k);
+                });
+            }
+            if (!filtered.length) {
+                myInvites.innerHTML = '<p class="text-muted text-center">暂无记录</p>';
+                return;
+            }
+            let html = '<div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th width="60%">邀请码</th><th>截止日期</th></tr></thead><tbody>';
+            filtered.forEach(r => {
+                html += `<tr><td>${r.invite_code}</td><td>${r.date}</td></tr>`;
+            });
+            html += '</tbody></table></div>';
+            myInvites.innerHTML = html;
+        }
+
+        async function loadMyInvites() {
+            try {
+                myInvites.innerHTML = `
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>`;
+                const resp = await fetch('/api/tk_invite_monitor/list');
+                const data = await resp.json();
+                if (data.success) {
+                    const rows = data.data || [];
+                    allInviteRows = rows;
+                    if (rows.length === 0) {
+                        myInvites.innerHTML = '<p class="text-muted text-center">暂无记录</p>';
+                        return;
+                    }
+                    renderMyInvitesTable(allInviteRows, inviteSearch ? inviteSearch.value : '');
+                } else {
+                    myInvites.innerHTML = '<p class="text-danger text-center">加载失败</p>';
+                }
+            } catch (e) {
+                myInvites.innerHTML = '<p class="text-danger text-center">网络错误</p>';
+            }
+        }
+
+        async function loadUncheckedInvites() {
+            try {
+                const uncheckedBox = document.getElementById('uncheckedInvites');
+                uncheckedBox.innerHTML = `
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-danger" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>`;
+                const resp = await fetch('/api/tk_invite_monitor/unchecked_12h');
+                const data = await resp.json();
+                if (data.success) {
+                    const rows = data.data || [];
+                    const total = (typeof data.total === 'number') ? data.total : rows.length;
+                    const storeCounts = data.store_counts || [];
+                    if (rows.length === 0) {
+                        uncheckedBox.innerHTML = '<p class="text-muted text-center">暂无符合条件的邀请码</p>';
+                        return;
+                    }
+                    let summary = `<div class="mb-2"><strong>总计：${total} 个</strong>`;
+                    if (storeCounts.length > 0) {
+                        const parts = storeCounts.map(sc => {
+                            const name = sc.store || '未知店铺';
+                            const cnt = sc.count ?? 0;
+                            return `${name}: ${cnt}`;
+                        });
+                        summary += '（按店铺：' + parts.join('，') + '）';
+                    }
+                    summary += '</div>';
+                    let html = summary + '<div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th>ID</th><th>邀请码</th><th>BD</th><th>日期</th><th>店铺</th></tr></thead><tbody>';
+                    rows.forEach(r => {
+                        html += `<tr><td>${r.id ?? ''}</td><td>${r.invite_code}</td><td>${r.bd}</td><td>${r.date}</td><td>${r.store || ''}</td></tr>`;
+                    });
+                    html += '</tbody></table></div>';
+                    uncheckedBox.innerHTML = html;
+                } else {
+                    uncheckedBox.innerHTML = '<p class="text-danger text-center">加载失败</p>';
+                }
+            } catch (e) {
+                const uncheckedBox = document.getElementById('uncheckedInvites');
+                uncheckedBox.innerHTML = '<p class="text-danger text-center">网络错误</p>';
+            }
+        }
+
+        refreshInvitesBtn.addEventListener('click', loadMyInvites);
+        if (inviteSearch) {
+            inviteSearch.addEventListener('input', () => {
+                renderMyInvitesTable(allInviteRows, inviteSearch.value);
+            });
+        }
+        document.getElementById('refreshUncheckedBtn').addEventListener('click', loadUncheckedInvites);
+        refreshRegisterOverviewBtn.addEventListener('click', loadRegisterOverview);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRegisterOverview();
+            loadUncheckedInvites();
+            loadMyInvites();
+        });
+    </script>
+</body>
+</html>

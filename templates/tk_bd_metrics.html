@@ -1,0 +1,501 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>BD指标 - TK项目组</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            background: #f5f7fb;
+        }
+        .tk-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 30px 0;
+            margin-bottom: 20px;
+        }
+        .tk-header h1 {
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        .tk-header p {
+            margin: 5px 0 0;
+        }
+        .filter-card {
+            background: #fff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.06);
+            margin-bottom: 20px;
+        }
+        .filter-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-title i {
+            color: #667eea;
+        }
+        .table-card {
+            background: #fff;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.06);
+        }
+        .table-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .badge-soft {
+            background: rgba(102,126,234,0.1);
+            color: #4c51bf;
+        }
+        .summary-text {
+            font-size: 0.85rem;
+            color: #6b7280;
+        }
+        .progress-panel {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 10px 14px;
+        }
+        .progress-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+        .progress-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: #374151;
+            font-weight: 600;
+        }
+        .progress-head i {
+            color: #667eea;
+            margin-right: 6px;
+        }
+        .progress-value {
+            font-weight: 700;
+            color: #111827;
+        }
+        .muted {
+            color: #6b7280;
+        }
+        .metric-progress {
+            height: 12px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .metric-progress > div {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
+            transition: width 0.35s ease;
+        }
+        .progress-foot {
+            margin-top: 6px;
+            font-size: 0.8rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .progress-foot .muted {
+            color: #9ca3af;
+        }
+        .status-text {
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .status-text.error {
+            color: #dc2626;
+        }
+        .status-text.success {
+            color: #16a34a;
+        }
+        th, td {
+            white-space: nowrap;
+            font-size: 0.9rem;
+        }
+        thead th {
+            background-color: #f3f4f6;
+        }
+    </style>
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-cube"></i> 图创AI系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('tk_project') }}">
+                    <i class="fas fa-project-diagram"></i> 返回TK项目
+                </a>
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 返回首页
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="tk-header">
+        <div class="container">
+            <h1><i class="fas fa-bullseye"></i> BD指标</h1>
+            <p class="lead">按年、月、店铺查看BD的视频目标、寄样目标与实际完成情况</p>
+        </div>
+    </div>
+
+    <div class="container mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('tk_project') }}">TK项目组功能</a></li>
+                <li class="breadcrumb-item active" aria-current="page">BD指标</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="container">
+        <div class="filter-card">
+            <div class="filter-title">
+                <i class="fas fa-filter"></i>
+                <span>筛选条件</span>
+            </div>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="yearSelect" class="form-label">年份</label>
+                    <select id="yearSelect" class="form-select"></select>
+                </div>
+                <div class="col-md-3">
+                    <label for="monthSelect" class="form-label">月份</label>
+                    <select id="monthSelect" class="form-select">
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}">{{ m }} 月</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="shopInput" class="form-label">店铺</label>
+                    <input id="shopInput" type="text" class="form-control" placeholder="例如: 82,86,88 支持多店">
+                </div>
+                <div class="col-md-3 text-md-end">
+                    <button id="queryBtn" class="btn btn-primary">
+                        <i class="fas fa-search"></i> 查询
+                    </button>
+                </div>
+            </div>
+            <div id="statusText" class="status-text"></div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-title">
+                <div>
+                    <span>BD指标明细</span>
+                    <span class="badge badge-soft ms-2" id="recordCountBadge">共 0 条记录</span>
+                </div>
+                <div class="summary-text" id="summaryText"></div>
+            </div>
+            <div class="progress-panel">
+                <div class="progress-item">
+                    <div class="progress-head">
+                        <span><i class="fas fa-hourglass-half"></i>时间进度</span>
+                        <span id="timeProgressText" class="progress-value">0%</span>
+                    </div>
+                    <div class="metric-progress"><div id="timeProgressBar"></div></div>
+                    <div class="progress-foot">
+                        <span id="timeProgressDetail" class="muted">-</span>
+                        <span class="muted">当月</span>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-head">
+                        <span><i class="fas fa-video"></i>视频达成率</span>
+                        <span id="videoProgressText" class="progress-value">0%</span>
+                    </div>
+                    <div class="metric-progress"><div id="videoProgressBar"></div></div>
+                    <div class="progress-foot">
+                        <span id="videoProgressDetail" class="muted">目标- · 实际-</span>
+                        <span id="videoProgressHint" class="muted"></span>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-head">
+                        <span><i class="fas fa-box"></i>寄样达成率</span>
+                        <span id="sampleProgressText" class="progress-value">0%</span>
+                    </div>
+                    <div class="metric-progress"><div id="sampleProgressBar"></div></div>
+                    <div class="progress-foot">
+                        <span id="sampleProgressDetail" class="muted">目标- · 实际-</span>
+                        <span id="sampleProgressHint" class="muted"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>年</th>
+                            <th>月</th>
+                            <th>店</th>
+                            <th>BD</th>
+                            <th>视频目标</th>
+                            <th>实际视频</th>
+                            <th>视频达成率</th>
+                            <th>寄样目标</th>
+                            <th>实际寄样</th>
+                            <th>寄样达成率</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bdTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const currentYear = {{ current_year }};
+        const currentMonth = {{ current_month }};
+        const currentDay = {{ current_day }};
+
+        function initYearOptions() {
+            const yearSelect = document.getElementById('yearSelect');
+            const startYear = currentYear - 1;
+            const endYear = currentYear + 1;
+            for (let y = startYear; y <= endYear; y++) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y + ' 年';
+                if (y === currentYear) {
+                    opt.selected = true;
+                }
+                yearSelect.appendChild(opt);
+            }
+            const monthSelect = document.getElementById('monthSelect');
+            monthSelect.value = currentMonth;
+        }
+
+        function _rateGradient(rate) {
+            const r = Number(rate || 0);
+            if (r >= 100) {
+                return 'linear-gradient(135deg, #22c55e 0%, #10b981 100%)';
+            }
+            if (r >= 80) {
+                return 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)';
+            }
+            return 'linear-gradient(135deg, #ef4444 0%, #f43f5e 100%)';
+        }
+
+        function _timeGradient() {
+            return 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)';
+        }
+
+        function setStatus(message, type) {
+            const el = document.getElementById('statusText');
+            el.textContent = message || '';
+            el.classList.remove('error', 'success');
+            if (type === 'error') {
+                el.classList.add('error');
+            } else if (type === 'success') {
+                el.classList.add('success');
+            }
+        }
+
+        function calcTotals(data) {
+            let totalVideoTarget = 0;
+            let totalSampleTarget = 0;
+            let totalActualVideo = 0;
+            let totalActualReach = 0;
+            (data || []).forEach(item => {
+                totalVideoTarget += Number(item.video_target || 0);
+                totalSampleTarget += Number(item.sample_target || 0);
+                totalActualVideo += Number(item.actual_video_count || 0);
+                totalActualReach += Number(item.actual_reach_count || 0);
+            });
+            const videoRate = totalVideoTarget > 0 ? (totalActualVideo / totalVideoTarget * 100) : 0;
+            const reachRate = totalSampleTarget > 0 ? (totalActualReach / totalSampleTarget * 100) : 0;
+            return {
+                totalVideoTarget,
+                totalSampleTarget,
+                totalActualVideo,
+                totalActualReach,
+                videoRate,
+                reachRate
+            };
+        }
+
+        function updateSummary(data) {
+            const summaryEl = document.getElementById('summaryText');
+            if (!data || data.length === 0) {
+                summaryEl.textContent = '';
+                return;
+            }
+            const totals = calcTotals(data);
+            summaryEl.textContent =
+                '视频目标合计: ' + totals.totalVideoTarget.toFixed(0) +
+                '，实际视频合计: ' + totals.totalActualVideo.toFixed(0) +
+                '，视频完成率: ' + totals.videoRate.toFixed(1) + '%；' +
+                '寄样目标合计: ' + totals.totalSampleTarget.toFixed(0) +
+                '，实际寄样合计: ' + totals.totalActualReach.toFixed(0) +
+                '，寄样完成率: ' + totals.reachRate.toFixed(1) + '%';
+        }
+
+        function updateProgressBars(data, year, month) {
+            const y = parseInt(year, 10);
+            const m = parseInt(month, 10);
+            const ym = y * 12 + m;
+            const cur = currentYear * 12 + currentMonth;
+            const daysInMonth = new Date(y, m, 0).getDate();
+            let elapsed = 0;
+            if (ym < cur) {
+                elapsed = daysInMonth;
+            } else if (ym > cur) {
+                elapsed = 0;
+            } else {
+                elapsed = Math.min(currentDay, daysInMonth);
+            }
+
+            const timePct = daysInMonth > 0 ? (elapsed / daysInMonth * 100) : 0;
+            const timeBar = document.getElementById('timeProgressBar');
+            const timeText = document.getElementById('timeProgressText');
+            const timeDetail = document.getElementById('timeProgressDetail');
+            timeBar.style.background = _timeGradient();
+            timeBar.style.width = Math.max(0, Math.min(100, timePct)).toFixed(1) + '%';
+            timeText.textContent = timePct.toFixed(1) + '%';
+            timeDetail.textContent = `${elapsed}/${daysInMonth}天`;
+
+            const totals = calcTotals(data || []);
+            const videoWidth = Math.max(0, Math.min(100, totals.videoRate));
+            const sampleWidth = Math.max(0, Math.min(100, totals.reachRate));
+
+            const vb = document.getElementById('videoProgressBar');
+            const vt = document.getElementById('videoProgressText');
+            const vd = document.getElementById('videoProgressDetail');
+            const vh = document.getElementById('videoProgressHint');
+            vb.style.background = _rateGradient(totals.videoRate);
+            vb.style.width = videoWidth.toFixed(1) + '%';
+            vt.textContent = totals.videoRate.toFixed(1) + '%';
+            if (totals.totalVideoTarget > 0) {
+                vd.textContent = `目标${totals.totalVideoTarget.toFixed(0)} · 实际${totals.totalActualVideo.toFixed(0)}`;
+                vh.textContent = totals.videoRate > 100 ? `超额${(totals.videoRate - 100).toFixed(1)}%` : '';
+            } else {
+                vd.textContent = '目标- · 实际-';
+                vh.textContent = '';
+            }
+
+            const sb = document.getElementById('sampleProgressBar');
+            const st = document.getElementById('sampleProgressText');
+            const sd = document.getElementById('sampleProgressDetail');
+            const sh = document.getElementById('sampleProgressHint');
+            sb.style.background = _rateGradient(totals.reachRate);
+            sb.style.width = sampleWidth.toFixed(1) + '%';
+            st.textContent = totals.reachRate.toFixed(1) + '%';
+            if (totals.totalSampleTarget > 0) {
+                sd.textContent = `目标${totals.totalSampleTarget.toFixed(0)} · 实际${totals.totalActualReach.toFixed(0)}`;
+                sh.textContent = totals.reachRate > 100 ? `超额${(totals.reachRate - 100).toFixed(1)}%` : '';
+            } else {
+                sd.textContent = '目标- · 实际-';
+                sh.textContent = '';
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('bdTableBody');
+            tbody.innerHTML = '';
+            if (!data || data.length === 0) {
+                document.getElementById('recordCountBadge').textContent = '共 0 条记录';
+                return;
+            }
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                const videoTarget = Number(item.video_target || 0);
+                const sampleTarget = Number(item.sample_target || 0);
+                const actualVideo = Number(item.actual_video_count || 0);
+                const actualReach = Number(item.actual_reach_count || 0);
+                const videoRate = videoTarget > 0 ? (actualVideo / videoTarget * 100) : 0;
+                const reachRate = sampleTarget > 0 ? (actualReach / sampleTarget * 100) : 0;
+                tr.innerHTML = `
+                    <td>${item.year}</td>
+                    <td>${item.month}</td>
+                    <td>${item.shop}</td>
+                    <td>${item.bd}</td>
+                    <td>${videoTarget.toFixed(0)}</td>
+                    <td>${actualVideo.toFixed(0)}</td>
+                    <td>${videoRate.toFixed(1)}%</td>
+                    <td>${sampleTarget.toFixed(0)}</td>
+                    <td>${actualReach.toFixed(0)}</td>
+                    <td>${reachRate.toFixed(1)}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('recordCountBadge').textContent = '共 ' + data.length + ' 条记录';
+        }
+
+        function queryMetrics() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+            const shop = document.getElementById('shopInput').value.trim();
+            if (!year || !month) {
+                setStatus('请选择年份和月份', 'error');
+                return;
+            }
+            updateProgressBars([], year, month);
+            setStatus('正在查询 BD 指标数据，请稍候...', '');
+            axios.get('/api/tk_bd_metrics', {
+                params: {
+                    year: year,
+                    month: month,
+                    shop: shop
+                }
+            }).then(function (response) {
+                const res = response.data || {};
+                if (!res.success) {
+                    setStatus(res.message || '查询失败', 'error');
+                    renderTable([]);
+                    updateSummary([]);
+                    updateProgressBars([], year, month);
+                    return;
+                }
+                const data = res.data || [];
+                renderTable(data);
+                updateSummary(data);
+                updateProgressBars(data, year, month);
+                setStatus('查询成功', 'success');
+            }).catch(function (error) {
+                console.error(error);
+                let msg = '查询失败，请稍后重试';
+                if (error.response && error.response.data && error.response.data.message) {
+                    msg = '查询失败: ' + error.response.data.message;
+                }
+                setStatus(msg, 'error');
+                renderTable([]);
+                updateSummary([]);
+                updateProgressBars([], year, month);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initYearOptions();
+            document.getElementById('queryBtn').addEventListener('click', queryMetrics);
+            updateProgressBars([], currentYear, currentMonth);
+        });
+    </script>
+</body>
+</html>

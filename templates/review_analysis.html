@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>评价分析 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f7f9fc;
+            color: #111827;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #fff;
+            color: #111827;
+            padding: 10px 0;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .header-content {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-section i {
+            font-size: 1.2rem;
+            color: #5b7cff;
+        }
+
+        .logo-section h1 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: #4b5563;
+            text-decoration: none;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            font-size: 12px;
+        }
+
+        .nav-links a:hover {
+            background: #eef2f7;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 16px 24px 20px;
+        }
+
+        .analysis-card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #edf1f7;
+            padding: 16px;
+            box-shadow: none;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            color: #111827;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title i {
+            color: #5b7cff;
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #c7d2fe;
+            box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.12);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .form-row.compact {
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .btn {
+            background: #5b7cff;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            color: #667eea;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-container {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .result-content {
+            background: #f8faff;
+            border-radius: 10px;
+            padding: 14px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #edf1f7;
+        }
+        .result-content.rich-text {
+            white-space: normal;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            line-height: 1.75;
+        }
+        .result-content.rich-text h4 {
+            margin: 12px 0 6px;
+            font-size: 15px;
+            color: #111827;
+        }
+        .result-content.rich-text p {
+            margin: 4px 0;
+            color: #374151;
+            font-size: 13px;
+        }
+        .result-content.rich-text ul {
+            margin: 4px 0 8px 18px;
+            padding: 0;
+        }
+        .result-content.rich-text li {
+            margin: 2px 0;
+            color: #374151;
+            font-size: 13px;
+        }
+
+        .history-container {
+            margin-top: 30px;
+        }
+
+        .history-item {
+            background: #fff;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #edf1f7;
+        }
+
+        .history-item h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .history-item p {
+            color: #666;
+            font-size: 14px;
+            margin: 2px 0;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        
+        .text-muted {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .container { padding: 14px 10px 20px; }
+            .analysis-card { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <i class="fas fa-chart-line"></i>
+                <h1>评价分析系统</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/dashboard"><i class="fas fa-home"></i> 返回主页</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="analysis-card">
+            <h2 class="card-title">
+                <i class="fas fa-search"></i>
+                评价分析
+            </h2>
+            
+            <div id="alertContainer"></div>
+            
+            <form id="analysisForm">
+                <div class="form-group">
+                    <label for="product_identifier">产品标识符</label>
+                    <input type="text" id="product_identifier" name="product_identifier" placeholder="请输入产品SKU或ASIN编号">
+                    <small class="text-muted">* 支持输入SKU或ASIN编号</small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="months_limit">时间范围（月）</label>
+                        <select id="months_limit" name="months_limit">
+                            <option value="1">最近1个月</option>
+                            <option value="2" selected>最近2个月</option>
+                            <option value="3">最近3个月</option>
+                            <option value="6">最近6个月</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="max_stars">星级范围</label>
+                        <select id="max_stars" name="max_stars">
+                            <option value="1">仅1星</option>
+                            <option value="2">2星及以下</option>
+                            <option value="3">3星及以下（差评）</option>
+                            <option value="4">4星及以下</option>
+                            <option value="5" selected>所有星级（1-5星）</option>
+                        </select>
+                    </div>
+                </div>
+                
+
+                
+                <button type="submit" class="btn" id="analyzeBtn">
+                    <i class="fas fa-play"></i>
+                    开始分析
+                </button>
+                <div class="form-group" style="margin-top:20px;">
+                    <label for="excludeWordsTextarea">排除高频词（每行一个）</label>
+                    <textarea id="excludeWordsTextarea" placeholder="例如：物流\n质量\n尺寸" rows="5" style="width:100%; padding:12px 15px; border:2px solid #e1e5e9; border-radius:10px; font-size:16px;"></textarea>
+                </div>
+                <div class="form-row compact">
+                    <div class="form-group">
+                        <label for="topN">显示前N个</label>
+                        <select id="topN" name="topN">
+                            <option value="50">50</option>
+                            <option value="100" selected>100</option>
+                            <option value="200">200</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:flex-end;">
+                        <button type="button" class="btn" id="filterBtn" onclick="analyzeWordFreq()">
+                            <i class="fas fa-filter"></i>
+                            筛选高频词
+                        </button>
+                    </div>
+                </div>
+            </form>
+            
+            <div class="loading" id="loadingDiv">
+                <i class="fas fa-spinner"></i>
+                <p>正在分析中，请稍候...</p>
+            </div>
+            
+            <div class="result-container" id="resultContainer">
+                <h3><i class="fas fa-chart-bar"></i> 分析结果</h3>
+                <div class="result-content" id="resultContent"></div>
+            </div>
+            <div class="result-container" id="freqResultContainer">
+                <h3><i class="fas fa-list"></i> 高频词统计（已排除后的结果）</h3>
+                <div class="result-content" id="freqResultContent"></div>
+            </div>
+        </div>
+        
+        <div class="analysis-card">
+            <h2 class="card-title">
+                <i class="fas fa-history"></i>
+                分析历史
+            </h2>
+            
+            <button type="button" class="btn" id="loadHistoryBtn" onclick="loadHistory()">
+                <i class="fas fa-refresh"></i>
+                加载历史记录
+            </button>
+            
+            <div class="history-container" id="historyContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        function _escapeHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function _renderRichText(rawText) {
+            const lines = String(rawText || '').split('\n');
+            const htmlParts = [];
+            let inList = false;
+
+            const closeList = () => {
+                if (inList) {
+                    htmlParts.push('</ul>');
+                    inList = false;
+                }
+            };
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = (lines[i] || '').trim();
+                if (!line) {
+                    closeList();
+                    continue;
+                }
+
+                // 去掉异常前缀（历史数据里偶发的 ??）
+                line = line.replace(/^\?{1,3}\s*/, '');
+                if (!line) {
+                    closeList();
+                    continue;
+                }
+
+                const safe = _escapeHtml(line);
+
+                // 列表项：• / - / 数字序号
+                if (/^(?:•|-)\s+/.test(line) || /^\d+\.\s+/.test(line)) {
+                    if (!inList) {
+                        htmlParts.push('<ul>');
+                        inList = true;
+                    }
+                    const itemText = safe.replace(/^(?:•|-)\s+/, '').replace(/^\d+\.\s+/, '');
+                    htmlParts.push(`<li>${itemText}</li>`);
+                    continue;
+                }
+
+                closeList();
+
+                // 标题行：以中文冒号结尾或含有分节前缀
+                if (/[:：]$/.test(line) || /^(?:📊|📅|⭐|🚨|💡|🎯|🌟|📋|🔍|📈|🎖️|✅|⚠️|❌|🚀|🔧)/.test(line)) {
+                    htmlParts.push(`<h4>${safe}</h4>`);
+                } else {
+                    htmlParts.push(`<p>${safe}</p>`);
+                }
+            }
+
+            closeList();
+            return htmlParts.join('');
+        }
+
+        // 显示提示信息
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i> ${message}`;
+            
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alertDiv);
+            
+            // 3秒后自动消失
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+
+        // 处理分析表单提交
+        document.getElementById('analysisForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const productIdentifier = formData.get('product_identifier') || '';
+            
+            // 检查是否输入了产品标识符
+            if (!productIdentifier.trim()) {
+                showAlert('请输入产品SKU或ASIN编号', 'error');
+                return;
+            }
+            
+            const data = {
+                product_identifier: productIdentifier.trim(),
+                months_limit: parseInt(formData.get('months_limit')),
+                max_rating: parseInt(formData.get('max_stars')),
+                use_local: formData.get('use_local_analysis') === 'on'
+            };
+            
+            // 显示加载状态
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('resultContainer').style.display = 'none';
+            
+            try {
+                const response = await fetch('/analyze_reviews', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('分析完成！', 'success');
+                    displayResult(result);
+                } else {
+                    showAlert(result.message || '分析失败', 'error');
+                }
+            } catch (error) {
+                showAlert('网络错误，请重试', 'error');
+                console.error('Error:', error);
+            } finally {
+                // 隐藏加载状态
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('loadingDiv').style.display = 'none';
+            }
+        });
+
+        // 显示分析结果
+        function displayResult(result) {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultContent = document.getElementById('resultContent');
+            
+            let formattedResult = '';
+            
+            if (result.success) {
+                formattedResult += `📊 评价总数: ${result.review_count}条\n`;
+                
+                // 如果是历史记录详情，显示原始分析时间；如果是新分析，显示当前时间
+                if (result.analysis_time) {
+                    formattedResult += `📅 分析时间: ${result.analysis_time}\n\n`;
+                } else {
+                    formattedResult += `📅 分析时间: ${new Date().toLocaleString()}\n\n`;
+                }
+                
+                if (result.analysis) {
+                    formattedResult += `📋 分析结果:\n${result.analysis}`;
+                } else {
+                    formattedResult += `✅ 分析完成，但未生成详细分析结果`;
+                }
+            } else {
+                formattedResult = `❌ 分析出错: ${result.message || '未知错误'}`;
+            }
+            
+            resultContent.classList.add('rich-text');
+            resultContent.innerHTML = _renderRichText(formattedResult);
+            resultContainer.style.display = 'block';
+        }
+
+        // 加载分析历史
+        async function loadHistory() {
+            const historyContainer = document.getElementById('historyContainer');
+            const loadHistoryBtn = document.getElementById('loadHistoryBtn');
+            
+            loadHistoryBtn.disabled = true;
+            loadHistoryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加载中...';
+            
+            try {
+                const response = await fetch('/get_analysis_history');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayHistory(result.history);
+                } else {
+                    showAlert(result.message || '加载历史记录失败', 'error');
+                }
+            } catch (error) {
+                showAlert('网络错误，请重试', 'error');
+                console.error('Error:', error);
+            } finally {
+                loadHistoryBtn.disabled = false;
+                loadHistoryBtn.innerHTML = '<i class="fas fa-refresh"></i> 加载历史记录';
+            }
+        }
+
+        // 显示历史记录
+        function displayHistory(history) {
+            const historyContainer = document.getElementById('historyContainer');
+            
+            if (history.length === 0) {
+                historyContainer.innerHTML = '<p style="text-align: center; color: #666;">暂无分析历史记录</p>';
+                return;
+            }
+            
+            historyContainer.innerHTML = '';
+            
+            history.forEach(record => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item';
+                historyItem.innerHTML = `
+                    <h4>SKU/ASIN: ${record.product_identifier}</h4>
+                    <p><i class="fas fa-clock"></i> 分析时间: ${record.analysis_date}</p>
+                    <p><i class="fas fa-chart-bar"></i> 差评数量: ${record.review_count}条</p>
+                    <p><i class="fas fa-info-circle"></i> 状态: 已完成</p>
+                    <button class="btn" onclick="viewAnalysisDetail('${record.product_identifier}', '${record.analysis_date}')" style="margin-top: 10px; padding: 8px 16px; font-size: 14px;">
+                        <i class="fas fa-eye"></i> 查看详情
+                    </button>
+                `;
+                historyContainer.appendChild(historyItem);
+            });
+        }
+
+        // 查看分析详情
+        async function viewAnalysisDetail(productIdentifier, analysisDate) {
+            try {
+                const response = await fetch(`/get_analysis_detail?product_identifier=${encodeURIComponent(productIdentifier)}&analysis_date=${encodeURIComponent(analysisDate)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResult(result);
+                    // 滚动到结果区域
+                    document.getElementById('resultContainer').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    showAlert(result.message || '获取详情失败', 'error');
+                }
+            } catch (error) {
+                showAlert('网络错误，请重试', 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        async function analyzeWordFreq() {
+            const productIdentifier = (document.getElementById('product_identifier').value || '').trim();
+            if (!productIdentifier) {
+                showAlert('请输入产品SKU或ASIN编号', 'error');
+                return;
+            }
+            const monthsLimit = parseInt(document.getElementById('months_limit').value);
+            const maxStars = parseInt(document.getElementById('max_stars').value);
+            const excludeWords = document.getElementById('excludeWordsTextarea').value || '';
+            const topN = parseInt(document.getElementById('topN').value) || 100;
+
+            const filterBtn = document.getElementById('filterBtn');
+            filterBtn.disabled = true;
+
+            try {
+                const resp = await fetch('/analyze_word_freq', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_identifier: productIdentifier,
+                        months_limit: monthsLimit,
+                        max_rating: maxStars,
+                        exclude_words: excludeWords,
+                        top_n: topN
+                    })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    showAlert('筛选完成！', 'success');
+                    const list = result.frequencies || [];
+                    const lines = list.map((item, idx) => `${idx + 1}. ${item.word} - ${item.count}`);
+                    const header = `📊 评价总数: ${result.review_count}条\n\n`;
+                    let text = header + `【单词频率】\n` + (lines.length ? lines.join('\n') : '暂无数据') + '\n\n';
+                    const phrases = result.phrases || {};
+                    const bi = (phrases.bi || []).map((item, idx) => `${idx + 1}. ${item.phrase} - ${item.count}`);
+                    const tri = (phrases.tri || []).map((item, idx) => `${idx + 1}. ${item.phrase} - ${item.count}`);
+                    const quad = (phrases.quad || []).map((item, idx) => `${idx + 1}. ${item.phrase} - ${item.count}`);
+                    text += `【二词短语】\n` + (bi.length ? bi.join('\n') : '暂无数据') + '\n\n';
+                    text += `【三词短语】\n` + (tri.length ? tri.join('\n') : '暂无数据') + '\n\n';
+                    text += `【四词短语】\n` + (quad.length ? quad.join('\n') : '暂无数据');
+                    const freqEl = document.getElementById('freqResultContent');
+                    freqEl.classList.add('rich-text');
+                    freqEl.innerHTML = _renderRichText(text);
+                    document.getElementById('freqResultContainer').style.display = 'block';
+                } else {
+                    showAlert(result.message || '筛选失败', 'error');
+                }
+            } catch (err) {
+                showAlert('网络错误，请重试', 'error');
+                console.error(err);
+            } finally {
+                filterBtn.disabled = false;
+            }
+        }
+
+        // 页面加载完成后自动加载历史记录
+        window.addEventListener('load', function() {
+            loadHistory();
+        });
+    </script>
+</body>
+</html>

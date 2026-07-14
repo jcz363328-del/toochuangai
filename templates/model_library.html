@@ -1,0 +1,550 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模特库管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-archive"></i> 模特库管理</h2>
+            <button class="btn btn-outline-primary btn-sm mt-2" id="toggleUploadBtn"><i class="fas fa-chevron-down"></i> 展开上传表单</button>
+        </div>
+    </div>
+
+    <div class="card mb-3" id="uploadCard" style="display:none;">
+        <div class="card-body">
+            <form id="createForm" enctype="multipart/form-data">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">模特编号</label>
+                        <input type="text" class="form-control" name="code" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">模特姓名</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="合作中">合作中</option>
+                            <option value="暂停拍摄">暂停拍摄</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">国家</label>
+                        <select class="form-select" name="country">
+                            <option value="中国">中国</option>
+                            <option value="美国">美国</option>
+                            <option value="英国">英国</option>
+                            <option value="加拿大">加拿大</option>
+                            <option value="牙买加">牙买加</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">等级</label>
+                        <select class="form-select" name="level">
+                            <option value="优质模特">优质模特</option>
+                            <option value="较为配合模特">较为配合模特</option>
+                            <option value="普通模特">普通模特</option>
+                            <option value="拍摄时间长">拍摄时间长</option>
+                            <option value="正在磨合">正在磨合</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">备注</label>
+                        <input type="text" class="form-control" name="remark">
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label">上传视频</label>
+                        <input type="file" class="form-control" name="videos" id="videos" multiple accept="video/*">
+                    </div>
+                </div>
+                <button class="btn btn-primary" type="submit"><i class="fas fa-upload"></i> 上传模特</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3 align-items-end">
+        <div class="col-12 col-md-6 col-lg-3">
+            <label class="form-label mb-1">模特姓名</label>
+            <div class="input-group input-group-sm">
+                <input type="text" class="form-control" id="nameFilter" placeholder="输入模特姓名">
+                <button class="btn btn-outline-primary" type="button" id="nameSearchBtn">搜索</button>
+                <button class="btn btn-outline-secondary" type="button" id="nameClearBtn">清空</button>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label mb-1">排序</label>
+            <select class="form-select form-select-sm" id="sortSelect">
+                <option value="queue_count_desc" selected>排队人数（多 → 少）</option>
+                <option value="queue_count_asc">排队人数（少 → 多）</option>
+                <option value="created_desc">创建时间（新 → 旧）</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label mb-1">状态</label>
+            <select class="form-select form-select-sm" id="statusFilter">
+                <option value="">全部</option>
+                <option value="合作中">合作中</option>
+                <option value="暂停拍摄">暂停拍摄</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label mb-1">排队人数</label>
+            <select class="form-select form-select-sm" id="queueFilter">
+                <option value="">全部</option>
+                <option value="has">有排队</option>
+                <option value="none">无排队</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label mb-1">国家</label>
+            <select class="form-select form-select-sm" id="countryFilter">
+                <option value="">全部</option>
+                <option value="中国">中国</option>
+                <option value="美国">美国</option>
+                <option value="英国">英国</option>
+                <option value="加拿大">加拿大</option>
+                <option value="牙买加">牙买加</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label mb-1">等级</label>
+            <select class="form-select form-select-sm" id="levelFilter">
+                <option value="">全部</option>
+                <option value="优质模特">优质模特</option>
+                <option value="较为配合模特">较为配合模特</option>
+                <option value="普通模特">普通模特</option>
+                <option value="拍摄时间长">拍摄时间长</option>
+                <option value="正在磨合">正在磨合</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2 d-flex justify-content-start justify-content-md-end align-items-end">
+            <button class="btn btn-sm btn-outline-secondary w-100 w-md-auto" id="resetFiltersBtn">重置筛选</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">我的模特</div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>模特编号</th>
+                            <th>模特姓名</th>
+                            <th>状态</th>
+                            <th>排队人数</th>
+                            <th>国家</th>
+                            <th>等级</th>
+                            <th>备注</th>
+                            <th>视频</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modelTbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const filterState = {
+    name: '',
+    sort: 'queue_count_desc',
+    status: '',
+    country: '',
+    level: '',
+    queueFilter: ''
+};
+
+function buildQueryString(params) {
+    const esc = encodeURIComponent;
+    const parts = [];
+    for (const k in params) {
+        if (params[k] !== undefined && params[k] !== null && params[k] !== '') {
+            parts.push(esc(k) + '=' + esc(params[k]));
+        }
+    }
+    return parts.join('&');
+}
+
+function loadModels() {
+    const qs = buildQueryString({
+        name: filterState.name,
+        sort: filterState.sort,
+        status: filterState.status,
+        country: filterState.country,
+        level: filterState.level,
+        queue_filter: filterState.queueFilter
+    });
+    const url = qs ? `/api/models?${qs}` : '/api/models';
+    fetch(url).then(r=>r.json()).then(res=>{
+        const tbody = document.getElementById('modelTbody');
+        tbody.innerHTML = '';
+        if (!res.success) return;
+        res.data.forEach(row=>{
+            const tr = document.createElement('tr');
+            const vids = (row.videos||'').split(';').filter(x=>x);
+            const vidHtml = vids.map((v,idx)=>`<div class="me-2 mb-1 d-inline-block"><video src="/model/videos/${encodeURIComponent(v)}" controls style="max-width:160px;max-height:120px"></video></div>`).join('');
+            tr.innerHTML = `
+                <td>${row.code||''}</td>
+                <td><input type="text" class="form-control form-control-sm" id="edit-name-${row.id}" value="${row.name||''}"></td>
+                <td>${row.status||''}</td>
+                <td>${row.queueing_count || 0}</td>
+                <td>${row.country||''}</td>
+                <td>${row.level||''}</td>
+                <td>${row.remark||''}</td>
+                <td>${vidHtml}</td>
+                <td>
+                    <button class="btn btn-sm btn-success" onclick="openEdit(${row.id})"><i class="fas fa-edit"></i> 编辑</button>
+                    <button class="btn btn-sm btn-danger ms-2" onclick="delModel(${row.id})"><i class="fas fa-trash"></i> 删除</button>
+                    <button class="btn btn-sm btn-warning ms-2" onclick="pauseQueue(${row.id})"><i class="fas fa-pause"></i> 暂停排队</button>
+                    <button class="btn btn-sm btn-secondary ms-2" onclick="setProxy(${row.id})"><i class="fas fa-user-friends"></i> 代排队</button>
+                    <button class="btn btn-sm btn-info ms-2" onclick="showQueues(${row.id}, this)"><i class="fas fa-eye"></i> 查看排队</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            const qtr = document.createElement('tr');
+            qtr.style.display = 'none';
+            qtr.innerHTML = `<td colspan="9"><div id="qbox-${row.id}"></div></td>`;
+            tbody.appendChild(qtr);
+            const etr = document.createElement('tr');
+            etr.id = `edit-${row.id}`;
+            etr.style.display = 'none';
+            etr.innerHTML = `
+                <td>${row.code||''}</td>
+                <td>${row.name||''}</td>
+                <td>
+                    <select class="form-select form-select-sm" id="edit-status-${row.id}">
+                        <option value="合作中" ${row.status==='合作中'?'selected':''}>合作中</option>
+                        <option value="暂停拍摄" ${row.status==='暂停拍摄'?'selected':''}>暂停拍摄</option>
+                    </select>
+                </td>
+                <td>${row.queueing_count || 0}</td>
+                <td>
+                    <select class="form-select form-select-sm" id="edit-country-${row.id}">
+                        <option value="中国" ${row.country==='中国'?'selected':''}>中国</option>
+                        <option value="美国" ${row.country==='美国'?'selected':''}>美国</option>
+                        <option value="英国" ${row.country==='英国'?'selected':''}>英国</option>
+                        <option value="加拿大" ${row.country==='加拿大'?'selected':''}>加拿大</option>
+                        <option value="牙买加" ${row.country==='牙买加'?'selected':''}>牙买加</option>
+                    </select>
+                </td>
+                <td>
+                    <select class="form-select form-select-sm" id="edit-level-${row.id}">
+                        <option value="优质模特" ${row.level==='优质模特'?'selected':''}>优质模特</option>
+                        <option value="较为配合模特" ${row.level==='较为配合模特'?'selected':''}>较为配合模特</option>
+                        <option value="普通模特" ${row.level==='普通模特'?'selected':''}>普通模特</option>
+                        <option value="拍摄时间长" ${row.level==='拍摄时间长'?'selected':''}>拍摄时间长</option>
+                        <option value="正在磨合" ${row.level==='正在磨合'?'selected':''}>正在磨合</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm" id="edit-remark-${row.id}" value="${row.remark||''}">
+                </td>
+                <td>
+                    <div class="mb-2" id="old-videos-${row.id}">
+                        ${vids.map((v,idx)=>`
+                            <div class="d-inline-block me-2 mb-2 text-center">
+                                <div>
+                                    <video src="/model/videos/${encodeURIComponent(v)}" controls style="max-width:140px;max-height:100px"></video>
+                                </div>
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input d-none" type="checkbox" id="keep-video-${row.id}-${idx}" data-name="${v}" checked>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="toggleVideoKeep(${row.id}, ${idx}, this)">删除</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <input type="file" class="form-control form-control-sm" id="edit-videos-${row.id}" multiple accept="video/*">
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="saveEdit(${row.id})"><i class="fas fa-save"></i> 保存</button>
+                    <button class="btn btn-sm btn-light ms-2" onclick="openEdit(${row.id})"><i class="fas fa-times"></i> 取消</button>
+                </td>
+            `;
+            tbody.appendChild(etr);
+        });
+    });
+}
+
+document.getElementById('createForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const fd = new FormData(this);
+    const btn = this.querySelector('button[type="submit"]');
+    let oldHtml = '';
+    if (btn) {
+        oldHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上传中...';
+    }
+    fetch('/api/models', {method:'POST', body: fd})
+        .then(async r=>{ 
+            let data = null; 
+            try{ 
+                data = await r.json(); 
+            } catch(_){ 
+                data = null; 
+            }
+            if(r.ok && data && data.success){ 
+                alert('上传成功');
+                loadModels(); 
+                this.reset(); 
+            } else { 
+                loadModels();
+                alert((data && data.message) || '上传失败，如列表中已出现该模特说明已成功'); 
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = oldHtml || '<i class="fas fa-upload"></i> 上传模特';
+            }
+        })
+        .catch(err=>{ 
+            loadModels();
+            alert('网络异常：'+err.message+'，如列表中已出现该模特说明已成功'); 
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = oldHtml || '<i class="fas fa-upload"></i> 上传模特';
+            }
+        });
+});
+
+function delModel(id){
+    fetch(`/api/models/${id}`, {method:'DELETE'}).then(r=>r.json()).then(res=>{ 
+        if(res.success){ alert('删除成功'); loadModels(); } else { alert(res.message||'删除失败'); }
+    });
+}
+
+function openEdit(id){
+    const etr = document.getElementById(`edit-${id}`);
+    if (!etr) return;
+    etr.style.display = etr.style.display==='none' ? 'table-row' : 'none';
+}
+
+function saveEdit(id){
+    const fd = new FormData();
+    const name = document.getElementById(`edit-name-${id}`).value;
+    const status = document.getElementById(`edit-status-${id}`).value;
+    const country = document.getElementById(`edit-country-${id}`).value;
+    const level = document.getElementById(`edit-level-${id}`).value;
+    const remark = document.getElementById(`edit-remark-${id}`).value;
+    const files = document.getElementById(`edit-videos-${id}`).files;
+    if (name) fd.append('name', name);
+    if (status) fd.append('status', status);
+    if (country) fd.append('country', country);
+    if (level) fd.append('level', level);
+    fd.append('remark', remark||'');
+    const oldBox = document.getElementById(`old-videos-${id}`);
+    if (oldBox) {
+        const keep = [];
+        oldBox.querySelectorAll('input.form-check-input[data-name]').forEach(inp => {
+            if (inp.checked) {
+                const v = inp.getAttribute('data-name');
+                if (v) keep.push(v);
+            }
+        });
+        fd.append('keep_videos', keep.join(';'));
+    }
+    if (files && files.length>0){
+        for (let i=0;i<files.length;i++){ fd.append('videos', files[i]); }
+    }
+    fetch(`/api/models/${id}`, {method:'PUT', body: fd}).then(r=>r.json()).then(res=>{ if(res.success){ loadModels(); } });
+}
+
+function toggleVideoKeep(id, idx, btn){
+    const cb = document.getElementById(`keep-video-${id}-${idx}`);
+    if (!cb) return;
+    cb.checked = !cb.checked;
+    if (!cb.checked) {
+        btn.classList.remove('btn-outline-danger');
+        btn.classList.add('btn-danger');
+        btn.textContent = '已删除';
+    } else {
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-outline-danger');
+        btn.textContent = '删除';
+    }
+}
+
+function pauseQueue(id){
+    fetch(`/api/models/${id}/pause`, {method:'POST'})
+        .then(r=>r.json())
+        .then(res=>{
+            if(res && res.success){
+                const text = res.new_status === '暂停' ? '已暂停排队' : '已恢复排队';
+                alert(text);
+                loadModels();
+            }else{
+                alert((res && res.message) || '操作失败');
+            }
+        })
+        .catch(err=>{
+            alert('操作失败：' + err.message);
+        });
+}
+
+function setProxy(id){
+    const name = prompt('请输入运营姓名');
+    if(!name) return;
+    fetch('/api/model_queue/proxy', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({model_id: id, operator_name: name})}).then(r=>r.json()).then(res=>{ 
+        if(res.success){ alert('代排队成功'); loadModels(); } else { alert(res.message || '代排队失败'); }
+    });
+}
+
+function showQueues(id, btn){
+    const row = btn.closest('tr').nextSibling;
+    if(row.style.display==='none'){
+        refreshQueues(id);
+        row.style.display='table-row';
+    } else {
+        row.style.display='none';
+    }
+}
+
+function refreshQueues(id){
+    const box = document.getElementById(`qbox-${id}`);
+    if(!box) return;
+    fetch(`/api/model_queue/${id}`).then(r=>r.json()).then(res=>{
+        const items = res.data||[];
+        box.innerHTML = items.map(it=>`
+            <div class="d-flex align-items-center mb-2">
+                <span class="me-2">序号 ${it.position}｜运营：${it.department}｜状态：${it.queue_status}${it.proxy_queue?`｜代排队：${it.proxy_queue}`:''}</span>
+                <button class="btn btn-sm btn-success me-2" onclick="completeQueue(${it.id}, ${id})"><i class="fas fa-check"></i> 视频完成</button>
+                <button class="btn btn-sm btn-danger" onclick="cancelQueueItem(${it.id}, ${id})"><i class="fas fa-times"></i> 取消排队</button>
+            </div>
+        `).join('');
+    });
+}
+
+function completeQueue(qid, mid){
+    fetch(`/api/model_queue/${qid}/complete`, {method:'POST'}).then(r=>r.json()).then(res=>{ 
+        if(res.success){
+            let msg = '完成视频成功';
+            if(res.notified_current){ msg += '，已通知当前序号用户'; }
+            if(res.notified_next){ msg += '，已通知下一位到号'; }
+            alert(msg);
+            if (mid) {
+                refreshQueues(mid);
+            }
+        } else {
+            alert(res.message || '操作失败');
+        }
+    });
+}
+
+function cancelQueueItem(qid, mid){
+    fetch(`/api/model_queue/${qid}/cancel`, {method:'POST'}).then(r=>r.json()).then(res=>{ 
+        if(res.success){
+            alert('取消排队成功');
+            if (mid) {
+                refreshQueues(mid);
+            }
+        } else {
+            alert(res.message || '操作失败');
+        }
+    });
+}
+
+// 辅助：根据队列ID在页面中查找对应的模特ID（简单方式：触发一次整体刷新）
+function getModelIdByQueue(qid){
+    // 简化处理：直接刷新列表
+    loadModels();
+    return null;
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    loadModels();
+    document.getElementById('toggleUploadBtn').addEventListener('click', function(){
+        const card = document.getElementById('uploadCard');
+        const icon = this.querySelector('i');
+        if (card.style.display==='none'){
+            card.style.display='block';
+            this.innerHTML = '<i class="fas fa-chevron-up"></i> 收起上传表单';
+        } else {
+            card.style.display='none';
+            this.innerHTML = '<i class="fas fa-chevron-down"></i> 展开上传表单';
+        }
+    });
+
+    const nameInput = document.getElementById('nameFilter');
+    const nameSearchBtn = document.getElementById('nameSearchBtn');
+    const nameClearBtn = document.getElementById('nameClearBtn');
+    const sortSelect = document.getElementById('sortSelect');
+    const statusSelect = document.getElementById('statusFilter');
+    const queueSelect = document.getElementById('queueFilter');
+    const countrySelect = document.getElementById('countryFilter');
+    const levelSelect = document.getElementById('levelFilter');
+    const resetBtn = document.getElementById('resetFiltersBtn');
+
+    if (nameSearchBtn) {
+        nameSearchBtn.addEventListener('click', function(){
+            filterState.name = (nameInput && nameInput.value ? nameInput.value.trim() : '');
+            loadModels();
+        });
+    }
+    if (nameClearBtn) {
+        nameClearBtn.addEventListener('click', function(){
+            if (nameInput) nameInput.value = '';
+            filterState.name = '';
+            loadModels();
+        });
+    }
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function(){
+            filterState.sort = this.value;
+            loadModels();
+        });
+    }
+    if (statusSelect) {
+        statusSelect.addEventListener('change', function(){
+            filterState.status = this.value;
+            loadModels();
+        });
+    }
+    if (queueSelect) {
+        queueSelect.addEventListener('change', function(){
+            filterState.queueFilter = this.value;
+            loadModels();
+        });
+    }
+    if (countrySelect) {
+        countrySelect.addEventListener('change', function(){
+            filterState.country = this.value;
+            loadModels();
+        });
+    }
+    if (levelSelect) {
+        levelSelect.addEventListener('change', function(){
+            filterState.level = this.value;
+            loadModels();
+        });
+    }
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function(){
+            if (nameInput) nameInput.value = '';
+            if (sortSelect) sortSelect.value = 'queue_count_desc';
+            if (statusSelect) statusSelect.value = '';
+            if (queueSelect) queueSelect.value = '';
+            if (countrySelect) countrySelect.value = '';
+            if (levelSelect) levelSelect.value = '';
+            filterState.name = '';
+            filterState.sort = 'queue_count_desc';
+            filterState.status = '';
+            filterState.queueFilter = '';
+            filterState.country = '';
+            filterState.level = '';
+            loadModels();
+        });
+    }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创新提案管理 - 简化版</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .innovation-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f9f9f9;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-reviewing { background: #d1ecf1; color: #0c5460; }
+        .status-approved { background: #d4edda; color: #155724; }
+        .status-rejected { background: #f8d7da; color: #721c24; }
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>创新提案管理 - 简化版</h1>
+        
+        <!-- 调试信息区域 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>调试信息</h5>
+            </div>
+            <div class="card-body">
+                <div id="debugInfo" class="debug-info">等待加载...</div>
+                <button class="btn btn-sm btn-secondary" onclick="refreshDebugInfo()">刷新调试信息</button>
+            </div>
+        </div>
+        
+        <!-- 筛选区域 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label for="statusFilter" class="form-label">状态筛选</label>
+                        <select id="statusFilter" class="form-select" onchange="loadInnovations()">
+                            <option value="">全部状态</option>
+                            <option value="pending">待审核</option>
+                            <option value="reviewing">审核中</option>
+                            <option value="approved">已通过</option>
+                            <option value="rejected">已拒绝</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="departmentFilter" class="form-label">部门筛选</label>
+                        <select id="departmentFilter" class="form-select" onchange="loadInnovations()">
+                            <option value="">全部部门</option>
+                            <option value="BD部">BD部</option>
+                            <option value="运营部">运营部</option>
+                            <option value="技术部">技术部</option>
+                            <option value="市场部">市场部</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">分数</label>
+                        <div class="form-control d-flex flex-wrap gap-3 align-items-center" style="min-height: 38px;">
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input" type="checkbox" name="maxScoreFilter" id="maxScore0" value="0" onchange="loadInnovations()">
+                                <label class="form-check-label" for="maxScore0">0</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input" type="checkbox" name="maxScoreFilter" id="maxScore10" value="10" onchange="loadInnovations()">
+                                <label class="form-check-label" for="maxScore10">10</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input" type="checkbox" name="maxScoreFilter" id="maxScore20" value="20" onchange="loadInnovations()">
+                                <label class="form-check-label" for="maxScore20">20</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input" type="checkbox" name="maxScoreFilter" id="maxScore30" value="30" onchange="loadInnovations()">
+                                <label class="form-check-label" for="maxScore30">30</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input" type="checkbox" name="maxScoreFilter" id="maxScore50" value="50" onchange="loadInnovations()">
+                                <label class="form-check-label" for="maxScore50">50</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="searchInput" class="form-label">搜索</label>
+                        <input type="text" id="searchInput" class="form-control" placeholder="搜索标题或内容" onkeyup="debounceSearch()">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button class="btn btn-primary d-block" onclick="loadInnovations()">刷新</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 提案列表区域 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>提案列表</h5>
+                <span id="totalCount" class="badge bg-secondary">总数: 0</span>
+            </div>
+            <div class="card-body">
+                <div id="innovationsList">
+                    <div class="loading">正在加载提案列表...</div>
+                </div>
+                
+                <!-- 分页 -->
+                <nav aria-label="分页导航" class="mt-4">
+                    <ul id="pagination" class="pagination justify-content-center">
+                        <!-- 分页按钮将在这里动态生成 -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentPage = 1;
+        let totalPages = 1;
+        let totalCount = 0;
+        let searchTimeout = null;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成，开始初始化...');
+            refreshDebugInfo();
+            loadInnovations();
+        });
+        
+        // 刷新调试信息
+        function refreshDebugInfo() {
+            const debugDiv = document.getElementById('debugInfo');
+            const now = new Date().toLocaleString();
+            
+            let debugInfo = `时间: ${now}\n`;
+            debugInfo += `当前URL: ${window.location.href}\n`;
+            debugInfo += `axios可用: ${typeof axios !== 'undefined'}\n`;
+            debugInfo += `当前页: ${currentPage}, 总页数: ${totalPages}, 总数: ${totalCount}\n`;
+            
+            // 检查会话信息
+            debugInfo += `\n会话检查:\n`;
+            debugInfo += `Cookie: ${document.cookie || '无'}\n`;
+            debugInfo += `User-Agent: ${navigator.userAgent.substring(0, 50)}...\n`;
+            
+            debugDiv.textContent = debugInfo;
+        }
+        
+        // 加载提案列表
+        function loadInnovations(page = 1) {
+            console.log(`开始加载第${page}页提案...`);
+            
+            const listContainer = document.getElementById('innovationsList');
+            listContainer.innerHTML = '<div class="loading">正在加载提案列表...</div>';
+            
+            // 获取筛选参数
+            const statusFilter = document.getElementById('statusFilter').value;
+            const departmentFilter = document.getElementById('departmentFilter').value;
+            const searchInput = document.getElementById('searchInput').value;
+            const scoreSelected = Array.from(document.querySelectorAll('input[name="maxScoreFilter"]:checked')).map(cb => cb.value);
+            
+            // 构建查询参数
+            const params = new URLSearchParams();
+            params.append('page', page);
+            params.append('per_page', 10);
+            
+            if (statusFilter) params.append('status', statusFilter);
+            if (departmentFilter) params.append('department', departmentFilter);
+            if (searchInput) params.append('search', searchInput);
+            if (scoreSelected && scoreSelected.length) {
+                scoreSelected.forEach(v => params.append('max_score', v));
+            }
+            
+            const apiUrl = `/innovation/api/get_innovations?${params.toString()}`;
+            console.log('请求URL:', apiUrl);
+            
+            // 发送请求
+            axios.get(apiUrl, {
+                timeout: 10000,
+                withCredentials: true,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('API响应成功:', response.data);
+                
+                if (response.data && response.data.success) {
+                    const data = response.data;
+                    currentPage = data.page || 1;
+                    totalPages = data.total_pages || 1;
+                    totalCount = data.total || 0;
+                    
+                    console.log(`成功加载: 当前页${currentPage}, 总页数${totalPages}, 总数${totalCount}`);
+                    
+                    // 更新总数显示
+                    document.getElementById('totalCount').textContent = `总数: ${totalCount}`;
+                    
+                    // 渲染提案列表
+                    renderInnovations(data.data || []);
+                    
+                    // 渲染分页
+                    renderPagination();
+                    
+                    // 更新调试信息
+                    refreshDebugInfo();
+                } else {
+                    console.error('API返回失败:', response.data);
+                    showError(`加载失败: ${response.data?.message || '未知错误'}`);
+                }
+            })
+            .catch(error => {
+                console.error('请求失败:', error);
+                let errorMsg = '网络请求失败';
+                
+                if (error.response) {
+                    errorMsg = `服务器错误 (${error.response.status}): ${error.response.data?.message || error.response.statusText}`;
+                } else if (error.request) {
+                    errorMsg = '网络连接失败，请检查网络';
+                } else {
+                    errorMsg = `请求配置错误: ${error.message}`;
+                }
+                
+                showError(errorMsg);
+            });
+        }
+        
+        // 渲染提案列表
+        function renderInnovations(innovations) {
+            const container = document.getElementById('innovationsList');
+            
+            if (!innovations || innovations.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">暂无提案数据</div>';
+                return;
+            }
+            
+            let html = '';
+            innovations.forEach((innovation, index) => {
+                const statusClass = `status-${innovation.status || 'pending'}`;
+                const statusText = getStatusText(innovation.status);
+                const pid = (innovation.id || innovation.bianhao || '').toString().replace(/[^0-9]/g,'');
+                
+                html += `
+                    <div class="innovation-card">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0">
+                                <span class="text-muted me-2">#${innovation.bianhao || innovation.id}</span>
+                                ${escapeHtml(innovation.title || '无标题')}
+                            </h6>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-md-3">
+                                <small class="text-muted">发起人:</small><br>
+                                <span>${escapeHtml(innovation.submitter || '未知')}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">部门:</small><br>
+                                <span>${escapeHtml(innovation.department || '未知')}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">提交时间:</small><br>
+                                <span>${formatDate(innovation.created_at)}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">ID:</small><br>
+                                <span>${innovation.id || 'N/A'}</span>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <small class="text-muted">内容摘要:</small><br>
+                            <p class="mb-0">${escapeHtml((innovation.content || '').substring(0, 150))}${innovation.content && innovation.content.length > 150 ? '...' : ''}</p>
+                        </div>
+                        ${innovation.score ? `
+                            <div class="mb-2">
+                                <small class="text-muted">评分:</small>
+                                <span class="badge bg-info">${innovation.score}分</span>
+                            </div>
+                        ` : ''}
+                        <div class="border-top pt-2 mt-2">
+                            <div class="d-flex align-items-center">
+                                <button class="btn btn-outline-danger btn-sm" onclick="toggleLike(${pid})"><i class="bi bi-heart"></i> 点赞</button>
+                                <span class="ms-2 small text-muted">点赞数：<span id="like-count-${pid}">0</span></span>
+                            </div>
+                            <div class="small text-muted mt-1" style="white-space: normal; word-break: break-all;">点赞人：<span id="like-users-${pid}">暂无</span></div>
+                            <div class="mt-2">
+                                <button class="btn btn-outline-secondary btn-sm" id="comment-toggle-${pid}" onclick="toggleComments(${pid})"><i class="bi bi-chat"></i> 折叠评论</button>
+                            </div>
+                            <div id="comments-panel-${pid}" class="mt-2" style="display:block;border:1px solid #e9ecef;border-radius:8px;padding:10px;">
+                                <div id="comments-${pid}"></div>
+                                <div class="input-group input-group-sm mt-2">
+                                    <input type="text" class="form-control" id="comment-input-${pid}" placeholder="写下你的评价">
+                                    <button class="btn btn-primary" onclick="submitComment(${pid})">提交评论</button>
+                                </div>
+                                <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                                    <input type="file" class="form-control form-control-sm" style="max-width:240px;" id="comment-image-${pid}" accept="image/*" onchange="previewCommentImage(this, ${pid})">
+                                    <div id="comment-image-preview-${pid}" class="d-flex flex-wrap gap-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewDetails(${innovation.id})">查看详情</button>
+                            ${innovation.status === 'pending' ? `
+                                <button class="btn btn-sm btn-success" onclick="updateStatus(${innovation.id}, 'approved')">通过</button>
+                                <button class="btn btn-sm btn-danger" onclick="updateStatus(${innovation.id}, 'rejected')">拒绝</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            innovations.forEach(inv => { const pid = (inv.id || inv.bianhao || '').toString().replace(/[^0-9]/g,''); loadReact(pid); });
+            console.log(`成功渲染${innovations.length}条提案`);
+        }
+        
+        // 渲染分页
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            
+            // 上一页
+            html += `
+                <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage - 1})" ${currentPage <= 1 ? 'tabindex="-1"' : ''}>上一页</a>
+                </li>
+            `;
+            
+            // 页码
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                    </li>
+                `;
+            }
+            
+            // 下一页
+            html += `
+                <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage + 1})" ${currentPage >= totalPages ? 'tabindex="-1"' : ''}>下一页</a>
+                </li>
+            `;
+            
+            pagination.innerHTML = html;
+        }
+        
+        // 切换页面
+        function changePage(page) {
+            if (page < 1 || page > totalPages || page === currentPage) {
+                return;
+            }
+            loadInnovations(page);
+        }
+        
+        // 防抖搜索
+        function debounceSearch() {
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            searchTimeout = setTimeout(() => {
+                loadInnovations(1); // 搜索时重置到第一页
+            }, 500);
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            const container = document.getElementById('innovationsList');
+            container.innerHTML = `
+                <div class="alert alert-danger" role="alert">
+                    <h6>加载失败</h6>
+                    <p class="mb-0">${escapeHtml(message)}</p>
+                    <button class="btn btn-sm btn-outline-danger mt-2" onclick="loadInnovations()">重试</button>
+                </div>
+            `;
+        }
+        
+        // 获取状态文本
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': '待审核',
+                'reviewing': '审核中',
+                'approved': '已通过',
+                'rejected': '已拒绝'
+            };
+            return statusMap[status] || '未知状态';
+        }
+        
+        // 格式化日期
+        function formatDate(dateString) {
+            if (!dateString) return '未知';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+            } catch (e) {
+                return dateString;
+            }
+        }
+        
+        // HTML转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 查看详情
+        function viewDetails(id) {
+            alert(`查看提案详情 ID: ${id}\n\n此功能待实现`);
+        }
+        
+        // 更新状态
+        function updateStatus(id, status) {
+            if (!confirm(`确定要将提案状态更改为"${getStatusText(status)}"吗？`)) {
+                return;
+            }
+            
+            console.log(`更新提案${id}状态为${status}`);
+            
+            axios.post('/innovation/api/update_status', {
+                id: id,
+                status: status
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                withCredentials: true
+            })
+            .then(response => {
+                if (response.data && response.data.success) {
+                    alert('状态更新成功');
+                    loadInnovations(currentPage); // 重新加载当前页
+                } else {
+                    alert(`更新失败: ${response.data?.message || '未知错误'}`);
+                }
+            })
+            .catch(error => {
+                console.error('状态更新失败:', error);
+                alert(`更新失败: ${error.message}`);
+            });
+        }
+
+        function loadReact(id){
+            axios.get('/innovation/api/react/stats', { params: { id } }).then(res=>{
+                if(res.data && res.data.success){
+                    const likes = res.data.likes || 0;
+                    const comments = res.data.comments || [];
+                    const likeUsers = res.data.like_users || [];
+                    const likeEl = document.getElementById(`like-count-${id}`);
+                    const usersEl = document.getElementById(`like-users-${id}`);
+                    const listEl = document.getElementById(`comments-${id}`);
+                    if(likeEl) likeEl.innerText = likes;
+                    if(usersEl) usersEl.innerText = likeUsers.length ? likeUsers.join('，') : '暂无';
+                    if(listEl) listEl.innerHTML = comments.length ? comments.map(it=>{
+                        const op = escapeHtml((it.operator||'').trim());
+                        const cm = escapeHtml((it.comment||'').trim());
+                        const tm = escapeHtml(it.time);
+                        const text = cm ? `${op}：${cm}（${tm}）` : `${op}（${tm}）`;
+                        const img = it.image_url ? `<div class="mt-1"><a href="${it.image_url}" target="_blank"><img src="${it.image_url}" class="img-thumbnail" style="max-width:160px;max-height:160px;"></a></div>` : '';
+                        return `<div class="mb-2"><div class="small text-muted">${text}</div>${img}</div>`;
+                    }).join('') : '<div class="small text-muted">暂无评论</div>';
+                }
+            }).catch(()=>{});
+        }
+
+        function toggleLike(id){
+            axios.post('/innovation/api/react', { id, like: true }).then(res=>{
+                if(res.data && res.data.success){
+                    loadReact(id);
+                } else {
+                    alert(res.data?.message || '点赞失败');
+                }
+            }).catch(()=>{ alert('点赞失败'); });
+        }
+
+        function previewCommentImage(input, id){
+            const preview = document.getElementById(`comment-image-preview-${id}`);
+            if(!preview) return;
+            preview.innerHTML = '';
+            const file = input && input.files && input.files[0] ? input.files[0] : null;
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e){
+                preview.innerHTML = `
+                    <div class="position-relative d-inline-block">
+                        <img src="${e.target.result}" class="img-thumbnail" style="max-width:120px;max-height:120px;">
+                        <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" onclick="clearCommentImage(${id})">×</button>
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearCommentImage(id){
+            const input = document.getElementById(`comment-image-${id}`);
+            const preview = document.getElementById(`comment-image-preview-${id}`);
+            if(input) input.value = '';
+            if(preview) preview.innerHTML = '';
+        }
+
+        function submitComment(id){
+            const input = document.getElementById(`comment-input-${id}`);
+            const val = (input?.value || '').trim();
+            const fileInput = document.getElementById(`comment-image-${id}`);
+            const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+            if(!val && !file){ alert('请输入评论或选择图片'); return; }
+            const fd = new FormData();
+            fd.append('id', id);
+            if(val) fd.append('comment', val);
+            if(file) fd.append('image', file);
+            axios.post('/innovation/api/react', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res=>{
+                if(res.data && res.data.success){
+                    input.value='';
+                    clearCommentImage(id);
+                    loadReact(id);
+                } else {
+                    alert(res.data?.message || '评论失败');
+                }
+            }).catch(()=>{ alert('评论失败'); });
+        }
+
+        function toggleComments(id){
+            const p = document.getElementById(`comments-panel-${id}`);
+            if(!p) return;
+            const btn = document.getElementById(`comment-toggle-${id}`);
+            const willShow = (p.style.display==='none' || p.style.display==='');
+            p.style.display = willShow ? 'block' : 'none';
+            if(btn){ btn.innerHTML = willShow ? '<i class="bi bi-chat"></i> 折叠评论' : '<i class="bi bi-chat"></i> 展开评论'; }
+        }
+    </script>
+</body>
+</html>

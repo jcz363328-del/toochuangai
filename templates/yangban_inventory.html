@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>样板库存管理 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background: #f5f7fb;
+            color: #111827;
+        }
+        button, input, select, textarea { font-family: inherit; }
+        .app-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 206px minmax(0, 1fr);
+        }
+        .sidebar {
+            background: #111827;
+            color: #d1d5db;
+            padding: 14px 10px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+        }
+        .brand {
+            height: 46px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            color: #fff;
+            font-weight: 800;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            margin-bottom: 10px;
+        }
+        .brand i { color: #60a5fa; }
+        .nav-btn {
+            width: 100%;
+            height: 40px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #d1d5db;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 0 10px;
+            margin: 4px 0;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+        }
+        .nav-btn i { width: 16px; color: #9ca3af; }
+        .nav-btn.active, .nav-btn:hover {
+            background: #1f2937;
+            color: #fff;
+        }
+        .nav-btn.active i { color: #60a5fa; }
+        .main {
+            min-width: 0;
+            padding: 14px 18px 22px;
+        }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .title-wrap h1 {
+            margin: 0;
+            font-size: 22px;
+            line-height: 1.2;
+        }
+        .title-wrap .sub {
+            margin-top: 4px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .btn {
+            height: 32px;
+            border: 1px solid #dbe3ef;
+            background: #fff;
+            color: #334155;
+            border-radius: 7px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .btn.primary:hover { background: #1d4ed8; }
+        .btn.green { background: #059669; border-color: #059669; color: #fff; }
+        .btn.orange { background: #ea580c; border-color: #ea580c; color: #fff; }
+        .btn.red { background: #dc2626; border-color: #dc2626; color: #fff; }
+        .btn.small { height: 28px; padding: 0 8px; font-size: 12px; }
+        .btn.icon { width: 32px; padding: 0; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e5ebf3;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 78px;
+        }
+        .stat-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        .stat-label i { color: #2563eb; }
+        .stat-value { font-size: 24px; font-weight: 800; color: #0f172a; }
+        .stat-card.warn .stat-label i, .stat-card.warn .stat-value { color: #dc2626; }
+        .panel {
+            background: #fff;
+            border: 1px solid #e5ebf3;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .panel-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(130px, 1fr));
+            gap: 8px;
+            align-items: end;
+        }
+        .filter-grid.flow { grid-template-columns: repeat(5, minmax(140px, 1fr)) auto; }
+        .field {
+            display: grid;
+            gap: 4px;
+        }
+        .field label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 700;
+        }
+        .field input, .field select, .field textarea {
+            width: 100%;
+            border: 1px solid #dbe3ef;
+            background: #fff;
+            border-radius: 7px;
+            min-height: 32px;
+            padding: 6px 8px;
+            font-size: 13px;
+            color: #111827;
+            outline: none;
+        }
+        .field textarea {
+            min-height: 70px;
+            resize: vertical;
+        }
+        .field input:focus, .field select:focus, .field textarea:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+        }
+        .table-wrap {
+            border: 1px solid #e7edf5;
+            border-radius: 8px;
+            overflow: auto;
+            background: #fff;
+        }
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+        }
+        th, td {
+            border-bottom: 1px solid #eef2f7;
+            padding: 8px 9px;
+            text-align: left;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 800;
+        }
+        td { color: #334155; }
+        tbody tr:hover td { background: #f8fbff; }
+        tr.low-stock td {
+            background: #fff7ed;
+        }
+        tr.low-stock td.stock-cell {
+            color: #c2410c;
+            font-weight: 900;
+        }
+        .muted { color: #94a3b8; }
+        .tag-list {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+            min-width: 150px;
+        }
+        .sample-thumb {
+            width: 44px;
+            height: 44px;
+            border-radius: 7px;
+            object-fit: cover;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: block;
+        }
+        .photo-preview {
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .photo-preview img {
+            width: 72px;
+            height: 72px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .detail-photo {
+            width: min(260px, 100%);
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            margin-bottom: 10px;
+        }
+        .search-center-head {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 4px 2px 12px;
+            border-bottom: 1px solid #e5ebf3;
+            margin-bottom: 12px;
+        }
+        .search-center-title {
+            margin: 0;
+            font-size: 21px;
+            font-weight: 900;
+            color: #0f172a;
+        }
+        .search-center-sub {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .saved-search-box {
+            border-left: 2px solid #64748b;
+            padding-left: 12px;
+        }
+        .saved-search-list {
+            min-height: 84px;
+            border: 1px solid #e5ebf3;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 14px;
+        }
+        .saved-empty {
+            display: grid;
+            gap: 6px;
+            place-items: center;
+            color: #64748b;
+            font-size: 13px;
+        }
+        .saved-empty i { font-size: 22px; color: #64748b; }
+        .saved-chip {
+            height: 30px;
+            border: 1px solid #dbe3ef;
+            background: #fff;
+            border-radius: 999px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 800;
+            color: #334155;
+        }
+        .saved-chip:hover { background: #f8fafc; border-color: #94a3b8; }
+        .search-filter-box {
+            border-left: 2px solid #64748b;
+            padding-left: 12px;
+        }
+        .dash-search-input {
+            height: 42px;
+            border: 1px solid #dbe3ef;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 0 12px;
+            margin-bottom: 12px;
+        }
+        .dash-search-input i { color: #64748b; }
+        .dash-search-input input {
+            border: 0;
+            outline: none;
+            width: 100%;
+            height: 100%;
+            font-size: 14px;
+            color: #111827;
+            background: transparent;
+        }
+        .dash-filter-row {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+            gap: 10px;
+            align-items: end;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .tag-filter-block {
+            padding-top: 12px;
+        }
+        .tag-filter-title {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: #334155;
+            font-size: 13px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .dashboard-tag-list,
+        .active-filter-list {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .dash-chip {
+            height: 26px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #334155;
+            border-radius: 999px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .dash-chip.active {
+            color: #1d4ed8;
+            border-color: #93c5fd;
+            background: #eff6ff;
+        }
+        .board-result-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 0 0 10px;
+        }
+        .board-result-meta {
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 800;
+        }
+        .sample-card-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .sample-card {
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            border-radius: 4px;
+            padding: 12px;
+            min-width: 0;
+        }
+        .sample-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .sample-card-code {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 0;
+            font-size: 15px;
+            font-weight: 900;
+            color: #0f172a;
+        }
+        .sample-card-code span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sample-card-img {
+            width: 100%;
+            aspect-ratio: 16 / 6;
+            object-fit: cover;
+            background: #f1f5f9;
+            border: 1px solid #e5ebf3;
+            display: block;
+            margin-bottom: 10px;
+        }
+        .sample-card-noimg {
+            width: 100%;
+            aspect-ratio: 16 / 6;
+            background: #f8fafc;
+            border: 1px solid #e5ebf3;
+            color: #94a3b8;
+            display: grid;
+            place-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .sample-card-lines {
+            display: grid;
+            gap: 6px;
+            font-size: 12px;
+            color: #475569;
+        }
+        .sample-card-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .sample-card-strong { font-weight: 900; color: #334155; }
+        .sample-card-footer {
+            margin-top: 10px;
+            padding-top: 9px;
+            border-top: 1px solid #edf2f7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .sample-location {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 800;
+            min-width: 0;
+        }
+        .sample-location span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .card-status-ok { background: #ecfdf5; color: #059669; border: 1px solid #bbf7d0; }
+        .card-status-off { background: #f3f4f6; color: #64748b; border: 1px solid #e5e7eb; }
+        .card-status-warn { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+        .tag-pill {
+            display: inline-flex;
+            align-items: center;
+            height: 22px;
+            padding: 0 7px;
+            border-radius: 999px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            height: 22px;
+            padding: 0 7px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .status-ok { color: #047857; background: #ecfdf5; }
+        .status-off { color: #6b7280; background: #f3f4f6; }
+        .flow-plus { color: #047857; font-weight: 900; }
+        .flow-minus { color: #dc2626; font-weight: 900; }
+        .action-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            justify-content: flex-end;
+        }
+        .pager {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .operation-grid {
+            display: grid;
+            grid-template-columns: minmax(260px, 1fr) auto;
+            gap: 10px;
+            align-items: end;
+        }
+        .operation-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(90px, 1fr));
+            gap: 8px;
+        }
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .detail-item {
+            border: 1px solid #edf2f7;
+            border-radius: 7px;
+            padding: 8px;
+            min-height: 56px;
+        }
+        .detail-label { color: #64748b; font-size: 12px; margin-bottom: 5px; }
+        .detail-value { color: #111827; font-size: 13px; font-weight: 700; word-break: break-all; white-space: normal; }
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, .42);
+            z-index: 50;
+            padding: 16px;
+        }
+        .modal.show { display: flex; }
+        .modal-card {
+            width: min(900px, 100%);
+            max-height: min(88vh, 820px);
+            overflow: hidden;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 22px 55px rgba(15, 23, 42, .25);
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+        }
+        .modal-card.narrow { width: min(560px, 100%); }
+        .modal-head, .modal-foot {
+            padding: 12px;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .modal-foot {
+            border-bottom: 0;
+            border-top: 1px solid #edf2f7;
+            justify-content: flex-end;
+        }
+        .modal-title { margin: 0; font-size: 16px; font-weight: 900; }
+        .modal-body { padding: 12px; overflow: auto; }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .form-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .form-grid .wide { grid-column: 1 / -1; }
+        .checkbox-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            border: 1px solid #dbe3ef;
+            border-radius: 7px;
+            padding: 8px;
+            min-height: 40px;
+        }
+        .tag-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-height: 24px;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .tag-check input { width: auto; min-height: auto; margin: 0; }
+        .toast {
+            position: fixed;
+            right: 18px;
+            top: 18px;
+            z-index: 80;
+            min-width: 220px;
+            max-width: min(420px, calc(100vw - 36px));
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: #fff;
+            background: #111827;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, .22);
+            display: none;
+            font-size: 13px;
+        }
+        .toast.show { display: block; }
+        .toast.error { background: #b91c1c; }
+        .toast.success { background: #047857; }
+        @media (max-width: 1180px) {
+            .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .filter-grid, .filter-grid.flow { grid-template-columns: repeat(3, minmax(140px, 1fr)); }
+            .operation-grid { grid-template-columns: 1fr; }
+            .dash-filter-row { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
+            .sample-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 760px) {
+            .app-shell { display: block; }
+            .sidebar {
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                height: auto;
+                padding: 8px;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            .brand { display: none; }
+            .nav-btn {
+                width: auto;
+                display: inline-flex;
+                margin-right: 5px;
+            }
+            .main { padding: 12px 10px 18px; }
+            .topbar { align-items: flex-start; }
+            .title-wrap h1 { font-size: 19px; }
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .filter-grid, .filter-grid.flow, .form-grid, .form-grid.two, .detail-grid {
+                grid-template-columns: 1fr;
+            }
+            .search-center-head { align-items: flex-start; flex-direction: column; }
+            .dash-filter-row { grid-template-columns: 1fr; }
+            .sample-card-grid { grid-template-columns: 1fr; }
+            .operation-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .table-wrap table { min-width: 900px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand"><i class="fa-solid fa-boxes-stacked"></i><span>样板库存</span></div>
+        <button class="nav-btn active" data-tab="dashboard"><i class="fa-solid fa-chart-pie"></i>库存看板</button>
+        <button class="nav-btn" data-tab="samples"><i class="fa-solid fa-table-list"></i>样板库存</button>
+        <button class="nav-btn" data-tab="operation"><i class="fa-solid fa-right-left"></i>库存操作</button>
+        <button class="nav-btn" data-tab="flows"><i class="fa-solid fa-clock-rotate-left"></i>库存流水</button>
+        <button class="nav-btn" data-tab="tags"><i class="fa-solid fa-tags"></i>标签管理</button>
+    </aside>
+    <main class="main">
+        <div class="topbar">
+            <div class="title-wrap">
+                <h1>样板库存管理</h1>
+                <div class="sub">采购部 / 中文后台</div>
+            </div>
+            <div class="top-actions">
+                <button class="btn" id="refreshAllBtn"><i class="fa-solid fa-rotate"></i>刷新</button>
+                <a class="btn" href="{{ url_for('procurement_dept') }}"><i class="fa-solid fa-arrow-left"></i>采购部</a>
+            </div>
+        </div>
+
+        <section id="tab-dashboard" class="section active">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-box"></i>样板总数</div><div class="stat-value" id="statSamples">0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-cubes"></i>库存总量</div><div class="stat-value" id="statStock">0</div></div>
+                <div class="stat-card warn"><div class="stat-label"><i class="fa-solid fa-triangle-exclamation"></i>低库存样板</div><div class="stat-value" id="statLow">0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-arrow-down"></i>今日入库</div><div class="stat-value" id="statIn">0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-arrow-up"></i>今日出库</div><div class="stat-value" id="statOut">0</div></div>
+            </div>
+
+            <div class="panel">
+                <div class="search-center-head">
+                    <div>
+                        <h2 class="search-center-title">检索中心</h2>
+                        <div class="search-center-sub">多维交叉检索，快速定位目标样板及库位</div>
+                    </div>
+                    <button class="btn small" id="saveDashboardSearch"><i class="fa-regular fa-bookmark"></i>保存当前检索</button>
+                </div>
+                <div class="saved-search-box">
+                    <div class="panel-head">
+                        <h2 class="panel-title"><i class="fa-regular fa-bookmark"></i>常用检索</h2>
+                    </div>
+                    <div class="saved-search-list" id="dashboardSavedSearches"></div>
+                </div>
+            </div>
+
+            <div class="panel search-filter-box">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-magnifying-glass"></i>多维条件筛选</h2>
+                    <div class="action-row">
+                        <button class="btn small" id="resetDashboardSearch"><i class="fa-solid fa-eraser"></i>清空</button>
+                        <button class="btn small primary" id="runDashboardSearch"><i class="fa-solid fa-search"></i>检索</button>
+                    </div>
+                </div>
+                <label class="dash-search-input">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="dashKeyword" type="text" placeholder="输入样板编号、名称、分类、规格、标签或库位...">
+                </label>
+                <div class="dash-filter-row">
+                    <div class="field"><label>分类</label><select id="dashFenLei"><option value="">全部分类</option></select></div>
+                    <div class="field"><label>开始日期</label><input id="dashStart" type="date"></div>
+                    <div class="field"><label>结束日期</label><input id="dashEnd" type="date"></div>
+                    <div class="field"><label>库位</label><select id="dashKuWei"><option value="">全部库位</option></select></div>
+                    <div class="field"><label>状态</label><select id="dashStatus"><option value="">全部状态</option><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
+                    <button class="btn" id="showLowOnly"><i class="fa-solid fa-triangle-exclamation"></i>低库存</button>
+                </div>
+                <div class="tag-filter-block">
+                    <div class="tag-filter-title"><i class="fa-solid fa-tags"></i>关键词标签</div>
+                    <div class="dashboard-tag-list" id="dashboardTagFilters"></div>
+                </div>
+            </div>
+
+            <div class="board-result-head">
+                <div class="board-result-meta" id="dashboardResultMeta">检索结果 0 条</div>
+                <div class="active-filter-list" id="dashboardActiveFilters"></div>
+            </div>
+            <div class="sample-card-grid" id="dashboardSampleCards"></div>
+
+            <div class="panel" style="margin-top:12px;">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-clock"></i>最近库存流水</h2>
+                    <button class="btn small" data-tab-jump="flows"><i class="fa-solid fa-list"></i>更多</button>
+                </div>
+                <div class="table-wrap" id="recentFlowTable"></div>
+            </div>
+        </section>
+
+        <section id="tab-samples" class="section">
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-filter"></i>筛选</h2>
+                    <div class="action-row">
+                        <button class="btn small" id="resetSampleFilters"><i class="fa-solid fa-eraser"></i>清空</button>
+                        <button class="btn small primary" id="searchSamples"><i class="fa-solid fa-magnifying-glass"></i>查询</button>
+                        <button class="btn small green" id="newSampleBtn"><i class="fa-solid fa-plus"></i>新建</button>
+                    </div>
+                </div>
+                <div class="filter-grid">
+                    <div class="field"><label>样板编号</label><input id="sfBianHao" type="text"></div>
+                    <div class="field"><label>样板名称</label><input id="sfMingCheng" type="text"></div>
+                    <div class="field"><label>分类</label><select id="sfFenLei"><option value="">全部</option></select></div>
+                    <div class="field"><label>标签</label><select id="sfBiaoQian"><option value="">全部</option></select></div>
+                    <div class="field"><label>库位</label><select id="sfKuWei"><option value="">全部</option></select></div>
+                    <div class="field"><label>状态</label><select id="sfZhuangTai"><option value="">全部</option><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-boxes-stacked"></i>样板库存列表</h2>
+                    <div class="muted" id="sampleMeta"></div>
+                </div>
+                <div class="table-wrap" id="sampleTable"></div>
+                <div class="pager">
+                    <button class="btn small" id="samplePrev"><i class="fa-solid fa-chevron-left"></i>上一页</button>
+                    <span id="samplePageText">第 1 / 1 页</span>
+                    <button class="btn small" id="sampleNext">下一页<i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-operation" class="section">
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-right-left"></i>库存操作</h2>
+                </div>
+                <div class="operation-grid">
+                    <div class="field">
+                        <label>样板</label>
+                        <select id="operationSampleSelect"></select>
+                    </div>
+                    <div class="operation-buttons">
+                        <button class="btn green" data-op="RuKu"><i class="fa-solid fa-arrow-down"></i>入库</button>
+                        <button class="btn red" data-op="ChuKu"><i class="fa-solid fa-arrow-up"></i>出库</button>
+                        <button class="btn primary" data-op="GuiHuan"><i class="fa-solid fa-rotate-left"></i>归还</button>
+                        <button class="btn orange" data-op="PanDian"><i class="fa-solid fa-scale-balanced"></i>盘点</button>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation"></i>低库存样板</h2>
+                </div>
+                <div class="table-wrap" id="lowStockTable"></div>
+            </div>
+        </section>
+
+        <section id="tab-flows" class="section">
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-filter"></i>流水查询</h2>
+                    <div class="action-row">
+                        <button class="btn small" id="resetFlowFilters"><i class="fa-solid fa-eraser"></i>清空</button>
+                        <button class="btn small primary" id="searchFlows"><i class="fa-solid fa-magnifying-glass"></i>查询</button>
+                        <button class="btn small green" id="exportFlows"><i class="fa-solid fa-file-excel"></i>导出</button>
+                    </div>
+                </div>
+                <div class="filter-grid flow">
+                    <div class="field"><label>开始时间</label><input id="ffStart" type="date"></div>
+                    <div class="field"><label>结束时间</label><input id="ffEnd" type="date"></div>
+                    <div class="field"><label>样板</label><select id="ffSample"><option value="">全部</option></select></div>
+                    <div class="field"><label>操作类型</label><select id="ffType"><option value="">全部</option><option value="RuKu">入库</option><option value="ChuKu">出库</option><option value="GuiHuan">归还</option><option value="PanDian">盘点</option></select></div>
+                    <div class="field"><label>操作人</label><input id="ffOperator" type="text"></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-clock-rotate-left"></i>库存流水</h2>
+                    <div class="muted" id="flowMeta"></div>
+                </div>
+                <div class="table-wrap" id="flowTable"></div>
+                <div class="pager">
+                    <button class="btn small" id="flowPrev"><i class="fa-solid fa-chevron-left"></i>上一页</button>
+                    <span id="flowPageText">第 1 / 1 页</span>
+                    <button class="btn small" id="flowNext">下一页<i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-tags" class="section">
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-tags"></i>标签管理</h2>
+                    <button class="btn small green" id="newTagBtn"><i class="fa-solid fa-plus"></i>新建标签</button>
+                </div>
+                <div class="table-wrap" id="tagTable"></div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div id="sampleModal" class="modal">
+    <div class="modal-card">
+        <div class="modal-head">
+            <h3 class="modal-title" id="sampleModalTitle">新建样板</h3>
+            <button class="btn icon" data-close="sampleModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="sampleForm" class="form-grid">
+                <input id="sampleId" type="hidden">
+                <div class="field"><label>样板编号</label><input id="mYangBanBianHao" type="text" required></div>
+                <div class="field"><label>样板名称</label><input id="mYangBanMingCheng" type="text" required></div>
+                <div class="field"><label>分类</label><input id="mFenLei" type="text"></div>
+                <div class="field"><label>规格</label><input id="mGuiGe" type="text"></div>
+                <div class="field"><label>单位</label><input id="mDanWei" type="text"></div>
+                <div class="field"><label>预警库存</label><input id="mYuJingKuCun" type="number" min="0" step="0.01" value="0"></div>
+                <div class="field"><label>库位</label><input id="mKuWei" type="text"></div>
+                <div class="field"><label>状态</label><select id="mZhuangTai"><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
+                <div class="field wide">
+                    <label>样板照片</label>
+                    <input id="mTuPian" type="file" accept="image/*">
+                    <div class="photo-preview" id="mPhotoPreview"><span>未上传照片</span></div>
+                </div>
+                <div class="field wide"><label>标签</label><div class="checkbox-tags" id="mTagChecks"></div><div class="tag-list" id="mLegacyTags" style="margin-top:6px;"></div></div>
+                <div class="field wide"><label>备注</label><textarea id="mBeiZhu"></textarea></div>
+            </form>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" data-close="sampleModal">取消</button>
+            <button class="btn primary" id="saveSampleBtn"><i class="fa-solid fa-floppy-disk"></i>保存</button>
+        </div>
+    </div>
+</div>
+
+<div id="detailModal" class="modal">
+    <div class="modal-card">
+        <div class="modal-head">
+            <h3 class="modal-title">样板详情</h3>
+            <button class="btn icon" data-close="detailModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="detailBody"></div>
+        <div class="modal-foot">
+            <button class="btn" data-close="detailModal">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div id="operationModal" class="modal">
+    <div class="modal-card narrow">
+        <div class="modal-head">
+            <h3 class="modal-title" id="operationTitle">库存操作</h3>
+            <button class="btn icon" data-close="operationModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="operationForm" class="form-grid two">
+                <input id="opType" type="hidden">
+                <div class="field wide"><label>样板</label><select id="opSample" required></select></div>
+                <div class="field"><label>变动数量</label><input id="opQuantity" type="number" step="0.01" required></div>
+                <div class="field"><label>操作人</label><input id="opOperator" type="text" value="{{ user_name }}"></div>
+                <div class="field wide"><label>关联单号</label><input id="opRelatedNo" type="text"></div>
+                <div class="field wide"><label>备注</label><textarea id="opRemark"></textarea></div>
+            </form>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" data-close="operationModal">取消</button>
+            <button class="btn primary" id="submitOperationBtn"><i class="fa-solid fa-check"></i>确认</button>
+        </div>
+    </div>
+</div>
+
+<div id="tagModal" class="modal">
+    <div class="modal-card narrow">
+        <div class="modal-head">
+            <h3 class="modal-title" id="tagModalTitle">新建标签</h3>
+            <button class="btn icon" data-close="tagModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="tagForm" class="form-grid two">
+                <input id="tagId" type="hidden">
+                <div class="field"><label>标签名称</label><input id="tagName" type="text" required></div>
+                <div class="field"><label>颜色</label><input id="tagColor" type="color" value="#1677FF"></div>
+                <div class="field wide"><label>状态</label><select id="tagStatus"><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
+                <div class="field wide"><label>备注</label><textarea id="tagRemark"></textarea></div>
+            </form>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" data-close="tagModal">取消</button>
+            <button class="btn primary" id="saveTagBtn"><i class="fa-solid fa-floppy-disk"></i>保存</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const API = "/api/procurement/yangban";
+const CURRENT_USER = {{ (user_name or "用户")|tojson }};
+const flowLabels = { RuKu: "入库", ChuKu: "出库", GuiHuan: "归还", PanDian: "盘点" };
+const statusLabels = { ZhengChang: "正常", TingYong: "停用" };
+const state = {
+    activeTab: "dashboard",
+    options: { tags: [], active_tags: [], categories: [], locations: [], statuses: [] },
+    samples: [],
+    sampleChoices: [],
+    tags: [],
+    samplePage: 1,
+    sampleTotalPages: 1,
+    flowPage: 1,
+    flowTotalPages: 1,
+    dashboardTag: "",
+    dashboardLowOnly: false,
+    dashboardResults: [],
+    sampleModalLegacy: [],
+    loading: false
+};
+
+function esc(value) {
+    return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+function numberText(value) {
+    if (value === "" || value == null) return "0";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return esc(value);
+    return n.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+}
+function toast(message, type) {
+    const box = document.getElementById("toast");
+    box.textContent = message || "";
+    box.className = "toast show " + (type || "");
+    clearTimeout(box._timer);
+    box._timer = setTimeout(() => { box.className = "toast"; }, 2600);
+}
+async function apiJson(url, options) {
+    const resp = await fetch(url, options || {});
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        throw new Error(data.message || "请求失败");
+    }
+    return data.data || data;
+}
+async function apiPost(url, payload, method) {
+    const resp = await fetch(url, {
+        method: method || "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {})
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        throw new Error(data.message || "请求失败");
+    }
+    return data;
+}
+async function apiForm(url, formData, method) {
+    const resp = await fetch(url, {
+        method: method || "POST",
+        body: formData
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+        throw new Error(data.message || "请求失败");
+    }
+    return data;
+}
+function tagStyle(color) {
+    const c = /^#[0-9a-fA-F]{6}$/.test(color || "") ? color : "#64748B";
+    return `color:${c};border-color:${c}66;background:${c}14`;
+}
+function renderTags(tags) {
+    if (!tags || !tags.length) return '<span class="muted">-</span>';
+    return '<div class="tag-list">' + tags.map(t => {
+        const name = t.name || t.BiaoQianMingCheng || t;
+        const color = t.color || t.YanSe || "#64748B";
+        return `<span class="tag-pill" style="${tagStyle(color)}">${esc(name)}</span>`;
+    }).join("") + "</div>";
+}
+function statusPill(status) {
+    const cls = status === "ZhengChang" ? "status-ok" : "status-off";
+    return `<span class="status-pill ${cls}">${esc(statusLabels[status] || status || "-")}</span>`;
+}
+function emptyTable(text) {
+    return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">${esc(text || "暂无数据")}</div>`;
+}
+function buildPager(prefix, page, totalPages, total, pageSize) {
+    const pageEl = document.getElementById(prefix + "PageText");
+    const prev = document.getElementById(prefix + "Prev");
+    const next = document.getElementById(prefix + "Next");
+    if (pageEl) pageEl.textContent = `第 ${page} / ${totalPages} 页`;
+    if (prev) prev.disabled = page <= 1;
+    if (next) next.disabled = page >= totalPages;
+    const meta = document.getElementById(prefix + "Meta");
+    if (meta) {
+        const start = total ? (page - 1) * pageSize + 1 : 0;
+        const end = total ? Math.min(page * pageSize, total) : 0;
+        meta.textContent = `共 ${total || 0} 条，当前 ${start}-${end} 条`;
+    }
+}
+
+function setTab(tab) {
+    state.activeTab = tab;
+    document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
+    document.querySelectorAll(".section").forEach(sec => sec.classList.toggle("active", sec.id === "tab-" + tab));
+    if (tab === "dashboard") loadDashboard();
+    if (tab === "samples") loadSamples(state.samplePage || 1);
+    if (tab === "operation") loadOperationData();
+    if (tab === "flows") loadFlows(state.flowPage || 1);
+    if (tab === "tags") loadTags();
+}
+
+function fillSelect(selectId, values, allLabel, mapper) {
+    const el = document.getElementById(selectId);
+    if (!el) return;
+    const current = el.value;
+    el.innerHTML = allLabel == null ? "" : `<option value="">${esc(allLabel)}</option>`;
+    (values || []).forEach(item => {
+        const mapped = mapper ? mapper(item) : { value: item, label: item };
+        el.insertAdjacentHTML("beforeend", `<option value="${esc(mapped.value)}">${esc(mapped.label)}</option>`);
+    });
+    if ([...el.options].some(o => o.value === current)) el.value = current;
+}
+
+async function loadOptions() {
+    state.options = await apiJson(API + "/options");
+    fillSelect("sfFenLei", state.options.categories, "全部");
+    fillSelect("sfKuWei", state.options.locations, "全部");
+    fillSelect("sfBiaoQian", state.options.tags || [], "全部", t => ({ value: t.BiaoQianMingCheng, label: t.BiaoQianMingCheng }));
+    fillSelect("sfZhuangTai", ["ZhengChang", "TingYong"], "全部", s => ({ value: s, label: statusLabels[s] || s }));
+    fillSelect("dashFenLei", state.options.categories, "全部分类");
+    fillSelect("dashKuWei", state.options.locations, "全部库位");
+    fillSelect("dashStatus", ["ZhengChang", "TingYong"], "全部状态", s => ({ value: s, label: statusLabels[s] || s }));
+    renderDashboardTagFilters();
+    renderDashboardSavedSearches();
+}
+
+function dashboardSavedKey() {
+    return "yangban_dashboard_saved_searches_v1";
+}
+function getDashboardSavedSearches() {
+    try {
+        const data = JSON.parse(localStorage.getItem(dashboardSavedKey()) || "[]");
+        return Array.isArray(data) ? data : [];
+    } catch (e) {
+        return [];
+    }
+}
+function setDashboardSavedSearches(items) {
+    localStorage.setItem(dashboardSavedKey(), JSON.stringify((items || []).slice(0, 8)));
+}
+function getDashboardCriteria() {
+    return {
+        q: (document.getElementById("dashKeyword")?.value || "").trim(),
+        fenlei: (document.getElementById("dashFenLei")?.value || "").trim(),
+        kuwei: (document.getElementById("dashKuWei")?.value || "").trim(),
+        zhuangtai: (document.getElementById("dashStatus")?.value || "").trim(),
+        start: (document.getElementById("dashStart")?.value || "").trim(),
+        end: (document.getElementById("dashEnd")?.value || "").trim(),
+        biaoqian: state.dashboardTag || "",
+        low: !!state.dashboardLowOnly
+    };
+}
+function applyDashboardCriteria(criteria) {
+    const c = criteria || {};
+    setValue("dashKeyword", c.q || "");
+    setValue("dashFenLei", c.fenlei || "");
+    setValue("dashKuWei", c.kuwei || "");
+    setValue("dashStatus", c.zhuangtai || "");
+    setValue("dashStart", c.start || "");
+    setValue("dashEnd", c.end || "");
+    state.dashboardTag = c.biaoqian || "";
+    state.dashboardLowOnly = !!c.low;
+    renderDashboardTagFilters();
+    renderDashboardActiveFilters();
+}
+function dashboardCriteriaLabel(criteria) {
+    const c = criteria || {};
+    const parts = [];
+    if (c.q) parts.push(c.q);
+    if (c.fenlei) parts.push(c.fenlei);
+    if (c.biaoqian) parts.push(c.biaoqian);
+    if (c.kuwei) parts.push(c.kuwei);
+    if (c.zhuangtai) parts.push(statusLabels[c.zhuangtai] || c.zhuangtai);
+    if (c.low) parts.push("低库存");
+    return parts.join(" / ") || "全部样板";
+}
+function renderDashboardSavedSearches() {
+    const wrap = document.getElementById("dashboardSavedSearches");
+    if (!wrap) return;
+    const items = getDashboardSavedSearches();
+    if (!items.length) {
+        wrap.innerHTML = '<div class="saved-empty"><i class="fa-regular fa-bookmark"></i><span>暂无常用检索，点击“保存当前检索”添加</span></div>';
+        return;
+    }
+    wrap.innerHTML = items.map((item, index) => `
+        <button class="saved-chip" data-saved-index="${index}">
+            <i class="fa-regular fa-bookmark"></i>${esc(item.name || dashboardCriteriaLabel(item.criteria))}
+        </button>
+    `).join("");
+}
+function saveDashboardSearch() {
+    const criteria = getDashboardCriteria();
+    const name = dashboardCriteriaLabel(criteria);
+    const items = getDashboardSavedSearches().filter(item => JSON.stringify(item.criteria || {}) !== JSON.stringify(criteria));
+    items.unshift({ name, criteria });
+    setDashboardSavedSearches(items);
+    renderDashboardSavedSearches();
+    toast("常用检索已保存", "success");
+}
+function renderDashboardTagFilters() {
+    const wrap = document.getElementById("dashboardTagFilters");
+    if (!wrap) return;
+    const tags = state.options.tags || [];
+    if (!tags.length) {
+        wrap.innerHTML = '<span class="muted">暂无标签</span>';
+        return;
+    }
+    wrap.innerHTML = tags.map(tag => {
+        const name = tag.BiaoQianMingCheng || "";
+        const active = state.dashboardTag === name;
+        return `<button class="dash-chip ${active ? "active" : ""}" data-dashboard-tag="${esc(name)}" style="${active ? tagStyle(tag.YanSe) : ""}">${esc(name)}</button>`;
+    }).join("");
+}
+function renderDashboardActiveFilters() {
+    const wrap = document.getElementById("dashboardActiveFilters");
+    if (!wrap) return;
+    const c = getDashboardCriteria();
+    const chips = [];
+    if (c.q) chips.push(["关键词", c.q]);
+    if (c.fenlei) chips.push(["分类", c.fenlei]);
+    if (c.start || c.end) chips.push(["时间", `${c.start || "不限"} 至 ${c.end || "不限"}`]);
+    if (c.kuwei) chips.push(["库位", c.kuwei]);
+    if (c.zhuangtai) chips.push(["状态", statusLabels[c.zhuangtai] || c.zhuangtai]);
+    if (c.biaoqian) chips.push(["标签", c.biaoqian]);
+    if (c.low) chips.push(["库存", "低库存"]);
+    wrap.innerHTML = chips.length
+        ? chips.map(([k, v]) => `<span class="dash-chip active">${esc(k)}：${esc(v)}</span>`).join("")
+        : '<span class="muted">未设置筛选条件</span>';
+}
+function dashboardParams() {
+    const criteria = getDashboardCriteria();
+    const params = new URLSearchParams();
+    params.set("page", "1");
+    params.set("page_size", "200");
+    if (criteria.q) params.set("q", criteria.q);
+    if (criteria.fenlei) params.set("fenlei", criteria.fenlei);
+    if (criteria.kuwei) params.set("kuwei", criteria.kuwei);
+    if (criteria.zhuangtai) params.set("zhuangtai", criteria.zhuangtai);
+    if (criteria.biaoqian) params.set("biaoqian", criteria.biaoqian);
+    if (criteria.start) params.set("updated_start", criteria.start);
+    if (criteria.end) params.set("updated_end", criteria.end);
+    return params;
+}
+async function loadDashboardCards() {
+    try {
+        renderDashboardActiveFilters();
+        const data = await apiJson(API + "/samples?" + dashboardParams().toString());
+        let items = data.items || [];
+        if (state.dashboardLowOnly) {
+            items = items.filter(item => item.IsLowStock);
+        }
+        state.dashboardResults = items;
+        renderDashboardCards(items, data.total || items.length);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+function renderDashboardCards(items, total) {
+    const wrap = document.getElementById("dashboardSampleCards");
+    const meta = document.getElementById("dashboardResultMeta");
+    if (meta) meta.textContent = `检索结果 ${items.length} / ${total || items.length} 条`;
+    if (!wrap) return;
+    if (!items.length) {
+        wrap.innerHTML = emptyTable("暂无匹配样板");
+        return;
+    }
+    wrap.innerHTML = items.map(row => {
+        const statusClass = row.IsLowStock ? "card-status-warn" : (row.ZhuangTai === "ZhengChang" ? "card-status-ok" : "card-status-off");
+        const statusText = row.IsLowStock ? "低库存" : (statusLabels[row.ZhuangTai] || row.ZhuangTai || "-");
+        const imageHtml = row.TuPianUrl
+            ? `<img class="sample-card-img" src="${esc(row.TuPianUrl)}" alt="样板照片">`
+            : '<div class="sample-card-noimg">暂无照片</div>';
+        return `<article class="sample-card">
+            <div class="sample-card-top">
+                <div class="sample-card-code"><i class="fa-solid fa-cube"></i><span>${esc(row.YangBanBianHao || "-")}</span></div>
+                <span class="status-pill ${statusClass}">${esc(statusText)}</span>
+            </div>
+            ${imageHtml}
+            <div class="sample-card-lines">
+                <div class="sample-card-line"><span>名称：<b>${esc(row.YangBanMingCheng || "-")}</b></span><span class="sample-card-strong">库存：${numberText(row.DangQianKuCun)}${esc(row.DanWei || "")}</span></div>
+                <div class="sample-card-line"><span>分类：${esc(row.FenLei || "-")}</span><span>预警：${numberText(row.YuJingKuCun)}</span></div>
+                <div>${renderTags(row.BiaoQianItems)}</div>
+            </div>
+            <div class="sample-card-footer">
+                <div class="sample-location"><i class="fa-solid fa-location-dot"></i><span>${esc(row.KuWei || "未设置库位")}</span></div>
+                <div class="action-row">
+                    <button class="btn small icon" data-detail="${row.Id}" title="查看详情"><i class="fa-regular fa-eye"></i></button>
+                    <button class="btn small icon" data-copy-location="${esc(row.KuWei || "")}" title="复制库位"><i class="fa-regular fa-copy"></i></button>
+                </div>
+            </div>
+        </article>`;
+    }).join("");
+}
+
+async function loadDashboard() {
+    try {
+        const data = await apiJson(API + "/dashboard");
+        document.getElementById("statSamples").textContent = numberText(data.total_samples);
+        document.getElementById("statStock").textContent = numberText(data.total_stock);
+        document.getElementById("statLow").textContent = numberText(data.low_stock);
+        document.getElementById("statIn").textContent = numberText(data.today_in);
+        document.getElementById("statOut").textContent = numberText(data.today_out);
+        renderRecentFlows(data.recent_flows || []);
+        await loadDashboardCards();
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+function renderRecentFlows(items) {
+    const wrap = document.getElementById("recentFlowTable");
+    if (!items.length) {
+        wrap.innerHTML = emptyTable("暂无库存流水");
+        return;
+    }
+    wrap.innerHTML = `<table><thead><tr>
+        <th>照片</th><th>样板编号</th><th>样板名称</th><th>操作类型</th><th>变动数量</th><th>操作人</th><th>关联单号</th><th>操作时间</th>
+    </tr></thead><tbody>${items.map(row => `
+        <tr>
+            <td>${row.TuPianUrl ? `<img class="sample-thumb" src="${esc(row.TuPianUrl)}" alt="样板照片">` : '<span class="muted">-</span>'}</td>
+            <td>${esc(row.YangBanBianHao)}</td>
+            <td>${esc(row.YangBanMingCheng)}</td>
+            <td>${esc(row.BianDongLeiXingText || flowLabels[row.BianDongLeiXing] || row.BianDongLeiXing)}</td>
+            <td class="${Number(row.BianDongShuLiang) < 0 ? "flow-minus" : "flow-plus"}">${numberText(row.BianDongShuLiang)}</td>
+            <td>${esc(row.CaoZuoRen)}</td>
+            <td>${esc(row.GuanLianDanHao)}</td>
+            <td>${esc(row.ChuangJianShiJian)}</td>
+        </tr>`).join("")}</tbody></table>`;
+}
+
+function sampleParams(page, pageSize) {
+    const params = new URLSearchParams();
+    params.set("page", String(page || 1));
+    params.set("page_size", String(pageSize || 20));
+    const map = [
+        ["bianhao", "sfBianHao"], ["mingcheng", "sfMingCheng"], ["fenlei", "sfFenLei"],
+        ["biaoqian", "sfBiaoQian"], ["kuwei", "sfKuWei"], ["zhuangtai", "sfZhuangTai"]
+    ];
+    map.forEach(([key, id]) => {
+        const val = (document.getElementById(id)?.value || "").trim();
+        if (val) params.set(key, val);
+    });
+    return params;
+}
+async function loadSamples(page) {
+    try {
+        state.samplePage = page || 1;
+        const data = await apiJson(API + "/samples?" + sampleParams(state.samplePage, 20).toString());
+        state.samples = data.items || [];
+        state.sampleTotalPages = data.total_pages || 1;
+        renderSamples(state.samples);
+        buildPager("sample", data.page, data.total_pages, data.total, data.page_size);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+function renderSamples(items) {
+    const wrap = document.getElementById("sampleTable");
+    if (!items.length) {
+        wrap.innerHTML = emptyTable("暂无样板");
+        return;
+    }
+    wrap.innerHTML = `<table><thead><tr>
+        <th>照片</th><th>样板编号</th><th>样板名称</th><th>分类</th><th>规格</th><th>标签</th><th>当前库存</th>
+        <th>单位</th><th>预警库存</th><th>库位</th><th>状态</th><th>更新时间</th><th style="text-align:right;">操作</th>
+    </tr></thead><tbody>${items.map(row => `
+        <tr class="${row.IsLowStock ? "low-stock" : ""}">
+            <td>${row.TuPianUrl ? `<img class="sample-thumb" src="${esc(row.TuPianUrl)}" alt="样板照片">` : '<span class="muted">-</span>'}</td>
+            <td>${esc(row.YangBanBianHao)}</td>
+            <td>${esc(row.YangBanMingCheng)}</td>
+            <td>${esc(row.FenLei)}</td>
+            <td>${esc(row.GuiGe)}</td>
+            <td>${renderTags(row.BiaoQianItems)}</td>
+            <td class="stock-cell">${numberText(row.DangQianKuCun)}</td>
+            <td>${esc(row.DanWei)}</td>
+            <td>${numberText(row.YuJingKuCun)}</td>
+            <td>${esc(row.KuWei)}</td>
+            <td>${statusPill(row.ZhuangTai)}</td>
+            <td>${esc(row.GengXinShiJian || row.ChuangJianShiJian)}</td>
+            <td>
+                <div class="action-row">
+                    <button class="btn small" data-detail="${row.Id}"><i class="fa-regular fa-eye"></i>详情</button>
+                    <button class="btn small" data-edit="${row.Id}"><i class="fa-regular fa-pen-to-square"></i>编辑</button>
+                    ${row.ZhuangTai === "ZhengChang" ? `
+                    <button class="btn small green" data-row-op="RuKu" data-id="${row.Id}"><i class="fa-solid fa-arrow-down"></i>入库</button>
+                    <button class="btn small red" data-row-op="ChuKu" data-id="${row.Id}"><i class="fa-solid fa-arrow-up"></i>出库</button>
+                    <button class="btn small" data-disable="${row.Id}"><i class="fa-solid fa-ban"></i>停用</button>
+                    ` : ""}
+                </div>
+            </td>
+        </tr>`).join("")}</tbody></table>`;
+}
+
+async function loadSampleChoices() {
+    const all = await apiJson(API + "/samples?page=1&page_size=500");
+    const active = (all.items || []).filter(s => s.ZhuangTai === "ZhengChang");
+    state.sampleChoices = all.items || [];
+    const mapItem = s => ({
+        value: s.Id,
+        label: `${s.YangBanBianHao || ""} ${s.YangBanMingCheng || ""}（库存 ${numberText(s.DangQianKuCun)}）`
+    });
+    fillSelect("operationSampleSelect", active, "请选择样板", mapItem);
+    fillSelect("opSample", active, "请选择样板", mapItem);
+    fillSelect("ffSample", state.sampleChoices, "全部", s => ({ value: s.Id, label: `${s.YangBanBianHao || ""} ${s.YangBanMingCheng || ""}` }));
+    renderLowStock(active.filter(s => s.IsLowStock));
+}
+function renderLowStock(items) {
+    const wrap = document.getElementById("lowStockTable");
+    if (!items.length) {
+        wrap.innerHTML = emptyTable("暂无低库存样板");
+        return;
+    }
+    wrap.innerHTML = `<table><thead><tr><th>样板编号</th><th>样板名称</th><th>当前库存</th><th>预警库存</th><th>单位</th><th>库位</th><th style="text-align:right;">操作</th></tr></thead><tbody>
+        ${items.map(row => `<tr class="low-stock">
+            <td>${esc(row.YangBanBianHao)}</td><td>${esc(row.YangBanMingCheng)}</td>
+            <td class="stock-cell">${numberText(row.DangQianKuCun)}</td><td>${numberText(row.YuJingKuCun)}</td>
+            <td>${esc(row.DanWei)}</td><td>${esc(row.KuWei)}</td>
+            <td><div class="action-row"><button class="btn small green" data-row-op="RuKu" data-id="${row.Id}"><i class="fa-solid fa-arrow-down"></i>入库</button><button class="btn small primary" data-row-op="PanDian" data-id="${row.Id}"><i class="fa-solid fa-scale-balanced"></i>盘点</button></div></td>
+        </tr>`).join("")}</tbody></table>`;
+}
+async function loadOperationData() {
+    try {
+        await loadSampleChoices();
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+
+function openModal(id) { document.getElementById(id).classList.add("show"); }
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+function setValue(id, value) { const el = document.getElementById(id); if (el) el.value = value == null ? "" : value; }
+
+function setPhotoPreview(url, text) {
+    const preview = document.getElementById("mPhotoPreview");
+    if (!preview) return;
+    if (url) {
+        preview.innerHTML = `<img src="${esc(url)}" alt="样板照片"><span>${esc(text || "已选择照片")}</span>`;
+    } else {
+        preview.innerHTML = `<span>${esc(text || "未上传照片")}</span>`;
+    }
+}
+
+function renderSampleTagChecks(selected) {
+    const selectedSet = new Set(selected || []);
+    const active = state.options.active_tags || [];
+    const activeNames = new Set(active.map(t => t.BiaoQianMingCheng));
+    state.sampleModalLegacy = (selected || []).filter(name => !activeNames.has(name));
+    document.getElementById("mTagChecks").innerHTML = active.length ? active.map(t => `
+        <label class="tag-check" style="${tagStyle(t.YanSe)}">
+            <input type="checkbox" value="${esc(t.BiaoQianMingCheng)}" ${selectedSet.has(t.BiaoQianMingCheng) ? "checked" : ""}>
+            ${esc(t.BiaoQianMingCheng)}
+        </label>`).join("") : '<span class="muted">暂无正常标签</span>';
+    document.getElementById("mLegacyTags").innerHTML = state.sampleModalLegacy.length
+        ? `<span class="muted">历史标签：</span>${renderTags(state.sampleModalLegacy)}`
+        : "";
+}
+async function openSampleModal(id) {
+    document.getElementById("sampleForm").reset();
+    setValue("sampleId", "");
+    setValue("mTuPian", "");
+    setPhotoPreview("", "未上传照片");
+    renderSampleTagChecks([]);
+    if (id) {
+        const data = await apiJson(API + "/samples/" + id);
+        const s = data.sample;
+        document.getElementById("sampleModalTitle").textContent = "编辑样板";
+        setValue("sampleId", s.Id);
+        setValue("mYangBanBianHao", s.YangBanBianHao);
+        setValue("mYangBanMingCheng", s.YangBanMingCheng);
+        setValue("mFenLei", s.FenLei);
+        setValue("mGuiGe", s.GuiGe);
+        setValue("mDanWei", s.DanWei);
+        setValue("mYuJingKuCun", s.YuJingKuCun || 0);
+        setValue("mKuWei", s.KuWei);
+        setValue("mZhuangTai", s.ZhuangTai || "ZhengChang");
+        setValue("mBeiZhu", s.BeiZhu);
+        setPhotoPreview(s.TuPianUrl || "", s.TuPianUrl ? "当前照片" : "未上传照片");
+        renderSampleTagChecks(s.BiaoQianList || []);
+    } else {
+        document.getElementById("sampleModalTitle").textContent = "新建样板";
+        setValue("mZhuangTai", "ZhengChang");
+        setValue("mYuJingKuCun", 0);
+    }
+    openModal("sampleModal");
+}
+async function saveSample() {
+    const id = document.getElementById("sampleId").value;
+    const activeSelected = [...document.querySelectorAll("#mTagChecks input:checked")].map(el => el.value);
+    const payload = new FormData();
+    payload.append("YangBanBianHao", document.getElementById("mYangBanBianHao").value);
+    payload.append("YangBanMingCheng", document.getElementById("mYangBanMingCheng").value);
+    payload.append("FenLei", document.getElementById("mFenLei").value);
+    payload.append("GuiGe", document.getElementById("mGuiGe").value);
+    payload.append("DanWei", document.getElementById("mDanWei").value);
+    payload.append("YuJingKuCun", document.getElementById("mYuJingKuCun").value || 0);
+    payload.append("KuWei", document.getElementById("mKuWei").value);
+    payload.append("ZhuangTai", document.getElementById("mZhuangTai").value);
+    payload.append("BeiZhu", document.getElementById("mBeiZhu").value);
+    payload.append("BiaoQianList", JSON.stringify([...activeSelected, ...state.sampleModalLegacy]));
+    const photo = document.getElementById("mTuPian").files[0];
+    if (photo) payload.append("TuPian", photo);
+    try {
+        await apiForm(API + "/samples" + (id ? "/" + id : ""), payload, id ? "PUT" : "POST");
+        closeModal("sampleModal");
+        toast("保存成功", "success");
+        await Promise.all([loadOptions(), loadSamples(state.samplePage), loadSampleChoices(), loadDashboard()]);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+async function disableSample(id) {
+    if (!confirm("确认停用该样板？停用后不能进行入库、出库、归还、盘点。")) return;
+    try {
+        await apiPost(API + "/samples/" + id + "/disable", {});
+        toast("样板已停用", "success");
+        await Promise.all([loadSamples(state.samplePage), loadSampleChoices(), loadDashboard()]);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+async function openDetail(id) {
+    try {
+        const data = await apiJson(API + "/samples/" + id);
+        const s = data.sample;
+        const fields = [
+            ["样板编号", s.YangBanBianHao], ["样板名称", s.YangBanMingCheng], ["分类", s.FenLei],
+            ["规格", s.GuiGe], ["单位", s.DanWei], ["库位", s.KuWei],
+            ["当前库存", numberText(s.DangQianKuCun)], ["预警库存", numberText(s.YuJingKuCun)], ["状态", statusLabels[s.ZhuangTai] || s.ZhuangTai],
+            ["创建时间", s.ChuangJianShiJian], ["更新时间", s.GengXinShiJian], ["备注", s.BeiZhu]
+        ];
+        const flowRows = (data.flows || []).map(row => `<tr>
+            <td>${esc(row.ChuangJianShiJian)}</td><td>${esc(row.BianDongLeiXingText)}</td>
+            <td class="${Number(row.BianDongShuLiang) < 0 ? "flow-minus" : "flow-plus"}">${numberText(row.BianDongShuLiang)}</td>
+            <td>${esc(row.CaoZuoRen)}</td><td>${esc(row.GuanLianDanHao)}</td><td>${esc(row.BeiZhu)}</td>
+        </tr>`).join("");
+        const photoHtml = s.TuPianUrl ? `<img class="detail-photo" src="${esc(s.TuPianUrl)}" alt="样板照片">` : "";
+        document.getElementById("detailBody").innerHTML = `
+            ${photoHtml}
+            <div class="detail-grid">${fields.map(([k, v]) => `<div class="detail-item"><div class="detail-label">${esc(k)}</div><div class="detail-value">${esc(v)}</div></div>`).join("")}</div>
+            <div style="margin-bottom:10px;">${renderTags(s.BiaoQianItems)}</div>
+            <div class="table-wrap"><table><thead><tr><th>操作时间</th><th>操作类型</th><th>变动数量</th><th>操作人</th><th>关联单号</th><th>备注</th></tr></thead><tbody>${flowRows || '<tr><td colspan="6" class="muted">暂无流水</td></tr>'}</tbody></table></div>`;
+        openModal("detailModal");
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+
+function openOperation(type, sampleId) {
+    const label = flowLabels[type] || type;
+    document.getElementById("operationTitle").textContent = label;
+    setValue("opType", type);
+    setValue("opQuantity", "");
+    setValue("opOperator", CURRENT_USER);
+    setValue("opRelatedNo", "");
+    setValue("opRemark", "");
+    const selected = sampleId || document.getElementById("operationSampleSelect").value;
+    setValue("opSample", selected);
+    if (!document.getElementById("opSample").value) {
+        toast("请选择样板", "error");
+        return;
+    }
+    if (type === "PanDian") {
+        document.getElementById("opQuantity").removeAttribute("min");
+    } else {
+        document.getElementById("opQuantity").setAttribute("min", "0.01");
+    }
+    openModal("operationModal");
+}
+async function submitOperation() {
+    const type = document.getElementById("opType").value;
+    const payload = {
+        YangBanId: document.getElementById("opSample").value,
+        BianDongLeiXing: type,
+        BianDongShuLiang: document.getElementById("opQuantity").value,
+        CaoZuoRen: document.getElementById("opOperator").value,
+        GuanLianDanHao: document.getElementById("opRelatedNo").value,
+        BeiZhu: document.getElementById("opRemark").value
+    };
+    if (type === "ChuKu" || type === "PanDian") {
+        const text = type === "ChuKu" ? "确认执行出库？系统会同步扣减库存并写入流水。" : "确认执行盘点？盘点会修正库存并写入流水。";
+        if (!confirm(text)) return;
+    }
+    try {
+        const res = await apiPost(API + "/operations", payload);
+        closeModal("operationModal");
+        toast(`操作完成，当前库存：${numberText(res.data && res.data.new_stock)}`, "success");
+        await Promise.all([loadDashboard(), loadSamples(state.samplePage), loadSampleChoices(), loadFlows(state.flowPage)]);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+
+function flowParams(page, pageSize) {
+    const params = new URLSearchParams();
+    if (page) params.set("page", String(page));
+    if (pageSize) params.set("page_size", String(pageSize));
+    const map = [["start", "ffStart"], ["end", "ffEnd"], ["yangban_id", "ffSample"], ["type", "ffType"], ["operator", "ffOperator"]];
+    map.forEach(([key, id]) => {
+        const val = (document.getElementById(id)?.value || "").trim();
+        if (val) params.set(key, val);
+    });
+    return params;
+}
+async function loadFlows(page) {
+    try {
+        state.flowPage = page || 1;
+        const data = await apiJson(API + "/flows?" + flowParams(state.flowPage, 20).toString());
+        renderFlows(data.items || []);
+        state.flowTotalPages = data.total_pages || 1;
+        buildPager("flow", data.page, data.total_pages, data.total, data.page_size);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+function renderFlows(items) {
+    const wrap = document.getElementById("flowTable");
+    if (!items.length) {
+        wrap.innerHTML = emptyTable("暂无库存流水");
+        return;
+    }
+    wrap.innerHTML = `<table><thead><tr><th>样板名称</th><th>操作类型</th><th>变动数量</th><th>操作人</th><th>关联单号</th><th>备注</th><th>操作时间</th></tr></thead><tbody>
+        ${items.map(row => `<tr>
+            <td>${esc(row.YangBanMingCheng || row.YangBanBianHao)}</td>
+            <td>${esc(row.BianDongLeiXingText || flowLabels[row.BianDongLeiXing] || row.BianDongLeiXing)}</td>
+            <td class="${Number(row.BianDongShuLiang) < 0 ? "flow-minus" : "flow-plus"}">${numberText(row.BianDongShuLiang)}</td>
+            <td>${esc(row.CaoZuoRen)}</td><td>${esc(row.GuanLianDanHao)}</td><td>${esc(row.BeiZhu)}</td><td>${esc(row.ChuangJianShiJian)}</td>
+        </tr>`).join("")}</tbody></table>`;
+}
+
+async function loadTags() {
+    try {
+        const data = await apiJson(API + "/tags");
+        state.tags = data.items || [];
+        renderTagTable(state.tags);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+function renderTagTable(items) {
+    const wrap = document.getElementById("tagTable");
+    if (!items.length) {
+        wrap.innerHTML = emptyTable("暂无标签");
+        return;
+    }
+    wrap.innerHTML = `<table><thead><tr><th>标签名称</th><th>颜色</th><th>状态</th><th>备注</th><th>创建时间</th><th style="text-align:right;">操作</th></tr></thead><tbody>
+        ${items.map(row => `<tr>
+            <td>${renderTags([{ name: row.BiaoQianMingCheng, color: row.YanSe }])}</td>
+            <td>${esc(row.YanSe)}</td>
+            <td>${statusPill(row.ZhuangTai)}</td>
+            <td>${esc(row.BeiZhu)}</td>
+            <td>${esc(row.ChuangJianShiJian)}</td>
+            <td><div class="action-row"><button class="btn small" data-tag-edit="${row.Id}"><i class="fa-regular fa-pen-to-square"></i>编辑</button><button class="btn small" data-tag-disable="${row.Id}"><i class="fa-solid fa-ban"></i>停用</button></div></td>
+        </tr>`).join("")}</tbody></table>`;
+}
+function openTagModal(id) {
+    document.getElementById("tagForm").reset();
+    setValue("tagId", "");
+    setValue("tagColor", "#1677FF");
+    setValue("tagStatus", "ZhengChang");
+    if (id) {
+        const t = state.tags.find(x => String(x.Id) === String(id));
+        if (!t) return;
+        document.getElementById("tagModalTitle").textContent = "编辑标签";
+        setValue("tagId", t.Id);
+        setValue("tagName", t.BiaoQianMingCheng);
+        setValue("tagColor", t.YanSe || "#1677FF");
+        setValue("tagStatus", t.ZhuangTai || "ZhengChang");
+        setValue("tagRemark", t.BeiZhu);
+    } else {
+        document.getElementById("tagModalTitle").textContent = "新建标签";
+    }
+    openModal("tagModal");
+}
+async function saveTag() {
+    const id = document.getElementById("tagId").value;
+    const payload = {
+        BiaoQianMingCheng: document.getElementById("tagName").value,
+        YanSe: document.getElementById("tagColor").value,
+        ZhuangTai: document.getElementById("tagStatus").value,
+        BeiZhu: document.getElementById("tagRemark").value
+    };
+    try {
+        await apiPost(API + "/tags" + (id ? "/" + id : ""), payload, id ? "PUT" : "POST");
+        closeModal("tagModal");
+        toast("标签已保存", "success");
+        await Promise.all([loadOptions(), loadTags(), loadSamples(state.samplePage)]);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+async function disableTag(id) {
+    if (!confirm("确认停用该标签？停用后新样板不再允许选择。")) return;
+    try {
+        await apiPost(API + "/tags/" + id + "/disable", {});
+        toast("标签已停用", "success");
+        await Promise.all([loadOptions(), loadTags(), loadSamples(state.samplePage)]);
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+
+function bindEvents() {
+    document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
+    document.querySelectorAll("[data-tab-jump]").forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tabJump)));
+    document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", () => closeModal(btn.dataset.close)));
+    document.querySelectorAll(".modal").forEach(modal => modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); }));
+    document.getElementById("refreshAllBtn").addEventListener("click", initLoad);
+    document.getElementById("runDashboardSearch").addEventListener("click", loadDashboardCards);
+    document.getElementById("dashKeyword").addEventListener("keydown", e => { if (e.key === "Enter") loadDashboardCards(); });
+    document.getElementById("saveDashboardSearch").addEventListener("click", saveDashboardSearch);
+    document.getElementById("resetDashboardSearch").addEventListener("click", () => {
+        applyDashboardCriteria({});
+        document.getElementById("showLowOnly").classList.remove("orange");
+        loadDashboardCards();
+    });
+    document.getElementById("showLowOnly").addEventListener("click", () => {
+        state.dashboardLowOnly = !state.dashboardLowOnly;
+        document.getElementById("showLowOnly").classList.toggle("orange", state.dashboardLowOnly);
+        renderDashboardActiveFilters();
+        loadDashboardCards();
+    });
+    document.getElementById("dashboardTagFilters").addEventListener("click", e => {
+        const btn = e.target.closest("[data-dashboard-tag]");
+        if (!btn) return;
+        const tag = btn.dataset.dashboardTag || "";
+        state.dashboardTag = state.dashboardTag === tag ? "" : tag;
+        renderDashboardTagFilters();
+        loadDashboardCards();
+    });
+    document.getElementById("dashboardSavedSearches").addEventListener("click", e => {
+        const btn = e.target.closest("[data-saved-index]");
+        if (!btn) return;
+        const item = getDashboardSavedSearches()[Number(btn.dataset.savedIndex)];
+        if (!item) return;
+        applyDashboardCriteria(item.criteria || {});
+        document.getElementById("showLowOnly").classList.toggle("orange", state.dashboardLowOnly);
+        loadDashboardCards();
+    });
+    document.getElementById("dashboardSampleCards").addEventListener("click", e => {
+        const detail = e.target.closest("[data-detail]");
+        const copy = e.target.closest("[data-copy-location]");
+        if (detail) openDetail(detail.dataset.detail);
+        if (copy) {
+            const value = copy.dataset.copyLocation || "";
+            if (value && navigator.clipboard) {
+                navigator.clipboard.writeText(value).then(() => toast("库位已复制", "success")).catch(() => toast(value || "无库位", "success"));
+            } else {
+                toast(value || "无库位", "success");
+            }
+        }
+    });
+    document.getElementById("searchSamples").addEventListener("click", () => loadSamples(1));
+    document.getElementById("resetSampleFilters").addEventListener("click", () => {
+        ["sfBianHao", "sfMingCheng", "sfFenLei", "sfBiaoQian", "sfKuWei", "sfZhuangTai"].forEach(id => setValue(id, ""));
+        loadSamples(1);
+    });
+    document.getElementById("newSampleBtn").addEventListener("click", () => openSampleModal());
+    document.getElementById("saveSampleBtn").addEventListener("click", saveSample);
+    document.getElementById("mTuPian").addEventListener("change", function () {
+        const file = this.files && this.files[0];
+        if (file) {
+            setPhotoPreview(URL.createObjectURL(file), file.name);
+        } else {
+            setPhotoPreview("", "未上传照片");
+        }
+    });
+    document.getElementById("samplePrev").addEventListener("click", () => loadSamples(Math.max(1, state.samplePage - 1)));
+    document.getElementById("sampleNext").addEventListener("click", () => loadSamples(Math.min(state.sampleTotalPages, state.samplePage + 1)));
+    document.getElementById("sampleTable").addEventListener("click", e => {
+        const detail = e.target.closest("[data-detail]");
+        const edit = e.target.closest("[data-edit]");
+        const disable = e.target.closest("[data-disable]");
+        const op = e.target.closest("[data-row-op]");
+        if (detail) openDetail(detail.dataset.detail);
+        if (edit) openSampleModal(edit.dataset.edit);
+        if (disable) disableSample(disable.dataset.disable);
+        if (op) openOperation(op.dataset.rowOp, op.dataset.id);
+    });
+    document.getElementById("lowStockTable").addEventListener("click", e => {
+        const op = e.target.closest("[data-row-op]");
+        if (op) openOperation(op.dataset.rowOp, op.dataset.id);
+    });
+    document.querySelectorAll("[data-op]").forEach(btn => btn.addEventListener("click", () => openOperation(btn.dataset.op)));
+    document.getElementById("submitOperationBtn").addEventListener("click", submitOperation);
+    document.getElementById("searchFlows").addEventListener("click", () => loadFlows(1));
+    document.getElementById("resetFlowFilters").addEventListener("click", () => {
+        ["ffStart", "ffEnd", "ffSample", "ffType", "ffOperator"].forEach(id => setValue(id, ""));
+        loadFlows(1);
+    });
+    document.getElementById("flowPrev").addEventListener("click", () => loadFlows(Math.max(1, state.flowPage - 1)));
+    document.getElementById("flowNext").addEventListener("click", () => loadFlows(Math.min(state.flowTotalPages, state.flowPage + 1)));
+    document.getElementById("exportFlows").addEventListener("click", () => {
+        const params = flowParams(null, null);
+        window.location.href = API + "/flows/export" + (params.toString() ? "?" + params.toString() : "");
+    });
+    document.getElementById("newTagBtn").addEventListener("click", () => openTagModal());
+    document.getElementById("saveTagBtn").addEventListener("click", saveTag);
+    document.getElementById("tagTable").addEventListener("click", e => {
+        const edit = e.target.closest("[data-tag-edit]");
+        const disable = e.target.closest("[data-tag-disable]");
+        if (edit) openTagModal(edit.dataset.tagEdit);
+        if (disable) disableTag(disable.dataset.tagDisable);
+    });
+}
+async function initLoad() {
+    try {
+        await loadOptions();
+        await Promise.all([loadDashboard(), loadSamples(1), loadSampleChoices(), loadFlows(1), loadTags()]);
+        toast("已刷新", "success");
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+document.addEventListener("DOMContentLoaded", () => {
+    bindEvents();
+    initLoad();
+});
+</script>
+</body>
+</html>

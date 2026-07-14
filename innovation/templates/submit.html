@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}改善创新 - 团队创新奖励管理系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle"></i> 改善创新提案
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="submitForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">提案项目 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="title" name="title" required
+                               placeholder="请输入创新提案项目名称">
+                        <div class="invalid-feedback">
+                            请输入创新提案标题
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="department" class="form-label">承接部门 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="department" name="department" multiple required size="6">
+                            {% for dept in departments %}
+                            <option value="{{ dept }}">{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">按住Ctrl键可选择多个部门</div>
+                        <div class="invalid-feedback">
+                            请选择至少一个承接部门
+                        </div>
+                    </div>
+<div class="mb-3">
+    <label for="category" class="form-label">
+        <i class="bi bi-tags"></i>创新类别 <span class="text-danger">*</span>
+    </label>
+    <select class="form-select" id="category" name="category" required>
+        <option value="">请选择创新类别</option>
+        <option value="产品改善及创新">产品改善及创新</option>
+        <option value="工作内容及流程创新">工作内容及流程创新</option>
+        <option value="个性化主题创新">个性化主题创新</option>
+    </select>
+    <div class="invalid-feedback">
+        请选择创新类别
+    </div>
+    <div class="form-text">
+        <i class="bi bi-info-circle"></i>选择最符合您创新项目的类别
+    </div>
+</div>
+
+                    <div class="mb-3">
+                        <label for="initiator" class="form-label">发起人 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="initiator" name="initiator" required
+                               value="{{ feishu_user_name or '' }}" {% if feishu_user_name and feishu_user_name != '张雯' %}readonly{% endif %}>
+                        <div class="invalid-feedback">
+                            请输入发起人姓名
+                        </div>
+                        <div class="form-text">
+                            {% if feishu_user_name and feishu_user_name != '张雯' %}
+                                已自动获取您的飞书姓名作为发起人
+                            {% elif feishu_user_name == '张雯' %}
+                                已自动获取您的飞书姓名，可根据需要修改为实际发起人
+                            {% else %}
+                                未获取到飞书姓名，请手动填写您的姓名
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="content" class="form-label">提案内容 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="content" name="content" rows="5" required
+                                  placeholder="请详细描述创新项目的内容、目标、预期效果等"></textarea>
+                        <div class="invalid-feedback">
+                            请输入提案内容
+                        </div>
+                    </div>
+<div class="mb-3">
+    <label for="solution" class="form-label">
+        <i class="bi bi-lightbulb"></i>解决方案 <span class="text-danger">*</span>
+    </label>
+    <textarea class="form-control" id="solution" name="solution" rows="4" required
+              placeholder="请描述您的解决方案、实施步骤或技术路线..."></textarea>
+    <div class="invalid-feedback">
+        请输入解决方案
+    </div>
+    <div class="form-text">
+        <i class="bi bi-info-circle"></i>请详细描述具体的解决思路、实施方案或技术路线
+    </div>
+</div>
+                    <div class="mb-3">
+                        <label for="deadline" class="form-label">期望完成时间</label>
+                        <input type="date" class="form-control" id="deadline" name="deadline">
+                        <div class="form-text">可选，建议设置合理的完成时间</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="images" class="form-label">相关图片</label>
+                        <input type="file" class="form-control" id="images" name="images"
+                               accept="image/*" multiple onchange="InnovationApp.previewMultipleImages(this, '#imagePreview')">
+                        <div class="form-text">支持 JPG、PNG、GIF 格式，单个文件大小不超过5MB，最多可上传5张图片</div>
+                        <div id="imagePreview" class="mt-2 d-flex flex-wrap gap-2 image-preview"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="videos" class="form-label">相关视频</label>
+                        <input type="file" class="form-control" id="videos" name="videos"
+                               accept="video/*" multiple onchange="InnovationApp.previewMultipleVideos(this, '#videoPreview')">
+                        <div class="form-text">支持 MP4、WebM 等常见格式，单个文件大小不超过100MB，最多可上传2个视频</div>
+                        <div id="videoPreview" class="mt-2 d-flex flex-wrap gap-2 image-preview"></div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary" onclick="resetSubmitForm()">
+                            <i class="bi bi-arrow-clockwise"></i> 重置
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> 提交创新
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> 提交说明
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li><i class="bi bi-check-circle text-success"></i> 请详细描述创新项目的背景、目标和预期效果</li>
+                    <li><i class="bi bi-check-circle text-success"></i> 可选择多个承接部门，便于项目快速推进</li>
+<!--                    <li><i class="bi bi-check-circle text-success"></i> 可上传相关图片或文档作为补充说明</li>-->
+                    <li><i class="bi bi-check-circle text-success"></i> 提交后将自动通知相关部门负责人</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 提交表单
+document.getElementById('submitForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    if (!InnovationApp.validateForm(this)) {
+        InnovationApp.showMessage('请填写所有必填项', 'error');
+        return;
+    }
+
+    // 获取选中的部门
+    const departmentSelect = document.getElementById('department');
+    const selectedDepartments = Array.from(departmentSelect.selectedOptions).map(option => option.value);
+
+    if (selectedDepartments.length === 0) {
+        InnovationApp.showMessage('请选择至少一个承接部门', 'error');
+        return;
+    }
+
+    const formData = new FormData(this);
+
+    // 将多选部门转换为逗号分隔的字符串
+    formData.set('department', selectedDepartments.join(','));
+
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+
+    // 显示加载状态
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>提交中...';
+
+    axios.post('/innovation/api/submit_innovation', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    })
+    .then(response => {
+        if (response.data.success) {
+            InnovationApp.showMessage(response.data.message, 'success');
+            const notify = response.data.notify || {};
+            if ((notify.failed || 0) > 0) {
+                const failedDepts = (notify.failed_departments || []).join('、');
+                InnovationApp.showMessage(
+                    `提案已提交，但通知有失败。成功:${notify.success || 0} 失败:${notify.failed || 0}` +
+                    (failedDepts ? `，失败部门:${failedDepts}` : ''),
+                    'warning'
+                );
+            }
+            InnovationApp.resetForm(document.getElementById('submitForm'));
+        } else {
+            InnovationApp.showMessage(response.data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('提交失败:', error);
+        const message = error?.response?.data?.message || '提交失败，请稍后重试';
+        InnovationApp.showMessage(message, 'error');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+});
+
+// 重置表单
+function resetSubmitForm() {
+    InnovationApp.confirmAction('确定要重置表单吗？', () => {
+        InnovationApp.resetForm(document.getElementById('submitForm'));
+    });
+}
+
+// 设置默认截止时间（30天后）
+document.addEventListener('DOMContentLoaded', function() {
+    const deadlineInput = document.getElementById('deadline');
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 30);
+    deadlineInput.value = defaultDate.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

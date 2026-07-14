@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务部功能 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 0; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .header-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; display:flex; justify-content:space-between; align-items:center; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .modules-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(350px,1fr)); gap:30px; }
+        .module-card { background:white; padding:30px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.1); transition:all .3s ease; text-align:center; position:relative; }
+        .module-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .module-icon { font-size:4rem; margin-bottom:20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .feature-list { text-align:left; margin-bottom:20px; }
+        .feature-list li { color:#666; margin-bottom:8px; padding-left:20px; position:relative; }
+        .feature-list li::before { content:'✨'; position:absolute; left:0; }
+    </style>
+        <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section"><i class="fas fa-calculator"></i><h1 style="margin-left:10px; font-size:1.3rem;">财务部功能</h1></div>
+            <div class="nav-links"><a href="{{ url_for('dashboard') }}" style="color:white; text-decoration:none;">主页</a></div>
+        </div>
+    </header>
+
+    <div class="container">
+<!--        <div class="modules-grid">-->
+<!--            <div class="module-card">-->
+<!--                <div class="module-icon"><i class="fas fa-file-export"></i></div>-->
+<!--                <h3>审批金额导出</h3>-->
+<!--                <p>从飞书审批中心按日期范围导出金额明细</p>-->
+<!--                <ul class="feature-list">-->
+<!--                    <li>拉取飞书审批实例并解析金额</li>-->
+<!--                    <li>支持开始/结束日期过滤</li>-->
+<!--                    <li>生成Excel明细文件</li>-->
+<!--                </ul>-->
+<!--                <div style="display:flex; gap:10px; justify-content:center; margin:15px 0;">-->
+<!--                    <select id="fApprovalTemplate" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px; min-width:260px;">-->
+<!--                        <option value="">选择审批模板（可选）</option>-->
+<!--                    </select>-->
+<!--                    <input type="date" id="fApprovalStartDate" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px;">-->
+<!--                    <input type="date" id="fApprovalEndDate" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px;">-->
+<!--                </div>-->
+<!--                <div style="text-align:center;">-->
+<!--                    <button onclick="exportApprovalAmountsFinance()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 12px 30px; border-radius: 25px; border:none; cursor:pointer; font-weight:600;">-->
+<!--                        <i class="fas fa-download"></i> 导出Excel-->
+<!--                    </button>-->
+<!--                </div>-->
+<!--            </div>-->
+
+            <div class="module-card">
+                <div class="module-icon"><i class="fas fa-truck"></i></div>
+                <h3>物流运费结算导出</h3>
+                <p>按结算日期和店铺导出物流运费、平台运费、退货运费等明细</p>
+                <div style="display:flex; flex-direction:column; gap:10px; justify-content:center; margin:15px 0; align-items:center;">
+                    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                        <input type="date" id="freightStartDate" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px;">
+                        <input type="date" id="freightEndDate" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px;">
+                        <input type="text" id="freightStores" placeholder="店，如: 86,87" style="padding:8px 12px; border:1px solid #ddd; border-radius:8px; min-width:160px;">
+                    </div>
+                    <div style="font-size:12px; color:#666;">店支持多个，用英文逗号分隔，留空则导出全部店</div>
+                </div>
+                <div style="text-align:center;">
+                    <button onclick="exportFreightFinance()" style="background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); color: white; padding: 12px 30px; border-radius: 25px; border:none; cursor:pointer; font-weight:600;">
+                        <i class="fas fa-download"></i> 导出运费Excel
+                    </button>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon"><i class="fas fa-file-upload"></i></div>
+                <h3>费用表导入</h3>
+                <p>导入包含以下表头的Excel：日期、费用类别、摘要、借方、贷方、报销人、项目、银行类别、部门</p>
+                <div style="display:flex; gap:10px; justify-content:center; margin:15px 0;">
+                    <input type="file" id="expenseFile" accept=".xlsx,.xls" style="padding:8px; border:1px solid #ddd; border-radius:8px; background:white;">
+                </div>
+                <div style="text-align:center;">
+                    <button onclick="importExpenseSheetFinance()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 12px 30px; border-radius: 25px; border:none; cursor:pointer; font-weight:600;">
+                        <i class="fas fa-upload"></i> 导入Excel
+                    </button>
+                    <button onclick="exportExpenseSheetFinance()" style="background: linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%); color: white; padding: 12px 30px; border-radius: 25px; border:none; cursor:pointer; font-weight:600; margin-left:10px;">
+                        <i class="fas fa-download"></i> 导出Excel
+                    </button>
+                </div>
+                <div id="expenseImportResult" style="margin-top:15px; color:#333;"></div>
+            </div>
+            <div class="module-card">
+                <div class="module-icon"><i class="fas fa-building"></i></div>
+                <h3>工资/房租导入</h3>
+                <p>导入包含以下表头的Excel：Nian、Yue、TuanDui、XiangMu、FeiYongE</p>
+                <div style="display:flex; gap:10px; justify-content:center; margin:15px 0;">
+                    <input type="file" id="wageRentFile" accept=".xlsx,.xls" style="padding:8px; border:1px solid #ddd; border-radius:8px; background:white;">
+                </div>
+                <div style="text-align:center;">
+                    <button onclick="importWageRentFinance()" style="background: linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%); color: white; padding: 12px 30px; border-radius: 25px; border:none; cursor:pointer; font-weight:600;">
+                        <i class="fas fa-upload"></i> 导入Excel
+                    </button>
+                </div>
+                <div id="wageRentImportResult" style="margin-top:15px; color:#333;"></div>
+            </div>
+            <div class="module-card">
+                <div class="module-icon"><i class="fas fa-percentage"></i></div>
+                <h3>分摊比例导入</h3>
+                <p>导入包含以下表头的Excel：年、月、地区、项目、店铺、比例（月份可留空）</p>
+                <div style="display:flex; gap:10px; justify-content:center; margin:15px 0;">
+                    <input type="file" id="allocationFile" accept=".xlsx,.xls" style="padding:8px; border:1px solid #ddd; border-radius:8px; background:white;">
+                </div>
+                <div style="text-align:center;">
+                    <button onclick="importAllocationRatioFinance()" style="background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); color: white; padding: 12px 30px; border-radius: 25px; border:none; cursor:pointer; font-weight:600;">
+                        <i class="fas fa-upload"></i> 导入Excel
+                    </button>
+                </div>
+                <div id="allocationImportResult" style="margin-top:15px; color:#333;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function _logMenuClick(menu, href) {
+            const payload = JSON.stringify({ menu: menu || '', href: href || '' });
+            try {
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([payload], { type: 'application/json' });
+                    navigator.sendBeacon('/api/menu_click', blob);
+                    return;
+                }
+            } catch (e) {}
+            try {
+                fetch('/api/menu_click', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                    keepalive: true
+                }).catch(() => {});
+            } catch (e) {}
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.module-card button');
+            if (!btn) return;
+            const card = btn.closest('.module-card');
+            const titleEl = card ? card.querySelector('h3') : null;
+            const title = (titleEl ? titleEl.textContent : '').trim();
+            const action = (btn.textContent || '').trim();
+            const menu = (title && action) ? (title + '-' + action) : (title || action);
+            if (menu) _logMenuClick(menu, '');
+        });
+
+        function loadApprovalTemplatesFinance(){
+            fetch('/api/feishu/approvals_finance').then(r=>r.json()).then(j=>{
+                if(!j.success) throw new Error(j.message||'拉取审批模板失败');
+                const sel = document.getElementById('fApprovalTemplate');
+                sel.innerHTML = '<option value="">选择审批模板（可选）</option>' +
+                    (j.data||[]).map(it=>`<option value="${it.code}">${it.name||it.code}</option>`).join('');
+            }).catch(err=>{ console.warn(err.message||err); });
+        }
+
+        function exportApprovalAmountsFinance(){
+            const s = document.getElementById('fApprovalStartDate').value;
+            const e = document.getElementById('fApprovalEndDate').value;
+            const code = document.getElementById('fApprovalTemplate').value;
+            const params = new URLSearchParams();
+            if(s) params.append('start_date', s);
+            if(e) params.append('end_date', e);
+            if(code) params.append('approval_code', code);
+            params.append('source','feishu');
+            const url = '/api/export_approval_amounts_finance' + (params.toString() ? ('?' + params.toString()) : '');
+            const btn = event && event.target ? event.target : null;
+            const orig = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-hourglass-half"></i> 正在导出...'; }
+            fetch(url).then(r=>{
+                if(r.ok) return r.blob();
+                return r.json().then(j=>{ throw new Error(j.message||'导出失败'); });
+            }).then(blob=>{
+                const a = document.createElement('a');
+                const u = URL.createObjectURL(blob);
+                a.href = u;
+                a.download = '飞书审批金额明细.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(u);
+            }).catch(err=>{ alert(err.message||'导出失败'); }).finally(()=>{ if(btn){ btn.disabled = false; btn.innerHTML = orig; } });
+        }
+        document.addEventListener('DOMContentLoaded', loadApprovalTemplatesFinance);
+
+        function exportExpenseSheetFinance(){
+            const btn = event && event.target ? event.target : null;
+            const orig = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-hourglass-half"></i> 正在导出...'; }
+            fetch('/api/finance/export_expense_sheet').then(r=>{
+                if(r.ok) return r.blob();
+                return r.json().then(j=>{ throw new Error(j.message||'导出失败'); });
+            }).then(blob=>{
+                const a = document.createElement('a');
+                const u = URL.createObjectURL(blob);
+                a.href = u;
+                a.download = '费用明细.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(u);
+            }).catch(err=>{
+                alert(err.message||'导出失败');
+            }).finally(()=>{
+                if(btn){ btn.disabled = false; btn.innerHTML = orig; }
+            });
+        }
+
+        function exportFreightFinance(){
+            const s = document.getElementById('freightStartDate').value;
+            const e = document.getElementById('freightEndDate').value;
+            const stores = document.getElementById('freightStores').value;
+            if(!s || !e){
+                alert('请先选择开始和结束日期');
+                return;
+            }
+            const params = new URLSearchParams();
+            params.append('start_date', s);
+            params.append('end_date', e);
+            if(stores && stores.trim()){
+                params.append('stores', stores.trim());
+            }
+            const url = '/api/finance/export_freight' + (params.toString() ? ('?' + params.toString()) : '');
+            const btn = event && event.target ? event.target : null;
+            const orig = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-hourglass-half"></i> 正在导出...'; }
+            fetch(url).then(r=>{
+                if(r.ok) return r.blob();
+                return r.json().then(j=>{ throw new Error(j.message||'导出失败'); });
+            }).then(blob=>{
+                const a = document.createElement('a');
+                const u = URL.createObjectURL(blob);
+                a.href = u;
+                a.download = '物流运费结算明细.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(u);
+            }).catch(err=>{
+                alert(err.message||'导出失败');
+            }).finally(()=>{
+                if(btn){ btn.disabled = false; btn.innerHTML = orig; }
+            });
+        }
+
+        function importExpenseSheetFinance(){
+            const fileInput = document.getElementById('expenseFile');
+            if(!fileInput.files || !fileInput.files[0]){ alert('请先选择Excel文件'); return; }
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            const btn = event && event.target ? event.target : null;
+            const orig = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-hourglass-half"></i> 正在导入...'; }
+            fetch('/api/finance/import_expense_sheet', { method:'POST', body: fd }).then(r=>r.json()).then(j=>{
+                const box = document.getElementById('expenseImportResult');
+                if(j.success){
+                    const errHtml = (j.errors && j.errors.length) ? ('<br>失败详情：<br>' + j.errors.map(e=>('<div style="color:#c00;">'+e+'</div>')).join('')) : '';
+                    box.innerHTML = '导入完成：' + (j.message || ('成功 ' + j.inserted + ' 条')) + errHtml;
+                }else{
+                    box.innerHTML = '<span style="color:#c00;">导入失败：' + (j.message||'未知错误') + '</span>';
+                }
+            }).catch(err=>{
+                alert(err.message||'导入失败');
+            }).finally(()=>{ if(btn){ btn.disabled = false; btn.innerHTML = orig; } });
+        }
+
+        function importWageRentFinance(){
+            const fileInput = document.getElementById('wageRentFile');
+            if(!fileInput.files || !fileInput.files[0]){ alert('请先选择Excel文件'); return; }
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            const btn = event && event.target ? event.target : null;
+            const orig = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-hourglass-half"></i> 正在导入...'; }
+            fetch('/api/finance/import_wage_rent', { method:'POST', body: fd }).then(r=>r.json()).then(j=>{
+                const box = document.getElementById('wageRentImportResult');
+                if(j.success){
+                    const errHtml = (j.errors && j.errors.length) ? ('<br>失败详情：<br>' + j.errors.map(e=>('<div style="color:#c00;">'+e+'</div>')).join('')) : '';
+                    box.innerHTML = '导入完成：' + (j.message || ('新增 ' + j.inserted + ' 条，更新 ' + j.updated + ' 条')) + errHtml;
+                }else{
+                    box.innerHTML = '<span style="color:#c00;">导入失败：' + (j.message||'未知错误') + '</span>';
+                }
+            }).catch(err=>{
+                alert(err.message||'导入失败');
+            }).finally(()=>{ if(btn){ btn.disabled = false; btn.innerHTML = orig; } });
+        }
+        function importAllocationRatioFinance(){
+            const fileInput = document.getElementById('allocationFile');
+            if(!fileInput.files || !fileInput.files[0]){ alert('请先选择Excel文件'); return; }
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            const btn = event && event.target ? event.target : null;
+            const orig = btn ? btn.innerHTML : '';
+            if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-hourglass-half"></i> 正在导入...'; }
+            fetch('/api/finance/import_allocation_ratio', { method:'POST', body: fd }).then(r=>r.json()).then(j=>{
+                const box = document.getElementById('allocationImportResult');
+                if(j.success){
+                    const errHtml = (j.errors && j.errors.length) ? ('<br>失败详情：<br>' + j.errors.map(e=>('<div style="color:#c00;">'+e+'</div>')).join('')) : '';
+                    box.innerHTML = '导入完成：' + (j.message || ('新增 ' + j.inserted + ' 条')) + errHtml;
+                }else{
+                    box.innerHTML = '<span style="color:#c00;">导入失败：' + (j.message||'未知错误') + '</span>';
+                }
+            }).catch(err=>{
+                alert(err.message||'导入失败');
+            }).finally(()=>{ if(btn){ btn.disabled = false; btn.innerHTML = orig; } });
+        }
+    </script>
+</body>
+</html>

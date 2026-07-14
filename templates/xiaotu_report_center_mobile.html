@@ -1,0 +1,2496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>报告智能体 - 手机版</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background: #f4f7fb;
+            color: #111827;
+        }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.96);
+            border-bottom: 1px solid #e5e7eb;
+            backdrop-filter: blur(8px);
+        }
+        .topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .topbar-title .icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+        .topbar-sub {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .wrap {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+        }
+        .card h3 {
+            margin: 0 0 10px;
+            font-size: 16px;
+        }
+        .desc, .meta {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .meta { margin-top: 8px; }
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn, .btn-link, .seg-btn, .mini-btn {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #111827;
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            font-size: 14px;
+        }
+        .btn, .btn-link {
+            min-height: 42px;
+            padding: 10px 14px;
+        }
+        .btn.primary {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: #fff;
+        }
+        .btn.ghost {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            color: #4338ca;
+        }
+        .btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+        .field, .select, .editor {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            background: #fff;
+            color: #111827;
+            font-size: 14px;
+        }
+        .field, .select {
+            min-height: 44px;
+            padding: 10px 12px;
+        }
+        .editor {
+            min-height: 220px;
+            padding: 12px;
+            line-height: 1.7;
+            outline: none;
+            overflow-wrap: break-word;
+        }
+        .editor-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding: 2px 0 6px;
+            margin-top: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .editor-toolbar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .editor-toolbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+        .format-btn {
+            flex: 0 0 auto;
+            min-height: 36px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #334155;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .format-btn:active {
+            background: #eef2ff;
+            border-color: #818cf8;
+            color: #4338ca;
+        }
+        .editor:empty:before {
+            content: attr(data-placeholder);
+            color: #94a3b8;
+        }
+        .editor img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            margin: 8px 0;
+        }
+        .section-title {
+            margin: 0 0 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #334155;
+        }
+        .seg {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .seg-btn {
+            min-height: 44px;
+            padding: 10px 8px;
+        }
+        .seg-btn.active {
+            background: #eef2ff;
+            border-color: #4f46e5;
+            color: #4338ca;
+            font-weight: 700;
+        }
+        .type-grid {
+            display: grid;
+            gap: 8px;
+        }
+        .type-chip {
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: #fff;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .type-chip.active {
+            border-color: #4f46e5;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        .template-actions, .submit-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .single-col {
+            display: grid;
+            gap: 8px;
+        }
+        .upload-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .upload-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .upload-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 100%;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+            font-size: 12px;
+        }
+        .upload-item button {
+            border: none;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            padding: 0;
+        }
+        .summary-box {
+            min-height: 56px;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            margin: 2px 6px 2px 0;
+            border-radius: 999px;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            color: #4338ca;
+            font-size: 12px;
+        }
+        .tag.pending {
+            background: #fff7ed;
+            border-color: #fdba74;
+            color: #c2410c;
+        }
+        .empty {
+            color: #94a3b8;
+        }
+        .fixed-actions {
+            position: sticky;
+            bottom: 0;
+            z-index: 12;
+            padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+            background: linear-gradient(to top, rgba(244,247,251,0.98), rgba(244,247,251,0.7), rgba(244,247,251,0));
+        }
+        .fixed-actions .submit-actions {
+            background: rgba(255,255,255,0.92);
+            padding: 10px;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 12px 28px rgba(15,23,42,0.08);
+        }
+        .sheet-mask {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: flex-end;
+            background: rgba(15, 23, 42, 0.45);
+            z-index: 30;
+        }
+        .sheet-mask.show { display: flex; }
+        .sheet {
+            width: 100%;
+            max-height: 85vh;
+            background: #fff;
+            border-radius: 18px 18px 0 0;
+            padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+            overflow: auto;
+        }
+        .sheet-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .sheet-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+        .sheet-close {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            background: #fff;
+        }
+        .list-box {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 8px;
+            background: #fff;
+            max-height: 260px;
+            overflow: auto;
+        }
+        .user-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 4px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+        }
+        .user-row:last-child {
+            border-bottom: none;
+        }
+        .sheet-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+    </style>
+    <style>
+        :root {
+            --page: #f4f6f9;
+            --surface: #ffffff;
+            --surface-soft: #f7f8fa;
+            --line: #e4e7ec;
+            --text: #17191d;
+            --muted: #707782;
+            --blue: #1664d9;
+            --blue-soft: #edf4ff;
+            --green: #168760;
+            --danger: #c83c4a;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        html {
+            width: 100%;
+            min-height: 100%;
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            background: var(--page);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+            letter-spacing: 0;
+        }
+        body.sheet-open { overflow: hidden; }
+        button, input, select, textarea { font: inherit; }
+        button, a { -webkit-tap-highlight-color: transparent; }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 24;
+            padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+            background: rgba(255, 255, 255, 0.94);
+            border-bottom: 1px solid rgba(228, 231, 236, 0.92);
+            backdrop-filter: blur(18px) saturate(150%);
+            -webkit-backdrop-filter: blur(18px) saturate(150%);
+        }
+        .topbar-inner {
+            width: min(100%, 640px);
+            min-height: 44px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr) 42px;
+            align-items: center;
+            gap: 8px;
+        }
+        .topbar-title {
+            min-width: 0;
+            justify-content: center;
+            gap: 8px;
+            font-size: 17px;
+            line-height: 1.2;
+        }
+        .topbar-title .icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: #15171b;
+        }
+        .topbar-title span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--surface);
+            color: #343941;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .icon-btn:active { background: #eef0f3; transform: scale(0.97); }
+        .wrap {
+            width: min(100%, 640px);
+            max-width: 640px;
+            padding: 14px 12px calc(90px + var(--safe-bottom));
+        }
+        body[data-active-view="compose"] .wrap {
+            padding-bottom: calc(158px + var(--safe-bottom));
+        }
+        .app-view[hidden] { display: none !important; }
+        .page-intro {
+            padding: 8px 2px 16px;
+        }
+        .page-eyebrow {
+            margin-bottom: 5px;
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .page-title {
+            margin: 0;
+            font-size: 26px;
+            line-height: 1.2;
+            font-weight: 750;
+            letter-spacing: 0;
+        }
+        .page-desc {
+            margin: 7px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .section-card {
+            margin: 0 0 12px;
+            padding: 14px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            box-shadow: 0 3px 14px rgba(17, 24, 39, 0.035);
+        }
+        .section-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 13px;
+        }
+        .section-heading {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+        .step-index {
+            width: 26px;
+            height: 26px;
+            flex: 0 0 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #17191d;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 750;
+        }
+        .section-card h2 {
+            margin: 0;
+            font-size: 16px;
+            line-height: 1.35;
+            letter-spacing: 0;
+        }
+        .section-caption {
+            margin-top: 2px;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .field-label {
+            display: block;
+            margin: 0 0 7px;
+            color: #434952;
+            font-size: 12px;
+            font-weight: 650;
+        }
+        .field, .select {
+            min-height: 46px;
+            padding: 11px 12px;
+            border: 1px solid #d7dbe2;
+            border-radius: 9px;
+            background: #fff;
+            font-size: 16px;
+            outline: none;
+        }
+        .field:focus, .select:focus, .editor:focus {
+            border-color: #5d94e5;
+            box-shadow: 0 0 0 3px rgba(22, 100, 217, 0.12);
+        }
+        .seg {
+            gap: 6px;
+            padding: 4px;
+            border-radius: 10px;
+            background: #eef0f3;
+        }
+        .seg-btn {
+            min-height: 38px;
+            padding: 8px 6px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: #5f6670;
+            font-size: 13px;
+            font-weight: 650;
+        }
+        .seg-btn.active {
+            background: #fff;
+            color: #17191d;
+            border: 0;
+            box-shadow: 0 1px 5px rgba(17, 24, 39, 0.12);
+        }
+        .type-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+        }
+        .type-chip {
+            min-height: 56px;
+            padding: 9px 10px;
+            border: 1px solid #dfe3e9;
+            border-radius: 8px;
+            text-align: left;
+            overflow: hidden;
+        }
+        .type-chip strong, .type-chip small { display: block; }
+        .type-chip strong { font-size: 13px; line-height: 1.35; }
+        .type-chip small {
+            margin-top: 2px;
+            color: #858b94;
+            font-size: 10px;
+            line-height: 1.35;
+        }
+        .type-chip.active {
+            border-color: #6c9fe8;
+            background: var(--blue-soft);
+            color: #114c9f;
+            box-shadow: inset 0 0 0 1px rgba(22, 100, 217, 0.08);
+        }
+        .type-chip.active small { color: #4773ad; }
+        .hint-bar {
+            margin-top: 9px;
+            padding: 8px 10px;
+            border-left: 3px solid #75a5e8;
+            border-radius: 0 7px 7px 0;
+            background: #f5f8fc;
+            color: #687180;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+        .compact-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .btn, .btn-link {
+            min-height: 42px;
+            padding: 9px 13px;
+            border-color: #d8dce2;
+            border-radius: 9px;
+            font-size: 13px;
+            font-weight: 650;
+        }
+        .btn i, .btn-link i { margin-right: 5px; }
+        .btn:active, .btn-link:active { transform: scale(0.98); background: #f0f2f5; }
+        .btn.primary {
+            background: var(--blue);
+            border-color: var(--blue);
+            color: #fff;
+        }
+        .btn.secondary {
+            background: #17191d;
+            border-color: #17191d;
+            color: #fff;
+        }
+        .btn.quiet { background: #f5f6f8; }
+        .btn.danger { color: var(--danger); }
+        .btn.icon-only {
+            width: 38px;
+            min-height: 38px;
+            padding: 0;
+        }
+        .btn.icon-only i { margin: 0; }
+        .content-stack { display: grid; gap: 11px; }
+        .mobile-disclosure {
+            border: 1px solid #e1e4e9;
+            border-radius: 9px;
+            background: #fafbfc;
+            overflow: hidden;
+        }
+        .mobile-disclosure summary {
+            min-height: 44px;
+            padding: 11px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            color: #414751;
+            font-size: 13px;
+            font-weight: 650;
+            cursor: pointer;
+            list-style: none;
+        }
+        .mobile-disclosure summary::-webkit-details-marker { display: none; }
+        .mobile-disclosure summary::after {
+            content: "\f078";
+            font: 900 11px/1 "Font Awesome 6 Free";
+            color: #8b929d;
+            transition: transform .2s ease;
+        }
+        .mobile-disclosure[open] summary::after { transform: rotate(180deg); }
+        .disclosure-body {
+            display: grid;
+            gap: 8px;
+            padding: 0 10px 10px;
+        }
+        .template-manage-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+        }
+        .editor-shell {
+            border: 1px solid #d9dde4;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .editor-toolbar {
+            margin: 0;
+            padding: 7px;
+            gap: 5px;
+            background: #f6f7f9;
+            border-bottom: 1px solid #e3e6eb;
+            scrollbar-width: none;
+        }
+        .editor-toolbar::-webkit-scrollbar { display: none; }
+        .format-btn {
+            width: 36px;
+            height: 34px;
+            min-height: 34px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            background: transparent;
+            color: #4e5560;
+            font-size: 13px;
+        }
+        .format-btn:active { background: #fff; border-color: #d9dde4; }
+        .editor {
+            min-height: 300px;
+            max-height: 58vh;
+            padding: 14px;
+            border: 0;
+            border-radius: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-size: 16px;
+            line-height: 1.72;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            -webkit-overflow-scrolling: touch;
+        }
+        .editor:focus { box-shadow: inset 0 0 0 2px rgba(22, 100, 217, 0.18); }
+        .editor * { max-width: 100%; overflow-wrap: anywhere; }
+        .media-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+        }
+        .upload-list { gap: 6px; }
+        .upload-item {
+            width: 100%;
+            min-width: 0;
+            justify-content: space-between;
+            border-radius: 8px;
+            background: #f3f7fd;
+        }
+        .upload-item span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .meta, .status-text {
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+        }
+        .status-panel {
+            display: grid;
+            gap: 5px;
+            padding: 10px 11px;
+            border-radius: 8px;
+            background: #f6f8fb;
+            border: 1px solid #e5e8ed;
+        }
+        .status-panel strong { font-size: 12px; }
+        .notify-layout { display: grid; gap: 10px; }
+        .summary-box {
+            min-height: 52px;
+            border-radius: 8px;
+            background: #f7f8fa;
+        }
+        .notify-controls {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 7px;
+            align-items: end;
+        }
+        .notify-controls .btn { min-height: 46px; }
+        .edit-banner {
+            display: none;
+            margin-top: 12px;
+            padding: 10px 11px;
+            border: 1px solid #f2c96d;
+            border-radius: 8px;
+            background: #fff9e9;
+            color: #7c5816;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+        .edit-banner.show { display: grid; gap: 3px; }
+        .action-dock {
+            position: fixed;
+            left: 50%;
+            bottom: calc(64px + var(--safe-bottom));
+            z-index: 20;
+            width: min(100%, 640px);
+            padding: 8px 12px;
+            transform: translateX(-50%);
+            background: rgba(244, 246, 249, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .action-dock .submit-actions {
+            grid-template-columns: minmax(108px, .75fr) minmax(0, 1.25fr);
+            gap: 8px;
+            padding: 0;
+            background: transparent;
+        }
+        .action-dock .btn { min-height: 48px; font-size: 15px; }
+        .bottom-nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 22;
+            min-height: calc(64px + var(--safe-bottom));
+            padding: 5px max(10px, env(safe-area-inset-left)) var(--safe-bottom) max(10px, env(safe-area-inset-right));
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            background: rgba(255, 255, 255, 0.96);
+            border-top: 1px solid rgba(220, 224, 230, 0.95);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+        .nav-btn {
+            min-width: 0;
+            min-height: 54px;
+            padding: 5px 4px 3px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #7c838d;
+            font-size: 10px;
+            font-weight: 650;
+        }
+        .nav-btn i { font-size: 18px; }
+        .nav-btn.active { color: var(--blue); background: #f0f5fc; }
+        .form-grid { display: grid; gap: 10px; }
+        .date-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .result-box {
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #e2e6ec;
+            border-radius: 8px;
+            background: #fafbfc;
+            color: #3e4652;
+            font-size: 13px;
+            line-height: 1.72;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .result-box:empty::before { content: "暂无内容"; color: #9aa0a9; }
+        .report-h { margin: 14px 0 7px; color: #17191d; font-weight: 750; }
+        .report-h.h1, .report-h.h2 { font-size: 17px; }
+        .report-h.h3, .report-h.h4, .report-h.h5, .report-h.h6 { font-size: 15px; }
+        .report-p, .report-ol { margin: 5px 0; overflow-wrap: anywhere; }
+        .report-ul { margin: 6px 0; padding-left: 20px; }
+        .report-sep { height: 7px; }
+        .report-empty { color: #9299a3; }
+        .history-analysis-item {
+            padding: 11px 0;
+            border-bottom: 1px solid #e7e9ed;
+        }
+        .history-analysis-item:last-child { border-bottom: 0; }
+        .history-analysis-title { font-size: 13px; font-weight: 700; }
+        .history-analysis-item .btn { width: 100%; margin-top: 8px; }
+        .sheet-mask {
+            height: 100vh;
+            height: 100dvh;
+            padding-top: env(safe-area-inset-top);
+            background: rgba(16, 20, 27, 0.5);
+        }
+        .sheet {
+            max-height: calc(92dvh - env(safe-area-inset-top));
+            padding: 0 12px calc(12px + var(--safe-bottom));
+            border-radius: 14px 14px 0 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .sheet-head {
+            flex: 0 0 auto;
+            min-height: 58px;
+            margin: 0;
+            padding: 10px 0;
+            border-bottom: 1px solid #edf0f3;
+        }
+        .sheet-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 10px 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .sheet-actions {
+            flex: 0 0 auto;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            padding-top: 9px;
+            border-top: 1px solid #edf0f3;
+        }
+        .sheet-close { border-radius: 9px; }
+        .list-box { border-radius: 8px; max-height: 240px; }
+        .user-row { min-height: 46px; }
+        .user-row input { width: 20px; height: 20px; accent-color: var(--blue); }
+        @media (max-width: 360px) {
+            .type-chip { min-height: 60px; padding: 8px; }
+            .type-chip strong { font-size: 12px; }
+            .type-chip small { font-size: 9px; }
+            .section-card { padding: 12px; }
+            .page-title { font-size: 24px; }
+        }
+        @media (min-width: 700px) {
+            .bottom-nav {
+                left: 50%;
+                right: auto;
+                width: 640px;
+                transform: translateX(-50%);
+                border-left: 1px solid var(--line);
+                border-right: 1px solid var(--line);
+            }
+        }
+    </style>
+</head>
+<body data-active-view="compose">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="icon-btn" href="{{ url_for('dashboard_xiaotu') }}" aria-label="返回小图" title="返回小图">
+                <i class="fa-solid fa-chevron-left"></i>
+            </a>
+            <div class="topbar-title">
+                <div class="icon"><i class="fa-solid fa-file-pen"></i></div>
+                <span>报告智能体</span>
+            </div>
+            <a class="icon-btn" href="{{ url_for('dashboard_xiaotu_report_history') }}" aria-label="历史记录" title="历史记录">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </a>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <section class="app-view" data-view-panel="compose">
+            <div class="page-intro">
+                <div class="page-eyebrow">你好，{{ user_name or '用户' }}</div>
+                <h1 class="page-title">写一份报告</h1>
+                <p class="page-desc">填写内容后直接提交，草稿会自动保留。也可以只上传图片或使用飞书文档。</p>
+                <div id="editModeBanner" class="edit-banner"></div>
+            </div>
+
+            <section class="section-card">
+                <div class="section-head">
+                    <div class="section-heading">
+                        <span class="step-index">1</span>
+                        <div><h2>报告设置</h2><div class="section-caption">选择周期和当前人员类型</div></div>
+                    </div>
+                </div>
+                <label class="field-label">报告类型</label>
+                <div class="seg" id="reportTypeSeg">
+                    <button type="button" class="seg-btn active" data-report-type="day">日报</button>
+                    <button type="button" class="seg-btn" data-report-type="week">周报</button>
+                    <button type="button" class="seg-btn" data-report-type="month">月报</button>
+                </div>
+                <label class="field-label" style="margin-top:13px;">人员类型</label>
+                <div class="type-grid" id="personTypeGrid">
+                    <button type="button" class="type-chip active" data-person-type="formal_staff"><strong>正式员工</strong><small>执行、流程与协作</small></button>
+                    <button type="button" class="type-chip" data-person-type="management"><strong>管理层</strong><small>经营、团队与资源</small></button>
+                    <button type="button" class="type-chip" data-person-type="improvement_staff"><strong>改进人员</strong><small>诊断、纠偏与提升</small></button>
+                    <button type="button" class="type-chip" data-person-type="intern_trainee"><strong>管培生 / 实习</strong><small>学习、执行与成长</small></button>
+                </div>
+                <div class="hint-bar" id="personTypeHint">侧重点：SOP执行质量、流程优化、协作效率、结果稳定性。</div>
+            </section>
+
+            <section class="section-card">
+                <div class="section-head">
+                    <div class="section-heading">
+                        <span class="step-index">2</span>
+                        <div><h2>报告内容</h2><div class="section-caption">支持富文本、拍照和相册图片</div></div>
+                    </div>
+                    <div class="compact-actions">
+                        <button id="applyTemplateBtn" type="button" class="btn icon-only quiet" aria-label="套用默认模板" title="套用默认模板"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                        <button id="clearEditorBtn" type="button" class="btn icon-only quiet danger" aria-label="清空内容" title="清空内容"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                </div>
+                <div class="content-stack">
+                    <div>
+                        <label class="field-label" for="submitDocUrl">飞书文档链接 <span class="meta">（可选）</span></label>
+                        <input id="submitDocUrl" class="field" inputmode="url" autocomplete="off" placeholder="粘贴飞书云文档链接">
+                    </div>
+
+                    <details class="mobile-disclosure" id="templateManager">
+                        <summary><span><i class="fa-regular fa-bookmark"></i>&nbsp; 我的富文本模板</span></summary>
+                        <div class="disclosure-body">
+                            <select id="mobanSelect" class="select"><option value="">选择已保存模板</option></select>
+                            <input id="mobanName" class="field" placeholder="模板名称" maxlength="40">
+                            <div class="template-manage-actions">
+                                <button id="mobanNewBtn" type="button" class="btn quiet">新建</button>
+                                <button id="mobanSaveBtn" type="button" class="btn">保存</button>
+                                <button id="mobanDeleteBtn" type="button" class="btn danger">删除</button>
+                            </div>
+                            <div id="mobanMeta" class="meta">正在读取模板...</div>
+                        </div>
+                    </details>
+
+                    <div class="editor-shell">
+                        <div class="editor-toolbar" id="reportEditorToolbar" aria-label="文本格式工具">
+                            <button type="button" class="format-btn" data-editor-action="bold" aria-label="加粗" title="加粗"><i class="fa-solid fa-bold"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="italic" aria-label="斜体" title="斜体"><i class="fa-solid fa-italic"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="underline" aria-label="下划线" title="下划线"><i class="fa-solid fa-underline"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="insertUnorderedList" aria-label="无序列表" title="无序列表"><i class="fa-solid fa-list-ul"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="insertOrderedList" aria-label="有序列表" title="有序列表"><i class="fa-solid fa-list-ol"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="blockquote" aria-label="引用" title="引用"><i class="fa-solid fa-quote-left"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="h4" aria-label="标题" title="标题"><i class="fa-solid fa-heading"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="p" aria-label="正文" title="正文"><i class="fa-solid fa-paragraph"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="link" aria-label="链接" title="链接"><i class="fa-solid fa-link"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="unlink" aria-label="取消链接" title="取消链接"><i class="fa-solid fa-link-slash"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="undo" aria-label="撤销" title="撤销"><i class="fa-solid fa-rotate-left"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="redo" aria-label="重做" title="重做"><i class="fa-solid fa-rotate-right"></i></button>
+                            <button type="button" class="format-btn" data-editor-action="removeFormat" aria-label="清除格式" title="清除格式"><i class="fa-solid fa-eraser"></i></button>
+                        </div>
+                        <div id="reportEditor" class="editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="输入今天的工作内容、结果、问题和明日计划..."></div>
+                    </div>
+
+                    <div class="media-actions">
+                        <input id="reportCameraInput" type="file" accept="image/*" capture="environment" style="display:none;">
+                        <input id="reportImageInput" type="file" accept="image/*" multiple style="display:none;">
+                        <button id="takePhotoBtn" type="button" class="btn quiet"><i class="fa-solid fa-camera"></i>拍照</button>
+                        <button id="pickImageBtn" type="button" class="btn quiet"><i class="fa-regular fa-images"></i>从相册选择</button>
+                    </div>
+                    <div id="reportImageList" class="upload-list"></div>
+                    <div class="meta" id="editorMeta">内容会自动保存在本机，点击“保存草稿”可同步到云端。</div>
+                </div>
+            </section>
+
+            <section class="section-card">
+                <div class="section-head">
+                    <div class="section-heading">
+                        <span class="step-index">3</span>
+                        <div><h2>通知与提醒</h2><div class="section-caption">提交后通知指定人员</div></div>
+                    </div>
+                </div>
+                <div class="notify-layout">
+                    <button id="openNotifyPickerBtn" type="button" class="btn quiet"><i class="fa-solid fa-user-plus"></i>选择通知人员</button>
+                    <div id="notifySummary" class="summary-box"><span class="empty">暂未选择通知人员</span></div>
+                    <div class="notify-controls">
+                        <div>
+                            <label class="field-label" for="notifyTimeInput">未提交提醒时间</label>
+                            <input id="notifyTimeInput" type="time" class="field" step="60">
+                        </div>
+                        <button id="testReminderBtn" type="button" class="btn quiet" title="发送测试提醒"><i class="fa-regular fa-bell"></i>测试</button>
+                    </div>
+                    <div class="meta" id="notifyMeta">选择部门成员后，报告提交结果会通过飞书通知。</div>
+                </div>
+            </section>
+
+            <section class="section-card">
+                <div class="section-head" style="margin-bottom:9px;">
+                    <div class="section-heading">
+                        <span class="step-index"><i class="fa-solid fa-check"></i></span>
+                        <div><h2>提交状态</h2><div class="section-caption">当前提交人：{{ user_name or '' }}</div></div>
+                    </div>
+                </div>
+                <div class="status-panel">
+                    <strong id="submitMeta">待提交</strong>
+                    <div class="status-text" id="submitDebug"></div>
+                </div>
+            </section>
+        </section>
+
+        <section class="app-view" data-view-panel="summary" hidden>
+            <div class="page-intro">
+                <div class="page-eyebrow">AI 汇总</div>
+                <h1 class="page-title">智能汇总</h1>
+                <p class="page-desc">按日期整合已提交内容，生成可独立打开的完整报告。</p>
+            </div>
+            <section class="section-card">
+                <div class="section-head">
+                    <div class="section-heading"><span class="step-index"><i class="fa-solid fa-sparkles"></i></span><div><h2>生成报告</h2><div class="section-caption">选择需要分析的日期范围</div></div></div>
+                </div>
+                <div class="form-grid">
+                    <div><label class="field-label" for="reportUserName">报告用户</label><input id="reportUserName" class="field" value="{{ user_name or '' }}" readonly></div>
+                    <div class="date-grid">
+                        <div><label class="field-label" for="reportStartDate">开始日期</label><input id="reportStartDate" class="field" type="date"></div>
+                        <div><label class="field-label" for="reportEndDate">结束日期</label><input id="reportEndDate" class="field" type="date"></div>
+                    </div>
+                    <button id="generateBtn" type="button" class="btn secondary"><i class="fa-solid fa-wand-magic-sparkles"></i>开始整合分析</button>
+                    <div class="meta" id="genMeta">选择日期后开始生成。</div>
+                    <div id="genResult" class="result-box"><div class="report-empty">生成结果会显示在这里。</div></div>
+                </div>
+            </section>
+            <section class="section-card">
+                <div class="section-head">
+                    <div class="section-heading"><span class="step-index"><i class="fa-solid fa-folder-open"></i></span><div><h2>已生成报告</h2><div class="section-caption">离线 HTML 报告历史</div></div></div>
+                    <button id="refreshHistoryAnalysisBtn" type="button" class="btn icon-only quiet" aria-label="刷新报告历史" title="刷新"><i class="fa-solid fa-rotate"></i></button>
+                </div>
+                <div id="historyAnalysisList" class="result-box"><div class="report-empty">正在读取历史记录...</div></div>
+            </section>
+        </section>
+
+        <section class="app-view" data-view-panel="knowledge" hidden>
+            <div class="page-intro">
+                <div class="page-eyebrow">个人知识库</div>
+                <h1 class="page-title">知识搜索</h1>
+                <p class="page-desc">仅搜索你自己提交过的报告内容，并由 AI 整理答案。</p>
+            </div>
+            <section class="section-card">
+                <div class="section-head">
+                    <div class="section-heading"><span class="step-index"><i class="fa-solid fa-magnifying-glass"></i></span><div><h2>向日报提问</h2><div class="section-caption">正文和图片识别内容都会参与检索</div></div></div>
+                </div>
+                <div class="form-grid">
+                    <textarea id="knowledgeSearchInput" class="field" rows="4" placeholder="例如：我上次关于 TK 客服跟单的处理结论是什么？" style="resize:vertical;min-height:112px;"></textarea>
+                    <button id="knowledgeSearchBtn" type="button" class="btn secondary"><i class="fa-solid fa-magnifying-glass"></i>搜索我的报告</button>
+                    <div class="meta" id="knowledgeMeta">输入问题后开始搜索。</div>
+                    <div id="knowledgeResult" class="result-box"><div class="report-empty">搜索答案会显示在这里。</div></div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <div class="action-dock" id="composeActionDock">
+        <div class="submit-actions">
+            <button id="saveDraftBtn" type="button" class="btn quiet"><i class="fa-regular fa-floppy-disk"></i>保存草稿</button>
+            <button id="submitReportBtn" type="button" class="btn primary"><i class="fa-solid fa-paper-plane"></i>提交报告</button>
+        </div>
+    </div>
+
+    <nav class="bottom-nav" aria-label="报告智能体功能">
+        <button type="button" class="nav-btn active" data-view-target="compose"><i class="fa-solid fa-file-pen"></i><span>写报告</span></button>
+        <button type="button" class="nav-btn" data-view-target="summary"><i class="fa-solid fa-chart-line"></i><span>智能汇总</span></button>
+        <button type="button" class="nav-btn" data-view-target="knowledge"><i class="fa-solid fa-magnifying-glass"></i><span>知识搜索</span></button>
+    </nav>
+
+    <div id="notifyPickerMask" class="sheet-mask" role="dialog" aria-modal="true" aria-labelledby="notifyPickerTitle">
+        <div class="sheet">
+            <div class="sheet-head">
+                <div class="sheet-title" id="notifyPickerTitle">选择通知人员</div>
+                <button id="notifyPickerCloseBtn" type="button" class="sheet-close" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="sheet-body">
+                <div class="single-col">
+                    <div style="display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:7px;">
+                        <select id="notifyModalDepartment" class="select"><option value="">请选择部门</option></select>
+                        <button id="reloadNotifyDepartmentsBtn" type="button" class="btn icon-only quiet" aria-label="刷新部门" title="刷新部门"><i class="fa-solid fa-rotate"></i></button>
+                    </div>
+                    <input id="notifyModalSearch" class="field" enterkeyhint="search" placeholder="搜索姓名，支持跨部门">
+                </div>
+                <div class="section-head" style="margin:12px 0 7px;align-items:center;">
+                    <label class="field-label" style="margin:0;">部门成员</label>
+                    <button id="notifySelectAllBtn" type="button" class="btn quiet" style="min-height:34px;padding:6px 10px;">全选</button>
+                </div>
+                <div id="notifyUsers" class="list-box"></div>
+                <label class="field-label" style="margin-top:12px;">已选人员</label>
+                <div id="notifySelectedUsers" class="list-box"></div>
+            </div>
+            <div class="sheet-actions">
+                <button id="notifyClearBtn" type="button" class="btn">清空</button>
+                <button id="notifyPickerCancelBtn" type="button" class="btn quiet">取消</button>
+                <button id="notifyPickerConfirmBtn" type="button" class="btn primary">确认选择</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const CURRENT_USER_NAME = {{ (user_name or '')|tojson }};
+    const EDIT_WENDANGID = {{ (edit_wendangid or '')|tojson }};
+    let MOBAN_LIST = [];
+    let CURRENT_SOURCE_MOBAN = '';
+    let REPORT_IMAGE_FILES = [];
+    let DRAFT_IMAGE_PATHS = [];
+    let NOTIFY_DEPARTMENTS = [];
+    let NOTIFY_USERS = [];
+    let CURRENT_NOTIFY_DEPARTMENT_ID = '';
+    let CURRENT_NOTIFY_SEARCH_KEYWORD = '';
+    let notifySearchTimer = null;
+    let notifySearchSeq = 0;
+    let IS_REPORT_CENTER_INITIALIZING = true;
+    let REPORT_EDITOR_SAVED_RANGE = null;
+    const SELECTED_NOTIFY_OPEN_IDS = new Set();
+    const TEMP_SELECTED_NOTIFY_OPEN_IDS = new Set();
+    const CACHED_NOTIFY_NAME_MAP = {};
+    let PENDING_NOTIFY_TARGETS = [];
+    let TEMP_PENDING_NOTIFY_TARGETS = [];
+
+    const CROWD_TEMPLATES = {
+        formal_staff: {
+            hint: '侧重点：SOP执行质量、流程优化、协作效率、结果稳定性。',
+            html: '<h4>1. 今日核心工作</h4><ul><li>事项1：</li><li>事项2：</li></ul><h4>2. 流程优化/协同情况</h4><ul><li>优化动作：</li><li>协同事项：</li></ul><h4>3. 问题与结果</h4><ul><li>遇到的问题：</li><li>处理结果：</li></ul><h4>4. 明日计划</h4><ul><li>明日重点：</li></ul>'
+        },
+        management: {
+            hint: '侧重点：经营洞察、管理动作复盘、团队带教、资源配置与风险预警。',
+            html: '<h4>1. 今日经营/管理重点</h4><ul><li>关键推进事项：</li></ul><h4>2. 组织协同与资源</h4><ul><li>团队动作：</li><li>资源支持：</li></ul><h4>3. 风险与判断</h4><ul><li>风险点：</li><li>判断与建议：</li></ul><h4>4. 明日计划</h4><ul><li>下一步安排：</li></ul>'
+        },
+        improvement_staff: {
+            hint: '侧重点：绩效差距、改进动作闭环、指标变化、问题根因与纠偏。',
+            html: '<h4>1. 今日改进事项</h4><ul><li>改进对象：</li><li>当前进展：</li></ul><h4>2. 指标与问题</h4><ul><li>关键指标变化：</li><li>问题根因：</li></ul><h4>3. 纠偏动作</h4><ul><li>已执行动作：</li><li>效果：</li></ul><h4>4. 明日计划</h4><ul><li>后续跟进：</li></ul>'
+        },
+        intern_trainee: {
+            hint: '侧重点：先看当日工作内容是否完整，再看问题处理、明日计划和方法积累。',
+            html: '<h4>1. 当日工作内容</h4><ul><li>今天学习/工作了什么：</li><li>各事项用时：</li></ul><h4>2. 遇到的问题与解决</h4><ul><li>遇到的问题：</li><li>如何解决：</li></ul><h4>3. 明日计划</h4><ul><li>明天准备做什么：</li></ul><h4>4. 方法与积累</h4><ul><li>今天沉淀了什么方法或素材：</li></ul>'
+        }
+    };
+
+    function isEditMode() {
+        return !!safeText(EDIT_WENDANGID).trim();
+    }
+
+    function safeText(v) {
+        return v == null ? '' : String(v);
+    }
+
+    function escapeHtml(v) {
+        return safeText(v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function setMobileView(viewName, options) {
+        const target = safeText(viewName || 'compose').trim() || 'compose';
+        const opts = options || {};
+        document.querySelectorAll('[data-view-panel]').forEach(function (panel) {
+            panel.hidden = safeText(panel.getAttribute('data-view-panel')).trim() !== target;
+        });
+        document.querySelectorAll('[data-view-target]').forEach(function (btn) {
+            const active = safeText(btn.getAttribute('data-view-target')).trim() === target;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-current', active ? 'page' : 'false');
+        });
+        document.body.setAttribute('data-active-view', target);
+        const actionDock = document.getElementById('composeActionDock');
+        if (actionDock) actionDock.hidden = target !== 'compose';
+        if (!opts.keepScroll) window.scrollTo({ top: 0, behavior: 'auto' });
+        if (target === 'summary') loadHistoryAnalysisList().catch(function () {});
+    }
+
+    function renderGeneratedReportRich(rawText) {
+        const src = safeText(rawText).replace(/\r\n/g, '\n').trim();
+        if (!src) return '<div class="report-empty">未生成有效内容</div>';
+        const lines = src.split('\n');
+        const out = [];
+        let inList = false;
+        function closeList() {
+            if (!inList) return;
+            out.push('</ul>');
+            inList = false;
+        }
+        lines.forEach(function (rawLine) {
+            const text = safeText(rawLine).trim();
+            if (!text) {
+                closeList();
+                out.push('<div class="report-sep"></div>');
+                return;
+            }
+            const heading = text.match(/^(#{1,6})\s+(.*)$/);
+            if (heading) {
+                closeList();
+                out.push('<div class="report-h h' + heading[1].length + '">' + escapeHtml(heading[2]) + '</div>');
+                return;
+            }
+            const bullet = text.match(/^[-*]\s+(.*)$/);
+            if (bullet) {
+                if (!inList) {
+                    out.push('<ul class="report-ul">');
+                    inList = true;
+                }
+                out.push('<li>' + escapeHtml(bullet[1]) + '</li>');
+                return;
+            }
+            const ordered = text.match(/^(\d+)\.\s+(.*)$/);
+            if (ordered) {
+                closeList();
+                out.push('<div class="report-ol"><strong>' + escapeHtml(ordered[1]) + '.</strong> ' + escapeHtml(ordered[2]) + '</div>');
+                return;
+            }
+            closeList();
+            const content = escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            out.push('<div class="report-p">' + content + '</div>');
+        });
+        closeList();
+        return out.join('');
+    }
+
+    function normalizeEditorHtml(rawHtml) {
+        const box = document.createElement('div');
+        box.innerHTML = safeText(rawHtml).trim();
+        const text = safeText(box.textContent).replace(/\u00a0/g, ' ').trim();
+        const hasImg = !!box.querySelector('img');
+        return (!text && !hasImg) ? '' : box.innerHTML.trim();
+    }
+
+    function buildEditorHtmlFromText(rawText) {
+        const text = safeText(rawText).replace(/\r\n/g, '\n').trim();
+        if (!text) return '';
+        return text.split(/\n{2,}/).map(function (paragraph) {
+            return '<p>' + escapeHtml(paragraph).replace(/\n/g, '<br>') + '</p>';
+        }).join('');
+    }
+
+    function getReportEditor() {
+        return document.getElementById('reportEditor');
+    }
+
+    function isRangeInsideEditor(range) {
+        const editor = getReportEditor();
+        if (!editor || !range) return false;
+        const container = range.commonAncestorContainer;
+        return container === editor || editor.contains(container);
+    }
+
+    function saveReportEditorSelection() {
+        const sel = window.getSelection ? window.getSelection() : null;
+        if (!sel || sel.rangeCount < 1) return;
+        const range = sel.getRangeAt(0);
+        if (!isRangeInsideEditor(range)) return;
+        REPORT_EDITOR_SAVED_RANGE = range.cloneRange();
+    }
+
+    function restoreReportEditorSelection() {
+        const editor = getReportEditor();
+        const sel = window.getSelection ? window.getSelection() : null;
+        if (!editor || !sel) return false;
+        editor.focus();
+        sel.removeAllRanges();
+        if (REPORT_EDITOR_SAVED_RANGE && isRangeInsideEditor(REPORT_EDITOR_SAVED_RANGE)) {
+            sel.addRange(REPORT_EDITOR_SAVED_RANGE);
+            return true;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        sel.addRange(range);
+        REPORT_EDITOR_SAVED_RANGE = range.cloneRange();
+        return true;
+    }
+
+    function execReportEditorCommand(cmd, value) {
+        restoreReportEditorSelection();
+        try {
+            document.execCommand(cmd, false, value || null);
+        } catch (e) {}
+        saveReportEditorSelection();
+        saveDraftToLocal(captureDraftState());
+    }
+
+    function runReportEditorAction(action) {
+        const editor = getReportEditor();
+        if (!editor) return;
+        if (action === 'link') {
+            restoreReportEditorSelection();
+            const url = prompt('请输入链接地址（https://...）', 'https://');
+            if (!url) {
+                editor.focus();
+                return;
+            }
+            execReportEditorCommand('createLink', url);
+            return;
+        }
+        if (action === 'blockquote') {
+            execReportEditorCommand('formatBlock', 'blockquote');
+            return;
+        }
+        if (action === 'h4') {
+            execReportEditorCommand('formatBlock', 'h4');
+            return;
+        }
+        if (action === 'p') {
+            execReportEditorCommand('formatBlock', 'p');
+            return;
+        }
+        execReportEditorCommand(action, '');
+    }
+
+    function buildReportImageUrl(path) {
+        path = safeText(path).trim();
+        if (!path) return '';
+        if (path.startsWith('/api/xiaotu/report_image')) return path;
+        return '/api/xiaotu/report_image?path=' + encodeURIComponent(path);
+    }
+
+    function buildDraftEditorHtml(rawHtml, imagePaths) {
+        let html = normalizeEditorHtml(rawHtml);
+        html = html.replace(/(<img\b[^>]*\bsrc\s*=\s*["'])([^"']+)(["'][^>]*>)/gi, function (m, p1, src, p3) {
+            return p1 + escapeHtml(buildReportImageUrl(src) || src) + p3;
+        });
+        const paths = Array.isArray(imagePaths) ? imagePaths : [];
+        if (!html && paths.length) {
+            html = paths.map(function (p) {
+                return '<p><img src="' + escapeHtml(buildReportImageUrl(p)) + '" alt="draft-image"></p>';
+            }).join('');
+        }
+        return html;
+    }
+
+    function getStorageKey() {
+        if (isEditMode()) {
+            return 'xiaotu_report_mobile_draft::' + safeText(CURRENT_USER_NAME).trim() + '::edit::' + safeText(EDIT_WENDANGID).trim();
+        }
+        return 'xiaotu_report_mobile_draft::' + safeText(CURRENT_USER_NAME).trim();
+    }
+
+    function clearCachedNotifyNameMap() {
+        Object.keys(CACHED_NOTIFY_NAME_MAP).forEach(function (k) { delete CACHED_NOTIFY_NAME_MAP[k]; });
+    }
+
+    function rememberCachedNotifyTargets(targets) {
+        clearCachedNotifyNameMap();
+        (Array.isArray(targets) ? targets : []).forEach(function (one) {
+            const openId = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (openId && name) {
+                CACHED_NOTIFY_NAME_MAP[openId] = name;
+            }
+        });
+    }
+
+    function buildNotifyNameToOpenIdMap(extraTargets) {
+        const out = {};
+        Object.keys(CACHED_NOTIFY_NAME_MAP).forEach(function (oid) {
+            const name = safeText(CACHED_NOTIFY_NAME_MAP[oid]).trim();
+            if (oid && name && !out[name]) out[name] = oid;
+        });
+        (Array.isArray(NOTIFY_USERS) ? NOTIFY_USERS : []).forEach(function (one) {
+            const oid = safeText(one && one.open_id).trim();
+            const name = safeText((one && (one.display_name || one.name)) || '').trim();
+            if (oid && name && !out[name]) out[name] = oid;
+        });
+        (Array.isArray(extraTargets) ? extraTargets : []).forEach(function (one) {
+            const oid = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (oid && name && !out[name]) out[name] = oid;
+        });
+        return out;
+    }
+
+    function hydrateNotifyTargets(targets, notifyOpenIds) {
+        const nameToOpenId = buildNotifyNameToOpenIdMap(targets);
+        const preferredOpenIds = Array.isArray(notifyOpenIds)
+            ? notifyOpenIds.map(function (x) { return safeText(x).trim(); }).filter(Boolean)
+            : [];
+        const out = [];
+        const seen = new Set();
+        (Array.isArray(targets) ? targets : []).forEach(function (one, idx) {
+            let openId = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (!openId && name && nameToOpenId[name]) openId = nameToOpenId[name];
+            if (!openId && name && preferredOpenIds.length === 1) openId = preferredOpenIds[0];
+            const key = openId ? ('oid:' + openId) : ('name:' + name + ':' + idx);
+            if ((!openId && !name) || seen.has(key)) return;
+            seen.add(key);
+            out.push({ open_id: openId, name: name });
+        });
+        preferredOpenIds.forEach(function (openId) {
+            if (!openId || seen.has('oid:' + openId)) return;
+            seen.add('oid:' + openId);
+            out.push({ open_id: openId, name: safeText(CACHED_NOTIFY_NAME_MAP[openId]).trim() });
+        });
+        return out;
+    }
+
+    function normalizePendingNotifyTargets(targets) {
+        const out = [];
+        const seen = new Set();
+        (Array.isArray(targets) ? targets : []).forEach(function (one) {
+            const openId = safeText(one && one.open_id).trim();
+            const name = safeText(one && one.name).trim();
+            if (openId || !name || seen.has(name)) return;
+            seen.add(name);
+            out.push({ open_id: '', name: name });
+        });
+        return out;
+    }
+
+    function getSelectedNotifyTargets() {
+        const targets = Array.from(SELECTED_NOTIFY_OPEN_IDS).map(function (oid) {
+            const one = (NOTIFY_USERS || []).find(function (x) { return safeText(x.open_id).trim() === oid; });
+            return {
+                open_id: oid,
+                name: safeText((one && (one.display_name || one.name)) || CACHED_NOTIFY_NAME_MAP[oid] || '').trim()
+            };
+        });
+        return targets.concat(normalizePendingNotifyTargets(PENDING_NOTIFY_TARGETS));
+    }
+
+    function captureDraftState() {
+        return {
+            draft_html: normalizeEditorHtml(document.getElementById('reportEditor').innerHTML),
+            image_paths: DRAFT_IMAGE_PATHS.slice(),
+            notify_targets: getSelectedNotifyTargets(),
+            notify_open_ids: Array.from(SELECTED_NOTIFY_OPEN_IDS),
+            notify_time: safeText(document.getElementById('notifyTimeInput').value).trim(),
+            doc_url: safeText(document.getElementById('submitDocUrl').value).trim(),
+            report_type: getCurrentReportType(),
+            person_type: getCurrentPersonType()
+        };
+    }
+
+    function saveDraftToLocal(data) {
+        try {
+            localStorage.setItem(getStorageKey(), JSON.stringify(data || {}));
+        } catch (e) {}
+    }
+
+    function loadDraftFromLocal() {
+        try {
+            const raw = localStorage.getItem(getStorageKey());
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearDraftFromLocal() {
+        try {
+            localStorage.removeItem(getStorageKey());
+        } catch (e) {}
+    }
+
+    function hasAnyDraftContent(data) {
+        const one = data || {};
+        return !!safeText(one.draft_html).trim()
+            || (Array.isArray(one.image_paths) && one.image_paths.length)
+            || !!safeText(one.doc_url).trim()
+            || (Array.isArray(one.notify_open_ids) && one.notify_open_ids.length)
+            || !!safeText(one.notify_time).trim();
+    }
+
+    function setCurrentReportType(value) {
+        const val = safeText(value || 'day').trim() || 'day';
+        document.querySelectorAll('[data-report-type]').forEach(function (el) {
+            el.classList.toggle('active', safeText(el.getAttribute('data-report-type')) === val);
+        });
+    }
+
+    function getCurrentReportType() {
+        const active = document.querySelector('[data-report-type].active');
+        return safeText(active && active.getAttribute('data-report-type') || 'day').trim() || 'day';
+    }
+
+    function setCurrentPersonType(value) {
+        const val = safeText(value || 'formal_staff').trim() || 'formal_staff';
+        document.querySelectorAll('[data-person-type]').forEach(function (el) {
+            el.classList.toggle('active', safeText(el.getAttribute('data-person-type')) === val);
+        });
+        const info = CROWD_TEMPLATES[val] || CROWD_TEMPLATES.formal_staff;
+        document.getElementById('personTypeHint').textContent = info.hint || '';
+    }
+
+    function getCurrentPersonType() {
+        const active = document.querySelector('[data-person-type].active');
+        return safeText(active && active.getAttribute('data-person-type') || 'formal_staff').trim() || 'formal_staff';
+    }
+
+    function applyDefaultTemplate(force) {
+        const editor = document.getElementById('reportEditor');
+        const info = CROWD_TEMPLATES[getCurrentPersonType()] || CROWD_TEMPLATES.formal_staff;
+        if (!force && normalizeEditorHtml(editor.innerHTML)) return;
+        editor.innerHTML = info.html || '';
+        REPORT_EDITOR_SAVED_RANGE = null;
+        saveDraftToLocal(captureDraftState());
+    }
+
+    function resetMobanEditor() {
+        if (normalizeEditorHtml(document.getElementById('reportEditor').innerHTML) && !confirm('新建模板会清空当前编辑区，是否继续？')) return;
+        document.getElementById('mobanSelect').value = '';
+        document.getElementById('mobanName').value = '';
+        document.getElementById('reportEditor').innerHTML = '';
+        CURRENT_SOURCE_MOBAN = '';
+        REPORT_EDITOR_SAVED_RANGE = null;
+        document.getElementById('mobanMeta').textContent = '已新建空白模板，请填写内容后保存。';
+        document.getElementById('reportEditor').focus();
+        saveDraftToLocal(captureDraftState());
+    }
+
+    function fillMobanSelect(list) {
+        const select = document.getElementById('mobanSelect');
+        const previous = safeText(select.value).trim();
+        const options = ['<option value="">选择已保存模板</option>'];
+        (Array.isArray(list) ? list : []).forEach(function (one) {
+            const name = safeText(one && one.moban).trim();
+            const owner = safeText(one && one.xingming).trim();
+            const key = safeText(one && one.moban_key).trim() || (owner + '||' + name);
+            if (!name) return;
+            options.push('<option value="' + escapeHtml(key) + '">' + escapeHtml(owner ? (name + ' · ' + owner) : name) + '</option>');
+        });
+        select.innerHTML = options.join('');
+        if (previous && (Array.isArray(list) ? list : []).some(function (one) {
+            const key = safeText(one && one.moban_key).trim() || (safeText(one && one.xingming).trim() + '||' + safeText(one && one.moban).trim());
+            return key === previous;
+        })) select.value = previous;
+    }
+
+    async function loadMobanList() {
+        const meta = document.getElementById('mobanMeta');
+        try {
+            const resp = await fetch('/api/xiaotu/moban');
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            MOBAN_LIST = Array.isArray(data.data) ? data.data : [];
+            fillMobanSelect(MOBAN_LIST);
+            meta.textContent = MOBAN_LIST.length ? ('已加载 ' + MOBAN_LIST.length + ' 个模板。') : '暂未保存模板。';
+        } catch (e) {
+            meta.textContent = '模板读取失败：' + safeText((e && e.message) || e);
+        }
+    }
+
+    function onMobanSelected() {
+        const selectedKey = safeText(document.getElementById('mobanSelect').value).trim();
+        const one = MOBAN_LIST.find(function (item) {
+            const key = safeText(item && item.moban_key).trim() || (safeText(item && item.xingming).trim() + '||' + safeText(item && item.moban).trim());
+            return key === selectedKey;
+        });
+        if (!one) return;
+        const name = safeText(one.moban).trim();
+        const owner = safeText(one.xingming).trim();
+        document.getElementById('mobanName').value = name;
+        document.getElementById('reportEditor').innerHTML = buildDraftEditorHtml(one.neirong || '', []);
+        CURRENT_SOURCE_MOBAN = owner === safeText(CURRENT_USER_NAME).trim() ? name : '';
+        REPORT_EDITOR_SAVED_RANGE = null;
+        document.getElementById('mobanMeta').textContent = '已套用模板：' + name + (owner ? (' · ' + owner) : '');
+        saveDraftToLocal(captureDraftState());
+    }
+
+    async function saveMoban() {
+        const meta = document.getElementById('mobanMeta');
+        const name = safeText(document.getElementById('mobanName').value).trim();
+        const content = normalizeEditorHtml(document.getElementById('reportEditor').innerHTML);
+        if (!name) {
+            alert('请输入模板名称');
+            return;
+        }
+        if (!content) {
+            alert('模板内容不能为空');
+            return;
+        }
+        meta.textContent = '正在保存模板...';
+        try {
+            const resp = await fetch('/api/xiaotu/moban', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ moban: name, neirong: content, source_moban: CURRENT_SOURCE_MOBAN || name })
+            });
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            CURRENT_SOURCE_MOBAN = name;
+            await loadMobanList();
+            const own = MOBAN_LIST.find(function (one) {
+                return safeText(one && one.moban).trim() === name && safeText(one && one.xingming).trim() === safeText(CURRENT_USER_NAME).trim();
+            });
+            if (own) document.getElementById('mobanSelect').value = safeText(own.moban_key).trim() || (safeText(own.xingming).trim() + '||' + name);
+            meta.textContent = '模板已保存：' + name;
+        } catch (e) {
+            meta.textContent = '模板保存失败：' + safeText((e && e.message) || e);
+        }
+    }
+
+    async function deleteMoban() {
+        const meta = document.getElementById('mobanMeta');
+        const name = safeText(document.getElementById('mobanName').value).trim();
+        if (!name) {
+            alert('请先选择要删除的模板');
+            return;
+        }
+        if (!confirm('确认删除模板「' + name + '」吗？')) return;
+        meta.textContent = '正在删除模板...';
+        try {
+            const resp = await fetch('/api/xiaotu/moban?moban=' + encodeURIComponent(name), { method: 'DELETE' });
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            document.getElementById('mobanSelect').value = '';
+            document.getElementById('mobanName').value = '';
+            CURRENT_SOURCE_MOBAN = '';
+            await loadMobanList();
+            meta.textContent = '模板已删除：' + name;
+        } catch (e) {
+            meta.textContent = '模板删除失败：' + safeText((e && e.message) || e);
+        }
+    }
+
+    function updateReportImageList() {
+        const box = document.getElementById('reportImageList');
+        const html = [];
+        DRAFT_IMAGE_PATHS.forEach(function (path, idx) {
+            const name = path.split(/[\\/]/).pop() || ('已保存图片' + (idx + 1));
+            html.push('<span class="upload-item"><span>' + escapeHtml(name) + '</span><button type="button" data-remove-draft="' + idx + '" aria-label="移除图片"><i class="fa-solid fa-xmark"></i></button></span>');
+        });
+        REPORT_IMAGE_FILES.forEach(function (file, idx) {
+            html.push('<span class="upload-item"><span>' + escapeHtml(file.name || ('新图片' + (idx + 1))) + '</span><button type="button" data-remove-file="' + idx + '" aria-label="移除图片"><i class="fa-solid fa-xmark"></i></button></span>');
+        });
+        box.innerHTML = html.length ? html.join('') : '<span class="empty">未选择图片</span>';
+        box.querySelectorAll('[data-remove-file]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const idx = Number(this.getAttribute('data-remove-file'));
+                REPORT_IMAGE_FILES.splice(idx, 1);
+                updateReportImageList();
+                saveDraftToLocal(captureDraftState());
+            });
+        });
+        box.querySelectorAll('[data-remove-draft]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const idx = Number(this.getAttribute('data-remove-draft'));
+                DRAFT_IMAGE_PATHS.splice(idx, 1);
+                const editor = document.getElementById('reportEditor');
+                const imgs = editor.querySelectorAll('img');
+                if (imgs[idx]) imgs[idx].remove();
+                updateReportImageList();
+                saveDraftToLocal(captureDraftState());
+            });
+        });
+    }
+
+    function renderNotifySummary() {
+        const box = document.getElementById('notifySummary');
+        const resolved = Array.from(SELECTED_NOTIFY_OPEN_IDS).map(function (oid) {
+            const one = (NOTIFY_USERS || []).find(function (x) { return safeText(x.open_id).trim() === oid; });
+            const name = safeText((one && (one.display_name || one.name)) || CACHED_NOTIFY_NAME_MAP[oid] || '').trim() || '未匹配姓名';
+            return '<span class="tag">' + escapeHtml(name) + '</span>';
+        });
+        const pending = normalizePendingNotifyTargets(PENDING_NOTIFY_TARGETS).map(function (one) {
+            return '<span class="tag pending">' + escapeHtml(one.name) + '（待匹配）</span>';
+        });
+        const tags = resolved.concat(pending);
+        box.innerHTML = tags.length ? tags.join('') + '<span class="tag">共 ' + tags.length + ' 人</span>' : '<span class="empty">未选择指定人员，将按系统默认策略通知。</span>';
+    }
+
+    function renderNotifyUsers() {
+        const box = document.getElementById('notifyUsers');
+        const keyword = safeText(document.getElementById('notifyModalSearch').value).trim().toLowerCase();
+        const list = keyword ? (NOTIFY_USERS || []).filter(function (u) {
+            return safeText(u.display_name || u.name).toLowerCase().indexOf(keyword) >= 0;
+        }) : (NOTIFY_USERS || []);
+        if (!list.length) {
+            box.innerHTML = '<div class="empty">' + (CURRENT_NOTIFY_SEARCH_KEYWORD ? '跨部门搜索无匹配人员' : '当前部门暂无可选人员') + '</div>';
+            renderSelectedUsers();
+            return;
+        }
+        box.innerHTML = list.map(function (u, idx) {
+            const oid = safeText(u.open_id).trim();
+            const name = safeText(u.display_name || u.name).trim() || '未匹配姓名';
+            const checked = TEMP_SELECTED_NOTIFY_OPEN_IDS.has(oid) ? 'checked' : '';
+            return '<label class="user-row"><input type="checkbox" data-open-id="' + escapeHtml(oid) + '" ' + checked + '><span>' + (idx + 1) + '. ' + escapeHtml(name) + '</span></label>';
+        }).join('');
+        box.querySelectorAll('[data-open-id]').forEach(function (el) {
+            el.addEventListener('change', function () {
+                const oid = safeText(this.getAttribute('data-open-id')).trim();
+                if (!oid) return;
+                if (this.checked) TEMP_SELECTED_NOTIFY_OPEN_IDS.add(oid);
+                else TEMP_SELECTED_NOTIFY_OPEN_IDS.delete(oid);
+                renderSelectedUsers();
+            });
+        });
+        renderSelectedUsers();
+    }
+
+    function renderSelectedUsers() {
+        const box = document.getElementById('notifySelectedUsers');
+        const arr = Array.from(TEMP_SELECTED_NOTIFY_OPEN_IDS);
+        const pendingArr = normalizePendingNotifyTargets(TEMP_PENDING_NOTIFY_TARGETS);
+        if (!arr.length && !pendingArr.length) {
+            box.innerHTML = '<div class="empty">尚未选择人员</div>';
+            return;
+        }
+        const html = [];
+        arr.forEach(function (oid, idx) {
+            const one = (NOTIFY_USERS || []).find(function (x) { return safeText(x.open_id).trim() === oid; });
+            const name = safeText((one && (one.display_name || one.name)) || CACHED_NOTIFY_NAME_MAP[oid] || '').trim() || '未匹配姓名';
+            html.push('<div class="user-row"><span>' + (idx + 1) + '. ' + escapeHtml(name) + '</span></div>');
+        });
+        pendingArr.forEach(function (one, idx) {
+            html.push('<div class="user-row"><span>' + (arr.length + idx + 1) + '. ' + escapeHtml(one.name) + '（待匹配）</span></div>');
+        });
+        box.innerHTML = html.join('');
+    }
+
+    async function loadNotifyDepartments() {
+        const resp = await fetch('/api/xiaotu/notify/departments');
+        const data = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        NOTIFY_DEPARTMENTS = Array.isArray(data.data) ? data.data : [];
+        const sel = document.getElementById('notifyModalDepartment');
+        sel.innerHTML = '<option value="">请选择部门</option>' + NOTIFY_DEPARTMENTS.map(function (d) {
+            const id = safeText(d.department_id).trim();
+            const name = safeText(d.department_name).trim();
+            return '<option value="' + escapeHtml(id) + '">' + escapeHtml(name) + '</option>';
+        }).join('');
+        if (!CURRENT_NOTIFY_DEPARTMENT_ID && NOTIFY_DEPARTMENTS.length) {
+            const mine = NOTIFY_DEPARTMENTS.find(function (x) { return !!x.is_user_department; }) || NOTIFY_DEPARTMENTS[0];
+            CURRENT_NOTIFY_DEPARTMENT_ID = safeText(mine.department_id).trim();
+        }
+        sel.value = CURRENT_NOTIFY_DEPARTMENT_ID;
+        if (CURRENT_NOTIFY_DEPARTMENT_ID) {
+            await loadNotifyUsersByDepartment(CURRENT_NOTIFY_DEPARTMENT_ID);
+        }
+    }
+
+    async function loadNotifyUsersByDepartment(depId) {
+        const meta = document.getElementById('notifyMeta');
+        CURRENT_NOTIFY_DEPARTMENT_ID = safeText(depId).trim();
+        CURRENT_NOTIFY_SEARCH_KEYWORD = '';
+        if (!CURRENT_NOTIFY_DEPARTMENT_ID) {
+            NOTIFY_USERS = [];
+            renderNotifyUsers();
+            return;
+        }
+        meta.textContent = '状态：正在加载部门成员...';
+        const resp = await fetch('/api/xiaotu/notify/users?department_id=' + encodeURIComponent(CURRENT_NOTIFY_DEPARTMENT_ID));
+        const data = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        NOTIFY_USERS = Array.isArray(data.data) ? data.data : [];
+        NOTIFY_USERS.forEach(function (one) {
+            const oid = safeText(one.open_id).trim();
+            const name = safeText(one.display_name || one.name).trim();
+            if (oid && name && !CACHED_NOTIFY_NAME_MAP[oid]) {
+                CACHED_NOTIFY_NAME_MAP[oid] = name;
+            }
+        });
+        meta.textContent = '状态：当前部门已加载 ' + NOTIFY_USERS.length + ' 人';
+        renderNotifyUsers();
+    }
+
+    async function loadNotifyUsersBySearch(keyword) {
+        const meta = document.getElementById('notifyMeta');
+        const q = safeText(keyword).trim();
+        CURRENT_NOTIFY_SEARCH_KEYWORD = q;
+        if (!q) {
+            await loadNotifyUsersByDepartment(CURRENT_NOTIFY_DEPARTMENT_ID);
+            return;
+        }
+        const seq = ++notifySearchSeq;
+        meta.textContent = '状态：正在跨部门搜索...';
+        const resp = await fetch('/api/xiaotu/notify/search?keyword=' + encodeURIComponent(q));
+        const data = await resp.json().catch(function () { return null; });
+        if (seq !== notifySearchSeq) return;
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        NOTIFY_USERS = Array.isArray(data.data) ? data.data : [];
+        NOTIFY_USERS.forEach(function (one) {
+            const oid = safeText(one.open_id).trim();
+            const name = safeText(one.display_name || one.name).trim();
+            if (oid && name && !CACHED_NOTIFY_NAME_MAP[oid]) {
+                CACHED_NOTIFY_NAME_MAP[oid] = name;
+            }
+        });
+        meta.textContent = '状态：跨部门搜索完成，共 ' + NOTIFY_USERS.length + ' 人';
+        renderNotifyUsers();
+    }
+
+    async function persistNotifyConfig() {
+        if (IS_REPORT_CENTER_INITIALIZING) return;
+        const payload = {
+            notify_open_ids: Array.from(SELECTED_NOTIFY_OPEN_IDS),
+            notify_targets: getSelectedNotifyTargets(),
+            notify_time: safeText(document.getElementById('notifyTimeInput').value).trim().slice(0, 5)
+        };
+        try {
+            await fetch('/api/xiaotu/report_notify_config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {}
+    }
+
+    function applyReportCacheData(cacheData) {
+        const data = cacheData || {};
+        const targets = hydrateNotifyTargets(
+            Array.isArray(data.notify_targets) ? data.notify_targets : [],
+            Array.isArray(data.notify_open_ids) ? data.notify_open_ids : []
+        );
+        const notifyOpenIds = Array.isArray(data.notify_open_ids) ? data.notify_open_ids : [];
+        rememberCachedNotifyTargets(targets);
+        SELECTED_NOTIFY_OPEN_IDS.clear();
+        targets.forEach(function (one) {
+            const oid = safeText(one && one.open_id).trim();
+            if (oid) SELECTED_NOTIFY_OPEN_IDS.add(oid);
+        });
+        notifyOpenIds.forEach(function (oid) {
+            oid = safeText(oid).trim();
+            if (oid) SELECTED_NOTIFY_OPEN_IDS.add(oid);
+        });
+        PENDING_NOTIFY_TARGETS = normalizePendingNotifyTargets(targets);
+        document.getElementById('notifyTimeInput').value = safeText(data.notify_time).trim().slice(0, 5);
+        document.getElementById('submitDocUrl').value = safeText(data.doc_url).trim();
+        if (data.report_type) setCurrentReportType(data.report_type);
+        if (data.person_type) setCurrentPersonType(data.person_type);
+        DRAFT_IMAGE_PATHS = Array.isArray(data.image_paths) ? data.image_paths.filter(Boolean) : [];
+        REPORT_IMAGE_FILES = [];
+        document.getElementById('reportEditor').innerHTML = buildDraftEditorHtml(data.draft_html || '', DRAFT_IMAGE_PATHS);
+        REPORT_EDITOR_SAVED_RANGE = null;
+        updateReportImageList();
+        renderNotifySummary();
+        saveDraftToLocal(Object.assign({}, captureDraftState(), data));
+    }
+
+    function renderEditModeBanner(payload, messageText) {
+        const box = document.getElementById('editModeBanner');
+        if (!box) return;
+        if (!isEditMode()) {
+            box.classList.remove('show');
+            box.innerHTML = '';
+            return;
+        }
+        const data = payload || {};
+        const reportKind = safeText(data.report_kind || '').trim() || '日报';
+        const details = [reportKind, safeText(data.riqi).trim(), safeText(data.title).trim()].filter(Boolean).join(' · ');
+        box.innerHTML = '<strong><i class="fa-solid fa-pen-to-square"></i>&nbsp; 正在修改原报告</strong>'
+            + '<span>本次提交会更新原记录，不会新建报告。</span>'
+            + (details ? ('<span>' + escapeHtml(details) + '</span>') : '')
+            + (messageText ? ('<span>' + escapeHtml(messageText) + '</span>') : '');
+        box.classList.add('show');
+    }
+
+    function updateEditModeButtons() {
+        if (!isEditMode()) return;
+        const saveBtn = document.getElementById('saveDraftBtn');
+        const submitBtn = document.getElementById('submitReportBtn');
+        if (saveBtn) saveBtn.innerHTML = '<i class="fa-regular fa-floppy-disk"></i>保存本地草稿';
+        if (submitBtn) submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>更新原报告';
+    }
+
+    function applyEditPayloadData(payload, options) {
+        const data = payload || {};
+        const opts = options || {};
+        setCurrentReportType(safeText(data.report_type).trim() || 'day');
+        setCurrentPersonType(safeText(data.person_type_value).trim() || 'formal_staff');
+        document.getElementById('submitDocUrl').value = safeText(data.doc_url).trim();
+        applyReportCacheData({
+            draft_html: safeText(data.draft_html).trim() || buildEditorHtmlFromText(data.draft_text),
+            image_paths: Array.isArray(data.image_paths) ? data.image_paths : [],
+            notify_targets: Array.isArray(data.notify_targets) ? data.notify_targets : [],
+            notify_open_ids: Array.isArray(data.notify_open_ids) ? data.notify_open_ids : [],
+            notify_time: '',
+            doc_url: safeText(data.doc_url).trim(),
+            report_type: safeText(data.report_type).trim() || 'day',
+            person_type: safeText(data.person_type_value).trim() || 'formal_staff'
+        });
+        if (!opts.keepMeta) document.getElementById('submitMeta').textContent = '已载入待修改报告';
+        renderEditModeBanner(data, opts.messageText || '');
+    }
+
+    async function loadEditPayload() {
+        const meta = document.getElementById('submitMeta');
+        meta.textContent = '正在加载待修改报告...';
+        renderEditModeBanner({}, '正在读取原报告内容...');
+        const resp = await fetch('/api/xiaotu/report_edit_payload?wendangid=' + encodeURIComponent(safeText(EDIT_WENDANGID).trim()));
+        const data = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        const payload = data.data || {};
+        applyEditPayloadData(payload);
+        const localDraft = loadDraftFromLocal();
+        if (localDraft && hasAnyDraftContent(localDraft)) {
+            applyReportCacheData(localDraft);
+            meta.textContent = '已恢复这条报告的本地编辑草稿';
+            renderEditModeBanner(payload, '已优先恢复本地编辑草稿。');
+        }
+        saveDraftToLocal(captureDraftState());
+    }
+
+    async function loadReportCache() {
+        const localDraft = loadDraftFromLocal();
+        if (localDraft && hasAnyDraftContent(localDraft)) {
+            applyReportCacheData(localDraft);
+            document.getElementById('submitMeta').textContent = '状态：已恢复本地草稿，正在同步云端缓存...';
+        }
+        const resp = await fetch('/api/xiaotu/report_cache');
+        const data = await resp.json().catch(function () { return null; });
+        if (!resp.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+        }
+        const remoteCache = data.data || {};
+        if (hasAnyDraftContent(remoteCache) || !(localDraft && hasAnyDraftContent(localDraft))) {
+            applyReportCacheData(remoteCache);
+            document.getElementById('submitMeta').textContent = '状态：已恢复云端草稿';
+        }
+    }
+
+    async function compressReportImageFile(file) {
+        if (!file || safeText(file.type).indexOf('image/') !== 0) return file;
+        const maxSide = 1800;
+        const quality = 0.82;
+        const shouldTry = Number(file.size || 0) > 2 * 1024 * 1024;
+        let objectUrl = '';
+        try {
+            objectUrl = URL.createObjectURL(file);
+            const img = await new Promise(function (resolve, reject) {
+                const node = new Image();
+                node.onload = function () { resolve(node); };
+                node.onerror = reject;
+                node.src = objectUrl;
+            });
+            const width = Number(img.naturalWidth || img.width || 0);
+            const height = Number(img.naturalHeight || img.height || 0);
+            if (width <= 0 || height <= 0) return file;
+            const scale = Math.min(1, maxSide / Math.max(width, height));
+            if (!shouldTry && scale >= 1) return file;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(width * scale));
+            canvas.height = Math.max(1, Math.round(height * scale));
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return file;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise(function (resolve) {
+                canvas.toBlob(resolve, 'image/jpeg', quality);
+            });
+            if (!blob || blob.size <= 0) return file;
+            if (blob.size >= Number(file.size || 0) && scale >= 1) return file;
+            const baseName = safeText(file.name || 'report_image').replace(/\.[^.]+$/, '') || 'report_image';
+            return new File([blob], baseName + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+        } catch (e) {
+            return file;
+        } finally {
+            if (objectUrl) {
+                try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            }
+        }
+    }
+
+    async function buildReportUploadFiles() {
+        const out = [];
+        for (const file of REPORT_IMAGE_FILES) {
+            out.push(await compressReportImageFile(file));
+        }
+        return out;
+    }
+
+    async function saveReportDraft() {
+        const btn = document.getElementById('saveDraftBtn');
+        const meta = document.getElementById('submitMeta');
+        const richHtml = normalizeEditorHtml(document.getElementById('reportEditor').innerHTML);
+        if (!richHtml && REPORT_IMAGE_FILES.length <= 0) {
+            alert('请先输入内容或上传图片后再保存草稿');
+            return;
+        }
+        btn.disabled = true;
+        const oldHtml = btn.innerHTML;
+        btn.textContent = '保存中...';
+        meta.textContent = '草稿保存中...';
+        try {
+            saveDraftToLocal(captureDraftState());
+            if (isEditMode()) {
+                meta.textContent = '当前修改内容已保存在本机';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('rich_content_html', richHtml);
+            formData.append('notify_open_ids', JSON.stringify(Array.from(SELECTED_NOTIFY_OPEN_IDS)));
+            formData.append('notify_targets', JSON.stringify(getSelectedNotifyTargets()));
+            formData.append('notify_time', safeText(document.getElementById('notifyTimeInput').value).trim().slice(0, 5));
+            const uploadFiles = await buildReportUploadFiles();
+            uploadFiles.forEach(function (f) { formData.append('images', f, f.name); });
+            const resp = await fetch('/api/xiaotu/report_draft', { method: 'POST', body: formData });
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            applyReportCacheData((data && data.data) || {});
+            meta.textContent = '草稿已保存，下次打开会自动恢复';
+        } catch (e) {
+            meta.textContent = '草稿保存失败：' + safeText((e && e.message) || e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+    }
+
+    async function submitReport() {
+        const btn = document.getElementById('submitReportBtn');
+        const meta = document.getElementById('submitMeta');
+        const debugBox = document.getElementById('submitDebug');
+        const richHtml = normalizeEditorHtml(document.getElementById('reportEditor').innerHTML);
+        const docUrl = safeText(document.getElementById('submitDocUrl').value).trim();
+        if (!docUrl && !richHtml && REPORT_IMAGE_FILES.length <= 0) {
+            alert('请填写云文档链接、正文内容，或上传图片后再提交');
+            return;
+        }
+        btn.disabled = true;
+        const oldHtml = btn.innerHTML;
+        btn.textContent = '提交中...';
+        meta.textContent = '状态：提交中...';
+        debugBox.textContent = '正文长度：' + richHtml.length + ' | 新图片：' + REPORT_IMAGE_FILES.length + ' | 已选通知人：' + SELECTED_NOTIFY_OPEN_IDS.size;
+        try {
+            const formData = new FormData();
+            formData.append('doc_url', docUrl);
+            formData.append('report_type', getCurrentReportType());
+            formData.append('renyuanleixing', getCurrentPersonType());
+            formData.append('redirect_endpoint', 'dashboard_xiaotu_report_center_mobile');
+            formData.append('rich_content_html', richHtml);
+            formData.append('notify_mode', 'selected_only');
+            formData.append('notify_open_ids', JSON.stringify(Array.from(SELECTED_NOTIFY_OPEN_IDS)));
+            formData.append('notify_targets', JSON.stringify(getSelectedNotifyTargets()));
+            formData.append('notify_time', safeText(document.getElementById('notifyTimeInput').value).trim().slice(0, 5));
+            if (isEditMode()) {
+                formData.append('edit_wendangid', safeText(EDIT_WENDANGID).trim());
+            }
+            const uploadFiles = await buildReportUploadFiles();
+            uploadFiles.forEach(function (f) { formData.append('images', f, f.name); });
+            const resp = await fetch('/api/xiaotu/report_submit', { method: 'POST', body: formData });
+            const data = await resp.json().catch(function () { return null; });
+            if (data && data.auth_url) {
+                window.location.href = data.auth_url;
+                return;
+            }
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            REPORT_IMAGE_FILES = [];
+            DRAFT_IMAGE_PATHS = [];
+            clearDraftFromLocal();
+            updateReportImageList();
+            const d = data.data || {};
+            const cacheWarning = safeText(d.cache_warning || '').trim();
+            meta.textContent = isEditMode() ? '原报告已更新' : '提交成功，AI分析将在后台进行'
+                + (cacheWarning ? '（草稿清理未完成，不影响日报历史）' : '');
+            if (!isEditMode()) document.getElementById('reportEditor').innerHTML = '';
+            debugBox.textContent = cacheWarning
+                ? ('缓存提示：' + cacheWarning)
+                : ('报告类型：' + safeText(d.report_kind || '-') + ' | 人员类型：' + safeText(d.renyuanleixing || '-') + ' | 图片：' + safeText(d.image_count || 0));
+        } catch (e) {
+            meta.textContent = '状态：提交失败 - ' + safeText((e && e.message) || e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+    }
+
+    async function testReportReminder() {
+        const btn = document.getElementById('testReminderBtn');
+        const meta = document.getElementById('notifyMeta');
+        const oldHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = '发送中...';
+        meta.textContent = '正在发送测试提醒...';
+        try {
+            const notifyTime = safeText(document.getElementById('notifyTimeInput').value).trim().slice(0, 5);
+            const resp = await fetch('/api/xiaotu/report_test_reminder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notify_time: notifyTime })
+            });
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            meta.textContent = '测试提醒已发送' + (notifyTime ? ('，提醒时间 ' + notifyTime) : '');
+        } catch (e) {
+            meta.textContent = '测试提醒失败：' + safeText((e && e.message) || e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+    }
+
+    async function searchOwnKnowledge() {
+        const btn = document.getElementById('knowledgeSearchBtn');
+        const meta = document.getElementById('knowledgeMeta');
+        const resultBox = document.getElementById('knowledgeResult');
+        const question = safeText(document.getElementById('knowledgeSearchInput').value).trim();
+        if (!question) {
+            alert('请输入要搜索的问题');
+            return;
+        }
+        const oldHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = '正在搜索...';
+        meta.textContent = '正在检索你已提交的报告...';
+        resultBox.innerHTML = '<div class="report-empty">正在搜索并整理答案，请稍候...</div>';
+        try {
+            const resp = await fetch('/api/xiaotu/knowledge_search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question })
+            });
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const detail = data.data || {};
+            meta.textContent = '搜索完成 · 命中 ' + safeText(detail.row_count || 0) + ' 条报告';
+            resultBox.innerHTML = renderGeneratedReportRich(detail.answer || '');
+        } catch (e) {
+            const message = safeText((e && e.message) || e);
+            meta.textContent = '搜索失败：' + message;
+            resultBox.innerHTML = '<div class="report-empty">' + escapeHtml(message) + '</div>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+    }
+
+    async function generatePeriodReport() {
+        const btn = document.getElementById('generateBtn');
+        const userName = safeText(document.getElementById('reportUserName').value).trim();
+        const startDate = safeText(document.getElementById('reportStartDate').value).trim();
+        const endDate = safeText(document.getElementById('reportEndDate').value).trim();
+        const meta = document.getElementById('genMeta');
+        const resultBox = document.getElementById('genResult');
+        if (!startDate || !endDate) {
+            alert('请选择开始日期和结束日期');
+            return;
+        }
+        if (endDate < startDate) {
+            alert('结束日期不能早于开始日期');
+            return;
+        }
+        const oldHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.textContent = '正在提交...';
+        meta.textContent = '正在创建后台生成任务...';
+        resultBox.innerHTML = '<div class="report-empty">任务提交中，请稍候...</div>';
+        try {
+            const resp = await fetch('/api/ai/xiaotu/period_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_name: userName, start_date: startDate, end_date: endDate })
+            });
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            const detail = data.data || {};
+            meta.textContent = '后台生成中 · 共 ' + safeText(detail.row_count || 0) + ' 条报告';
+            resultBox.innerHTML = '<div>任务已经开始，可以离开当前页面。完成后会出现在下方“已生成报告”中。</div>';
+            scheduleHistoryAnalysisRefresh();
+        } catch (e) {
+            const message = safeText((e && e.message) || e);
+            meta.textContent = '生成失败：' + message;
+            resultBox.innerHTML = '<div class="report-empty">' + escapeHtml(message) + '</div>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+    }
+
+    function renderHistoryAnalysisList(items) {
+        const box = document.getElementById('historyAnalysisList');
+        const rows = Array.isArray(items) ? items : [];
+        if (!rows.length) {
+            box.innerHTML = '<div class="report-empty">暂无已生成报告。</div>';
+            return;
+        }
+        box.innerHTML = rows.map(function (one) {
+            const range = safeText(one.start_date || '-') + ' 至 ' + safeText(one.end_date || '-');
+            const url = safeText(one.file_url || '').trim();
+            return '<div class="history-analysis-item">'
+                + '<div class="history-analysis-title">' + escapeHtml(range) + '</div>'
+                + '<div class="meta">' + (one.exists ? '已生成' : '文件暂不可用') + (safeText(one.id).trim() ? (' · ' + escapeHtml(one.id)) : '') + '</div>'
+                + (url ? ('<a class="btn quiet" href="' + escapeHtml(url) + '" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i>打开完整报告</a>') : '')
+                + '</div>';
+        }).join('');
+    }
+
+    async function loadHistoryAnalysisList() {
+        const box = document.getElementById('historyAnalysisList');
+        if (!box) return;
+        try {
+            const resp = await fetch('/api/xiaotu/report_history_analysis_list');
+            const data = await resp.json().catch(function () { return null; });
+            if (!resp.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + resp.status));
+            }
+            renderHistoryAnalysisList((data.data && data.data.items) || []);
+        } catch (e) {
+            box.innerHTML = '<div class="report-empty">读取失败：' + escapeHtml(safeText((e && e.message) || e)) + '</div>';
+        }
+    }
+
+    function scheduleHistoryAnalysisRefresh() {
+        loadHistoryAnalysisList();
+        [8000, 20000, 45000, 90000].forEach(function (delay) {
+            window.setTimeout(loadHistoryAnalysisList, delay);
+        });
+    }
+
+    function initializeSummaryDates() {
+        function localDate(date) {
+            return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+        }
+        const end = new Date();
+        const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
+        const startInput = document.getElementById('reportStartDate');
+        const endInput = document.getElementById('reportEndDate');
+        if (startInput && !startInput.value) startInput.value = localDate(start);
+        if (endInput && !endInput.value) endInput.value = localDate(end);
+    }
+
+    function bindReportEditorToolbar() {
+        document.querySelectorAll('[data-editor-action]').forEach(function (btn) {
+            const trigger = function (evt) {
+                if (evt) evt.preventDefault();
+                runReportEditorAction(safeText(btn.getAttribute('data-editor-action')).trim());
+            };
+            btn.addEventListener('mousedown', function (evt) { evt.preventDefault(); });
+            btn.addEventListener('touchstart', function (evt) { evt.preventDefault(); }, { passive: false });
+            btn.addEventListener('click', trigger);
+        });
+    }
+
+    function openNotifyPicker() {
+        TEMP_SELECTED_NOTIFY_OPEN_IDS.clear();
+        SELECTED_NOTIFY_OPEN_IDS.forEach(function (x) { TEMP_SELECTED_NOTIFY_OPEN_IDS.add(x); });
+        TEMP_PENDING_NOTIFY_TARGETS = normalizePendingNotifyTargets(PENDING_NOTIFY_TARGETS);
+        document.body.classList.add('sheet-open');
+        document.getElementById('notifyPickerMask').classList.add('show');
+        renderNotifyUsers();
+    }
+
+    function closeNotifyPicker() {
+        document.body.classList.remove('sheet-open');
+        document.getElementById('notifyPickerMask').classList.remove('show');
+    }
+
+    function confirmNotifyPicker() {
+        SELECTED_NOTIFY_OPEN_IDS.clear();
+        TEMP_SELECTED_NOTIFY_OPEN_IDS.forEach(function (x) { SELECTED_NOTIFY_OPEN_IDS.add(x); });
+        PENDING_NOTIFY_TARGETS = normalizePendingNotifyTargets(TEMP_PENDING_NOTIFY_TARGETS);
+        renderNotifySummary();
+        document.getElementById('notifyMeta').textContent = '已选择通知人员 ' + (SELECTED_NOTIFY_OPEN_IDS.size + PENDING_NOTIFY_TARGETS.length) + ' 人';
+        saveDraftToLocal(captureDraftState());
+        persistNotifyConfig();
+        closeNotifyPicker();
+    }
+
+    async function initializePage() {
+        setMobileView('compose', { keepScroll: true });
+        initializeSummaryDates();
+        updateEditModeButtons();
+        try {
+            setCurrentReportType('day');
+            setCurrentPersonType('formal_staff');
+            if (isEditMode()) {
+                await loadEditPayload();
+            } else {
+                await loadReportCache();
+            }
+        } catch (e) {
+            document.getElementById('submitMeta').textContent = '内容读取失败：' + safeText((e && e.message) || e);
+        } finally {
+            IS_REPORT_CENTER_INITIALIZING = false;
+            if (!isEditMode() && !normalizeEditorHtml(document.getElementById('reportEditor').innerHTML)) {
+                applyDefaultTemplate(true);
+            }
+            renderNotifySummary();
+            updateReportImageList();
+        }
+        await Promise.allSettled([
+            loadNotifyDepartments(),
+            loadMobanList(),
+            loadHistoryAnalysisList()
+        ]);
+    }
+
+    document.querySelectorAll('[data-report-type]').forEach(function (el) {
+        el.addEventListener('click', function () {
+            setCurrentReportType(this.getAttribute('data-report-type'));
+            saveDraftToLocal(captureDraftState());
+        });
+    });
+
+    document.querySelectorAll('[data-view-target]').forEach(function (el) {
+        el.addEventListener('click', function () {
+            setMobileView(this.getAttribute('data-view-target'));
+        });
+    });
+
+    document.querySelectorAll('[data-person-type]').forEach(function (el) {
+        el.addEventListener('click', function () {
+            const next = this.getAttribute('data-person-type');
+            setCurrentPersonType(next);
+            if (!normalizeEditorHtml(document.getElementById('reportEditor').innerHTML)) {
+                applyDefaultTemplate(true);
+            }
+            saveDraftToLocal(captureDraftState());
+        });
+    });
+
+    document.getElementById('applyTemplateBtn').addEventListener('click', function () {
+        if (normalizeEditorHtml(document.getElementById('reportEditor').innerHTML) && !confirm('套用默认模板会替换当前内容，是否继续？')) return;
+        applyDefaultTemplate(true);
+    });
+    document.getElementById('mobanSelect').addEventListener('change', onMobanSelected);
+    document.getElementById('mobanNewBtn').addEventListener('click', resetMobanEditor);
+    document.getElementById('mobanSaveBtn').addEventListener('click', saveMoban);
+    document.getElementById('mobanDeleteBtn').addEventListener('click', deleteMoban);
+    document.getElementById('clearEditorBtn').addEventListener('click', function () {
+        if (confirm('确定清空当前内容吗？')) {
+            document.getElementById('reportEditor').innerHTML = '';
+            saveDraftToLocal(captureDraftState());
+        }
+    });
+    document.getElementById('pickImageBtn').addEventListener('click', function () {
+        document.getElementById('reportImageInput').click();
+    });
+    document.getElementById('takePhotoBtn').addEventListener('click', function () {
+        document.getElementById('reportCameraInput').click();
+    });
+    function addImagesFromInput(input) {
+        const files = Array.from((input && input.files) || []).filter(function (f) {
+            return safeText(f.type).indexOf('image/') === 0;
+        });
+        files.forEach(function (f) { REPORT_IMAGE_FILES.push(f); });
+        if (input) input.value = '';
+        updateReportImageList();
+        saveDraftToLocal(captureDraftState());
+    }
+    document.getElementById('reportImageInput').addEventListener('change', function () {
+        addImagesFromInput(this);
+    });
+    document.getElementById('reportCameraInput').addEventListener('change', function () {
+        addImagesFromInput(this);
+    });
+    document.getElementById('reportEditor').addEventListener('focus', saveReportEditorSelection);
+    document.getElementById('reportEditor').addEventListener('keyup', saveReportEditorSelection);
+    document.getElementById('reportEditor').addEventListener('mouseup', saveReportEditorSelection);
+    document.getElementById('reportEditor').addEventListener('touchend', function () {
+        setTimeout(saveReportEditorSelection, 0);
+    });
+    document.getElementById('reportEditor').addEventListener('input', function () {
+        saveReportEditorSelection();
+        saveDraftToLocal(captureDraftState());
+    });
+    document.addEventListener('selectionchange', function () {
+        saveReportEditorSelection();
+    });
+    document.getElementById('submitDocUrl').addEventListener('input', function () {
+        saveDraftToLocal(captureDraftState());
+    });
+    document.getElementById('notifyTimeInput').addEventListener('change', function () {
+        saveDraftToLocal(captureDraftState());
+        persistNotifyConfig();
+    });
+    document.getElementById('saveDraftBtn').addEventListener('click', saveReportDraft);
+    document.getElementById('submitReportBtn').addEventListener('click', submitReport);
+    document.getElementById('testReminderBtn').addEventListener('click', testReportReminder);
+    document.getElementById('generateBtn').addEventListener('click', generatePeriodReport);
+    document.getElementById('refreshHistoryAnalysisBtn').addEventListener('click', loadHistoryAnalysisList);
+    document.getElementById('knowledgeSearchBtn').addEventListener('click', searchOwnKnowledge);
+    document.getElementById('knowledgeSearchInput').addEventListener('keydown', function (evt) {
+        if ((evt.ctrlKey || evt.metaKey) && evt.key === 'Enter') searchOwnKnowledge();
+    });
+    document.getElementById('openNotifyPickerBtn').addEventListener('click', openNotifyPicker);
+    document.getElementById('notifyPickerCloseBtn').addEventListener('click', closeNotifyPicker);
+    document.getElementById('notifyPickerCancelBtn').addEventListener('click', closeNotifyPicker);
+    document.getElementById('notifyPickerConfirmBtn').addEventListener('click', confirmNotifyPicker);
+    document.getElementById('reloadNotifyDepartmentsBtn').addEventListener('click', function () {
+        loadNotifyDepartments().catch(function (e) {
+            document.getElementById('notifyMeta').textContent = '部门读取失败：' + safeText((e && e.message) || e);
+        });
+    });
+    document.getElementById('notifySelectAllBtn').addEventListener('click', function () {
+        (NOTIFY_USERS || []).forEach(function (one) {
+            const openId = safeText(one && one.open_id).trim();
+            if (openId) TEMP_SELECTED_NOTIFY_OPEN_IDS.add(openId);
+        });
+        renderNotifyUsers();
+    });
+    document.getElementById('notifyClearBtn').addEventListener('click', function () {
+        TEMP_SELECTED_NOTIFY_OPEN_IDS.clear();
+        TEMP_PENDING_NOTIFY_TARGETS = [];
+        renderNotifyUsers();
+    });
+    document.getElementById('notifyModalSearch').addEventListener('input', function (e) {
+        const keyword = safeText(e && e.target && e.target.value).trim();
+        if (notifySearchTimer) {
+            clearTimeout(notifySearchTimer);
+            notifySearchTimer = null;
+        }
+        if (!keyword) {
+            notifySearchSeq += 1;
+            loadNotifyUsersByDepartment(CURRENT_NOTIFY_DEPARTMENT_ID).catch(function (err) {
+                document.getElementById('notifyMeta').textContent = '状态：成员读取失败 - ' + safeText((err && err.message) || err);
+            });
+            return;
+        }
+        notifySearchTimer = setTimeout(function () {
+            notifySearchTimer = null;
+            loadNotifyUsersBySearch(keyword).catch(function (err) {
+                document.getElementById('notifyMeta').textContent = '状态：跨部门搜索失败 - ' + safeText((err && err.message) || err);
+                NOTIFY_USERS = [];
+                renderNotifyUsers();
+            });
+        }, 220);
+    });
+    document.getElementById('notifyModalDepartment').addEventListener('change', function () {
+        loadNotifyUsersByDepartment(this.value).catch(function (e) {
+            document.getElementById('notifyMeta').textContent = '状态：成员读取失败 - ' + safeText((e && e.message) || e);
+        });
+    });
+    document.getElementById('notifyPickerMask').addEventListener('click', function (evt) {
+        if (evt.target === this) closeNotifyPicker();
+    });
+    document.addEventListener('keydown', function (evt) {
+        if (evt.key === 'Escape' && document.getElementById('notifyPickerMask').classList.contains('show')) {
+            closeNotifyPicker();
+        }
+    });
+    bindReportEditorToolbar();
+    window.addEventListener('beforeunload', function () {
+        saveDraftToLocal(captureDraftState());
+    });
+
+    initializePage();
+    </script>
+</body>
+</html>

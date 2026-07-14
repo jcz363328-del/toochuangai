@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title|default('年会精彩瞬间') }} - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background: #f6f8fb;
+            color: #111827;
+            min-height: 100vh;
+        }
+        .page {
+            width: min(96vw, 1440px);
+            margin: 0 auto;
+            padding: 22px 0 32px;
+        }
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+        .title-wrap {
+            min-width: 0;
+        }
+        .title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 26px;
+            line-height: 1.25;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .title i {
+            color: #d97706;
+            font-size: 23px;
+        }
+        .sub {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 13px;
+            word-break: break-all;
+        }
+        .back-btn {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #dbe3ef;
+            color: #334155;
+            font-size: 13px;
+            text-decoration: none;
+        }
+        .summary-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .summary-item {
+            background: #fff;
+            border: 1px solid #e5edf7;
+            border-radius: 8px;
+            padding: 12px 14px;
+            min-width: 0;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+        .summary-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+        .tabs {
+            display: inline-flex;
+            gap: 6px;
+            padding: 4px;
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .tab-btn {
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: #475569;
+            min-height: 34px;
+            padding: 0 12px;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .tab-btn.active {
+            color: #fff;
+            background: #2563eb;
+        }
+        .search-wrap {
+            width: min(100%, 330px);
+            height: 42px;
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+        }
+        .search-wrap i {
+            color: #94a3b8;
+        }
+        .search-wrap input {
+            width: 100%;
+            min-width: 0;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            font-size: 14px;
+            color: #111827;
+        }
+        .media-section {
+            margin-top: 18px;
+        }
+        .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .section-title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #172033;
+        }
+        .section-title i {
+            color: #2563eb;
+            font-size: 16px;
+        }
+        .section-count {
+            color: #64748b;
+            font-size: 13px;
+        }
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .media-tile {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            overflow: hidden;
+            min-width: 0;
+        }
+        button.media-tile {
+            padding: 0;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+            font: inherit;
+        }
+        .photo-thumb {
+            display: block;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            background: #e5e7eb;
+        }
+        .video-player {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #020617;
+        }
+        .tile-meta {
+            padding: 8px 9px 9px;
+            min-width: 0;
+        }
+        .tile-name {
+            font-size: 13px;
+            line-height: 1.35;
+            font-weight: 700;
+            color: #111827;
+            word-break: break-all;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .tile-sub {
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .empty-state {
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 26px 14px;
+            background: #fff;
+            color: #64748b;
+            text-align: center;
+            word-break: break-all;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.88);
+            padding: 20px;
+        }
+        .lightbox.open {
+            display: flex;
+        }
+        .lightbox-inner {
+            width: min(100%, 1180px);
+            max-height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .lightbox-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: #fff;
+        }
+        .lightbox-name {
+            min-width: 0;
+            font-size: 14px;
+            font-weight: 700;
+            word-break: break-all;
+        }
+        .close-btn {
+            flex: 0 0 auto;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .lightbox-img {
+            max-width: 100%;
+            max-height: calc(100vh - 96px);
+            object-fit: contain;
+            border-radius: 8px;
+            background: #020617;
+            align-self: center;
+        }
+        @media (max-width: 1200px) {
+            .photo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .video-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 768px) {
+            .page { width: min(94vw, 680px); padding-top: 14px; }
+            .page-head { align-items: flex-start; }
+            .title { font-size: 22px; }
+            .summary-strip { grid-template-columns: 1fr; }
+            .toolbar { align-items: stretch; }
+            .tabs, .search-wrap { width: 100%; }
+            .tabs { justify-content: space-between; }
+            .tab-btn { flex: 1; justify-content: center; padding: 0 8px; }
+            .photo-grid, .video-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <header class="page-head">
+        <div class="title-wrap">
+            <h1 class="title"><i class="{{ page_icon|default('fa-solid fa-camera-retro') }}"></i>{{ page_title|default('年会精彩瞬间') }}</h1>
+            <div class="sub">图片：{{ image_folder }}　视频：{{ video_folder }}</div>
+        </div>
+        <a class="back-btn" href="{{ back_url|default(url_for('dashboard')) }}">
+            <i class="fas fa-home"></i>
+            <span>{{ back_label|default('返回首页') }}</span>
+        </a>
+    </header>
+
+    <div class="summary-strip">
+        <div class="summary-item">
+            <div class="summary-label">图片</div>
+            <div class="summary-value">{{ images|length }}</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">视频</div>
+            <div class="summary-value">{{ videos|length }}</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">活动日期</div>
+            <div class="summary-value">{{ activity_date|default('2026-06-18') }}</div>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <div class="tabs" aria-label="媒体筛选">
+            <button class="tab-btn active" type="button" data-filter="all"><i class="fa-solid fa-border-all"></i>全部</button>
+            <button class="tab-btn" type="button" data-filter="image"><i class="fa-regular fa-image"></i>图片</button>
+            <button class="tab-btn" type="button" data-filter="video"><i class="fa-solid fa-video"></i>视频</button>
+        </div>
+        <label class="search-wrap">
+            <i class="fas fa-search"></i>
+            <input id="mediaSearch" type="text" placeholder="搜索文件名">
+        </label>
+    </div>
+
+    <section class="media-section" data-kind="image">
+        <div class="section-head">
+            <h2 class="section-title"><i class="fa-regular fa-images"></i>图片</h2>
+            <div class="section-count">{{ images|length }} 张</div>
+        </div>
+        {% if image_folder_exists and images %}
+        <div class="photo-grid">
+            {% for item in images %}
+            <button class="media-tile" type="button" data-kind="image" data-search="{{ (item.name ~ ' ' ~ item.folder_name)|lower }}" data-full="{{ item.url }}" data-name="{{ item.name }}">
+                <img class="photo-thumb" src="{{ item.url }}" alt="{{ item.name }}" loading="lazy">
+                <div class="tile-meta">
+                    <div class="tile-name">{{ item.name }}</div>
+                    <div class="tile-sub">
+                        <span>{{ item.folder_name }}</span>
+                        <span>{{ item.size_label }}</span>
+                    </div>
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+        {% elif image_folder_exists %}
+        <div class="empty-state">图片目录暂无可预览文件</div>
+        {% else %}
+        <div class="empty-state">图片目录暂时无法读取：{{ image_folder }}</div>
+        {% endif %}
+    </section>
+
+    <section class="media-section" data-kind="video">
+        <div class="section-head">
+            <h2 class="section-title"><i class="fa-solid fa-film"></i>视频</h2>
+            <div class="section-count">{{ videos|length }} 个</div>
+        </div>
+        {% if video_folder_exists and videos %}
+        <div class="video-grid">
+            {% for item in videos %}
+            <article class="media-tile" data-kind="video" data-search="{{ (item.name ~ ' ' ~ item.folder_name)|lower }}">
+                <video class="video-player" controls preload="none" src="{{ item.url }}"></video>
+                <div class="tile-meta">
+                    <div class="tile-name">{{ item.name }}</div>
+                    <div class="tile-sub">
+                        <span>{{ item.folder_name }}</span>
+                        <span>{{ item.size_label }}</span>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% elif video_folder_exists %}
+        <div class="empty-state">视频目录暂无可播放文件</div>
+        {% else %}
+        <div class="empty-state">视频目录暂时无法读取：{{ video_folder }}</div>
+        {% endif %}
+    </section>
+</div>
+
+<div class="lightbox" id="imageLightbox" aria-hidden="true">
+    <div class="lightbox-inner">
+        <div class="lightbox-top">
+            <div class="lightbox-name" id="lightboxName"></div>
+            <button class="close-btn" type="button" id="closeLightbox" aria-label="关闭"><i class="fas fa-times"></i></button>
+        </div>
+        <img class="lightbox-img" id="lightboxImage" src="" alt="">
+    </div>
+</div>
+
+<script>
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const sections = document.querySelectorAll('.media-section');
+    const tiles = document.querySelectorAll('.media-tile[data-kind]');
+    const searchInput = document.getElementById('mediaSearch');
+    let activeFilter = 'all';
+
+    function applyFilters() {
+        const keyword = String(searchInput?.value || '').trim().toLowerCase();
+        sections.forEach(section => {
+            const kind = section.getAttribute('data-kind');
+            section.classList.toggle('hidden', activeFilter !== 'all' && activeFilter !== kind);
+        });
+        tiles.forEach(tile => {
+            const kind = tile.getAttribute('data-kind');
+            const text = String(tile.getAttribute('data-search') || '').toLowerCase();
+            const matchesKind = activeFilter === 'all' || activeFilter === kind;
+            const matchesSearch = !keyword || text.includes(keyword);
+            tile.classList.toggle('hidden', !(matchesKind && matchesSearch));
+        });
+    }
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            activeFilter = button.getAttribute('data-filter') || 'all';
+            tabButtons.forEach(item => item.classList.remove('active'));
+            button.classList.add('active');
+            applyFilters();
+        });
+    });
+
+    if (searchInput) {
+        searchInput.addEventListener('input', applyFilters);
+    }
+
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImage = document.getElementById('lightboxImage');
+    const lightboxName = document.getElementById('lightboxName');
+    const closeLightbox = document.getElementById('closeLightbox');
+
+    document.querySelectorAll('.media-tile[data-full]').forEach(tile => {
+        tile.addEventListener('click', () => {
+            const src = tile.getAttribute('data-full') || '';
+            const name = tile.getAttribute('data-name') || '';
+            if (!src || !lightbox || !lightboxImage) return;
+            lightboxImage.src = src;
+            lightboxImage.alt = name;
+            if (lightboxName) lightboxName.textContent = name;
+            lightbox.classList.add('open');
+            lightbox.setAttribute('aria-hidden', 'false');
+        });
+    });
+
+    function hideLightbox() {
+        if (!lightbox || !lightboxImage) return;
+        lightbox.classList.remove('open');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.src = '';
+    }
+
+    if (closeLightbox) {
+        closeLightbox.addEventListener('click', hideLightbox);
+    }
+    if (lightbox) {
+        lightbox.addEventListener('click', event => {
+            if (event.target === lightbox) hideLightbox();
+        });
+    }
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') hideLightbox();
+    });
+</script>
+</body>
+</html>

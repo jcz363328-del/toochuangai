@@ -1,0 +1,619 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图像生成AI - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-section i {
+            font-size: 1.5rem;
+        }
+
+        .logo-section h1 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 30px;
+            height: calc(100vh - 120px);
+        }
+
+        .input-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+        }
+
+        .output-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            font-size: 1.4rem;
+            color: #333;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title i {
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-label i {
+            color: #667eea;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            width: 100%;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .output-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .image-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .generated-image {
+            max-width: 100%;
+            max-height: 70vh;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .image-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .image-info h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .image-info p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .image-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                height: auto;
+            }
+
+            .input-panel {
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .nav-links {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .container {
+                padding: 20px 15px;
+                gap: 20px;
+            }
+            
+            .input-panel, .output-panel {
+                padding: 20px;
+            }
+        }
+    </style>
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <i class="fas fa-image"></i>
+                <h1>图像生成AI</h1>
+            </div>
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 主页
+                </a>
+                <a href="{{ url_for('script_generator') }}">
+                    <i class="fas fa-file-alt"></i> 脚本生成器
+                </a>
+
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 输入面板 -->
+        <div class="input-panel">
+            <h2 class="panel-title">
+                <i class="fas fa-magic"></i>
+                图像生成设置
+            </h2>
+            
+            <form id="imageForm">
+                <div class="form-group">
+                    <label class="form-label" for="prompt">
+                        <i class="fas fa-pen"></i> 图像描述 (提示词)
+                    </label>
+                    <textarea id="prompt" class="form-input form-textarea" 
+                              placeholder="请输入您想要生成的图像描述，例如：&#10;一只可爱的小白兔在花园里玩耍&#10;未来科技风格的城市夜景&#10;油画风格的山水画" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="size">
+                        <i class="fas fa-expand-arrows-alt"></i> 图像尺寸
+                    </label>
+                    <select id="size" class="form-select">
+                        <option value="1024x1024">正方形 (1024x1024)</option>
+                        <option value="1024x1792">竖版 (1024x1792)</option>
+                        <option value="1792x1024">横版 (1792x1024)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="quality">
+                        <i class="fas fa-star"></i> 图像质量
+                    </label>
+                    <select id="quality" class="form-select">
+                        <option value="standard">标准质量</option>
+                        <option value="hd">高清质量 (HD)</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="generateBtn">
+                    <i class="fas fa-magic"></i> 生成图像
+                </button>
+                
+                <button type="button" class="btn btn-secondary" onclick="clearInputs()">
+                    <i class="fas fa-eraser"></i> 清空输入
+                </button>
+            </form>
+        </div>
+        
+        <!-- 输出面板 -->
+        <div class="output-panel">
+            <div class="output-header">
+                <h2 class="panel-title">
+                    <i class="fas fa-image"></i>
+                    生成的图像
+                </h2>
+                <div class="output-controls">
+                    <button class="btn btn-secondary btn-small" onclick="downloadImage()" id="downloadBtn" style="display: none;">
+                        <i class="fas fa-download"></i> 下载图像
+                    </button>
+                </div>
+            </div>
+            
+            <div class="progress-bar" id="progressBar" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div id="statusMessage"></div>
+            
+            <div class="image-container" id="imageContainer">
+                <div class="empty-state">
+                    <i class="fas fa-image"></i>
+                    <h3>暂无生成的图像</h3>
+                    <p>请在左侧输入图像描述并点击生成图像</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isGenerating = false;
+        let currentImageUrl = null;
+        
+        document.getElementById('imageForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await generateImage();
+        });
+        
+        async function generateImage() {
+            if (isGenerating) return;
+            
+            const prompt = document.getElementById('prompt').value.trim();
+            const size = document.getElementById('size').value;
+            const quality = document.getElementById('quality').value;
+            
+            if (!prompt) {
+                showStatus('请输入图像描述', 'error');
+                return;
+            }
+            
+            isGenerating = true;
+            const generateBtn = document.getElementById('generateBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            const imageContainer = document.getElementById('imageContainer');
+            const downloadBtn = document.getElementById('downloadBtn');
+            
+            // 更新UI状态
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+            downloadBtn.style.display = 'none';
+            imageContainer.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在生成图像，请稍候...</p></div>';
+            
+            // 模拟进度
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 500);
+            
+            try {
+                const response = await fetch('/generate_image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        size: size,
+                        quality: quality
+                    })
+                });
+                
+                const result = await response.json();
+                
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                
+                if (result.success) {
+                    displayImage(result.image_url, prompt, size, quality);
+                    showStatus('图像生成成功！', 'success');
+                    currentImageUrl = result.image_url;
+                    downloadBtn.style.display = 'inline-flex';
+                } else {
+                    showStatus(result.message, 'error');
+                    imageContainer.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>生成失败</h3><p>' + result.message + '</p></div>';
+                }
+                
+            } catch (error) {
+                clearInterval(progressInterval);
+                showStatus('网络错误，请检查服务器连接', 'error');
+                imageContainer.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>网络错误</h3><p>请检查服务器连接</p></div>';
+            } finally {
+                isGenerating = false;
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<i class="fas fa-magic"></i> 生成图像';
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                }, 1000);
+            }
+        }
+        
+        function displayImage(imageUrl, prompt, size, quality) {
+            const container = document.getElementById('imageContainer');
+            container.innerHTML = `
+                <img src="${imageUrl}" alt="Generated Image" class="generated-image" />
+                <div class="image-info">
+                    <h4>图像信息</h4>
+                    <p><strong>描述：</strong>${prompt}</p>
+                    <p><strong>尺寸：</strong>${size}</p>
+                    <p><strong>质量：</strong>${quality === 'hd' ? '高清 (HD)' : '标准'}</p>
+                    <p><strong>生成时间：</strong>${new Date().toLocaleString()}</p>
+                </div>
+            `;
+        }
+        
+        function downloadImage() {
+            if (!currentImageUrl) {
+                showStatus('没有可下载的图像', 'error');
+                return;
+            }
+            
+            const link = document.createElement('a');
+            link.href = currentImageUrl;
+            link.download = `generated_image_${new Date().getTime()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showStatus('图像下载已开始', 'success');
+        }
+        
+        function clearInputs() {
+            document.getElementById('prompt').value = '';
+            document.getElementById('size').value = '1024x1024';
+            document.getElementById('quality').value = 'standard';
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,622 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限管理 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-section i {
+            font-size: 1.5rem;
+        }
+
+        .logo-section h1 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .permission-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .panel-title {
+            font-size: 1.8rem;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .panel-title i {
+            color: #667eea;
+            font-size: 2rem;
+        }
+
+        .search-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .user-info {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .user-info.show {
+            display: block;
+        }
+
+        .user-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .user-detail-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-detail-item i {
+            color: #2196f3;
+            width: 20px;
+        }
+
+        .permissions-section {
+            margin-top: 20px;
+        }
+
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .permission-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .permission-card.has-permission {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .permission-card.no-permission {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+
+        .permission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .permission-name {
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .permission-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-granted {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-denied {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .permission-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .permission-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .grant-btn {
+            background: #28a745;
+            color: white;
+        }
+
+        .grant-btn:hover {
+            background: #218838;
+        }
+
+        .revoke-btn {
+            background: #dc3545;
+            color: white;
+        }
+
+        .revoke-btn:hover {
+            background: #c82333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        @media (max-width: 768px) {
+            .search-row {
+                flex-direction: column;
+            }
+            
+            .search-input {
+                min-width: 100%;
+            }
+            
+            .user-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .permissions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <i class="fas fa-users-cog"></i>
+                <h1>权限管理</h1>
+            </div>
+            <nav class="nav-links">
+                <a href="{{ url_for('admin_dashboard') }}">
+                    <i class="fas fa-arrow-left"></i> 返回管理员功能
+                </a>
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 返回主页
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="permission-panel">
+            <div class="panel-title">
+                <i class="fas fa-shield-alt"></i>
+                <span>用户权限管理</span>
+            </div>
+            <p style="color: #666; margin-bottom: 20px;">在这里您可以为特定用户添加或移除功能权限，支持按用户ID或邮箱搜索。</p>
+            
+            <!-- 搜索区域 -->
+            <div class="search-section">
+                <div class="search-row">
+                    <input type="text" id="userSearch" class="search-input" placeholder="请输入用户ID或邮箱地址...">
+                    <button class="search-btn" onclick="searchUser()">
+                        <i class="fas fa-search"></i> 搜索用户
+                    </button>
+                </div>
+            </div>
+
+            <!-- 提示信息 -->
+            <div id="alertMessage" class="alert">
+                <span id="alertText"></span>
+            </div>
+
+            <!-- 用户信息区域 -->
+            <div id="userInfo" class="user-info">
+                <h3 style="margin-bottom: 15px; color: #333;">
+                    <i class="fas fa-user"></i> 用户信息
+                </h3>
+                <div class="user-details">
+                    <div class="user-detail-item">
+                        <i class="fas fa-id-card"></i>
+                        <span><strong>用户ID:</strong> <span id="userId"></span></span>
+                    </div>
+                    <div class="user-detail-item">
+                        <i class="fas fa-user"></i>
+                        <span><strong>姓名:</strong> <span id="userName"></span></span>
+                    </div>
+                    <div class="user-detail-item">
+                        <i class="fas fa-envelope"></i>
+                        <span><strong>邮箱:</strong> <span id="userEmail"></span></span>
+                    </div>
+                    <div class="user-detail-item">
+                        <i class="fas fa-building"></i>
+                        <span><strong>部门:</strong> <span id="userDepartments"></span></span>
+                    </div>
+                </div>
+
+                <!-- 权限管理区域 -->
+                <div class="permissions-section">
+                    <h4 style="margin-bottom: 15px; color: #333;">
+                        <i class="fas fa-key"></i> 功能权限管理
+                    </h4>
+                    <div id="permissionsGrid" class="permissions-grid">
+                        <!-- 权限卡片将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loadingState" class="loading" style="display: none;">
+                <i class="fas fa-spinner"></i>
+                <p>正在加载用户信息...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.getElementById('alertMessage');
+            const alertText = document.getElementById('alertText');
+            
+            alertText.textContent = message;
+            alertDiv.className = `alert alert-${type} show`;
+            
+            setTimeout(() => {
+                alertDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        function showLoading(show = true) {
+            document.getElementById('loadingState').style.display = show ? 'block' : 'none';
+            document.getElementById('userInfo').classList.toggle('show', !show);
+        }
+
+        async function searchUser() {
+            const searchInput = document.getElementById('userSearch');
+            const searchValue = searchInput.value.trim();
+            
+            if (!searchValue) {
+                showAlert('请输入用户ID或邮箱地址', 'error');
+                return;
+            }
+
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/admin/search_user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        search_value: searchValue
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentUser = result.data;
+                    displayUserInfo(result.data);
+                    showAlert('用户信息加载成功', 'success');
+                } else {
+                    showAlert(result.message || '搜索用户失败', 'error');
+                    showLoading(false);
+                }
+            } catch (error) {
+                console.error('搜索用户错误:', error);
+                showAlert('网络错误，请稍后重试', 'error');
+                showLoading(false);
+            }
+        }
+
+        function displayUserInfo(userData) {
+            document.getElementById('userId').textContent = userData.user_id || '未知';
+            document.getElementById('userName').textContent = userData.name || '未知';
+            document.getElementById('userEmail').textContent = userData.email || '未知';
+            document.getElementById('userDepartments').textContent = userData.departments.join(', ') || '无部门';
+            
+            displayPermissions(userData.permissions);
+            showLoading(false);
+        }
+
+        function displayPermissions(permissions) {
+            const grid = document.getElementById('permissionsGrid');
+            grid.innerHTML = '';
+            
+            permissions.forEach(permission => {
+                const card = createPermissionCard(permission);
+                grid.appendChild(card);
+            });
+        }
+
+        function createPermissionCard(permission) {
+            const card = document.createElement('div');
+            card.className = `permission-card ${permission.has_permission ? 'has-permission' : 'no-permission'}`;
+            
+            card.innerHTML = `
+                <div class="permission-header">
+                    <div class="permission-name">
+                        <i class="fas fa-${getPermissionIcon(permission.function_name)}"></i>
+                        ${permission.name}
+                    </div>
+                    <span class="permission-status ${permission.has_permission ? 'status-granted' : 'status-denied'}">
+                        ${permission.has_permission ? '已授权' : '未授权'}
+                    </span>
+                </div>
+                <div class="permission-description">
+                    ${permission.description}
+                </div>
+                <div class="permission-actions">
+                    ${permission.has_permission ? 
+                        `<button class="action-btn revoke-btn" onclick="revokePermission('${permission.function_name}')">
+                            <i class="fas fa-times"></i> 撤销权限
+                        </button>` :
+                        `<button class="action-btn grant-btn" onclick="grantPermission('${permission.function_name}')">
+                            <i class="fas fa-check"></i> 授予权限
+                        </button>`
+                    }
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function getPermissionIcon(functionName) {
+            const iconMap = {
+                'innovation_proposals': 'lightbulb',
+                'review_analysis': 'chart-bar',
+                'script_generator': 'file-alt',
+                'influencer_management': 'users',
+                'admin_functions': 'cog',
+                'performance_monitor': 'tachometer-alt',
+                'tk_project_group': 'project-diagram',
+                'warehouse_group': 'warehouse'
+            };
+            return iconMap[functionName] || 'cog';
+        }
+
+        async function grantPermission(functionName) {
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch('/api/admin/grant_permission', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: currentUser.user_id,
+                        function_name: functionName
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`成功为用户授予 ${result.function_display_name} 权限`, 'success');
+                    // 重新加载用户信息
+                    searchUser();
+                } else {
+                    showAlert(result.message || '授予权限失败', 'error');
+                }
+            } catch (error) {
+                console.error('授予权限错误:', error);
+                showAlert('网络错误，请稍后重试', 'error');
+            }
+        }
+
+        async function revokePermission(functionName) {
+            if (!currentUser) return;
+            
+            if (!confirm('确定要撤销该用户的权限吗？')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/revoke_permission', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: currentUser.user_id,
+                        function_name: functionName
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert(`成功撤销用户的 ${result.function_display_name} 权限`, 'success');
+                    // 重新加载用户信息
+                    searchUser();
+                } else {
+                    showAlert(result.message || '撤销权限失败', 'error');
+                }
+            } catch (error) {
+                console.error('撤销权限错误:', error);
+                showAlert('网络错误，请稍后重试', 'error');
+            }
+        }
+
+        // 回车键搜索
+        document.getElementById('userSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchUser();
+            }
+        });
+    </script>
+</body>
+</html>

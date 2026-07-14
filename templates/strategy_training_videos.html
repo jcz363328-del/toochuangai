@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>战略分解培训视频 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .video-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: all .2s ease;
+        }
+        .video-item:hover {
+            background: #f8f9ff;
+            border-color: #6366f1;
+        }
+        .video-item.active {
+            background: #eef2ff;
+            border-color: #6366f1;
+        }
+        .folder-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 10px;
+            background: #fff;
+            margin-bottom: 8px;
+        }
+        .folder-title {
+            font-weight: 700;
+            color: #374151;
+            padding: 6px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 8px;
+        }
+        .video-player-wrap {
+            background: #111827;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        video {
+            width: 100%;
+            max-height: 70vh;
+            border-radius: 8px;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1">图创AI系统 - 战略分解培训视频</span>
+    </div>
+</nav>
+<div class="container-fluid py-3">
+    <div class="d-flex gap-2 mb-3">
+        <a class="btn btn-outline-secondary" href="{{ url_for('training_videos') }}">
+            <i class="fas fa-arrow-left"></i> 返回培训视频
+        </a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">返回主控台</a>
+    </div>
+    <div class="alert alert-light border mb-3">
+        当前目录：{{ folder_path }}
+    </div>
+    {% set ns = namespace(first_url='', first_name='') %}
+    {% for g in grouped_videos %}
+        {% if not ns.first_url and g.videos %}
+            {% set ns.first_url = g.videos[0].url %}
+            {% set ns.first_name = g.folder_name ~ ' / ' ~ g.videos[0].name %}
+        {% endif %}
+    {% endfor %}
+    {% if grouped_videos %}
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">分类视频列表（{{ grouped_videos|length }}个文件夹）</div>
+                <div class="card-body" style="max-height:75vh;overflow:auto;">
+                    {% for g in grouped_videos %}
+                    <div class="folder-card">
+                        <div class="folder-title"><i class="fas fa-folder me-2 text-warning"></i>{{ g.folder_name }}</div>
+                        {% for v in g.videos %}
+                        <div class="video-item{% if ns.first_url == v.url %} active{% endif %}" data-src="{{ v.url }}" data-name="{{ g.folder_name }} / {{ v.name }}">
+                            <i class="fas fa-play-circle text-primary"></i>
+                            <span class="ms-2">{{ v.name }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="video-player-wrap">
+                <div class="text-white mb-2" id="currentVideoName">{{ ns.first_name or '请从左侧选择视频' }}</div>
+                <video id="videoPlayer" controls preload="metadata"{% if ns.first_url %} src="{{ ns.first_url }}"{% endif %}></video>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">目录中未找到可播放的视频文件。</div>
+    {% endif %}
+</div>
+<script>
+    const items = document.querySelectorAll('.video-item');
+    const player = document.getElementById('videoPlayer');
+    const nameEl = document.getElementById('currentVideoName');
+    items.forEach(item => {
+        item.addEventListener('click', function () {
+            items.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            const src = item.getAttribute('data-src');
+            const name = item.getAttribute('data-name') || '';
+            if (player && src) {
+                player.src = src;
+                player.load();
+                player.play().catch(() => {});
+            }
+            if (nameEl) nameEl.textContent = name;
+        });
+    });
+</script>
+</body>
+</html>

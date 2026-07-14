@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>店铺负责人增加修改 - 图创AI系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background: #f2f2f7;
+            color: #1c1c1e;
+        }
+        .ios-nav {
+            background: rgba(255,255,255,0.92);
+            border-bottom: 1px solid #d1d1d6;
+            backdrop-filter: saturate(180%) blur(12px);
+        }
+        .ios-nav .navbar-brand,
+        .ios-nav .nav-link {
+            color: #1c1c1e !important;
+        }
+        .ios-nav .nav-link:hover {
+            color: #007aff !important;
+        }
+        .page-header {
+            background: rgba(255,255,255,0.88);
+            border-bottom: 1px solid #d1d1d6;
+            padding: 26px 0 18px;
+        }
+        .meta-line {
+            color: #6b7280;
+            margin: 6px 0 0;
+        }
+        .card-box {
+            background: white;
+            border: 1px solid #d1d1d6;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-top: 16px;
+        }
+        .mono {
+            font-variant-numeric: tabular-nums;
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
+        .table > :not(caption) > * > * {
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light ios-nav">
+        <div class="container-fluid px-2 px-lg-3">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-robot"></i> 图创AI系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('tk_video_realtime') }}">
+                    <i class="fas fa-video"></i> 返回实时视频数据
+                </a>
+                <a class="nav-link" href="{{ url_for('tk_project') }}">
+                    <i class="fas fa-project-diagram"></i> 返回TK项目
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-2 px-lg-3">
+        <nav aria-label="breadcrumb" class="mt-2">
+            <ol class="breadcrumb mb-2">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('tk_project') }}">TK项目组功能</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('tk_video_realtime') }}">实时视频数据</a></li>
+                <li class="breadcrumb-item active" aria-current="page">店铺负责人增加修改</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-header">
+        <div class="container-fluid px-2 px-lg-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <h1 class="mb-1" style="font-size:22px; font-weight:800; color:#111827;">
+                        <i class="fas fa-people-arrows-left-right"></i> 店铺负责人增加修改
+                    </h1>
+                    <p class="meta-line">维护 `TK_ZiYouZhangHao` 的店铺、账号、负责人对应关系</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('tk_video_realtime') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> 返回实时视频数据
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-2 px-lg-3 pb-4">
+        <div class="row g-3 mt-1">
+            <div class="col-12 col-xl-4">
+                <div class="card-box h-100">
+                    <div class="mb-3">
+                        <label class="form-label">店铺</label>
+                        <input id="accountLinkDian" type="text" class="form-control" placeholder="请输入店铺">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">账号</label>
+                        <input id="accountLinkDaren" type="text" class="form-control" placeholder="请输入账号">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">负责人</label>
+                        <input id="accountLinkFuzeren" type="text" class="form-control" placeholder="请输入负责人">
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button id="btnAccountLinkSave" class="btn btn-primary" type="button">
+                            <i class="fas fa-floppy-disk"></i> 保存
+                        </button>
+                        <button id="btnAccountLinkReset" class="btn btn-outline-secondary" type="button">
+                            <i class="fas fa-eraser"></i> 清空
+                        </button>
+                    </div>
+                    <div id="accountLinkModeText" class="text-muted mt-2" style="font-size:13px;">当前模式：新增</div>
+                    <div id="accountLinkMsg" class="alert d-none mt-3 mb-0"></div>
+                </div>
+            </div>
+            <div class="col-12 col-xl-8">
+                <div class="card-box h-100">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <div class="fw-semibold">当前店铺负责人映射</div>
+                        <button id="btnAccountLinkRefresh" class="btn btn-outline-secondary btn-sm" type="button">
+                            <i class="fas fa-rotate"></i> 刷新列表
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>店铺</th>
+                                    <th>账号</th>
+                                    <th>负责人</th>
+                                    <th style="width:140px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accountLinkTbody">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let accountLinkItems = [];
+        let accountLinkEditing = null;
+
+        function fmt(v) {
+            if (v === null || v === undefined) return '';
+            return String(v);
+        }
+
+        function escapeHtml(text) {
+            const t = String(text ?? '');
+            return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function setAccountLinkMessage(msg, level) {
+            const box = document.getElementById('accountLinkMsg');
+            if (!box) return;
+            if (!msg) {
+                box.className = 'alert d-none mt-3 mb-0';
+                box.textContent = '';
+                return;
+            }
+            box.className = `alert alert-${level || 'info'} mt-3 mb-0`;
+            box.textContent = msg;
+        }
+
+        function resetAccountLinkForm() {
+            accountLinkEditing = null;
+            document.getElementById('accountLinkDian').value = '';
+            document.getElementById('accountLinkDaren').value = '';
+            document.getElementById('accountLinkFuzeren').value = '';
+            document.getElementById('accountLinkModeText').textContent = '当前模式：新增';
+        }
+
+        function fillAccountLinkForm(item) {
+            accountLinkEditing = item ? { ...item } : null;
+            document.getElementById('accountLinkDian').value = fmt(item && item.dian).trim();
+            document.getElementById('accountLinkDaren').value = fmt(item && item.daren).trim();
+            document.getElementById('accountLinkFuzeren').value = fmt(item && item.fuzeren).trim();
+            document.getElementById('accountLinkModeText').textContent = accountLinkEditing
+                ? `当前模式：修改 ${fmt(accountLinkEditing.daren).trim() || ''}`
+                : '当前模式：新增';
+            setAccountLinkMessage('');
+        }
+
+        function renderAccountLinkTable(items) {
+            const tbody = document.getElementById('accountLinkTbody');
+            if (!tbody) return;
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">暂无数据</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map((item, idx) => `
+                <tr>
+                    <td class="mono">${escapeHtml(fmt(item.dian))}</td>
+                    <td class="mono">${escapeHtml(fmt(item.daren))}</td>
+                    <td class="mono">${escapeHtml(fmt(item.fuzeren))}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-account-link-edit" data-idx="${idx}">修改</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-account-link-delete" data-idx="${idx}">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            tbody.querySelectorAll('.btn-account-link-edit').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const idx = Number(btn.getAttribute('data-idx'));
+                    fillAccountLinkForm(accountLinkItems[idx] || null);
+                });
+            });
+            tbody.querySelectorAll('.btn-account-link-delete').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const idx = Number(btn.getAttribute('data-idx'));
+                    const item = accountLinkItems[idx];
+                    if (!item) return;
+                    if (!window.confirm(`确认删除账号 ${fmt(item.daren)} 的店铺负责人映射吗？`)) return;
+                    await deleteAccountLink(item);
+                });
+            });
+        }
+
+        async function loadAccountLinks() {
+            const resp = await fetch('{{ url_for("api_tk_video_realtime_account_links") }}', { credentials: 'same-origin' });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '获取店铺负责人列表失败');
+            }
+            accountLinkItems = Array.isArray(json.data && json.data.items) ? json.data.items : [];
+            renderAccountLinkTable(accountLinkItems);
+        }
+
+        async function saveAccountLink() {
+            const dian = fmt(document.getElementById('accountLinkDian').value).trim();
+            const daren = fmt(document.getElementById('accountLinkDaren').value).trim();
+            const fuzeren = fmt(document.getElementById('accountLinkFuzeren').value).trim();
+            if (!dian || !daren || !fuzeren) {
+                setAccountLinkMessage('店铺、账号、负责人都不能为空', 'warning');
+                return;
+            }
+            const resp = await fetch('{{ url_for("api_tk_video_realtime_account_links_save") }}', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dian,
+                    daren,
+                    fuzeren,
+                    original_dian: fmt(accountLinkEditing && accountLinkEditing.dian).trim(),
+                    original_daren: fmt(accountLinkEditing && accountLinkEditing.daren).trim(),
+                    original_fuzeren: fmt(accountLinkEditing && accountLinkEditing.fuzeren).trim()
+                })
+            });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '保存店铺负责人失败');
+            }
+            resetAccountLinkForm();
+            setAccountLinkMessage('保存成功', 'success');
+            await loadAccountLinks();
+        }
+
+        async function deleteAccountLink(item) {
+            const resp = await fetch('{{ url_for("api_tk_video_realtime_account_links_delete") }}', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item || {})
+            });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '删除店铺负责人失败');
+            }
+            if (
+                accountLinkEditing &&
+                fmt(accountLinkEditing.dian).trim() === fmt(item && item.dian).trim() &&
+                fmt(accountLinkEditing.daren).trim() === fmt(item && item.daren).trim() &&
+                fmt(accountLinkEditing.fuzeren).trim() === fmt(item && item.fuzeren).trim()
+            ) {
+                resetAccountLinkForm();
+            }
+            setAccountLinkMessage('删除成功', 'success');
+            await loadAccountLinks();
+        }
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            document.getElementById('btnAccountLinkSave').addEventListener('click', function () {
+                saveAccountLink().catch(e => setAccountLinkMessage(e.message || String(e), 'danger'));
+            });
+            document.getElementById('btnAccountLinkReset').addEventListener('click', function () {
+                resetAccountLinkForm();
+                setAccountLinkMessage('');
+            });
+            document.getElementById('btnAccountLinkRefresh').addEventListener('click', function () {
+                loadAccountLinks().catch(e => setAccountLinkMessage(e.message || String(e), 'danger'));
+            });
+
+            try {
+                await loadAccountLinks();
+            } catch (e) {
+                setAccountLinkMessage(e.message || String(e), 'danger');
+                const tbody = document.getElementById('accountLinkTbody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">加载失败</td></tr>';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

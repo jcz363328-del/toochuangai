@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人力行政部功能 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+    <style>
+        body { margin:0; font-family:'Microsoft YaHei', Arial, sans-serif; background:#f5f7fb; color:#182033; }
+        .header { background:#ffffff; border-bottom:1px solid #e6eaf2; }
+        .header-content { max-width:1200px; margin:0 auto; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; }
+        .brand { display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; }
+        .brand i { color:#2563eb; }
+        .nav-links a { color:#2563eb; text-decoration:none; font-size:14px; }
+        .container { max-width:1200px; margin:0 auto; padding:28px 20px 48px; }
+        .modules-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px; }
+        .module-card { background:#fff; border:1px solid #e6eaf2; border-radius:8px; padding:22px; cursor:pointer; transition:box-shadow .2s, transform .2s; }
+        .module-card:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(15,23,42,.08); }
+        .module-icon { width:46px; height:46px; border-radius:8px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:14px; }
+        h3 { margin:0 0 8px; font-size:18px; }
+        p { margin:0; color:#64748b; line-height:1.6; font-size:14px; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="brand"><i class="fas fa-users"></i><span>人力行政部功能</span></div>
+            <div class="nav-links"><a href="{{ url_for('dashboard') }}">返回主页</a></div>
+        </div>
+    </header>
+    <main class="container">
+        <div class="modules-grid">
+            <div class="module-card" data-href="{{ url_for('hr_admin_innovation_data') }}" data-menu="人力行政部-创新数据">
+                <div class="module-icon"><i class="fas fa-chart-column"></i></div>
+                <h3>创新数据</h3>
+                <p>按月份、部门、有效提案、人员、分数和创新类别查看创新提案统计数据。</p>
+            </div>
+        </div>
+    </main>
+    <script>
+        function logMenuClick(menu, href) {
+            const payload = JSON.stringify({ menu: menu || '', href: href || '' });
+            try {
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon('/api/menu_click', new Blob([payload], { type: 'application/json' }));
+                    return;
+                }
+            } catch (e) {}
+            fetch('/api/menu_click', { method:'POST', headers:{'Content-Type':'application/json'}, body:payload, keepalive:true }).catch(() => {});
+        }
+        document.querySelectorAll('[data-href]').forEach(card => {
+            card.addEventListener('click', () => {
+                const href = card.getAttribute('data-href');
+                logMenuClick(card.getAttribute('data-menu'), href);
+                if (href) window.location.href = href;
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>位置管理 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            background: #f5f7fb;
+            color: #111827;
+        }
+        button, input, select, textarea { font-family: inherit; }
+        .page { padding: 22px 28px 28px; }
+        .topbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid #dfe6ef;
+            margin-bottom: 22px;
+        }
+        .title h1 { margin: 0; font-size: 28px; font-weight: 900; }
+        .title p { margin: 8px 0 0; color: #64748b; font-size: 15px; font-weight: 700; }
+        .top-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .btn {
+            height: 34px;
+            border: 1px solid #dbe3ef;
+            background: #fff;
+            color: #334155;
+            border-radius: 4px;
+            padding: 0 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 800;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .btn:hover { background: #f8fafc; }
+        .btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .btn.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+        .btn.small { height: 28px; padding: 0 8px; font-size: 12px; }
+        .btn.icon { width: 28px; padding: 0; }
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(320px, 34%) minmax(0, 1fr);
+            gap: 22px;
+            align-items: start;
+        }
+        .panel {
+            background: #fff;
+            border: 1px solid #dfe6ef;
+            border-radius: 4px;
+        }
+        .tree-panel {
+            min-height: 680px;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+        }
+        .panel-head {
+            padding: 16px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid #e5ebf3;
+        }
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 900;
+        }
+        .panel-title .ico {
+            width: 36px;
+            height: 36px;
+            background: #eef2ff;
+            color: #3b6da8;
+            display: grid;
+            place-items: center;
+            border-radius: 2px;
+        }
+        .tree-count { color: #64748b; font-weight: 800; font-size: 14px; white-space: nowrap; }
+        .tree-body {
+            padding: 14px 18px;
+            overflow: auto;
+        }
+        .tree-footer {
+            padding: 14px 18px 18px;
+            border-top: 1px solid #e5ebf3;
+        }
+        .tree-footer .btn { width: 100%; height: 42px; }
+        .tree-node { margin: 3px 0; }
+        .node-row {
+            min-height: 42px;
+            display: grid;
+            grid-template-columns: 24px 24px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 2px;
+        }
+        .node-row.gui { background: #f1f5f9; }
+        .node-row:hover { background: #f8fafc; }
+        .toggle {
+            border: 0;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+        }
+        .node-icon { color: #64748b; text-align: center; }
+        .node-main { min-width: 0; }
+        .node-name {
+            font-size: 14px;
+            font-weight: 900;
+            color: #111827;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .node-code {
+            margin-top: 2px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .node-actions {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .node-actions button {
+            width: 26px;
+            height: 26px;
+            border: 0;
+            background: transparent;
+            color: #334155;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .node-actions button:hover { background: #e2e8f0; }
+        .children { margin-left: 26px; }
+        .pill {
+            height: 24px;
+            border-radius: 999px;
+            padding: 0 9px;
+            display: inline-flex;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 900;
+        }
+        .status-ok { background: #ecfdf5; color: #059669; border: 1px solid #bbf7d0; }
+        .status-off { background: #f3f4f6; color: #64748b; border: 1px solid #e5e7eb; }
+        .rate-blue { background: #dbeafe; color: #2563eb; }
+        .rate-orange { background: #ffedd5; color: #ea580c; }
+        .rate-red { background: #fee2e2; color: #dc2626; }
+        .board-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .board-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: 900;
+        }
+        .board-title i { color: #3b6da8; }
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .field { display: grid; gap: 5px; }
+        .field label { color: #64748b; font-size: 12px; font-weight: 900; }
+        .field input, .field select, .field textarea {
+            width: 100%;
+            min-height: 34px;
+            border: 1px solid #dbe3ef;
+            border-radius: 4px;
+            background: #fff;
+            padding: 6px 9px;
+            outline: none;
+            font-size: 13px;
+        }
+        .field textarea { min-height: 72px; resize: vertical; }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid #dfe6ef;
+            padding: 18px;
+            min-height: 116px;
+        }
+        .stat-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .stat-value {
+            font-size: 34px;
+            font-weight: 900;
+            color: #111827;
+        }
+        .stat-value.green { color: #16a34a; }
+        .stat-value.orange { color: #f59e0b; }
+        .progress {
+            height: 8px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            overflow: hidden;
+            margin-top: 14px;
+        }
+        .progress span {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: #3b6da8;
+        }
+        .progress.orange span { background: #ea580c; }
+        .progress.red span { background: #dc2626; }
+        .cabinet-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .cabinet-card {
+            background: #fff;
+            border: 1px solid #dfe6ef;
+            min-height: 250px;
+        }
+        .cabinet-card-head {
+            padding: 14px 16px;
+            border-bottom: 1px solid #e5ebf3;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .cabinet-name {
+            border-left: 5px solid #3b6da8;
+            padding-left: 10px;
+            font-size: 18px;
+            font-weight: 900;
+        }
+        .cabinet-body {
+            padding: 14px 16px 16px;
+            display: grid;
+            gap: 14px;
+        }
+        .layer-line {
+            display: grid;
+            grid-template-columns: 74px minmax(0, 1fr) 48px;
+            gap: 10px;
+            align-items: center;
+        }
+        .layer-name { color: #64748b; font-weight: 800; }
+        .layer-count {
+            text-align: right;
+            font-weight: 900;
+            color: #111827;
+        }
+        .layer-free {
+            grid-column: 3;
+            color: #64748b;
+            font-size: 12px;
+            text-align: right;
+        }
+        .empty {
+            padding: 34px 12px;
+            color: #94a3b8;
+            text-align: center;
+            font-size: 13px;
+        }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .42);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 50;
+        }
+        .modal.show { display: flex; }
+        .modal-card {
+            width: min(620px, 100%);
+            max-height: 88vh;
+            background: #fff;
+            border-radius: 6px;
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            box-shadow: 0 22px 55px rgba(15, 23, 42, .25);
+        }
+        .modal-head, .modal-foot {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e5ebf3;
+        }
+        .modal-foot {
+            border-bottom: 0;
+            border-top: 1px solid #e5ebf3;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .modal-title { margin: 0; font-size: 18px; font-weight: 900; }
+        .modal-body { padding: 16px; overflow: auto; }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .form-grid .wide { grid-column: 1 / -1; }
+        .toast {
+            position: fixed;
+            top: 18px;
+            right: 18px;
+            background: #111827;
+            color: #fff;
+            padding: 10px 12px;
+            border-radius: 6px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, .22);
+            display: none;
+            z-index: 80;
+            font-size: 13px;
+        }
+        .toast.show { display: block; }
+        .toast.error { background: #b91c1c; }
+        .toast.success { background: #047857; }
+        @media (max-width: 1280px) {
+            .cabinet-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 980px) {
+            .page { padding: 16px 12px; }
+            .layout { grid-template-columns: 1fr; }
+            .tree-panel { min-height: 420px; }
+            .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 640px) {
+            .topbar, .board-head { flex-direction: column; align-items: flex-start; }
+            .filters, .stat-grid, .cabinet-grid, .form-grid { grid-template-columns: 1fr; }
+            .form-grid .wide { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="topbar">
+        <div class="title">
+            <h1>位置管理</h1>
+            <p>维护样品室物理空间结构，实现位置数字化映射</p>
+        </div>
+        <div class="top-actions">
+            <button class="btn" id="refreshBtn"><i class="fa-solid fa-rotate"></i>刷新</button>
+            <a class="btn" href="{{ url_for('yangban_inventory.page') }}"><i class="fa-solid fa-boxes-stacked"></i>样板库存</a>
+            <a class="btn" href="{{ url_for('procurement_dept') }}"><i class="fa-solid fa-arrow-left"></i>采购部</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="panel tree-panel">
+            <div class="panel-head">
+                <div class="panel-title">
+                    <span class="ico"><i class="fa-solid fa-location-dot"></i></span>
+                    <span>样品室空间结构</span>
+                </div>
+                <div class="tree-count" id="treeCountText">0柜 · 0层 · 0格</div>
+            </div>
+            <div class="tree-body" id="locationTree"></div>
+            <div class="tree-footer">
+                <button class="btn" id="newCabinetBtn"><i class="fa-solid fa-plus"></i>新增柜子</button>
+            </div>
+        </aside>
+
+        <main>
+            <div class="board-head">
+                <div class="board-title"><i class="fa-solid fa-table-cells-large"></i>位置占用看板</div>
+            </div>
+            <div class="filters">
+                <div class="field"><label>区域</label><select id="filterArea"><option value="">全部区域</option></select></div>
+                <div class="field"><label>柜名称</label><input id="filterCabinet" type="text" placeholder="输入柜名称或编号"></div>
+                <div class="field"><label>位置状态</label><select id="filterStatus"><option value="">全部状态</option><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
+                <div class="field"><label>占用状态</label><select id="filterOccupancy"><option value="">全部</option><option value="occupied">已占用</option><option value="free">空闲</option><option value="full">已满</option></select></div>
+                <button class="btn primary" id="applyFilters"><i class="fa-solid fa-filter"></i>筛选</button>
+            </div>
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fa-solid fa-cube"></i>总格位数</div>
+                    <div class="stat-value" id="statTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fa-solid fa-arrow-trend-up"></i>已占用</div>
+                    <div class="stat-value green" id="statOccupied">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label"><i class="fa-solid fa-arrow-trend-down"></i>空闲</div>
+                    <div class="stat-value orange" id="statFree">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">总体占用率</div>
+                    <div class="stat-value" id="statRate">0%</div>
+                    <div class="progress" id="statRateBar"><span></span></div>
+                </div>
+            </div>
+            <div class="cabinet-grid" id="cabinetBoard"></div>
+        </main>
+    </div>
+</div>
+
+<div class="modal" id="locationModal">
+    <div class="modal-card">
+        <div class="modal-head">
+            <h3 class="modal-title" id="locationModalTitle">新增位置</h3>
+            <button class="btn icon" data-close="locationModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form id="locationForm" class="form-grid">
+                <input id="locId" type="hidden">
+                <input id="locType" type="hidden">
+                <input id="locParentId" type="hidden">
+                <div class="field"><label>位置类型</label><input id="locTypeText" type="text" disabled></div>
+                <div class="field"><label>父级位置</label><input id="locParentText" type="text" disabled></div>
+                <div class="field"><label>库位编号</label><input id="locCode" type="text" placeholder="例如 A-01-03"></div>
+                <div class="field"><label>库位名称</label><input id="locName" type="text" placeholder="例如 A柜 / 1层 / 03格"></div>
+                <div class="field" id="areaField"><label>区域</label><input id="locArea" type="text" placeholder="例如 样品室A区"></div>
+                <div class="field"><label>排序号</label><input id="locSort" type="number" value="0"></div>
+                <div class="field" id="capacityField"><label>最大容量</label><input id="locCapacity" type="number" min="1" value="1"></div>
+                <div class="field"><label>状态</label><select id="locStatus"><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
+                <div class="field wide"><label>备注</label><textarea id="locRemark"></textarea></div>
+            </form>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" data-close="locationModal">取消</button>
+            <button class="btn primary" id="saveLocationBtn"><i class="fa-solid fa-floppy-disk"></i>保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "/api/procurement/yangban";
+const typeText = { Gui: "柜", Ceng: "层", Ge: "格" };
+const statusText = { ZhengChang: "正常", TingYong: "停用" };
+const state = {
+    tree: [],
+    boardTree: [],
+    expanded: new Set(),
+    nodes: new Map(),
+    counts: { gui: 0, ceng: 0, ge: 0 },
+    loadedOnce: false
+};
+
+function esc(value) {
+    return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+function setValue(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = value == null ? "" : value;
+}
+function toast(message, type) {
+    const box = document.getElementById("toast");
+    box.textContent = message || "";
+    box.className = "toast show " + (type || "");
+    clearTimeout(box._timer);
+    box._timer = setTimeout(() => { box.className = "toast"; }, 2400);
+}
+async function apiJson(url, options) {
+    const resp = await fetch(url, options || {});
+    const data = await resp.json();
+    if (!resp.ok || !data.success) throw new Error(data.message || "请求失败");
+    return data.data || data;
+}
+async function apiSend(url, method, payload) {
+    const resp = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: payload ? JSON.stringify(payload) : undefined
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) throw new Error(data.message || "请求失败");
+    return data;
+}
+function rateClass(rate) {
+    const value = Number(rate || 0);
+    if (value >= 100) return "red";
+    if (value >= 80) return "orange";
+    return "blue";
+}
+function progressClass(rate) {
+    const cls = rateClass(rate);
+    return cls === "red" ? "red" : (cls === "orange" ? "orange" : "");
+}
+function ratePill(rate) {
+    const cls = rateClass(rate);
+    return `<span class="pill rate-${cls}">${Math.round(Number(rate || 0))}%</span>`;
+}
+function statusPill(status) {
+    return `<span class="pill ${status === "ZhengChang" ? "status-ok" : "status-off"}">${esc(statusText[status] || status || "-")}</span>`;
+}
+function iconFor(type) {
+    if (type === "Gui") return "fa-solid fa-archive";
+    if (type === "Ceng") return "fa-solid fa-layer-group";
+    return "fa-solid fa-cube";
+}
+function walk(nodes, fn) {
+    (nodes || []).forEach(node => {
+        fn(node);
+        walk(node.children || [], fn);
+    });
+}
+function rebuildNodeMap() {
+    state.nodes = new Map();
+    walk(state.tree, node => state.nodes.set(String(node.Id), node));
+}
+function findNode(id) {
+    return state.nodes.get(String(id));
+}
+function fillSelect(id, values, firstText) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = el.value;
+    el.innerHTML = `<option value="">${esc(firstText)}</option>` + (values || []).map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    if ([...el.options].some(o => o.value === current)) el.value = current;
+}
+function filterParams() {
+    const params = new URLSearchParams();
+    const map = [["quyu", "filterArea"], ["gui", "filterCabinet"], ["zhuangtai", "filterStatus"], ["occupancy", "filterOccupancy"]];
+    map.forEach(([key, id]) => {
+        const val = (document.getElementById(id)?.value || "").trim();
+        if (val) params.set(key, val);
+    });
+    return params;
+}
+async function loadLocations() {
+    try {
+        const data = await apiJson(API + "/locations/tree?" + filterParams().toString());
+        state.tree = data.tree || [];
+        state.boardTree = data.board_tree || [];
+        state.counts = data.counts || { gui: 0, ceng: 0, ge: 0 };
+        rebuildNodeMap();
+        if (!state.loadedOnce) {
+            walk(state.tree, node => {
+                if (node.WeiZhiLeiXing !== "Ge") state.expanded.add(String(node.Id));
+            });
+            state.loadedOnce = true;
+        }
+        fillSelect("filterArea", data.areas || [], "全部区域");
+        renderTree(state.counts);
+        renderBoard(data.stats || {});
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+function renderTree(counts) {
+    document.getElementById("treeCountText").textContent = `${counts.gui || 0}柜 · ${counts.ceng || 0}层 · ${counts.ge || 0}格`;
+    const wrap = document.getElementById("locationTree");
+    if (!state.tree.length) {
+        wrap.innerHTML = '<div class="empty">暂无位置结构</div>';
+        return;
+    }
+    wrap.innerHTML = state.tree.map(node => renderNode(node)).join("");
+}
+function renderNode(node) {
+    const hasChildren = (node.children || []).length > 0;
+    const expanded = state.expanded.has(String(node.Id));
+    const indentChildren = hasChildren && expanded ? `<div class="children">${node.children.map(child => renderNode(child)).join("")}</div>` : "";
+    const actionAdd = node.WeiZhiLeiXing === "Gui"
+        ? `<button title="新增层" data-action="add-ceng" data-id="${node.Id}"><i class="fa-solid fa-plus"></i></button>`
+        : (node.WeiZhiLeiXing === "Ceng" ? `<button title="新增格" data-action="add-ge" data-id="${node.Id}"><i class="fa-solid fa-plus"></i></button>` : "");
+    return `<div class="tree-node">
+        <div class="node-row ${node.WeiZhiLeiXing === "Gui" ? "gui" : ""}">
+            <button class="toggle" data-action="toggle" data-id="${node.Id}">${hasChildren ? `<i class="fa-solid fa-chevron-${expanded ? "down" : "right"}"></i>` : ""}</button>
+            <div class="node-icon"><i class="${iconFor(node.WeiZhiLeiXing)}"></i></div>
+            <div class="node-main">
+                <div class="node-name">${esc(node.KuWeiMingCheng || node.KuWeiBianHao)}</div>
+                <div class="node-code">${esc(node.KuWeiBianHao || "")} · ${esc(typeText[node.WeiZhiLeiXing] || "")} · ${statusText[node.ZhuangTai] || node.ZhuangTai || ""}</div>
+            </div>
+            <div class="node-actions">
+                ${actionAdd}
+                <button title="编辑" data-action="edit" data-id="${node.Id}"><i class="fa-regular fa-pen-to-square"></i></button>
+                <button title="停用" data-action="disable" data-id="${node.Id}"><i class="fa-solid fa-ban"></i></button>
+                <button title="删除" data-action="delete" data-id="${node.Id}"><i class="fa-regular fa-trash-can"></i></button>
+            </div>
+        </div>
+        ${indentChildren}
+    </div>`;
+}
+function renderBoard(stats) {
+    document.getElementById("statTotal").textContent = stats.total_ge || 0;
+    document.getElementById("statOccupied").textContent = stats.occupied_ge || 0;
+    document.getElementById("statFree").textContent = stats.free_ge || 0;
+    document.getElementById("statRate").textContent = `${Math.round(Number(stats.rate || 0))}%`;
+    const rateBar = document.getElementById("statRateBar");
+    rateBar.className = "progress " + progressClass(stats.rate);
+    rateBar.querySelector("span").style.width = `${Math.min(Number(stats.rate || 0), 100)}%`;
+
+    const wrap = document.getElementById("cabinetBoard");
+    if (!state.boardTree.length) {
+        wrap.innerHTML = '<div class="panel empty" style="grid-column:1/-1;">暂无匹配柜位</div>';
+        return;
+    }
+    wrap.innerHTML = state.boardTree.map(gui => renderCabinetCard(gui)).join("");
+}
+function renderCabinetCard(gui) {
+    const occ = gui.occupancy || {};
+    const layers = (gui.children || []).filter(child => child.WeiZhiLeiXing === "Ceng");
+    return `<article class="cabinet-card">
+        <div class="cabinet-card-head">
+            <div class="cabinet-name">${esc(gui.KuWeiMingCheng || gui.KuWeiBianHao)}</div>
+            ${ratePill(occ.rate)}
+        </div>
+        <div class="cabinet-body">
+            ${layers.length ? layers.map(layer => renderLayerLine(layer)).join("") : '<div class="empty">暂无层/格</div>'}
+        </div>
+    </article>`;
+}
+function renderLayerLine(layer) {
+    const occ = layer.occupancy || {};
+    const total = Number(occ.total_ge || 0);
+    const occupied = Number(occ.occupied_ge || 0);
+    const free = Number(occ.free_ge || 0);
+    const rate = Number(occ.rate || 0);
+    return `<div class="layer-line">
+        <div class="layer-name">${esc(layer.KuWeiMingCheng || layer.KuWeiBianHao)}</div>
+        <div class="progress ${progressClass(rate)}"><span style="width:${Math.min(rate, 100)}%"></span></div>
+        <div class="layer-count">${occupied}/${total}</div>
+        <div class="layer-free">${free}空</div>
+    </div>`;
+}
+function openModal(id) { document.getElementById(id).classList.add("show"); }
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+function configureModalForType(type) {
+    document.getElementById("areaField").style.display = type === "Gui" ? "" : "none";
+    document.getElementById("capacityField").style.display = type === "Ge" ? "" : "none";
+    setValue("locTypeText", typeText[type] || type);
+    if (type === "Ge" && !document.getElementById("locCapacity").value) setValue("locCapacity", 1);
+}
+function openCreate(type, parent) {
+    document.getElementById("locationForm").reset();
+    setValue("locId", "");
+    setValue("locType", type);
+    setValue("locParentId", parent ? parent.Id : "");
+    setValue("locParentText", parent ? `${parent.KuWeiMingCheng || parent.KuWeiBianHao}` : "无");
+    setValue("locStatus", "ZhengChang");
+    setValue("locSort", 0);
+    setValue("locCapacity", type === "Ge" ? 1 : 0);
+    setValue("locArea", parent ? (parent.QuYu || "") : "");
+    document.getElementById("locationModalTitle").textContent = `新增${typeText[type] || ""}`;
+    configureModalForType(type);
+    openModal("locationModal");
+}
+function openEdit(node) {
+    if (!node) return;
+    setValue("locId", node.Id);
+    setValue("locType", node.WeiZhiLeiXing);
+    setValue("locParentId", node.FuJiId || "");
+    const parent = node.FuJiId ? findNode(node.FuJiId) : null;
+    setValue("locParentText", parent ? `${parent.KuWeiMingCheng || parent.KuWeiBianHao}` : "无");
+    setValue("locCode", node.KuWeiBianHao);
+    setValue("locName", node.KuWeiMingCheng);
+    setValue("locArea", node.QuYu);
+    setValue("locSort", node.PaiXuHao || 0);
+    setValue("locCapacity", node.ZuiDaRongLiang || (node.WeiZhiLeiXing === "Ge" ? 1 : 0));
+    setValue("locStatus", node.ZhuangTai || "ZhengChang");
+    setValue("locRemark", node.BeiZhu);
+    document.getElementById("locationModalTitle").textContent = `编辑${typeText[node.WeiZhiLeiXing] || ""}`;
+    configureModalForType(node.WeiZhiLeiXing);
+    openModal("locationModal");
+}
+function locationPayload() {
+    return {
+        KuWeiBianHao: document.getElementById("locCode").value,
+        KuWeiMingCheng: document.getElementById("locName").value,
+        QuYu: document.getElementById("locArea").value,
+        ZhuangTai: document.getElementById("locStatus").value,
+        BeiZhu: document.getElementById("locRemark").value,
+        FuJiId: document.getElementById("locParentId").value,
+        WeiZhiLeiXing: document.getElementById("locType").value,
+        PaiXuHao: document.getElementById("locSort").value || 0,
+        ZuiDaRongLiang: document.getElementById("locCapacity").value || 0
+    };
+}
+async function saveLocation() {
+    const id = document.getElementById("locId").value;
+    try {
+        await apiSend(API + "/locations" + (id ? "/" + id : ""), id ? "PUT" : "POST", locationPayload());
+        closeModal("locationModal");
+        toast("保存成功", "success");
+        await loadLocations();
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+async function disableLocation(id) {
+    if (!confirm("确认停用该位置？停用后不允许继续分配新样板。")) return;
+    try {
+        await apiSend(API + "/locations/" + id + "/disable", "POST", {});
+        toast("已停用", "success");
+        await loadLocations();
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+async function deleteLocation(id) {
+    if (!confirm("确认删除该位置？已有下级或被样板使用的格位不能删除。")) return;
+    try {
+        await apiSend(API + "/locations/" + id, "DELETE");
+        toast("已删除", "success");
+        await loadLocations();
+    } catch (e) {
+        toast(e.message, "error");
+    }
+}
+function bindEvents() {
+    document.getElementById("refreshBtn").addEventListener("click", loadLocations);
+    document.getElementById("applyFilters").addEventListener("click", loadLocations);
+    document.getElementById("filterCabinet").addEventListener("keydown", e => { if (e.key === "Enter") loadLocations(); });
+    document.getElementById("newCabinetBtn").addEventListener("click", () => openCreate("Gui", null));
+    document.getElementById("saveLocationBtn").addEventListener("click", saveLocation);
+    document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", () => closeModal(btn.dataset.close)));
+    document.querySelectorAll(".modal").forEach(modal => modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); }));
+    document.getElementById("locationTree").addEventListener("click", e => {
+        const btn = e.target.closest("[data-action]");
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const node = findNode(btn.dataset.id);
+        if (action === "toggle") {
+            const key = String(btn.dataset.id);
+            if (state.expanded.has(key)) state.expanded.delete(key); else state.expanded.add(key);
+            renderTree(state.counts);
+            return;
+        }
+        if (action === "add-ceng") openCreate("Ceng", node);
+        if (action === "add-ge") openCreate("Ge", node);
+        if (action === "edit") openEdit(node);
+        if (action === "disable") disableLocation(btn.dataset.id);
+        if (action === "delete") deleteLocation(btn.dataset.id);
+    });
+}
+document.addEventListener("DOMContentLoaded", () => {
+    bindEvents();
+    loadLocations();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>正在启动小哈 - 图创AI系统</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f7f9fc;
+            color: #111827;
+        }
+        .launch-panel {
+            width: min(420px, calc(100vw - 32px));
+            background: #fff;
+            border: 1px solid #edf1f7;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .spinner {
+            width: 30px;
+            height: 30px;
+            margin: 0 auto 16px;
+            border: 3px solid #dbeafe;
+            border-top-color: #5b7cff;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        h1 {
+            margin: 0 0 10px;
+            font-size: 20px;
+            line-height: 1.3;
+        }
+        .status {
+            min-height: 22px;
+            margin: 0 0 18px;
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            border: 1px solid #c7d2fe;
+            border-radius: 8px;
+            padding: 8px 14px;
+            background: #eef2ff;
+            color: #4338ca;
+            text-decoration: none;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .btn.secondary {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <main class="launch-panel">
+        <div class="spinner" id="spinner"></div>
+        <h1>正在启动小哈</h1>
+        <p class="status" id="status">首次打开可能需要几十秒，准备好后会自动进入。</p>
+        <div class="actions">
+            <button type="button" class="btn" id="retry-btn">立即重试</button>
+            <a class="btn secondary" href="{{ url_for('visual_design_dept') }}">返回</a>
+        </div>
+    </main>
+    <script>
+        (function () {
+            const targetUrl = {{ lashforge_url|tojson }};
+            const statusEl = document.getElementById('status');
+            const retryBtn = document.getElementById('retry-btn');
+            let attempts = 0;
+            let stopped = false;
+
+            function setStatus(text) {
+                if (statusEl) statusEl.textContent = text;
+            }
+
+            async function checkReady() {
+                if (stopped) return;
+                attempts += 1;
+                try {
+                    const response = await fetch('{{ url_for('visual_design_image_tool_status') }}?_ts=' + Date.now(), {
+                        cache: 'no-store',
+                        credentials: 'same-origin'
+                    });
+                    const data = await response.json();
+                    if (data && data.ready) {
+                        setStatus('小哈已就绪，正在进入...');
+                        stopped = true;
+                        window.location.replace(targetUrl);
+                        return;
+                    }
+                } catch (error) {}
+
+                if (attempts < 30) {
+                    setStatus('小哈仍在启动中，已等待 ' + (attempts * 2) + ' 秒...');
+                    window.setTimeout(checkReady, 2000);
+                } else {
+                    setStatus('小哈启动较慢，请点击立即重试，或联系管理员确认服务器上的“启动小哈”已运行。');
+                }
+            }
+
+            retryBtn.addEventListener('click', function () {
+                attempts = 0;
+                stopped = false;
+                setStatus('正在重新检查小哈状态...');
+                checkReady();
+            });
+
+            checkReady();
+        })();
+    </script>
+</body>
+</html>

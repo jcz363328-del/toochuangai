@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block title %}积分 - 团队创新奖励管理系统{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3><i class="bi bi-star-fill"></i> 积分中心</h3>
+            <div>
+<!--                <button class="btn btn-outline-success me-2" onclick="updateUserPointsSummary()">-->
+<!--                    <i class="bi bi-calculator"></i> 更新积分统计-->
+<!--                </button>-->
+                <button class="btn btn-outline-primary" onclick="loadUserPoints()">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 积分概览 -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center h-100 border-primary">
+            <div class="card-body">
+                <i class="bi bi-wallet2 display-4 text-primary"></i>
+                <h2 class="text-primary mt-2" id="current-points">-</h2>
+                <p class="card-text">当前积分</p>
+                <small class="text-muted">可用于兑换奖品</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100 border-warning">
+            <div class="card-body">
+                <i class="bi bi-trophy display-4 text-warning"></i>
+                <h2 class="text-warning mt-2" id="annual-points">-</h2>
+                <p class="card-text">年度积分累计</p>
+                <small class="text-muted" id="current-year">2025年总获得积分</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100 border-success">
+            <div class="card-body">
+                <i class="bi bi-graph-up display-4 text-success"></i>
+                <h2 class="text-success mt-2" id="total-earned">-</h2>
+                <p class="card-text">历史总获得</p>
+                <small class="text-muted">累计获得的所有积分</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 当前用户信息 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="fw-semibold">当前登录用户：<span id="currentUserName"></span></div>
+                        <small class="text-muted">积分已自动按当前飞书账号加载</small>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-muted small">
+                            <i class="bi bi-info-circle"></i>
+                            积分来源：创新项目评分获得，可用于兑换下方奖品
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 奖品展示区域 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-gift"></i> 积分商城</h5>
+                <small class="text-muted">按积分从低到高排序</small>
+            </div>
+            <div class="card-body">
+                <div id="rewardsList" class="row">
+                    <!-- 动态加载奖品 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 积分记录 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> 积分记录</h5>
+            </div>
+            <div class="card-body">
+                <div id="pointRecords">
+                    <!-- 动态加载积分记录 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LOGGED_IN_USER = {{ (feishu_user_name or '') | tojson }};
+let currentUser = LOGGED_IN_USER;
+let userPoints = 0;
+let allRewards = [];
+
+// 页面加载时设置当前年份
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('current-year').textContent = new Date().getFullYear() + '年总获得积分';
+    document.getElementById('currentUserName').textContent = currentUser || '未登录';
+    loadRewards();
+    loadUserPoints();
+});
+
+// 加载用户积分信息
+// 加载用户积分信息
+function loadUserPoints() {
+    if (!currentUser) {
+        showToast('未获取到飞书登录用户，请重新登录后重试', 'warning');
+        return;
+    }
+
+    const apiUrl = `/innovation/api/get_user_points`;
+    console.log('[DEBUG] 请求URL:', apiUrl);
+
+    axios.get(apiUrl)
+        .then(response => {
+            console.log('[DEBUG] get_user_points API 响应:', response);
+            console.log('[DEBUG] 响应数据:', response.data);
+
+            if (response.data.success) {
+                console.log('[DEBUG] API 调用成功');
+                const data = response.data.data;
+                console.log('[DEBUG] 积分数据:', data);
+
+                userPoints = data.current_points;
+                console.log('[DEBUG] 设置用户积分:', userPoints);
+
+                document.getElementById('current-points').textContent = data.current_points;
+                document.getElementById('annual-points').textContent = data.annual_points;
+                document.getElementById('total-earned').textContent = data.total_earned_points;
+
+                console.log('[DEBUG] 页面积分显示已更新');
+
+                loadPointRecords();
+                updateRewardButtons();
+            } else {
+                console.error('[ERROR] API 返回失败:', response.data.message);
+                showToast('获取积分信息失败: ' + response.data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('[ERROR] 获取积分信息失败 - 网络错误:', error);
+            console.error('[ERROR] 错误详情:', {
+                message: error.message,
+                response: error.response,
+                request: error.request,
+                config: error.config
+            });
+
+            if (error.response) {
+                console.error('[ERROR] 服务器响应错误:', error.response.status, error.response.data);
+                showToast(`获取积分信息失败: 服务器错误 ${error.response.status}`, 'error');
+            } else if (error.request) {
+                console.error('[ERROR] 请求未收到响应:', error.request);
+                showToast('获取积分信息失败: 网络连接问题', 'error');
+            } else {
+                console.error('[ERROR] 请求配置错误:', error.message);
+                showToast('获取积分信息失败，请重试', 'error');
+            }
+        });
+}
+function updateUserPointsSummary() {
+    if (!currentUser) {
+        InnovationApp.showMessage('未获取到当前飞书账号', 'warning');
+        return;
+    }
+
+    const updateBtn = event.target;
+    updateBtn.disabled = true;
+    updateBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 更新中...';
+
+    axios.post('/innovation/api/update_user_points_summary', {
+        user_name: currentUser
+    })
+    .then(response => {
+        if (response.data.success) {
+            InnovationApp.showMessage('积分统计更新成功！', 'success');
+            // 更新完成后重新加载积分信息
+            loadUserPoints();
+        } else {
+            InnovationApp.showMessage(response.data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('更新积分统计失败:', error);
+        InnovationApp.showMessage('更新积分统计失败，请重试', 'error');
+    })
+    .finally(() => {
+        updateBtn.disabled = false;
+        updateBtn.innerHTML = '<i class="bi bi-calculator"></i> 更新积分统计';
+    });
+}
+
+// 批量更新所有用户积分（管理员功能）
+function batchUpdateAllUsersPoints() {
+    if (!confirm('确定要批量更新所有用户的积分统计吗？这可能需要一些时间。')) {
+        return;
+    }
+
+    const updateBtn = event.target;
+    updateBtn.disabled = true;
+    updateBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 批量更新中...';
+
+    axios.post('/innovation/api/batch_update_all_users_points')
+    .then(response => {
+        if (response.data.success) {
+            InnovationApp.showMessage(`批量更新完成！共更新 ${response.data.updated_count} 个用户`, 'success');
+        } else {
+            InnovationApp.showMessage(response.data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('批量更新失败:', error);
+        InnovationApp.showMessage('批量更新失败，请重试', 'error');
+    })
+    .finally(() => {
+        updateBtn.disabled = false;
+        updateBtn.innerHTML = '<i class="bi bi-people"></i> 批量更新所有用户';
+    });
+}
+// 加载奖品列表
+// 加载奖品列表
+function loadRewards() {
+    console.log('[DEBUG] 开始加载奖品列表');
+
+    axios.get('/innovation/api/get_rewards')
+        .then(response => {
+            console.log('[DEBUG] get_rewards API 响应:', response);
+            console.log('[DEBUG] 响应数据:', response.data);
+
+            if (response.data.success) {
+                console.log('[DEBUG] API 调用成功');
+                allRewards = response.data.data.rewards;
+                console.log('[DEBUG] 获取到奖品数量:', allRewards.length);
+                console.log('[DEBUG] 奖品列表:', allRewards);
+                displayRewards(allRewards);
+            } else {
+                console.error('[ERROR] API 返回失败:', response.data.message);
+                showToast('加载奖品失败: ' + response.data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('[ERROR] 加载奖品失败 - 网络错误:', error);
+            console.error('[ERROR] 错误详情:', {
+                message: error.message,
+                response: error.response,
+                request: error.request,
+                config: error.config
+            });
+
+            if (error.response) {
+                console.error('[ERROR] 服务器响应错误:', error.response.status, error.response.data);
+                showToast(`加载奖品失败: 服务器错误 ${error.response.status}`, 'error');
+            } else if (error.request) {
+                console.error('[ERROR] 请求未收到响应:', error.request);
+                showToast('加载奖品失败: 网络连接问题', 'error');
+            } else {
+                console.error('[ERROR] 请求配置错误:', error.message);
+                showToast('加载奖品失败，请重试', 'error');
+            }
+        });
+}
+
+function displayRewards(rewards) {
+    const container = document.getElementById('rewardsList');
+
+    if (rewards.length === 0) {
+        container.innerHTML = '<div class="col-12"><p class="text-muted text-center">暂无奖品</p></div>';
+        return;
+    }
+
+    let html = '';
+    rewards.forEach(reward => {
+        const isAvailable = reward.stock !== 0;
+        const canAfford = userPoints >= reward.points_required;
+        const buttonClass = isAvailable && canAfford && currentUser ? 'btn-primary' : 'btn-outline-secondary';
+        const buttonText = !isAvailable ? '库存不足' : !canAfford ? '积分不足' : !currentUser ? '请先查询积分' : '立即兑换';
+        const buttonDisabled = !isAvailable || !canAfford || !currentUser;
+
+// 在displayRewards函数中修改图片路径处理
+let imageHtml = '';
+if (reward.image_path && reward.image_path.trim() !== '') {
+    // 处理不同的图片路径格式
+    let imagePath;
+    if (reward.image_path.startsWith('/')) {
+        imagePath = reward.image_path;
+    } else if (reward.image_path.startsWith('rewards/')) {
+        // 如果是rewards/开头，使用uploads路由
+        imagePath = `/uploads/${reward.image_path}`;
+    } else {
+        // 如果是纯文件名，尝试static/rewards路由
+        imagePath = `/static/rewards/${reward.image_path}`;
+    }
+
+    imageHtml = `
+        <div class="reward-image-container mb-2" style="height: 120px; overflow: hidden; border-radius: 8px;">
+            <img src="${imagePath}"
+                 alt="${reward.name}"
+                 class="img-fluid w-100 h-100"
+                 style="object-fit: cover;"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div class="text-center" style="display: none; padding: 40px 0;">
+                <i class="bi bi-gift display-4 text-primary"></i>
+            </div>
+        </div>
+    `;
+} else {
+    imageHtml = `
+        <div class="text-center mb-2" style="padding: 40px 0;">
+            <i class="bi bi-gift display-4 text-primary"></i>
+        </div>
+    `;
+}
+
+        html += `
+            <div class="col-md-4 col-lg-3 mb-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        ${imageHtml}
+                        <h6 class="card-title">${reward.name}</h6>
+                        <p class="card-text small text-muted">${reward.description || ''}</p>
+                        <div class="mb-2">
+                            <span class="badge bg-warning text-dark fs-6">${reward.points_required} 积分</span>
+                        </div>
+                        ${reward.stock > 0 ? `<small class="text-muted">库存：${reward.stock}</small>` : ''}
+                        ${reward.stock === -1 ? '<small class="text-muted">无限库存</small>' : ''}
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn ${buttonClass} btn-sm w-100"
+                                onclick="directExchange(${reward.id})"
+                                ${buttonDisabled ? 'disabled' : ''}>
+                            ${buttonText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+// 更新兑换按钮状态
+function updateRewardButtons() {
+    displayRewards(allRewards);
+}
+
+// 直接兑换
+function directExchange(rewardId) {
+    const reward = allRewards.find(r => r.id === rewardId);
+    if (!reward || !currentUser) return;
+
+    if (userPoints < reward.points_required) {
+        showToast('积分不足，无法兑换', 'warning');
+        return;
+    }
+
+    if (reward.stock === 0) {
+        showToast('商品库存不足', 'warning');
+        return;
+    }
+
+    if (confirm(`确认兑换「${reward.name}」吗？\n需要消耗 ${reward.points_required} 积分`)) {
+        const data = {
+            reward_id: rewardId
+        };
+
+        axios.post('/innovation/api/exchange_reward', data)
+            .then(response => {
+                if (response.data.success) {
+                    showToast('兑换成功！人力部门将收到通知并安排发放。', 'success');
+                    loadUserPoints(); // 刷新积分
+                    loadRewards(); // 刷新奖品库存
+                } else {
+                    showToast('兑换失败: ' + response.data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('兑换失败:', error);
+                if (error.response && error.response.data && error.response.data.message) {
+                    showToast('兑换失败: ' + error.response.data.message, 'error');
+                } else {
+                    showToast('兑换失败，请重试', 'error');
+                }
+            });
+    }
+}
+
+// 加载积分记录
+function loadPointRecords() {
+    axios.get('/innovation/api/get_point_records')
+        .then(response => {
+            if (response.data.success) {
+                displayPointRecords(response.data.data.records);
+            } else {
+                document.getElementById('pointRecords').innerHTML = '<p class="text-muted">暂无积分记录</p>';
+            }
+        })
+        .catch(error => {
+            console.error('加载积分记录失败:', error);
+            document.getElementById('pointRecords').innerHTML = '<p class="text-muted">加载失败</p>';
+        });
+}
+
+// 显示积分记录
+// 显示积分记录
+function displayPointRecords(records) {
+    const container = document.getElementById('pointRecords');
+
+    if (records.length === 0) {
+        container.innerHTML = '<p class="text-muted">暂无积分记录</p>';
+        return;
+    }
+
+    let html = `
+        <div class="mb-3">
+            <h6>积分记录统计</h6>
+            <div class="row text-center">
+                <div class="col-3">
+                    <div class="card border-success">
+                        <div class="card-body py-2">
+                            <small class="text-muted">累计获得</small>
+                            <div class="h6 text-success mb-0" id="stats-earned">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="card border-danger">
+                        <div class="card-body py-2">
+                            <small class="text-muted">累计消费</small>
+                            <div class="h6 text-danger mb-0" id="stats-spent">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="card border-info">
+                        <div class="card-body py-2">
+                            <small class="text-muted">获得次数</small>
+                            <div class="h6 text-info mb-0" id="stats-earn-count">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="card border-warning">
+                        <div class="card-body py-2">
+                            <small class="text-muted">消费次数</small>
+                            <div class="h6 text-warning mb-0" id="stats-spend-count">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th width="20%">时间</th>
+                        <th width="15%">类型</th>
+                        <th width="15%">积分</th>
+                        <th width="20%">来源</th>
+                        <th width="30%">说明</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+    records.forEach(record => {
+        const formattedTime = new Date(record.record_time).toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        const typeClass = record.points > 0 ? 'text-success' : 'text-danger';
+        const typeBadge = record.points > 0 ?
+            '<span class="badge bg-success">📈 获得</span>' :
+            '<span class="badge bg-danger">📉 消费</span>';
+
+        html += `
+            <tr>
+                <td><small class="text-muted">${formattedTime}</small></td>
+                <td>${typeBadge}</td>
+                <td><span class="fw-bold ${typeClass}">${record.formatted_points}</span></td>
+                <td><small class="text-muted">${record.source}</small></td>
+                <td><small>${record.description}</small></td>
+            </tr>`;
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// 加载积分记录
+function loadPointRecords() {
+    axios.get('/innovation/api/get_point_records')
+        .then(response => {
+            if (response.data.success) {
+                const data = response.data.data;
+                displayPointRecords(data.records);
+
+                // 更新统计信息
+                if (data.stats) {
+                    document.getElementById('stats-earned').textContent = data.stats.total_earned;
+                    document.getElementById('stats-spent').textContent = data.stats.total_spent;
+                    document.getElementById('stats-earn-count').textContent = data.stats.earn_count;
+                    document.getElementById('stats-spend-count').textContent = data.stats.spend_count;
+                }
+            } else {
+                document.getElementById('pointRecords').innerHTML = '<p class="text-muted">暂无积分记录</p>';
+            }
+        })
+        .catch(error => {
+            console.error('加载积分记录失败:', error);
+            document.getElementById('pointRecords').innerHTML = '<p class="text-muted">加载失败</p>';
+        });
+}
+
+// 显示提示消息
+// 显示提示消息
+function showToast(message, type = 'info') {
+    console.log(`[${type.toUpperCase()}] Toast消息:`, message);
+
+    // 创建一个更好的提示框，而不是简单的alert
+    const timestamp = new Date().toLocaleTimeString();
+    const fullMessage = `[${timestamp}] ${message}`;
+
+    // 如果是错误类型，显示更详细的信息
+    if (type === 'error') {
+        console.error('[ERROR] 详细错误信息:', fullMessage);
+    }
+
+    alert(fullMessage);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,104 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图创AI主控制台（移动版）</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f4f8ff; color: #1f2937; }
+        .top { background: #0d6efd; color: #fff; padding: 12px; font-weight: 700; }
+        .wrap { max-width: 680px; margin: 0 auto; padding: 10px; }
+        .hero { background: #fff; border: 1px solid #dce8f7; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+        .hero .title { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+        .hero .sub { font-size: 13px; color: #64748b; }
+        .actions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .card {
+            background: #fff; border: 1px solid #dce8f7; border-radius: 12px; padding: 12px;
+            display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit;
+        }
+        .card.disabled { opacity: 0.55; }
+        .ico { width: 32px; text-align: center; color: #0d6efd; }
+        .name { font-weight: 700; }
+        .desc { font-size: 12px; color: #6b7280; margin-top: 2px; }
+        .footer { margin-top: 12px; text-align: center; }
+        .btn { display: inline-block; padding: 8px 12px; border: 1px solid #b8c9e6; border-radius: 8px; color: #1f2937; text-decoration: none; background: #fff; }
+        .rebind-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #c7d2fe;
+            background: #eef2ff;
+            color: #312e81;
+            text-decoration: none;
+        }
+        .rebind-card .title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .rebind-card .desc {
+            font-size: 12px;
+            color: #4c51bf;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="top"><i class="fa-solid fa-compass"></i> 图创AI主控制台（移动版）</div>
+    <div class="wrap">
+        <div class="hero">
+            <div class="title">你好，{{ user_name or '用户' }}</div>
+            <div class="sub">为手机端优化的主控制台入口页，点击下方功能卡片进入。</div>
+        </div>
+        {% if permission_debug_departments or permission_debug_user_name %}
+        <div class="hero" style="background:#fff7ed; border-color:#fdba74; padding:10px 12px;">
+            <div style="font-size:13px; color:#9a3412; line-height:1.5; margin-bottom:8px;">
+                <i class="fa-solid fa-user-shield"></i>
+                {% if permission_debug_user_name %}
+                当前为模拟用户：{{ permission_debug_user_name }}{% if permission_debug_departments %}（{{ permission_debug_departments | join('、') }}）{% endif %}
+                {% else %}
+                当前为模拟身份：{{ permission_debug_departments | join('、') }}
+                {% endif %}
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <a class="btn" href="{{ url_for('ai_modules') }}" style="border-color:#fdba74; color:#7c2d12;">去权限切换页</a>
+                <a class="btn" href="{{ url_for('permission_debug_clear') }}?mobile=1" style="border-color:#ea580c; background:#ea580c; color:#fff;">恢复真实身份</a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if user_id %}
+        <a class="rebind-card" href="{{ url_for('reauth') }}">
+            <div>
+                <div class="title"><i class="fa-solid fa-rotate-right"></i> 重新绑定身份</div>
+                <div class="desc">当前用户名不对时，点击重新授权并绑定当前飞书身份</div>
+            </div>
+            <i class="fa-solid fa-angle-right"></i>
+        </a>
+        {% endif %}
+
+        <div class="actions">
+            {% for c in mobile_cards %}
+                {% if c.href %}
+                <a class="card" href="{{ c.href }}">
+                    <div class="ico"><i class="{{ c.icon }}"></i></div>
+                    <div>
+                        <div class="name">{{ c.name }}</div>
+                        <div class="desc">点击进入</div>
+                    </div>
+                </a>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="footer">
+            <a class="btn" href="{{ url_for('dashboard') }}?desktop=1">切换电脑版</a>
+        </div>
+    </div>
+</body>
+</html>

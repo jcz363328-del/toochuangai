@@ -1,0 +1,791 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ dept_name }}功能 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f7f9fc;
+            color: #111827;
+        }
+        .page {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 24px 32px 32px;
+        }
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .title i { color: #5b7cff; }
+        .back-btn {
+            min-width: 78px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #4b5563;
+            text-decoration: none;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .panel {
+            background: #fff;
+            border: 1px solid #edf1f7;
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .panel-hd {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .panel-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-title i { color: #5b7cff; font-size: 15px; }
+        .panel-sub { color: #94a3b8; font-size: 13px; }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .dept-feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid #edf1f7;
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 12px;
+        }
+        .dept-feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            border-color: #dbe4ff;
+        }
+        .dept-feature-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-size: 16px;
+            color: white;
+        }
+        .dept-feature-card h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+            text-align: left !important;
+        }
+        .dept-feature-card p {
+            margin: 0;
+            font-size: 13px;
+            color: #8a8f98 !important;
+            line-height: 1.35;
+            text-align: left !important;
+        }
+        .dept-feature-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 12px;
+            transition: transform .2s ease, box-shadow .2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .dept-feature-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+        .footer {
+            text-align: center;
+            color: #c3cad8;
+            padding: 20px 0 8px;
+            font-size: 12px;
+        }
+        /* 紧凑风格：模仿TK项目组页 */
+        body.is-compact .page { padding: 16px 24px 20px; }
+        body.is-compact .page-head { margin-bottom: 8px; }
+        body.is-compact .title { font-size: 20px; }
+        body.is-compact .panel { padding: 12px; margin-bottom: 12px; }
+        body.is-compact .panel-hd { margin-bottom: 10px; }
+        body.is-compact .panel-title { font-size: 16px; }
+        body.is-compact .panel-sub, body.is-compact .back-btn { font-size: 12px; }
+        body.is-compact .feature-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        body.is-compact .dept-feature-card {
+            min-height: 86px;
+            border-radius: 12px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 24px minmax(0, 1fr);
+            column-gap: 10px;
+            row-gap: 2px;
+            align-content: center;
+        }
+        body.is-compact .dept-feature-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #eef2ff;
+            color: #5b7cff;
+            font-size: 11px;
+            grid-column: 1;
+            grid-row: 1 / span 2;
+            align-self: start;
+        }
+        body.is-compact .dept-feature-card h3 {
+            font-size: 13px;
+            line-height: 1.2;
+            grid-column: 2;
+            grid-row: 1;
+        }
+        body.is-compact .dept-feature-card p {
+            font-size: 11px;
+            line-height: 1.2;
+            color: #8A8F98 !important;
+            grid-column: 2;
+            grid-row: 2;
+        }
+        body.is-compact .dept-feature-btn {
+            display: none;
+        }
+        body.is-compact .text-center {
+            text-align: left !important;
+        }
+        .ops-fba-panel {
+            margin-top: 12px;
+        }
+        .ops-fba-toolbar {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .ops-fba-controls {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .ops-fba-field {
+            display: grid;
+            gap: 5px;
+            min-width: 180px;
+        }
+        .ops-fba-field label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 700;
+        }
+        .ops-fba-select,
+        .ops-fba-btn {
+            height: 36px;
+            border: 1px solid #dbe3f0;
+            border-radius: 10px;
+            background: #fff;
+            color: #111827;
+            padding: 0 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .ops-fba-btn {
+            cursor: pointer;
+            color: #4f46e5;
+            border-color: #c7d2fe;
+        }
+        .ops-fba-btn:hover {
+            background: #eef2ff;
+        }
+        .ops-fba-meta {
+            color: #64748b;
+            font-size: 12px;
+            min-height: 18px;
+        }
+        .ops-fba-table-wrap {
+            border: 1px solid #e5edf7;
+            border-radius: 12px;
+            overflow: auto;
+            max-height: 640px;
+            background: #fff;
+        }
+        .ops-fba-table {
+            width: 100%;
+            min-width: 1080px;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+        }
+        .ops-fba-table th,
+        .ops-fba-table td {
+            border-bottom: 1px solid #eef2f7;
+            padding: 9px 10px;
+            text-align: left;
+            vertical-align: top;
+            white-space: nowrap;
+        }
+        .ops-fba-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 800;
+        }
+        .ops-fba-table td {
+            color: #475569;
+            max-width: 260px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ops-fba-table tr.is-warning td {
+            background: #fff1f2;
+            color: #991b1b;
+        }
+        .ops-fba-table td.is-warning-cell {
+            font-weight: 800;
+            color: #b91c1c;
+        }
+        .ops-fba-empty {
+            padding: 28px 12px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .ops-fba-pager {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 10px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .ops-fba-pager button {
+            height: 32px;
+            min-width: 72px;
+            border-radius: 9px;
+            border: 1px solid #dbe3f0;
+            background: #fff;
+            color: #475569;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .ops-fba-pager button:disabled {
+            cursor: not-allowed;
+            opacity: .45;
+        }
+        .ops-fba-legend {
+            margin-top: 8px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        @media (max-width: 1200px) {
+            .feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .ops-fba-table-wrap { max-height: 560px; }
+        }
+        @media (max-width: 768px) {
+            .page { padding: 24px 16px 32px; }
+            .title { font-size: 20px; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .ops-fba-field { min-width: 100%; }
+            .ops-fba-controls { width: 100%; }
+            .ops-fba-select, .ops-fba-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body class="{% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'visual_design_dept', 'procurement_dept'] %}is-compact{% endif %}">
+    <div class="page">
+        <div class="page-head">
+            <h1 class="title"><i class="fas fa-list-check"></i>{{ dept_name }}功能中心</h1>
+            <a class="back-btn" href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> 返回首页</a>
+        </div>
+        <div class="panel">
+            <div class="panel-hd">
+                <h2 class="panel-title"><i class="fa-regular fa-star"></i>常用功能</h2>
+                <span class="panel-sub">按权限显示可用入口</span>
+            </div>
+        <div class="feature-grid">
+            {% if dept_id == 'procurement_dept' %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-boxes-stacked"></i>
+                </div>
+                <h3 class="text-center mb-3">样板库存管理</h3>
+                <p class="text-muted text-center mb-4">样板资料、库存操作、流水查询和标签管理</p>
+                <div class="text-center">
+                    <a href="{{ url_for('yangban_inventory.page') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入系统
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% if dept_id == 'photography_dept' %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <h3 class="text-center mb-3">实时视频数据</h3>
+                <p class="text-muted text-center mb-4">按店铺/达人查看视频链接、标题、标签、时长、点赞/播放/评论/收藏/分享、抓取时间等数据</p>
+                <div class="text-center">
+                    <a href="{{ url_for('tk_video_realtime') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 立即使用
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            {% if dept_id not in ['general_office', 'visual_design_dept'] %}
+            <!-- 差评分析功能 -->
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="text-center mb-3">差评分析系统</h3>
+                <p class="text-muted text-center mb-4">专业的产品差评分析工具，帮助运营团队快速识别问题并制定改进策略</p>
+                <div class="text-center">
+                    <a href="{{ url_for('review_analysis.review_analysis') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 立即使用
+                    </a>
+                </div>
+            </div>
+
+            <!-- 模特排队功能 -->
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-list"></i>
+                </div>
+                <h3 class="text-center mb-3">模特排队</h3>
+                <p class="text-muted text-center mb-4">查看排队人数、上传/预览视频，支持排队与取消排队操作</p>
+                <div class="text-center">
+                    <a href="{{ url_for('model_management.queue') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入模特排队
+                    </a>
+                </div>
+            </div>
+
+            {% if dept_id == 'operation_dept_1' and can_view_tk_90 %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="text-center mb-3">90号店看板</h3>
+                <p class="text-muted text-center mb-4">仅查看 90 号店的整体经营数据</p>
+                <div class="text-center">
+                    <a href="{{ url_for('tk_dashboard.tk_dashboard_90_page') }}" class="dept-feature-btn">
+                        <i class="fas fa-chart-bar"></i> 进入90号店看板
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dept_id == 'operation_dept_6' and can_view_tk_82 %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="text-center mb-3">82号店看板</h3>
+                <p class="text-muted text-center mb-4">仅查看 82 号店的整体经营数据</p>
+                <div class="text-center">
+                    <a href="{{ url_for('tk_dashboard.tk_dashboard_82_page') }}" class="dept-feature-btn">
+                        <i class="fas fa-chart-bar"></i> 进入82号店看板
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% if dept_id in ['operation_dept_6', 'newcomer_group'] and can_view_tk_88 %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="text-center mb-3">88号店看板</h3>
+                <p class="text-muted text-center mb-4">仅查看 88 号店的整体经营数据</p>
+                <div class="text-center">
+                    <a href="{{ url_for('tk_dashboard.tk_dashboard_88_page') }}" class="dept-feature-btn">
+                        <i class="fas fa-chart-bar"></i> 进入88号店看板
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'newcomer_group'] %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-headset"></i>
+                </div>
+                <h3 class="text-center mb-3">客服</h3>
+                <p class="text-muted text-center mb-4">展示客服跟单信息，支持直接编辑并保存客服备注</p>
+                <div class="text-center">
+                    <a href="{{ url_for('tk_customer_service') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入客服
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6'] %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-ship"></i>
+                </div>
+                <h3 class="text-center mb-3">FBA货件运输方式</h3>
+                <p class="text-muted text-center mb-4">查看FBA货件运输方式，支持店铺筛选、导入时间排序和异常标红</p>
+                <div class="text-center">
+                    <a href="{{ url_for('operation_fba_shipping_methods_page', source=dept_id) }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入功能
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6'] %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-envelope-open-text"></i>
+                </div>
+                <h3 class="text-center mb-3">亚马逊站内信回复智能体</h3>
+                <p class="text-muted text-center mb-4">根据买家站内信生成合规英文回复，支持禁用词、敏感词和场景规则管理</p>
+                <div class="text-center">
+                    <a href="{{ url_for('amazon_reply_agent', source=dept_id) }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入智能体
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if dept_id == 'general_office' %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <h3 class="text-center mb-3">TK整体看板</h3>
+                <p class="text-muted text-center mb-4">查看TK项目整体经营数据与关键指标</p>
+                <div class="text-center">
+                    <a href="{{ url_for('tk_dashboard.tk_dashboard_page') }}" class="dept-feature-btn">
+                        <i class="fas fa-chart-bar"></i> 进入TK整体看板
+                    </a>
+                </div>
+            </div>
+
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-city"></i>
+                </div>
+                <h3 class="text-center mb-3">深圳看板</h3>
+                <p class="text-muted text-center mb-4">查看深圳团队月度收入、成本及利润等财务指标</p>
+                <div class="text-center">
+                    <a href="{{ url_for('finance_sz_dashboard') }}" class="dept-feature-btn">
+                        <i class="fas fa-chart-line"></i> 进入深圳看板
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dept_id == 'tech_dept' %}
+            <!-- 技术部：模特库管理 -->
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-archive"></i>
+                </div>
+                <h3 class="text-center mb-3">模特库管理</h3>
+                <p class="text-muted text-center mb-4">上传模特、编辑状态/国家/等级/备注，视频可直接预览播放</p>
+                <div class="text-center">
+                    <a href="{{ url_for('model_management.library') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入模特库
+                    </a>
+                </div>
+            </div>
+
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <h3 class="text-center mb-3">定时邮件</h3>
+                <p class="text-muted text-center mb-4">登记邮件、选择模板并设置指定时间发送</p>
+                <div class="text-center">
+                    <a href="{{ url_for('influencer_management.tk_email_register') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入定时邮件
+                    </a>
+                </div>
+            </div>
+
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-envelope-open-text"></i>
+                </div>
+                <h3 class="text-center mb-3">定时邮件_技术部</h3>
+                <p class="text-muted text-center mb-4">技术部专用：使用独立表登记邮件、管理模板并指定时间发送</p>
+                <div class="text-center">
+                    <a href="{{ url_for('influencer_management.tk_email_register_js') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入定时邮件_技术部
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dept_id == 'visual_design_dept' %}
+            <div class="dept-feature-card">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-image"></i>
+                </div>
+                <h3 class="text-center mb-3">小哈</h3>
+                <p class="text-muted text-center mb-4">进入小哈图片生成与处理系统，自动使用当前飞书用户名作为历史登记名称</p>
+                <div class="text-center">
+                    <a href="{{ url_for('visual_design_image_tool') }}" class="dept-feature-btn">
+                        <i class="fas fa-play"></i> 进入小哈
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if dept_id not in ['general_office', 'visual_design_dept'] %}
+            <!-- 更多功能即将推出 -->
+            <div class="dept-feature-card" style="opacity: 0.7;">
+                <div class="dept-feature-icon" style="background: #6c757d;">
+                    <i class="fas fa-cog"></i>
+                </div>
+                <h3 class="text-center mb-3">更多功能</h3>
+                <p class="text-muted text-center mb-4">更多{{ dept_name }}专属功能正在开发中，敬请期待...</p>
+                <div class="text-center">
+                    <button class="dept-feature-btn" style="background: #6c757d; cursor: not-allowed;" disabled>
+                        <i class="fas fa-clock"></i> 即将推出
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+        </div>
+        <footer class="footer">© 2025 图创AI系统 - {{ dept_name }}功能中心</footer>
+    </div>
+    <script>
+        function _logMenuClick(menu, href) {
+            const payload = JSON.stringify({ menu: menu || '', href: href || '' });
+            try {
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([payload], { type: 'application/json' });
+                    navigator.sendBeacon('/api/menu_click', blob);
+                    return;
+                }
+            } catch (e) {}
+            try {
+                fetch('/api/menu_click', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                    keepalive: true
+                }).catch(() => {});
+            } catch (e) {}
+        }
+
+        const opsFbaState = {
+            page: 1,
+            totalPages: 1,
+            loading: false
+        };
+
+        function opsFbaEscape(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function opsFbaLoadShops() {
+            const select = document.getElementById('opsFbaDian');
+            if (!select) return;
+            try {
+                const resp = await fetch('/api/operation/fba_shipping_methods/shops');
+                const data = await resp.json();
+                if (!data.success) return;
+                const current = select.value;
+                select.innerHTML = '<option value="">全部店铺</option>';
+                (data.data.shops || []).forEach(function (shop) {
+                    const option = document.createElement('option');
+                    option.value = shop;
+                    option.textContent = shop;
+                    select.appendChild(option);
+                });
+                if (current) select.value = current;
+            } catch (e) {
+                console.warn('加载店铺筛选失败', e);
+            }
+        }
+
+        function opsFbaRenderTable(data) {
+            const wrap = document.getElementById('opsFbaTableWrap');
+            const meta = document.getElementById('opsFbaMeta');
+            const pageText = document.getElementById('opsFbaPageText');
+            const prevBtn = document.getElementById('opsFbaPrev');
+            const nextBtn = document.getElementById('opsFbaNext');
+            if (!wrap) return;
+
+            const columns = data.columns || [];
+            const items = data.items || [];
+            opsFbaState.page = data.page || 1;
+            opsFbaState.totalPages = data.total_pages || 1;
+
+            if (meta) {
+                const start = data.total ? ((opsFbaState.page - 1) * data.page_size + 1) : 0;
+                const end = data.total ? Math.min(opsFbaState.page * data.page_size, data.total) : 0;
+                meta.textContent = `共 ${data.total || 0} 条，当前 ${start}-${end} 条`;
+            }
+            if (pageText) pageText.textContent = `第 ${opsFbaState.page} / ${opsFbaState.totalPages} 页`;
+            if (prevBtn) prevBtn.disabled = opsFbaState.page <= 1 || opsFbaState.loading;
+            if (nextBtn) nextBtn.disabled = opsFbaState.page >= opsFbaState.totalPages || opsFbaState.loading;
+
+            if (!columns.length) {
+                wrap.innerHTML = '<div class="ops-fba-empty">没有可展示的字段</div>';
+                return;
+            }
+            if (!items.length) {
+                wrap.innerHTML = '<div class="ops-fba-empty">暂无数据</div>';
+                return;
+            }
+
+            const thead = columns.map(function (col) {
+                return `<th>${opsFbaEscape(col.label || col.key)}</th>`;
+            }).join('');
+            const tbody = items.map(function (item) {
+                const values = item.values || {};
+                const warningFields = item.warning_fields || {};
+                const cells = columns.map(function (col) {
+                    const key = col.key;
+                    const value = values[key] || '';
+                    const warning = warningFields[key] || '';
+                    const cls = warning ? ' class="is-warning-cell"' : '';
+                    const title = warning || value;
+                    return `<td${cls} title="${opsFbaEscape(title)}">${opsFbaEscape(value)}</td>`;
+                }).join('');
+                return `<tr class="${item.warning ? 'is-warning' : ''}">${cells}</tr>`;
+            }).join('');
+            wrap.innerHTML = `<table class="ops-fba-table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+        }
+
+        async function opsFbaLoadData(page) {
+            const panel = document.getElementById('opsFbaPanel');
+            const wrap = document.getElementById('opsFbaTableWrap');
+            const meta = document.getElementById('opsFbaMeta');
+            if (!panel || opsFbaState.loading) return;
+
+            opsFbaState.loading = true;
+            if (meta) meta.textContent = '正在加载数据...';
+            if (wrap && !wrap.querySelector('.ops-fba-table')) {
+                wrap.innerHTML = '<div class="ops-fba-empty">正在加载FBA货件运输方式数据...</div>';
+            }
+            try {
+                const params = new URLSearchParams();
+                params.set('page', String(page || opsFbaState.page || 1));
+                const dian = document.getElementById('opsFbaDian');
+                const sort = document.getElementById('opsFbaSort');
+                if (dian && dian.value) params.set('dian', dian.value);
+                if (sort && sort.value) params.set('sort', sort.value);
+                const resp = await fetch('/api/operation/fba_shipping_methods?' + params.toString());
+                const payload = await resp.json();
+                if (!payload.success) {
+                    throw new Error(payload.message || '加载失败');
+                }
+                opsFbaRenderTable(payload.data || {});
+            } catch (e) {
+                if (wrap) wrap.innerHTML = `<div class="ops-fba-empty">加载失败：${opsFbaEscape(e.message || e)}</div>`;
+                if (meta) meta.textContent = '加载失败';
+            } finally {
+                opsFbaState.loading = false;
+                const prevBtn = document.getElementById('opsFbaPrev');
+                const nextBtn = document.getElementById('opsFbaNext');
+                if (prevBtn) prevBtn.disabled = opsFbaState.page <= 1;
+                if (nextBtn) nextBtn.disabled = opsFbaState.page >= opsFbaState.totalPages;
+            }
+        }
+
+        function opsFbaInit() {
+            const panel = document.getElementById('opsFbaPanel');
+            if (!panel) return;
+            const dian = document.getElementById('opsFbaDian');
+            const sort = document.getElementById('opsFbaSort');
+            const refresh = document.getElementById('opsFbaRefresh');
+            const prevBtn = document.getElementById('opsFbaPrev');
+            const nextBtn = document.getElementById('opsFbaNext');
+
+            if (dian) dian.addEventListener('change', function () { opsFbaLoadData(1); });
+            if (sort) sort.addEventListener('change', function () { opsFbaLoadData(1); });
+            if (refresh) refresh.addEventListener('click', function () { opsFbaLoadData(opsFbaState.page || 1); });
+            if (prevBtn) prevBtn.addEventListener('click', function () { opsFbaLoadData(Math.max(1, opsFbaState.page - 1)); });
+            if (nextBtn) nextBtn.addEventListener('click', function () { opsFbaLoadData(Math.min(opsFbaState.totalPages, opsFbaState.page + 1)); });
+
+            opsFbaLoadShops();
+            opsFbaLoadData(1);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.dept-feature-card').forEach(function (card) {
+                const titleEl = card.querySelector('h3');
+                const menu = (titleEl ? titleEl.textContent : '').trim();
+                const link = card.querySelector('a.dept-feature-btn[href]');
+                const href = link ? (link.getAttribute('href') || '') : '';
+
+                if (href) {
+                    card.style.cursor = 'pointer';
+                }
+
+                if (link) {
+                    link.addEventListener('click', function (e) {
+                        if (menu) _logMenuClick(menu, link.href || href);
+                        if (link.href && link.getAttribute('href') !== '#') {
+                            e.preventDefault();
+                            window.location.href = link.href;
+                        }
+                    });
+                }
+
+                card.addEventListener('click', function (e) {
+                    if (e.target.closest('a')) return;
+                    if (menu) _logMenuClick(menu, href);
+                    if (href && href !== '#') {
+                        window.location.href = href;
+                    }
+                });
+            });
+            opsFbaInit();
+        });
+    </script>
+</body>
+</html>

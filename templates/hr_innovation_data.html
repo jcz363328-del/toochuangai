@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创新数据 - 人力行政部</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+    <style>
+        body { margin:0; font-family:'Microsoft YaHei', Arial, sans-serif; background:#f5f7fb; color:#172033; }
+        .topbar { background:#fff; border-bottom:1px solid #e6eaf2; }
+        .topbar-inner { max-width:1320px; margin:0 auto; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
+        .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:20px; }
+        .brand i { color:#2563eb; }
+        .links { display:flex; gap:10px; align-items:center; }
+        .links a { color:#2563eb; text-decoration:none; font-size:14px; }
+        .page { max-width:1320px; margin:0 auto; padding:22px 18px 52px; }
+        .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+        .filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+        select, input { height:36px; border:1px solid #d8dee9; border-radius:6px; background:#fff; padding:0 10px; font-size:14px; }
+        .btn { height:36px; border:0; border-radius:6px; background:#2563eb; color:#fff; padding:0 14px; cursor:pointer; }
+        .status { color:#64748b; font-size:13px; }
+        .kpis { display:grid; grid-template-columns:repeat(4, minmax(160px, 1fr)); gap:12px; margin-bottom:14px; }
+        .kpi, .panel { background:#fff; border:1px solid #e6eaf2; border-radius:8px; }
+        .kpi { padding:16px; }
+        .kpi-label { color:#64748b; font-size:13px; margin-bottom:8px; }
+        .kpi-value { font-size:26px; font-weight:800; }
+        .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+        .panel { padding:16px; min-width:0; }
+        .panel-wide { grid-column:1 / -1; }
+        .panel-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+        .panel-title h2 { font-size:17px; margin:0; }
+        .chart-box { border:1px solid #eef1f6; border-radius:6px; padding:12px; margin-bottom:12px; min-height:96px; background:#fbfdff; }
+        .bar-list { display:flex; flex-direction:column; gap:8px; }
+        .bar-row { display:grid; grid-template-columns:132px 1fr 58px; gap:10px; align-items:center; font-size:13px; }
+        .bar-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#334155; }
+        .bar-track { height:8px; background:#eef2f7; border-radius:999px; overflow:visible; position:relative; }
+        .bar-fill { height:100%; background:#2563eb; border-radius:999px; min-width:2px; position:relative; cursor:default; }
+        .bar-fill:hover::after { content:attr(data-tip); position:absolute; left:50%; bottom:20px; transform:translateX(-50%); background:#111827; color:#fff; font-size:12px; line-height:1.4; padding:6px 8px; border-radius:6px; white-space:nowrap; z-index:5; box-shadow:0 8px 18px rgba(15,23,42,.18); }
+        .bar-value { text-align:right; font-weight:700; }
+        .mini-bars { display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:14px; align-items:end; min-height:112px; }
+        .mini-bar { display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:6px; min-height:96px; }
+        .mini-bar-fill { width:26px; max-width:42%; min-height:3px; border-radius:6px 6px 2px 2px; background:#0f766e; cursor:default; position:relative; }
+        .mini-bar-fill:hover::after { content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); background:#111827; color:#fff; font-size:12px; line-height:1.4; padding:6px 8px; border-radius:6px; white-space:nowrap; z-index:5; box-shadow:0 8px 18px rgba(15,23,42,.18); }
+        .mini-bar-label { color:#475569; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+        .table-wrap { overflow:auto; max-height:430px; border:1px solid #eef1f6; border-radius:6px; }
+        table { width:100%; border-collapse:collapse; font-size:13px; background:#fff; }
+        th, td { padding:9px 10px; border-bottom:1px solid #eef1f6; text-align:left; white-space:nowrap; }
+        th { position:sticky; top:0; background:#f8fafc; color:#475569; z-index:1; user-select:none; cursor:pointer; }
+        th.sortable:hover { color:#2563eb; background:#eef6ff; }
+        th .sort-icon { margin-left:6px; color:#94a3b8; font-size:11px; }
+        .empty { padding:18px; color:#64748b; text-align:center; }
+        @media (max-width: 900px) {
+            .grid, .kpis { grid-template-columns:1fr; }
+            .bar-row { grid-template-columns:92px 1fr 46px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand"><i class="fas fa-chart-column"></i><span>创新数据</span></div>
+            <div class="links">
+                <a href="{{ url_for('hr_admin_modules') }}">人力行政部</a>
+                <a href="{{ url_for('dashboard') }}">主页</a>
+            </div>
+        </div>
+    </header>
+    <main class="page">
+        <div class="toolbar">
+            <div class="filters">
+                <select id="monthFilter"><option value="">全部月份</option></select>
+                <select id="deptFilter"><option value="">全部部门</option></select>
+                <input id="keywordFilter" type="search" placeholder="搜索发起人/类别/部门">
+                <button class="btn" id="reloadBtn" type="button"><i class="fas fa-rotate-right"></i> 刷新</button>
+            </div>
+            <div class="status" id="statusText">加载中...</div>
+        </div>
+
+        <section class="kpis">
+            <div class="kpi"><div class="kpi-label">提案总数</div><div class="kpi-value" id="kpiTotal">-</div></div>
+            <div class="kpi"><div class="kpi-label">有效提案数</div><div class="kpi-value" id="kpiValid">-</div></div>
+            <div class="kpi"><div class="kpi-label">参与人数</div><div class="kpi-value" id="kpiPeople">-</div></div>
+            <div class="kpi"><div class="kpi-label">覆盖部门</div><div class="kpi-value" id="kpiDept">-</div></div>
+        </section>
+
+        <section class="grid">
+            <div class="panel panel-wide">
+                <div class="panel-title"><h2>月度提案总量</h2></div>
+                <div id="monthlyBars" class="chart-box bar-list"></div>
+                <div class="table-wrap"><table id="monthlyTable"></table></div>
+            </div>
+            <div class="panel">
+                <div class="panel-title"><h2>部门月度提案数量</h2></div>
+                <div id="deptChart" class="chart-box"></div>
+                <div class="table-wrap"><table id="deptTable"></table></div>
+            </div>
+            <div class="panel">
+                <div class="panel-title"><h2>部门有效提案数量</h2></div>
+                <div id="validChart" class="chart-box"></div>
+                <div class="table-wrap"><table id="validTable"></table></div>
+            </div>
+            <div class="panel">
+                <div class="panel-title"><h2>月度发起人明细</h2></div>
+                <div id="peopleChart" class="chart-box"></div>
+                <div class="table-wrap"><table id="peopleTable"></table></div>
+            </div>
+            <div class="panel">
+                <div class="panel-title"><h2>分数分布</h2></div>
+                <div id="scoreChart" class="chart-box"></div>
+                <div class="table-wrap"><table id="scoreTable"></table></div>
+            </div>
+            <div class="panel panel-wide">
+                <div class="panel-title"><h2>创新类别分布</h2></div>
+                <div id="categoryChart" class="chart-box"></div>
+                <div class="table-wrap"><table id="categoryTable"></table></div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let rawData = {};
+        const sortState = {};
+        const $ = id => document.getElementById(id);
+        const text = v => (v === null || v === undefined || v === '') ? '未填写' : String(v);
+        const num = v => Number(v || 0);
+        const esc = v => text(v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
+        function unique(arr) {
+            return Array.from(new Set(arr.filter(Boolean))).sort();
+        }
+        function currentFilters() {
+            return {
+                month: $('monthFilter').value,
+                dept: $('deptFilter').value,
+                keyword: $('keywordFilter').value.trim().toLowerCase()
+            };
+        }
+        function matchRow(row) {
+            const f = currentFilters();
+            if (f.month && row['月份'] !== f.month) return false;
+            if (f.dept && row['部门'] !== f.dept) return false;
+            if (f.keyword) {
+                const hay = Object.values(row).map(text).join(' ').toLowerCase();
+                if (!hay.includes(f.keyword)) return false;
+            }
+            return true;
+        }
+        function sortRows(tableId, rows) {
+            const state = sortState[tableId];
+            if (!state || !state.key) return rows.slice();
+            return rows.slice().sort((a, b) => {
+                const av = a[state.key], bv = b[state.key];
+                const an = Number(av), bn = Number(bv);
+                let res;
+                if (!Number.isNaN(an) && !Number.isNaN(bn) && String(av).trim() !== '' && String(bv).trim() !== '') {
+                    res = an - bn;
+                } else {
+                    res = text(av).localeCompare(text(bv), 'zh-CN', { numeric:true });
+                }
+                return state.dir === 'desc' ? -res : res;
+            });
+        }
+        function renderTable(id, rows, columns) {
+            const table = $(id);
+            const sorted = sortRows(id, rows);
+            if (!sorted.length) {
+                table.innerHTML = `<tbody><tr><td><div class="empty">暂无数据</div></td></tr></tbody>`;
+                return;
+            }
+            const state = sortState[id] || {};
+            table.innerHTML = `<thead><tr>${columns.map(c => {
+                const icon = state.key === c ? (state.dir === 'asc' ? '▲' : '▼') : '↕';
+                return `<th class="sortable" data-table="${id}" data-key="${esc(c)}">${esc(c)}<span class="sort-icon">${icon}</span></th>`;
+            }).join('')}</tr></thead><tbody>` +
+                sorted.map(row => `<tr>${columns.map(c => `<td title="${esc(row[c])}">${esc(row[c])}</td>`).join('')}</tr>`).join('') +
+                '</tbody>';
+        }
+        function aggregate(rows, labelFn, valueField) {
+            const map = new Map();
+            rows.forEach(row => {
+                const label = labelFn(row);
+                map.set(label, (map.get(label) || 0) + num(row[valueField]));
+            });
+            return Array.from(map.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+        }
+        function renderHorizontalBars(id, items, color) {
+            const box = $(id);
+            const top = items.slice(0, 16);
+            const max = Math.max(...top.map(x => x.value), 1);
+            box.innerHTML = top.length ? top.map(item => {
+                const width = Math.max(2, Math.round(item.value / max * 100));
+                const tip = `${item.label}：${item.value}`;
+                return `<div class="bar-row"><div class="bar-label" title="${esc(item.label)}">${esc(item.label)}</div><div class="bar-track"><div class="bar-fill" title="${esc(tip)}" data-tip="${esc(tip)}" style="width:${width}%;background:${color};"></div></div><div class="bar-value">${item.value}</div></div>`;
+            }).join('') : '<div class="empty">暂无数据</div>';
+        }
+        function renderVerticalBars(id, items, color) {
+            const box = $(id);
+            const top = items.slice(0, 12);
+            const max = Math.max(...top.map(x => x.value), 1);
+            box.innerHTML = top.length ? `<div class="mini-bars">${top.map(item => {
+                const height = Math.max(3, Math.round(item.value / max * 88));
+                const tip = `${item.label}：${item.value}`;
+                return `<div class="mini-bar"><div class="mini-bar-fill" title="${esc(tip)}" data-tip="${esc(tip)}" style="height:${height}px;background:${color};"></div><div class="mini-bar-label" title="${esc(item.label)}">${esc(item.label)}</div></div>`;
+            }).join('')}</div>` : '<div class="empty">暂无数据</div>';
+        }
+        function applyFilters() {
+            const monthly = (rawData.monthly_total || []).filter(matchRow);
+            const dept = (rawData.monthly_department_total || []).filter(matchRow);
+            const valid = (rawData.valid_department_total || []).filter(matchRow);
+            const people = (rawData.monthly_people || []).filter(matchRow);
+            const score = (rawData.score_distribution || []).filter(matchRow);
+            const category = (rawData.category_distribution || []).filter(matchRow);
+
+            $('kpiTotal').textContent = dept.length ? dept.reduce((s, r) => s + num(r['数量']), 0) : monthly.reduce((s, r) => s + num(r['数量']), 0);
+            $('kpiValid').textContent = valid.reduce((s, r) => s + num(r['有效提案数量']), 0);
+            $('kpiPeople').textContent = unique(people.map(r => `${r['月份']}|${r['部门']}|${r['发起人']}`)).length;
+            $('kpiDept').textContent = unique(dept.concat(valid).concat(people).map(r => r['部门'])).length;
+
+            renderHorizontalBars('monthlyBars', monthly.map(r => ({ label:r['月份'], value:num(r['数量']) })), '#2563eb');
+            renderVerticalBars('deptChart', aggregate(dept, r => `${r['月份']} ${r['部门']}`, '数量'), '#2563eb');
+            renderVerticalBars('validChart', aggregate(valid, r => `${r['月份']} ${r['部门']}`, '有效提案数量'), '#16a34a');
+            renderHorizontalBars('peopleChart', aggregate(people.map(r => ({...r, 人数:1})), r => `${r['月份']} ${r['部门']}`, '人数'), '#7c3aed');
+            renderVerticalBars('scoreChart', aggregate(score, r => `${r['月份']} ${r['部门']} ${text(r['分数'])}分`, '数量'), '#f97316');
+            renderHorizontalBars('categoryChart', aggregate(category, r => `${r['月份']} ${text(r['创新类别'])}`, '数量'), '#0f766e');
+
+            renderTable('monthlyTable', monthly, ['月份', '数量']);
+            renderTable('deptTable', dept, ['月份', '部门', '数量']);
+            renderTable('validTable', valid, ['月份', '部门', '有效提案数量']);
+            renderTable('peopleTable', people, ['月份', '部门', '发起人']);
+            renderTable('scoreTable', score, ['月份', '部门', '分数', '数量']);
+            renderTable('categoryTable', category, ['月份', '创新类别', '数量']);
+            $('statusText').textContent = `已加载 ${monthly.length} 个月份记录`;
+        }
+        function fillFilters() {
+            const months = unique([].concat(
+                rawData.monthly_total || [],
+                rawData.monthly_department_total || [],
+                rawData.valid_department_total || []
+            ).map(r => r['月份']));
+            const depts = unique([].concat(
+                rawData.monthly_department_total || [],
+                rawData.valid_department_total || [],
+                rawData.monthly_people || []
+            ).map(r => r['部门']));
+            $('monthFilter').innerHTML = '<option value="">全部月份</option>' + months.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+            $('deptFilter').innerHTML = '<option value="">全部部门</option>' + depts.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+        }
+        async function loadData() {
+            $('statusText').textContent = '加载中...';
+            const resp = await fetch('/api/hr/innovation_data');
+            const json = await resp.json();
+            if (!resp.ok || !json.success) throw new Error(json.message || '加载失败');
+            rawData = json.data || {};
+            fillFilters();
+            applyFilters();
+        }
+        ['monthFilter', 'deptFilter', 'keywordFilter'].forEach(id => $(id).addEventListener('input', applyFilters));
+        document.addEventListener('click', e => {
+            const th = e.target.closest('th.sortable');
+            if (!th) return;
+            const table = th.getAttribute('data-table');
+            const key = th.getAttribute('data-key');
+            const prev = sortState[table] || {};
+            sortState[table] = { key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' };
+            applyFilters();
+        });
+        $('reloadBtn').addEventListener('click', () => loadData().catch(err => $('statusText').textContent = err.message || '加载失败'));
+        loadData().catch(err => {
+            $('statusText').textContent = err.message || '加载失败';
+            ['monthlyBars', 'deptChart', 'validChart', 'peopleChart', 'scoreChart', 'categoryChart'].forEach(id => $(id).innerHTML = '<div class="empty">加载失败</div>');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,3045 @@
+{% extends "base.html" %}
+
+{% block title %}管理中心 - 团队创新奖励管理系统{% endblock %}
+
+{% block content %}
+<style>
+.innovation-action-group {
+    width: 132px;
+}
+.innovation-action-group > .btn,
+.innovation-action-group > .dropdown,
+.innovation-action-group > .dropdown > .btn {
+    width: 100%;
+}
+.innovation-action-group .dropdown-menu {
+    min-width: 132px;
+}
+.innovation-action-group .dropdown-item {
+    font-size: .875rem;
+    line-height: 1.5;
+    padding: .25rem .5rem;
+}
+</style>
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-gear"></i> 管理中心
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- 选项卡导航 -->
+                <ul class="nav nav-tabs" id="manageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="innovations-tab" data-bs-toggle="tab" data-bs-target="#innovations" type="button" role="tab">
+                            <i class="bi bi-lightbulb"></i> 创新提案管理
+                        </button>
+                    </li>
+                    <!-- 奖品管理选项卡 - 所有用户可见 -->
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="rewards-tab" data-bs-toggle="tab" data-bs-target="#rewards" type="button" role="tab">
+                            <i class="bi bi-gift"></i> 奖品管理
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- 选项卡内容 -->
+                <div class="tab-content" id="manageTabsContent">
+                    <!-- 创新提案管理选项卡 -->
+                    <div class="tab-pane fade show active" id="innovations" role="tabpanel">
+                        <div class="mt-3">
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5>创新提案管理</h5>
+    <div class="d-flex gap-2">
+        <!-- 快捷导出区域 -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <label class="form-label mb-0 text-muted small">快捷导出:</label>
+            <div class="d-flex align-items-center gap-1">
+                <label for="quickStartDate" class="form-label mb-0 small">从</label>
+                <input type="date" class="form-control form-control-sm" id="quickStartDate" style="width: 140px;" title="开始日期">
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                <label for="quickEndDate" class="form-label mb-0 small">到</label>
+                <input type="date" class="form-control form-control-sm" id="quickEndDate" style="width: 140px;" title="结束日期">
+            </div>
+            <div class="btn-group" role="group">
+                <button class="btn btn-success btn-sm" onclick="quickExportInnovations()" title="快捷导出提报信息">
+                    <i class="bi bi-file-earmark-excel"></i> 提报
+                </button>
+                <button class="btn btn-warning btn-sm" onclick="quickExportStatistics()" title="快捷导出统计信息">
+                    <i class="bi bi-bar-chart"></i> 统计
+                </button>
+            </div>
+        </div>
+
+        <!-- 原有按钮 -->
+        <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#scoreGuideModal">
+            <i class="bi bi-info-circle"></i> 评分标准说明
+        </button>
+    </div>
+</div>
+
+<!-- 导出选项模态框 -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportModalLabel">
+                    <i class="bi bi-file-earmark-excel"></i> 导出Excel设置
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">时间范围</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="exportStartDate" class="form-label">开始日期</label>
+                            <input type="date" class="form-control" id="exportStartDate">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="exportEndDate" class="form-label">结束日期</label>
+                            <input type="date" class="form-control" id="exportEndDate">
+                        </div>
+                    </div>
+                    <small class="text-muted">留空表示不限制时间范围</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">操作类型（可多选）</label>
+                    <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="采纳，立即执行" id="op1" checked>
+                            <label class="form-check-label" for="op1">采纳，立即执行</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="采纳，暂缓执行" id="op2" checked>
+                            <label class="form-check-label" for="op2">采纳，暂缓执行</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="不采纳，不执行" id="op3" checked>
+                            <label class="form-check-label" for="op3">不采纳，不执行</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="重复提案" id="op4" checked>
+                            <label class="form-check-label" for="op4">重复提案</label>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllOperationTypes()">全选</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllOperationTypes()">全不选</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="exportToExcelWithOptions()">开始导出</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 统计数据导出模态框 -->
+<div class="modal fade" id="statisticsExportModal" tabindex="-1" aria-labelledby="statisticsExportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statisticsExportModalLabel">
+                    <i class="bi bi-bar-chart"></i> 导出统计报告设置
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">统计时间范围</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="statsStartDate" class="form-label">开始日期</label>
+                            <input type="date" class="form-control" id="statsStartDate">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="statsEndDate" class="form-label">结束日期</label>
+                            <input type="date" class="form-control" id="statsEndDate">
+                        </div>
+                    </div>
+                    <small class="text-muted">留空表示不限制时间范围</small>
+                </div>
+
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> 统计报告包含内容：</h6>
+                    <ul class="mb-0">
+                        <li>基础统计（总提案量、采纳提案量、提案有效率）</li>
+                        <li>部门提案数量排名</li>
+                        <li>部门提案积分总分排名</li>
+                        <li>个人提案数量TOP3</li>
+                        <li>个人积分总分TOP3</li>
+                        <li>提案单项得分最高</li>
+                        <li>创新类别分布</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-warning" onclick="exportStatisticsReport()">导出统计报告</button>
+            </div>
+        </div>
+    </div>
+</div>
+                            <!-- 筛选器 -->
+                            <div class="row mb-3">
+                                <div class="col-md-2">
+                                    <select class="form-select" id="statusFilter" onchange="filterInnovations()">
+                                        <option value="">全部状态</option>
+                                        <option value="待承接">待承接</option>
+                                        <option value="进行中">进行中</option>
+                                        <option value="已完成">已完成</option>
+                                        <option value="已取消">已取消</option>
+
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select class="form-select" id="departmentFilter" onchange="filterInnovations()">
+                                        <option value="">承接部门</option>
+                                        <option value="TK项目">TK项目</option>
+                                        <option value="总经办">总经办</option>
+                                        <option value="运营一部">运营一部</option>
+                                        <option value="运营二部">运营二部</option>
+                                        <option value="运营三部">运营三部</option>
+                                        <option value="运营七部">运营七部</option>
+                                        <option value="运营六部">运营六部</option>
+                                        <option value="采购部">采购部</option>
+                                        <option value="研发部">研发部</option>
+                                        <option value="技术部">技术部</option>
+                                        <option value="视觉设计部">视觉设计部</option>
+                                        <option value="摄影部">摄影部</option>
+                                        <option value="AI部">AI部</option>
+                                        <option value="财务部">财务部</option>
+                                        <option value="人力行政部">人力行政部</option>
+                                        <option value="新人组">新人组</option>
+                                        <option value="仓储部">仓储部</option>
+                                        <option value="深圳团队">深圳团队</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select class="form-select" id="initiatorDepartmentFilter" onchange="filterInnovations()">
+                                        <option value="">发起部门</option>
+                                        <option value="AI">AI</option>
+                                        <option value="TK项目">TK项目</option>
+                                        <option value="财务部">财务部</option>
+                                        <option value="采购部">采购部</option>
+                                        <option value="技术部">技术部</option>
+                                        <option value="人力行政部">人力行政部</option>
+                                        <option value="摄影部">摄影部</option>
+                                        <option value="视觉设计部">视觉设计部</option>
+                                        <option value="研发">研发</option>
+                                        <option value="运营二部">运营二部</option>
+                                        <option value="运营七部">运营七部</option>
+                                        <option value="运营六部">运营六部</option>
+                                        <option value="运营三部">运营三部</option>
+                                        <option value="运营一部">运营一部</option>
+                                        <option value="仓储">仓储</option>
+                                        <option value="深圳团队">深圳团队</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="date" class="form-control" id="startDateFilter"
+                                           placeholder="开始日期" onchange="filterInnovations()" title="发起开始日期">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="date" class="form-control" id="endDateFilter"
+                                           placeholder="结束日期" onchange="filterInnovations()" title="发起结束日期">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" class="form-control" id="searchInput"
+                                           placeholder="搜索编号、标题或发起人..." onkeyup="filterInnovations()">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-2">
+                                    <select class="form-select" id="operationTypeFilter" onchange="filterInnovations()">
+                                        <option value="">全部操作类型</option>
+                                        <option value="adopted">采纳</option>
+                                        <option value="not_adopted">未采纳</option>
+                                        <option value="pending">待处理</option>
+                                        <option value="disputed">有异议，上会</option>
+                                        <option value="disputed_10">有异议，上会（当前得分10分）</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="dropdown w-100">
+                                        <button class="form-select text-start" type="button" id="scoreFilterBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">分数</button>
+                                        <div class="dropdown-menu p-2" style="min-width: 100%;">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="0" id="score0" name="maxScoreFilter">
+                                                <label class="form-check-label" for="score0">0</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="10" id="score10" name="maxScoreFilter">
+                                                <label class="form-check-label" for="score10">10</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="20" id="score20" name="maxScoreFilter">
+                                                <label class="form-check-label" for="score20">20</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="30" id="score30" name="maxScoreFilter">
+                                                <label class="form-check-label" for="score30">30</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" value="50" id="score50" name="maxScoreFilter">
+                                                <label class="form-check-label" for="score50">50</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <select class="form-select" id="favoriteFilter" onchange="filterInnovations()">
+                                        <option value="">全部提案</option>
+                                        <option value="mine">我的收藏</option>
+                                        <option value="长期看效果">长期看效果</option>
+                                        <option value="暂未有解决方案">暂未有解决方案</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex gap-1 justify-content-end">
+                                    <button class="btn btn-outline-secondary"
+                                            onclick="clearFilters()">清除筛选</button>
+                                    <button class="btn btn-outline-secondary"
+                                            onclick="refreshInnovations()">刷新数据</button>
+                                </div>
+                            </div>
+
+                            <!-- 提案列表 -->
+                            <div id="innovationsList">
+                                <!-- 动态加载内容 -->
+                            </div>
+
+                            <!-- 分页导航 -->
+                            <div id="paginationContainer" class="d-flex justify-content-between align-items-center mt-4" style="display: none;">
+                                <div class="text-muted">
+                                    显示第 <span id="currentStart">1</span> - <span id="currentEnd">10</span> 条，共 <span id="totalCount">0</span> 条记录
+                                </div>
+                                <nav aria-label="分页导航">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        <li class="page-item" id="prevPage">
+                                            <a class="page-link" href="#" onclick="goToPage(currentPage - 1)">
+                                                <i class="bi bi-chevron-left"></i> 上一页
+                                            </a>
+                                        </li>
+                                        <li class="page-item" id="firstPage">
+                                            <a class="page-link" href="#" onclick="goToPage(1)">1</a>
+                                        </li>
+                                        <li class="page-item disabled" id="prevDots" style="display: none;">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                        <!-- 动态页码将插入到这里 -->
+                                        <li class="page-item disabled" id="nextDots" style="display: none;">
+                                            <span class="page-link">...</span>
+                                        </li>
+                                        <li class="page-item" id="lastPage">
+                                            <a class="page-link" href="#" onclick="goToPage(totalPages)"><span id="lastPageNum">1</span></a>
+                                        </li>
+                                        <li class="page-item" id="nextPage">
+                                            <a class="page-link" href="#" onclick="goToPage(currentPage + 1)">
+                                                下一页 <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 奖品管理选项卡 -->
+                    <div class="tab-pane fade" id="rewards" role="tabpanel">
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5>奖品管理</h5>
+                                <div>
+                                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRewardModal">
+                                        <i class="bi bi-plus-circle"></i> 添加奖品
+                                    </button>
+                                    <button class="btn btn-outline-primary" onclick="loadRewardsManage()">
+                                        <i class="bi bi-arrow-clockwise"></i> 刷新
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="rewardsManageList">
+                                <!-- 动态加载奖品管理列表 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 评分标准说明模态框 -->
+<div class="modal fade" id="scoreGuideModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-star"></i> 创新提案评分标准说明
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-primary">
+                            <tr>
+                                <th width="15%">评分等级</th>
+                                <th width="15%">积分奖励</th>
+                                <th width="70%">评分标准</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-warning">
+                                <td><strong>A+</strong></td>
+                                <td><span class="badge bg-warning text-dark">大奖</span></td>
+                                <td>创新建议可做发明专利申请，且申请成功</td>
+                            </tr>
+                            <tr>
+                                <td><strong>A</strong></td>
+                                <td><span class="badge bg-success">50分</span></td>
+                                <td>1、想法新颖，首次提及；
+2、提案能够反映本质问题并带有解决方案，方案被采纳，且可执行性强。
+3、能够带来显著经济效益或重要业务成效，如很大程度上减少劳动强度、降低成本、提高效率、增强客户满意度等；
+
+</td>
+                            </tr>
+                            <tr>
+                                <td><strong>B</strong></td>
+                                <td><span class="badge bg-primary">30分</span></td>
+                                <td>1、提案能够反映现实问题，带有解决方案，方案被采纳；
+2、改进投入低，价值高，能够带来一定的经济效益或明显的效果，如很大程度上减少浪费、提升公司形象等；
+3、方案可在相关岗位上推广实施。
+
+</td>
+                            </tr>
+                            <tr>
+                                <td><strong>C</strong></td>
+                                <td><span class="badge bg-info">20分</span></td>
+                                <td>1、提出具体问题及可行建议，且被采纳。
+2、在规则、流程、工艺等方面有一定优化，但收益有限。
+</td>
+                            </tr>
+                            <tr>
+                                <td><strong>D</strong></td>
+                                <td><span class="badge bg-secondary">10分</span></td>
+                                <td>1、提案能反映一定实质性、合理性问题，但解决方案没有被采纳；
+2、提案建议被采纳但暂时没办法执行；
+3、涉及环境类改善，或表面完善类提案；
+4、与本职工作关联度不大且改善效果一般；
+5、针对个人工作习惯进行的改善式创新，如各类工具的使用。
+</td>
+                            </tr>
+                            <tr>
+                                <td><strong>E</strong></td>
+                                <td><span class="badge bg-danger">0分</span></td>
+                                <td>1、重复提案、报修类、ERP问题、物耗等不属于创新改善的提案；
+2、只提出问题，没有解决方案；
+3、提案未反应实质问题，解决方案不具备可行性且未被采纳；
+4、目前已有相应措施的提案。
+</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-lightbulb"></i>
+                    <strong>评分说明：</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>评分应客观公正，基于提案的实际价值和可行性</li>
+                        <li>A+等级需要特别审慎，确保提案确实具有专利申请价值</li>
+                        <li>承接方可以在项目处理过程中随时调整评分</li>
+                        <li>最终评分将影响发起人获得的积分奖励</li>
+                        <li>A+、A、B、C级的评定需同时满足评价标准</li>
+                        <li>D、E级的评定满足一条评价</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 处理创新提案模态框 -->
+<div class="modal fade" id="handleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">处理创新提案</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="handleForm">
+                    <input type="hidden" id="handleInnovationId">
+                    <input type="hidden" id="handleFlowId">
+
+                    <div class="mb-3">
+                        <label class="form-label">提案信息</label>
+                        <div id="innovationInfo" class="p-3 bg-light rounded">
+                            <!-- 动态加载提案信息 -->
+                        </div>
+                    </div>
+
+                    <!-- 新增：部门选择 -->
+                    <div class="mb-3">
+                        <label for="handleDepartment" class="form-label">选择处理部门 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="handleDepartment" name="department" required>
+                            <option value="">请选择部门</option>
+                            <!-- 动态加载该项目的承接部门 -->
+                        </select>
+                        <div class="form-text">只能选择该项目的承接部门进行处理</div>
+                    </div>
+
+                      <div class="mb-3">
+                        <label for="handleStatus" class="form-label">采纳类型 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="handleStatus" name="status" required>
+                            <option value="">请选择状态</option>
+                            <option value="进行中" data-operation-type="采纳，立即执行">采纳，立即执行</option>
+                            <option value="进行中" data-operation-type="采纳，暂缓执行">采纳，暂缓执行</option>
+                            <option value="已拒绝" data-operation-type="不采纳，不执行">不采纳，不执行</option>
+                            <option value="已拒绝" data-operation-type="重复提案">重复提案</option>
+{#                            <option value="已完成" data-operation-type="完成提案">完成提案</option>#}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="handleHandler" class="form-label">处理人 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="handleHandler" name="handler" required
+                               placeholder="请输入处理人姓名">
+
+                                            </div>
+                        <div class="mb-3" id="scoreGroup">
+                            <label for="handleScore" class="form-label">
+                                部门评分 <span class="text-danger">*</span>
+                                <button type="button" class="btn btn-outline-info btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#scoreGuideModal">
+                                    <i class="bi bi-question-circle"></i> 评分标准
+                                </button>
+                            </label>
+                           <select class="form-select" id="handleScore" name="score" required>
+                                <option value="">请选择评分等级</option>
+                                <option value="A+">A+ - 产品突破性创新（大奖）</option>
+                                <option value="A">A - 重大改进（50分）</option>
+                                <option value="B">B - 明显改进（30分）</option>
+                                <option value="C">C - 一般改进（20分）</option>
+                                <option value="D">D - 建议性意见（10分）</option>
+                                <option value="E">E - 无效提案（0分）</option>
+                            </select>
+                            <div id="scoreDescription" class="form-text">
+                                请根据创新提案的实际情况选择对应的评分等级
+                            </div>
+                        </div>
+
+
+                                        <div class="mb-3">
+                        <label for="handleNotes" class="form-label">处理备注 <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="handleNotes" name="handler_notes" rows="4" required
+                                  placeholder="请输入处理意见、进展情况或拒绝原因"></textarea>
+                    </div>
+
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="handleSubmitBtn" onclick="submitHandle()">提交处理</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="addRewardModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加奖品</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRewardForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">奖品名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="rewardName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">奖品描述</label>
+                        <textarea class="form-control" id="rewardDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">所需积分 <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="rewardPoints" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">库存数量</label>
+                        <input type="number" class="form-control" id="rewardStock" value="-1">
+                        <small class="text-muted">-1 表示无限库存</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">分类</label>
+                        <select class="form-control" id="rewardCategory">
+                            <option value="办公耗材">办公耗材</option>
+                            <option value="速食饮品">速食饮品</option>
+                            <option value="有趣生活">有趣生活</option>
+                            <option value="便捷生活">便捷生活</option>
+                            <option value="舒适生活">舒适生活</option>
+                            <option value="健康关怀">健康关怀</option>
+                            <option value="数码小件">数码小件</option>
+                            <option value="睡眠改善">睡眠改善</option>
+                            <option value="生活电器">生活电器</option>
+                            <option value="数码装备">数码装备</option>
+                            <option value="健康管理">健康管理</option>
+                            <option value="智能设备">智能设备</option>
+                            <option value="品牌穿戴">品牌穿戴</option>
+                            <option value="体验消费">体验消费</option>
+                        </select>
+                    </div>
+                    <!-- 新增图片上传功能 -->
+                    <div class="mb-3">
+                        <label class="form-label">奖品图片</label>
+                        <input type="file" class="form-control" id="rewardImage" accept="image/*">
+                        <small class="text-muted">支持 PNG、JPG、JPEG、GIF 格式，建议尺寸 200x200px</small>
+                    </div>
+                    <div class="mb-3">
+                        <div id="addRewardImagePreview"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="addReward()">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 上传图片模态框 -->
+<div class="modal fade" id="uploadImageModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传奖品图片</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadImageForm" enctype="multipart/form-data">
+                    <input type="hidden" id="uploadRewardId">
+                    <div class="mb-3">
+                        <label class="form-label">选择图片文件</label>
+                        <input type="file" class="form-control" id="imageFile" accept="image/*" required>
+                        <small class="text-muted">支持 PNG、JPG、JPEG、GIF 格式，建议尺寸 200x200px</small>
+                    </div>
+                    <div class="mb-3">
+                        <div id="imagePreview"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="uploadImage()">上传</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑奖品模态框 -->
+<div class="modal fade" id="editRewardModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑奖品</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRewardForm">
+                    <input type="hidden" id="editRewardId">
+                    <div class="mb-3">
+                        <label class="form-label">奖品名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editRewardName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">奖品描述</label>
+                        <textarea class="form-control" id="editRewardDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">所需积分 <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="editRewardPoints" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">库存数量</label>
+                        <input type="number" class="form-control" id="editRewardStock">
+                        <small class="text-muted">-1 表示无限库存</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">分类</label>
+                        <select class="form-control" id="editRewardCategory">
+                            <option value="饮品">饮品</option>
+                            <option value="购物卡">购物卡</option>
+                            <option value="数码产品">数码产品</option>
+                            <option value="活动">活动</option>
+                            <option value="假期">假期</option>
+                            <option value="健身">健身</option>
+                            <option value="学习">学习</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">状态</label>
+                        <select class="form-control" id="editRewardStatus">
+                            <option value="1">启用</option>
+                            <option value="0">禁用</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="updateReward()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allInnovations = [];
+let filteredInnovations = [];
+let allRewards = [];
+
+// 分页相关变量
+let currentPage = 1;
+let itemsPerPage = 10;
+let totalPages = 1;
+let totalCount = 0;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 确保页面完全加载后再初始化
+    setTimeout(() => {
+        console.log('开始初始化管理页面...');
+        console.log('检查必要的DOM元素:');
+        console.log('innovationsList:', document.getElementById('innovationsList'));
+        console.log('paginationContainer:', document.getElementById('paginationContainer'));
+
+        if (!document.getElementById('innovationsList')) {
+            console.error('innovationsList元素未找到！');
+            return;
+        }
+
+        document.querySelectorAll('input[name="maxScoreFilter"]').forEach(cb => {
+            cb.addEventListener('change', function () {
+                updateScoreFilterBtnText();
+                filterInnovations();
+            });
+        });
+        updateScoreFilterBtnText();
+
+        // 初始化委员会权限控制
+        initCommitteePermissions();
+
+        loadInnovations(1);
+    }, 100);
+
+    // 监听选项卡切换事件
+    const rewardsTab = document.getElementById('rewards-tab');
+    if (rewardsTab) {
+        rewardsTab.addEventListener('shown.bs.tab', function() {
+            loadRewardsManage();
+        });
+    }
+});
+
+// 设置委员会打分按钮权限
+function setCommitteeScoreButtonPermissions() {
+    const isCommitteeMember = {{ is_committee_member|tojson }};
+    const committeeScoreButtons = document.querySelectorAll('.committee-score-btn');
+    const committeeMeetingButtons = document.querySelectorAll('.committee-meeting-btn');
+
+    console.log('🔍 设置委员会打分按钮权限 - 是否委员会成员:', isCommitteeMember);
+
+    // 设置委员会打分按钮权限
+    committeeScoreButtons.forEach(button => {
+        if (!isCommitteeMember) {
+            // 非委员会成员，禁用按钮
+            button.disabled = true;
+            button.classList.add('disabled');
+            button.style.backgroundColor = '#f8f9fa';
+            button.style.color = '#6c757d';
+            button.style.borderColor = '#dee2e6';
+            button.title = '仅委员会成员可使用此功能';
+            console.log('❌ 非委员会成员，委员会打分按钮已禁用');
+        } else {
+            // 委员会成员，启用按钮
+            button.disabled = false;
+            button.classList.remove('disabled');
+            button.style.backgroundColor = '';
+            button.style.color = '';
+            button.style.borderColor = '';
+            button.title = '点击进行委员会打分';
+            console.log('✅ 委员会成员，委员会打分按钮可用');
+        }
+    });
+
+    // 设置一键上会按钮权限 - 所有用户都可以使用
+    committeeMeetingButtons.forEach(button => {
+        // 所有用户都可以使用一键上会功能
+        button.disabled = false;
+        button.classList.remove('disabled');
+        button.style.backgroundColor = '';
+        button.style.color = '';
+        button.style.borderColor = '';
+        button.title = '点击标记为有异议，上会';
+        console.log('✅ 一键上会按钮对所有用户可用');
+    });
+}
+
+// 初始化委员会权限控制
+function initCommitteePermissions() {
+    const isCommitteeMember = {{ is_committee_member|tojson }};
+    const committeeScoreGroup = document.getElementById('committeeScoreGroup');
+    const committeeScoreSelect = document.getElementById('handleCommitteeScore');
+    const committeeScoreSection = document.getElementById('committeeScoreSection');
+    const committeeScore = document.getElementById('committeeScore');
+
+    console.log('🔍 委员会权限检查 - 是否委员会成员:', isCommitteeMember);
+
+    if (!isCommitteeMember) {
+        // 非委员会成员，禁用委员会打分功能
+        if (committeeScoreSelect) {
+            committeeScoreSelect.disabled = true;
+            committeeScoreSelect.style.backgroundColor = '#f8f9fa';
+            committeeScoreSelect.style.color = '#6c757d';
+
+            // 添加提示信息
+            const helpText = committeeScoreGroup.querySelector('.form-text');
+            if (helpText) {
+                helpText.innerHTML = '<i class="bi bi-lock text-muted"></i> 仅委员会成员可使用此功能';
+                helpText.style.color = '#6c757d';
+            }
+
+            // 修改标签显示
+            const label = committeeScoreGroup.querySelector('label');
+            if (label) {
+                label.style.color = '#6c757d';
+            }
+        }
+
+        // 隐藏处理框中的委员会打分区域
+        if (committeeScoreSection) {
+            committeeScoreSection.style.display = 'none';
+        }
+
+        console.log('❌ 非委员会成员，委员会打分功能已禁用');
+    } else {
+        console.log('✅ 委员会成员，委员会打分功能可用');
+
+        // 显示处理框中的委员会打分区域
+        if (committeeScoreSection) {
+            committeeScoreSection.style.display = 'block';
+        }
+
+        // 为处理框中的委员会打分添加直接更新功能
+        if (committeeScore) {
+            committeeScore.addEventListener('change', function() {
+                const selectedScore = this.value;
+                const innovationId = document.getElementById('handleInnovationId').value;
+
+                if (selectedScore && innovationId) {
+                    updateCommitteeScoreInModal(innovationId, selectedScore);
+                }
+            });
+        }
+
+        // 为委员会成员添加直接更新功能（原有功能）
+        if (committeeScoreSelect) {
+            committeeScoreSelect.addEventListener('change', function() {
+                const selectedScore = this.value;
+                const innovationId = document.getElementById('handleInnovationId').value;
+
+                if (selectedScore && innovationId) {
+                    updateCommitteeScore(innovationId, selectedScore);
+                }
+            });
+        }
+    }
+}
+
+// 状态变化时显示/隐藏评分
+document.getElementById('handleStatus').addEventListener('change', function() {
+    const scoreGroup = document.getElementById('scoreGroup');
+    const scoreSelect = document.getElementById('handleScore');
+    const label = document.querySelector('label[for="handleScore"]');
+    const scoreDescription = document.getElementById('scoreDescription');
+
+    // 根据状态决定是否显示评分选项
+    if (this.value === '采纳，立即执行' || this.value === '采纳，暂缓执行' ||
+        this.value === '重复提案' || this.value === '不采纳，不执行') {
+        // 这些状态需要评分
+        scoreGroup.style.display = 'block';
+        scoreSelect.required = true;
+        label.innerHTML = '提案评分 <span class="text-danger">*</span>';
+
+        if (this.value === '采纳，立即执行') {
+            scoreDescription.textContent = '立即执行评分：基于提案创新性、可行性和预期效果进行评估';
+        } else if (this.value === '采纳，暂缓执行') {
+            scoreDescription.textContent = '暂缓执行评分：基于提案价值和当前资源情况进行评估';
+        } else if (this.value === '重复提案') {
+            scoreDescription.textContent = '重复提案评分：通常为E级，除非有新的创新点';
+        } else if (this.value === '不采纳，不执行') {
+            scoreDescription.textContent = '不采纳评分：基于提案质量和可行性进行评估';
+        }
+    } else {
+        // 其他状态（如'已完成'、'待承接'、'进行中'等）不强制要求评分
+        scoreGroup.style.display = 'block';
+        scoreSelect.required = false;
+        label.innerHTML = '提案评分';
+        scoreDescription.textContent = '可选：如需要可以填写评分等级';
+    }
+});
+
+// 图片预览
+document.getElementById('imageFile').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('imagePreview').innerHTML =
+                `<img src="${e.target.result}" style="max-width: 200px; max-height: 200px;" alt="预览">`;
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// ==================== 创新提案管理功能 ====================
+function loadInnovations(page = 1) {
+    console.log('开始加载创新提案列表...');
+
+    // 简化的加载状态显示
+    const container = document.getElementById('innovationsList');
+    if (container) {
+        container.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center p-3">
+                <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                加载提案列表...
+            </div>
+        `;
+    }
+
+    // 获取筛选参数
+    const statusFilter = document.getElementById('statusFilter').value;
+    const departmentFilter = document.getElementById('departmentFilter').value;
+    const initiatorDepartmentFilter = document.getElementById('initiatorDepartmentFilter').value;
+    const operationTypeFilter = document.getElementById('operationTypeFilter').value;
+    const startDateFilter = document.getElementById('startDateFilter').value;
+    const endDateFilter = document.getElementById('endDateFilter').value;
+    const searchInput = document.getElementById('searchInput').value;
+    const maxScoreSelected = Array.from(document.querySelectorAll('input[name="maxScoreFilter"]:checked')).map(cb => cb.value);
+    const favoriteFilter = document.getElementById('favoriteFilter').value;
+
+    // 构建查询参数
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('per_page', 10); // 每页显示10条
+
+    if (statusFilter) params.append('status', statusFilter);
+    if (departmentFilter) params.append('department', departmentFilter);
+    if (initiatorDepartmentFilter) params.append('initiator_department', initiatorDepartmentFilter);
+    if (operationTypeFilter) params.append('operation_type', operationTypeFilter);
+    if (startDateFilter) params.append('start_date', startDateFilter);
+    if (endDateFilter) params.append('end_date', endDateFilter);
+    if (searchInput) params.append('search', searchInput);
+    if (maxScoreSelected && maxScoreSelected.length) {
+        maxScoreSelected.forEach(v => params.append('max_score', v));
+    }
+    if (favoriteFilter === 'mine') {
+        params.append('favorite_only', '1');
+    } else if (favoriteFilter) {
+        params.append('favorite_category', favoriteFilter);
+    }
+
+    axios.get(`/innovation/api/get_innovations?${params.toString()}`)
+        .then(response => {
+            console.log('API响应:', response.data);
+            if (response.data.success) {
+                // 直接使用服务器返回的数据
+                filteredInnovations = response.data.data;
+                allInnovations = response.data.data; // 同时更新allInnovations数组
+                totalCount = response.data.total;
+                currentPage = response.data.page;
+                totalPages = response.data.total_pages;
+                itemsPerPage = response.data.per_page;
+
+                console.log('加载到的提案数量:', filteredInnovations.length);
+                console.log('总数量:', totalCount, '当前页:', currentPage, '总页数:', totalPages);
+
+                renderInnovations();
+            } else {
+                console.error('API返回错误:', response.data.message);
+                showSimpleMessage('加载失败: ' + response.data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('请求失败:', error);
+            showSimpleMessage('加载失败，请稍后重试', 'error');
+        });
+}
+
+// 简化的消息显示函数
+function showSimpleMessage(message, type = 'info') {
+    const alertClass = {
+        'success': 'alert-success',
+        'error': 'alert-danger',
+        'warning': 'alert-warning',
+        'info': 'alert-info'
+    }[type] || 'alert-info';
+
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    // 移除现有的消息
+    const existingAlerts = document.querySelectorAll('.alert');
+    existingAlerts.forEach(alert => alert.remove());
+
+    // 添加新消息到页面顶部
+    const container = document.querySelector('.container');
+    if (container) {
+        container.insertAdjacentHTML('afterbegin', alertHtml);
+    }
+
+    // 3秒后自动消失
+    setTimeout(() => {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 3000);
+}
+// 渲染单个创新提案项目
+function renderInnovationItem(innovation) {
+    // 构建部门状态显示
+    let departmentStatusHtml = '';
+    if (innovation.department_status) {
+        Object.entries(innovation.department_status).forEach(([dept, info]) => {
+            const statusClass = {
+                '待承接': 'secondary',
+                '进行中': 'primary',
+                '已完成': 'success',
+                '已拒绝': 'danger'
+            }[info.status] || 'secondary';
+
+            departmentStatusHtml += `
+                <span class="badge bg-${statusClass} me-1">
+                    ${dept}: ${info.status}
+                    ${info.score !== undefined && info.score !== null && info.score !== '' ? ` (${info.score}分)` : ''}
+                </span>
+            `;
+        });
+    }
+
+return `
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100">
+                   ${innovation.image_path ? `
+                <div class="card-img-top" style="height: 200px; overflow: hidden;">
+                    ${(() => {
+                        const imagePaths = innovation.image_path.split(';').filter(path => path.trim());
+                        if (imagePaths.length > 0) {
+                            const firstImage = imagePaths[0].includes('/') ? imagePaths[0].split('/').pop() : imagePaths[0];
+                            return `<img src="/uploads/${firstImage}"
+                                         alt="创新提案图片"
+                                         style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"
+                                         onclick="showMultipleImagesModal('${innovation.image_path}', '${innovation.title}')">
+                                    ${imagePaths.length > 1 ? `<div class="position-absolute top-0 end-0 bg-dark text-white px-2 py-1 rounded-start" style="font-size: 0.8rem;">+${imagePaths.length - 1}</div>` : ''}`;
+                        }
+                        return '';
+                    })()}
+                </div>
+            ` : ''}
+            <div class="card-body">
+                <h6 class="card-title">${innovation.title}</h6>
+                <p class="card-text text-muted small">${innovation.content.substring(0, 100)}...</p>
+                <div class="mb-2">
+                    <small class="text-muted">发起人：${innovation.initiator}</small><br>
+                    <small class="text-muted">发起时间：${innovation.initiation_time}</small>
+                </div>
+                <div class="mb-2">
+                    ${departmentStatusHtml}
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-primary btn-sm" onclick="openHandleModal(${innovation.id})">
+                    <i class="bi bi-gear"></i> 处理
+                </button>
+            </div>
+        </div>
+    </div>
+`;
+}
+
+
+
+// 全选操作类型
+function selectAllOperationTypes() {
+    document.querySelectorAll('#exportModal input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+}
+
+// 全不选操作类型
+function deselectAllOperationTypes() {
+    document.querySelectorAll('#exportModal input[type="checkbox"]').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+}
+
+function exportToExcelWithOptions() {
+    // 获取时间范围
+    const startDate = document.getElementById('exportStartDate').value;
+    const endDate = document.getElementById('exportEndDate').value;
+
+    // 获取选中的操作类型
+    const selectedOperationTypes = [];
+    document.querySelectorAll('#exportModal input[type="checkbox"]:checked').forEach(checkbox => {
+        selectedOperationTypes.push(checkbox.value);
+    });
+
+    if (selectedOperationTypes.length === 0) {
+        InnovationApp.showMessage('请至少选择一个操作类型', 'error');
+        return;
+    }
+
+    // ✅ 关闭模态框（安全方式）
+    InnovationApp.closeModalSafely('exportModal');
+
+    // 显示加载状态
+    const exportBtn = document.querySelector('button[onclick="exportToExcelWithOptions()"]');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 导出中...';
+    exportBtn.disabled = true;
+
+    // 构建查询参数
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    selectedOperationTypes.forEach(type => {
+        params.append('operation_types', type);
+    });
+
+    // 发起导出请求
+    fetch(`/innovation/api/export_innovations?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+        if (response.ok) return response.blob();
+        throw new Error('导出失败');
+    })
+    .then(blob => {
+        // 创建下载链接
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+
+        // 文件名
+        let filename = '创新提案管理';
+        if (startDate && endDate) filename += `_${startDate}_至_${endDate}`;
+        else if (startDate) filename += `_${startDate}_开始`;
+        else if (endDate) filename += `_截止_${endDate}`;
+        filename += `_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        InnovationApp.showMessage('导出成功！', 'success');
+    })
+    .catch(error => {
+        console.error('导出失败:', error);
+        InnovationApp.showMessage('导出失败，请稍后重试', 'error');
+    })
+    .finally(() => {
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
+    });
+}
+
+
+// 渲染创新提案列表
+function renderInnovations() {
+    const container = document.getElementById('innovationsList');
+    const paginationContainer = document.getElementById('paginationContainer');
+
+    if (!filteredInnovations || filteredInnovations.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="bi bi-inbox display-1 text-muted"></i>
+                <p class="text-muted mt-3">暂无创新提案</p>
+            </div>
+        `;
+        if (paginationContainer) {
+            paginationContainer.style.display = 'none';
+        }
+        return;
+    }
+
+    // 简化的渲染逻辑，避免依赖复杂的InnovationApp方法
+    let html = '';
+    filteredInnovations.forEach(innovation => {
+        // 简化状态颜色映射
+        const getSimpleStatusColor = (status) => {
+            const colors = {
+                '待承接': 'warning',
+                '进行中': 'info',
+                '已完成': 'success',
+                '已取消': 'secondary',
+                '已拒绝': 'danger'
+            };
+            return colors[status] || 'secondary';
+        };
+
+        // 简化日期格式化
+        const formatSimpleDate = (dateStr) => {
+            if (!dateStr) return '-';
+            try {
+                return new Date(dateStr).toLocaleString('zh-CN');
+            } catch {
+                return dateStr;
+            }
+        };
+
+        // 构建部门状态显示
+        let departmentStatusHtml = '';
+        if (innovation.department_status) {
+            Object.entries(innovation.department_status).forEach(([dept, info]) => {
+                const statusClass = getSimpleStatusColor(info.status);
+                departmentStatusHtml += `
+                    <span class="badge bg-${statusClass} me-1 mb-1">
+                        ${dept}: ${info.status}
+                        ${info.score !== undefined && info.score !== null && info.score !== '' ? ` (${info.score}分)` : ''}
+                    </span>
+                `;
+            });
+        } else {
+            // 兼容旧数据格式
+            departmentStatusHtml = `
+                <span class="badge bg-${getSimpleStatusColor(innovation.status)} me-1">
+                    ${innovation.department || '未知部门'}: ${innovation.status}
+                </span>
+            `;
+        }
+
+        html += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5 class="card-title">
+                                <span class="text-muted me-2">#${innovation.bianhao || innovation.id}</span>
+                                ${innovation.title || '无标题'}
+                                <span class="badge bg-${getSimpleStatusColor(innovation.status)} ms-2">
+                                    ${innovation.status}
+                                </span>
+                            </h5>
+                            <p class="card-text">${innovation.content || '无内容'}</p>
+                            ${innovation.similar_top1 ? `
+                            <div class="alert alert-warning py-2 px-2 mb-2 small">
+                                <i class="bi bi-link-45deg"></i>
+                                高相似提案（${innovation.similar_top1.score_percent}%）：
+                                <a href="javascript:void(0)"
+                                   class="fw-bold text-decoration-none"
+                                   onclick='openSimilarCompare(${JSON.stringify(String(innovation.bianhao || innovation.id))}, ${JSON.stringify(String(innovation.similar_top1.bianhao || ""))})'>
+                                    #${innovation.similar_top1.bianhao}
+                                    ${innovation.similar_top1.title || ''}
+                                </a>
+                            </div>
+                            ` : ''}
+
+                            <div class="mb-2">
+                                <small class="text-muted d-block mb-1">承接部门状态：</small>
+                                ${departmentStatusHtml}
+                            </div>
+
+                            <div class="row text-muted small">
+                                <div class="col-sm-6">
+                                    <i class="bi bi-person"></i> 发起人：${innovation.initiator || '未知'}
+                                </div>
+                                <div class="col-sm-6">
+                                    <i class="bi bi-calendar"></i> 发起时间：${formatSimpleDate(innovation.initiation_time)}
+                                </div>
+                                <div class="col-sm-6">
+                                    <i class="bi bi-clock"></i> 截止时间：${formatSimpleDate(innovation.deadline)}
+                                </div>
+                                ${innovation.handler ? `
+                                <div class="col-sm-6">
+                                    <i class="bi bi-person-check"></i> 最新处理人：${innovation.handler}
+                                </div>
+                                ` : ''}
+                                ${innovation.handle_time ? `
+                                <div class="col-sm-6">
+                                    <i class="bi bi-calendar-check"></i> 最新处理时间：${formatSimpleDate(innovation.handle_time)}
+                                </div>
+                                ` : ''}
+                                ${innovation.score && innovation.score > 0 ? `
+                                <div class="col-sm-6">
+                                    <i class="bi bi-star-fill text-warning"></i> 项目得分：${innovation.score}分
+                                </div>
+                                ` : ''}
+                                ${innovation.committee_score ? `
+                                <div class="col-sm-6">
+                                    <i class="bi bi-award text-primary"></i> 委员会打分：${innovation.committee_score == -1 ? '无' : innovation.committee_score}
+                                </div>
+                                ` : ''}
+                                ${innovation.operation_type ? `
+                                <div class="col-sm-6">
+                                    <i class="bi bi-gear-fill text-info"></i> 操作类型：${innovation.operation_type}
+                                </div>
+                                ` : ''}
+                            </div>
+                            ${innovation.handler_notes ? `
+                            <div class="mt-2">
+                                <small class="text-muted">最新处理备注：</small>
+                                <div class="bg-light p-2 rounded small">${innovation.handler_notes}</div>
+                            </div>
+                            ` : ''}
+                            <div class="border-top pt-2 mt-2">
+                                <div class="d-flex align-items-center">
+                                    <button class="btn btn-outline-danger btn-sm" onclick="toggleLike(${String(innovation.id).replace(/[^0-9]/g,'')})"><i class="bi bi-heart"></i> 点赞</button>
+                                    <span class="ms-2 small text-muted">点赞数：<span id="like-count-${String(innovation.id).replace(/[^0-9]/g,'')}">0</span></span>
+                                </div>
+                                <div class="small text-muted mt-1" style="white-space: normal; word-break: break-all;">点赞人：<span id="like-users-${String(innovation.id).replace(/[^0-9]/g,'')}">暂无</span></div>
+                                <div class="mt-2">
+                                    <button class="btn btn-outline-secondary btn-sm" id="comment-toggle-${String(innovation.id).replace(/[^0-9]/g,'')}" onclick="toggleComments(${String(innovation.id).replace(/[^0-9]/g,'')})"><i class="bi bi-chat"></i> 折叠评论</button>
+                                </div>
+                                <div id="comments-panel-${String(innovation.id).replace(/[^0-9]/g,'')}" class="mt-2" style="display:block;border:1px solid #e9ecef;border-radius:8px;padding:10px;">
+                                    <div id="comments-${String(innovation.id).replace(/[^0-9]/g,'')}"></div>
+                                    <div class="mt-2">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="comment-input-${String(innovation.id).replace(/[^0-9]/g,'')}" placeholder="写下你的评价">
+                                            <button class="btn btn-primary" onclick="submitComment(${String(innovation.id).replace(/[^0-9]/g,'')})">提交评论</button>
+                                        </div>
+                                        <div class="mt-2 d-flex flex-wrap gap-2 align-items-center">
+                                            <input type="file" class="form-control form-control-sm" style="max-width:240px;" id="comment-image-${String(innovation.id).replace(/[^0-9]/g,'')}" accept="image/*" onchange="previewCommentImage(this, ${String(innovation.id).replace(/[^0-9]/g,'')})">
+                                            <div id="comment-image-preview-${String(innovation.id).replace(/[^0-9]/g,'')}" class="d-flex flex-wrap gap-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="btn-group-vertical innovation-action-group" role="group">
+                                <button class="btn btn-outline-primary btn-sm"
+                                        onclick="openHandleModal(${innovation.id})">
+                                    <i class="bi bi-gear"></i> 处理
+                                </button>
+                                <button class="btn btn-outline-success btn-sm committee-score-btn"
+                                        onclick="openCommitteeScoreModal(${innovation.id})"
+                                        data-innovation-id="${innovation.id}">
+                                    <i class="bi bi-star"></i> 委员会打分
+                                </button>
+                                <div class="dropdown w-100">
+                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i> 更多
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end w-100">
+                                        <li>
+                                            <button class="dropdown-item" type="button"
+                                                    onclick="submitToMeeting(${innovation.id})"
+                                                    data-innovation-id="${innovation.id}">
+                                                <i class="bi bi-arrow-up-circle"></i> 一键上会
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button class="dropdown-item" type="button"
+                                                    onclick="toggleFavorite(${innovation.id}, ${innovation.is_favorited ? 'false' : 'true'})">
+                                                <i class="bi ${innovation.is_favorited ? 'bi-star-fill' : 'bi-star'}"></i> ${innovation.is_favorited ? '已收藏' : '收藏'}
+                                            </button>
+                                        </li>
+                                        <li><button class="dropdown-item" type="button" onclick="addFavoriteCategory(${innovation.id}, '长期看效果')"><i class="bi bi-hourglass-split"></i> 长期看效果</button></li>
+                                        <li><button class="dropdown-item" type="button" onclick="addFavoriteCategory(${innovation.id}, '暂未有解决方案')"><i class="bi bi-question-circle"></i> 暂未有解决方案</button></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+
+    filteredInnovations.forEach(inv => loadReact(String(inv.id).replace(/[^0-9]/g,'')));
+
+    // 设置委员会打分按钮权限
+    setCommitteeScoreButtonPermissions();
+
+    // 更新分页导航
+    updatePagination();
+}
+
+function makeCompareRow(label, leftVal, rightVal){
+    const lv = escapeHtml((leftVal || '').toString());
+    const rv = escapeHtml((rightVal || '').toString());
+    return `
+        <tr>
+            <th style="width:90px;">${label}</th>
+            <td style="white-space: pre-wrap; word-break: break-word;">${lv || '<span class="text-muted">无</span>'}</td>
+            <td style="white-space: pre-wrap; word-break: break-word;">${rv || '<span class="text-muted">无</span>'}</td>
+        </tr>
+    `;
+}
+
+function openSimilarCompare(currentBianhao, targetBianhao){
+    if(!currentBianhao || !targetBianhao){
+        InnovationApp.showMessage('缺少对比编号', 'error');
+        return;
+    }
+    axios.get('/innovation/api/get_innovation_compare', {
+        params: {
+            current_bianhao: currentBianhao,
+            target_bianhao: targetBianhao
+        }
+    }).then(res => {
+        if(!(res.data && res.data.success)){
+            InnovationApp.showMessage((res.data && res.data.message) || '获取对比数据失败', 'error');
+            return;
+        }
+        const d = res.data.data || {};
+        const c = d.current || {};
+        const t = d.target || {};
+        const modalId = 'similarCompareModal';
+        const old = document.getElementById(modalId);
+        if(old) old.remove();
+        const html = `
+            <div class="modal fade" id="${modalId}" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="bi bi-intersect"></i> 相似提案一一对比</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-light border small mb-2">
+                                当前提案：<strong>#${escapeHtml(c.bianhao || '')}</strong>　
+                                对比提案：<strong>#${escapeHtml(t.bianhao || '')}</strong>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>字段</th>
+                                            <th>当前提案</th>
+                                            <th>相似提案</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${makeCompareRow('发起人', c.initiator, t.initiator)}
+                                        ${makeCompareRow('发起时间', c.initiation_time, t.initiation_time)}
+                                        ${makeCompareRow('标题', c.title, t.title)}
+                                        ${makeCompareRow('内容', c.content, t.content)}
+                                        ${makeCompareRow('解决方案', c.solution, t.solution)}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        const modalEl = document.getElementById(modalId);
+        const m = new bootstrap.Modal(modalEl);
+        m.show();
+    }).catch(err => {
+        console.error('打开相似提案对比失败:', err);
+        InnovationApp.showMessage('打开相似提案对比失败', 'error');
+    });
+}
+
+function loadReact(id){
+    axios.get('/innovation/api/react/stats', { params: { id } }).then(res=>{
+        if(res.data && res.data.success){
+            console.log('[loadReact] id=', id, 'likes=', res.data.likes, 'comments=', res.data.comments);
+            const likes = res.data.likes || 0;
+            const comments = res.data.comments || [];
+            const likeUsers = res.data.like_users || [];
+            const likeEl = document.getElementById(`like-count-${id}`);
+            const usersEl = document.getElementById(`like-users-${id}`);
+            const listEl = document.getElementById(`comments-${id}`);
+            if(likeEl) likeEl.innerText = likes;
+            if(usersEl) usersEl.innerText = likeUsers.length ? likeUsers.join('，') : '暂无';
+            if(listEl) listEl.innerHTML = comments.length ? comments.map(it=>{
+                const op = escapeHtml((it.operator||'').trim());
+                const cm = escapeHtml((it.comment||'').trim());
+                const tm = escapeHtml(it.time);
+                const text = cm ? `${op}：${cm}（${tm}）` : `${op}（${tm}）`;
+                const img = it.image_url ? `<div class="mt-1"><a href="${it.image_url}" target="_blank"><img src="${it.image_url}" class="img-thumbnail" style="max-width:160px;max-height:160px;"></a></div>` : '';
+                return `<div class="mb-2"><div class="small text-muted">${text}</div>${img}</div>`;
+            }).join('') : '<div class=\"small text-muted\">暂无评论</div>';
+            if(!listEl){ console.warn('[loadReact] comments container missing for id', id); }
+        }
+    }).catch(()=>{});
+}
+
+function escapeHtml(text){
+    if(!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function toggleComments(id){
+    const p = document.getElementById(`comments-panel-${id}`);
+    if(!p) return;
+    const btn = document.getElementById(`comment-toggle-${id}`);
+    const willShow = (p.style.display==='none' || p.style.display==='');
+    p.style.display = willShow ? 'block' : 'none';
+    if(btn){ btn.innerHTML = willShow ? '<i class="bi bi-chat"></i> 折叠评论' : '<i class="bi bi-chat"></i> 展开评论'; }
+}
+
+function toggleLike(id){
+    axios.post('/innovation/api/react', { id, like: true }).then(res=>{
+        if(res.data && res.data.success){
+            loadReact(id);
+        } else {
+            InnovationApp && InnovationApp.showMessage ? InnovationApp.showMessage(res.data?.message || '点赞失败', 'error') : alert(res.data?.message || '点赞失败');
+        }
+    }).catch(()=>{ InnovationApp && InnovationApp.showMessage ? InnovationApp.showMessage('点赞失败', 'error') : alert('点赞失败'); });
+}
+
+function toggleFavorite(innovationId, favorite){
+    axios.post('/innovation/api/toggle_favorite', { innovation_id: innovationId, favorite: !!favorite }).then(res => {
+        if (res.data && res.data.success) {
+            const msg = res.data.message || (res.data.is_favorited ? '收藏成功' : '已取消收藏');
+            if (typeof InnovationApp !== 'undefined' && InnovationApp.showMessage) {
+                InnovationApp.showMessage(msg, 'success');
+            } else {
+                showSimpleMessage(msg, 'success');
+            }
+            loadInnovations(currentPage || 1);
+        } else {
+            const err = (res.data && res.data.message) ? res.data.message : '收藏操作失败';
+            if (typeof InnovationApp !== 'undefined' && InnovationApp.showMessage) {
+                InnovationApp.showMessage(err, 'error');
+            } else {
+                showSimpleMessage(err, 'error');
+            }
+        }
+    }).catch(() => {
+        if (typeof InnovationApp !== 'undefined' && InnovationApp.showMessage) {
+            InnovationApp.showMessage('收藏操作失败', 'error');
+        } else {
+            showSimpleMessage('收藏操作失败', 'error');
+        }
+    });
+}
+
+function addFavoriteCategory(innovationId, fenlei){
+    axios.post('/innovation/api/add_favorite_category', { innovation_id: innovationId, fenlei }).then(res => {
+        if (res.data && res.data.success) {
+            const msg = res.data.message || '已添加分类记录';
+            if (typeof InnovationApp !== 'undefined' && InnovationApp.showMessage) {
+                InnovationApp.showMessage(msg, 'success');
+            } else {
+                showSimpleMessage(msg, 'success');
+            }
+        } else {
+            const err = (res.data && res.data.message) ? res.data.message : '分类记录失败';
+            if (typeof InnovationApp !== 'undefined' && InnovationApp.showMessage) {
+                InnovationApp.showMessage(err, 'error');
+            } else {
+                showSimpleMessage(err, 'error');
+            }
+        }
+    }).catch(() => {
+        if (typeof InnovationApp !== 'undefined' && InnovationApp.showMessage) {
+            InnovationApp.showMessage('分类记录失败', 'error');
+        } else {
+            showSimpleMessage('分类记录失败', 'error');
+        }
+    });
+}
+
+function previewCommentImage(input, id){
+    const preview = document.getElementById(`comment-image-preview-${id}`);
+    if(!preview) return;
+    preview.innerHTML = '';
+    const file = input && input.files && input.files[0] ? input.files[0] : null;
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e){
+        preview.innerHTML = `
+            <div class="position-relative d-inline-block">
+                <img src="${e.target.result}" class="img-thumbnail" style="max-width:120px;max-height:120px;">
+                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" onclick="clearCommentImage(${id})">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `;
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearCommentImage(id){
+    const input = document.getElementById(`comment-image-${id}`);
+    const preview = document.getElementById(`comment-image-preview-${id}`);
+    if(input) input.value = '';
+    if(preview) preview.innerHTML = '';
+}
+
+function submitComment(id){
+    const input = document.getElementById(`comment-input-${id}`);
+    const val = (input?.value || '').trim();
+    const fileInput = document.getElementById(`comment-image-${id}`);
+    const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+    if(!val && !file){ InnovationApp && InnovationApp.showMessage ? InnovationApp.showMessage('请输入评论或选择图片', 'warning') : alert('请输入评论或选择图片'); return; }
+    const fd = new FormData();
+    fd.append('id', id);
+    if(val) fd.append('comment', val);
+    if(file) fd.append('image', file);
+    axios.post('/innovation/api/react', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(res=>{
+        if(res.data && res.data.success){
+            input.value='';
+            clearCommentImage(id);
+            loadReact(id);
+            InnovationApp && InnovationApp.showMessage ? InnovationApp.showMessage('评论提交成功', 'success') : null;
+        } else {
+            InnovationApp && InnovationApp.showMessage ? InnovationApp.showMessage(res.data?.message || '评论失败', 'error') : alert(res.data?.message || '评论失败');
+        }
+    }).catch(()=>{ InnovationApp && InnovationApp.showMessage ? InnovationApp.showMessage('评论失败', 'error') : alert('评论失败'); });
+}
+
+// 筛选创新提案
+function filterInnovations() {
+    // 筛选后重置到第一页并重新加载数据
+    currentPage = 1;
+    loadInnovations(1);
+}
+
+// 清除筛选器
+function clearFilters() {
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('departmentFilter').value = '';
+    document.getElementById('initiatorDepartmentFilter').value = '';
+    document.getElementById('operationTypeFilter').value = '';
+    document.getElementById('favoriteFilter').value = '';
+    document.getElementById('startDateFilter').value = '';
+    document.getElementById('endDateFilter').value = '';
+    document.getElementById('searchInput').value = '';
+    document.querySelectorAll('input[name="maxScoreFilter"]').forEach(cb => cb.checked = false);
+    updateScoreFilterBtnText();
+    // 清除筛选器后重置到第一页并重新加载
+    currentPage = 1;
+    loadInnovations(1);
+}
+
+function updateScoreFilterBtnText() {
+    const btn = document.getElementById('scoreFilterBtn');
+    if (!btn) return;
+    const selected = Array.from(document.querySelectorAll('input[name="maxScoreFilter"]:checked')).map(cb => cb.value);
+    btn.textContent = selected.length ? `分数(已选${selected.length})` : '分数';
+}
+
+// 刷新列表
+function refreshInnovations() {
+    loadInnovations(currentPage);
+}
+
+// 更新分页导航
+function updatePagination() {
+    const paginationContainer = document.getElementById('paginationContainer');
+
+    if (totalCount <= itemsPerPage) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+
+    paginationContainer.style.display = 'flex';
+
+    // 更新统计信息
+    const startIndex = (currentPage - 1) * itemsPerPage + 1;
+    const endIndex = Math.min(currentPage * itemsPerPage, totalCount);
+    document.getElementById('currentStart').textContent = startIndex;
+    document.getElementById('currentEnd').textContent = endIndex;
+    document.getElementById('totalCount').textContent = totalCount;
+
+    // 更新页码按钮状态
+    const prevPage = document.getElementById('prevPage');
+    const nextPage = document.getElementById('nextPage');
+    const firstPage = document.getElementById('firstPage');
+    const lastPage = document.getElementById('lastPage');
+
+    // 上一页按钮
+    if (currentPage <= 1) {
+        prevPage.classList.add('disabled');
+    } else {
+        prevPage.classList.remove('disabled');
+    }
+
+    // 下一页按钮
+    if (currentPage >= totalPages) {
+        nextPage.classList.add('disabled');
+    } else {
+        nextPage.classList.remove('disabled');
+    }
+
+    // 首页和末页
+    if (totalPages <= 1) {
+        firstPage.style.display = 'none';
+        lastPage.style.display = 'none';
+    } else {
+        firstPage.style.display = 'block';
+        lastPage.style.display = 'block';
+        document.getElementById('lastPageNum').textContent = totalPages;
+
+        if (currentPage === 1) {
+            firstPage.classList.add('active');
+        } else {
+            firstPage.classList.remove('active');
+        }
+
+        if (currentPage === totalPages) {
+            lastPage.classList.add('active');
+        } else {
+            lastPage.classList.remove('active');
+        }
+    }
+
+    // 生成中间页码
+    generatePageNumbers();
+}
+
+// 生成页码按钮
+function generatePageNumbers() {
+    const prevDots = document.getElementById('prevDots');
+    const nextDots = document.getElementById('nextDots');
+    const paginationList = prevDots.parentNode;
+
+    // 清除之前动态生成的页码
+    const existingPageNumbers = paginationList.querySelectorAll('.dynamic-page-number');
+    existingPageNumbers.forEach(el => el.remove());
+
+    prevDots.style.display = 'none';
+    nextDots.style.display = 'none';
+
+    if (totalPages <= 7) {
+        // 总页数少于7页，显示所有页码
+        for (let i = 2; i < totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item dynamic-page-number ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>`;
+            paginationList.insertBefore(li, nextDots);
+        }
+    } else {
+        // 总页数大于7页，智能显示页码
+        if (currentPage <= 4) {
+            // 当前页在前面
+            for (let i = 2; i <= 5; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item dynamic-page-number ${i === currentPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>`;
+                paginationList.insertBefore(li, nextDots);
+            }
+            nextDots.style.display = 'block';
+        } else if (currentPage >= totalPages - 3) {
+            // 当前页在后面
+            prevDots.style.display = 'block';
+            for (let i = totalPages - 4; i < totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item dynamic-page-number ${i === currentPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>`;
+                paginationList.insertBefore(li, nextDots);
+            }
+        } else {
+            // 当前页在中间
+            prevDots.style.display = 'block';
+            nextDots.style.display = 'block';
+            for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item dynamic-page-number ${i === currentPage ? 'active' : ''}`;
+                li.innerHTML = `<a class="page-link" href="#" onclick="goToPage(${i})">${i}</a>`;
+                paginationList.insertBefore(li, nextDots);
+            }
+        }
+    }
+}
+
+// 跳转到指定页
+function goToPage(page) {
+    if (page < 1 || page > totalPages || page === currentPage) {
+        return;
+    }
+
+    currentPage = page;
+    loadInnovations(page);
+}
+
+// 打开委员会打分模态框
+function openCommitteeScoreModal(innovationId) {
+    // 获取创新提案详情
+    const innovation = allInnovations.find(item => item.id === innovationId);
+    if (!innovation) {
+        alert('未找到该提案信息');
+        return;
+    }
+
+    // 检查权限
+    const isCommitteeMember = {{ is_committee_member|tojson }};
+    if (!isCommitteeMember) {
+        alert('仅委员会成员可使用此功能');
+        return;
+    }
+
+    // 创建委员会打分模态框
+    const modalHtml = `
+        <div class="modal fade" id="committeeScoreModal" tabindex="-1" aria-labelledby="committeeScoreModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl" style="max-width:95vw; width:95vw;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="committeeScoreModalLabel">
+                            <i class="bi bi-star"></i> 委员会打分
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-2" style="padding: 8px;">
+                        <div class="committee-columns" style="column-count: 2; column-gap: 12px; column-fill: balance; height: 70vh; overflow-y: auto;">
+                            <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                <h6>提案信息</h6>
+                                <p class="mb-1"><strong>标题：</strong>${innovation.title}</p>
+                                <p class="mb-1"><strong>发起人：</strong>${innovation.initiator}</p>
+                                <p class="mb-1"><strong>发起时间：</strong>${innovation.initiation_time || ''}</p>
+                                ${innovation.deadline ? `<p class="mb-1"><strong>截止时间：</strong>${innovation.deadline}</p>` : ''}
+                                <p class="mb-1"><strong>部门：</strong>${innovation.department || ''}</p>
+                                ${innovation.project_type ? `<p class="mb-1"><strong>类别：</strong>${innovation.project_type}</p>` : ''}
+                                <p class="mb-1"><strong>当前状态：</strong>${innovation.status || '待承接'}</p>
+                            </div>
+
+                            ${(() => {
+                                if (!innovation.department_status) return '';
+                                const statusClassMap = { '待承接': 'secondary', '进行中': 'primary', '已完成': 'success', '已拒绝': 'danger' };
+                                let html = '<div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;"><h6>部门处理状态</h6>';
+                                Object.entries(innovation.department_status).forEach(([dept, info]) => {
+                                    const statusClass = statusClassMap[info.status] || 'secondary';
+                                    html += `<span class="badge bg-${statusClass} me-1">${dept}: ${info.status}${info.score !== undefined && info.score !== null && info.score !== '' ? ` (${info.score}分)` : ''}</span>`;
+                                });
+                                html += '</div>';
+                                return html;
+                            })()}
+
+                            ${innovation.content ? `
+                            <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                <h6>提案内容</h6>
+                                <div class="bg-light p-2 rounded" style="white-space: pre-wrap;">${innovation.content}</div>
+                            </div>` : ''}
+
+                            ${innovation.solution ? `
+                            <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                <h6>解决方案</h6>
+                                <div class="bg-light p-2 rounded" style="white-space: pre-wrap;">${innovation.solution}</div>
+                            </div>` : ''}
+
+                            ${innovation.handler_notes ? `
+                            <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                <strong>最新处理备注：</strong>
+                                <div class="bg-light p-2 rounded small" style="white-space: pre-wrap;">${innovation.handler_notes}</div>
+                            </div>` : ''}
+
+                            ${(() => {
+                                if (!innovation.image_path) return '';
+                                const imagePaths = innovation.image_path.split(';').filter(path => path.trim());
+                                if (imagePaths.length === 0) return '';
+                                const thumbs = imagePaths.map((path, index) => {
+                                    const imageName = path.includes('/') ? path.split('/').pop() : path;
+                                    return `<img src="/uploads/${imageName}"
+                                                 style="width: 100px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; cursor: pointer; margin-right: 8px; margin-bottom: 8px;"
+                                                 alt="提案图片${index + 1}"
+                                                 onclick="showMultipleImagesModal('${innovation.image_path}', '${innovation.title}', ${index})">`;
+                                }).join('');
+                                return `
+                                    <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                        <label class="form-label">提案图片：</label>
+                                        <div class="d-flex flex-wrap">${thumbs}</div>
+                                        <div class="form-text">点击图片可放大查看</div>
+                                    </div>
+                                `;
+                            })()}
+
+                            ${(() => {
+                                if (!innovation.video_path) return '';
+                                const videoPaths = innovation.video_path.split(';').filter(path => path.trim());
+                                if (videoPaths.length === 0) return '';
+                                const thumbs = videoPaths.map((path) => {
+                                    const videoName = path.includes('/') ? path.split('/').pop() : path;
+                                    return `<video src="/uploads/${videoName}"
+                                                 style="width: 180px; height: 100px; object-fit: contain; background:#000; border-radius: 6px; border: 1px solid #ddd; margin-right: 8px; margin-bottom: 8px;"
+                                                 controls preload="metadata"></video>`;
+                                }).join('');
+                                return `
+                                    <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                        <label class="form-label">提案视频：</label>
+                                        <div class="d-flex flex-wrap">${thumbs}</div>
+                                    </div>
+                                `;
+                            })()}
+
+                            <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                <label for="committeeScoreSelect" class="form-label">委员会评分</label>
+                                <select class="form-select" id="committeeScoreSelect" required>
+                                    <option value="">请选择评分等级</option>
+                                    <option value="A+">A+ - 大奖（发明专利）</option>
+                                    <option value="A">A - 50分（重大改进）</option>
+                                    <option value="B">B - 30分（明显改进）</option>
+                                    <option value="C">C - 20分（一般改进）</option>
+                                    <option value="D">D - 10分（建议性意见）</option>
+                                    <option value="E">E - 0分（无效提案）</option>
+                                </select>
+                            </div>
+
+                            <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
+                                <label for="committeeNotes" class="form-label">委员会备注</label>
+                                <textarea class="form-control" id="committeeNotes" rows="3" placeholder="请输入委员会备注（可选）"></textarea>
+                                <div class="form-text">备注将记录到“处理备注”，系统会自动附加时间。</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="submitCommitteeScore(${innovationId})">确认打分</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 移除已存在的模态框
+    const existingModal = document.getElementById('committeeScoreModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // 添加新模态框到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('committeeScoreModal'));
+    modal.show();
+
+    // 设置当前委员会评分
+    if (innovation.committee_score) {
+        document.getElementById('committeeScoreSelect').value = innovation.committee_score;
+    }
+}
+
+// 提交委员会打分
+function submitCommitteeScore(innovationId) {
+    const scoreSelect = document.getElementById('committeeScoreSelect');
+    const selectedScore = scoreSelect.value;
+    const notesInput = document.getElementById('committeeNotes');
+    const committeeNotes = notesInput ? notesInput.value.trim() : '';
+
+    if (!selectedScore) {
+        alert('请选择评分等级');
+        return;
+    }
+
+    // 调用更新函数，带备注
+    updateCommitteeScoreInModal(innovationId, selectedScore, committeeNotes);
+
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('committeeScoreModal'));
+    modal.hide();
+}
+
+// 一键上会功能
+function submitToMeeting(innovationId) {
+    // 确认操作
+    if (!confirm('确定要将此提案标记为"有异议，上会"吗？')) {
+        return;
+    }
+
+    // 显示加载提示
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'toast-container position-fixed top-0 end-0 p-3';
+    loadingToast.innerHTML = `
+        <div class="toast show" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">一键上会</strong>
+            </div>
+            <div class="toast-body">
+                <i class="bi bi-arrow-clockwise spin"></i> 正在处理...
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingToast);
+
+    // 调用API更新操作类型
+    axios.post('/innovation/api/submit_to_meeting', {
+        innovation_id: innovationId
+    })
+    .then(response => {
+        // 移除加载提示
+        document.body.removeChild(loadingToast);
+
+        if (response.data.success) {
+            console.log('✅ 一键上会成功');
+            InnovationApp.showMessage('已成功标记为"有异议，上会"', 'success');
+
+            // 重新加载当前页，避免跳回第一页
+            loadInnovations(currentPage);
+
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('committeeScoreModal'));
+            if (modal) {
+                modal.hide();
+            }
+        } else {
+            console.error('❌ 一键上会失败:', response.data.message);
+            InnovationApp.showMessage(response.data.message, 'error');
+        }
+    })
+    .catch(error => {
+        // 移除加载提示
+        document.body.removeChild(loadingToast);
+
+        console.error('❌ 一键上会请求失败:', error);
+        let errorMessage = '网络错误，请重试';
+
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+        }
+
+        InnovationApp.showMessage(errorMessage, 'error');
+    });
+}
+
+// 打开处理模态框
+function openHandleModal(innovationId) {
+    // 获取创新提案详情
+    const innovation = allInnovations.find(item => item.id === innovationId);
+    if (innovation) {
+        // 填充提案信息
+        const innovationInfoDiv = document.getElementById('innovationInfo');
+        let imageHtml = '';
+        if (innovation.image_path) {
+            const imagePaths = innovation.image_path.split(';').filter(path => path.trim());
+            if (imagePaths.length > 0) {
+                imageHtml = `
+                    <div class="mb-3">
+                        <label class="form-label">提案图片：</label><br>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${imagePaths.map((path, index) => {
+                                const imageName = path.includes('/') ? path.split('/').pop() : path;
+                                return `<img src="/uploads/${imageName}"
+                                             style="max-width: 150px; max-height: 150px; object-fit: contain; border-radius: 8px; border: 1px solid #ddd; cursor: pointer;"
+                                             alt="提案图片${index + 1}"
+                                             onclick="showMultipleImagesModal('${innovation.image_path}', '${innovation.title}', ${index})">`;
+                            }).join('')}
+                        </div>
+                        <div class="form-text">点击图片可放大查看</div>
+                    </div>
+                `;
+            }
+        }
+
+        let videoHtml = '';
+        if (innovation.video_path) {
+            const videoPaths = innovation.video_path.split(';').filter(path => path.trim());
+            if (videoPaths.length > 0) {
+                videoHtml = `
+                    <div class="mb-3">
+                        <label class="form-label">提案视频：</label><br>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${videoPaths.map((path, index) => {
+                                const videoName = path.includes('/') ? path.split('/').pop() : path;
+                                return `<video src="/uploads/${videoName}"
+                                             style="max-width: 240px; max-height: 150px; background: #000; border-radius: 8px; border: 1px solid #ddd;"
+                                             controls preload="metadata"></video>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        innovationInfoDiv.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>提案标题：</strong>${innovation.title}</p>
+                    <p><strong>发起人：</strong>${innovation.initiator}</p>
+                    <p><strong>发起时间：</strong>${innovation.initiation_time}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>当前状态：</strong><span class="badge bg-info">${innovation.status}</span></p>
+                    <p><strong>项目类型：</strong>${innovation.project_type}</p>
+                </div>
+            </div>
+            <div class="mb-3">
+                <p><strong>提案内容：</strong></p>
+                <div class="p-2 bg-white rounded border">${innovation.content}</div>
+            </div>
+            ${innovation.solution ? `
+            <div class="mb-3">
+                <p><strong>解决方案：</strong></p>
+                <div class="p-2 bg-white rounded border" style="border-left: 4px solid #667eea !important;">${innovation.solution}</div>
+            </div>
+            ` : ''}
+            ${imageHtml}
+            ${videoHtml}
+        `;
+    }
+
+    // 获取项目的承接部门列表
+    axios.get(`/innovation/api/get_project_departments/${innovationId}`)
+        .then(response => {
+            if (response.data.success) {
+                const departments = response.data.data;
+                const departmentSelect = document.getElementById('handleDepartment');
+
+                // 清空现有选项
+                departmentSelect.innerHTML = '<option value="">请选择部门</option>';
+
+                // 添加部门选项（只显示待承接或进行中的部门）
+                departments.forEach(dept => {
+                    if (dept.status === '待承接' || dept.status === '进行中') {
+                        const option = document.createElement('option');
+                        option.value = dept.flow_id;
+                        option.textContent = `${dept.department} (${dept.status})`;
+                        if (dept.score) {
+                            option.textContent += ` - 已评分: ${dept.score}`;
+                        }
+                        departmentSelect.appendChild(option);
+                    }
+                });
+
+                // 如果没有可处理的部门
+                if (departmentSelect.children.length === 1) {
+                    departmentSelect.innerHTML = '<option value="">暂无可处理的部门</option>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('获取部门列表失败:', error);
+            InnovationApp.showMessage('获取部门列表失败', 'error');
+        });
+
+    // 设置项目ID
+    document.getElementById('handleInnovationId').value = innovationId;
+
+    // 显示模态框
+    new bootstrap.Modal(document.getElementById('handleModal')).show();
+
+    // 在模态框显示后应用权限控制
+    setTimeout(() => {
+        initCommitteePermissions();
+    }, 100);
+}
+
+
+
+
+// 显示多张图片查看模态框
+function showMultipleImagesModal(imagePathsStr, title = '', startIndex = 0) {
+    const imagePaths = imagePathsStr.split(';').filter(path => path.trim());
+    if (imagePaths.length === 0) return;
+
+    // 创建模态框HTML（如果不存在）
+    let imageModal = document.getElementById('multipleImageViewModal');
+    if (!imageModal) {
+        const modalHtml = `
+            <div class="modal fade" id="multipleImageViewModal" tabindex="-1">
+                <div class="modal-dialog modal-xl modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">查看提案图片</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="text-center mb-3">
+                                <img id="currentModalImage" src="" style="max-width: 100%; max-height: 60vh; object-fit: contain;" alt="提案图片">
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button type="button" class="btn btn-outline-primary" id="prevImageBtn">
+                                    <i class="bi bi-chevron-left"></i> 上一张
+                                </button>
+                                <span id="imageCounter" class="text-muted"></span>
+                                <button type="button" class="btn btn-outline-primary" id="nextImageBtn">
+                                    下一张 <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="mt-3 d-flex flex-wrap gap-2 justify-content-center" id="imageThumbnails"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        imageModal = document.getElementById('multipleImageViewModal');
+    }
+
+    let currentIndex = startIndex;
+    let zoomScale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let lastX = 0;
+    let lastY = 0;
+    const currentModalImage = document.getElementById('currentModalImage');
+    const imageCounter = document.getElementById('imageCounter');
+    const imageThumbnails = document.getElementById('imageThumbnails');
+    const prevBtn = document.getElementById('prevImageBtn');
+    const nextBtn = document.getElementById('nextImageBtn');
+
+    function applyZoom() {
+        currentModalImage.style.transformOrigin = 'center center';
+        currentModalImage.style.transform = 'translate(' + translateX + 'px,' + translateY + 'px) scale(' + zoomScale + ')';
+        if (zoomScale > 1) {
+            currentModalImage.style.cursor = isDragging ? 'grabbing' : 'grab';
+        } else {
+            currentModalImage.style.cursor = 'default';
+        }
+    }
+
+    function updateImage() {
+        const imageName = imagePaths[currentIndex].includes('/') ?
+                         imagePaths[currentIndex].split('/').pop() :
+                         imagePaths[currentIndex];
+        currentModalImage.src = `/uploads/${imageName}`;
+        imageCounter.textContent = `${currentIndex + 1} / ${imagePaths.length}`;
+        zoomScale = 1;
+        translateX = 0;
+        translateY = 0;
+        applyZoom();
+
+        // 更新按钮状态
+        prevBtn.disabled = currentIndex === 0;
+        nextBtn.disabled = currentIndex === imagePaths.length - 1;
+
+        // 更新缩略图高亮
+        document.querySelectorAll('.thumbnail-img').forEach((thumb, index) => {
+            thumb.classList.toggle('border-primary', index === currentIndex);
+            thumb.classList.toggle('border-3', index === currentIndex);
+        });
+    }
+
+    function createThumbnails() {
+        imageThumbnails.innerHTML = imagePaths.map((path, index) => {
+            const imageName = path.includes('/') ? path.split('/').pop() : path;
+            return `<img src="/uploads/${imageName}"
+                         class="thumbnail-img border border-2 rounded"
+                         style="width: 60px; height: 60px; object-fit: cover; cursor: pointer;"
+                         onclick="currentIndex = ${index}; updateImage();"
+                         alt="缩略图${index + 1}">`;
+        }).join('');
+    }
+
+    // 滚轮缩放
+    currentModalImage.onwheel = function (e) {
+        e.preventDefault();
+        const delta = e.deltaY || e.wheelDelta || 0;
+        if (delta < 0) {
+            zoomScale *= 1.1;
+        } else if (delta > 0) {
+            zoomScale /= 1.1;
+        }
+        if (zoomScale < 0.5) {
+            zoomScale = 0.5;
+        }
+        if (zoomScale > 4) {
+            zoomScale = 4;
+        }
+        if (zoomScale === 1) {
+            translateX = 0;
+            translateY = 0;
+        }
+        applyZoom();
+    };
+
+    function handleMouseMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        translateX += dx;
+        translateY += dy;
+        applyZoom();
+    }
+
+    function handleMouseUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        applyZoom();
+    }
+
+    currentModalImage.onmousedown = function (e) {
+        if (zoomScale <= 1) return;
+        e.preventDefault();
+        isDragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        applyZoom();
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    // 事件监听
+    prevBtn.onclick = () => {
+        if (currentIndex > 0) {
+            currentIndex--;
+            updateImage();
+        }
+    };
+
+    nextBtn.onclick = () => {
+        if (currentIndex < imagePaths.length - 1) {
+            currentIndex++;
+            updateImage();
+        }
+    };
+
+    // 键盘导航
+    const handleKeyPress = (e) => {
+        if (e.key === 'ArrowLeft' && currentIndex > 0) {
+            currentIndex--;
+            updateImage();
+        } else if (e.key === 'ArrowRight' && currentIndex < imagePaths.length - 1) {
+            currentIndex++;
+            updateImage();
+        }
+    };
+
+    imageModal.addEventListener('shown.bs.modal', () => {
+        document.addEventListener('keydown', handleKeyPress);
+    });
+
+    imageModal.addEventListener('hidden.bs.modal', () => {
+        document.removeEventListener('keydown', handleKeyPress);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        isDragging = false;
+        zoomScale = 1;
+        translateX = 0;
+        translateY = 0;
+        applyZoom();
+    });
+
+    createThumbnails();
+    updateImage();
+    const bsModal = new bootstrap.Modal(imageModal);
+    bsModal.show();
+    imageModal.style.zIndex = 1085;
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    if (backdrops.length > 0) {
+        backdrops[backdrops.length - 1].style.zIndex = 1080;
+    }
+}
+
+// 显示图片查看模态框（保持向后兼容）
+function showImageModal(imageSrc) {
+    showMultipleImagesModal(imageSrc);
+}
+
+
+// 委员会打分直接更新函数
+function updateCommitteeScore(innovationId, committeeScore) {
+    console.log(`🔄 开始更新委员会打分: 项目ID=${innovationId}, 评分=${committeeScore}`);
+
+    // 显示加载提示
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'toast-container position-fixed top-0 end-0 p-3';
+    loadingToast.innerHTML = `
+        <div class="toast show" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">委员会打分</strong>
+            </div>
+            <div class="toast-body">
+                <i class="bi bi-arrow-clockwise spin"></i> 正在更新评分...
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingToast);
+
+    // 调用API更新委员会打分
+    const notesInput = document.getElementById('committeeNotes');
+    const committeeNotes = notesInput ? notesInput.value.trim() : '';
+
+    axios.post('/innovation/api/update_committee_score', {
+        innovation_id: innovationId,
+        committee_score: committeeScore,
+        committee_notes: committeeNotes
+    })
+    .then(response => {
+        // 移除加载提示
+        document.body.removeChild(loadingToast);
+
+        if (response.data.success) {
+            console.log('✅ 委员会打分更新成功');
+            InnovationApp.showMessage(response.data.message, 'success');
+            // 不刷新列表，保留当前页面
+        } else {
+            console.error('❌ 委员会打分更新失败:', response.data.message);
+            InnovationApp.showMessage(response.data.message, 'error');
+        }
+    })
+    .catch(error => {
+        // 移除加载提示
+        document.body.removeChild(loadingToast);
+
+        console.error('❌ 委员会打分更新请求失败:', error);
+        let errorMessage = '网络错误，请重试';
+
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+        }
+
+        InnovationApp.showMessage(errorMessage, 'error');
+    });
+}
+
+// 处理框中的委员会打分直接更新函数
+function updateCommitteeScoreInModal(innovationId, committeeScore, committeeNotes = '') {
+    console.log(`🔄 处理框中更新委员会打分: 项目ID=${innovationId}, 评分=${committeeScore}`);
+
+    // 显示加载提示
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'toast-container position-fixed top-0 end-0 p-3';
+    loadingToast.innerHTML = `
+        <div class="toast show" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">委员会打分</strong>
+            </div>
+            <div class="toast-body">
+                <i class="bi bi-arrow-clockwise spin"></i> 正在更新评分...
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingToast);
+
+    // 调用API更新委员会打分
+    axios.post('/innovation/api/update_committee_score', {
+        innovation_id: innovationId,
+        committee_score: committeeScore,
+        committee_notes: committeeNotes
+    })
+    .then(response => {
+        // 移除加载提示
+        document.body.removeChild(loadingToast);
+
+        if (response.data.success) {
+            console.log('✅ 处理框中委员会打分更新成功');
+            InnovationApp.showMessage('委员会打分已更新', 'success');
+
+            // 不刷新列表，仅关闭处理模态框
+            const handleModal = bootstrap.Modal.getInstance(document.getElementById('handleModal'));
+            if (handleModal) {
+                handleModal.hide();
+            }
+        } else {
+            console.error('❌ 处理框中委员会打分更新失败:', response.data.message);
+            InnovationApp.showMessage(response.data.message, 'error');
+        }
+    })
+    .catch(error => {
+        // 移除加载提示
+        document.body.removeChild(loadingToast);
+        
+        console.error('❌ 处理框中委员会打分更新失败:', error);
+        let errorMessage = '网络错误，请重试';
+        
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+        }
+        
+        InnovationApp.showMessage(errorMessage, 'error');
+    });
+}
+
+// 提交处理表单
+function submitHandle() {
+    const form = document.getElementById('handleForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    // 详细调试处理备注获取过程
+    const notesElement = document.getElementById('handleNotes');
+    console.log('🔍 处理备注元素:', notesElement);
+    console.log('🔍 元素是否存在:', notesElement !== null);
+
+    if (notesElement) {
+        const notesValue = notesElement.value;
+        console.log('🔍 处理备注原始值:', JSON.stringify(notesValue));
+        console.log('🔍 处理备注长度:', notesValue.length);
+        console.log('🔍 处理备注trim后:', JSON.stringify(notesValue.trim()));
+        console.log('🔍 处理备注trim后长度:', notesValue.trim().length);
+
+        // 强制检查是否为空
+        if (!notesValue || notesValue.trim() === '') {
+            alert('❌ 处理备注不能为空！请填写处理意见。');
+            notesElement.focus();
+            return;
+        }
+    } else {
+        alert('❌ 找不到处理备注输入框！');
+        return;
+    }
+
+    // 获取选中的操作类型
+    const statusSelect = document.getElementById('handleStatus');
+    const selectedOption = statusSelect.options[statusSelect.selectedIndex];
+    const operationType = selectedOption.getAttribute('data-operation-type') || '';
+
+    // 从部门选择下拉框获取flow_id
+    const departmentSelect = document.getElementById('handleDepartment');
+    const flowId = departmentSelect.value;
+
+    if (!flowId) {
+        InnovationApp.showMessage('请选择处理部门', 'error');
+        return;
+    }
+
+    // 重新获取处理备注值，确保不为空
+    const finalNotesValue = document.getElementById('handleNotes').value.trim();
+
+    const data = {
+        innovation_id: document.getElementById('handleInnovationId').value,
+        flow_id: flowId,
+        status: document.getElementById('handleStatus').value,
+        handler: document.getElementById('handleHandler').value,
+        handler_notes: finalNotesValue, // 使用trim后的值
+        score: document.getElementById('handleScore').value,
+        operation_type: operationType
+    };
+
+    console.log('📤 最终发送的数据:', data);
+    console.log('📝 最终处理备注值:', JSON.stringify(data.handler_notes));
+
+    // 再次验证数据
+    if (!data.handler_notes || data.handler_notes === '') {
+        alert('❌ 数据准备阶段发现处理备注为空！');
+        return;
+    }
+
+    const submitBtn = document.getElementById('handleSubmitBtn');
+    if (submitBtn) {
+        if (submitBtn.disabled) {
+            return;
+        }
+        if (!submitBtn.dataset.originalText) {
+            submitBtn.dataset.originalText = submitBtn.innerHTML;
+        }
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> 提交中...';
+    }
+
+    axios.post('/innovation/api/handle_innovation', data)
+        .then(response => {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                if (submitBtn.dataset.originalText) {
+                    submitBtn.innerHTML = submitBtn.dataset.originalText;
+                }
+            }
+            if (response.data.success) {
+                InnovationApp.showMessage('处理成功！', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('handleModal')).hide();
+                loadInnovations(); // 重新加载列表
+            } else {
+                InnovationApp.showMessage(response.data.message, 'error');
+            }
+        })
+        .catch(error => {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                if (submitBtn.dataset.originalText) {
+                    submitBtn.innerHTML = submitBtn.dataset.originalText;
+                }
+            }
+            console.error('处理失败:', error);
+            InnovationApp.showMessage('处理失败，请重试', 'error');
+        });
+}
+
+
+// 查看详情
+function viewDetails(innovationId) {
+    const innovation = allInnovations.find(item => item.id === innovationId);
+    if (!innovation) return;
+
+    // 这里可以实现详情查看功能
+    alert('详情查看功能待实现');
+}
+
+// ==================== 奖品管理功能 ====================
+
+// 加载奖品管理列表
+// 加载奖品管理列表
+function loadRewardsManage() {
+    console.log('开始加载奖品管理列表');
+
+    axios.get('/innovation/api/get_rewards?manage_mode=true')
+        .then(response => {
+            console.log('奖品数据加载成功:', response.data);
+            if (response.data.success) {
+                allRewards = response.data.data || [];
+                displayRewardsManage(allRewards);
+            } else {
+                console.error('获取奖品失败:', response.data.message);
+                document.getElementById('rewardsManageList').innerHTML =
+                    '<div class="alert alert-warning">加载奖品失败: ' + response.data.message + '</div>';
+            }
+        })
+        .catch(error => {
+            console.error('加载奖品失败:', error);
+            document.getElementById('rewardsManageList').innerHTML =
+                '<div class="alert alert-danger">加载奖品失败，请重试</div>';
+        });
+}
+// 显示奖品管理列表
+function displayRewardsManage(rewards) {
+    const container = document.getElementById('rewardsManageList');
+
+    if (rewards.length === 0) {
+        container.innerHTML = '<p class="text-muted">暂无奖品</p>';
+        return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>图片</th><th>名称</th><th>描述</th><th>积分</th><th>库存</th><th>分类</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+
+    rewards.forEach(reward => {
+        const imageHtml = reward.image_path ?
+            `<img src="${reward.image_path}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;" alt="${reward.name}">` :
+            '<i class="bi bi-image text-muted" style="font-size: 2rem;"></i>';
+
+        const statusBadge = reward.is_active ?
+            '<span class="badge bg-success">启用</span>' :
+            '<span class="badge bg-secondary">禁用</span>';
+
+        html += `
+            <tr>
+                <td class="text-center">${imageHtml}</td>
+                <td>${reward.name}</td>
+                <td>${reward.description || '-'}</td>
+                <td>${reward.points_required}</td>
+                <td>${reward.stock === -1 ? '无限' : reward.stock}</td>
+                <td>${reward.category}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="showUploadModal(${reward.id})" title="上传图片">
+                            <i class="bi bi-image"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="showEditModal(${reward.id})" title="编辑">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteReward(${reward.id})" title="删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// 添加图片预览功能
+document.getElementById('rewardImage').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const preview = document.getElementById('addRewardImagePreview');
+
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = `
+                <div class="text-center">
+                    <img src="${e.target.result}" style="max-width: 200px; max-height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;" alt="预览图片">
+                    <p class="mt-2 text-muted">图片预览</p>
+                </div>
+            `;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '';
+    }
+});
+
+// 修改后的添加奖品函数
+function addReward() {
+    const name = document.getElementById('rewardName').value.trim();
+    const description = document.getElementById('rewardDescription').value.trim();
+    const points = parseInt(document.getElementById('rewardPoints').value);
+    const stock = parseInt(document.getElementById('rewardStock').value);
+    const category = document.getElementById('rewardCategory').value;
+    const imageFile = document.getElementById('rewardImage').files[0];
+
+    if (!name || !points) {
+        InnovationApp.showMessage('请填写奖品名称和所需积分', 'error');
+        return;
+    }
+
+    // 创建FormData对象来处理文件上传
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('description', description);
+    formData.append('points_required', points);
+    formData.append('stock', stock);
+    formData.append('category', category);
+
+    if (imageFile) {
+        formData.append('image', imageFile);
+    }
+
+    // 显示加载状态
+    const addButton = document.querySelector('#addRewardModal .btn-primary');
+    const originalText = addButton.textContent;
+    addButton.textContent = '添加中...';
+    addButton.disabled = true;
+
+    axios.post('/innovation/api/add_reward_with_image', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    })
+    .then(response => {
+        if (response.data.success) {
+            InnovationApp.showMessage('奖品添加成功', 'success');
+            document.getElementById('addRewardForm').reset();
+            document.getElementById('addRewardImagePreview').innerHTML = '';
+            bootstrap.Modal.getInstance(document.getElementById('addRewardModal')).hide();
+            loadRewardsManage();
+        } else {
+            InnovationApp.showMessage('添加失败: ' + response.data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('添加奖品失败:', error);
+        let errorMessage = '添加失败，请重试';
+        if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = '添加失败: ' + error.response.data.message;
+        }
+        InnovationApp.showMessage(errorMessage, 'error');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        addButton.textContent = originalText;
+        addButton.disabled = false;
+    });
+}
+
+// 显示上传图片模态框
+function showUploadModal(rewardId) {
+    document.getElementById('uploadRewardId').value = rewardId;
+    document.getElementById('imageFile').value = '';
+    document.getElementById('imagePreview').innerHTML = '';
+    new bootstrap.Modal(document.getElementById('uploadImageModal')).show();
+}
+
+// 上传图片
+function uploadImage() {
+    const rewardId = document.getElementById('uploadRewardId').value;
+    const fileInput = document.getElementById('imageFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('请选择图片文件');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('reward_id', rewardId);
+
+    axios.post('/innovation/api/upload_reward_image', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    })
+    .then(response => {
+        if (response.data.success) {
+            alert('图片上传成功');
+            bootstrap.Modal.getInstance(document.getElementById('uploadImageModal')).hide();
+            loadRewardsManage();
+        } else {
+            alert('上传失败: ' + response.data.message);
+        }
+    })
+    .catch(error => {
+        console.error('上传图片失败:', error);
+        alert('上传失败，请重试');
+    });
+}
+
+// 显示编辑模态框
+function showEditModal(rewardId) {
+    const reward = allRewards.find(r => r.id === rewardId);
+    if (!reward) return;
+
+    document.getElementById('editRewardId').value = reward.id;
+    document.getElementById('editRewardName').value = reward.name;
+    document.getElementById('editRewardDescription').value = reward.description || '';
+    document.getElementById('editRewardPoints').value = reward.points_required;
+    document.getElementById('editRewardStock').value = reward.stock;
+    document.getElementById('editRewardCategory').value = reward.category;
+    document.getElementById('editRewardStatus').value = reward.is_active ? '1' : '0';
+
+    new bootstrap.Modal(document.getElementById('editRewardModal')).show();
+}
+
+// 更新奖品
+function updateReward() {
+    const rewardId = document.getElementById('editRewardId').value;
+    const name = document.getElementById('editRewardName').value.trim();
+    const description = document.getElementById('editRewardDescription').value.trim();
+    const points = parseInt(document.getElementById('editRewardPoints').value);
+    const stock = parseInt(document.getElementById('editRewardStock').value);
+    const category = document.getElementById('editRewardCategory').value;
+    const isActive = document.getElementById('editRewardStatus').value === '1';
+
+    if (!name || !points) {
+        alert('请填写奖品名称和所需积分');
+        return;
+    }
+
+    const data = {
+        reward_id: rewardId,
+        name: name,
+        description: description,
+        points_required: points,
+        stock: stock,
+        category: category,
+        is_active: isActive
+    };
+
+    axios.post('/innovation/api/update_reward', data)
+        .then(response => {
+            if (response.data.success) {
+                alert('奖品更新成功');
+                bootstrap.Modal.getInstance(document.getElementById('editRewardModal')).hide();
+                loadRewardsManage();
+            } else {
+                alert('更新失败: ' + response.data.message);
+            }
+        })
+        .catch(error => {
+            console.error('更新奖品失败:', error);
+            alert('更新失败，请重试');
+        });
+}
+
+
+// 删除奖品
+function deleteReward(rewardId) {
+    const reward = allRewards.find(r => r.id === rewardId);
+    if (!reward) return;
+
+    if (confirm(`确认删除奖品「${reward.name}」吗？此操作不可恢复。`)) {
+        axios.post('/innovation/api/delete_reward', { reward_id: rewardId })
+            .then(response => {
+                if (response.data.success) {
+                    alert('奖品删除成功');
+                    loadRewardsManage();
+                } else {
+                    alert('删除失败: ' + response.data.message);
+                }
+            })
+            .catch(error => {
+                console.error('删除奖品失败:', error);
+                alert('删除失败，请重试');
+            });
+    }
+}
+
+// ==================== 快捷导出功能 ====================
+
+// 快捷导出提报信息
+function quickExportInnovations() {
+    const startDate = document.getElementById('quickStartDate').value;
+    const endDate = document.getElementById('quickEndDate').value;
+
+    if (!startDate || !endDate) {
+        InnovationApp.showMessage('请先选择开始日期和结束日期', 'error');
+        return;
+    }
+
+    if (startDate > endDate) {
+        InnovationApp.showMessage('开始日期不能晚于结束日期', 'error');
+        return;
+    }
+
+    // 显示加载状态
+    const exportBtn = document.querySelector('button[onclick="quickExportInnovations()"]');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 导出中...';
+    exportBtn.disabled = true;
+
+    // 构建查询参数 - 使用选择的日期范围
+    const params = new URLSearchParams();
+    params.append('start_date', startDate);
+    params.append('end_date', endDate);
+
+    // 添加所有操作类型（快捷导出包含所有类型）
+    const allOperationTypes = [
+        '采纳，立即执行', '采纳，计划执行', '采纳，长期规划',
+        '部分采纳', '不予采纳', '重复提案', '需要补充信息'
+    ];
+    allOperationTypes.forEach(type => {
+        params.append('operation_types', type);
+    });
+
+    // 发起导出请求
+    fetch(`/innovation/api/export_innovations?${params.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => {
+        if (response.ok) return response.blob();
+        throw new Error('导出失败');
+    })
+    .then(blob => {
+        // 创建下载链接
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+
+        // 文件名
+        const filename = `创新提案_${startDate}_to_${endDate}.xlsx`;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        InnovationApp.showMessage('提报信息导出成功！', 'success');
+    })
+    .catch(error => {
+        console.error('导出失败:', error);
+        InnovationApp.showMessage('导出失败，请重试', 'error');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
+    });
+}
+
+// 快捷导出统计信息
+function quickExportStatistics() {
+    const startDate = document.getElementById('quickStartDate').value;
+    const endDate = document.getElementById('quickEndDate').value;
+
+    if (!startDate || !endDate) {
+        InnovationApp.showMessage('请先选择开始日期和结束日期', 'error');
+        return;
+    }
+
+    if (startDate > endDate) {
+        InnovationApp.showMessage('开始日期不能晚于结束日期', 'error');
+        return;
+    }
+
+    // 显示加载状态
+    const exportBtn = document.querySelector('button[onclick="quickExportStatistics()"]');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> 导出中...';
+    exportBtn.disabled = true;
+
+    // 构建查询参数 - 使用选择的日期范围
+    const params = new URLSearchParams();
+    params.append('start_date', startDate);
+    params.append('end_date', endDate);
+
+    // 创建下载链接
+    const downloadUrl = `/innovation/api/export_statistics?${params.toString()}`;
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // 延迟恢复按钮状态和显示成功消息
+    setTimeout(() => {
+        exportBtn.innerHTML = originalText;
+        exportBtn.disabled = false;
+        InnovationApp.showMessage('统计信息导出成功！', 'success');
+    }, 2000);
+}
+
+// 导出统计报告
+function exportStatisticsReport() {
+    const startDate = document.getElementById('statsStartDate').value;
+    const endDate = document.getElementById('statsEndDate').value;
+
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+
+    const exportButton = document.querySelector('#statisticsExportModal .btn-warning');
+    const originalText = exportButton.textContent;
+    exportButton.textContent = '正在导出...';
+    exportButton.disabled = true;
+
+    const downloadUrl = `/innovation/api/export_statistics?${params.toString()}`;
+
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => {
+        exportButton.textContent = originalText;
+        exportButton.disabled = false;
+
+        // ✅ 关闭模态框（安全方式）
+        InnovationApp.closeModalSafely('statisticsExportModal');
+
+        InnovationApp.showMessage('统计报告导出成功！请检查下载文件。', 'success');
+    }, 2000);
+}
+
+// ==================== 页面初始化 ====================
+// 初始化快捷导出日期选择器
+function initQuickExportDates() {
+    const today = new Date();
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 7);
+
+    // 设置默认日期范围为过去一周到今天
+    document.getElementById('quickStartDate').value = oneWeekAgo.toISOString().split('T')[0];
+    document.getElementById('quickEndDate').value = today.toISOString().split('T')[0];
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initQuickExportDates();
+});
+
+</script>
+{% endblock %}

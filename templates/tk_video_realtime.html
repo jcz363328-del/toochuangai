@@ -1,0 +1,1372 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>实时视频数据 - 图创AI系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background: #f2f2f7;
+            color: #1c1c1e;
+        }
+        a {
+            color: #007aff;
+        }
+        a:hover {
+            color: #0066d6;
+        }
+        .btn-primary {
+            background-color: #007aff;
+            border-color: #007aff;
+        }
+        .btn-primary:hover, .btn-primary:focus {
+            background-color: #0066d6;
+            border-color: #0066d6;
+        }
+        .btn-outline-primary {
+            color: #007aff;
+            border-color: #007aff;
+        }
+        .btn-outline-primary:hover, .btn-outline-primary:focus {
+            background-color: #007aff;
+            border-color: #007aff;
+            color: #fff;
+        }
+        .btn-outline-secondary {
+            border-color: #d1d1d6;
+            color: #3a3a3c;
+        }
+        .btn-outline-secondary:hover, .btn-outline-secondary:focus {
+            background: #f2f2f7;
+            border-color: #d1d1d6;
+            color: #1c1c1e;
+        }
+        .page-header {
+            background: rgba(255,255,255,0.88);
+            border-bottom: 1px solid #d1d1d6;
+            padding: 26px 0 18px;
+            text-align: left;
+            backdrop-filter: saturate(180%) blur(12px);
+        }
+        .ios-nav {
+            background: rgba(255,255,255,0.92);
+            border-bottom: 1px solid #d1d1d6;
+            backdrop-filter: saturate(180%) blur(12px);
+        }
+        .ios-nav .navbar-brand,
+        .ios-nav .nav-link {
+            color: #1c1c1e !important;
+        }
+        .ios-nav .nav-link:hover {
+            color: #007aff !important;
+        }
+        .breadcrumb a {
+            color: #007aff;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .filter-card {
+            background: white;
+            border: 1px solid #d1d1d6;
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-top: 16px;
+        }
+        .summary-card {
+            background: white;
+            border: 1px solid #d1d1d6;
+            border-radius: 16px;
+            padding: 12px 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-top: 12px;
+        }
+        .summary-row {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+        .summary-group {
+            flex: 1 1 420px;
+            min-width: 320px;
+        }
+        .summary-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+        .summary-metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .metric-pill {
+            border: 1px solid #d1d1d6;
+            background: #f2f2f7;
+            border-radius: 999px;
+            padding: 6px 10px;
+            display: inline-flex;
+            gap: 8px;
+            align-items: baseline;
+            line-height: 1;
+        }
+        .metric-pill .k {
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .metric-pill .v {
+            color: #111827;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .table-card {
+            background: white;
+            border: 1px solid #d1d1d6;
+            border-radius: 16px;
+            padding: 12px 12px 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            margin-top: 16px;
+        }
+        .meta-line {
+            color: #6b7280;
+            margin: 6px 0 0;
+        }
+        .small-muted {
+            color: #6c757d;
+            font-size: 12px;
+        }
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+        .sticky-controls {
+            position: sticky;
+            top: 10px;
+            z-index: 5;
+        }
+        .toolbar {
+            display: grid;
+            grid-template-columns: minmax(120px, 0.9fr) minmax(170px, 1.1fr) minmax(120px, 0.9fr) 140px 140px 120px 80px auto;
+            gap: 10px;
+            align-items: end;
+        }
+        .toolbar .control label {
+            font-weight: 600;
+            font-size: 12px;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+        .toolbar .actions {
+            display: flex;
+            justify-content: flex-start;
+            gap: 10px;
+            align-items: end;
+        }
+        .btn {
+            border-radius: 0 !important;
+        }
+        .multi-select-btn {
+            border-radius: 0 !important;
+        }
+        .toolbar .actions .btn {
+            white-space: nowrap;
+            height: 38px;
+            min-width: 76px;
+        }
+        .multi-select {
+            position: relative;
+        }
+        .multi-select-btn {
+            cursor: pointer;
+            text-align: left;
+            user-select: none;
+        }
+        .multi-select.open .multi-select-menu {
+            display: block;
+        }
+        .multi-select-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            width: 100%;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.10);
+            padding: 10px;
+            z-index: 30;
+            display: none;
+        }
+        .ms-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .ms-actions .form-control {
+            flex: 1;
+        }
+        .ms-list {
+            max-height: 260px;
+            overflow: auto;
+            padding-right: 2px;
+        }
+        .ms-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 6px;
+            border-radius: 10px;
+        }
+        .ms-item.form-check {
+            padding-left: 6px;
+            margin-bottom: 0;
+        }
+        .ms-item .form-check-input {
+            margin-left: 0;
+            margin-top: 0;
+            float: none;
+            flex: 0 0 auto;
+        }
+        .ms-item .form-check-label {
+            margin: 0;
+            flex: 1 1 auto;
+        }
+        .ms-item:hover {
+            background: #f9fafb;
+        }
+        .statusbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 12px;
+        }
+        .statusbar .left {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            align-items: center;
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .statusbar .right {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .table thead th {
+            white-space: nowrap;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .compact-table th, .compact-table td {
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+        .num {
+            text-align: right;
+        }
+        .truncate-1 {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .detail-row td {
+            padding: 0 8px 10px;
+            border-top: none;
+        }
+        .detail-box {
+            background: #f2f2f7;
+            border: 1px solid #d1d1d6;
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-top: 6px;
+        }
+        .pagination-bottom {
+            margin-top: 12px;
+            margin-bottom: 22px;
+        }
+        .pagination-card {
+            background: white;
+            border: 1px solid #d1d1d6;
+            border-radius: 16px;
+            padding: 10px 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .pagination-card .meta {
+            color: #8e8e93;
+            font-size: 12px;
+        }
+        .pagination-card .actions {
+            margin-left: auto;
+            display: flex;
+            gap: 10px;
+        }
+        .kv {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 16px;
+            align-items: flex-start;
+        }
+        .kv-item {
+            min-width: 220px;
+        }
+        .kv-item.wide {
+            flex: 1 1 360px;
+            min-width: 260px;
+        }
+        .kv-label {
+            color: #6b7280;
+            font-size: 12px;
+            line-height: 1.2;
+            margin-bottom: 2px;
+        }
+        .kv-value {
+            color: #111827;
+            font-size: 13px;
+            line-height: 1.35;
+            word-break: break-all;
+        }
+        @media (max-width: 992px) {
+            .toolbar {
+                grid-template-columns: 1fr 1fr;
+            }
+            .toolbar .actions {
+                grid-column: 1 / -1;
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light ios-nav">
+        <div class="container-fluid px-2 px-lg-3">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-cube"></i> 图创AI系统
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('tk_project') }}">
+                    <i class="fas fa-project-diagram"></i> 返回TK项目
+                </a>
+                <a class="nav-link" href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> 返回首页
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-2 px-lg-3">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('tk_project') }}">TK项目组功能</a></li>
+                <li class="breadcrumb-item active" aria-current="page">实时视频数据</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="page-header">
+        <div class="container-fluid px-2 px-lg-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <h1 class="mb-1" style="font-size: 22px; font-weight: 800; color:#111827;"><i class="fas fa-video"></i> 实时视频数据</h1>
+                    <p class="meta-line">按店铺区分账号，重点展示：时长 / 点赞 / 播放 / 评论 / 收藏 / 分享；其它信息可展开查看</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('tk_video_realtime_account_links') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-people-arrows-left-right"></i> 店铺负责人增加修改
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-2 px-lg-3">
+        <div class="filter-card sticky-controls">
+            <div class="toolbar">
+                <div class="control">
+                    <label class="form-label mb-0">店铺</label>
+                    <div class="multi-select" id="shopMulti">
+                        <button type="button" id="shopBtn" class="form-select multi-select-btn">全部</button>
+                        <div class="multi-select-menu" id="shopMenu">
+                            <div class="ms-actions">
+                                <label class="form-check ms-item mb-0">
+                                    <input id="shopAll" class="form-check-input" type="checkbox" checked>
+                                    <span class="form-check-label">全部</span>
+                                </label>
+                                <input id="shopSearch" class="form-control form-control-sm" placeholder="搜索店铺">
+                            </div>
+                            <div class="ms-list" id="shopList"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control">
+                    <label class="form-label mb-0">账号</label>
+                    <div class="multi-select" id="darenMulti">
+                        <button type="button" id="darenBtn" class="form-select multi-select-btn">全部</button>
+                        <div class="multi-select-menu" id="darenMenu">
+                            <div class="ms-actions">
+                                <label class="form-check ms-item mb-0">
+                                    <input id="darenAll" class="form-check-input" type="checkbox" checked>
+                                    <span class="form-check-label">全部</span>
+                                </label>
+                                <input id="darenSearch" class="form-control form-control-sm" placeholder="搜索账号">
+                            </div>
+                            <div class="ms-list" id="darenList"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control">
+                    <label class="form-label mb-0">负责人</label>
+                    <div class="multi-select" id="fuzerenMulti">
+                        <button type="button" id="fuzerenBtn" class="form-select multi-select-btn">全部</button>
+                        <div class="multi-select-menu" id="fuzerenMenu">
+                            <div class="ms-actions">
+                                <label class="form-check ms-item mb-0">
+                                    <input id="fuzerenAll" class="form-check-input" type="checkbox" checked>
+                                    <span class="form-check-label">全部</span>
+                                </label>
+                                <input id="fuzerenSearch" class="form-control form-control-sm" placeholder="搜索负责人">
+                            </div>
+                            <div class="ms-list" id="fuzerenList"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control">
+                    <label class="form-label mb-0">创建日期从</label>
+                    <input id="createdStart" type="date" class="form-control">
+                </div>
+                <div class="control">
+                    <label class="form-label mb-0">创建日期到</label>
+                    <input id="createdEnd" type="date" class="form-control">
+                </div>
+                <div class="control">
+                    <label class="form-label mb-0">播放量区间</label>
+                    <select id="viewRange" class="form-select">
+                        <option value="" selected>全部</option>
+                        <option value="0_20000">0-2w</option>
+                        <option value="20000_100000">2w-10w</option>
+                        <option value="100000_1000000">10w-100w</option>
+                        <option value="1000000_plus">100w以上</option>
+                    </select>
+                </div>
+                <div class="control">
+                    <label class="form-label mb-0">每页</label>
+                    <select id="pageSize" class="form-select">
+                        <option value="20">20</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                    </select>
+                </div>
+                <div class="actions">
+                    <button id="btnQuery" class="btn btn-primary px-4">
+                        <i class="fas fa-sync"></i> 刷新
+                    </button>
+                    <button id="btnAuto" class="btn btn-outline-secondary" type="button" data-enabled="0">
+                        <i class="fas fa-clock"></i> 自动
+                    </button>
+                </div>
+            </div>
+            <div class="statusbar">
+                <div class="left">
+                    <span>当前页 <span id="pageInfo" class="mono">1</span></span>
+                    <span>视频数(去重) <span id="totalInfo" class="mono">0</span></span>
+                    <span>记录数 <span id="rawTotalInfo" class="mono">0</span></span>
+                    <span>最后刷新 <span id="lastRefresh" class="mono">-</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-row">
+                <div class="summary-group">
+                    <div class="summary-title">总计（全量）</div>
+                    <div class="summary-metrics">
+                        <div class="metric-pill"><span class="k">视频数</span><span class="v mono" id="all_video_count">-</span></div>
+                        <div class="metric-pill"><span class="k">平均时长</span><span class="v mono" id="all_avg_duration">-</span></div>
+                        <div class="metric-pill"><span class="k">点赞</span><span class="v mono" id="all_sum_likes">-</span></div>
+                        <div class="metric-pill"><span class="k">播放</span><span class="v mono" id="all_sum_views">-</span></div>
+                        <div class="metric-pill"><span class="k">金额</span><span class="v mono" id="all_sum_jine">-</span></div>
+                        <div class="metric-pill"><span class="k">购买数</span><span class="v mono" id="all_sum_purchase_count">-</span></div>
+                        <div class="metric-pill"><span class="k">评论</span><span class="v mono" id="all_sum_comments">-</span></div>
+                        <div class="metric-pill"><span class="k">收藏</span><span class="v mono" id="all_sum_favorites">-</span></div>
+                        <div class="metric-pill"><span class="k">分享</span><span class="v mono" id="all_sum_shares">-</span></div>
+                    </div>
+                </div>
+                <div class="summary-group">
+                    <div class="summary-title">总计（当前筛选）</div>
+                    <div class="summary-metrics">
+                        <div class="metric-pill"><span class="k">视频数</span><span class="v mono" id="flt_video_count">-</span></div>
+                        <div class="metric-pill"><span class="k">平均时长</span><span class="v mono" id="flt_avg_duration">-</span></div>
+                        <div class="metric-pill"><span class="k">点赞</span><span class="v mono" id="flt_sum_likes">-</span></div>
+                        <div class="metric-pill"><span class="k">播放</span><span class="v mono" id="flt_sum_views">-</span></div>
+                        <div class="metric-pill"><span class="k">金额</span><span class="v mono" id="flt_sum_jine">-</span></div>
+                        <div class="metric-pill"><span class="k">购买数</span><span class="v mono" id="flt_sum_purchase_count">-</span></div>
+                        <div class="metric-pill"><span class="k">评论</span><span class="v mono" id="flt_sum_comments">-</span></div>
+                        <div class="metric-pill"><span class="k">收藏</span><span class="v mono" id="flt_sum_favorites">-</span></div>
+                        <div class="metric-pill"><span class="k">分享</span><span class="v mono" id="flt_sum_shares">-</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card mt-3 d-none">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h5 class="mb-1" style="font-weight:800; color:#111827;">店铺负责人增加修改</h5>
+                    <div class="text-muted" style="font-size:13px;">用于维护 `TK_ZiYouZhangHao` 的店铺、账号、负责人对应关系</div>
+                </div>
+                <button id="btnAccountLinkRefresh" class="btn btn-outline-secondary btn-sm" type="button">
+                    <i class="fas fa-rotate"></i> 刷新列表
+                </button>
+            </div>
+            <div class="row g-3">
+                <div class="col-12 col-xl-4">
+                    <div class="border rounded-3 p-3 h-100" style="background:#fafbff;">
+                        <div class="mb-3">
+                            <label class="form-label">店铺</label>
+                            <input id="accountLinkDian" type="text" class="form-control" placeholder="请输入店铺">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">账号</label>
+                            <input id="accountLinkDaren" type="text" class="form-control" placeholder="请输入账号">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">负责人</label>
+                            <input id="accountLinkFuzeren" type="text" class="form-control" placeholder="请输入负责人">
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button id="btnAccountLinkSave" class="btn btn-primary" type="button">
+                                <i class="fas fa-floppy-disk"></i> 保存
+                            </button>
+                            <button id="btnAccountLinkReset" class="btn btn-outline-secondary" type="button">
+                                <i class="fas fa-eraser"></i> 清空
+                            </button>
+                        </div>
+                        <div id="accountLinkModeText" class="text-muted mt-2" style="font-size:13px;">当前模式：新增</div>
+                        <div id="accountLinkMsg" class="alert d-none mt-3 mb-0"></div>
+                    </div>
+                </div>
+                <div class="col-12 col-xl-8">
+                    <div class="border rounded-3 p-3 h-100">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                            <div class="fw-semibold">当前店铺负责人映射</div>
+                            <div class="text-muted" style="font-size:13px;">编辑后会同步影响上方筛选和视频归属</div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>店铺</th>
+                                        <th>账号</th>
+                                        <th>负责人</th>
+                                        <th style="width:140px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="accountLinkTbody">
+                                    <tr>
+                                        <td colspan="4" class="text-center text-muted py-4">加载中...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-2 compact-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>店铺</th>
+                            <th>账号</th>
+                            <th>负责人</th>
+                            <th style="min-width: 220px;">视频ID</th>
+                            <th>时长</th>
+                            <th class="num">点赞</th>
+                            <th class="num">播放</th>
+                            <th class="num">金额</th>
+                            <th class="num">购买数</th>
+                            <th class="num">评论</th>
+                            <th class="num">收藏</th>
+                            <th class="num">分享</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody">
+                        <tr>
+                            <td colspan="14" class="text-center text-muted py-4">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="errorBox" class="alert alert-danger d-none mt-2 mb-2"></div>
+        </div>
+
+        <div class="pagination-bottom">
+            <div class="pagination-card">
+                <div class="meta">
+                    第 <span id="pageInfoBottom" class="mono">1</span> / <span id="totalPagesInfo" class="mono">1</span> 页
+                </div>
+                <div class="actions">
+                    <button id="btnPrev" class="btn btn-outline-primary btn-sm" disabled>上一页</button>
+                    <button id="btnNext" class="btn btn-outline-primary btn-sm" disabled>下一页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let currentTotal = 0;
+        let autoTimer = null;
+        let queryDebounceTimer = null;
+        const shopState = { items: [], selected: new Set() };
+        const fuzerenState = { items: [], selected: new Set() };
+        const darenState = { items: [], selected: new Set() };
+        let accountLinkItems = [];
+        let accountLinkEditing = null;
+
+        function escapeHtml(text) {
+            const t = String(text ?? '');
+            return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function fmt(v) {
+            if (v === null || v === undefined) return '';
+            return String(v);
+        }
+
+        function formatDateTimeMs(v) {
+            const raw = fmt(v).trim();
+            if (!raw) return '';
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/.test(raw)) return raw;
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) return raw + '.000';
+
+            let d = null;
+            if (/^\d+$/.test(raw)) {
+                const n = Number(raw);
+                if (!isFinite(n)) return raw;
+                d = new Date(n < 1000000000000 ? n * 1000 : n);
+            } else {
+                d = new Date(raw);
+                if (isNaN(d.getTime())) {
+                    d = new Date(raw.replace(' ', 'T'));
+                }
+            }
+            if (!d || isNaN(d.getTime())) return raw;
+
+            const pad2 = (n) => String(n).padStart(2, '0');
+            const pad3 = (n) => String(n).padStart(3, '0');
+            return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${pad3(d.getMilliseconds())}`;
+        }
+
+        function formatDateTime(v) {
+            const raw = fmt(v).trim();
+            if (!raw) return '';
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) return raw;
+            const msText = formatDateTimeMs(raw);
+            if (!msText) return '';
+            const m = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/.exec(msText);
+            return m ? m[1] : msText;
+        }
+
+        function fmtNumber(v) {
+            const n = Number(v);
+            if (!isFinite(n)) return '-';
+            return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 0 }).format(Math.round(n));
+        }
+
+        function fmtMoney(v) {
+            const n = Number(v);
+            if (!isFinite(n)) return '0.00';
+            return new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+        }
+
+        function formatDuration(seconds) {
+            const n = Number(seconds);
+            if (!isFinite(n) || n <= 0) return '-';
+            const total = Math.round(n);
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            const pad2 = (x) => String(x).padStart(2, '0');
+            if (h > 0) return `${h}:${pad2(m)}:${pad2(s)}`;
+            return `${m}:${pad2(s)}`;
+        }
+
+        function formatDurationMaybe(v) {
+            const raw = fmt(v).trim();
+            if (!raw) return '';
+            if (/^\d+(\.\d+)?$/.test(raw)) {
+                return formatDuration(Number(raw));
+            }
+            return raw;
+        }
+
+        function renderTotals(allAgg, fltAgg) {
+            const safe = (o) => o || {};
+            const a = safe(allAgg);
+            const f = safe(fltAgg);
+            const aCount = Number(a.video_count || 0);
+            const fCount = Number(f.video_count || 0);
+            const aAvg = aCount > 0 ? (Number(a.sum_duration_seconds || 0) / aCount) : 0;
+            const fAvg = fCount > 0 ? (Number(f.sum_duration_seconds || 0) / fCount) : 0;
+
+            document.getElementById('all_video_count').textContent = fmtNumber(aCount);
+            document.getElementById('all_avg_duration').textContent = formatDuration(aAvg);
+            document.getElementById('all_sum_likes').textContent = fmtNumber(a.sum_likes);
+            document.getElementById('all_sum_views').textContent = fmtNumber(a.sum_views);
+            document.getElementById('all_sum_jine').textContent = fmtMoney(a.sum_jine);
+            document.getElementById('all_sum_purchase_count').textContent = fmtNumber(a.sum_purchase_count);
+            document.getElementById('all_sum_comments').textContent = fmtNumber(a.sum_comments);
+            document.getElementById('all_sum_favorites').textContent = fmtNumber(a.sum_favorites);
+            document.getElementById('all_sum_shares').textContent = fmtNumber(a.sum_shares);
+
+            document.getElementById('flt_video_count').textContent = fmtNumber(fCount);
+            document.getElementById('flt_avg_duration').textContent = formatDuration(fAvg);
+            document.getElementById('flt_sum_likes').textContent = fmtNumber(f.sum_likes);
+            document.getElementById('flt_sum_views').textContent = fmtNumber(f.sum_views);
+            document.getElementById('flt_sum_jine').textContent = fmtMoney(f.sum_jine);
+            document.getElementById('flt_sum_purchase_count').textContent = fmtNumber(f.sum_purchase_count);
+            document.getElementById('flt_sum_comments').textContent = fmtNumber(f.sum_comments);
+            document.getElementById('flt_sum_favorites').textContent = fmtNumber(f.sum_favorites);
+            document.getElementById('flt_sum_shares').textContent = fmtNumber(f.sum_shares);
+        }
+
+        function setAccountLinkMessage(msg, level) {
+            const box = document.getElementById('accountLinkMsg');
+            if (!box) return;
+            if (!msg) {
+                box.className = 'alert d-none mt-3 mb-0';
+                box.textContent = '';
+                return;
+            }
+            box.className = `alert alert-${level || 'info'} mt-3 mb-0`;
+            box.textContent = msg;
+        }
+
+        function resetAccountLinkForm() {
+            accountLinkEditing = null;
+            document.getElementById('accountLinkDian').value = '';
+            document.getElementById('accountLinkDaren').value = '';
+            document.getElementById('accountLinkFuzeren').value = '';
+            document.getElementById('accountLinkModeText').textContent = '当前模式：新增';
+            setAccountLinkMessage('');
+        }
+
+        function fillAccountLinkForm(item) {
+            accountLinkEditing = item ? { ...item } : null;
+            document.getElementById('accountLinkDian').value = fmt(item && item.dian).trim();
+            document.getElementById('accountLinkDaren').value = fmt(item && item.daren).trim();
+            document.getElementById('accountLinkFuzeren').value = fmt(item && item.fuzeren).trim();
+            document.getElementById('accountLinkModeText').textContent = accountLinkEditing
+                ? `当前模式：修改 ${fmt(accountLinkEditing.daren).trim() || ''}`
+                : '当前模式：新增';
+            setAccountLinkMessage('');
+        }
+
+        function renderAccountLinkTable(items) {
+            const tbody = document.getElementById('accountLinkTbody');
+            if (!tbody) return;
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">暂无数据</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map((item, idx) => `
+                <tr>
+                    <td class="mono">${escapeHtml(fmt(item.dian))}</td>
+                    <td class="mono">${escapeHtml(fmt(item.daren))}</td>
+                    <td class="mono">${escapeHtml(fmt(item.fuzeren))}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-account-link-edit" data-idx="${idx}">修改</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-account-link-delete" data-idx="${idx}">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            tbody.querySelectorAll('.btn-account-link-edit').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const idx = Number(btn.getAttribute('data-idx'));
+                    fillAccountLinkForm(accountLinkItems[idx] || null);
+                });
+            });
+            tbody.querySelectorAll('.btn-account-link-delete').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const idx = Number(btn.getAttribute('data-idx'));
+                    const item = accountLinkItems[idx];
+                    if (!item) return;
+                    if (!window.confirm(`确认删除账号 ${fmt(item.daren)} 的店铺负责人映射吗？`)) return;
+                    await deleteAccountLink(item);
+                });
+            });
+        }
+
+        async function loadAccountLinks() {
+            const resp = await fetch('{{ url_for("api_tk_video_realtime_account_links") }}', { credentials: 'same-origin' });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '获取店铺负责人列表失败');
+            }
+            accountLinkItems = Array.isArray(json.data && json.data.items) ? json.data.items : [];
+            renderAccountLinkTable(accountLinkItems);
+        }
+
+        async function refreshAccountSelectors() {
+            await loadShops();
+            await loadFuzeren();
+            await loadDaren();
+        }
+
+        async function saveAccountLink() {
+            const dian = fmt(document.getElementById('accountLinkDian').value).trim();
+            const daren = fmt(document.getElementById('accountLinkDaren').value).trim();
+            const fuzeren = fmt(document.getElementById('accountLinkFuzeren').value).trim();
+            if (!dian || !daren || !fuzeren) {
+                setAccountLinkMessage('店铺、账号、负责人都不能为空', 'warning');
+                return;
+            }
+            const resp = await fetch('{{ url_for("api_tk_video_realtime_account_links_save") }}', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    dian,
+                    daren,
+                    fuzeren,
+                    original_dian: fmt(accountLinkEditing && accountLinkEditing.dian).trim(),
+                    original_daren: fmt(accountLinkEditing && accountLinkEditing.daren).trim(),
+                    original_fuzeren: fmt(accountLinkEditing && accountLinkEditing.fuzeren).trim()
+                })
+            });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '保存店铺负责人失败');
+            }
+            resetAccountLinkForm();
+            setAccountLinkMessage('保存成功', 'success');
+            await loadAccountLinks();
+            await refreshAccountSelectors();
+            await queryData();
+        }
+
+        async function deleteAccountLink(item) {
+            const resp = await fetch('{{ url_for("api_tk_video_realtime_account_links_delete") }}', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(item || {})
+            });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '删除店铺负责人失败');
+            }
+            setAccountLinkMessage('删除成功', 'success');
+            if (
+                accountLinkEditing &&
+                fmt(accountLinkEditing.dian).trim() === fmt(item && item.dian).trim() &&
+                fmt(accountLinkEditing.daren).trim() === fmt(item && item.daren).trim() &&
+                fmt(accountLinkEditing.fuzeren).trim() === fmt(item && item.fuzeren).trim()
+            ) {
+                resetAccountLinkForm();
+            }
+            await loadAccountLinks();
+            await refreshAccountSelectors();
+            await queryData();
+        }
+
+        function setError(msg) {
+            const box = document.getElementById('errorBox');
+            if (!msg) {
+                box.classList.add('d-none');
+                box.textContent = '';
+                return;
+            }
+            box.textContent = msg;
+            box.classList.remove('d-none');
+        }
+
+        function scheduleQuery(resetPage) {
+            if (resetPage) currentPage = 1;
+            if (queryDebounceTimer) clearTimeout(queryDebounceTimer);
+            queryDebounceTimer = setTimeout(() => {
+                queryData().catch(e => setError(e.message || String(e)));
+            }, 350);
+        }
+
+        function getSelectedValues(setObj) {
+            return Array.from(setObj || []);
+        }
+
+        function setMultiBtnText(btnId, selectedSet) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const n = (selectedSet && selectedSet.size) ? selectedSet.size : 0;
+            btn.textContent = n === 0 ? '全部' : `已选 ${n}`;
+        }
+
+        function setupMultiSelect(rootId, btnId, menuId) {
+            const root = document.getElementById(rootId);
+            const btn = document.getElementById(btnId);
+            const menu = document.getElementById(menuId);
+            if (!root || !btn || !menu) return;
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                document.querySelectorAll('.multi-select.open').forEach(el => {
+                    if (el !== root) el.classList.remove('open');
+                });
+                root.classList.toggle('open');
+            });
+            menu.addEventListener('click', function (e) {
+                e.stopPropagation();
+            });
+        }
+
+        function closeAllMultiSelect() {
+            document.querySelectorAll('.multi-select.open').forEach(el => el.classList.remove('open'));
+        }
+
+        function renderShopList() {
+            const listEl = document.getElementById('shopList');
+            const allCb = document.getElementById('shopAll');
+            const q = (document.getElementById('shopSearch')?.value || '').trim().toLowerCase();
+            const items = (shopState.items || []).filter(s => !q || String(s).toLowerCase().includes(q));
+            if (listEl) {
+                listEl.innerHTML = items.map(s => {
+                    const checked = shopState.selected.has(s) ? 'checked' : '';
+                    return `<label class="form-check ms-item mb-0"><input class="form-check-input" type="checkbox" value="${escapeHtml(s)}" ${checked}><span class="form-check-label mono">${escapeHtml(s)}</span></label>`;
+                }).join('');
+            }
+            if (allCb) allCb.checked = shopState.selected.size === 0;
+            setMultiBtnText('shopBtn', shopState.selected);
+        }
+
+        function renderDarenList() {
+            const listEl = document.getElementById('darenList');
+            const allCb = document.getElementById('darenAll');
+            const q = (document.getElementById('darenSearch')?.value || '').trim().toLowerCase();
+            const items = (darenState.items || []).filter(s => !q || String(s).toLowerCase().includes(q));
+            if (listEl) {
+                listEl.innerHTML = items.map(s => {
+                    const checked = darenState.selected.has(s) ? 'checked' : '';
+                    return `<label class="form-check ms-item mb-0"><input class="form-check-input" type="checkbox" value="${escapeHtml(s)}" ${checked}><span class="form-check-label mono">${escapeHtml(s)}</span></label>`;
+                }).join('');
+            }
+            if (allCb) allCb.checked = darenState.selected.size === 0;
+            setMultiBtnText('darenBtn', darenState.selected);
+        }
+
+        function renderFuzerenList() {
+            const listEl = document.getElementById('fuzerenList');
+            const allCb = document.getElementById('fuzerenAll');
+            const q = (document.getElementById('fuzerenSearch')?.value || '').trim().toLowerCase();
+            const items = (fuzerenState.items || []).filter(s => !q || String(s).toLowerCase().includes(q));
+            if (listEl) {
+                listEl.innerHTML = items.map(s => {
+                    const checked = fuzerenState.selected.has(s) ? 'checked' : '';
+                    return `<label class="form-check ms-item mb-0"><input class="form-check-input" type="checkbox" value="${escapeHtml(s)}" ${checked}><span class="form-check-label mono">${escapeHtml(s)}</span></label>`;
+                }).join('');
+            }
+            if (allCb) allCb.checked = fuzerenState.selected.size === 0;
+            setMultiBtnText('fuzerenBtn', fuzerenState.selected);
+        }
+
+        async function loadShops() {
+            const resp = await fetch('{{ url_for("api_tk_video_realtime_shops") }}', { credentials: 'same-origin' });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '获取店铺失败');
+            }
+            const shops = (json.data && json.data.shops) ? json.data.shops : [];
+            shopState.items = Array.isArray(shops) ? shops.map(s => String(s).trim()).filter(Boolean) : [];
+            const keep = new Set(shopState.selected);
+            shopState.selected.clear();
+            keep.forEach(v => {
+                if (shopState.items.includes(v)) shopState.selected.add(v);
+            });
+            renderShopList();
+        }
+
+        async function loadDaren() {
+            const shops = getSelectedValues(shopState.selected);
+            const fuzeren = getSelectedValues(fuzerenState.selected);
+            const url = new URL('{{ url_for("api_tk_video_realtime_daren") }}', window.location.origin);
+            if (shops.length > 0) url.searchParams.set('dian', shops.join(','));
+            if (fuzeren.length > 0) url.searchParams.set('fuzeren', fuzeren.join(','));
+            const resp = await fetch(url.toString(), { credentials: 'same-origin' });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '获取达人失败');
+            }
+            const daren = (json.data && json.data.daren) ? json.data.daren : [];
+            darenState.items = Array.isArray(daren) ? daren.map(s => String(s).trim()).filter(Boolean) : [];
+            const keep = new Set(darenState.selected);
+            darenState.selected.clear();
+            keep.forEach(v => {
+                if (darenState.items.includes(v)) darenState.selected.add(v);
+            });
+            renderDarenList();
+        }
+
+        async function loadFuzeren() {
+            const shops = getSelectedValues(shopState.selected);
+            const url = new URL('{{ url_for("api_tk_video_realtime_fuzeren") }}', window.location.origin);
+            if (shops.length > 0) url.searchParams.set('dian', shops.join(','));
+            const resp = await fetch(url.toString(), { credentials: 'same-origin' });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '获取负责人失败');
+            }
+            const fuzeren = (json.data && json.data.fuzeren) ? json.data.fuzeren : [];
+            fuzerenState.items = Array.isArray(fuzeren) ? fuzeren.map(s => String(s).trim()).filter(Boolean) : [];
+            const keep = new Set(fuzerenState.selected);
+            fuzerenState.selected.clear();
+            keep.forEach(v => {
+                if (fuzerenState.items.includes(v)) fuzerenState.selected.add(v);
+            });
+            renderFuzerenList();
+        }
+
+        async function queryData() {
+            setError('');
+            const shops = getSelectedValues(shopState.selected);
+            const daren = getSelectedValues(darenState.selected);
+            const fuzeren = getSelectedValues(fuzerenState.selected);
+            const pageSize = document.getElementById('pageSize').value;
+            const createdStart = (document.getElementById('createdStart')?.value || '').trim();
+            const createdEnd = (document.getElementById('createdEnd')?.value || '').trim();
+            const viewRange = (document.getElementById('viewRange')?.value || '').trim();
+
+            const url = new URL('{{ url_for("api_tk_video_realtime_videos") }}', window.location.origin);
+            url.searchParams.set('page', String(currentPage));
+            url.searchParams.set('page_size', String(pageSize));
+            if (shops.length > 0) url.searchParams.set('dian', shops.join(','));
+            if (daren.length > 0) url.searchParams.set('daren', daren.join(','));
+            if (fuzeren.length > 0) url.searchParams.set('fuzeren', fuzeren.join(','));
+            if (createdStart) url.searchParams.set('created_start', createdStart);
+            if (createdEnd) url.searchParams.set('created_end', createdEnd);
+            if (viewRange) url.searchParams.set('view_range', viewRange);
+
+            const resp = await fetch(url.toString(), { credentials: 'same-origin' });
+            const json = await resp.json();
+            if (!json || !json.success) {
+                throw new Error((json && json.message) ? json.message : '获取数据失败');
+            }
+            const data = json.data || {};
+            const items = data.items || [];
+            currentTotal = Number(data.total || 0);
+            const rawTotalFiltered = Number(data.total_raw_filtered || 0);
+            renderTable(items);
+            updatePagination();
+            document.getElementById('pageInfo').textContent = String(currentPage);
+            document.getElementById('totalInfo').textContent = String(currentTotal);
+            document.getElementById('rawTotalInfo').textContent = String(rawTotalFiltered);
+            document.getElementById('lastRefresh').textContent = new Date().toLocaleString();
+            renderTotals(data.aggregate_all, data.aggregate_filtered);
+        }
+
+        function renderTable(items) {
+            const tbody = document.getElementById('tbody');
+            if (!items || items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4">暂无数据</td></tr>';
+                return;
+            }
+            const rows = items.map((it, idx) => {
+                const detailId = `detail_${idx}`;
+                const videoUrl = fmt(it.video_url);
+                const title = escapeHtml(fmt(it.biaoti));
+                const tag = escapeHtml(fmt(it.tag));
+                const dian = escapeHtml(fmt(it.dian));
+                const daren = escapeHtml(fmt(it.daren));
+                const fuzeren = escapeHtml(fmt(it.fuzeren));
+                const shipinid = escapeHtml(fmt(it.shipinid));
+                const createdAt = escapeHtml(formatDateTime(it.chuangjianshijian));
+                const fetchedAt = escapeHtml(formatDateTimeMs(it.zhuaqushijian));
+                const durationText = escapeHtml(formatDurationMaybe(it.shichang));
+                const linkHtml = videoUrl ? `<a class="btn btn-sm btn-outline-primary" href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener">打开</a>` : '';
+                const toggleHtml = `<button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-detail" data-detail="${detailId}">详情</button>`;
+                return `
+                    <tr>
+                        <td class="mono">${dian}</td>
+                        <td class="mono">${daren}</td>
+                        <td class="mono">${fuzeren}</td>
+                        <td class="mono"><div class="truncate-1" title="${shipinid}">${shipinid}</div></td>
+                        <td class="mono">${durationText}</td>
+                        <td class="mono num">${escapeHtml(fmtNumber(it.dianzanshu))}</td>
+                        <td class="mono num">${escapeHtml(fmtNumber(it.bofangshu))}</td>
+                        <td class="mono num">${escapeHtml(fmtMoney(it.jine_sum))}</td>
+                        <td class="mono num">${escapeHtml(fmtNumber(it.purchase_count))}</td>
+                        <td class="mono num">${escapeHtml(fmtNumber(it.pinglunshu))}</td>
+                        <td class="mono num">${escapeHtml(fmtNumber(it.shoucangshu))}</td>
+                        <td class="mono num">${escapeHtml(fmtNumber(it.fenxiangshu))}</td>
+                        <td class="mono">${createdAt}</td>
+                        <td class="d-flex gap-2">${linkHtml}${toggleHtml}</td>
+                    </tr>
+                    <tr class="detail-row d-none" data-detail-row="${detailId}">
+                        <td colspan="14">
+                            <div class="detail-box">
+                                <div class="kv">
+                                    <div class="kv-item">
+                                        <div class="kv-label">视频ID</div>
+                                        <div class="kv-value mono">${shipinid}</div>
+                                    </div>
+                                    <div class="kv-item">
+                                        <div class="kv-label">创建时间</div>
+                                        <div class="kv-value mono">${createdAt}</div>
+                                    </div>
+                                    <div class="kv-item">
+                                        <div class="kv-label">抓取时间</div>
+                                        <div class="kv-value mono">${fetchedAt}</div>
+                                    </div>
+                                    <div class="kv-item">
+                                        <div class="kv-label">购买数</div>
+                                        <div class="kv-value mono">${escapeHtml(fmtNumber(it.purchase_count))}</div>
+                                    </div>
+                                    <div class="kv-item wide">
+                                        <div class="kv-label">标题</div>
+                                        <div class="kv-value">${title || '-'}</div>
+                                    </div>
+                                    <div class="kv-item wide">
+                                        <div class="kv-label">Tag</div>
+                                        <div class="kv-value">${tag || '-'}</div>
+                                    </div>
+                                    <div class="kv-item wide">
+                                        <div class="kv-label">视频链接</div>
+                                        <div class="kv-value">${videoUrl ? `<a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener">${escapeHtml(videoUrl)}</a>` : '-'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = rows.join('');
+
+            tbody.querySelectorAll('.btn-toggle-detail').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const id = btn.getAttribute('data-detail');
+                    const row = tbody.querySelector(`tr[data-detail-row="${id}"]`);
+                    if (!row) return;
+                    const isHidden = row.classList.contains('d-none');
+                    row.classList.toggle('d-none', !isHidden);
+                    btn.textContent = isHidden ? '收起' : '详情';
+                });
+            });
+        }
+
+        function updatePagination() {
+            const pageSize = Number(document.getElementById('pageSize').value || 50);
+            const totalPages = Math.max(1, Math.ceil((currentTotal || 0) / pageSize));
+            const prev = document.getElementById('btnPrev');
+            const next = document.getElementById('btnNext');
+            prev.disabled = currentPage <= 1;
+            next.disabled = currentPage >= totalPages;
+            const tp = document.getElementById('totalPagesInfo');
+            if (tp) tp.textContent = String(totalPages);
+            const pb = document.getElementById('pageInfoBottom');
+            if (pb) pb.textContent = String(currentPage);
+        }
+
+        function setAuto(enabled) {
+            const btn = document.getElementById('btnAuto');
+            btn.dataset.enabled = enabled ? '1' : '0';
+            if (enabled) {
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-secondary');
+                if (autoTimer) clearInterval(autoTimer);
+                autoTimer = setInterval(() => {
+                    queryData().catch(() => {});
+                }, 60000);
+            } else {
+                btn.classList.add('btn-outline-secondary');
+                btn.classList.remove('btn-secondary');
+                if (autoTimer) {
+                    clearInterval(autoTimer);
+                    autoTimer = null;
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            const btnQuery = document.getElementById('btnQuery');
+            const btnPrev = document.getElementById('btnPrev');
+            const btnNext = document.getElementById('btnNext');
+            const pageSize = document.getElementById('pageSize');
+            const createdStart = document.getElementById('createdStart');
+            const createdEnd = document.getElementById('createdEnd');
+            const viewRange = document.getElementById('viewRange');
+            const btnAuto = document.getElementById('btnAuto');
+            const btnAccountLinkSave = document.getElementById('btnAccountLinkSave');
+            const btnAccountLinkReset = document.getElementById('btnAccountLinkReset');
+            const btnAccountLinkRefresh = document.getElementById('btnAccountLinkRefresh');
+
+            btnQuery.addEventListener('click', function () {
+                currentPage = 1;
+                queryData().catch(e => setError(e.message || String(e)));
+            });
+            btnPrev.addEventListener('click', function () {
+                if (currentPage > 1) {
+                    currentPage -= 1;
+                    queryData().catch(e => setError(e.message || String(e)));
+                }
+            });
+            btnNext.addEventListener('click', function () {
+                currentPage += 1;
+                queryData().catch(e => setError(e.message || String(e)));
+            });
+            pageSize.addEventListener('change', function () {
+                scheduleQuery(true);
+            });
+            createdStart.addEventListener('change', function () {
+                scheduleQuery(true);
+            });
+            createdEnd.addEventListener('change', function () {
+                scheduleQuery(true);
+            });
+            viewRange.addEventListener('change', function () {
+                scheduleQuery(true);
+            });
+            btnAuto.addEventListener('click', function () {
+                const enabled = btnAuto.dataset.enabled === '1';
+                setAuto(!enabled);
+            });
+            btnAccountLinkSave.addEventListener('click', function () {
+                saveAccountLink().catch(e => setAccountLinkMessage(e.message || String(e), 'danger'));
+            });
+            btnAccountLinkReset.addEventListener('click', function () {
+                resetAccountLinkForm();
+            });
+            btnAccountLinkRefresh.addEventListener('click', function () {
+                loadAccountLinks().catch(e => setAccountLinkMessage(e.message || String(e), 'danger'));
+            });
+
+            setupMultiSelect('shopMulti', 'shopBtn', 'shopMenu');
+            setupMultiSelect('fuzerenMulti', 'fuzerenBtn', 'fuzerenMenu');
+            setupMultiSelect('darenMulti', 'darenBtn', 'darenMenu');
+            document.addEventListener('click', function () {
+                closeAllMultiSelect();
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeAllMultiSelect();
+            });
+
+            document.getElementById('shopSearch').addEventListener('input', function () {
+                renderShopList();
+            });
+            document.getElementById('fuzerenSearch').addEventListener('input', function () {
+                renderFuzerenList();
+            });
+            document.getElementById('darenSearch').addEventListener('input', function () {
+                renderDarenList();
+            });
+
+            document.getElementById('shopAll').addEventListener('change', function (e) {
+                if (e.target.checked) {
+                    shopState.selected.clear();
+                    renderShopList();
+                    fuzerenState.selected.clear();
+                    setMultiBtnText('fuzerenBtn', fuzerenState.selected);
+                    darenState.selected.clear();
+                    setMultiBtnText('darenBtn', darenState.selected);
+                    loadFuzeren().then(() => loadDaren()).then(() => scheduleQuery(true)).catch(err => setError(err.message || String(err)));
+                } else {
+                    e.target.checked = shopState.selected.size === 0;
+                }
+            });
+            document.getElementById('fuzerenAll').addEventListener('change', function (e) {
+                if (e.target.checked) {
+                    fuzerenState.selected.clear();
+                    renderFuzerenList();
+                    darenState.selected.clear();
+                    setMultiBtnText('darenBtn', darenState.selected);
+                    loadDaren().then(() => scheduleQuery(true)).catch(err => setError(err.message || String(err)));
+                } else {
+                    e.target.checked = fuzerenState.selected.size === 0;
+                }
+            });
+            document.getElementById('darenAll').addEventListener('change', function (e) {
+                if (e.target.checked) {
+                    darenState.selected.clear();
+                    renderDarenList();
+                    scheduleQuery(true);
+                } else {
+                    e.target.checked = darenState.selected.size === 0;
+                }
+            });
+
+            document.getElementById('shopList').addEventListener('change', function (e) {
+                const t = e.target;
+                if (!t || t.type !== 'checkbox') return;
+                const v = fmt(t.value).trim();
+                if (!v) return;
+                if (t.checked) shopState.selected.add(v);
+                else shopState.selected.delete(v);
+                renderShopList();
+                fuzerenState.selected.clear();
+                setMultiBtnText('fuzerenBtn', fuzerenState.selected);
+                darenState.selected.clear();
+                setMultiBtnText('darenBtn', darenState.selected);
+                loadFuzeren().then(() => loadDaren()).then(() => scheduleQuery(true)).catch(err => setError(err.message || String(err)));
+            });
+            document.getElementById('fuzerenList').addEventListener('change', function (e) {
+                const t = e.target;
+                if (!t || t.type !== 'checkbox') return;
+                const v = fmt(t.value).trim();
+                if (!v) return;
+                if (t.checked) fuzerenState.selected.add(v);
+                else fuzerenState.selected.delete(v);
+                renderFuzerenList();
+                darenState.selected.clear();
+                setMultiBtnText('darenBtn', darenState.selected);
+                loadDaren().then(() => scheduleQuery(true)).catch(err => setError(err.message || String(err)));
+            });
+            document.getElementById('darenList').addEventListener('change', function (e) {
+                const t = e.target;
+                if (!t || t.type !== 'checkbox') return;
+                const v = fmt(t.value).trim();
+                if (!v) return;
+                if (t.checked) darenState.selected.add(v);
+                else darenState.selected.delete(v);
+                renderDarenList();
+                scheduleQuery(true);
+            });
+
+            try {
+                await loadAccountLinks();
+                await loadShops();
+                await loadFuzeren();
+                await loadDaren();
+                await queryData();
+            } catch (e) {
+                setError(e.message || String(e));
+                document.getElementById('tbody').innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4">加载失败</td></tr>';
+                const accountLinkTbody = document.getElementById('accountLinkTbody');
+                if (accountLinkTbody) {
+                    accountLinkTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">加载失败</td></tr>';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

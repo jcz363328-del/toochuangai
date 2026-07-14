@@ -1,0 +1,1134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.hero-section {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 0% 0%, #e3f2fd 0, #ffffff 40%, #f3e5f5 100%);
+    animation: fadeInHero 0.8s ease-out;
+}
+
+.hero-corner-bg {
+    position: absolute;
+    top: 6px;
+    right: 14px;
+    width: 299px;
+    opacity: 0.98;
+    z-index: 4;
+    pointer-events: none;
+    user-select: none;
+    filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.18));
+}
+
+.hero-title-wrap {
+    position: relative;
+    z-index: 3;
+    padding-right: 220px;
+}
+
+.hero-content-wrap {
+    position: relative;
+    z-index: 3;
+}
+
+@media (max-width: 992px) {
+    .hero-title-wrap {
+        padding-right: 220px;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-title-wrap {
+        padding-right: 220px;
+    }
+}
+
+.hero-section h1 {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.hero-section .lead {
+    color: #555;
+}
+
+.hero-section::before,
+.hero-section::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.45;
+    filter: blur(4px);
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(63, 81, 181, 0.25), rgba(156, 39, 176, 0));
+}
+
+.hero-section::before {
+    width: 320px;
+    height: 320px;
+    top: -120px;
+    right: -80px;
+    animation: floatingBlob 18s ease-in-out infinite alternate;
+}
+
+.hero-section::after {
+    width: 260px;
+    height: 260px;
+    bottom: -120px;
+    left: -40px;
+    animation: floatingBlob 20s ease-in-out infinite alternate-reverse;
+}
+
+.hero-section .row > [class*="col-"] {
+    opacity: 0;
+    transform: translateY(24px);
+    animation: fadeInUp 0.7s ease-out forwards;
+}
+
+.hero-section .row > [class*="col-"]:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.hero-section .row > [class*="col-"]:nth-child(2) {
+    animation-delay: 0.22s;
+}
+
+.hero-section .row > [class*="col-"]:nth-child(3) {
+    animation-delay: 0.34s;
+}
+
+.feature-card {
+    border: none;
+    border-radius: 18px;
+    background: linear-gradient(145deg, #ffffff, #f6f9ff);
+    box-shadow: 0 10px 24px rgba(15, 35, 80, 0.08);
+    transition: transform 0.28s ease, box-shadow 0.28s ease, background 0.28s ease;
+}
+
+.feature-card .card-body {
+    padding: 28px 20px;
+    transition: transform 0.28s ease;
+}
+
+.feature-card i {
+    transition: transform 0.3s ease, text-shadow 0.3s ease;
+}
+
+.feature-card h5 {
+    font-weight: 600;
+}
+
+.feature-card p {
+    margin-bottom: 0;
+    color: #666;
+}
+
+.feature-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 18px 40px rgba(15, 35, 80, 0.16);
+    background: linear-gradient(145deg, #ffffff, #e8f0ff);
+}
+
+.feature-card:hover .card-body {
+    transform: translateY(-2px);
+}
+
+.feature-card:hover i {
+    transform: translateY(-4px) scale(1.06) rotate(-2deg);
+    text-shadow: 0 10px 18px rgba(33, 150, 243, 0.35);
+}
+
+.stats-card,
+.dashboard-card {
+    position: relative;
+    overflow: hidden;
+    border: none;
+    border-radius: 18px;
+    transition: transform 0.24s ease, box-shadow 0.24s ease;
+}
+
+.stats-card::after,
+.dashboard-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.26), transparent 55%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+}
+
+.stats-card:hover,
+.dashboard-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+}
+
+.stats-card:hover::after,
+.dashboard-card:hover::after {
+    opacity: 1;
+}
+
+.dashboard-icon {
+    animation: softFloat 3.6s ease-in-out infinite;
+}
+
+#total-proposals,
+#adopted-proposals,
+#effectiveness-rate {
+    animation: numberPop 0.7s ease-out;
+}
+
+.ranking-card .card-header h6,
+.dashboard-card .card-header h6 {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#category-distribution {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#category-distribution .category-rank-item {
+    flex: 1;
+    min-height: 72px;
+    padding: 8px 0;
+}
+
+.loading-spinner {
+    animation: spinFade 1.2s linear infinite;
+}
+
+@keyframes fadeInHero {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes floatingBlob {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(-12px, 10px) scale(1.04);
+    }
+    100% {
+        transform: translate(12px, -16px) scale(1.08);
+    }
+}
+
+@keyframes softFloat {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes numberPop {
+    0% {
+        opacity: 0;
+        transform: translateY(6px) scale(0.9);
+    }
+    60% {
+        opacity: 1;
+        transform: translateY(-2px) scale(1.05);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes spinFade {
+    0% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.3;
+    }
+}
+</style>
+<div class="row">
+    <div class="col-12">
+        <div class="hero-section bg-light p-5 rounded mb-4">
+            <img class="hero-corner-bg"
+                 src="{{ url_for('innovation.innovation_uploaded_file', filename='20260416-181432.png') }}?v=20260416"
+                 alt="">
+            <div class="hero-title-wrap">
+                <h1 class="display-4">创新奖励管理系统</h1>
+                <p class="lead">激发团队创新活力，建立高效的创新提案管理和奖励机制</p>
+            </div>
+            <hr class="my-4 hero-content-wrap">
+            <div class="row hero-content-wrap">
+                 <div class="col-md-3 mb-3">
+                    <div class="card h-100 feature-card clickable-card" onclick="logMenuClickAndGo('发起创新', '{{ url_for('innovation.innovation_submit') }}')">
+                        <div class="card-body text-center">
+                            <i class="bi bi-plus-circle display-4 text-primary"></i>
+                            <h5 class="card-title mt-3">发起创新</h5>
+                            <p class="card-text">提交您的创新想法和建议</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100 feature-card" onclick="logMenuClickAndGo('承接管理', '{{ url_for('innovation.innovation_manage') }}')">
+                        <div class="card-body text-center">
+                            <i class="bi bi-gear display-4 text-success"></i>
+                            <h5 class="card-title mt-3">承接管理</h5>
+                            <p class="card-text">处理和跟进创新项目</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100 feature-card" onclick="logMenuClickAndGo('个人积分', '{{ url_for('innovation.innovation_points') }}')">
+                        <div class="card-body text-center">
+                            <i class="bi bi-star-fill display-4 text-warning"></i>
+                            <h5 class="card-title mt-3">个人积分</h5>
+                            <p class="card-text">查看积分和兑换奖品</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card h-100 feature-card" onclick="logMenuClickAndGo('优秀案例', '{{ url_for('innovation.innovation_excellent_cases') }}')">
+                        <div class="card-body text-center">
+                            <i class="bi bi-award-fill display-4 text-danger"></i>
+                            <h5 class="card-title mt-3">创新星主场</h5>
+                            <p class="card-text">查看最高分50分提案详情</p>
+                        </div>
+                    </div>
+                </div>
+<!-- 积分排行榜 -->
+{#<div class="row mb-4">#}
+{#    <div class="col-12">#}
+{#        <div class="card">#}
+{#            <div class="card-header d-flex justify-content-between align-items-center">#}
+{#                <h5 class="mb-0">#}
+{#                    <i class="bi bi-trophy-fill text-warning me-2"></i>#}
+{#                    积分排行榜#}
+{#                </h5>#}
+{#                <div class="btn-group btn-group-sm" role="group">#}
+{#                    <input type="radio" class="btn-check" name="rankingType" id="currentRanking" value="current" checked>#}
+{#                    <label class="btn btn-outline-primary" for="currentRanking">部门积分排行</label>#}
+{##}
+{#                    <input type="radio" class="btn-check" name="rankingType" id="annualRanking" value="annual">#}
+{#                    <label class="btn btn-outline-primary" for="annualRanking">年度积分</label>#}
+{##}
+{#                    <input type="radio" class="btn-check" name="rankingType" id="totalRanking" value="total">#}
+{#                    <label class="btn btn-outline-primary" for="totalRanking">历史总积分</label>#}
+{#                </div>#}
+{#            </div>#}
+{#            <div class="card-body">#}
+{#                <div id="ranking-loading" class="text-center py-3">#}
+{#                    <div class="spinner-border text-primary" role="status">#}
+{#                        <span class="visually-hidden">加载中...</span>#}
+{#                    </div>#}
+{#                    <p class="mt-2 text-muted">正在加载排行榜...</p>#}
+{#                </div>#}
+{#                <div id="ranking-content" style="display: none;">#}
+{#                    <div class="row" id="ranking-list">#}
+{#                        <!-- 排行榜内容将在这里动态加载 -->#}
+{#                    </div>#}
+{#                </div>#}
+{#                <div id="ranking-empty" class="text-center py-4" style="display: none;">#}
+{#                    <i class="bi bi-inbox display-4 text-muted"></i>#}
+{#                    <p class="mt-2 text-muted">暂无排行榜数据</p>#}
+{#                </div>#}
+{#            </div>#}
+{#        </div>#}
+{#    </div>#}
+{#</div>#}
+
+
+<!-- 数字看板 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-bar-chart-fill text-info me-2"></i>
+                    数字看板
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="startDateFilter" class="form-label mb-0 text-nowrap">开始日期:</label>
+                        <input type="date" id="startDateFilter" class="form-control form-control-sm" style="width: 150px;">
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <label for="endDateFilter" class="form-label mb-0 text-nowrap">结束日期:</label>
+                        <input type="date" id="endDateFilter" class="form-control form-control-sm" style="width: 150px;">
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="filterByDateRange()">
+                        <i class="bi bi-search"></i> 查询
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearDateFilter()">
+                        <i class="bi bi-x-circle"></i> 清空
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshDashboard()">
+                        <i class="bi bi-arrow-clockwise"></i> 刷新
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 基础统计卡片 -->
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-3">
+                        <div class="card stats-card bg-primary text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-file-earmark-text display-4 dashboard-icon"></i>
+                                <h3 id="total-proposals">-</h3>
+                                <p class="card-text">总提案数</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card stats-card bg-success text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-check-circle display-4 dashboard-icon"></i>
+                                <h3 id="adopted-proposals">-</h3>
+                                <p class="card-text">采纳提案数</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card stats-card bg-warning text-white h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-percent display-4 dashboard-icon"></i>
+                                <h3 id="effectiveness-rate">-%</h3>
+                                <p class="card-text">提案有效率</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 排行榜和分类统计 -->
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3">
+                        <div class="card dashboard-card ranking-card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-person-star text-info me-2"></i>
+                                    个人积分排行榜
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="top-person" class="text-center">
+                                    <div class="spinner-border loading-spinner" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card dashboard-card ranking-card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-trophy text-warning me-2"></i>
+                                    个人提案数量前三
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="top-proposal-counts" class="text-center">
+                                    <div class="spinner-border loading-spinner" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card dashboard-card ranking-card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-star text-success me-2"></i>
+                                    单项提案最高分
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="top-highest-scores" class="text-center">
+                                    <div class="spinner-border loading-spinner" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card dashboard-card ranking-card h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-pie-chart text-success me-2"></i>
+                                    创新类别分布 (TOP 3)
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="category-distribution">
+                                    <div class="text-center">
+                                        <div class="spinner-border loading-spinner" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- 月度趋势 -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card dashboard-card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-graph-up text-primary me-2"></i>
+                                    月度提案趋势 (最近6个月)
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div id="monthly-trend">
+                                    <div class="text-center">
+                                        <div class="spinner-border loading-spinner" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 加载统计数据
+function loadStatistics() {
+    axios.get('/innovation/api/get_statistics')
+        .then(response => {
+            if (response.data.success) {
+                const data = response.data.data;
+                // 检查元素是否存在再设置内容
+                const totalCountEl = document.getElementById('total-count');
+                const pendingCountEl = document.getElementById('pending-count');
+                const processingCountEl = document.getElementById('processing-count');
+                const completedCountEl = document.getElementById('completed-count');
+
+                if (totalCountEl) totalCountEl.textContent = data.total_count;
+                if (pendingCountEl) pendingCountEl.textContent = data.pending_count;
+                if (processingCountEl) processingCountEl.textContent = data.processing_count;
+                if (completedCountEl) completedCountEl.textContent = data.completed_count;
+            }
+        })
+        .catch(error => {
+            console.error('加载统计数据失败:', error);
+        });
+}
+
+// 加载最新创新项目
+function loadRecentInnovations() {
+    axios.get('/innovation/api/get_innovations')
+        .then(response => {
+            if (response.data.success) {
+                const innovations = response.data.data.slice(0, 6); // 只显示最新6个
+                const container = document.getElementById('recent-innovations');
+
+                if (innovations.length === 0) {
+                    container.innerHTML = '<div class="col-12"><p class="text-muted">暂无创新项目</p></div>';
+                    return;
+                }
+
+                let html = '';
+                innovations.forEach(innovation => {
+                    html += `
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">
+                                        <span class="text-muted me-2">#${innovation.bianhao || innovation.id}</span>
+                                        ${innovation.title}
+                                    </h6>
+                                    <p class="card-text text-muted small">${innovation.department} | ${innovation.initiator}</p>
+                                    <p class="card-text">${innovation.content.substring(0, 50)}${innovation.content.length > 50 ? '...' : ''}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-${getStatusColor(innovation.status)}">${innovation.status}</span>
+                                        <small class="text-muted">${innovation.create_time ? innovation.create_time.split(' ')[0] : '未知时间'}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+        })
+        .catch(error => {
+            console.error('加载失败:', error);
+        });
+}
+// 积分排行榜相关函数
+function loadPointsRanking(type = 'current') {
+    console.log(`加载积分排行榜: ${type}`);
+
+    // 显示加载状态
+    const loadingEl = document.getElementById('ranking-loading');
+    const contentEl = document.getElementById('ranking-content');
+    const emptyEl = document.getElementById('ranking-empty');
+
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (contentEl) contentEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    axios.get(`/innovation/api/get_points_ranking?type=${type}&limit=10`)
+        .then(response => {
+            if (response.data.success) {
+                const rankings = response.data.data.rankings;
+                displayRankings(rankings, type);
+            } else {
+                console.error('获取排行榜失败:', response.data.message);
+                showEmptyRanking();
+            }
+        })
+        .catch(error => {
+            console.error('获取排行榜失败:', error);
+            showEmptyRanking();
+        })
+        .finally(() => {
+            const loadingEl = document.getElementById('ranking-loading');
+            if (loadingEl) loadingEl.style.display = 'none';
+        });
+}
+
+function displayRankings(rankings, type) {
+    const container = document.getElementById('ranking-list');
+
+    if (!container) {
+        console.warn('ranking-list 元素不存在');
+        return;
+    }
+
+    if (rankings.length === 0) {
+        showEmptyRanking();
+        return;
+    }
+
+let html = '';
+rankings.forEach((item, index) => {
+    const medalIcon = index === 0 ? '🥇' :
+                      index === 1 ? '🥈' :
+                      index === 2 ? '🥉' :
+                      index === 3 ? '🔥' :
+                      index === 4 ? '🔥' :
+                      index === 5 ? '🔥' :
+                      index === 6 ? '🔥' :
+                      index === 7 ? '🔥' :
+                      index === 8 ? '🔥' :
+                      index === 9 ? '🔥' :
+                      index === 10 ? '🔥' :
+                      index === 11? '🔥' :
+                      index === 12? '🔥' :
+                      index === 13? '🔥' :
+                      index ===14 ? '🔥' :
+                          `${index + 1}`;
+    html += `
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card h-100 ${rankClass}">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="rank-badge me-3">
+                            <span class="rank-number">${medalIcon}</span>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-1">${item.user_name}</h6>
+                            <p class="card-text mb-1">
+                                <strong class="text-primary">${item.points}</strong> 积分
+                            </p>
+                            <small class="text-muted">
+                                当前: ${item.current_points} |
+                                年度: ${item.annual_points} |
+                                总计: ${item.total_points}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+});
+
+
+    container.innerHTML = html;
+    const contentEl = document.getElementById('ranking-content');
+    if (contentEl) contentEl.style.display = 'block';
+}
+
+function showEmptyRanking() {
+    const contentEl = document.getElementById('ranking-content');
+    const emptyEl = document.getElementById('ranking-empty');
+    if (contentEl) contentEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'block';
+}
+// 数字看板相关函数
+function loadDashboardData() {
+    console.log('加载数字看板数据...');
+
+    // 获取当前选择的日期范围
+    const startDate = document.getElementById('startDateFilter').value;
+    const endDate = document.getElementById('endDateFilter').value;
+
+    let url = '/innovation/api/get_dashboard_data';
+    const params = new URLSearchParams();
+
+    if (startDate) {
+        params.append('start_date', startDate);
+    }
+    if (endDate) {
+        params.append('end_date', endDate);
+    }
+
+    if (params.toString()) {
+        url += '?' + params.toString();
+    }
+
+    axios.get(url)
+        .then(response => {
+            if (response.data.success) {
+                const data = response.data.data;
+                displayDashboardData(data);
+            } else {
+                console.error('获取看板数据失败:', response.data.message);
+                showDashboardError();
+            }
+        })
+        .catch(error => {
+            console.error('获取看板数据失败:', error);
+            showDashboardError();
+        });
+}
+
+function displayDashboardData(data) {
+    // 基础统计
+    document.getElementById('total-proposals').textContent = data.basic_stats.total_count;
+    document.getElementById('adopted-proposals').textContent = data.basic_stats.adopted_count;
+    document.getElementById('effectiveness-rate').textContent = data.basic_stats.effectiveness_rate + '%';
+
+    // 部门排行榜（显示所有排名）
+    const topDeptElement = document.getElementById('top-department');
+    if (topDeptElement) {
+        if (data.top_departments && data.top_departments.length > 0) {
+            let deptHtml = '';
+            data.top_departments.forEach((dept, index) => {
+                let rankDisplay;
+                if (index === 0) {
+                    rankDisplay = '🥇';
+                } else if (index === 1) {
+                    rankDisplay = '🥈';
+                } else if (index === 2) {
+                    rankDisplay = '🥉';
+                } else {
+                    rankDisplay = `${index + 1}`;
+                }
+
+                deptHtml += `
+                    <div class="d-flex align-items-center justify-content-between mb-2 p-2 rounded" style="background-color: #f8f9fa;">
+                        <div class="d-flex align-items-center">
+                            <span class="me-2" style="font-size: 1.2rem; min-width: 30px; text-align: center;">${rankDisplay}</span>
+                            <div>
+                                <strong class="text-primary">${dept.name}</strong>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-primary">${dept.score} 积分</span>
+                        </div>
+                    </div>
+                `;
+            });
+            topDeptElement.innerHTML = deptHtml;
+        } else {
+            topDeptElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
+        }
+    }
+
+    // 个人排行榜（前三名）
+    const topPersonElement = document.getElementById('top-person');
+    if (data.top_persons && data.top_persons.length > 0) {
+        let personHtml = '';
+        data.top_persons.forEach((person, index) => {
+            const rankIcons = ['🏆', '🏆', '🏆'];
+            const rankColors = ['text-warning', 'text-warning', 'text-warning'];
+            personHtml += `
+                <div class="d-flex align-items-center mb-2 ${index < data.top_persons.length - 1 ? 'border-bottom pb-2' : ''}">
+                    <div class="me-3">
+                        <span style="font-size: 1.5rem;">${rankIcons[index] || '🏆'}</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 ${rankColors[index] || 'text-primary'}">${person.name}</h6>
+                        <p class="text-muted mb-1 small">${person.department}</p>
+                        <p class="mb-0"><strong class="text-primary">${person.score}</strong> 积分</p>
+                    </div>
+                </div>
+            `;
+        });
+        topPersonElement.innerHTML = personHtml;
+    } else {
+        topPersonElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
+    }
+
+    // 个人提案数量前三
+    const topProposalCountsElement = document.getElementById('top-proposal-counts');
+    if (data.top_proposal_counts && data.top_proposal_counts.length > 0) {
+        let proposalCountsHtml = '';
+        data.top_proposal_counts.forEach((person, index) => {
+            const rankIcons = ['🏆', '🏆', '🏆'];
+            const rankColors = ['text-warning', 'text-warning', 'text-warning'];
+            proposalCountsHtml += `
+                <div class="d-flex align-items-center mb-2 ${index < data.top_proposal_counts.length - 1 ? 'border-bottom pb-2' : ''}">
+                    <div class="me-3">
+                        <span style="font-size: 1.5rem;">${rankIcons[index] || '🏆'}</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 ${rankColors[index] || 'text-primary'}">${person.name}</h6>
+                        <p class="text-muted mb-1 small">${person.department}</p>
+                        <p class="mb-0"><strong class="text-primary">${person.count}</strong> 个提案 (有效: ${person.effective_count})</p>
+                    </div>
+                </div>
+            `;
+        });
+        topProposalCountsElement.innerHTML = proposalCountsHtml;
+    } else {
+        topProposalCountsElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
+    }
+
+    // 个人提案最高分
+    const topHighestScoresElement = document.getElementById('top-highest-scores');
+    if (data.top_highest_scores && data.top_highest_scores.length > 0) {
+        let highestScoresHtml = '';
+        data.top_highest_scores.forEach((person, index) => {
+            const rankIcons = ['🏆', '🏆', '🏆'];
+            const rankColors = ['text-warning', 'text-secondary', 'text-warning'];
+            highestScoresHtml += `
+                <div class="d-flex align-items-center mb-2 ${index < data.top_highest_scores.length - 1 ? 'border-bottom pb-2' : ''}">
+                    <div class="me-3">
+                        <span style="font-size: 1.5rem;">${rankIcons[index] || '🏆'}</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 ${rankColors[index] || 'text-primary'}">${person.name}</h6>
+                        <p class="text-muted mb-1 small">${person.department}</p>
+                        <p class="mb-0"><strong class="text-success">${person.score}</strong> 分 <span class="text-muted">(${person.count}次)</span></p>
+                    </div>
+                </div>
+            `;
+        });
+        topHighestScoresElement.innerHTML = highestScoresHtml;
+    } else {
+        topHighestScoresElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
+    }
+
+
+
+    // 创新类别分布
+    const categoryElement = document.getElementById('category-distribution');
+    if (data.categories && data.categories.length > 0) {
+        let categoryHtml = '';
+        data.categories.forEach((category, index) => {
+            const colors = ['primary', 'success', 'warning'];
+            const color = colors[index] || 'secondary';
+            categoryHtml += `
+                <div class="category-rank-item d-flex align-items-center justify-content-between ${index < data.categories.length - 1 ? 'border-bottom' : ''}">
+                    <div class="d-flex align-items-center">
+                        <div class="badge bg-${color} me-2" style="width: 16px; height: 16px;"></div>
+                        <strong>${category.name}</strong>
+                    </div>
+                    <small class="text-muted">${category.count} 个提案</small>
+                </div>
+            `;
+        });
+        categoryElement.innerHTML = categoryHtml;
+    } else {
+        categoryElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
+    }
+
+    // 月度趋势
+    const trendElement = document.getElementById('monthly-trend');
+    if (data.monthly_trend && data.monthly_trend.length > 0) {
+        let trendHtml = '<div class="row">';
+        data.monthly_trend.forEach(trend => {
+            trendHtml += `
+                <div class="col-md-2 mb-2 text-center">
+                    <div class="border rounded p-2">
+                        <div class="h5 text-primary mb-1">${trend.count}</div>
+                        <small class="text-muted">${trend.month}</small>
+                    </div>
+                </div>
+            `;
+        });
+        trendHtml += '</div>';
+        trendElement.innerHTML = trendHtml;
+    } else {
+        trendElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
+    }
+}
+
+function showDashboardError() {
+    const setIfExists = (id, html) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+    };
+    document.getElementById('total-proposals').textContent = '错误';
+    document.getElementById('adopted-proposals').textContent = '错误';
+    document.getElementById('effectiveness-rate').textContent = '错误';
+    setIfExists('top-department', '<p class="text-danger text-center">加载失败</p>');
+    setIfExists('top-person', '<p class="text-danger text-center">加载失败</p>');
+    setIfExists('top-proposal-counts', '<p class="text-danger text-center">加载失败</p>');
+    setIfExists('top-highest-scores', '<p class="text-danger text-center">加载失败</p>');
+    setIfExists('category-distribution', '<p class="text-danger text-center">加载失败</p>');
+    setIfExists('monthly-trend', '<p class="text-danger text-center">加载失败</p>');
+}
+
+function refreshDashboard() {
+    // 显示加载状态
+    document.getElementById('total-proposals').textContent = '-';
+    document.getElementById('adopted-proposals').textContent = '-';
+    document.getElementById('effectiveness-rate').textContent = '-%';
+
+    const loadingHtml = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+        </div>
+    `;
+
+    const setIfExists = (id, html) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+    };
+    setIfExists('top-department', loadingHtml);
+    setIfExists('top-person', loadingHtml);
+    setIfExists('top-proposal-counts', loadingHtml);
+    setIfExists('top-highest-scores', loadingHtml);
+    setIfExists('category-distribution', loadingHtml);
+    setIfExists('monthly-trend', loadingHtml);
+
+    // 重新加载数据
+    loadDashboardData();
+}
+
+// 日期筛选相关函数
+function filterByDateRange() {
+    // 当日期范围改变时，重新加载数据
+    loadDashboardData();
+}
+
+function clearDateFilter() {
+    // 清空日期筛选
+    document.getElementById('startDateFilter').value = '';
+    document.getElementById('endDateFilter').value = '';
+    // 重新加载数据
+    loadDashboardData();
+}
+
+function initializeDateFilter() {
+    // 设置默认日期范围为当前月份
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const startDateInput = document.getElementById('startDateFilter');
+    const endDateInput = document.getElementById('endDateFilter');
+
+    if (startDateInput && endDateInput) {
+        startDateInput.value = firstDay.toISOString().split('T')[0];
+        endDateInput.value = lastDay.toISOString().split('T')[0];
+    }
+}
+
+// 页面加载时获取数据
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDateFilter(); // 初始化日期筛选器
+    loadStatistics();
+    loadRecentInnovations();
+    loadDashboardData(); // 加载数字看板数据
+    
+    // 初始加载排行榜（仅当相关元素存在时）
+    if (document.getElementById('ranking-list')) {
+        loadPointsRanking('current');
+    }
+
+    // 排行榜类型切换
+    document.querySelectorAll('input[name="rankingType"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                loadPointsRanking(this.value);
+            }
+        });
+    });
+});
+</script>
+<style>
+.rank-top {
+    border-left: 4px solid #ffc107;
+}
+
+.rank-badge {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    color: white;
+    font-weight: bold;
+}
+
+.rank-number {
+    font-size: 1.2em;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    transition: transform 0.3s ease;
+}
+
+/* 数字看板样式 */
+.dashboard-card {
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+.stats-card {
+    background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-primary-dark, #0056b3) 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-3px);
+}
+
+.stats-card.bg-success {
+    background: linear-gradient(135deg, var(--bs-success) 0%, #157347 100%);
+}
+
+.stats-card.bg-warning {
+    background: linear-gradient(135deg, var(--bs-warning) 0%, #e0a800 100%);
+}
+
+.dashboard-icon {
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+}
+
+.trend-item {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.trend-item:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.05);
+}
+
+.category-badge {
+    transition: all 0.3s ease;
+}
+
+.category-item:hover .category-badge {
+    transform: scale(1.1);
+}
+
+.ranking-card {
+    border-left: 4px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.ranking-card:hover {
+    border-left-color: var(--bs-primary);
+    background-color: #f8f9fa;
+}
+
+.loading-spinner {
+    color: var(--bs-primary);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .dashboard-card .card-body {
+        padding: 1rem;
+    }
+    
+    .stats-card h3 {
+        font-size: 1.5rem;
+    }
+    
+    .trend-item {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dashboard-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.dashboard-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.dashboard-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.dashboard-card:nth-child(4) {
+    animation-delay: 0.3s;
+}
+</style>
+{% endblock %}

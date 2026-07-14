@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FBA货件运输方式 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f7f9fc;
+            color: #111827;
+        }
+        .page {
+            width: 100%;
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 20px 28px 30px;
+        }
+        .page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .title-wrap {
+            min-width: 0;
+        }
+        .title {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 24px;
+            font-weight: 800;
+        }
+        .title i { color: #5b7cff; }
+        .subtitle {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 13px;
+        }
+        .head-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .back-btn {
+            min-width: 86px;
+            padding: 7px 11px;
+            border-radius: 9px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            font-size: 12px;
+            color: #4b5563;
+            text-decoration: none;
+            text-align: center;
+            white-space: nowrap;
+            font-weight: 700;
+        }
+        .panel {
+            background: #fff;
+            border: 1px solid #edf1f7;
+            border-radius: 14px;
+            padding: 14px;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
+        }
+        .panel-hd {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .panel-title {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-title i { color: #5b7cff; font-size: 15px; }
+        .panel-sub { color: #94a3b8; font-size: 13px; }
+        .toolbar {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .controls {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .field {
+            display: grid;
+            gap: 5px;
+            min-width: 190px;
+        }
+        .field label {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 800;
+        }
+        .select,
+        .input,
+        .btn {
+            height: 38px;
+            border: 1px solid #dbe3f0;
+            border-radius: 10px;
+            background: #fff;
+            color: #111827;
+            padding: 0 12px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .btn {
+            cursor: pointer;
+            color: #4f46e5;
+            border-color: #c7d2fe;
+        }
+        .btn:hover { background: #eef2ff; }
+        .btn.is-active {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
+        }
+        .btn.is-active:hover {
+            background: #dc2626;
+        }
+        .meta {
+            color: #64748b;
+            font-size: 12px;
+            min-height: 18px;
+        }
+        .table-wrap {
+            border: 1px solid #e5edf7;
+            border-radius: 12px;
+            overflow: auto;
+            max-height: calc(100vh - 250px);
+            min-height: 420px;
+            background: #fff;
+        }
+        .data-table {
+            width: 100%;
+            min-width: 1120px;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+        }
+        .data-table th,
+        .data-table td {
+            border-bottom: 1px solid #eef2f7;
+            padding: 9px 10px;
+            text-align: left;
+            vertical-align: top;
+            white-space: nowrap;
+        }
+        .data-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 900;
+        }
+        .data-table td {
+            color: #475569;
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .data-table tr:hover td { background: #f8fafc; }
+        .data-table tr.is-warning td {
+            background: #fff1f2;
+            color: #991b1b;
+        }
+        .data-table tr.is-warning:hover td { background: #ffe4e6; }
+        .data-table td.is-warning-cell {
+            font-weight: 900;
+            color: #b91c1c;
+        }
+        .empty {
+            padding: 34px 12px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .pager {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 11px;
+            color: #64748b;
+            font-size: 12px;
+        }
+        .pager button {
+            height: 32px;
+            min-width: 76px;
+            border-radius: 9px;
+            border: 1px solid #dbe3f0;
+            background: #fff;
+            color: #475569;
+            cursor: pointer;
+            font-weight: 800;
+        }
+        .pager button:disabled {
+            cursor: not-allowed;
+            opacity: .45;
+        }
+        .legend {
+            margin-top: 8px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        @media (max-width: 768px) {
+            .page { padding: 18px 14px 24px; }
+            .page-head { align-items: flex-start; flex-direction: column; }
+            .title { font-size: 20px; }
+            .head-actions { width: 100%; justify-content: flex-start; }
+            .field { min-width: 100%; }
+            .controls, .select, .input, .btn { width: 100%; }
+            .table-wrap { max-height: 70vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-head">
+            <div class="title-wrap">
+                <h1 class="title"><i class="fas fa-ship"></i>FBA货件运输方式</h1>
+                <div class="subtitle">{{ source_name }} · 默认按序号倒序，每页展示200条</div>
+            </div>
+            <div class="head-actions">
+                <a class="back-btn" href="{{ back_url }}"><i class="fas fa-arrow-left"></i> 返回部门</a>
+                <a class="back-btn" href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> 返回首页</a>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-hd">
+                <h2 class="panel-title"><i class="fa-solid fa-table-list"></i>运输方式明细</h2>
+                <span class="panel-sub">红色表示：海运但货件单号为空，或货件单号为科学计数法</span>
+            </div>
+            <div class="toolbar">
+                <div class="controls">
+                    <div class="field">
+                        <label for="opsFbaDian">按店铺筛选</label>
+                        <select id="opsFbaDian" class="select">
+                            <option value="">全部店铺</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="opsFbaDanhao">按单号筛选</label>
+                        <input id="opsFbaDanhao" class="input" type="text" placeholder="输入单号关键词">
+                    </div>
+                    <div class="field">
+                        <label for="opsFbaSort">排序方式</label>
+                        <select id="opsFbaSort" class="select">
+                            <option value="seq_desc">序号倒序</option>
+                            <option value="import_desc">导入时间倒序</option>
+                            <option value="import_asc">导入时间正序</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn" id="opsFbaIssue"><i class="fas fa-triangle-exclamation"></i> 只看问题数据</button>
+                    <button type="button" class="btn" id="opsFbaRefresh"><i class="fas fa-magnifying-glass"></i> 查询</button>
+                </div>
+                <div class="meta" id="opsFbaMeta">正在加载数据...</div>
+            </div>
+            <div class="table-wrap" id="opsFbaTableWrap">
+                <div class="empty">正在加载FBA货件运输方式数据...</div>
+            </div>
+            <div class="pager">
+                <button type="button" id="opsFbaPrev">上一页</button>
+                <span id="opsFbaPageText">第 1 / 1 页</span>
+                <button type="button" id="opsFbaNext">下一页</button>
+            </div>
+            <div class="legend">标红规则：运输方式包含“海运”但货件单号为空，或货件单号为科学计数法。</div>
+        </div>
+    </div>
+
+    <script>
+        const opsFbaState = {
+            page: 1,
+            totalPages: 1,
+            loading: false,
+            issueOnly: false
+        };
+
+        function opsFbaEscape(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function opsFbaLoadShops() {
+            const select = document.getElementById('opsFbaDian');
+            if (!select) return;
+            try {
+                const resp = await fetch('/api/operation/fba_shipping_methods/shops');
+                const data = await resp.json();
+                if (!data.success) return;
+                const current = select.value;
+                select.innerHTML = '<option value="">全部店铺</option>';
+                (data.data.shops || []).forEach(function (shop) {
+                    const option = document.createElement('option');
+                    option.value = shop;
+                    option.textContent = shop;
+                    select.appendChild(option);
+                });
+                if (current) select.value = current;
+            } catch (e) {
+                console.warn('加载店铺筛选失败', e);
+            }
+        }
+
+        function opsFbaRenderTable(data) {
+            const wrap = document.getElementById('opsFbaTableWrap');
+            const meta = document.getElementById('opsFbaMeta');
+            const pageText = document.getElementById('opsFbaPageText');
+            const prevBtn = document.getElementById('opsFbaPrev');
+            const nextBtn = document.getElementById('opsFbaNext');
+            if (!wrap) return;
+
+            const columns = data.columns || [];
+            const items = data.items || [];
+            opsFbaState.page = data.page || 1;
+            opsFbaState.totalPages = data.total_pages || 1;
+
+            if (meta) {
+                const start = data.total ? ((opsFbaState.page - 1) * data.page_size + 1) : 0;
+                const end = data.total ? Math.min(opsFbaState.page * data.page_size, data.total) : 0;
+                const issueText = data.issue_only ? '，只看问题数据' : '';
+                meta.textContent = `共 ${data.total || 0} 条，当前 ${start}-${end} 条${issueText}`;
+            }
+            if (pageText) pageText.textContent = `第 ${opsFbaState.page} / ${opsFbaState.totalPages} 页`;
+            if (prevBtn) prevBtn.disabled = opsFbaState.page <= 1 || opsFbaState.loading;
+            if (nextBtn) nextBtn.disabled = opsFbaState.page >= opsFbaState.totalPages || opsFbaState.loading;
+
+            if (!columns.length) {
+                wrap.innerHTML = '<div class="empty">没有可展示的字段</div>';
+                return;
+            }
+            if (!items.length) {
+                wrap.innerHTML = '<div class="empty">暂无数据</div>';
+                return;
+            }
+
+            const thead = columns.map(function (col) {
+                return `<th>${opsFbaEscape(col.label || col.key)}</th>`;
+            }).join('');
+            const tbody = items.map(function (item) {
+                const values = item.values || {};
+                const warningFields = item.warning_fields || {};
+                const cells = columns.map(function (col) {
+                    const key = col.key;
+                    const value = values[key] || '';
+                    const warning = warningFields[key] || '';
+                    const cls = warning ? ' class="is-warning-cell"' : '';
+                    const title = warning || value;
+                    return `<td${cls} title="${opsFbaEscape(title)}">${opsFbaEscape(value)}</td>`;
+                }).join('');
+                return `<tr class="${item.warning ? 'is-warning' : ''}">${cells}</tr>`;
+            }).join('');
+            wrap.innerHTML = `<table class="data-table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+        }
+
+        async function opsFbaLoadData(page) {
+            const wrap = document.getElementById('opsFbaTableWrap');
+            const meta = document.getElementById('opsFbaMeta');
+            if (opsFbaState.loading) return;
+
+            opsFbaState.loading = true;
+            if (meta) meta.textContent = '正在加载数据...';
+            if (wrap && !wrap.querySelector('.data-table')) {
+                wrap.innerHTML = '<div class="empty">正在加载FBA货件运输方式数据...</div>';
+            }
+            try {
+                const params = new URLSearchParams();
+                params.set('page', String(page || opsFbaState.page || 1));
+                const dian = document.getElementById('opsFbaDian');
+                const danhao = document.getElementById('opsFbaDanhao');
+                const sort = document.getElementById('opsFbaSort');
+                if (dian && dian.value) params.set('dian', dian.value);
+                if (danhao && danhao.value.trim()) params.set('danhao', danhao.value.trim());
+                if (sort && sort.value) params.set('sort', sort.value);
+                if (opsFbaState.issueOnly) params.set('issue', '1');
+                const resp = await fetch('/api/operation/fba_shipping_methods?' + params.toString());
+                const payload = await resp.json();
+                if (!payload.success) {
+                    throw new Error(payload.message || '加载失败');
+                }
+                opsFbaRenderTable(payload.data || {});
+            } catch (e) {
+                if (wrap) wrap.innerHTML = `<div class="empty">加载失败：${opsFbaEscape(e.message || e)}</div>`;
+                if (meta) meta.textContent = '加载失败';
+            } finally {
+                opsFbaState.loading = false;
+                const prevBtn = document.getElementById('opsFbaPrev');
+                const nextBtn = document.getElementById('opsFbaNext');
+                if (prevBtn) prevBtn.disabled = opsFbaState.page <= 1;
+                if (nextBtn) nextBtn.disabled = opsFbaState.page >= opsFbaState.totalPages;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const dian = document.getElementById('opsFbaDian');
+            const danhao = document.getElementById('opsFbaDanhao');
+            const sort = document.getElementById('opsFbaSort');
+            const issue = document.getElementById('opsFbaIssue');
+            const refresh = document.getElementById('opsFbaRefresh');
+            const prevBtn = document.getElementById('opsFbaPrev');
+            const nextBtn = document.getElementById('opsFbaNext');
+
+            if (dian) dian.addEventListener('change', function () { opsFbaLoadData(1); });
+            if (danhao) {
+                danhao.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') opsFbaLoadData(1);
+                });
+            }
+            if (sort) sort.addEventListener('change', function () { opsFbaLoadData(1); });
+            if (issue) {
+                issue.addEventListener('click', function () {
+                    opsFbaState.issueOnly = !opsFbaState.issueOnly;
+                    issue.classList.toggle('is-active', opsFbaState.issueOnly);
+                    issue.innerHTML = opsFbaState.issueOnly
+                        ? '<i class="fas fa-filter"></i> 已筛选问题'
+                        : '<i class="fas fa-triangle-exclamation"></i> 只看问题数据';
+                    opsFbaLoadData(1);
+                });
+            }
+            if (refresh) refresh.addEventListener('click', function () { opsFbaLoadData(opsFbaState.page || 1); });
+            if (prevBtn) prevBtn.addEventListener('click', function () { opsFbaLoadData(Math.max(1, opsFbaState.page - 1)); });
+            if (nextBtn) nextBtn.addEventListener('click', function () { opsFbaLoadData(Math.min(opsFbaState.totalPages, opsFbaState.page + 1)); });
+
+            opsFbaLoadShops();
+            opsFbaLoadData(1);
+        });
+    </script>
+</body>
+</html>

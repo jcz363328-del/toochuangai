@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}创新管理（移动版）{% endblock %}
+
+{% block content %}
+<style>
+.m-wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 10px 8px 16px;
+}
+.m-hero {
+    background: linear-gradient(135deg, #eaf5ff 0%, #f5fbff 100%);
+    border: 1px solid #d9ebff;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+.m-title {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin-bottom: 6px;
+}
+.m-sub {
+    color: #5b6b7c;
+    font-size: 14px;
+    margin: 0;
+}
+.m-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.m-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid #dce8f7;
+    border-radius: 12px;
+    background: #fff;
+    padding: 12px;
+    min-height: 96px;
+}
+.m-card .ico {
+    font-size: 22px;
+    margin-bottom: 6px;
+}
+.m-card .name {
+    font-weight: 700;
+    margin-bottom: 3px;
+}
+.m-card .desc {
+    color: #6c7b8b;
+    font-size: 12px;
+    line-height: 1.35;
+}
+.m-panel {
+    border: 1px solid #dce8f7;
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+}
+.m-panel-head {
+    padding: 10px 12px;
+    font-weight: 700;
+    border-bottom: 1px solid #edf3fb;
+}
+.m-stats {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+.m-stat {
+    padding: 10px 12px;
+    border-bottom: 1px solid #edf3fb;
+}
+.m-stat:last-child {
+    border-bottom: 0;
+}
+.m-stat .k {
+    font-size: 12px;
+    color: #6f7f90;
+}
+.m-stat .v {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.m-rebind {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #c7d2fe;
+    background: #eef2ff;
+    color: #312e81;
+    text-decoration: none;
+}
+.m-rebind-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+.m-rebind-desc {
+    color: #4c51bf;
+    font-size: 12px;
+    line-height: 1.45;
+}
+</style>
+
+<div class="m-wrap">
+    <div class="m-hero">
+        <div class="m-title">创新提案管理（移动版）</div>
+        <p class="m-sub">你好，{{ feishu_user_name or '同事' }}。该页面针对手机端进行了单独排版优化。</p>
+    </div>
+
+    <a class="m-rebind" href="{{ url_for('reauth') }}">
+        <div>
+            <div class="m-rebind-title"><i class="bi bi-arrow-repeat"></i> 重新绑定身份</div>
+            <div class="m-rebind-desc">如果当前飞书姓名识别错误，点击这里重新授权并绑定当前账号。</div>
+        </div>
+        <i class="bi bi-chevron-right"></i>
+    </a>
+
+    <div class="m-grid">
+        <a class="m-card" href="{{ url_for('innovation.innovation_submit') }}">
+            <div class="ico text-primary"><i class="bi bi-plus-circle"></i></div>
+            <div class="name">发起创新</div>
+            <div class="desc">提交创新提案</div>
+        </a>
+        <a class="m-card" href="{{ url_for('innovation.innovation_manage') }}">
+            <div class="ico text-success"><i class="bi bi-gear"></i></div>
+            <div class="name">承接管理</div>
+            <div class="desc">处理与跟进项目</div>
+        </a>
+        <a class="m-card" href="{{ url_for('innovation.innovation_points') }}">
+            <div class="ico text-warning"><i class="bi bi-star-fill"></i></div>
+            <div class="name">个人积分</div>
+            <div class="desc">查看积分与兑换</div>
+        </a>
+        <a class="m-card" href="{{ url_for('innovation.innovation_excellent_cases') }}">
+            <div class="ico text-danger"><i class="bi bi-award-fill"></i></div>
+            <div class="name">优秀案例</div>
+            <div class="desc">查看 50 分提案</div>
+        </a>
+    </div>
+
+    <div class="m-panel">
+        <div class="m-panel-head">数字看板</div>
+        <div class="m-stats">
+            <div class="m-stat">
+                <div class="k">总提案数</div>
+                <div class="v text-primary" id="m-total">-</div>
+            </div>
+            <div class="m-stat">
+                <div class="k">采纳提案数</div>
+                <div class="v text-success" id="m-adopted">-</div>
+            </div>
+            <div class="m-stat">
+                <div class="k">提案有效率</div>
+                <div class="v text-warning" id="m-rate">-%</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+axios.get('/innovation/api/get_dashboard_data').then(function(res){
+    if (!res.data || !res.data.success) return;
+    const d = res.data.data || {};
+    const basic = d.basic_stats || {};
+    const total = d.total_proposals ?? basic.total_count ?? '-';
+    const adopted = d.adopted_proposals ?? basic.adopted_count ?? '-';
+    const rateVal = d.effectiveness_rate ?? basic.effectiveness_rate;
+    document.getElementById('m-total').textContent = total;
+    document.getElementById('m-adopted').textContent = adopted;
+    document.getElementById('m-rate').textContent = (rateVal === undefined || rateVal === null || rateVal === '') ? '-%' : (rateVal + '%');
+}).catch(function(){});
+</script>
+{% endblock %}

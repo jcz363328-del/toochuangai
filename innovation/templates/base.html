@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}团队创新奖励管理系统{% endblock %}</title>
+        {% if config.DEBUG %}
+    <script src="https://lf-package-cn.feishucdn.com/obj/feishu-static/op/fe/devtools_frontend/remote-debug-0.0.1-alpha.6.js"></script>
+    {% endif %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body>
+    <style>
+        .identity-rebind-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            color: rgba(255, 255, 255, 0.92);
+            text-decoration: none;
+            font-size: 13px;
+            line-height: 1;
+        }
+        .identity-rebind-link:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.12);
+        }
+    </style>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-lightbulb"></i> 团队创新奖励管理
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">首页</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('innovation.innovation_submit') }}" onclick="return logMenuClickAndGo('发起创新', this.href);">发起创新</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('innovation.innovation_manage') }}" onclick="return logMenuClickAndGo('承接管理', this.href);">承接管理</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('innovation.innovation_points') }}" onclick="return logMenuClickAndGo('个人积分', this.href);">个人积分</a>
+                    </li>
+                    <li class="nav-item ms-lg-2">
+                        <a class="identity-rebind-link" href="{{ url_for('reauth') }}">
+                            <i class="bi bi-arrow-repeat"></i>
+                            <span>重新绑定身份</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast 通知 -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto">系统通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toast-body">
+                <!-- 动态内容 -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/innovation/static/js/common.js"></script>
+    <script>
+        function logMenuClickAndGo(menu, href) {
+            const url = "{{ url_for('api_menu_click') }}";
+            const payload = JSON.stringify({ menu: menu, href: href });
+
+            try {
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([payload], { type: 'application/json' });
+                    navigator.sendBeacon(url, blob);
+                    window.location.href = href;
+                    return false;
+                }
+            } catch (e) {}
+
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true
+            }).catch(function() {});
+            window.location.href = href;
+            return false;
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

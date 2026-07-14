@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block title %}承接管理（移动版）{% endblock %}
+
+{% block content %}
+<style>
+.mm-wrap { max-width: 720px; margin: 0 auto; padding: 10px 8px 16px; }
+.mm-hero { border: 1px solid #dce8f7; border-radius: 12px; padding: 10px 12px; background: #fff; margin-bottom: 10px; }
+.mm-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+.mm-sub { color: #64748b; font-size: 13px; }
+.mm-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.mm-filters .btn { border-radius: 10px; }
+.mm-search { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 8px; }
+.mm-search .form-control { border-radius: 10px; }
+.mm-list { display: grid; gap: 10px; }
+.mm-card { border: 1px solid #dce8f7; border-radius: 12px; background: #fff; padding: 10px; }
+.mm-card-head { cursor: pointer; }
+.mm-card .h { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.mm-card .no { color: #0d6efd; font-weight: 700; font-size: 12px; }
+.mm-card .status { font-size: 12px; color: #475569; background: #eff6ff; border-radius: 999px; padding: 2px 8px; }
+.mm-card .t { font-weight: 700; line-height: 1.35; margin-bottom: 6px; }
+.mm-card .meta { font-size: 12px; color: #64748b; line-height: 1.5; }
+.mm-card .op { margin-top: 6px; font-size: 12px; color: #111827; }
+.mm-card .full { margin-top: 8px; border-top: 1px dashed #e2e8f0; padding-top: 8px; display: grid; gap: 6px; }
+.mm-card .expand-tip { margin-top: 4px; font-size: 12px; color: #0d6efd; }
+.mm-card.open .expand-tip { color: #64748b; }
+.mm-card .kv { font-size: 12px; line-height: 1.45; color: #334155; }
+.mm-card .kv b { color: #0f172a; }
+.mm-dept { background: #f8fbff; border: 1px dashed #dbe7f7; border-radius: 8px; padding: 6px; }
+.mm-dept-item { font-size: 12px; line-height: 1.45; color: #334155; padding: 2px 0; border-bottom: 1px solid #edf3fb; }
+.mm-dept-item:last-child { border-bottom: 0; }
+.mm-op-grid { display: grid; gap: 6px; }
+.mm-op-grid .form-select, .mm-op-grid .form-control, .mm-op-grid textarea { font-size: 12px; border-radius: 8px; }
+.mm-op-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mm-react { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.mm-react .btn { border-radius: 8px; font-size: 12px; }
+.mm-comment { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-top: 6px; }
+.mm-media { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.mm-media img { width: 78px; height: 78px; object-fit: cover; border-radius: 8px; border: 1px solid #dbe7f7; background: #fff; }
+.mm-media a { font-size: 12px; text-decoration: none; }
+.mm-actions { margin-top: 10px; display: flex; justify-content: center; gap: 8px; }
+.mm-empty { text-align: center; color: #94a3b8; padding: 24px 8px; }
+</style>
+
+<div class="mm-wrap">
+    <div class="mm-hero">
+        <div class="mm-title">承接管理（移动版）</div>
+        <div class="mm-sub">你好，{{ feishu_user_name or '同事' }}。手机版支持筛选、处理提案、点赞评论与收藏。</div>
+    </div>
+
+    <div class="mm-search">
+        <input id="mmSearchInput" class="form-control form-control-sm" placeholder="搜索标题/发起人/编号">
+        <button class="btn btn-outline-primary btn-sm" onclick="doSearch()">搜索</button>
+    </div>
+
+    <div class="mm-filters">
+        <button class="btn btn-primary btn-sm" data-op="" onclick="setOpFilter(this)">全部</button>
+        <button class="btn btn-outline-primary btn-sm" data-op="pending" onclick="setOpFilter(this)">待处理</button>
+        <button class="btn btn-outline-primary btn-sm" data-op="adopted" onclick="setOpFilter(this)">已采纳</button>
+        <button class="btn btn-outline-primary btn-sm" data-op="disputed" onclick="setOpFilter(this)">有异议</button>
+        <button class="btn btn-outline-primary btn-sm" data-op="not_adopted" onclick="setOpFilter(this)">未采纳</button>
+        <button class="btn btn-outline-warning btn-sm" id="favBtn" onclick="toggleFavoriteOnly()">我的收藏</button>
+        <button class="btn btn-outline-warning btn-sm" data-fav-category="长期看效果" onclick="setFavCategory(this)">长期看效果</button>
+        <button class="btn btn-outline-warning btn-sm" data-fav-category="暂未有解决方案" onclick="setFavCategory(this)">暂未有解决方案</button>
+    </div>
+
+    <div id="mmList" class="mm-list"></div>
+    <div id="mmEmpty" class="mm-empty" style="display:none;">暂无数据</div>
+
+    <div class="mm-actions">
+        <button id="loadMoreBtn" class="btn btn-outline-primary btn-sm" onclick="loadMore()">加载更多</button>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('innovation.innovation_manage') }}?desktop=1">切换电脑版</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let mmPage = 1;
+let mmTotalPages = 1;
+let mmLoading = false;
+let mmOp = '';
+let mmSearch = '';
+let mmFavoriteOnly = false;
+let mmFavCategory = '';
+const MM_HANDLER = {{ (feishu_user_name or '移动端用户') | tojson }};
+const mmReactState = {};
+
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function normText(v){ return String(v ?? '').trim(); }
+function showAsNone(v){
+  const t = normText(v);
+  return (!t || t === '-1' || t === '0' || t.toLowerCase() === 'null') ? '无' : t;
+}
+function parseMediaList(v){
+  const raw = normText(v);
+  if(!raw) return [];
+  return raw.split(';').map(s => normText(s)).filter(Boolean);
+}
+function toUploadUrl(path){
+  const p = normText(path);
+  if(!p) return '';
+  if(/^https?:\/\//i.test(p)) return p;
+  const file = p.split(/[\\/]/).pop();
+  return `/innovation/uploads/${encodeURIComponent(file)}`;
+}
+function mediaThumbs(v){
+  const arr = parseMediaList(v);
+  if(!arr.length) return '<span>无</span>';
+  return `<div class="mm-media">${arr.map(p=>`<a href="${toUploadUrl(p)}" target="_blank"><img src="${toUploadUrl(p)}" alt=""></a>`).join('')}</div>`;
+}
+function mediaLinks(v){
+  const arr = parseMediaList(v);
+  if(!arr.length) return '<span>无</span>';
+  return `<div class="mm-media">${arr.map((p,i)=>`<a href="${toUploadUrl(p)}" target="_blank">视频${i+1}</a>`).join('')}</div>`;
+}
+
+function setOpFilter(btn){
+  mmOp = btn.getAttribute('data-op') || '';
+  mmPage = 1;
+  document.querySelectorAll('.mm-filters .btn').forEach(b => {
+    b.classList.remove('btn-primary');
+    b.classList.add('btn-outline-primary');
+  });
+  btn.classList.remove('btn-outline-primary');
+  btn.classList.add('btn-primary');
+  document.getElementById('mmList').innerHTML = '';
+  fetchList(false);
+}
+
+function doSearch(){
+  mmSearch = (document.getElementById('mmSearchInput').value || '').trim();
+  mmPage = 1;
+  document.getElementById('mmList').innerHTML = '';
+  fetchList(false);
+}
+
+function toggleFavoriteOnly(){
+  mmFavoriteOnly = !mmFavoriteOnly;
+  if(mmFavoriteOnly) mmFavCategory = '';
+  const btn = document.getElementById('favBtn');
+  if(mmFavoriteOnly){
+    btn.classList.remove('btn-outline-warning');
+    btn.classList.add('btn-warning');
+  }else{
+    btn.classList.remove('btn-warning');
+    btn.classList.add('btn-outline-warning');
+  }
+  document.querySelectorAll('[data-fav-category]').forEach((one) => {
+    one.classList.remove('btn-warning');
+    one.classList.add('btn-outline-warning');
+  });
+  mmPage = 1;
+  document.getElementById('mmList').innerHTML = '';
+  fetchList(false);
+}
+
+function setFavCategory(btn){
+  const next = btn.getAttribute('data-fav-category') || '';
+  mmFavCategory = (mmFavCategory === next) ? '' : next;
+  if(mmFavCategory) mmFavoriteOnly = false;
+  const favBtn = document.getElementById('favBtn');
+  if(favBtn){
+    favBtn.classList.toggle('btn-warning', mmFavoriteOnly);
+    favBtn.classList.toggle('btn-outline-warning', !mmFavoriteOnly);
+  }
+  document.querySelectorAll('[data-fav-category]').forEach((one) => {
+    const active = (one.getAttribute('data-fav-category') || '') === mmFavCategory;
+    one.classList.toggle('btn-warning', active);
+    one.classList.toggle('btn-outline-warning', !active);
+  });
+  mmPage = 1;
+  document.getElementById('mmList').innerHTML = '';
+  fetchList(false);
+}
+
+function formatDeptStatus(ds){
+  if(!ds || typeof ds !== 'object') return '<div class="mm-dept-item">无</div>';
+  const rows = [];
+  Object.keys(ds).forEach(k => {
+    const v = ds[k] || {};
+    const score = (v.score === undefined || v.score === null || v.score === '') ? '-' : v.score;
+    const notes = v.notes ? ` ｜ 备注:${esc(String(v.notes).slice(0,40))}` : '';
+    const time = v.handle_time ? ` ｜ ${esc(v.handle_time)}` : '';
+    rows.push(`<div class="mm-dept-item"><b>${esc(k)}</b>：${esc(v.status || '待承接')} ｜ 分数:${esc(score)}${time}${notes}</div>`);
+  });
+  return rows.length ? rows.join('') : '<div class="mm-dept-item">无</div>';
+}
+
+function flowOptions(ds){
+  if(!ds || typeof ds !== 'object') return '<option value="">无可处理部门</option>';
+  const opts = ['<option value="">请选择处理部门</option>'];
+  Object.keys(ds).forEach(k => {
+    const v = ds[k] || {};
+    if(v.flow_id){
+      opts.push(`<option value="${esc(v.flow_id)}">${esc(k)}（${esc(v.status || '待承接')}）</option>`);
+    }
+  });
+  return opts.join('');
+}
+
+function cardHtml(item){
+  const no = item.id || '-';
+  const title = item.title || '未命名提案';
+  const status = item.status || '待承接';
+  const op = item.operation_type || '待处理';
+  const ini = item.initiator || '未知';
+  const time = item.initiation_time || '';
+  const ddl = item.deadline || '';
+  const score = item.score ?? '';
+  const ptype = item.project_type || '';
+  const assignees = Array.isArray(item.assignees) ? item.assignees.join('、') : (item.department || '');
+  const handler = item.handler || '';
+  const handleTime = item.handle_time || '';
+  const notes = item.handler_notes || '';
+  const solution = item.solution || '';
+  const committeeScore = showAsNone(item.committee_score);
+  const committeeNotes = item.committee_notes || '';
+  const deptStatus = item.department_status || {};
+  const imagePath = item.image_path || '';
+  const videoPath = item.video_path || '';
+  const liked = !!(mmReactState[no] && mmReactState[no].mine_like);
+  const likes = (mmReactState[no] && Number(mmReactState[no].likes || 0)) || 0;
+  const comments = (mmReactState[no] && Number((mmReactState[no].comments || []).length)) || 0;
+  return `
+    <div class="mm-card" id="card_${no}">
+      <div class="mm-card-head" onclick="toggleCard(${no}, event)">
+        <div class="h">
+          <div class="no">#${esc(no)}</div>
+          <div class="status">${esc(status)}</div>
+        </div>
+        <div class="t">${esc(title)}</div>
+        <div class="meta">发起人：${esc(ini)}${time ? ` ｜ 发起时间：${esc(time)}` : ''}</div>
+        <div class="op">操作类型：${esc(op)}${score !== '' ? ` ｜ 得分：${esc(score)}` : ''}</div>
+        <div class="expand-tip">点击查看详情</div>
+      </div>
+      <div class="full" style="display:none;">
+        <div class="kv"><b>内容：</b>${esc(item.content || '') || '无'}</div>
+        <div class="kv"><b>解决方案：</b>${esc(solution) || '无'}</div>
+        <div class="kv"><b>创新类别：</b>${esc(ptype) || '无'}</div>
+        <div class="kv"><b>承接部门：</b>${esc(assignees) || '无'}</div>
+        <div class="kv"><b>当前承接人：</b>${esc(handler) || '无'}</div>
+        <div class="kv"><b>处理时间：</b>${esc(handleTime) || '无'}</div>
+        <div class="kv"><b>截止时间：</b>${esc(ddl) || '无'}</div>
+        <div class="kv"><b>处理备注：</b>${esc(notes) || '无'}</div>
+        <div class="kv"><b>委员会打分：</b>${esc(committeeScore)}</div>
+        <div class="kv"><b>委员会备注：</b>${esc(committeeNotes) || '无'}</div>
+        <div class="kv"><b>部门状态：</b></div>
+        <div class="mm-dept">${formatDeptStatus(deptStatus)}</div>
+        <div class="kv"><b>图片：</b>${mediaThumbs(imagePath)}</div>
+        <div class="kv"><b>视频：</b>${mediaLinks(videoPath)}</div>
+
+        <div class="mm-react">
+          <button id="like_btn_${no}" class="btn ${liked ? 'btn-primary' : 'btn-outline-primary'}" onclick="toggleLike(${no})">${liked ? '已点赞' : '点赞'}（${likes}）</button>
+        </div>
+        <div class="mm-comment">
+          <input class="form-control form-control-sm" id="comment_${no}" placeholder="输入评论">
+          <button id="comment_btn_${no}" class="btn btn-outline-secondary btn-sm" onclick="sendComment(${no})">评论（${comments}）</button>
+        </div>
+
+        <div class="mm-op-grid">
+          <select class="form-select form-select-sm" id="flow_${no}">${flowOptions(deptStatus)}</select>
+          <select class="form-select form-select-sm" id="action_${no}">
+            <option value="">请选择处理动作</option>
+            <option value="进行中|采纳，立即执行">采纳，立即执行</option>
+            <option value="进行中|采纳，暂缓执行">采纳，暂缓执行</option>
+            <option value="已拒绝|不采纳，不执行">不采纳，不执行</option>
+            <option value="已拒绝|重复提案">重复提案</option>
+          </select>
+          <select class="form-select form-select-sm" id="score_${no}">
+            <option value="">评分（可选）</option>
+            <option value="A+">A+（100）</option>
+            <option value="A">A（50）</option>
+            <option value="B">B（30）</option>
+            <option value="C">C（20）</option>
+            <option value="D">D（10）</option>
+            <option value="E">E（0）</option>
+          </select>
+          <textarea class="form-control form-control-sm" id="notes_${no}" rows="2" placeholder="处理备注（必填）"></textarea>
+          <div class="mm-op-buttons">
+            <button class="btn btn-success btn-sm" onclick="submitHandle(${no})">提交处理</button>
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">更多</button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><button class="dropdown-item" type="button" onclick="submitMeeting(${no})">一键上会</button></li>
+                <li><button class="dropdown-item" type="button" onclick="toggleFav(${no}, ${item.is_favorited ? 'false' : 'true'})">${item.is_favorited ? '已收藏' : '收藏'}</button></li>
+                <li><button class="dropdown-item" type="button" onclick="addFavCategory(${no}, '长期看效果')">长期看效果</button></li>
+                <li><button class="dropdown-item" type="button" onclick="addFavCategory(${no}, '暂未有解决方案')">暂未有解决方案</button></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleCard(id, event){
+  const card = document.getElementById(`card_${id}`);
+  if(!card) return;
+  const full = card.querySelector('.full');
+  const tip = card.querySelector('.expand-tip');
+  if(!full) return;
+  const show = full.style.display === 'none';
+  full.style.display = show ? 'grid' : 'none';
+  card.classList.toggle('open', show);
+  if(tip) tip.textContent = show ? '再次点击收起' : '点击查看详情';
+}
+
+function loadReactStats(id){
+  axios.get('/innovation/api/react/stats', { params: { id } }).then(res => {
+    if(!res.data || !res.data.success) return;
+    mmReactState[id] = res.data;
+    const likeBtn = document.getElementById(`like_btn_${id}`);
+    const commentBtn = document.getElementById(`comment_btn_${id}`);
+    if(likeBtn){
+      const liked = !!res.data.mine_like;
+      const likes = Number(res.data.likes || 0);
+      likeBtn.textContent = `${liked ? '已点赞' : '点赞'}（${likes}）`;
+      likeBtn.classList.toggle('btn-primary', liked);
+      likeBtn.classList.toggle('btn-outline-primary', !liked);
+    }
+    if(commentBtn){
+      const comments = Array.isArray(res.data.comments) ? res.data.comments.length : 0;
+      commentBtn.textContent = `评论（${comments}）`;
+    }
+  }).catch(()=>{});
+}
+
+function toggleLike(id){
+  const state = mmReactState[id] || {};
+  const nextLike = !state.mine_like;
+  axios.post('/innovation/api/react', { id, like: nextLike }).then(() => {
+    fetchList(false);
+  }).catch(()=>{});
+}
+
+function sendComment(id){
+  const inp = document.getElementById(`comment_${id}`);
+  const val = (inp && inp.value || '').trim();
+  if(!val) return;
+  axios.post('/innovation/api/react', { id, comment: val }).then(() => {
+    if(inp) inp.value = '';
+    fetchList(false);
+  }).catch(()=>{});
+}
+
+function toggleFav(id, toFav){
+  axios.post('/innovation/api/toggle_favorite', { innovation_id: id, favorite: !!toFav }).then(() => {
+    fetchList(false);
+  }).catch(()=>{});
+}
+
+function addFavCategory(id, fenlei){
+  axios.post('/innovation/api/add_favorite_category', { innovation_id: id, fenlei }).then(() => {
+    fetchList(false);
+  }).catch(()=>{});
+}
+
+function submitMeeting(id){
+  axios.post('/innovation/api/submit_to_meeting', { innovation_id: id }).then(() => {
+    fetchList(false);
+  }).catch(()=>{});
+}
+
+function submitHandle(id){
+  const flowId = document.getElementById(`flow_${id}`).value;
+  const action = document.getElementById(`action_${id}`).value;
+  const score = document.getElementById(`score_${id}`).value;
+  const notes = (document.getElementById(`notes_${id}`).value || '').trim();
+  if(!flowId || !action || !notes) return;
+  const [status, operation_type] = action.split('|');
+  const data = {
+    innovation_id: id,
+    flow_id: flowId,
+    status: status,
+    handler: MM_HANDLER,
+    handler_notes: notes,
+    score: score,
+    operation_type: operation_type || ''
+  };
+  axios.post('/innovation/api/handle_innovation', data).then(() => {
+    fetchList(false);
+  }).catch(()=>{});
+}
+
+function fetchList(append){
+  if(mmLoading) return;
+  mmLoading = true;
+  const btn = document.getElementById('loadMoreBtn');
+  btn.disabled = true;
+  axios.get('/innovation/api/get_innovations', {
+    params: { page: mmPage, per_page: 10, operation_type: mmOp, search: mmSearch, favorite_only: mmFavoriteOnly ? '1' : '', favorite_category: mmFavCategory }
+  }).then(res => {
+    const ok = res.data && res.data.success;
+    if(!ok) return;
+    const rows = res.data.data || [];
+    mmTotalPages = Number(res.data.total_pages || 1);
+    const box = document.getElementById('mmList');
+    if(!append) box.innerHTML = '';
+    rows.forEach(r => {
+      box.insertAdjacentHTML('beforeend', cardHtml(r));
+      loadReactStats(r.id);
+    });
+    document.getElementById('mmEmpty').style.display = box.children.length ? 'none' : 'block';
+    btn.style.display = (mmPage < mmTotalPages) ? 'inline-block' : 'none';
+  }).catch(() => {}).finally(() => {
+    mmLoading = false;
+    btn.disabled = false;
+  });
+}
+
+function loadMore(){
+  if(mmPage >= mmTotalPages) return;
+  mmPage += 1;
+  fetchList(true);
+}
+
+document.addEventListener('DOMContentLoaded', function(){ fetchList(false); });
+</script>
+{% endblock %}
