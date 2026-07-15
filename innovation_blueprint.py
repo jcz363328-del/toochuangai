@@ -18,7 +18,7 @@ from innovation.web_app import (
     export_innovations, get_statistics, add_reward,
     upload_reward_image, update_reward, delete_reward,
     add_reward_with_image, uploaded_file, reward_image,
-    test_simple, get_dashboard_data, get_innovation_compare, export_statistics, toggle_favorite,
+    get_dashboard_data, get_innovation_compare, export_statistics, toggle_favorite,
     add_favorite_category, innovation_react, innovation_update_comment, innovation_get_react_stats, like_image_file,
     add_innovation_star_content, delete_innovation_star_content, innovation_star_media_file
 )
@@ -218,11 +218,6 @@ def innovation_reward_image(filename):
 @innovation_bp.route('/like_images/<path:filename>')
 def innovation_like_image_file(filename):
     return like_image_file(filename)
-
-@innovation_bp.route('/api/test_simple', methods=['GET'])
-def innovation_test_simple():
-    """简单测试API"""
-    return test_simple()
 
 @innovation_bp.route('/api/get_dashboard_data', methods=['GET'])
 def innovation_get_dashboard_data():

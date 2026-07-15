@@ -585,7 +585,7 @@
                             type="button"
                             title="删除"
                             aria-label="删除这条创新新享内容"
-                            data-delete-url="{{ url_for('innovation.innovation_delete_star_content', item_id=item.id) }}"
+                            data-delete-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
                         ><i class="bi bi-trash"></i></button>
                         {% endif %}
                     </div>
@@ -637,7 +637,7 @@
                             type="button"
                             title="删除"
                             aria-label="删除这条创新新说内容"
-                            data-delete-url="{{ url_for('innovation.innovation_delete_star_content', item_id=item.id) }}"
+                            data-delete-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
                         ><i class="bi bi-trash"></i></button>
                         {% endif %}
                     </div>

@@ -4124,7 +4124,7 @@ def check_feishu_user():
     _safe_debug_print(f"请求主机: {request.host}")
 
     # 跳过静态文件和特定路由
-    if (request.endpoint in ['static', 'feishu_auth', 'feishu_callback', 'dev_login', 'visual_design_image_tool_demo'] or
+    if (request.endpoint in ['static', 'feishu_auth', 'feishu_callback', 'dev_login'] or
             request.path.startswith('/static/')):
         _safe_debug_print(f"⏭️ 跳过中间件检查: {request.endpoint or request.path}")
         _debug_log_elapsed(
@@ -9357,61 +9357,6 @@ def _feishu_try_decrypt_callback_data(data):
         return data
 
 
-def _feishu_debug_allowed():
-    key = (request.args.get("k") or "").strip()
-    expected = str(FEISHU_CONFIG.get("verification_token") or "").strip()
-    if key and expected and key == expected:
-        return True
-    user_id = session.get("feishu_user_id")
-    if not user_id:
-        return False
-    ok, _ = permission_manager.check_user_permission(user_id, "admin_functions")
-    return bool(ok)
-
-
-@app.route("/feishu/debug/recent_events")
-def feishu_debug_recent_events():
-    if not _feishu_debug_allowed():
-        return jsonify({"success": False, "message": "forbidden"}), 403
-    return jsonify({
-        "success": True,
-        "pid": os.getpid(),
-        "instance_id": _feishu_debug_instance_id,
-        "server_time": datetime.now().isoformat(timespec="seconds"),
-        "count": len(_feishu_recent_events),
-        "data": _feishu_recent_events[-_feishu_recent_events_limit:]
-    })
-
-
-@app.route("/feishu/debug/ping")
-def feishu_debug_ping():
-    if not _feishu_debug_allowed():
-        return jsonify({"success": False, "message": "forbidden"}), 403
-    return jsonify({
-        "success": True,
-        "pid": os.getpid(),
-        "instance_id": _feishu_debug_instance_id,
-        "server_time": datetime.now().isoformat(timespec="seconds")
-    })
-
-
-@app.route("/feishu/debug/mark")
-def feishu_debug_mark():
-    if not _feishu_debug_allowed():
-        return jsonify({"success": False, "message": "forbidden"}), 403
-    note = (request.args.get("note") or "manual_mark").strip()
-    _feishu_recent_events.append({
-        "ts": datetime.now().isoformat(timespec="seconds"),
-        "stage": "manual_mark",
-        "note": note,
-        "pid": os.getpid(),
-        "instance_id": _feishu_debug_instance_id
-    })
-    if len(_feishu_recent_events) > _feishu_recent_events_limit:
-        del _feishu_recent_events[:len(_feishu_recent_events) - _feishu_recent_events_limit]
-    return jsonify({"success": True, "pid": os.getpid(), "instance_id": _feishu_debug_instance_id})
-
-
 @app.route('/')
 def index():
     """主页 - 默认跳转到主控制台"""
@@ -9657,16 +9602,6 @@ def dashboard_xiaotu_report_center():
         user_name=user_name,
         edit_wendangid=str(request.args.get('edit_wendangid') or '').strip(),
     )
-
-
-@app.route('/dashboard/xiaotu-report-center-demo')
-def dashboard_xiaotu_report_center_demo():
-    user_id = session.get('feishu_user_id')
-    if not user_id:
-        session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_center_demo')
-        return redirect(url_for('feishu_auth'))
-    user_name = session.get('feishu_user_name', '用户')
-    return render_template('xiaotu_report_center_demo.html', user_name=user_name)
 
 
 @app.route('/dashboard/xiaotu-report-center-mobile')
@@ -13081,15 +13016,6 @@ def performance_monitor():
     return render_template('performance.html')
 
 
-@app.route('/api/debug_env_keys')
-def api_debug_env_keys():
-    return jsonify({
-        "GOOGLE_CSE_API_KEY": bool(os.environ.get("GOOGLE_CSE_API_KEY") or _GOOGLE_CSE_API_KEY),
-        "GOOGLE_CSE_CX": bool(os.environ.get("GOOGLE_CSE_CX") or _GOOGLE_CSE_CX),
-        "TAVILY_API_KEY": bool(os.environ.get("TAVILY_API_KEY") or _TAVILY_API_KEY),
-    })
-
-
 @app.route('/script_generator')
 @require_permission('script_generator')
 def script_generator():
@@ -16359,12 +16285,6 @@ def visual_design_image_tool():
     )
 
 
-@app.route('/visual_design_dept/image_tool/demo')
-def visual_design_image_tool_demo():
-    user_name = _normalize_feishu_user_name(session.get('feishu_user_name', ''), fallback='访客')
-    return render_template('lashforge_demo.html', user_name=user_name)
-
-
 @app.route('/visual_design_dept/image_tool/status')
 @require_permission('visual_design_dept')
 def visual_design_image_tool_status():
@@ -18010,68 +17930,6 @@ def permission_management():
     return render_template('permission_management.html')
 
 
-@app.route('/test_search')
-def test_search():
-    return send_from_directory('.', 'test_search.html')
-
-
-@app.route('/api/test/search_user', methods=['POST'])
-def test_search_user():
-    """测试用户搜索API（无权限要求）"""
-    try:
-        data = request.get_json()
-        search_value = data.get('search_value', '').strip()
-
-        if not search_value:
-            return jsonify({
-                'success': False,
-                'message': '请输入搜索内容'
-            })
-
-        _safe_debug_print(f"\n=== 搜索用户调试信息 ===")
-        _safe_debug_print(f"搜索值: {search_value}")
-        _safe_debug_print(f"是否包含@: {'@' in search_value}")
-
-        # 测试access_token获取
-        access_token = permission_manager.get_access_token()
-        _safe_debug_print(f"Access Token获取结果: {'成功' if access_token else '失败'}")
-
-        # 获取用户信息
-        user_info = permission_manager.search_user_by_id_or_email(search_value)
-        _safe_debug_print(f"搜索结果: {user_info}")
-
-        if not user_info:
-            return jsonify({
-                'success': False,
-                'message': f'未找到用户: {search_value}，请检查用户ID或邮箱是否正确',
-                'debug_info': {
-                    'search_value': search_value,
-                    'has_at_symbol': '@' in search_value,
-                    'access_token_available': bool(access_token)
-                }
-            })
-
-        return jsonify({
-            'success': True,
-            'data': {
-                'user_id': user_info['user_id'],
-                'name': user_info['name'],
-                'email': user_info['email'],
-                'departments': user_info['departments']
-            }
-        })
-
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        _safe_debug_print(f"搜索用户异常: {error_trace}")
-        return jsonify({
-            'success': False,
-            'message': f'搜索用户失败: {str(e)}',
-            'error_trace': error_trace
-        })
-
-
 @app.route('/api/admin/search_user', methods=['POST'])
 @require_permission('admin_functions')
 def search_user():
@@ -18220,248 +18078,6 @@ def reauth():
     
     # 重定向到飞书授权
     return redirect(url_for('feishu_auth', force='1'))
-
-
-@app.route('/test/feishu')
-def test_feishu():
-    """飞书授权测试页面"""
-    return send_from_directory('.', 'test_feishu_callback.html')
-
-
-@app.route('/test/feishu/callback')
-def test_feishu_callback():
-    """飞书回调地址测试页面"""
-    return send_from_directory('.', 'feishu_callback_test.html')
-
-
-@app.route('/test/challenge')
-def test_challenge():
-    """Challenge验证测试页面"""
-    return send_from_directory('.', 'test_challenge.html')
-
-
-@app.route('/test/feishu/auth')
-def test_feishu_auth():
-    return send_from_directory('.', 'test_feishu_auth.html')
-
-
-@app.route('/test/permissions')
-def test_permissions_page():
-    """多部门权限测试页面"""
-    return send_from_directory('.', 'test_multi_department_permissions.html')
-
-
-@app.route('/test/user-info-page')
-def test_user_info_page():
-    """测试用户信息获取页面"""
-    return send_from_directory('.', 'test_user_info.html')
-
-
-@app.route('/debug/feishu-env')
-def debug_feishu_env():
-    """调试飞书环境信息"""
-    headers = dict(request.headers)
-    user_agent = request.headers.get('User-Agent', '')
-
-    is_feishu_env = 'Lark' in user_agent
-    feishu_headers = {
-        'X-Lark-User-Id': request.headers.get('X-Lark-User-Id'),
-        'X-Lark-Open-Id': request.headers.get('X-Lark-Open-Id'),
-        'X-Lark-Union-Id': request.headers.get('X-Lark-Union-Id'),
-        'X-Lark-User-Access-Token': request.headers.get('X-Lark-User-Access-Token'),
-        'X-Plugin-Token': request.headers.get('X-Plugin-Token'),
-        'X-User-Plugin-Token': request.headers.get('X-User-Plugin-Token')
-    }
-
-    # 检查Session信息
-    session_info = {
-        'feishu_user_id': session.get('feishu_user_id'),
-        'feishu_user_name': session.get('feishu_user_name'),
-        'feishu_user_email': session.get('feishu_user_email'),
-        'login_time': session.get('login_time')
-    }
-
-    return jsonify({
-        'success': True,
-        'data': {
-            'is_feishu_env': is_feishu_env,
-            'user_agent': user_agent,
-            'feishu_headers': feishu_headers,
-            'session_info': session_info,
-            'host': request.headers.get('Host'),
-            'request_url': request.url,
-            'has_feishu_headers': any(v for v in feishu_headers.values()),
-            'diagnosis': {
-                'environment': '飞书客户端' if is_feishu_env else '普通浏览器',
-                'user_identified': bool(session.get('feishu_user_id')),
-                'headers_present': any(v for v in feishu_headers.values()),
-                'recommendation': get_diagnosis_recommendation(is_feishu_env, any(v for v in feishu_headers.values()),
-                                                               bool(session.get('feishu_user_id')))
-            }
-        }
-    })
-
-
-@app.route('/debug/feishu-identity')
-def debug_feishu_identity():
-    """聚焦当前飞书身份链路的调试接口"""
-    if not _feishu_debug_allowed():
-        return jsonify({'success': False, 'message': 'forbidden'}), 403
-
-    def _mask_token(token):
-        text = str(token or '').strip()
-        if not text:
-            return ''
-        if len(text) <= 12:
-            return text[:3] + '***'
-        return text[:6] + '***' + text[-4:]
-
-    header_open_id = str(request.headers.get('X-Lark-Open-Id') or '').strip()
-    header_user_id = str(request.headers.get('X-Lark-User-Id') or '').strip()
-    header_identity = header_open_id or header_user_id
-    header_token = str(request.headers.get('X-Lark-User-Access-Token') or '').strip()
-    auth_header = str(request.headers.get('Authorization') or '').strip()
-    bearer_token = ''
-    if auth_header.lower().startswith('bearer '):
-        bearer_token = auth_header[7:].strip()
-    session_user_id = str(session.get('feishu_user_id') or '').strip()
-    session_open_id = str(session.get('feishu_open_id') or '').strip()
-    session_user_name = str(session.get('feishu_user_name') or '').strip()
-    session_token = str(session.get('feishu_user_access_token') or '').strip()
-    expected_app_id = str(FEISHU_CONFIG.get('app_id') or '').strip()
-    session_app_id = str(session.get('feishu_identity_app_id') or '').strip()
-
-    return jsonify({
-        'success': True,
-        'data': {
-            'expected_app_id': expected_app_id,
-            'request_identity': {
-                'x_lark_open_id': header_open_id,
-                'x_lark_user_id': header_user_id,
-                'resolved_header_identity': header_identity,
-                'has_user_access_token': bool(header_token),
-                'user_access_token_masked': _mask_token(header_token),
-                'has_bearer_token': bool(bearer_token),
-                'bearer_token_masked': _mask_token(bearer_token),
-            },
-            'session_identity': {
-                'feishu_user_id': session_user_id,
-                'feishu_open_id': session_open_id,
-                'feishu_user_name': session_user_name,
-                'feishu_identity_app_id': session_app_id,
-                'has_session_token': bool(session_token),
-                'session_token_masked': _mask_token(session_token),
-            },
-            'consistency': {
-                'header_vs_session_match': bool((not header_identity) or (not session_user_id) or header_identity == session_user_id),
-                'request_token_vs_session_token_match': bool((not header_token) or (not session_token) or header_token == session_token),
-                'session_bound_to_expected_app': bool((not session_app_id) or session_app_id == expected_app_id),
-            },
-            'request': {
-                'path': request.path,
-                'full_path': request.full_path,
-                'host': request.host,
-                'user_agent': request.headers.get('User-Agent', '')
-            }
-        }
-    })
-
-
-@app.route('/feishu-diagnosis')
-def feishu_diagnosis_page():
-    """飞书环境诊断页面"""
-    return send_from_directory('.', 'feishu_diagnosis.html')
-
-
-def get_diagnosis_recommendation(feishu_headers, user_agent, session_info):
-    """获取诊断建议"""
-    # 检查是否在飞书环境中
-    is_feishu_env = 'Lark' in user_agent or 'Feishu' in user_agent
-
-    # 检查是否有飞书请求头
-    has_headers = any(value for value in feishu_headers.values())
-
-    # 检查用户是否已识别
-    user_identified = bool(session_info.get('feishu_user_id'))
-
-    if user_identified:
-        return {
-            'environment': '飞书客户端',
-            'user_identified': True,
-            'headers_present': True,
-            'recommendation': '✅ 飞书环境正常，用户身份已成功识别。'
-        }
-    elif has_headers:
-        return {
-            'environment': '飞书客户端',
-            'user_identified': False,
-            'headers_present': True,
-            'recommendation': '⚠️ 在飞书环境中但用户身份未识别，请检查飞书应用配置或重新授权。'
-        }
-    elif is_feishu_env:
-        return {
-            'environment': '飞书客户端',
-            'user_identified': False,
-            'headers_present': False,
-            'recommendation': '❌ 在飞书客户端中但缺少必要的请求头，请检查飞书应用配置。'
-        }
-    else:
-        return {
-            'environment': '普通浏览器',
-            'user_identified': False,
-            'headers_present': False,
-            'recommendation': '❌ 当前在普通浏览器中访问，请在飞书客户端中打开应用。'
-        }
-
-
-@app.route('/test/user-info')
-def test_user_info():
-    """测试用户信息获取"""
-    _safe_debug_print("\n=== 测试用户信息获取 ===")
-
-    # 模拟一个授权码来测试
-    test_code = request.args.get('code', 'test_code_123')
-    _safe_debug_print(f"使用测试授权码: {test_code}")
-
-    # 测试获取access token
-    _safe_debug_print("\n1. 测试获取access token...")
-    token = permission_manager.get_access_token()
-    if token:
-        _safe_debug_print(f"✅ Access token获取成功: {token[:20]}...")
-    else:
-        _safe_debug_print("❌ Access token获取失败")
-        return jsonify({'error': 'Access token获取失败'}), 500
-
-    # 测试通过code获取用户信息
-    _safe_debug_print("\n2. 测试通过授权码获取用户信息...")
-    try:
-        user_info = permission_manager.get_user_info_by_code(test_code)
-        if user_info:
-            _safe_debug_print(f"✅ 用户信息获取成功: {user_info}")
-            return jsonify({
-                'success': True,
-                'access_token_ok': bool(token),
-                'user_info': user_info,
-                'message': '用户信息获取成功'
-            })
-        else:
-            _safe_debug_print("❌ 用户信息获取失败")
-            return jsonify({
-                'success': False,
-                'access_token_ok': bool(token),
-                'user_info': None,
-                'message': '用户信息获取失败，可能是授权码无效或API调用失败'
-            })
-    except Exception as e:
-        _safe_debug_print(f"❌ 用户信息获取异常: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'access_token_ok': bool(token),
-            'error': str(e),
-            'message': '用户信息获取异常'
-        }), 500
 
 
 if __name__ == '__main__':

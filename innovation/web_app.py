@@ -11,7 +11,6 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
     send_file  # 导入Flask核心模块，用于web开发，包括模块渲染，请求处理，json响应
 import re
 import json
-import urllib.request
 import subprocess
 import sys
 import threading
@@ -46,41 +45,6 @@ def _safe_print(*args, **kwargs):
 def _database_upload_path(filename):
     """Keep database paths independent from the physical storage drive."""
     return f"uploads/{filename}".replace('\\', '/')
-
-
-def _innovation_debug_report(hypothesis_id, location, msg, data=None):
-    try:
-        debug_url = 'http://127.0.0.1:7777/event'
-        debug_session_id = 'innovation-comment-notify'
-        env_path = os.path.join('.dbg', 'innovation-comment-notify.env')
-        try:
-            with open(env_path, 'r', encoding='utf-8') as env_file:
-                env_content = env_file.read()
-            for line in env_content.splitlines():
-                if line.startswith('DEBUG_SERVER_URL='):
-                    debug_url = line.split('=', 1)[1].strip() or debug_url
-                elif line.startswith('DEBUG_SESSION_ID='):
-                    debug_session_id = line.split('=', 1)[1].strip() or debug_session_id
-        except Exception:
-            pass
-        payload = {
-            'sessionId': debug_session_id,
-            'runId': 'post-fix',
-            'hypothesisId': hypothesis_id,
-            'location': location,
-            'msg': f'[DEBUG] {msg}',
-            'data': data or {}
-        }
-        urllib.request.urlopen(
-            urllib.request.Request(
-                debug_url,
-                data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
-                headers={'Content-Type': 'application/json'}
-            ),
-            timeout=2
-        ).read()
-    except Exception:
-        pass
 
 
 for folder in [APP_CONFIG['upload_folder'], APP_CONFIG['export_folder']]:  # 确保必要目录存在
@@ -191,31 +155,14 @@ def _innovation_get_project_basic_info(project_id):
 
 
 def _innovation_notify_initiator_on_comment(project_id, commenter_name, comment_text='', has_image=False):
-    # #region debug-point B:notify-entry
-    _innovation_debug_report('B', 'innovation.web_app:_innovation_notify_initiator_on_comment:entry', 'enter notify helper', {'project_id': project_id, 'commenter': str(commenter_name or '').strip(), 'has_comment': bool(str(comment_text or '').strip()), 'has_image': bool(has_image)})
-    # #endregion
     commenter = str(commenter_name or '').strip()
     if not project_id or not commenter:
-        # #region debug-point A:missing-args
-        _innovation_debug_report('A', 'innovation.web_app:_innovation_notify_initiator_on_comment:missing_args', 'skip notify because args missing', {'project_id': project_id, 'commenter': commenter})
-        # #endregion
         return {'sent': False, 'reason': 'missing_args'}
     project_info = _innovation_get_project_basic_info(project_id)
     initiator = str(project_info.get('initiator') or '').strip()
     title = str(project_info.get('title') or '').strip()
-    # #region debug-point B:project-info
-    _innovation_debug_report('B', 'innovation.web_app:_innovation_notify_initiator_on_comment:project_info', 'loaded project info for notify', {'project_id': project_id, 'initiator': initiator, 'title': title})
-    # #endregion
     if not initiator:
-        # #region debug-point B:initiator-missing
-        _innovation_debug_report('B', 'innovation.web_app:_innovation_notify_initiator_on_comment:initiator_missing', 'skip notify because initiator not found', {'project_id': project_id, 'commenter': commenter})
-        # #endregion
         return {'sent': False, 'reason': 'initiator_not_found'}
-    if initiator == commenter:
-        # #region debug-point E:self-comment
-        _innovation_debug_report('E', 'innovation.web_app:_innovation_notify_initiator_on_comment:self_comment', 'initiator equals commenter but notify will continue', {'project_id': project_id, 'initiator': initiator, 'commenter': commenter})
-        # #endregion
-
     comment_preview = str(comment_text or '').strip()
     if comment_preview:
         comment_preview = re.sub(r'\s+', ' ', comment_preview)
@@ -236,20 +183,11 @@ def _innovation_notify_initiator_on_comment(project_id, commenter_name, comment_
         f"请前往管理页查看：\n{manage_url}"
     )
     try:
-        # #region debug-point C:send-attempt
-        _innovation_debug_report('C', 'innovation.web_app:_innovation_notify_initiator_on_comment:send_attempt', 'attempt send comment notify', {'project_id': project_id, 'initiator': initiator, 'commenter': commenter})
-        # #endregion
         ok = bool(get_message_service().send_message(initiator, message))
-        # #region debug-point C:send-result
-        _innovation_debug_report('C', 'innovation.web_app:_innovation_notify_initiator_on_comment:send_result', 'comment notify send finished', {'project_id': project_id, 'initiator': initiator, 'commenter': commenter, 'ok': ok})
-        # #endregion
         if not ok:
             _safe_print(f"⚠️ 创新评论通知发送失败: id={project_id}, initiator={initiator}, commenter={commenter}")
         return {'sent': ok, 'reason': '' if ok else 'send_failed', 'initiator': initiator}
     except Exception as e:
-        # #region debug-point C:send-error
-        _innovation_debug_report('C', 'innovation.web_app:_innovation_notify_initiator_on_comment:send_error', 'comment notify send raised exception', {'project_id': project_id, 'initiator': initiator, 'commenter': commenter, 'error': str(e)})
-        # #endregion
         _safe_print(f"⚠️ 创新评论通知发送异常: id={project_id}, initiator={initiator}, commenter={commenter}, error={e}")
         return {'sent': False, 'reason': str(e), 'initiator': initiator}
 
@@ -924,9 +862,6 @@ def innovation_react():
         # 2) 处理评论：每次提交都插入一条新的评论记录，允许多次评论
         has_comment = (comment is not None and comment_esc.strip() != '')
         has_image = bool(uploaded_image_path)
-        # #region debug-point A:react-branch
-        _innovation_debug_report('A', 'innovation.web_app:innovation_react:branch', 'innovation react resolved comment branch state', {'project_id': project_id, 'user_name': user_name, 'has_comment': has_comment, 'has_image': has_image, 'like_is_set': bool(like_is_set), 'content_type': str(request.content_type or '')})
-        # #endregion
         if has_comment or has_image:
             if has_image_column:
                 sql_list.append(
@@ -959,9 +894,6 @@ def innovation_react():
                 comment_text=comment or '',
                 has_image=has_image
             )
-        # #region debug-point A:react-notify-result
-        _innovation_debug_report('A', 'innovation.web_app:innovation_react:notify_result', 'innovation react finished notify branch', {'project_id': project_id, 'user_name': user_name, 'notify_result': notify_result or {}})
-        # #endregion
 
         return jsonify({'success': True, 'notify': notify_result})
     except Exception as e:
@@ -989,9 +921,6 @@ def innovation_update_comment():
 
         exist_sql = f"SELECT COUNT(*) FROM chuangxin_dianzan WHERE 编号 = {project_id} AND 操作人 = '{user_esc}'"
         exist_count = sf_db(exist_sql, single=True) or 0
-        # #region debug-point D:update-comment-entry
-        _innovation_debug_report('D', 'innovation.web_app:innovation_update_comment:entry', 'innovation update comment called', {'project_id': project_id, 'user_name': user_name, 'exist_count': int(exist_count or 0), 'has_comment': bool(str(comment or '').strip())})
-        # #endregion
 
         if exist_count == 0:
             insert_sql = f"""
@@ -1008,9 +937,6 @@ def innovation_update_comment():
                     comment_text=comment or '',
                     has_image=False
                 )
-            # #region debug-point D:update-comment-notify-result
-            _innovation_debug_report('D', 'innovation.web_app:innovation_update_comment:notify_result', 'innovation update comment finished notify branch', {'project_id': project_id, 'user_name': user_name, 'notify_result': notify_result or {}, 'created': True})
-            # #endregion
             return jsonify({'success': True, 'created': True, 'notify': notify_result})
 
         update_sql = f"""
@@ -4116,12 +4042,6 @@ def reward_image(filename):
     except Exception as e:
         _safe_print(f"❌ 访问奖品图片失败: {e}")
         return jsonify({'error': '图片不存在'}), 404
-
-
-@app.route('/api/test_simple', methods=['GET'])
-def test_simple():
-    """简单测试API"""
-    return jsonify({'status': 'ok', 'message': 'API working'})
 
 
 @app.route('/api/get_dashboard_data', methods=['GET'])
