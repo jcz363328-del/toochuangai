@@ -542,6 +542,18 @@ FEATURES = [
     },
 ]
 
+FEATURE_DISPLAY_ORDER = {
+    "hd_batch": 0,
+    "infinite_canvas": 2,
+    "background_cutout": 3,
+}
+FEATURES.sort(
+    key=lambda feature: FEATURE_DISPLAY_ORDER.get(
+        str(feature.get("key") or "").strip(),
+        1,
+    )
+)
+
 
 def get_feature_by_key(feature_key: str) -> dict[str, Any] | None:
     normalized_key = str(feature_key or "").strip()
