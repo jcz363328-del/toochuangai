@@ -5,18 +5,19 @@
 {% block content %}
 <style>
 .case-page-title {
-    font-size: 42px;
+    font-size: 38px;
     font-weight: 800;
     text-align: center;
     letter-spacing: 1px;
     margin: 0;
+    white-space: nowrap;
 }
 .case-page-title .score {
     color: #0b63ce;
 }
 .case-top-decor {
     display: grid;
-    grid-template-columns: 360px 1fr 360px;
+    grid-template-columns: minmax(240px, 320px) minmax(360px, 1fr) minmax(240px, 320px);
     align-items: center;
     gap: 18px;
     margin-bottom: 12px;
@@ -194,6 +195,155 @@
     color: #6b7280;
     font-weight: 700;
 }
+.star-intro {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 20px 22px;
+    border: 1px solid;
+    border-radius: 8px;
+}
+.star-intro.share {
+    background: #fff8f0;
+    border-color: #f2c48f;
+}
+.star-intro.talk {
+    background: #eef9f7;
+    border-color: #9ed5cc;
+}
+.star-intro-icon {
+    width: 52px;
+    height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 25px;
+}
+.star-intro.share .star-intro-icon {
+    background: #d8672c;
+}
+.star-intro.talk .star-intro-icon {
+    background: #167c72;
+}
+.star-intro h3 {
+    margin: 0 0 6px;
+    color: #172033;
+    font-size: 22px;
+    font-weight: 900;
+}
+.star-intro p {
+    margin: 0;
+    color: #4b5563;
+    line-height: 1.7;
+}
+.star-feed {
+    display: grid;
+    gap: 18px;
+}
+.star-entry {
+    overflow: hidden;
+    border: 1px solid #d8e0ea;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(31, 41, 55, .06);
+}
+.star-media-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: #d8e0ea;
+}
+.star-media {
+    width: 100%;
+    min-height: 260px;
+    max-height: 560px;
+    display: block;
+    object-fit: contain;
+    background: #101820;
+}
+.star-entry-body {
+    padding: 18px 20px 15px;
+}
+.star-copy {
+    margin: 0;
+    color: #263244;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.star-entry-empty {
+    color: #7b8797;
+}
+.star-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #edf0f4;
+    color: #718096;
+    font-size: 13px;
+}
+.star-delete-button {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    padding: 0;
+    border-radius: 6px;
+}
+.star-add-dock {
+    position: fixed;
+    z-index: 1040;
+    top: 48%;
+    right: 18px;
+    width: 58px;
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 8px;
+    background: #174f87;
+    color: #fff;
+    box-shadow: 0 10px 26px rgba(23, 79, 135, .28);
+    font-weight: 800;
+}
+.star-add-dock:hover,
+.star-add-dock:focus {
+    background: #123f6c;
+    color: #fff;
+}
+.star-add-dock span {
+    width: 1em;
+    line-height: 1.15;
+}
+.star-upload-modal .modal-content {
+    border: 0;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(17, 24, 39, .2);
+}
+.star-upload-modal .modal-header {
+    border-bottom-color: #e7ebf0;
+}
+.star-type-switch .btn {
+    padding: 10px 18px;
+    font-weight: 800;
+}
+.star-form-status {
+    min-height: 24px;
+    margin-top: 14px;
+    font-weight: 700;
+}
 @media (max-width: 992px) {
     .case-page-title {
         font-size: 30px;
@@ -221,6 +371,41 @@
     .rank-row {
         grid-template-columns: 56px minmax(0, 1fr) 90px;
     }
+    .star-media-grid {
+        grid-template-columns: 1fr;
+    }
+    .star-media {
+        min-height: 210px;
+        max-height: 440px;
+    }
+    .star-add-dock {
+        top: auto;
+        right: 14px;
+        bottom: 16px;
+        width: 54px;
+        min-height: 54px;
+    }
+    .star-add-dock span {
+        display: none;
+    }
+}
+@media (max-width: 576px) {
+    .star-intro {
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 12px;
+        padding: 16px;
+    }
+    .star-intro-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 21px;
+    }
+    .star-intro h3 {
+        font-size: 16px;
+    }
+    .star-entry-body {
+        padding: 15px;
+    }
 }
 </style>
 <div class="container-fluid">
@@ -243,8 +428,8 @@
     <div class="innovation-tabs" role="tablist">
         <button class="innovation-tab active" type="button" data-tab="excellent">创新星鉴</button>
         <button class="innovation-tab" type="button" data-tab="rank">创新星榜</button>
-        <button class="innovation-tab" type="button" data-tab="share">创新星享</button>
-        <button class="innovation-tab" type="button" data-tab="talk">创新星说</button>
+        <button class="innovation-tab" type="button" data-tab="share">创新新享</button>
+        <button class="innovation-tab" type="button" data-tab="talk">创新新说</button>
     </div>
 
     <section id="tab-excellent" class="tab-panel active">
@@ -360,21 +545,238 @@
     </section>
 
     <section id="tab-share" class="tab-panel">
-        <div class="empty-panel">创新星享内容待配置</div>
+        <div class="star-intro share">
+            <div class="star-intro-icon"><i class="bi bi-lightbulb-fill"></i></div>
+            <div>
+                <h3>创新达人优秀创新案例讲解分享</h3>
+                <p>达人现场讲解落地有效的创新案例，复盘方法、交流心得，为大家打开创新思路。</p>
+            </div>
+        </div>
+        {% if not star_share_items %}
+        <div class="empty-panel">暂无创新新享内容</div>
+        {% else %}
+        <div class="star-feed">
+            {% for item in star_share_items %}
+            <article class="star-entry">
+                {% if item.images or item.videos %}
+                <div class="star-media-grid">
+                    {% for filename in item.images %}
+                    <img class="star-media" src="{{ url_for('innovation.innovation_star_media', filename=filename) }}" alt="创新新享图片" loading="lazy">
+                    {% endfor %}
+                    {% for filename in item.videos %}
+                    <video class="star-media" controls preload="metadata" playsinline>
+                        <source src="{{ url_for('innovation.innovation_star_media', filename=filename) }}">
+                    </video>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="star-entry-body">
+                    {% if item.copy %}
+                    <p class="star-copy">{{ item.copy }}</p>
+                    {% elif not item.images and not item.videos %}
+                    <div class="star-entry-empty">本条内容暂无媒体或文案</div>
+                    {% endif %}
+                    <div class="star-meta">
+                        {% if item.submitter %}<span><i class="bi bi-person"></i> {{ item.submitter }}</span>{% endif %}
+                        {% if item.created_at %}<span><i class="bi bi-clock"></i> {{ item.created_at }}</span>{% endif %}
+                        {% if can_add_star_content %}
+                        <button
+                            class="btn btn-outline-danger star-delete-button"
+                            type="button"
+                            title="删除"
+                            aria-label="删除这条创新新享内容"
+                            data-delete-url="{{ url_for('innovation.innovation_delete_star_content', item_id=item.id) }}"
+                        ><i class="bi bi-trash"></i></button>
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% endif %}
     </section>
 
     <section id="tab-talk" class="tab-panel">
-        <div class="empty-panel">创新新说内容待配置</div>
+        <div class="star-intro talk">
+            <div class="star-intro-icon"><i class="bi bi-camera-video-fill"></i></div>
+            <div>
+                <h3>创新达人复盘视频</h3>
+                <p>复盘实践，碰撞想法，聚力创新。</p>
+            </div>
+        </div>
+        {% if not star_talk_items %}
+        <div class="empty-panel">暂无创新新说内容</div>
+        {% else %}
+        <div class="star-feed">
+            {% for item in star_talk_items %}
+            <article class="star-entry">
+                {% if item.images or item.videos %}
+                <div class="star-media-grid">
+                    {% for filename in item.images %}
+                    <img class="star-media" src="{{ url_for('innovation.innovation_star_media', filename=filename) }}" alt="创新新说图片" loading="lazy">
+                    {% endfor %}
+                    {% for filename in item.videos %}
+                    <video class="star-media" controls preload="metadata" playsinline>
+                        <source src="{{ url_for('innovation.innovation_star_media', filename=filename) }}">
+                    </video>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="star-entry-body">
+                    {% if item.copy %}
+                    <p class="star-copy">{{ item.copy }}</p>
+                    {% elif not item.images and not item.videos %}
+                    <div class="star-entry-empty">本条内容暂无媒体或文案</div>
+                    {% endif %}
+                    <div class="star-meta">
+                        {% if item.submitter %}<span><i class="bi bi-person"></i> {{ item.submitter }}</span>{% endif %}
+                        {% if item.created_at %}<span><i class="bi bi-clock"></i> {{ item.created_at }}</span>{% endif %}
+                        {% if can_add_star_content %}
+                        <button
+                            class="btn btn-outline-danger star-delete-button"
+                            type="button"
+                            title="删除"
+                            aria-label="删除这条创新新说内容"
+                            data-delete-url="{{ url_for('innovation.innovation_delete_star_content', item_id=item.id) }}"
+                        ><i class="bi bi-trash"></i></button>
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% endif %}
     </section>
 </div>
+
+{% if can_add_star_content %}
+<button class="star-add-dock" type="button" data-bs-toggle="modal" data-bs-target="#starUploadModal" aria-label="添加创新内容">
+    <i class="bi bi-plus-lg fs-4"></i>
+    <span>添加内容</span>
+</button>
+
+<div class="modal fade star-upload-modal" id="starUploadModal" tabindex="-1" aria-labelledby="starUploadModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="starUploadForm" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-bold" id="starUploadModalTitle">添加创新内容</h5>
+                        <div class="small text-muted mt-1">{{ star_editor_name }}</div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="btn-group star-type-switch w-100 mb-3" role="group" aria-label="内容分类">
+                        <input class="btn-check" type="radio" name="content_type" id="starTypeShare" value="share" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="starTypeShare">创新新享</label>
+                        <input class="btn-check" type="radio" name="content_type" id="starTypeTalk" value="talk" autocomplete="off">
+                        <label class="btn btn-outline-success" for="starTypeTalk">创新新说</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" for="starCopy">文案</label>
+                        <textarea class="form-control" id="starCopy" name="copy" rows="4"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" for="starImages">图片</label>
+                        <input class="form-control" id="starImages" name="images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple>
+                    </div>
+                    <div>
+                        <label class="form-label fw-bold" for="starVideos">视频</label>
+                        <input class="form-control" id="starVideos" name="videos" type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" multiple>
+                    </div>
+                    <div class="star-form-status" id="starFormStatus" role="status" aria-live="polite"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary" id="starSubmitButton">
+                        <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 <script>
-document.querySelectorAll('.innovation-tab').forEach((btn) => {
-    btn.addEventListener('click', () => {
-        const key = btn.getAttribute('data-tab') || 'excellent';
-        document.querySelectorAll('.innovation-tab').forEach((one) => one.classList.toggle('active', one === btn));
-        document.querySelectorAll('.tab-panel').forEach((panel) => {
-            panel.classList.toggle('active', panel.id === 'tab-' + key);
-        });
+function activateInnovationTab(key) {
+    const validKey = ['excellent', 'rank', 'share', 'talk'].includes(key) ? key : 'excellent';
+    document.querySelectorAll('.innovation-tab').forEach((button) => {
+        button.classList.toggle('active', button.getAttribute('data-tab') === validKey);
+    });
+    document.querySelectorAll('.tab-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.id === 'tab-' + validKey);
+    });
+}
+
+document.querySelectorAll('.innovation-tab').forEach((button) => {
+    button.addEventListener('click', () => {
+        const key = button.getAttribute('data-tab') || 'excellent';
+        activateInnovationTab(key);
+        window.history.replaceState(null, '', '#tab-' + key);
+    });
+});
+
+const storedStarTab = window.sessionStorage.getItem('innovationStarTab');
+if (storedStarTab) {
+    window.sessionStorage.removeItem('innovationStarTab');
+    activateInnovationTab(storedStarTab);
+} else if (window.location.hash.startsWith('#tab-')) {
+    activateInnovationTab(window.location.hash.slice(5));
+}
+
+const starUploadForm = document.getElementById('starUploadForm');
+if (starUploadForm) {
+    starUploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submitButton = document.getElementById('starSubmitButton');
+        const status = document.getElementById('starFormStatus');
+        submitButton.disabled = true;
+        status.className = 'star-form-status text-primary';
+        status.textContent = '正在保存...';
+        try {
+            const response = await fetch("{{ url_for('innovation.innovation_add_star_content') }}", {
+                method: 'POST',
+                body: new FormData(starUploadForm),
+                credentials: 'same-origin'
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || '保存失败，请稍后重试');
+            }
+            status.className = 'star-form-status text-success';
+            status.textContent = result.message || '添加成功';
+            window.sessionStorage.setItem('innovationStarTab', result.section || 'share');
+            window.setTimeout(() => window.location.reload(), 500);
+        } catch (error) {
+            status.className = 'star-form-status text-danger';
+            status.textContent = error.message || '保存失败，请稍后重试';
+            submitButton.disabled = false;
+        }
+    });
+}
+
+document.querySelectorAll('.star-delete-button').forEach((button) => {
+    button.addEventListener('click', async () => {
+        if (!window.confirm('确定删除这条内容吗？删除后无法恢复。')) {
+            return;
+        }
+        button.disabled = true;
+        try {
+            const response = await fetch(button.getAttribute('data-delete-url'), {
+                method: 'DELETE',
+                credentials: 'same-origin'
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || '删除失败，请稍后重试');
+            }
+            window.sessionStorage.setItem('innovationStarTab', result.section || 'share');
+            window.location.reload();
+        } catch (error) {
+            window.alert(error.message || '删除失败，请稍后重试');
+            button.disabled = false;
+        }
     });
 });
 </script>

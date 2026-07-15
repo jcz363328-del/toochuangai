@@ -22,6 +22,7 @@ body {
 
 body.report-desktop {
     margin: 0;
+    position: relative;
     overflow: hidden;
     background: var(--report-canvas);
     color: var(--report-ink);
@@ -43,7 +44,10 @@ body.report-desktop select {
     padding: 0 18px;
     background: #fff;
     border-bottom: 1px solid var(--report-line);
-    position: relative;
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
     z-index: 50;
 }
 
@@ -176,15 +180,14 @@ body.report-desktop select {
 }
 
 .report-screen {
+    position: absolute;
+    top: 62px;
+    right: 0;
+    bottom: 0;
+    left: 0;
     display: none;
-    height: calc(100vh - 62px);
+    height: auto;
     min-height: 0;
-}
-
-@supports (height: 100dvh) {
-    .report-screen {
-        height: calc(100dvh - 62px);
-    }
 }
 
 .report-screen.active {
@@ -1248,9 +1251,15 @@ body.report-inspector-open::after {
 
 @media (max-width: 860px) {
     body.report-desktop {
+        height: auto;
+        min-height: 100%;
         overflow: auto;
     }
     .report-app-header {
+        position: relative;
+        top: auto;
+        right: auto;
+        left: auto;
         grid-template-columns: 1fr auto;
     }
     .report-module-nav {
@@ -1267,6 +1276,7 @@ body.report-inspector-open::after {
     }
     .report-screen,
     .report-screen.active {
+        position: static;
         height: auto;
         min-height: calc(100vh - 62px);
         padding-bottom: calc(76px + env(safe-area-inset-bottom));

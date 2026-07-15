@@ -19,7 +19,7 @@ FEISHU_CONFIG = FEISHU_CONFIGS['company1']
 DATABASE_PATH = 'innovation.db'
 
 # 应用配置
-DEFAULT_UPLOAD_FOLDER = r'D:\创新图片'
+DEFAULT_UPLOAD_FOLDER = r'D:\tuchuangai\创新图片'
 
 APP_CONFIG = {
     'secret_key': env('INNOVATION_SECRET_KEY'),  # 请在 .env 中配置随机密钥
@@ -28,7 +28,7 @@ APP_CONFIG = {
     ),
     'legacy_upload_folder': os.path.join(PROJECT_ROOT, 'uploads'),
     'export_folder': 'static/exports',
-    'max_content_length': 16 * 1024 * 1024,  # 16MB
+    'max_content_length': 512 * 1024 * 1024,  # 支持创新星主场视频上传
     'allowed_extensions': {'png', 'jpg', 'jpeg', 'gif'}
 }
 

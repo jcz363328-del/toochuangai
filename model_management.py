@@ -10,7 +10,7 @@ from innovation.message_service import MessageService
 
 model_management_bp = Blueprint('model_management', __name__)
 
-BASE_VIDEO_DIR = r"D:\\模特视频"
+BASE_VIDEO_DIR = r"D:\tuchuangai\模特视频"
 
 def get_user_name():
     return session.get('feishu_user_name', '')

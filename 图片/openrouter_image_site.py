@@ -32,7 +32,7 @@ APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-from secret_settings import sql_server_config
+from secret_settings import relocate_storage_path, sql_server_config
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
@@ -45,7 +45,7 @@ HD_MIN_OUTPUT_EDGE = 4096
 HD_MODEL_REFERENCE_FILE = APP_DIR / "__pycache__" / "model_reference" / "模特参考图.png"
 OUTPUTS_HD_REFERENCE_DIR = APP_DIR / "outputs" / "reference"
 OUTPUTS_HD_DEFAULT_REFERENCE_FILE = OUTPUTS_HD_REFERENCE_DIR / "参考1.png"
-SKIN_TEXTURE_REFERENCE_DIR = Path(r"D:\肌肤质感参考")
+SKIN_TEXTURE_REFERENCE_DIR = Path(r"D:\tuchuangai\肌肤质感参考")
 PORTRAIT_HD_DEFAULT_IMAGE_SIZE = "4K"
 PROXY_URL = "socks5h://127.0.0.1:10808"
 REQUEST_PROXIES = {
@@ -88,8 +88,8 @@ OPENROUTER_SAFE_INPUT_TARGET_BYTES = 24 * 1024 * 1024
 OPENROUTER_MAX_INPUT_IMAGE_EDGE = 4096
 JIMENG_HD_API_RESOLUTION = "8k"
 JIMENG_HD_API_SCALE = 30
-DB_IMAGE_DIR = Path(r"D:\视觉图片")
-CUTOUT_OUTPUT_DIR = Path(r"D:\视觉图片")
+DB_IMAGE_DIR = Path(r"D:\tuchuangai\视觉图片")
+CUTOUT_OUTPUT_DIR = Path(r"D:\tuchuangai\视觉图片")
 DB_HISTORY_LIMIT = MAX_HISTORY_RECORDS
 DB_HISTORY_THUMB_DIR_NAME = "_thumbs"
 DB_HISTORY_THUMB_MAX_EDGE = 640
@@ -98,7 +98,7 @@ DB_HISTORY_PATH_MAX_LENGTH = 50
 DB_HISTORY_ALL_ACCESS_USERS = {"周俊成"}
 GALLERY_PREVIEW_MAX_EDGE = 1600
 GALLERY_PREVIEW_TARGET_BYTES = 220 * 1024
-UPLOAD_CACHE_DIR = Path(r"D:\图片上传缓存")
+UPLOAD_CACHE_DIR = Path(r"D:\tuchuangai\图片上传缓存")
 AUTH_QUERY_USER_KEY = "auth_user"
 AUTH_QUERY_TOKEN_KEY = "auth_token"
 UPLOAD_DELETE_QUERY_KEY = "delete_upload"
@@ -1080,7 +1080,7 @@ def get_history_public_base_url() -> str:
 
 
 def convert_history_path_to_public_url(image_path_text: str) -> str:
-    normalized = str(image_path_text or "").strip()
+    normalized = relocate_storage_path(image_path_text)
     if not normalized:
         return ""
     if normalized.startswith(("http://", "https://", "data:", "file://")):
@@ -1770,7 +1770,7 @@ def save_history_thumbnail(image_bytes: bytes, original_path: Path) -> str:
 
 
 def ensure_history_thumbnail(image_path_text: str) -> str:
-    image_path = Path(str(image_path_text or "").strip())
+    image_path = Path(relocate_storage_path(image_path_text))
     if not image_path.exists() or not image_path.is_file():
         return str(image_path_text or "")
     thumbnail_path = build_history_thumbnail_path(image_path)
@@ -1832,7 +1832,7 @@ def resolve_db_history_image_path(
     feature_name: str = "",
     created_at_text: str = "",
 ) -> str:
-    normalized = str(image_path_text or "").strip()
+    normalized = relocate_storage_path(image_path_text)
     if not normalized:
         return try_find_history_image_by_metadata(account_name, feature_name, created_at_text)
     candidate = Path(normalized)

@@ -15,7 +15,7 @@ import requests
 from flask import Blueprint, Flask, abort, jsonify, render_template, request, send_file, session
 from bjc import dui_db, sf_db
 from department_permissions import permission_manager
-from secret_settings import env
+from secret_settings import env, relocate_storage_path
 
 api_key = env("SEEDANCE_API_KEY") or env("VOLCENGINE_API_KEY")
 base_url = env("SEEDANCE_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
@@ -28,7 +28,7 @@ MODEL_ALLOWED_RESOLUTIONS = {
 model = MODEL_SEEDANCE_2
 seedance_web_bp = Blueprint("seedance_web", __name__, template_folder="templates")
 PROJECT_ROOT = Path(__file__).resolve().parent
-SEEDANCE_STORAGE_ROOT = Path(r"D:\Seedance")
+SEEDANCE_STORAGE_ROOT = Path(r"D:\tuchuangai\Seedance")
 SEEDANCE_GENERATED_DIR = SEEDANCE_STORAGE_ROOT / "Seedance生成视频"
 SEEDANCE_REFERENCE_DIR = SEEDANCE_STORAGE_ROOT / "Seedance参考视频图片"
 JOBS = {}
@@ -274,7 +274,7 @@ def build_media_url(media_path, default_mime, label, allow_local_file=True):
         return str(media_path)
     if not allow_local_file:
         raise ValueError(f"{label}仅支持 http/https 链接，请先上传到可访问 URL: {media_path}")
-    path = Path(media_path)
+    path = Path(relocate_storage_path(media_path))
     if path.exists() and path.is_dir():
         raise IsADirectoryError(f"{label}路径是目录，请传具体文件路径: {media_path}")
     if not path.exists() or not path.is_file():
@@ -642,7 +642,7 @@ def _split_path_list(value):
     text = str(value or "").strip()
     if not text:
         return []
-    return [x.strip() for x in text.split("|") if str(x).strip()]
+    return [relocate_storage_path(x.strip()) for x in text.split("|") if str(x).strip()]
 
 
 def _looks_like_image_path(path_text):
@@ -1270,7 +1270,7 @@ def seedance_web_api_local_video():
     path = request.args.get("path", "").strip()
     if not path:
         return abort(400)
-    file_path = Path(path).resolve()
+    file_path = Path(relocate_storage_path(path)).resolve()
     if not file_path.exists() or not file_path.is_file():
         return abort(404)
     if not _is_safe_path(file_path):
@@ -1284,7 +1284,7 @@ def seedance_web_api_local_media():
     path = request.args.get("path", "").strip()
     if not path:
         return abort(400)
-    file_path = Path(path).resolve()
+    file_path = Path(relocate_storage_path(path)).resolve()
     if not file_path.exists() or not file_path.is_file():
         return abort(404)
     if not _is_safe_path(file_path):

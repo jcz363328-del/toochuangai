@@ -19,7 +19,8 @@ from innovation.web_app import (
     upload_reward_image, update_reward, delete_reward,
     add_reward_with_image, uploaded_file, reward_image,
     test_simple, get_dashboard_data, get_innovation_compare, export_statistics, toggle_favorite,
-    add_favorite_category, innovation_react, innovation_update_comment, innovation_get_react_stats, like_image_file
+    add_favorite_category, innovation_react, innovation_update_comment, innovation_get_react_stats, like_image_file,
+    add_innovation_star_content, delete_innovation_star_content, innovation_star_media_file
 )
 
 # 创建创新系统蓝图，指定模板和静态文件路径
@@ -80,6 +81,18 @@ def innovation_manage1():
 def innovation_submit_innovation():
     """提交创新项目API"""
     return submit_innovation()
+
+
+@innovation_bp.route('/api/innovation_star_content', methods=['POST'])
+def innovation_add_star_content():
+    """添加创新星享/创新星说内容。"""
+    return add_innovation_star_content()
+
+
+@innovation_bp.route('/api/innovation_star_content/<int:item_id>', methods=['DELETE'])
+def innovation_delete_star_content(item_id):
+    """删除创新新享/创新新说内容。"""
+    return delete_innovation_star_content(item_id)
 
 @innovation_bp.route('/api/get_innovations', methods=['GET'])
 def innovation_get_innovations():
@@ -190,6 +203,12 @@ def innovation_add_reward_with_image():
 def innovation_uploaded_file(filename):
     """上传文件访问"""
     return uploaded_file(filename)
+
+
+@innovation_bp.route('/innovation_star_media/<path:filename>')
+def innovation_star_media(filename):
+    """创新星主场媒体访问。"""
+    return innovation_star_media_file(filename)
 
 @innovation_bp.route('/static/rewards/<filename>')
 def innovation_reward_image(filename):

@@ -11,7 +11,7 @@ import pytds as sql
 from flask import Blueprint, jsonify, render_template, request, send_file, send_from_directory, session
 
 from department_permissions import require_permission
-from secret_settings import sql_server_config
+from secret_settings import relocate_storage_path, sql_server_config
 
 
 yangban_inventory_bp = Blueprint("yangban_inventory", __name__)
@@ -27,7 +27,7 @@ _SAMPLE_STATUSES = {"ZhengChang", "TingYong"}
 _TAG_STATUSES = {"ZhengChang", "TingYong"}
 _LOCATION_TYPES = {"Gui", "Ceng", "Ge"}
 _LOCATION_STATUSES = {"ZhengChang", "TingYong"}
-_SAMPLE_IMAGE_DIR = r"D:\样板图"
+_SAMPLE_IMAGE_DIR = r"D:\tuchuangai\样板图"
 _SAMPLE_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
 
@@ -159,7 +159,7 @@ def _save_sample_image(file_storage):
 
 
 def _sample_image_filename(path_value):
-    text = str(path_value or "").strip()
+    text = relocate_storage_path(path_value)
     if not text:
         return ""
     normalized_root = os.path.abspath(_SAMPLE_IMAGE_DIR)

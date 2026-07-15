@@ -5,7 +5,7 @@ import pandas as pd
 import requests
 import hashlib
 import time
-from secret_settings import baidu_translate_config, get_feishu_message_config, sql_server_config
+from secret_settings import baidu_translate_config, get_feishu_message_config, relocate_storage_path, sql_server_config
 ############################################################################
 def sf_db(SQL, single=False):
     # 开发日期：2025-05-05
@@ -396,6 +396,7 @@ def send_message(chat_name, message, image_path=None):
 
     # 图片上传
     image_key = None
+    image_path = relocate_storage_path(image_path)
     if image_path and os.path.exists(image_path):
         with open(image_path, "rb") as f:
             files, data = {"image": (os.path.basename(image_path), f, "image/png")}, {"image_type": "message"}
@@ -499,6 +500,7 @@ def send_message(chat_name, message, at_users=None, at_all=False, image_paths=No
     # ========= 发送图片（多张） =========
     if image_paths:
         for img in image_paths:
+            img = relocate_storage_path(img)
             if not os.path.exists(img):
                 print(f"⚠️ 图片不存在: {img}")
                 continue

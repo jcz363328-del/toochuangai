@@ -49,6 +49,51 @@ def env(key: str, default: str = "") -> str:
     return str(os.environ.get(key, default) or "").strip()
 
 
+TUCHUANGAI_STORAGE_ROOT = Path(env("TUCHUANGAI_STORAGE_ROOT", r"D:\tuchuangai"))
+
+_LEGACY_STORAGE_LOCATIONS = (
+    (r"D:\TC服务器\data\2026.4.2-4.3百森战略拆解", TUCHUANGAI_STORAGE_ROOT / "2026.4.2-4.3百森战略拆解"),
+    (r"D:\TC服务器\data\2026-7-9传世启动仪式", TUCHUANGAI_STORAGE_ROOT / "2026-7-9传世启动仪式"),
+    (r"D:\TC服务器\data\2026-06-18年会图片", TUCHUANGAI_STORAGE_ROOT / "2026-06-18年会图片"),
+    (r"D:\TC服务器\data\2026-06-18年会视频", TUCHUANGAI_STORAGE_ROOT / "2026-06-18年会视频"),
+    (r"D:\TC服务器\data\3.17-战略分解培训", TUCHUANGAI_STORAGE_ROOT / "3.17-战略分解培训"),
+    (r"D:\TC服务器\data\洛可可培训", TUCHUANGAI_STORAGE_ROOT / "洛可可培训"),
+    (r"D:\TC服务器\测试\4月16日.mp4", TUCHUANGAI_STORAGE_ROOT / "4月16日.mp4"),
+    (r"D:\WorkOrder_Agent\uploads", TUCHUANGAI_STORAGE_ROOT / "uploads"),
+    (r"D:\报告互动卡片图片", TUCHUANGAI_STORAGE_ROOT / "报告互动卡片图片"),
+    (r"D:\报告缓存图片", TUCHUANGAI_STORAGE_ROOT / "报告缓存图片"),
+    (r"D:\图片上传缓存", TUCHUANGAI_STORAGE_ROOT / "图片上传缓存"),
+    (r"D:\日报历史分析", TUCHUANGAI_STORAGE_ROOT / "日报历史分析"),
+    (r"D:\肌肤质感参考", TUCHUANGAI_STORAGE_ROOT / "肌肤质感参考"),
+    (r"D:\视觉图片", TUCHUANGAI_STORAGE_ROOT / "视觉图片"),
+    (r"D:\创新图片", TUCHUANGAI_STORAGE_ROOT / "创新图片"),
+    (r"D:\报告图片", TUCHUANGAI_STORAGE_ROOT / "报告图片"),
+    (r"D:\模特视频", TUCHUANGAI_STORAGE_ROOT / "模特视频"),
+    (r"D:\点赞图片", TUCHUANGAI_STORAGE_ROOT / "点赞图片"),
+    (r"D:\样板图", TUCHUANGAI_STORAGE_ROOT / "样板图"),
+    (r"D:\AI图片", TUCHUANGAI_STORAGE_ROOT / "AI图片"),
+    (r"D:\Seedance", TUCHUANGAI_STORAGE_ROOT / "Seedance"),
+)
+
+
+def relocate_storage_path(path_value: Any) -> str:
+    """Map an absolute path from the former D: locations to the consolidated root."""
+    raw = str(path_value or "").strip()
+    if not raw or raw.startswith(("http://", "https://", "data:", "file://", "asset://")):
+        return raw
+    normalized = raw.replace("/", "\\")
+    normalized_key = normalized.casefold()
+    for legacy_path, current_path in _LEGACY_STORAGE_LOCATIONS:
+        legacy_key = legacy_path.casefold()
+        if normalized_key != legacy_key and not normalized_key.startswith(legacy_key + "\\"):
+            continue
+        suffix = normalized[len(legacy_path) :].lstrip("\\")
+        if not suffix:
+            return str(current_path)
+        return str(current_path.joinpath(*[part for part in suffix.split("\\") if part]))
+    return raw
+
+
 def env_int(key: str, default: int) -> int:
     try:
         return int(env(key, str(default)))

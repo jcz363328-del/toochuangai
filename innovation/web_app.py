@@ -15,6 +15,7 @@ import urllib.request
 import subprocess
 import sys
 import threading
+import uuid
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from urllib.parse import quote
@@ -24,7 +25,13 @@ app.secret_key = APP_CONFIG['secret_key']  # 设置秘钥，暂时没用到
 app.config['UPLOAD_FOLDER'] = APP_CONFIG['upload_folder']  # 设置文件保存路径，图片的路径
 app.config['MAX_CONTENT_LENGTH'] = APP_CONFIG[
     'max_content_length']  # 配置文件大小限制，最大16m                                      #配置文件大小限制，最大16m
-LIKE_IMAGE_FOLDER = r"D:\点赞图片"
+LIKE_IMAGE_FOLDER = r"D:\tuchuangai\点赞图片"
+INNOVATION_STAR_MEDIA_FOLDER = os.path.abspath(
+    os.environ.get('INNOVATION_STAR_MEDIA_FOLDER', r'D:\tuchuangai\创新星主场')
+)
+INNOVATION_STAR_EDITOR_NAMES = {'韩雅俊'}
+INNOVATION_STAR_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+INNOVATION_STAR_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}
 OPERATION_DEPARTMENTS = {'运营一部', '运营二部', '运营三部', '运营六部', '运营七部'}
 OPERATION_WATCHER_NAMES = ['孙洁', '侯梁']
 
@@ -301,6 +308,143 @@ def _is_mobile_request():
     return any(k in ua for k in mobile_keywords)
 
 
+def _innovation_star_editor_context():
+    """返回当前用户是否可添加创新星内容，以及用于页面展示的身份信息。"""
+    user_id = str(session.get('feishu_user_id') or '').strip()
+    user_name = _get_current_feishu_user_name()
+    department_names = []
+    if user_id.startswith('dev_'):
+        local_department = str(session.get('user_department') or '').strip()
+        if local_department:
+            department_names.append(local_department)
+    elif user_id and user_name not in INNOVATION_STAR_EDITOR_NAMES:
+        try:
+            department_rows = permission_manager.get_user_departments(user_id) or []
+        except Exception as e:
+            _safe_print(f"⚠️ 获取创新星添加权限失败: user={user_name}, error={e}")
+            department_rows = []
+        for row in department_rows:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get('status') or '').strip() in {'invalid', 'unmapped'}:
+                continue
+            department_name = str(row.get('name') or '').strip()
+            if department_name and department_name not in department_names:
+                department_names.append(department_name)
+    can_add = bool(user_id) and (user_name in INNOVATION_STAR_EDITOR_NAMES or 'AI部' in department_names)
+    return {
+        'can_add': can_add,
+        'user_id': user_id,
+        'user_name': user_name,
+        'department_names': department_names,
+    }
+
+
+def _innovation_star_media_names(value):
+    """把数据库中的绝对路径或历史相对路径转换成可访问的安全文件名。"""
+    names = []
+    for raw_path in str(value or '').split(';'):
+        clean_path = raw_path.strip()
+        if not clean_path:
+            continue
+        filename = os.path.basename(clean_path.replace('/', os.sep))
+        if filename and filename not in names:
+            names.append(filename)
+    return names
+
+
+def _innovation_star_items():
+    rows = sf_db(
+        """
+        SELECT ID, TuPian, ShiPin, RIQI, LeiXing, WenAn, TiJiaoRen
+        FROM chuangxinxing
+        ORDER BY CASE WHEN RIQI IS NULL THEN 1 ELSE 0 END, RIQI DESC, ID DESC
+        """
+    ) or []
+    grouped = {'share': [], 'talk': []}
+    for row in rows:
+        values = list(row) if isinstance(row, (list, tuple)) else []
+        item_id = values[0] if len(values) > 0 else ''
+        image_value = values[1] if len(values) > 1 else ''
+        video_value = values[2] if len(values) > 2 else ''
+        created_at = values[3] if len(values) > 3 else ''
+        content_type = str(values[4] if len(values) > 4 and values[4] is not None else '').strip()
+        copy_text = str(values[5] if len(values) > 5 and values[5] is not None else '').strip()
+        submitter = str(values[6] if len(values) > 6 and values[6] is not None else '').strip()
+        type_key = 'talk' if content_type in {'talk', '创新星说', '创新新说'} or '说' in content_type else 'share'
+        if isinstance(created_at, datetime):
+            created_text = created_at.strftime('%Y-%m-%d %H:%M')
+        else:
+            created_text = str(created_at or '').strip()
+        grouped[type_key].append({
+            'id': item_id,
+            'images': _innovation_star_media_names(image_value),
+            'videos': _innovation_star_media_names(video_value),
+            'copy': copy_text,
+            'submitter': submitter,
+            'created_at': created_text,
+        })
+    return grouped
+
+
+def _innovation_star_upload_files(files, media_kind, allowed_extensions):
+    valid_files = []
+    for uploaded in files:
+        if not uploaded or not uploaded.filename:
+            continue
+        extension = os.path.splitext(uploaded.filename)[1].lower()
+        if extension not in allowed_extensions:
+            raise ValueError(f'不支持的{media_kind}格式：{extension or "未知格式"}')
+        valid_files.append((uploaded, extension))
+
+    if not valid_files:
+        return []
+
+    os.makedirs(INNOVATION_STAR_MEDIA_FOLDER, exist_ok=True)
+    saved_paths = []
+    prefix = 'image' if media_kind == '图片' else 'video'
+    try:
+        for uploaded, extension in valid_files:
+            unique_name = (
+                f"{prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_"
+                f"{uuid.uuid4().hex[:8]}{extension}"
+            )
+            full_path = os.path.join(INNOVATION_STAR_MEDIA_FOLDER, unique_name)
+            uploaded.save(full_path)
+            saved_paths.append(full_path)
+    except Exception:
+        _innovation_star_cleanup_files(saved_paths)
+        raise
+    return saved_paths
+
+
+def _innovation_star_cleanup_files(paths):
+    for path in paths:
+        try:
+            if path and os.path.isfile(path):
+                os.remove(path)
+        except OSError:
+            pass
+
+
+def _innovation_star_delete_media_files(*path_values):
+    """只删除创新星主场目录内、由数据库记录引用的媒体文件。"""
+    failed_names = []
+    media_names = []
+    for path_value in path_values:
+        for filename in _innovation_star_media_names(path_value):
+            if filename not in media_names:
+                media_names.append(filename)
+    for filename in media_names:
+        full_path = os.path.join(INNOVATION_STAR_MEDIA_FOLDER, filename)
+        try:
+            if os.path.isfile(full_path):
+                os.remove(full_path)
+        except OSError:
+            failed_names.append(filename)
+    return failed_names
+
+
 def _run_vector_update_async(project_id):
     """后台异步更新单条提案向量与相似度，不阻塞提交接口返回。"""
     def _worker(pid):
@@ -486,12 +630,138 @@ def excellent_cases():
             'score': int(float(score or 0)) if str(score or '').strip() else 0,
         })
 
+    try:
+        star_items = _innovation_star_items()
+    except Exception as e:
+        _safe_print(f"⚠️ 获取创新星享/创新星说内容失败: {e}")
+        star_items = {'share': [], 'talk': []}
+    editor_context = _innovation_star_editor_context()
+
     return render_template(
         'excellent_cases.html',
         cases=cases,
         total_count=len(cases),
-        leaderboard=leaderboard
+        leaderboard=leaderboard,
+        star_share_items=star_items['share'],
+        star_talk_items=star_items['talk'],
+        can_add_star_content=editor_context['can_add'],
+        star_editor_name=editor_context['user_name'],
     )
+
+
+@app.route('/api/innovation_star_content', methods=['POST'])
+def add_innovation_star_content():
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '请先登录后再操作'}), 401
+
+    editor_context = _innovation_star_editor_context()
+    if not editor_context['can_add']:
+        return jsonify({'success': False, 'message': '当前账号没有添加权限'}), 403
+
+    type_key = str(request.form.get('content_type') or 'share').strip().lower()
+    type_labels = {'share': '创新新享', 'talk': '创新新说'}
+    if type_key not in type_labels:
+        return jsonify({'success': False, 'message': '内容分类无效'}), 400
+
+    copy_text = str(request.form.get('copy') or '').strip()
+    image_paths = []
+    video_paths = []
+    try:
+        image_paths = _innovation_star_upload_files(
+            request.files.getlist('images'),
+            '图片',
+            INNOVATION_STAR_IMAGE_EXTENSIONS,
+        )
+        video_paths = _innovation_star_upload_files(
+            request.files.getlist('videos'),
+            '视频',
+            INNOVATION_STAR_VIDEO_EXTENSIONS,
+        )
+    except ValueError as e:
+        _innovation_star_cleanup_files(image_paths + video_paths)
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        _innovation_star_cleanup_files(image_paths + video_paths)
+        _safe_print(f"❌ 保存创新星媒体失败: {e}")
+        return jsonify({'success': False, 'message': '文件保存失败，请稍后重试'}), 500
+
+    def _sql_nullable(value):
+        clean_value = str(value or '').strip()
+        if not clean_value:
+            return 'NULL'
+        return f"N'{_escape_sql_literal_for_pytds(clean_value)}'"
+
+    try:
+        image_value = ';'.join(image_paths)
+        video_value = ';'.join(video_paths)
+        insert_sql = f"""
+            INSERT INTO chuangxinxing (TuPian, ShiPin, RIQI, LeiXing, WenAn, TiJiaoRen)
+            VALUES (
+                {_sql_nullable(image_value)},
+                {_sql_nullable(video_value)},
+                GETDATE(),
+                {_sql_nullable(type_labels[type_key])},
+                {_sql_nullable(copy_text)},
+                {_sql_nullable(editor_context['user_name'])}
+            )
+        """
+        dui_db(insert_sql)
+    except Exception as e:
+        _innovation_star_cleanup_files(image_paths + video_paths)
+        _safe_print(f"❌ 写入创新星内容失败: {e}")
+        return jsonify({'success': False, 'message': '内容保存失败，请稍后重试'}), 500
+
+    return jsonify({
+        'success': True,
+        'message': '添加成功',
+        'section': type_key,
+    })
+
+
+@app.route('/api/innovation_star_content/<int:item_id>', methods=['DELETE'])
+def delete_innovation_star_content(item_id):
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '请先登录后再操作'}), 401
+
+    editor_context = _innovation_star_editor_context()
+    if not editor_context['can_add']:
+        return jsonify({'success': False, 'message': '当前账号没有删除权限'}), 403
+
+    try:
+        rows = sf_db(
+            f"""
+            SELECT TOP 1 TuPian, ShiPin, LeiXing
+            FROM chuangxinxing
+            WHERE ID = {int(item_id)}
+            """
+        ) or []
+    except Exception as e:
+        _safe_print(f"❌ 查询待删除创新星内容失败: id={item_id}, error={e}")
+        return jsonify({'success': False, 'message': '内容查询失败，请稍后重试'}), 500
+
+    if not rows:
+        return jsonify({'success': False, 'message': '内容不存在或已被删除'}), 404
+
+    first = rows[0]
+    values = list(first) if isinstance(first, (list, tuple)) else []
+    image_value = values[0] if len(values) > 0 else ''
+    video_value = values[1] if len(values) > 1 else ''
+    content_type = str(values[2] if len(values) > 2 and values[2] is not None else '').strip()
+    section = 'talk' if content_type in {'talk', '创新星说', '创新新说'} or '说' in content_type else 'share'
+
+    try:
+        dui_db(f"DELETE FROM chuangxinxing WHERE ID = {int(item_id)}")
+    except Exception as e:
+        _safe_print(f"❌ 删除创新星内容失败: id={item_id}, error={e}")
+        return jsonify({'success': False, 'message': '删除失败，请稍后重试'}), 500
+
+    failed_files = _innovation_star_delete_media_files(image_value, video_value)
+    return jsonify({
+        'success': True,
+        'message': '删除成功' if not failed_files else '内容已删除，部分媒体文件清理失败',
+        'section': section,
+        'file_cleanup_complete': not failed_files,
+    })
 
 
 @app.route('/manage', endpoint='innovation.innovation_manage')
@@ -3796,6 +4066,25 @@ def add_reward_item(reward_name, points_required, stock):
         VALUES ('{reward_name}', {points_required}, {stock})
     """
     dui_db(sql)
+
+
+@app.route('/innovation_star_media/<path:filename>')
+def innovation_star_media_file(filename):
+    """提供创新星主场图片和视频访问。"""
+    if not session.get('feishu_user_id'):
+        return jsonify({'error': '请先登录'}), 401
+    safe_name = os.path.basename(str(filename or '').replace('/', os.sep))
+    if not safe_name or safe_name != filename:
+        return jsonify({'error': '文件不存在'}), 404
+    try:
+        return send_from_directory(
+            INNOVATION_STAR_MEDIA_FOLDER,
+            safe_name,
+            as_attachment=False,
+            conditional=True,
+        )
+    except Exception:
+        return jsonify({'error': '文件不存在'}), 404
 
 
 # 在文件末尾添加图片访问路由

@@ -15,7 +15,7 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from bjc import sf_db, dui_db
-from secret_settings import get_feishu_message_config
+from secret_settings import get_feishu_message_config, relocate_storage_path
 
 try:
     from .config import DEPARTMENT_FEISHU_MAPPING, DEFAULT_NOTIFICATION_RECEIVER
@@ -224,6 +224,7 @@ class MessageService:
         # 发送图片（多张）
         if image_paths:
             for img in image_paths:
+                img = relocate_storage_path(img)
                 if not os.path.exists(img):
                     print(f"⚠️ 图片不存在: {img}")
                     continue

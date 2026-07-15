@@ -16,7 +16,7 @@ import mimetypes
 import builtins
 import requests
 import importlib.util
-from secret_settings import ai_runtime_config, env, sql_server_config
+from secret_settings import ai_runtime_config, env, relocate_storage_path, sql_server_config
 from html import escape as html_escape, unescape as html_unescape
 from html.parser import HTMLParser
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -44,7 +44,7 @@ from yangban_inventory import yangban_inventory_bp
 app = Flask(__name__)
 app.secret_key = env("FLASK_SECRET_KEY", "change-this-secret-key")  # 用于session加密
 app.config['JSON_AS_ASCII'] = False  # 支持中文JSON响应
-app.config.setdefault('MAX_CONTENT_LENGTH', 100 * 1024 * 1024)
+app.config['MAX_CONTENT_LENGTH'] = 512 * 1024 * 1024
 app.config.setdefault('MAX_FORM_MEMORY_SIZE', 50 * 1024 * 1024)
 app.config.setdefault('MAX_FORM_PARTS', 5000)
 
@@ -61,16 +61,16 @@ _feishu_http.trust_env = False
 _TAVILY_API_KEY = env("TAVILY_API_KEY")
 _GOOGLE_CSE_API_KEY = env("GOOGLE_CSE_API_KEY")
 _GOOGLE_CSE_CX = env("GOOGLE_CSE_CX")
-_STRATEGY_TRAINING_VIDEO_DIR = r"D:\TC服务器\data\3.17-战略分解培训"
-_ROCOCO_TRAINING_VIDEO_DIR = r"D:\TC服务器\data\洛可可培训"
-_CHUANSHI_TRAINING_ROOT_DIR = r"D:\TC服务器\data\2026-7-9传世启动仪式"
+_STRATEGY_TRAINING_VIDEO_DIR = r"D:\tuchuangai\3.17-战略分解培训"
+_ROCOCO_TRAINING_VIDEO_DIR = r"D:\tuchuangai\洛可可培训"
+_CHUANSHI_TRAINING_ROOT_DIR = r"D:\tuchuangai\2026-7-9传世启动仪式"
 _CHUANSHI_TRAINING_IMAGE_DIR = os.path.join(_CHUANSHI_TRAINING_ROOT_DIR, "图片")
 _CHUANSHI_TRAINING_VIDEO_DIR = os.path.join(_CHUANSHI_TRAINING_ROOT_DIR, "视频")
-_ANNUAL_MOMENTS_IMAGE_DIR = r"D:\TC服务器\data\2026-06-18年会图片"
-_ANNUAL_MOMENTS_VIDEO_DIR = r"D:\TC服务器\data\2026-06-18年会视频"
+_ANNUAL_MOMENTS_IMAGE_DIR = r"D:\tuchuangai\2026-06-18年会图片"
+_ANNUAL_MOMENTS_VIDEO_DIR = r"D:\tuchuangai\2026-06-18年会视频"
 _VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"}
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".avif", ".heic", ".heif"}
-_PUBLIC_DOWNLOAD_APR16_VIDEO = r"D:\TC服务器\测试\4月16日.mp4"
+_PUBLIC_DOWNLOAD_APR16_VIDEO = r"D:\tuchuangai\4月16日.mp4"
 _XIAOTU_SHARED_DOCS = []
 _xiaotu_doc_list_cache = {}
 _xiaotu_doc_list_cache_ttl_seconds = 300
@@ -2632,7 +2632,7 @@ def _xiaotu_extract_report_image_paths_from_html(html_text):
                 normalized = ""
         if not normalized:
             continue
-        normalized = normalized.replace("/", os.sep)
+        normalized = relocate_storage_path(normalized).replace("/", os.sep)
         if not os.path.isabs(normalized):
             continue
         abs_path = os.path.abspath(normalized)
@@ -2651,7 +2651,7 @@ def _xiaotu_split_cache_multi_value(raw_text):
     out = []
     seen = set()
     for raw in parts:
-        one = str(raw or "").strip()
+        one = relocate_storage_path(str(raw or "").strip())
         if not one or one in seen:
             continue
         seen.add(one)
@@ -3010,7 +3010,7 @@ def _xiaotu_render_period_source_text(rows):
     return "\n\n".join(chunks).strip()
 
 
-_XIAOTU_REPORT_HISTORY_ANALYSIS_DIR = r"D:\日报历史分析"
+_XIAOTU_REPORT_HISTORY_ANALYSIS_DIR = r"D:\tuchuangai\日报历史分析"
 
 
 def _xiaotu_parse_date_value(value, fallback=None):
@@ -3026,7 +3026,7 @@ def _xiaotu_parse_date_value(value, fallback=None):
 
 
 def _xiaotu_report_image_url(path_value):
-    raw = str(path_value or "").strip()
+    raw = relocate_storage_path(path_value)
     if not raw:
         return ""
     if raw.startswith("/api/xiaotu/report_image"):
@@ -3376,7 +3376,7 @@ def _xiaotu_save_doc_images_and_ocr(agent, doc_token, doc_url="", specific_token
         info = _xiaotu_classify_image_debug(msg, 0, 0)
         debug.update(info)
         return [], msg, debug
-    root_dir = os.path.join(r"D:\报告图片", token)
+    root_dir = os.path.join(r"D:\tuchuangai\报告图片", token)
     os.makedirs(root_dir, exist_ok=True)
     image_paths = []
     ocr_inputs = []
@@ -3421,12 +3421,12 @@ def _xiaotu_save_doc_images_and_ocr(agent, doc_token, doc_url="", specific_token
     return image_paths, image_ocr_text, debug
 
 
-def _xiaotu_save_uploaded_images_and_ocr(files, report_token="", root_base_dir=r"D:\报告图片"):
+def _xiaotu_save_uploaded_images_and_ocr(files, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
     items = files if isinstance(files, list) else []
     if not items:
         return [], "", {"reason_code": "no_upload", "reason_text": "未上传图片", "saved_image_count": 0}
     token = str(report_token or datetime.now().strftime("%Y%m%d%H%M%S")).strip() or datetime.now().strftime("%Y%m%d%H%M%S")
-    base_dir = os.path.abspath(str(root_base_dir or r"D:\报告图片"))
+    base_dir = os.path.abspath(str(root_base_dir or r"D:\tuchuangai\报告图片"))
     root_dir = os.path.join(base_dir, f"upload_{token}")
     os.makedirs(root_dir, exist_ok=True)
 
@@ -3466,13 +3466,13 @@ def _xiaotu_save_uploaded_images_and_ocr(files, report_token="", root_base_dir=r
     return image_paths, str(image_ocr_text or "").strip(), debug
 
 
-def _xiaotu_save_inline_html_images_and_ocr(html_text, report_token="", root_base_dir=r"D:\报告图片"):
+def _xiaotu_save_inline_html_images_and_ocr(html_text, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
     src = str(html_text or "")
     if not src:
         return src, [], "", {"reason_code": "no_inline_image", "reason_text": "富文本中无内嵌图片", "saved_image_count": 0}
 
     token = str(report_token or datetime.now().strftime("%Y%m%d%H%M%S")).strip() or datetime.now().strftime("%Y%m%d%H%M%S")
-    base_dir = os.path.abspath(str(root_base_dir or r"D:\报告图片"))
+    base_dir = os.path.abspath(str(root_base_dir or r"D:\tuchuangai\报告图片"))
     root_dir = os.path.join(base_dir, f"upload_{token}_inline")
     os.makedirs(root_dir, exist_ok=True)
 
@@ -3571,13 +3571,13 @@ def _xiaotu_extract_feishu_file_token_from_fragment(fragment_text):
     return ""
 
 
-def _xiaotu_save_remote_html_images_and_ocr(html_text, report_token="", agent=None, root_base_dir=r"D:\报告图片"):
+def _xiaotu_save_remote_html_images_and_ocr(html_text, report_token="", agent=None, root_base_dir=r"D:\tuchuangai\报告图片"):
     src = str(html_text or "")
     if not src:
         return src, [], "", {"reason_code": "no_remote_image", "reason_text": "富文本中无远程图片", "saved_image_count": 0}
 
     token = str(report_token or datetime.now().strftime("%Y%m%d%H%M%S")).strip() or datetime.now().strftime("%Y%m%d%H%M%S")
-    base_dir = os.path.abspath(str(root_base_dir or r"D:\报告图片"))
+    base_dir = os.path.abspath(str(root_base_dir or r"D:\tuchuangai\报告图片"))
     root_dir = os.path.join(base_dir, f"upload_{token}_remote")
     os.makedirs(root_dir, exist_ok=True)
 
@@ -3776,21 +3776,21 @@ def _xiaotu_image_debug(reason_code, reason_text, saved_count=0):
     }
 
 
-def _xiaotu_save_uploaded_images_and_ocr_safe(files, report_token="", root_base_dir=r"D:\报告图片"):
+def _xiaotu_save_uploaded_images_and_ocr_safe(files, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
     try:
         return _xiaotu_save_uploaded_images_and_ocr(files, report_token=report_token, root_base_dir=root_base_dir)
     except Exception as exc:
         return [], "", _xiaotu_image_debug("upload_image_failed", exc, 0)
 
 
-def _xiaotu_save_inline_html_images_and_ocr_safe(html_text, report_token="", root_base_dir=r"D:\报告图片"):
+def _xiaotu_save_inline_html_images_and_ocr_safe(html_text, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
     try:
         return _xiaotu_save_inline_html_images_and_ocr(html_text, report_token=report_token, root_base_dir=root_base_dir)
     except Exception as exc:
         return _xiaotu_compact_report_body_for_storage(html_text), [], "", _xiaotu_image_debug("inline_image_failed", exc, 0)
 
 
-def _xiaotu_save_remote_html_images_and_ocr_safe(html_text, report_token="", agent=None, root_base_dir=r"D:\报告图片"):
+def _xiaotu_save_remote_html_images_and_ocr_safe(html_text, report_token="", agent=None, root_base_dir=r"D:\tuchuangai\报告图片"):
     try:
         return _xiaotu_save_remote_html_images_and_ocr(html_text, report_token=report_token, agent=agent, root_base_dir=root_base_dir)
     except Exception as exc:
@@ -6053,7 +6053,7 @@ def _xiaotu_extract_plain_preview_text(raw_text, limit=500):
 
 
 def _xiaotu_parse_image_path_list(raw_paths):
-    return [str(x or "").strip() for x in str(raw_paths or "").split("|") if str(x or "").strip()]
+    return [relocate_storage_path(x) for x in str(raw_paths or "").split("|") if str(x or "").strip()]
 
 
 def _xiaotu_image_file_name(raw_path):
@@ -6302,7 +6302,7 @@ def _xiaotu_build_card_source_elements(source_text, image_paths_text="", fallbac
 
 
 def _feishu_upload_image_by_path(image_path):
-    path = str(image_path or "").strip()
+    path = relocate_storage_path(image_path)
     if not path or (not os.path.exists(path)):
         return ""
     try:
@@ -10380,7 +10380,7 @@ def api_xiaotu_report_draft():
 
         uploaded_files = request.files.getlist('images') if is_multipart else []
         draft_token = f"draft_{user_id}_{int(datetime.now().timestamp())}"
-        draft_root_dir = r"D:\报告缓存图片"
+        draft_root_dir = r"D:\tuchuangai\报告缓存图片"
         draft_html = rich_content_html
         image_paths = _xiaotu_extract_report_image_paths_from_html(draft_html)
         if uploaded_files:
@@ -11906,8 +11906,8 @@ def api_xiaotu_report_image():
         if not raw_path:
             return jsonify({'success': False, 'message': '缺少图片路径'}), 400
         allowed_base_dirs = [
-            os.path.abspath(r"D:\报告图片"),
-            os.path.abspath(r"D:\报告缓存图片")
+            os.path.abspath(r"D:\tuchuangai\报告图片"),
+            os.path.abspath(r"D:\tuchuangai\报告缓存图片")
         ]
         base_dir = allowed_base_dirs[0]
         normalized = unquote(raw_path).strip().strip('"').strip("'")
@@ -11916,7 +11916,7 @@ def api_xiaotu_report_image():
             nested_path = parse_qs(parsed.query).get('path') or []
             normalized = str(nested_path[0] if nested_path else '').strip()
             normalized = unquote(normalized).strip().strip('"').strip("'")
-        normalized = normalized.replace('/', os.sep)
+        normalized = relocate_storage_path(normalized).replace('/', os.sep)
         if normalized and not os.path.isabs(normalized):
             normalized = os.path.join(base_dir, normalized.lstrip("\\/"))
         abs_path = os.path.abspath(normalized)
@@ -11953,7 +11953,7 @@ def api_xiaotu_report_history_analysis_file():
         raw_path = str(request.args.get('path') or '').strip()
         if not raw_path:
             return jsonify({'success': False, 'message': '缺少文件路径'}), 400
-        normalized = unquote(raw_path).strip().strip('"').strip("'")
+        normalized = relocate_storage_path(unquote(raw_path).strip().strip('"').strip("'"))
         abs_path = os.path.abspath(normalized)
         base = os.path.abspath(_XIAOTU_REPORT_HISTORY_ANALYSIS_DIR)
         if os.path.commonpath([base, abs_path]) != base:
@@ -12021,7 +12021,7 @@ def api_xiaotu_report_history_analysis_list():
                 start_date = values[2] if len(values) > 2 else ""
                 end_date = values[3] if len(values) > 3 else ""
                 path = values[4] if len(values) > 4 else ""
-            path_text = str(path or "").strip()
+            path_text = relocate_storage_path(path)
             exists = bool(path_text and os.path.isfile(path_text))
             items.append({
                 "id": str(rid or "").strip(),
