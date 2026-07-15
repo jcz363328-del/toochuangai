@@ -8,6 +8,7 @@ import re
 import smtplib
 from werkzeug.utils import secure_filename
 from secret_settings import sql_server_config
+from tools import escape_sql_literal as _escape_sql_literal_for_pytds
 
 
 # 添加检查申请人是否存在的函数
@@ -32,13 +33,6 @@ def get_current_user_name():
     # 尝试从session中获取用户名
     user_name = session.get('feishu_user_name', '')
     return user_name
-
-
-def _escape_sql_literal_for_pytds(value):
-    """转义 SQL 字面量，兼容 pytds 对 % 的格式化处理。"""
-    if value is None:
-        return ''
-    return str(value).replace("'", "''").replace("%", "%%")
 
 
 def _normalize_sender_group_value(value):

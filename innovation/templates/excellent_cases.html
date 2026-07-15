@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}优秀案例 - 团队创新奖励管理系统{% endblock %}
+{% block title %}创新星主场 - 团队创新奖励管理系统{% endblock %}
 
 {% block content %}
 <style>
@@ -8,7 +8,7 @@
     font-size: 38px;
     font-weight: 800;
     text-align: center;
-    letter-spacing: 1px;
+    letter-spacing: 0;
     margin: 0;
     white-space: nowrap;
 }
@@ -195,54 +195,11 @@
     color: #6b7280;
     font-weight: 700;
 }
-.star-intro {
-    display: grid;
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 16px;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 20px 22px;
-    border: 1px solid;
-    border-radius: 8px;
-}
-.star-intro.share {
-    background: #fff8f0;
-    border-color: #f2c48f;
-}
-.star-intro.talk {
-    background: #eef9f7;
-    border-color: #9ed5cc;
-}
-.star-intro-icon {
-    width: 52px;
-    height: 52px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 25px;
-}
-.star-intro.share .star-intro-icon {
-    background: #d8672c;
-}
-.star-intro.talk .star-intro-icon {
-    background: #167c72;
-}
-.star-intro h3 {
-    margin: 0 0 6px;
-    color: #172033;
-    font-size: 22px;
-    font-weight: 900;
-}
-.star-intro p {
-    margin: 0;
-    color: #4b5563;
-    line-height: 1.7;
-}
 .star-feed {
     display: grid;
     gap: 18px;
+    max-width: 980px;
+    margin: 0 auto;
 }
 .star-entry {
     overflow: hidden;
@@ -251,26 +208,51 @@
     background: #fff;
     box-shadow: 0 8px 22px rgba(31, 41, 55, .06);
 }
-.star-media-grid {
+.star-video-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1px;
-    background: #d8e0ea;
+    gap: 16px;
+    padding: 18px;
+    background: #f1f4f7;
 }
-.star-media {
+.star-video-frame {
     width: 100%;
-    min-height: 260px;
-    max-height: 560px;
+    max-width: 900px;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 6px;
+    background: #101820;
+    box-shadow: 0 8px 24px rgba(16, 24, 32, .16);
+}
+.star-video {
+    width: 100%;
+    aspect-ratio: 16 / 9;
     display: block;
     object-fit: contain;
     background: #101820;
 }
+.star-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 1px;
+    background: #d8e0ea;
+}
+.star-image {
+    width: 100%;
+    min-height: 260px;
+    max-height: 620px;
+    display: block;
+    object-fit: contain;
+    background: #f4f6f8;
+}
 .star-entry-body {
-    padding: 18px 20px 15px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #edf0f4;
 }
 .star-copy {
     margin: 0;
-    color: #263244;
+    color: #1f2937;
+    font-size: 17px;
+    font-weight: 600;
     line-height: 1.8;
     white-space: pre-wrap;
     word-break: break-word;
@@ -278,24 +260,31 @@
 .star-entry-empty {
     color: #7b8797;
 }
+.star-entry-footer {
+    padding: 12px 20px;
+    background: #fff;
+}
 .star-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 14px;
     align-items: center;
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid #edf0f4;
+    min-height: 34px;
     color: #718096;
     font-size: 13px;
 }
+.star-item-actions {
+    display: inline-flex;
+    gap: 8px;
+    margin-left: auto;
+}
+.star-edit-button,
 .star-delete-button {
     width: 34px;
     height: 34px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: auto;
     padding: 0;
     border-radius: 6px;
 }
@@ -371,13 +360,6 @@
     .rank-row {
         grid-template-columns: 56px minmax(0, 1fr) 90px;
     }
-    .star-media-grid {
-        grid-template-columns: 1fr;
-    }
-    .star-media {
-        min-height: 210px;
-        max-height: 440px;
-    }
     .star-add-dock {
         top: auto;
         right: 14px;
@@ -390,21 +372,26 @@
     }
 }
 @media (max-width: 576px) {
-    .star-intro {
-        grid-template-columns: 42px minmax(0, 1fr);
-        gap: 12px;
+    .star-entry-body {
         padding: 16px;
     }
-    .star-intro-icon {
-        width: 42px;
-        height: 42px;
-        font-size: 21px;
-    }
-    .star-intro h3 {
+    .star-copy {
         font-size: 16px;
     }
-    .star-entry-body {
-        padding: 15px;
+    .star-video-list {
+        gap: 10px;
+        padding: 0;
+    }
+    .star-video-frame {
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .star-image {
+        min-height: 210px;
+        max-height: 440px;
+    }
+    .star-entry-footer {
+        padding: 10px 14px;
     }
 }
 </style>
@@ -419,7 +406,7 @@
         <div class="case-decor-slot">
             <img src="{{ url_for('innovation.innovation_uploaded_file', filename='20260416-181440.png') }}?v=1" alt="">
         </div>
-        <div class="case-page-title">创新展示<span class="score">·荣誉专区</span></div>
+        <div class="case-page-title">创新星主场</div>
         <div class="case-decor-slot">
             <img src="{{ url_for('innovation.innovation_uploaded_file', filename='20260416-181449.png') }}?v=1" alt="">
         </div>
@@ -428,8 +415,8 @@
     <div class="innovation-tabs" role="tablist">
         <button class="innovation-tab active" type="button" data-tab="excellent">创新星鉴</button>
         <button class="innovation-tab" type="button" data-tab="rank">创新星榜</button>
-        <button class="innovation-tab" type="button" data-tab="share">创新新享</button>
-        <button class="innovation-tab" type="button" data-tab="talk">创新新说</button>
+        <button class="innovation-tab" type="button" data-tab="share">创新星享</button>
+        <button class="innovation-tab" type="button" data-tab="talk">创新星说</button>
     </div>
 
     <section id="tab-excellent" class="tab-panel active">
@@ -545,48 +532,62 @@
     </section>
 
     <section id="tab-share" class="tab-panel">
-        <div class="star-intro share">
-            <div class="star-intro-icon"><i class="bi bi-lightbulb-fill"></i></div>
-            <div>
-                <h3>创新达人优秀创新案例讲解分享</h3>
-                <p>达人现场讲解落地有效的创新案例，复盘方法、交流心得，为大家打开创新思路。</p>
-            </div>
-        </div>
         {% if not star_share_items %}
-        <div class="empty-panel">暂无创新新享内容</div>
+        <div class="empty-panel">暂无创新星享内容</div>
         {% else %}
         <div class="star-feed">
             {% for item in star_share_items %}
             <article class="star-entry">
-                {% if item.images or item.videos %}
-                <div class="star-media-grid">
-                    {% for filename in item.images %}
-                    <img class="star-media" src="{{ url_for('innovation.innovation_star_media', filename=filename) }}" alt="创新新享图片" loading="lazy">
-                    {% endfor %}
+                {% if item['copy'] or (not item.images and not item.videos) %}
+                <div class="star-entry-body">
+                    {% if item['copy'] %}
+                    <p class="star-copy">{{ item['copy'] }}</p>
+                    {% else %}
+                    <div class="star-entry-empty">本条内容暂无媒体或文案</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if item.videos %}
+                <div class="star-video-list">
                     {% for filename in item.videos %}
-                    <video class="star-media" controls preload="metadata" playsinline>
-                        <source src="{{ url_for('innovation.innovation_star_media', filename=filename) }}">
-                    </video>
+                    <div class="star-video-frame">
+                        <video class="star-video" controls preload="metadata" playsinline>
+                            <source src="{{ url_for('innovation.innovation_star_media', filename=filename) }}">
+                        </video>
+                    </div>
                     {% endfor %}
                 </div>
                 {% endif %}
-                <div class="star-entry-body">
-                    {% if item.copy %}
-                    <p class="star-copy">{{ item.copy }}</p>
-                    {% elif not item.images and not item.videos %}
-                    <div class="star-entry-empty">本条内容暂无媒体或文案</div>
-                    {% endif %}
+                {% if item.images %}
+                <div class="star-image-grid">
+                    {% for filename in item.images %}
+                    <img class="star-image" src="{{ url_for('innovation.innovation_star_media', filename=filename) }}" alt="创新星享图片" loading="lazy">
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="star-entry-footer">
                     <div class="star-meta">
                         {% if item.submitter %}<span><i class="bi bi-person"></i> {{ item.submitter }}</span>{% endif %}
                         {% if item.created_at %}<span><i class="bi bi-clock"></i> {{ item.created_at }}</span>{% endif %}
                         {% if can_add_star_content %}
-                        <button
-                            class="btn btn-outline-danger star-delete-button"
-                            type="button"
-                            title="删除"
-                            aria-label="删除这条创新新享内容"
-                            data-delete-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
-                        ><i class="bi bi-trash"></i></button>
+                        <span class="star-item-actions">
+                            <button
+                                class="btn btn-outline-primary star-edit-button"
+                                type="button"
+                                title="编辑文字"
+                                aria-label="编辑这条创新星享文字"
+                                data-edit-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
+                                data-section="share"
+                                data-copy="{{ item['copy'] | e }}"
+                            ><i class="bi bi-pencil-square"></i></button>
+                            <button
+                                class="btn btn-outline-danger star-delete-button"
+                                type="button"
+                                title="删除"
+                                aria-label="删除这条创新星享内容"
+                                data-delete-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
+                            ><i class="bi bi-trash"></i></button>
+                        </span>
                         {% endif %}
                     </div>
                 </div>
@@ -597,48 +598,62 @@
     </section>
 
     <section id="tab-talk" class="tab-panel">
-        <div class="star-intro talk">
-            <div class="star-intro-icon"><i class="bi bi-camera-video-fill"></i></div>
-            <div>
-                <h3>创新达人复盘视频</h3>
-                <p>复盘实践，碰撞想法，聚力创新。</p>
-            </div>
-        </div>
         {% if not star_talk_items %}
-        <div class="empty-panel">暂无创新新说内容</div>
+        <div class="empty-panel">暂无创新星说内容</div>
         {% else %}
         <div class="star-feed">
             {% for item in star_talk_items %}
             <article class="star-entry">
-                {% if item.images or item.videos %}
-                <div class="star-media-grid">
-                    {% for filename in item.images %}
-                    <img class="star-media" src="{{ url_for('innovation.innovation_star_media', filename=filename) }}" alt="创新新说图片" loading="lazy">
-                    {% endfor %}
+                {% if item['copy'] or (not item.images and not item.videos) %}
+                <div class="star-entry-body">
+                    {% if item['copy'] %}
+                    <p class="star-copy">{{ item['copy'] }}</p>
+                    {% else %}
+                    <div class="star-entry-empty">本条内容暂无媒体或文案</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if item.videos %}
+                <div class="star-video-list">
                     {% for filename in item.videos %}
-                    <video class="star-media" controls preload="metadata" playsinline>
-                        <source src="{{ url_for('innovation.innovation_star_media', filename=filename) }}">
-                    </video>
+                    <div class="star-video-frame">
+                        <video class="star-video" controls preload="metadata" playsinline>
+                            <source src="{{ url_for('innovation.innovation_star_media', filename=filename) }}">
+                        </video>
+                    </div>
                     {% endfor %}
                 </div>
                 {% endif %}
-                <div class="star-entry-body">
-                    {% if item.copy %}
-                    <p class="star-copy">{{ item.copy }}</p>
-                    {% elif not item.images and not item.videos %}
-                    <div class="star-entry-empty">本条内容暂无媒体或文案</div>
-                    {% endif %}
+                {% if item.images %}
+                <div class="star-image-grid">
+                    {% for filename in item.images %}
+                    <img class="star-image" src="{{ url_for('innovation.innovation_star_media', filename=filename) }}" alt="创新星说图片" loading="lazy">
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="star-entry-footer">
                     <div class="star-meta">
                         {% if item.submitter %}<span><i class="bi bi-person"></i> {{ item.submitter }}</span>{% endif %}
                         {% if item.created_at %}<span><i class="bi bi-clock"></i> {{ item.created_at }}</span>{% endif %}
                         {% if can_add_star_content %}
-                        <button
-                            class="btn btn-outline-danger star-delete-button"
-                            type="button"
-                            title="删除"
-                            aria-label="删除这条创新新说内容"
-                            data-delete-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
-                        ><i class="bi bi-trash"></i></button>
+                        <span class="star-item-actions">
+                            <button
+                                class="btn btn-outline-primary star-edit-button"
+                                type="button"
+                                title="编辑文字"
+                                aria-label="编辑这条创新星说文字"
+                                data-edit-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
+                                data-section="talk"
+                                data-copy="{{ item['copy'] | e }}"
+                            ><i class="bi bi-pencil-square"></i></button>
+                            <button
+                                class="btn btn-outline-danger star-delete-button"
+                                type="button"
+                                title="删除"
+                                aria-label="删除这条创新星说内容"
+                                data-delete-url="{{ url_for('innovation.innovation_add_star_content') }}/{{ item.id }}"
+                            ><i class="bi bi-trash"></i></button>
+                        </span>
                         {% endif %}
                     </div>
                 </div>
@@ -669,9 +684,9 @@
                 <div class="modal-body">
                     <div class="btn-group star-type-switch w-100 mb-3" role="group" aria-label="内容分类">
                         <input class="btn-check" type="radio" name="content_type" id="starTypeShare" value="share" autocomplete="off" checked>
-                        <label class="btn btn-outline-primary" for="starTypeShare">创新新享</label>
+                        <label class="btn btn-outline-primary" for="starTypeShare">创新星享</label>
                         <input class="btn-check" type="radio" name="content_type" id="starTypeTalk" value="talk" autocomplete="off">
-                        <label class="btn btn-outline-success" for="starTypeTalk">创新新说</label>
+                        <label class="btn btn-outline-success" for="starTypeTalk">创新星说</label>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold" for="starCopy">文案</label>
@@ -691,6 +706,30 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
                     <button type="submit" class="btn btn-primary" id="starSubmitButton">
                         <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="starEditModal" tabindex="-1" aria-labelledby="starEditModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="starEditForm">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="starEditModalTitle">编辑文字</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-bold" for="starEditCopy">视频或图片上方文字</label>
+                    <textarea class="form-control" id="starEditCopy" rows="5"></textarea>
+                    <div class="star-form-status" id="starEditStatus" role="status" aria-live="polite"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary" id="starEditSubmitButton">
+                        <i class="bi bi-check-lg"></i> 保存修改
                     </button>
                 </div>
             </form>
@@ -751,6 +790,58 @@ if (starUploadForm) {
         } catch (error) {
             status.className = 'star-form-status text-danger';
             status.textContent = error.message || '保存失败，请稍后重试';
+            submitButton.disabled = false;
+        }
+    });
+}
+
+const starEditForm = document.getElementById('starEditForm');
+const starEditModalElement = document.getElementById('starEditModal');
+const starEditModal = starEditModalElement && window.bootstrap
+    ? bootstrap.Modal.getOrCreateInstance(starEditModalElement)
+    : null;
+
+document.querySelectorAll('.star-edit-button').forEach((button) => {
+    button.addEventListener('click', () => {
+        if (!starEditForm || !starEditModal) {
+            return;
+        }
+        starEditForm.dataset.editUrl = button.getAttribute('data-edit-url') || '';
+        starEditForm.dataset.section = button.getAttribute('data-section') || 'share';
+        document.getElementById('starEditCopy').value = button.getAttribute('data-copy') || '';
+        const status = document.getElementById('starEditStatus');
+        status.className = 'star-form-status';
+        status.textContent = '';
+        starEditModal.show();
+    });
+});
+
+if (starEditForm) {
+    starEditForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submitButton = document.getElementById('starEditSubmitButton');
+        const status = document.getElementById('starEditStatus');
+        submitButton.disabled = true;
+        status.className = 'star-form-status text-primary';
+        status.textContent = '正在保存...';
+        try {
+            const response = await fetch(starEditForm.dataset.editUrl, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({copy: document.getElementById('starEditCopy').value}),
+                credentials: 'same-origin'
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || '修改失败，请稍后重试');
+            }
+            status.className = 'star-form-status text-success';
+            status.textContent = result.message || '修改成功';
+            window.sessionStorage.setItem('innovationStarTab', result.section || starEditForm.dataset.section || 'share');
+            window.setTimeout(() => window.location.reload(), 400);
+        } catch (error) {
+            status.className = 'star-form-status text-danger';
+            status.textContent = error.message || '修改失败，请稍后重试';
             submitButton.disabled = false;
         }
     });

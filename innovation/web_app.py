@@ -5,6 +5,8 @@ import pandas as pd  # 处理数据库中导出的相关数据
 from message_service import MessageService  # 导入统一消息发送服务
 from config import *  # 从配置文件中导入所有应用
 from department_permissions import permission_manager
+from tools import escape_sql_literal as _escape_sql_literal_for_pytds
+from tools import is_mobile_user_agent, safe_print as _safe_print
 import os
 from io import BytesIO  # 用于操作文件和目录
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory, \
@@ -33,13 +35,6 @@ INNOVATION_STAR_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 INNOVATION_STAR_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}
 OPERATION_DEPARTMENTS = {'运营一部', '运营二部', '运营三部', '运营六部', '运营七部'}
 OPERATION_WATCHER_NAMES = ['孙洁', '侯梁']
-
-
-def _safe_print(*args, **kwargs):
-    try:
-        print(*args, **kwargs)
-    except Exception:
-        pass
 
 
 def _database_upload_path(filename):
@@ -209,13 +204,6 @@ def _innovation_collect_operation_watcher_ids(initiator_name, dept_list):
     return watcher_ids, initiator_departments, matched_operation_departments
 
 
-def _escape_sql_literal_for_pytds(value):
-    """转义 SQL 字面量，兼容 pytds 对 % 的格式化处理。"""
-    if value is None:
-        return ''
-    return str(value).replace("'", "''").replace("%", "%%")
-
-
 def _ensure_nvarchar_max_column(table_name, column_name):
     """确保指定文本列可容纳长文本，避免提交长内容时被截断。"""
     try:
@@ -241,9 +229,7 @@ def _ensure_nvarchar_max_column(table_name, column_name):
 
 
 def _is_mobile_request():
-    ua = (request.headers.get('User-Agent') or '').lower()
-    mobile_keywords = ['iphone', 'ipad', 'android', 'mobile', 'harmony', 'micromessenger']
-    return any(k in ua for k in mobile_keywords)
+    return is_mobile_user_agent(request.headers.get('User-Agent'))
 
 
 def _innovation_star_editor_context():
@@ -597,7 +583,7 @@ def add_innovation_star_content():
         return jsonify({'success': False, 'message': '当前账号没有添加权限'}), 403
 
     type_key = str(request.form.get('content_type') or 'share').strip().lower()
-    type_labels = {'share': '创新新享', 'talk': '创新新说'}
+    type_labels = {'share': '创新星享', 'talk': '创新星说'}
     if type_key not in type_labels:
         return jsonify({'success': False, 'message': '内容分类无效'}), 400
 
@@ -699,6 +685,57 @@ def delete_innovation_star_content(item_id):
         'message': '删除成功' if not failed_files else '内容已删除，部分媒体文件清理失败',
         'section': section,
         'file_cleanup_complete': not failed_files,
+    })
+
+
+@app.route('/api/innovation_star_content/<int:item_id>', methods=['PUT'])
+def edit_innovation_star_content(item_id):
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '请先登录后再操作'}), 401
+
+    editor_context = _innovation_star_editor_context()
+    if not editor_context['can_add']:
+        return jsonify({'success': False, 'message': '当前账号没有编辑权限'}), 403
+
+    payload = request.get_json(silent=True) or {}
+    copy_text = str(payload.get('copy') or '').strip()
+    try:
+        rows = sf_db(
+            f"""
+            SELECT TOP 1 LeiXing, ID
+            FROM chuangxinxing
+            WHERE ID = {int(item_id)}
+            """
+        ) or []
+    except Exception as e:
+        _safe_print(f"❌ 查询待编辑创新星内容失败: id={item_id}, error={e}")
+        return jsonify({'success': False, 'message': '内容查询失败，请稍后重试'}), 500
+
+    if not rows:
+        return jsonify({'success': False, 'message': '内容不存在或已被删除'}), 404
+
+    first = rows[0]
+    values = list(first) if isinstance(first, (list, tuple)) else []
+    content_type = str(values[0] if values and values[0] is not None else '').strip()
+    section = 'talk' if content_type in {'talk', '创新星说', '创新新说'} or '说' in content_type else 'share'
+    copy_sql = 'NULL' if not copy_text else f"N'{_escape_sql_literal_for_pytds(copy_text)}'"
+
+    try:
+        dui_db(
+            f"""
+            UPDATE chuangxinxing
+            SET WenAn = {copy_sql}
+            WHERE ID = {int(item_id)}
+            """
+        )
+    except Exception as e:
+        _safe_print(f"❌ 编辑创新星内容失败: id={item_id}, error={e}")
+        return jsonify({'success': False, 'message': '编辑失败，请稍后重试'}), 500
+
+    return jsonify({
+        'success': True,
+        'message': '修改成功',
+        'section': section,
     })
 
 

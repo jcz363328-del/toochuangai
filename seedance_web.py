@@ -6,6 +6,7 @@ import threading
 import time
 import uuid
 import base64
+from functools import partial
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -16,6 +17,7 @@ from flask import Blueprint, Flask, abort, jsonify, render_template, request, se
 from bjc import dui_db, sf_db
 from department_permissions import permission_manager
 from secret_settings import env, relocate_storage_path
+from tools import preview_text
 
 api_key = env("SEEDANCE_API_KEY") or env("VOLCENGINE_API_KEY")
 base_url = env("SEEDANCE_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
@@ -42,11 +44,7 @@ def pick_value(data, keys):
     return None
 
 
-def _preview_text(value, limit=1200):
-    text = str(value or "").strip()
-    if len(text) <= limit:
-        return text
-    return text[:limit] + "...(truncated)"
+_preview_text = partial(preview_text, limit=1200, strip=True)
 
 
 def _safe_json(resp):

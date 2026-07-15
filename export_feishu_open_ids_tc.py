@@ -6,6 +6,7 @@ import requests
 
 from department_permissions import FEISHU_CONFIG, permission_manager
 from secret_settings import sql_server_config
+from tools import preview_text as _preview_text
 
 
 _DB_CONFIG = sql_server_config()
@@ -26,13 +27,6 @@ def debug_log(title, payload=None):
             print(json.dumps(payload, ensure_ascii=False, indent=2))
         except Exception:
             print(str(payload))
-
-
-def _preview_text(text, limit=800):
-    s = str(text or "")
-    if len(s) <= limit:
-        return s
-    return s[:limit] + "...(truncated)"
 
 
 def get_tenant_access_token():

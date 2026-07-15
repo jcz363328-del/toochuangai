@@ -8,31 +8,13 @@ import re
 import requests
 import json
 from department_permissions import require_permission
+from tools import ai_chat_complete as _ai_chat_complete
 
 # 创建蓝图
 review_analysis_bp = Blueprint('review_analysis', __name__)
 
 _OPENAI_TEXT_MODEL = (os.getenv("OPENAI_TEXT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-5").strip()
 _OPENAI_TEXT_MODEL_CANDIDATES = [m for m in [_OPENAI_TEXT_MODEL, "gpt-5-mini", "gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"] if m]
-
-
-def _ai_chat_complete(client, messages, max_tokens, temperature, model_candidates):
-    last_err = None
-    for model in (model_candidates or []):
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-            content = (resp.choices[0].message.content or "").strip()
-            if content:
-                return content
-        except Exception as e:
-            last_err = e
-            continue
-    raise last_err or RuntimeError("AI调用失败")
 
 
 def format_analysis_result(analysis_text):

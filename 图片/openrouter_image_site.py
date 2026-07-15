@@ -33,6 +33,7 @@ PROJECT_ROOT = APP_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 from secret_settings import relocate_storage_path, sql_server_config
+from 图片.amazon_a_plus_psd import build_layered_a_plus
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
@@ -154,6 +155,8 @@ DEFAULT_BATCH_API_CONCURRENCY = 4
 JIMENG_MAX_API_CONCURRENCY = 1
 JIMENG_CONCURRENT_LIMIT_RETRY_COUNT = 3
 JIMENG_CONCURRENT_LIMIT_RETRY_DELAYS = (3, 6, 10)
+AMAZON_A_PLUS_MAX_EDGE = 10_000
+AMAZON_A_PLUS_MAX_PIXELS = 40_000_000
 
 # Kept only for loading older sessions that still reference the retired local matting helpers.
 IMAGE_MATTING_DEFAULT_MODEL_PATH = APP_DIR / "image_matting" / "briaai" / "RMBG-1.4" / "model.onnx"
@@ -511,17 +514,20 @@ FEATURES = [
     {
         "key": "amazon_a_plus",
         "name": "亚马逊A+生成",
-        "summary": "多图排版生成A+图",
+        "summary": "绿幕生成独立元素并导出分层PSD",
         "mode": "openrouter",
         "output_mode": "image",
         "min_images": 1,
         "max_output_images": 1,
-        "description": "可上传最多 3 张原图，自动排版生成 1 张指定规格的亚马逊 A+ 图片，支持输入如 1464*600 的尺寸参数。",
+        "description": "可上传最多 3 张原图，AI 先生成绿幕 A+ 元素底稿，再由代码自动裁切并输出分层 PSD。",
         "default_prompt": (
-            "请严格基于上传的原图生成一张适用于亚马逊 A+ 模块展示的排版图片。"
-            "需要对原图进行电商感排版，画面整洁、高级、适合商品详情页展示。"
-            "只使用上传图片中的产品/主体内容进行重组与排版，不要凭空替换主体，不要加入与原图无关的额外商品。"
-            "最终只输出 1 张完整排版图。"
+            "请严格基于上传原图生成一张适用于亚马逊 A+ 模块的可分层元素底稿。"
+            "画布背景必须是完全均匀的纯色 #00FF00 绿幕，无渐变、纹理、阴影、地面、反光、边框和水印。"
+            "商品主体、标题文字、卖点文字、图标、徽章和装饰素材都必须作为彼此独立的视觉元素放在画布中，"
+            "保持最终 A+ 版式所需的大致坐标，但任何两个元素都不能接触、重叠或被阴影连接，元素之间至少保留 32px 纯绿间距。"
+            "同一段文字可以作为一个完整元素，但不同文字块必须分开；不要生成跨越多个元素的底板、分栏线或大面积装饰背景。"
+            "只使用上传图片中的产品或主体内容，不要替换主体，不要加入无关商品。"
+            "所有元素边缘必须清晰，不得带绿色描边或绿色光晕。最终只输出 1 张绿幕元素底稿。"
         ),
     },
     {
@@ -2355,6 +2361,25 @@ def finalize_feature_job_result(job_context: dict[str, Any], result: dict[str, A
     )
     result_text_parts = [str(result.get("text") or "").strip()]
     history_records = fallback_history_records
+    psd_bytes = result.get("psd_bytes")
+    if isinstance(psd_bytes, (bytes, bytearray)) and psd_bytes:
+        try:
+            artifact_dir = ensure_feature_output_dir(
+                str((job_context.get("feature") or {}).get("key") or "amazon_a_plus")
+            )
+            psd_file_name = Path(str(result.get("psd_file_name") or "amazon_a_plus.psd")).name
+            if not psd_file_name.lower().endswith(".psd"):
+                psd_file_name += ".psd"
+            psd_path = artifact_dir / psd_file_name
+            psd_path.write_bytes(bytes(psd_bytes))
+            result["psd_path"] = str(psd_path)
+            result.pop("psd_storage_error", None)
+            result_text_parts.append("分层 PSD 已保存到服务器。")
+        except Exception as exc:
+            psd_storage_error = f"分层 PSD 保存到服务器失败：{exc}"
+            result["psd_storage_error"] = psd_storage_error
+            print(f"[psd-save] {psd_storage_error}", file=sys.stderr)
+            result_text_parts.append("分层 PSD 已生成并可下载，但保存到服务器失败。")
     if result.get("images"):
         try:
             history_records = save_generated_images_and_record_db(
@@ -2720,6 +2745,10 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     )
                     for image_url in (result.get("images") or [])
                 ]
+            if feature_key == "amazon_a_plus" and (result.get("images") or []):
+                if job_id:
+                    set_task_progress(job_id, 80, "正在识别绿幕元素并生成分层 PSD")
+                result = build_amazon_a_plus_layered_result(result, target_size)
         max_output_images = int(job_context.get("max_output_images") or 0)
         if max_output_images > 0:
             result["images"] = (result.get("images") or [])[:max_output_images]
@@ -4606,9 +4635,68 @@ def parse_size_text(size_text: str) -> tuple[int, int] | None:
         return None
     width = int(match.group(1))
     height = int(match.group(2))
-    if width <= 0 or height <= 0:
+    if (
+        width <= 0
+        or height <= 0
+        or width > AMAZON_A_PLUS_MAX_EDGE
+        or height > AMAZON_A_PLUS_MAX_EDGE
+        or width * height > AMAZON_A_PLUS_MAX_PIXELS
+    ):
         return None
     return width, height
+
+
+def build_amazon_a_plus_layered_result(
+    result: dict[str, Any],
+    target_size: tuple[int, int] | None,
+) -> dict[str, Any]:
+    image_sources = list(result.get("images") or [])
+    if not image_sources:
+        raise RuntimeError("模型没有返回可用于分层的绿幕 A+ 底稿。")
+
+    image_bytes, _mime_type = load_image_bytes_from_url(str(image_sources[0]))
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            green_screen = ImageOps.exif_transpose(image).convert("RGBA")
+    except Exception as exc:
+        raise RuntimeError(f"无法读取模型返回的绿幕 A+ 底稿：{exc}") from exc
+
+    if target_size and green_screen.size != (int(target_size[0]), int(target_size[1])):
+        green_screen = green_screen.resize(
+            (int(target_size[0]), int(target_size[1])),
+            Image.Resampling.LANCZOS,
+        )
+
+    try:
+        layered = build_layered_a_plus(green_screen)
+    except Exception as exc:
+        raise RuntimeError(f"绿幕元素自动裁切失败：{exc}") from exc
+
+    green_buffer = io.BytesIO()
+    green_screen.save(green_buffer, format="PNG")
+    layer_count = int(layered.get("layer_count") or 0)
+    psd_file_name = f"amazon_a_plus_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}.psd"
+    processed_result = dict(result)
+    processed_result["images"] = [
+        image_bytes_to_data_url(bytes(layered["composite_png"]), "image/png")
+    ]
+    processed_result["green_screen_images"] = [
+        image_bytes_to_data_url(green_buffer.getvalue(), "image/png")
+    ]
+    processed_result["layer_count"] = layer_count
+    processed_result["layer_manifest"] = list(layered.get("layer_manifest") or [])
+    processed_result["psd_bytes"] = bytes(layered["psd_bytes"])
+    processed_result["psd_file_name"] = psd_file_name
+    original_text = str(result.get("text") or "").strip()
+    processed_result["text"] = "\n\n".join(
+        part
+        for part in (
+            original_text,
+            f"已从绿幕底稿中识别并生成 {layer_count} 个独立可编辑图层。",
+        )
+        if part
+    )
+    return processed_result
 
 
 def uploaded_input_to_data_url(uploaded_input: Any) -> str:
@@ -8196,7 +8284,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         '<span class="meta-pill">支持 JPG、PNG、WEBP 格式</span>',
         '<span class="meta-pill">单张最大 50MB</span>',
     ]
-    if supports_outpaint:
+    if supports_amazon_a_plus:
+        meta_items.append('<span class="meta-pill">纯绿幕独立元素底稿</span>')
+        meta_items.append('<span class="meta-pill">自动裁切并导出分层 PSD</span>')
+    elif supports_outpaint:
         meta_items.append('<span class="meta-pill">结果尺寸 = 原图尺寸 + 扩展像素</span>')
         meta_items.append('<span class="meta-pill">原图区域不拉伸不压缩</span>')
     else:
@@ -8490,7 +8581,39 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 except Exception:
                     source_images.append("")
         result_captions = list(result.get("captions") or [])
-        if supports_batch_multi_upload and result_images and source_images:
+        if supports_amazon_a_plus and result_images:
+            layered_tab, green_tab = st.tabs(["分层结果", "AI 绿幕底稿"])
+            with layered_tab:
+                render_result_preview(result_images, show_title=False)
+            with green_tab:
+                green_screen_images = list(result.get("green_screen_images") or [])
+                if green_screen_images:
+                    render_zoomable_image_gallery(
+                        green_screen_images,
+                        columns=1,
+                        thumb_height=None,
+                        component_key="amazon_a_plus_green_screen_viewer",
+                        fit_mode="contain",
+                        max_width_percent=50,
+                        compress_preview=True,
+                        include_full_src=True,
+                    )
+                else:
+                    st.info("当前结果没有保留绿幕底稿。")
+            psd_bytes = result.get("psd_bytes")
+            if isinstance(psd_bytes, (bytes, bytearray)) and psd_bytes:
+                layer_count = int(result.get("layer_count") or 0)
+                st.caption(f"已生成 {layer_count} 个可编辑图层，画布与输入规格一致。")
+                st.download_button(
+                    "下载分层 PSD",
+                    data=bytes(psd_bytes),
+                    file_name=str(result.get("psd_file_name") or "amazon_a_plus.psd"),
+                    mime="image/vnd.adobe.photoshop",
+                    key=f"download_amazon_psd_{result.get('psd_file_name') or 'latest'}",
+                    icon=":material/download:",
+                    use_container_width=True,
+                )
+        elif supports_batch_multi_upload and result_images and source_images:
             render_before_after_compare_gallery(source_images, result_images, result_captions, feature["key"])
         elif supports_batch_multi_upload and result_images and result_captions:
             render_result_preview_with_captions(result_images, result_captions, feature["key"])
@@ -8514,6 +8637,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         storage_error = str(result.get("storage_error") or "").strip()
         if storage_error:
             st.warning(storage_error)
+        psd_storage_error = str(result.get("psd_storage_error") or "").strip()
+        if psd_storage_error:
+            st.warning(psd_storage_error)
 
     if submitted:
         if job_info.get("status") == "running":
@@ -8548,7 +8674,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         elif supports_amazon_a_plus and len(files) > 3:
             st.warning("亚马逊A+功能最多只能上传 3 张原图。")
         elif supports_amazon_a_plus and target_size is None:
-            st.warning("请输入正确的规格参数，例如 1464*600。")
+            st.warning("请输入正确的规格参数，例如 1464*600；最长边不超过 10000px，画布不超过 4000 万像素。")
         elif supports_outpaint and (outpaint_top_px + outpaint_bottom_px + outpaint_left_px + outpaint_right_px) <= 0:
             st.warning("请至少设置一个方向的扩图像素。")
         elif supports_skin_tone_reference and skin_tone_reference_file is None:
@@ -8614,11 +8740,13 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 feature["target_size_text"] = f"{target_width}*{target_height}"
                 extra_notes = (
                     f"当前共上传 {len(files)} 张原图。"
-                    "请将这些原图中的主体内容进行整合排版，生成适合亚马逊 A+ 模块展示的电商视觉成品。"
-                    "可以对原图进行裁切、缩放、组合、留白、分栏和版式设计，但不要替换上传的主体内容，不要生成无关商品。"
-                    "版面需要整洁、商业化、信息展示清晰、视觉重点明确。"
-                    f"最终成品画布尺寸必须严格等于 {target_width}*{target_height}px。"
-                    "仅生成 1 张完整成品图，不要输出多张，不要输出草图或分步骤图。"
+                    "请将原图中的主体内容设计成适合亚马逊 A+ 模块的独立视觉元素底稿。"
+                    "每个商品、文字块、图标、徽章和装饰元素必须完整且彼此分离，不能接触、交叠或通过阴影相连。"
+                    "元素之间至少保留 32px 纯 #00FF00 间距；除独立元素外，整张画布只能出现纯 #00FF00。"
+                    "不要生成底板、分栏线、大面积背景、场景地面或跨元素装饰。"
+                    "元素位置要体现清晰、商业化的 A+ 信息层级，但不要替换上传主体，也不要生成无关商品。"
+                    f"绿幕底稿画布尺寸必须严格等于 {target_width}*{target_height}px。"
+                    "仅输出 1 张绿幕元素底稿，不要输出成品背景图、透明图、草图或分步骤图。"
                 )
             elif supports_pupil_color_reference:
                 files.append(pupil_color_reference_file)

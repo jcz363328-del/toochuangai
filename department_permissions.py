@@ -12,22 +12,7 @@ from cryptography.hazmat.backends import default_backend
 import binascii
 
 from secret_settings import FEISHU_CONFIG as SECRET_FEISHU_CONFIG
-
-
-def _safe_print(*args, **kwargs):
-    try:
-        print(*args, **kwargs)
-    except UnicodeEncodeError:
-        try:
-            safe_args = [
-                str(arg).encode('ascii', errors='backslashreplace').decode('ascii')
-                for arg in args
-            ]
-            print(*safe_args, **kwargs)
-        except Exception:
-            pass
-    except Exception:
-        pass
+from tools import safe_print as _safe_print
 
 
 # 飞书应用配置

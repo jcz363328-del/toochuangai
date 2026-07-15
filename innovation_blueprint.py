@@ -20,7 +20,8 @@ from innovation.web_app import (
     add_reward_with_image, uploaded_file, reward_image,
     get_dashboard_data, get_innovation_compare, export_statistics, toggle_favorite,
     add_favorite_category, innovation_react, innovation_update_comment, innovation_get_react_stats, like_image_file,
-    add_innovation_star_content, delete_innovation_star_content, innovation_star_media_file
+    add_innovation_star_content, delete_innovation_star_content, edit_innovation_star_content,
+    innovation_star_media_file
 )
 
 # 创建创新系统蓝图，指定模板和静态文件路径
@@ -91,8 +92,15 @@ def innovation_add_star_content():
 
 @innovation_bp.route('/api/innovation_star_content/<int:item_id>', methods=['DELETE'])
 def innovation_delete_star_content(item_id):
-    """删除创新新享/创新新说内容。"""
+    """删除创新星享/创新星说内容。"""
     return delete_innovation_star_content(item_id)
+
+
+@innovation_bp.route('/api/innovation_star_content/<int:item_id>', methods=['PUT'])
+def innovation_edit_star_content(item_id):
+    """编辑创新星享/创新星说文字。"""
+    return edit_innovation_star_content(item_id)
+
 
 @innovation_bp.route('/api/get_innovations', methods=['GET'])
 def innovation_get_innovations():

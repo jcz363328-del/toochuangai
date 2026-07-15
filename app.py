@@ -13,10 +13,11 @@ import re
 import base64
 import hashlib
 import mimetypes
-import builtins
 import requests
 import importlib.util
+from functools import partial
 from secret_settings import ai_runtime_config, env, relocate_storage_path, sql_server_config
+from tools import ai_chat_complete, is_mobile_user_agent, safe_print as _safe_debug_print
 from html import escape as html_escape, unescape as html_unescape
 from html.parser import HTMLParser
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -147,9 +148,7 @@ def _get_cloud_documents_agent():
 
 
 def _is_mobile_request():
-    ua = (request.headers.get('User-Agent') or '').lower()
-    mobile_keywords = ['iphone', 'ipad', 'android', 'mobile', 'harmony', 'micromessenger']
-    return any(k in ua for k in mobile_keywords)
+    return is_mobile_user_agent(request.headers.get('User-Agent'))
 
 
 def _is_feishu_request():
@@ -167,13 +166,6 @@ def _is_feishu_request():
             'X-User-Plugin-Token',
         )
     )
-
-
-def _safe_debug_print(*args, **kwargs):
-    try:
-        builtins.print(*args, **kwargs)
-    except Exception:
-        pass
 
 
 def _debug_elapsed_ms(start_ts):
@@ -4294,24 +4286,7 @@ _OPENAI_VISION_MODEL_CANDIDATES = [
 ]
 
 
-def _ai_chat_complete(messages, max_tokens, temperature, model_candidates):
-    last_err = None
-    for model in (model_candidates or []):
-        try:
-            resp = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                stream=False
-            )
-            content = (resp.choices[0].message.content or "").strip()
-            if content:
-                return content
-        except Exception as e:
-            last_err = e
-            continue
-    raise last_err or RuntimeError("AI调用失败")
+_ai_chat_complete = partial(ai_chat_complete, client, stream=False)
 
 # 脚本缓存
 script_cache = {}
@@ -11574,69 +11549,246 @@ def _xiaotu_build_report_history_export_context(args, session_user_name):
     }
 
 
-def _xiaotu_excel_safe_text(value, plain_from_html=False, max_chars=32000):
-    text = str(value or "").replace("\x00", "").strip()
-    if plain_from_html:
-        text = _xiaotu_html_to_plain_text_preserve_blocks(text)
-    text = re.sub(r"\r\n?", "\n", text).strip()
-    if len(text) > max_chars:
-        text = text[:max_chars] + "\n[内容过长，已截断]"
-    if text and text[0] in ("=", "+", "-", "@"):
-        text = "'" + text
-    return text
+def _xiaotu_history_export_value(row, key, index):
+    if isinstance(row, dict):
+        if key in row:
+            return row.get(key)
+        return row.get(key.lower())
+    values = list(row) if isinstance(row, (list, tuple)) else []
+    return values[index] if index < len(values) else ""
 
 
-def _xiaotu_history_export_rows(rows, source_label):
-    out = []
-    if not isinstance(rows, list):
-        rows = [rows]
-    keys = [
-        "WenDangID",
-        "RiQi",
-        "XingMing",
-        "BiaoTi",
-        "ZhengWen",
-        "TuPianLujin",
-        "TuPianNeiRong",
-        "LeiXing",
-        "RenYuanLeiXing",
-        "JieShouRen",
-        "PingJia",
-        "DianZan",
-        "PingLun",
-        "HuiFu",
-        "YongHu",
+def _xiaotu_history_export_image_data_uri(source, image_cache=None):
+    raw = html_unescape(str(source or "").strip()).strip().strip('"').strip("'")
+    if not raw:
+        return ""
+    if re.match(r"^data:image/(?:png|jpe?g|gif|webp|bmp);base64,", raw, flags=re.IGNORECASE):
+        return raw
+
+    parsed = urlparse(raw)
+    if parsed.path == "/api/xiaotu/report_image":
+        nested_paths = parse_qs(parsed.query or "").get("path") or []
+        raw = str(nested_paths[0] if nested_paths else "").strip()
+    elif parsed.scheme in {"http", "https"}:
+        return ""
+    raw = unquote(raw).strip().strip('"').strip("'")
+    if not raw:
+        return ""
+
+    allowed_base_dirs = [
+        os.path.abspath(r"D:\tuchuangai\报告图片"),
+        os.path.abspath(r"D:\tuchuangai\报告缓存图片"),
     ]
+    normalized = str(relocate_storage_path(raw) or "").replace("/", os.sep)
+    if not normalized:
+        return ""
+    if not os.path.isabs(normalized):
+        normalized = os.path.join(allowed_base_dirs[0], normalized.lstrip("\\/"))
+    abs_path = os.path.abspath(normalized)
+    allowed = False
+    for base_dir in allowed_base_dirs:
+        try:
+            if os.path.commonpath([base_dir, abs_path]) == base_dir:
+                allowed = True
+                break
+        except Exception:
+            continue
+    if not allowed or not os.path.isfile(abs_path):
+        return ""
+    if os.path.splitext(abs_path)[1].lower() not in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}:
+        return ""
 
-    def get_value(row, key, index):
-        if isinstance(row, dict):
-            return row.get(key) if key in row else row.get(key.lower())
-        values = list(row) if isinstance(row, (list, tuple)) else []
-        return values[index] if index < len(values) else ""
+    cache = image_cache if isinstance(image_cache, dict) else {}
+    if abs_path in cache:
+        return cache[abs_path]
+    mime = mimetypes.guess_type(abs_path)[0] or ""
+    if not mime.startswith("image/"):
+        return ""
+    with open(abs_path, "rb") as image_file:
+        image_bytes = image_file.read()
+    if not image_bytes:
+        return ""
+    data_uri = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('ascii')}"
+    cache[abs_path] = data_uri
+    return data_uri
 
-    for row in rows:
-        wid = str(get_value(row, "WenDangID", 0) or "").strip()
-        zhengwen = get_value(row, "ZhengWen", 4)
-        out.append({
-            "记录类型": source_label,
-            "日报ID": _xiaotu_excel_safe_text(wid),
-            "日期": _xiaotu_excel_safe_text(get_value(row, "RiQi", 1)),
-            "提报人": _xiaotu_excel_safe_text(get_value(row, "XingMing", 2)),
-            "标题": _xiaotu_excel_safe_text(get_value(row, "BiaoTi", 3), plain_from_html=True, max_chars=2000),
-            "正文": _xiaotu_excel_safe_text(zhengwen, plain_from_html=True),
-            "图片路径": _xiaotu_excel_safe_text(get_value(row, "TuPianLujin", 5)),
-            "图片识别内容": _xiaotu_excel_safe_text(get_value(row, "TuPianNeiRong", 6), max_chars=12000),
-            "AI评价": _xiaotu_excel_safe_text(get_value(row, "PingJia", 10), plain_from_html=True, max_chars=12000),
-            "报告类型": _xiaotu_excel_safe_text(get_value(row, "LeiXing", 7)),
-            "人员类型": _xiaotu_excel_safe_text(get_value(row, "RenYuanLeiXing", 8)),
-            "接收人": _xiaotu_excel_safe_text(get_value(row, "JieShouRen", 9)),
-            "点赞状态": _xiaotu_excel_safe_text(get_value(row, "DianZan", 11)),
-            "评论": _xiaotu_excel_safe_text(get_value(row, "PingLun", 12), plain_from_html=True, max_chars=12000),
-            "回复": _xiaotu_excel_safe_text(get_value(row, "HuiFu", 13), plain_from_html=True, max_chars=12000),
-            "互动用户": _xiaotu_excel_safe_text(get_value(row, "YongHu", 14)),
-            "查看链接": _xiaotu_excel_safe_text(_xiaotu_build_report_history_url(wid) if wid else ""),
-        })
-    return out
+
+def _xiaotu_history_export_body_html(raw_body, image_paths_text, image_cache=None):
+    body_text = str(raw_body or "").strip()
+    if body_text and not re.search(r"<[A-Za-z][^>]*>", body_text):
+        body_text = "<p>" + html_escape(body_text).replace("\n", "<br>") + "</p>"
+    html = _xiaotu_normalize_report_html_body(body_text, image_paths_text)
+    html = re.sub(
+        r"<\s*(script|style|iframe|object|embed|form|meta|link|base)\b[^>]*>[\s\S]*?<\s*/\s*\1\s*>",
+        "",
+        html,
+        flags=re.IGNORECASE,
+    )
+    html = re.sub(r"<\s*(?:script|style|iframe|object|embed|form|meta|link|base)\b[^>]*?/?>", "", html, flags=re.IGNORECASE)
+    html = re.sub(r"\s+on[a-z]+\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", "", html, flags=re.IGNORECASE)
+    html = re.sub(r"\s+style\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", "", html, flags=re.IGNORECASE)
+    html = re.sub(r"\s+href\s*=\s*([\"'])\s*javascript:[^\"']*\1", "", html, flags=re.IGNORECASE)
+
+    embedded_count = 0
+    missing_count = 0
+
+    def replace_image_tag(match):
+        nonlocal embedded_count, missing_count
+        tag = str(match.group(0) or "")
+        src_match = re.search(r"\bsrc\s*=\s*([\"'])([^\"']+)\1", tag, flags=re.IGNORECASE)
+        src = html_unescape(str(src_match.group(2) if src_match else "").strip())
+        data_uri = _xiaotu_history_export_image_data_uri(src, image_cache=image_cache)
+        alt_match = re.search(r"\balt\s*=\s*([\"'])([^\"']*)\1", tag, flags=re.IGNORECASE)
+        alt_text = html_unescape(str(alt_match.group(2) if alt_match else "日报图片").strip()) or "日报图片"
+        if not data_uri:
+            missing_count += 1
+            return f'<span class="image-missing">[{html_escape(alt_text)}暂不可用]</span>'
+        embedded_count += 1
+        return f'<img src="{html_escape(data_uri, quote=True)}" alt="{html_escape(alt_text, quote=True)}">'
+
+    html = re.sub(r"<img\b[^>]*>", replace_image_tag, html, flags=re.IGNORECASE)
+    return html, embedded_count, missing_count
+
+
+def _xiaotu_history_export_optional_detail(label, value):
+    text = _xiaotu_html_to_plain_text_preserve_blocks(value)
+    if not text:
+        return ""
+    return (
+        '<details class="record-detail">'
+        f'<summary>{html_escape(label)}</summary>'
+        f'<pre>{html_escape(text)}</pre>'
+        '</details>'
+    )
+
+
+def _xiaotu_history_export_section_html(rows, source_label, image_cache=None):
+    normalized_rows = rows if isinstance(rows, list) else [rows]
+    cards = []
+    embedded_total = 0
+    missing_total = 0
+    for index, row in enumerate(normalized_rows, start=1):
+        value = lambda key, position: _xiaotu_history_export_value(row, key, position)
+        body_html, embedded_count, missing_count = _xiaotu_history_export_body_html(
+            value("ZhengWen", 4),
+            value("TuPianLujin", 5),
+            image_cache=image_cache,
+        )
+        embedded_total += embedded_count
+        missing_total += missing_count
+        title = _xiaotu_html_to_plain_text_preserve_blocks(value("BiaoTi", 3)) or "未命名日报"
+        wid = str(value("WenDangID", 0) or "").strip()
+        report_type = str(value("LeiXing", 7) or "-").strip() or "-"
+        person_type = str(value("RenYuanLeiXing", 8) or "-").strip() or "-"
+        cards.append(f"""
+        <article class="report-record">
+          <div class="record-topline">
+            <span class="record-index">#{index}</span>
+            <time>{html_escape(str(value("RiQi", 1) or "").strip())}</time>
+            <span class="tag">{html_escape(report_type)}</span>
+            <span class="tag">{html_escape(person_type)}</span>
+          </div>
+          <h2>{html_escape(title)}</h2>
+          <dl class="record-meta">
+            <div><dt>提报人</dt><dd>{html_escape(str(value("XingMing", 2) or "-").strip() or "-")}</dd></div>
+            <div><dt>接收人</dt><dd>{html_escape(str(value("JieShouRen", 9) or "-").strip() or "-")}</dd></div>
+            <div><dt>日报 ID</dt><dd>{html_escape(wid or "-")}</dd></div>
+            <div><dt>点赞状态</dt><dd>{html_escape(str(value("DianZan", 11) or "未点赞").strip() or "未点赞")}</dd></div>
+          </dl>
+          <div class="record-body">{body_html}</div>
+          <div class="record-details">
+            {_xiaotu_history_export_optional_detail("图片识别内容", value("TuPianNeiRong", 6))}
+            {_xiaotu_history_export_optional_detail("AI 评价", value("PingJia", 10))}
+            {_xiaotu_history_export_optional_detail("评论", value("PingLun", 12))}
+            {_xiaotu_history_export_optional_detail("回复", value("HuiFu", 13))}
+          </div>
+        </article>
+        """)
+    empty_html = '<div class="empty-state">暂无记录</div>'
+    section_html = f"""
+    <section class="report-section">
+      <div class="section-heading"><h1>{html_escape(source_label)}</h1><span>{len(normalized_rows)} 条</span></div>
+      {''.join(cards) if cards else empty_html}
+    </section>
+    """
+    return section_html, embedded_total, missing_total
+
+
+def _xiaotu_build_history_export_html(session_user_name, ctx, rows_uploaded, rows_received):
+    image_cache = {}
+    uploaded_html, uploaded_images, uploaded_missing = _xiaotu_history_export_section_html(
+        rows_uploaded, "提报记录", image_cache=image_cache
+    )
+    received_html, received_images, received_missing = _xiaotu_history_export_section_html(
+        rows_received, "收到记录", image_cache=image_cache
+    )
+    generated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    start_date = str(ctx.get("date_start") or "未限制")
+    end_date = str(ctx.get("date_end") or "未限制")
+    filter_name = str(ctx.get("name") or "未限制")
+    keyword = str(ctx.get("keyword") or "未限制")
+    embedded_total = uploaded_images + received_images
+    missing_total = uploaded_missing + received_missing
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+  <title>报告历史记录 {html_escape(start_date)} 至 {html_escape(end_date)}</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; background: #f4f6f8; color: #172033; font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; }}
+    .page {{ width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }}
+    .export-header {{ padding: 22px; border: 1px solid #dfe4ea; background: #fff; }}
+    .export-header h1 {{ margin: 0 0 14px; font-size: 24px; }}
+    .export-meta {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; color: #5e6878; font-size: 13px; line-height: 1.6; }}
+    .export-meta strong {{ color: #273244; }}
+    .report-section {{ margin-top: 22px; }}
+    .section-heading {{ display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }}
+    .section-heading h1 {{ margin: 0; font-size: 20px; }}
+    .section-heading span {{ color: #687386; font-size: 13px; }}
+    .report-record {{ margin-top: 10px; padding: 20px; border: 1px solid #dfe4ea; background: #fff; break-inside: avoid; }}
+    .record-topline {{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #687386; font-size: 12px; }}
+    .record-index {{ color: #2563eb; font-weight: 800; }}
+    .tag {{ padding: 3px 7px; border: 1px solid #d9e0e8; background: #f7f9fb; color: #465267; }}
+    .report-record h2 {{ margin: 12px 0; font-size: 19px; overflow-wrap: anywhere; }}
+    .record-meta {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 16px; padding: 12px; background: #f7f9fb; }}
+    .record-meta div {{ min-width: 0; }}
+    .record-meta dt {{ color: #758094; font-size: 11px; }}
+    .record-meta dd {{ margin: 4px 0 0; color: #303b4d; font-size: 12px; overflow-wrap: anywhere; }}
+    .record-body {{ font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }}
+    .record-body img {{ display: block; max-width: 100%; height: auto; margin: 14px 0; border: 1px solid #e1e6ec; }}
+    .record-body figure {{ margin: 14px 0; }}
+    .record-body figcaption {{ color: #758094; font-size: 12px; }}
+    .image-missing {{ display: inline-block; margin: 8px 0; color: #a13d45; font-size: 12px; }}
+    .record-details {{ display: grid; gap: 8px; margin-top: 14px; }}
+    .record-detail {{ border-top: 1px solid #e6eaf0; padding-top: 8px; }}
+    .record-detail summary {{ cursor: pointer; color: #465267; font-size: 13px; font-weight: 700; }}
+    .record-detail pre {{ margin: 8px 0 0; padding: 12px; background: #f7f9fb; color: #364154; font: inherit; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }}
+    .empty-state {{ padding: 32px; border: 1px solid #dfe4ea; background: #fff; color: #758094; text-align: center; }}
+    @media (max-width: 760px) {{ .export-meta, .record-meta {{ grid-template-columns: 1fr 1fr; }} }}
+    @media print {{ body {{ background: #fff; }} .page {{ width: 100%; padding: 0; }} .report-record, .export-header {{ border-color: #bbb; }} }}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="export-header">
+      <h1>报告历史记录</h1>
+      <div class="export-meta">
+        <span><strong>导出人：</strong>{html_escape(session_user_name or "-")}</span>
+        <span><strong>导出时间：</strong>{html_escape(generated_at)}</span>
+        <span><strong>日期范围：</strong>{html_escape(start_date)} 至 {html_escape(end_date)}</span>
+        <span><strong>姓名筛选：</strong>{html_escape(filter_name)}</span>
+        <span><strong>关键词：</strong>{html_escape(keyword)}</span>
+        <span><strong>内嵌图片：</strong>{embedded_total} 张{f'，{missing_total} 张不可用' if missing_total else ''}</span>
+      </div>
+    </header>
+    {uploaded_html}
+    {received_html}
+  </main>
+</body>
+</html>"""
 
 
 @app.route('/api/xiaotu/report_history_download', methods=['GET'])
@@ -11684,41 +11836,24 @@ def api_xiaotu_report_history_download():
         """
         rows_uploaded = sf_db(sql_uploaded) or []
         rows_received = sf_db(sql_received) or []
-        export_uploaded = _xiaotu_history_export_rows(rows_uploaded, "提报记录")
-        export_received = _xiaotu_history_export_rows(rows_received, "收到记录")
-
-        import pandas as pd
         from io import BytesIO
-        output = BytesIO()
-        columns = [
-            "记录类型", "日报ID", "日期", "提报人", "标题", "正文", "图片路径", "图片识别内容",
-            "AI评价", "报告类型", "人员类型", "接收人", "点赞状态", "评论", "回复", "互动用户", "查看链接"
-        ]
-        info_rows = [{
-            "导出人": session_user_name,
-            "导出时间": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "开始日期": ctx.get("date_start") or "未限制",
-            "结束日期": ctx.get("date_end") or "未限制",
-            "姓名筛选": ctx.get("name") or "未限制",
-            "关键词": ctx.get("keyword") or "未限制",
-            "单表最多导出": export_limit,
-            "提报记录数": len(export_uploaded),
-            "收到记录数": len(export_received),
-        }]
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            pd.DataFrame(export_uploaded, columns=columns).to_excel(writer, index=False, sheet_name='提报记录')
-            pd.DataFrame(export_received, columns=columns).to_excel(writer, index=False, sheet_name='收到记录')
-            pd.DataFrame(info_rows).to_excel(writer, index=False, sheet_name='导出说明')
+        html_text = _xiaotu_build_history_export_html(
+            session_user_name,
+            ctx,
+            rows_uploaded,
+            rows_received,
+        )
+        output = BytesIO(html_text.encode("utf-8"))
         output.seek(0)
         start_label = re.sub(r"[^0-9]", "", str(ctx.get("date_start") or "")) or "全部"
         end_label = re.sub(r"[^0-9]", "", str(ctx.get("date_end") or "")) or "全部"
         now_label = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"报告历史记录_{start_label}_to_{end_label}_{now_label}.xlsx"
+        filename = f"报告历史记录_{start_label}_to_{end_label}_{now_label}.html"
         return send_file(
             output,
             as_attachment=True,
             download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            mimetype='text/html; charset=utf-8'
         )
     except ValueError as e:
         return jsonify({'success': False, 'message': str(e)}), 400
