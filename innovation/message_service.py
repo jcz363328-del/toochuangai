@@ -218,8 +218,13 @@ class MessageService:
             f"{msg_url}?receive_id_type={rid_type}",
             headers=headers, json=payload
         ).json()
-        print("➡️ 文本/AT 发送结果:", r)
         success = r.get("code") == 0
+        # Windows 服务控制台可能使用 GBK，无法输出 emoji。
+        # 日志编码问题不应改变飞书 API 的真实发送结果。
+        try:
+            print("➡️ 文本/AT 发送结果:", r)
+        except UnicodeEncodeError:
+            pass
 
         # 发送图片（多张）
         if image_paths:
@@ -241,8 +246,12 @@ class MessageService:
                             f"{msg_url}?receive_id_type={rid_type}",
                             headers=headers, json=img_payload
                         ).json()
-                        print(f"➡️ 图片 {img} 发送结果:", r2)
-                        success = success and (r2.get("code") == 0)
+                        image_success = r2.get("code") == 0
+                        success = success and image_success
+                        try:
+                            print(f"➡️ 图片 {img} 发送结果:", r2)
+                        except UnicodeEncodeError:
+                            pass
 
         # 记录日志
         if success:

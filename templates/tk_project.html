@@ -105,6 +105,7 @@
             {% if has_total %}{{ quick_card('OKAYLOVE数据看板', '核心数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-column', 'g2') }}{% endif %}
             {% if has_influencer %}{{ quick_card('TK达人管理', '达人管理与数据分析', url_for('influencer_management.influencer_management'), 'fas fa-users', 'g3') }}{% endif %}
             {% if has_total %}{{ quick_card('数据看板汇总', '多维度数据汇总', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie', 'g4') }}{% endif %}
+            {{ quick_card('GMV未授权提醒', '多Excel批量通知负责人', url_for('tk_gmv_authorization.page'), 'fas fa-bell', 'g4') }}
         </div>
     </div>
 

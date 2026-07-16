@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMV未授权视频提醒 - TK项目组</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f7fb; color: #172033; }
+        .page { width: min(1240px, calc(100% - 28px)); margin: 0 auto; padding: 22px 0 40px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .title { margin: 0; font-size: 22px; display: flex; align-items: center; gap: 10px; }
+        .title i { color: #f59e0b; }
+        .back { color: #475569; background: #fff; border: 1px solid #e2e8f0; border-radius: 9px; padding: 8px 12px; text-decoration: none; font-size: 13px; }
+        .card { background: #fff; border: 1px solid #e8edf5; border-radius: 14px; padding: 18px; box-shadow: 0 8px 24px rgba(15, 23, 42, .04); margin-bottom: 16px; }
+        .intro { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; }
+        .intro h2 { margin: 0 0 8px; font-size: 18px; }
+        .intro p { margin: 0; color: #64748b; line-height: 1.7; font-size: 14px; }
+        .flow { display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 12px; white-space: nowrap; }
+        .flow span { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 999px; padding: 6px 9px; }
+        .upload-box { border: 2px dashed #cbd5e1; border-radius: 14px; min-height: 190px; display: grid; place-items: center; text-align: center; padding: 24px; transition: .2s ease; cursor: pointer; }
+        .upload-box.dragging { border-color: #6366f1; background: #f5f3ff; }
+        .upload-box i { font-size: 34px; color: #6366f1; margin-bottom: 10px; }
+        .upload-box h3 { margin: 0 0 7px; font-size: 16px; }
+        .upload-box p { margin: 0; color: #94a3b8; font-size: 13px; }
+        input[type="file"] { display: none; }
+        .file-list { display: grid; gap: 7px; margin-top: 12px; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: #f8fafc; border-radius: 9px; padding: 9px 11px; font-size: 13px; }
+        .file-item .size { color: #94a3b8; white-space: nowrap; }
+        .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+        .notice { color: #b45309; font-size: 13px; line-height: 1.5; }
+        .btn { border: 0; border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; background: #4f46e5; color: #fff; min-width: 150px; }
+        .btn:disabled { background: #a5b4fc; cursor: not-allowed; }
+        .status { display: none; margin-top: 14px; padding: 11px 13px; border-radius: 10px; font-size: 13px; line-height: 1.6; }
+        .status.show { display: block; }
+        .status.info { background: #eff6ff; color: #1d4ed8; }
+        .status.success { background: #ecfdf5; color: #047857; }
+        .status.error { background: #fef2f2; color: #b91c1c; }
+        .results { display: none; }
+        .results.show { display: block; }
+        .metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+        .metric { background: #f8fafc; border-radius: 10px; padding: 12px; }
+        .metric strong { display: block; font-size: 22px; margin-bottom: 3px; }
+        .metric span { color: #64748b; font-size: 12px; }
+        .metric.good strong { color: #059669; }
+        .metric.warn strong { color: #d97706; }
+        .section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 16px; }
+        .message-details { margin: 4px 0 18px; }
+        .message-details h3 { margin: 0 0 10px; font-size: 15px; }
+        .message-list { display: grid; gap: 9px; }
+        .message-card { border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #fff; }
+        .message-card summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; background: #f8fafc; }
+        .message-card summary::-webkit-details-marker { display: none; }
+        .message-summary { display: flex; align-items: center; gap: 9px; min-width: 0; }
+        .message-summary strong { white-space: nowrap; }
+        .message-summary span { color: #64748b; font-size: 12px; }
+        .message-content { margin: 0; padding: 13px; background: #fff; color: #334155; font: 12px/1.7 Consolas, "Microsoft YaHei", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .batch-button { border: 0; background: #eef2ff; color: #4338ca; border-radius: 7px; padding: 5px 8px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+        .table-wrap { overflow: auto; border: 1px solid #e2e8f0; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; min-width: 940px; font-size: 12px; }
+        th { position: sticky; top: 0; background: #f8fafc; color: #475569; text-align: left; padding: 10px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+        td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        tr:last-child td { border-bottom: 0; }
+        .mono { font-family: Consolas, monospace; white-space: nowrap; }
+        .tag { display: inline-flex; border-radius: 999px; padding: 4px 7px; font-size: 11px; white-space: nowrap; }
+        .tag.sent { background: #dcfce7; color: #15803d; }
+        .tag.duplicate { background: #e0e7ff; color: #4338ca; }
+        .tag.pending { background: #eff6ff; color: #1d4ed8; }
+        .tag.not_found, .tag.no_feishu, .tag.skipped, .tag.send_failed { background: #fee2e2; color: #b91c1c; }
+        .warnings { margin-top: 14px; padding: 12px 14px; background: #fffbeb; color: #92400e; border-radius: 10px; font-size: 12px; line-height: 1.7; }
+        .warnings ul { margin: 6px 0 0; padding-left: 20px; max-height: 180px; overflow: auto; }
+        @media (max-width: 900px) {
+            .intro { grid-template-columns: 1fr; }
+            .flow { white-space: normal; flex-wrap: wrap; }
+            .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .actions { align-items: stretch; flex-direction: column; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<main class="page">
+    <div class="topbar">
+        <h1 class="title"><i class="fas fa-bell"></i>GMV未授权视频提醒</h1>
+        <a class="back" href="{{ url_for('tk_project') }}"><i class="fas fa-arrow-left"></i> 返回TK项目组</a>
+    </div>
+
+    <section class="card intro">
+        <div>
+            <h2>上传广告平台导出的 Creatives video data</h2>
+            <p>系统会筛选 Gross revenue 不为 0 的行，按 Video ID 查询店铺和负责人，再通过负责人在 feishu_id 中的个人飞书 ID 发送授权提醒。</p>
+        </div>
+        <div class="flow" aria-label="处理流程">
+            <span>1. 筛选非零GMV</span><i class="fas fa-angle-right"></i>
+            <span>2. 匹配视频负责人</span><i class="fas fa-angle-right"></i>
+            <span>3. 飞书推送</span>
+        </div>
+    </section>
+
+    <section class="card">
+        <label class="upload-box" id="uploadBox" for="fileInput">
+            <div>
+                <i class="fas fa-file-excel"></i>
+                <h3>点击选择或拖入多个 xlsx 文件</h3>
+                <p>一次最多 {{ max_files }} 个文件；每个文件需包含 Video ID 和 Gross revenue 字段</p>
+            </div>
+        </label>
+        <input id="fileInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
+        <div class="file-list" id="fileList"></div>
+        <div class="actions">
+            <div class="notice"><i class="fas fa-circle-info"></i> 点击后会立即向匹配成功的负责人发送飞书消息；同批重复视频只推送一次。</div>
+            <button class="btn" id="submitBtn" type="button" disabled><i class="fas fa-paper-plane"></i> 上传并推送</button>
+        </div>
+        <div class="status" id="statusBox"></div>
+    </section>
+
+    <section class="card results" id="resultsCard">
+        <h2 class="section-title"><span>处理结果</span><small id="resultMessage"></small></h2>
+        <div class="metrics" id="metrics"></div>
+        <div class="message-details" id="messageDetails" hidden>
+            <h3><i class="fas fa-message"></i> 飞书推送内容</h3>
+            <div class="message-list" id="messageList"></div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>来源文件</th><th>工作表 / 行</th><th>Video ID</th><th>Gross revenue</th>
+                    <th>店铺</th><th>负责人</th><th>推送批次</th><th>结果</th>
+                </tr>
+                </thead>
+                <tbody id="resultRows"></tbody>
+            </table>
+        </div>
+        <div class="warnings" id="warningsBox" hidden></div>
+    </section>
+</main>
+
+<script>
+    const input = document.getElementById('fileInput');
+    const uploadBox = document.getElementById('uploadBox');
+    const fileList = document.getElementById('fileList');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBox = document.getElementById('statusBox');
+    const resultsCard = document.getElementById('resultsCard');
+    let selectedFiles = [];
+
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[ch]));
+
+    const formatSize = (bytes) => bytes >= 1048576
+        ? `${(bytes / 1048576).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+    function setFiles(files) {
+        selectedFiles = Array.from(files || []).filter(file => file.name.toLowerCase().endsWith('.xlsx'));
+        fileList.innerHTML = selectedFiles.map(file => `
+            <div class="file-item"><span><i class="fas fa-file-excel"></i> ${escapeHtml(file.name)}</span><span class="size">${formatSize(file.size)}</span></div>
+        `).join('');
+        submitBtn.disabled = selectedFiles.length === 0;
+        if (Array.from(files || []).length !== selectedFiles.length) {
+            showStatus('仅保留了 xlsx 文件，其他格式已忽略。', 'error');
+        } else {
+            statusBox.className = 'status';
+        }
+    }
+
+    function showStatus(message, type) {
+        statusBox.textContent = message;
+        statusBox.className = `status show ${type}`;
+    }
+
+    input.addEventListener('change', () => setFiles(input.files));
+    ['dragenter', 'dragover'].forEach(name => uploadBox.addEventListener(name, event => {
+        event.preventDefault();
+        uploadBox.classList.add('dragging');
+    }));
+    ['dragleave', 'drop'].forEach(name => uploadBox.addEventListener(name, event => {
+        event.preventDefault();
+        uploadBox.classList.remove('dragging');
+    }));
+    uploadBox.addEventListener('drop', event => setFiles(event.dataTransfer.files));
+
+    function renderResult(data) {
+        const summary = data.summary || {};
+        const metrics = [
+            ['读取文件', summary.files_processed || 0, ''],
+            ['数据总行数', summary.total_rows || 0, ''],
+            ['非零GMV行', summary.revenue_rows || 0, 'warn'],
+            ['唯一视频', summary.unique_videos || 0, ''],
+            ['匹配数据库', summary.database_matched_videos || 0, ''],
+            ['推送成功', summary.notifications_sent || 0, 'good']
+        ];
+        document.getElementById('metrics').innerHTML = metrics.map(([label, value, cls]) => `
+            <div class="metric ${cls}"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>
+        `).join('');
+        document.getElementById('resultMessage').textContent = data.message || '';
+        const messages = data.messages || [];
+        const messageDetails = document.getElementById('messageDetails');
+        const messageList = document.getElementById('messageList');
+        if (messages.length) {
+            messageDetails.hidden = false;
+            messageList.innerHTML = messages.map((message, index) => `
+                <details class="message-card" id="message-batch-${escapeHtml(message.batch_number)}" ${index === 0 ? 'open' : ''}>
+                    <summary>
+                        <span class="message-summary">
+                            <strong>第 ${escapeHtml(message.batch_number)} 批 · ${escapeHtml(message.fuzeren || '未知负责人')}</strong>
+                            <span>${escapeHtml(message.video_count || 0)} 个视频</span>
+                        </span>
+                        <span class="tag ${escapeHtml(message.status)}">${escapeHtml(message.status_text)}</span>
+                    </summary>
+                    <pre class="message-content">${escapeHtml(message.content || '')}</pre>
+                </details>
+            `).join('');
+        } else {
+            messageDetails.hidden = true;
+            messageList.innerHTML = '';
+        }
+        document.getElementById('resultRows').innerHTML = (data.items || []).map(item => `
+            <tr>
+                <td>${escapeHtml(item.filename)}${Number(item.source_count || 1) > 1 ? ` <small>（共${escapeHtml(item.source_count)}条）</small>` : ''}</td>
+                <td>${escapeHtml(item.sheet)} / ${escapeHtml(item.row_number)}</td>
+                <td class="mono">${escapeHtml(item.video_id || '-')}</td>
+                <td class="mono">${escapeHtml(item.gross_revenue)}</td>
+                <td>${escapeHtml(item.dian || '-')}</td>
+                <td>${escapeHtml(item.fuzeren || '-')}</td>
+                <td>${item.message_batch ? `<button class="batch-button" type="button" data-message-batch="${escapeHtml(item.message_batch)}">查看第 ${escapeHtml(item.message_batch)} 批</button>` : '-'}</td>
+                <td><span class="tag ${escapeHtml(item.status)}">${escapeHtml(item.status_text)}</span></td>
+            </tr>
+        `).join('') || '<tr><td colspan="8">没有需要处理的视频</td></tr>';
+        const warnings = data.warnings || [];
+        const warningsBox = document.getElementById('warningsBox');
+        if (warnings.length) {
+            warningsBox.hidden = false;
+            warningsBox.innerHTML = `<strong>处理提示</strong><ul>${warnings.map(one => `<li>${escapeHtml(one)}</li>`).join('')}</ul>`;
+        } else {
+            warningsBox.hidden = true;
+            warningsBox.innerHTML = '';
+        }
+        resultsCard.classList.add('show');
+        resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.getElementById('resultRows').addEventListener('click', event => {
+        const button = event.target.closest('[data-message-batch]');
+        if (!button) return;
+        const target = document.getElementById(`message-batch-${button.dataset.messageBatch}`);
+        if (!target) return;
+        target.open = true;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    submitBtn.addEventListener('click', async () => {
+        if (!selectedFiles.length) return;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在处理并推送';
+        showStatus(`正在读取 ${selectedFiles.length} 个文件，请勿重复提交…`, 'info');
+        resultsCard.classList.remove('show');
+        const body = new FormData();
+        selectedFiles.forEach(file => body.append('files', file, file.name));
+        try {
+            const response = await fetch('{{ url_for("tk_gmv_authorization.process_files") }}', { method: 'POST', body });
+            const data = await response.json().catch(() => ({ success: false, message: '服务器返回了无法识别的内容' }));
+            if (!response.ok || !data.success) throw new Error(data.message || '处理失败');
+            showStatus(data.message || '处理完成', 'success');
+            renderResult(data);
+        } catch (error) {
+            showStatus(error.message || '处理失败，请稍后重试', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 上传并推送';
+        }
+    });
+</script>
+</body>
+</html>

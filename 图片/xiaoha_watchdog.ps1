@@ -9,12 +9,19 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appScript = Join-Path $scriptDir "openrouter_image_site.py"
 $healthUrl = "http://127.0.0.1:8501/lashforge/"
 $publicUrl = "http://www.toochuangai.com:8501/lashforge/"
-$logDir = Join-Path $scriptDir ".watchdog"
+$dataRoot = if ($env:XIAOHA_DATA_ROOT) { $env:XIAOHA_DATA_ROOT } else { "D:\toochuangai\_non_code_files\xiaoha" }
+$canvasBuildDir = if ($env:INFINITE_CANVAS_BUILD_DIR) { $env:INFINITE_CANVAS_BUILD_DIR } else { "D:\toochuangai\_non_code_files\infinite-canvas\build" }
+$logDir = Join-Path $dataRoot "logs"
 $logFile = Join-Path $logDir "xiaoha-watchdog.log"
+$serviceOutLog = Join-Path $logDir "xiaoha.out.log"
+$serviceErrLog = Join-Path $logDir "xiaoha.err.log"
+$pidFile = Join-Path $dataRoot "xiaoha.pid"
 $mutexName = "Global\XiaoHaWatchdog8501"
 
-if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir | Out-Null
+foreach ($directory in @($dataRoot, $logDir, $canvasBuildDir)) {
+    if (-not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
 }
 
 function Write-Log {
@@ -35,28 +42,31 @@ function Test-XiaoHaHealth {
     }
 }
 
-function Get-XiaoHaProcesses {
-    Get-CimInstance Win32_Process |
-        Where-Object {
-            $_.Name -match "^python(w)?(\.exe)?$" -and
-            $_.CommandLine -and
-            $_.CommandLine -match [regex]::Escape("openrouter_image_site.py")
-        }
-}
-
-function Stop-XiaoHaProcesses {
-    $processes = @(Get-XiaoHaProcesses)
-    foreach ($process in $processes) {
+function Stop-XiaoHaProcess {
+    if (-not (Test-Path -LiteralPath $pidFile)) {
+        return
+    }
+    $managedPid = [int](Get-Content -LiteralPath $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($managedPid -gt 0) {
         try {
-            Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
-            Write-Log ("Stopped stale process PID={0}" -f $process.ProcessId)
+            Stop-Process -Id $managedPid -Force -ErrorAction Stop
+            Write-Log ("Stopped stale XiaoHa process PID={0}" -f $managedPid)
         } catch {
-            Write-Log ("Failed to stop PID={0}: {1}" -f $process.ProcessId, $_.Exception.Message)
+            Write-Log ("Managed XiaoHa process PID={0} was already stopped" -f $managedPid)
         }
     }
+    Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
 }
 
 function Start-XiaoHaProcess {
+    if (-not (Test-Path -LiteralPath $appScript)) {
+        throw "XiaoHa application was not found: $appScript"
+    }
+    if (-not (Get-Command "python" -ErrorAction SilentlyContinue)) {
+        throw "Python is not available in PATH"
+    }
+
+    $env:INFINITE_CANVAS_BUILD_DIR = $canvasBuildDir
     $arguments = @(
         "-m",
         "streamlit",
@@ -76,9 +86,12 @@ function Start-XiaoHaProcess {
         -FilePath "python" `
         -ArgumentList $arguments `
         -WorkingDirectory $scriptDir `
-        -WindowStyle Minimized `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $serviceOutLog `
+        -RedirectStandardError $serviceErrLog `
         -PassThru
 
+    Set-Content -LiteralPath $pidFile -Value $process.Id -Encoding ASCII
     Write-Log ("Started XiaoHa process PID={0}" -f $process.Id)
 }
 
@@ -97,14 +110,13 @@ try {
         exit 0
     }
 
-    Write-Log "XiaoHa watchdog started"
-
+    Write-Log ("XiaoHa watchdog started; data root: {0}" -f $dataRoot)
     $browserOpened = $false
 
     while ($true) {
         if (-not (Test-XiaoHaHealth)) {
             Write-Log "Health check failed, restarting service"
-            Stop-XiaoHaProcesses
+            Stop-XiaoHaProcess
             Start-XiaoHaProcess
             Start-Sleep -Seconds 8
             if (Test-XiaoHaHealth) {

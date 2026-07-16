@@ -116,6 +116,13 @@ DEFAULT_SERVER_ADDRESS = "0.0.0.0"
 DEFAULT_SERVER_PORT = 8501
 DEFAULT_JIMENG_STATIC_PORT = 8502
 DEFAULT_PUBLIC_APP_URL = "http://www.toochuangai.com:8501/lashforge"
+INFINITE_CANVAS_STATIC_ROUTE_PREFIX = "/infinite-canvas"
+INFINITE_CANVAS_BUILD_DIR = Path(
+    os.getenv(
+        "INFINITE_CANVAS_BUILD_DIR",
+        r"D:\toochuangai\_non_code_files\infinite-canvas\build",
+    )
+)
 DEFAULT_LOGIN_ACCOUNTS = {}
 MODEL_OPTIONS = [
     JIMENG_MODEL_NAME,
@@ -129,6 +136,10 @@ MODEL_OPTIONS = [
     "x-ai/grok-imagine-image-quality",
     "recraft/recraft-v4.1-utility-pro",
 ]
+INFINITE_CANVAS_IMAGE_MODELS = tuple(
+    model for model in MODEL_OPTIONS if model != JIMENG_MODEL_NAME
+)
+INFINITE_CANVAS_TEXT_MODELS = ("google/gemini-2.5-flash",)
 IMAGE_ONLY_OUTPUT_MODEL_PREFIXES = (
     "bytedance-seed/",
     "x-ai/grok-imagine-image",
@@ -190,11 +201,71 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         directory: str | None = None,
         upload_directory: str | None = None,
         history_directory: str | None = None,
+        canvas_directory: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.upload_directory = str(upload_directory or directory or ".")
         self.history_directory = str(history_directory or DB_IMAGE_DIR)
+        self.canvas_directory = str(canvas_directory or INFINITE_CANVAS_BUILD_DIR)
         super().__init__(*args, directory=self.upload_directory, **kwargs)
+
+    def do_GET(self) -> None:
+        request_url = urllib.parse.urlsplit(self.path)
+        request_path = urllib.parse.unquote(request_url.path or "/").rstrip("/")
+        bootstrap_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/bootstrap-config"
+        if request_path == bootstrap_path:
+            self.serve_infinite_canvas_bootstrap(request_url.query)
+            return
+        super().do_GET()
+
+    def serve_infinite_canvas_bootstrap(self, query_text: str) -> None:
+        query = urllib.parse.parse_qs(query_text)
+        username = str((query.get(AUTH_QUERY_USER_KEY) or [""])[0]).strip()
+        auth_token = str((query.get(AUTH_QUERY_TOKEN_KEY) or [""])[0]).strip()
+        expected_token = build_auth_token(username) if username else ""
+        if not username or not auth_token or not hmac.compare_digest(auth_token, expected_token):
+            self.send_json({"success": False, "message": "无效的画布访问凭证"}, status=403)
+            return
+
+        api_key = load_api_key()
+        if not api_key:
+            self.send_json({"success": False, "message": "OPENROUTER_API_KEY 未配置"}, status=503)
+            return
+
+        image_models = list(INFINITE_CANVAS_IMAGE_MODELS)
+        text_models = list(INFINITE_CANVAS_TEXT_MODELS)
+        self.send_json(
+            {
+                "success": True,
+                "config": {
+                    "channel": {
+                        "id": "xiaoha-openrouter",
+                        "name": "小哈 OpenRouter",
+                        "baseUrl": "https://openrouter.ai/api/v1",
+                        "apiKey": api_key,
+                        "apiFormat": "openai",
+                        "models": image_models + text_models,
+                    },
+                    "imageModel": "google/gemini-3.1-flash-image",
+                    "textModel": text_models[0],
+                    "videoModel": "",
+                    "audioModel": "",
+                    "imageModels": image_models,
+                    "textModels": text_models,
+                    "videoModels": [],
+                    "audioModels": [],
+                },
+            }
+        )
+
+    def send_json(self, payload: dict[str, Any], status: int = 200) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def translate_path(self, path: str) -> str:
         request_path = urllib.parse.unquote(urllib.parse.urlsplit(path).path or "/")
@@ -202,21 +273,30 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         relative_path_text = ""
         upload_prefix = JIMENG_UPLOAD_ROUTE_PREFIX.rstrip("/")
         history_prefix = HISTORY_STATIC_ROUTE_PREFIX.rstrip("/")
+        canvas_prefix = INFINITE_CANVAS_STATIC_ROUTE_PREFIX.rstrip("/")
         if request_path == upload_prefix:
             request_path = f"{upload_prefix}/"
         if request_path == history_prefix:
             request_path = f"{history_prefix}/"
+        if request_path == canvas_prefix:
+            request_path = f"{canvas_prefix}/"
         if request_path.startswith(f"{upload_prefix}/"):
             target_directory = self.upload_directory
             relative_path_text = request_path[len(f"{upload_prefix}/") :]
         elif request_path.startswith(f"{history_prefix}/"):
             target_directory = self.history_directory
             relative_path_text = request_path[len(f"{history_prefix}/") :]
+        elif request_path.startswith(f"{canvas_prefix}/"):
+            target_directory = self.canvas_directory
+            relative_path_text = request_path[len(f"{canvas_prefix}/") :]
         else:
             return str(Path(self.directory or ".") / "__not_found__")
         relative_path = Path(relative_path_text)
         safe_parts = [part for part in relative_path.parts if part not in ("", ".", "..")]
-        return str(Path(target_directory).joinpath(*safe_parts))
+        target_path = Path(target_directory).joinpath(*safe_parts)
+        if target_directory == self.canvas_directory and not target_path.exists():
+            return str(Path(self.canvas_directory) / "index.html")
+        return str(target_path)
 
     def log_message(self, format: str, *args: Any) -> None:
         return
@@ -246,6 +326,28 @@ def build_history_static_base_url(public_app_url: str, static_port: int) -> str:
     return urllib.parse.urlunsplit((scheme, netloc, HISTORY_STATIC_ROUTE_PREFIX, "", ""))
 
 
+def build_infinite_canvas_url(public_app_url: str, static_port: int, username: str) -> str:
+    raw_url = str(public_app_url or "").strip() or DEFAULT_PUBLIC_APP_URL
+    parsed = urllib.parse.urlsplit(raw_url)
+    scheme = parsed.scheme or "http"
+    hostname = parsed.hostname or "www.toochuangai.com"
+    netloc = hostname
+    default_port = 443 if scheme == "https" else 80
+    if static_port and static_port != default_port:
+        netloc = f"{hostname}:{static_port}"
+    normalized_username = str(username or "访客").strip() or "访客"
+    query = urllib.parse.urlencode(
+        {
+            AUTH_QUERY_USER_KEY: normalized_username,
+            AUTH_QUERY_TOKEN_KEY: build_auth_token(normalized_username),
+            "embed": "true",
+        }
+    )
+    return urllib.parse.urlunsplit(
+        (scheme, netloc, f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/canvas", query, "")
+    )
+
+
 @st.cache_resource
 def ensure_jimeng_static_server() -> dict[str, Any]:
     runtime_settings = load_runtime_settings()
@@ -262,6 +364,7 @@ def ensure_jimeng_static_server() -> dict[str, Any]:
             directory=str(upload_dir),
             upload_directory=str(upload_dir),
             history_directory=str(history_dir),
+            canvas_directory=str(INFINITE_CANVAS_BUILD_DIR),
         )
         server = ThreadingHTTPServer((bind_address, static_port), handler)
         server.daemon_threads = True
@@ -272,6 +375,7 @@ def ensure_jimeng_static_server() -> dict[str, Any]:
             "bind_address": bind_address,
             "port": static_port,
             "base_url": str(runtime_settings.get("jimeng_public_upload_base_url") or "").strip(),
+            "canvas_ready": (INFINITE_CANVAS_BUILD_DIR / "index.html").exists(),
         }
     except OSError as exc:
         return {
@@ -279,6 +383,7 @@ def ensure_jimeng_static_server() -> dict[str, Any]:
             "bind_address": bind_address,
             "port": static_port,
             "base_url": str(runtime_settings.get("jimeng_public_upload_base_url") or "").strip(),
+            "canvas_ready": False,
             "error": f"端口 {static_port} 启动失败：{exc}",
         }
 
@@ -7895,6 +8000,31 @@ def render_background_cutout_feature(feature: dict[str, Any]) -> None:
     render_history_records(feature)
 
 
+def render_replacement_infinite_canvas_feature(feature: dict[str, Any]) -> None:
+    runtime_settings = load_runtime_settings()
+    try:
+        static_port = int(runtime_settings.get("jimeng_static_port") or DEFAULT_JIMENG_STATIC_PORT)
+    except Exception:
+        static_port = DEFAULT_JIMENG_STATIC_PORT
+    canvas_url = build_infinite_canvas_url(
+        str(runtime_settings.get("public_app_url") or DEFAULT_PUBLIC_APP_URL),
+        static_port,
+        str(st.session_state.get("auth_username") or "访客"),
+    )
+
+    st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="feature-title">{html.escape(str(feature.get("name") or "无限画布"))}'
+        '<span class="feature-badge">新版</span></div>',
+        unsafe_allow_html=True,
+    )
+    if not (INFINITE_CANVAS_BUILD_DIR / "index.html").exists():
+        st.error("新版无限画布尚未构建，请先运行小哈启动脚本完成初始化。")
+    else:
+        st.iframe(canvas_url, width="stretch", height=920)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
     result = st.session_state.feature_results.get(feature["key"]) or {}
     job_info = st.session_state.background_jobs.get(feature["key"]) or {}
@@ -8283,7 +8413,7 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
 
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
     if feature.get("key") == "infinite_canvas":
-        render_infinite_canvas_feature(feature, model, aspect_ratio)
+        render_replacement_infinite_canvas_feature(feature)
         return
     if feature.get("key") == "background_cutout":
         render_background_cutout_feature(feature)

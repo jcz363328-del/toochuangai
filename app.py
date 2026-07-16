@@ -41,6 +41,7 @@ from knowledge_base_service import knowledge_base_bp, kb_service
 from feishu_skill_bridge import bootstrap_lark_cli_skills_env, get_skill_root_candidates
 from seedance_web import seedance_web_bp
 from yangban_inventory import yangban_inventory_bp
+from tk_gmv_authorization import tk_gmv_authorization_bp
 
 app = Flask(__name__)
 app.secret_key = env("FLASK_SECRET_KEY", "change-this-secret-key")  # 用于session加密
@@ -121,6 +122,20 @@ _LASHFORGE_HEALTH_URL = (os.environ.get("LASHFORGE_HEALTH_URL") or "http://127.0
 _LASHFORGE_AUTH_TOKEN_SALT = "lashforge-auth-v1"
 _lashforge_watchdog_lock = Lock()
 _lashforge_watchdog_last_attempt = 0.0
+_INFINITE_CANVAS_OPENROUTER_IMAGE_MODELS = (
+    "google/gemini-2.5-flash-image",
+    "google/gemini-3.1-flash-image",
+    "google/gemini-3-pro-image-preview",
+    "openai/gpt-5.4-image-2",
+    "openai/gpt-5-image-mini",
+    "openai/gpt-5-image",
+    "bytedance-seed/seedream-4.5",
+    "x-ai/grok-imagine-image-quality",
+    "recraft/recraft-v4.1-utility-pro",
+)
+_INFINITE_CANVAS_OPENROUTER_TEXT_MODELS = (
+    "google/gemini-2.5-flash",
+)
 
 
 def _get_cloud_documents_agent():
@@ -3862,6 +3877,7 @@ app.register_blueprint(bd_metrics_bp)
 app.register_blueprint(knowledge_base_bp)
 app.register_blueprint(seedance_web_bp, url_prefix="/seedance-web")
 app.register_blueprint(yangban_inventory_bp)
+app.register_blueprint(tk_gmv_authorization_bp)
 
 
 def get_message_service():
@@ -16427,6 +16443,41 @@ def visual_design_image_tool_status():
     if not ready:
         _ensure_lashforge_watchdog_started()
     return jsonify({'ready': ready})
+
+
+@app.route('/api/infinite-canvas/bootstrap-config')
+@require_permission('visual_design_dept')
+def api_infinite_canvas_bootstrap_config():
+    api_key = str(env('OPENROUTER_API_KEY') or '').strip()
+    if not api_key:
+        return jsonify({
+            'success': False,
+            'message': 'OPENROUTER_API_KEY 未配置',
+        }), 503
+
+    image_models = list(_INFINITE_CANVAS_OPENROUTER_IMAGE_MODELS)
+    text_models = list(_INFINITE_CANVAS_OPENROUTER_TEXT_MODELS)
+    return jsonify({
+        'success': True,
+        'config': {
+            'channel': {
+                'id': 'xiaoha-openrouter',
+                'name': '小哈 OpenRouter',
+                'baseUrl': 'https://openrouter.ai/api/v1',
+                'apiKey': api_key,
+                'apiFormat': 'openai',
+                'models': image_models + text_models,
+            },
+            'imageModel': 'google/gemini-3.1-flash-image',
+            'textModel': text_models[0],
+            'videoModel': '',
+            'audioModel': '',
+            'imageModels': image_models,
+            'textModels': text_models,
+            'videoModels': [],
+            'audioModels': [],
+        },
+    })
 
 @app.route('/shenzhen_dept')
 @require_permission('shenzhen_dept')
