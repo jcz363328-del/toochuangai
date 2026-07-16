@@ -768,6 +768,18 @@ def manage():
                            is_committee_member=is_committee_member)  # 渲染创新管理页面，传递用户信息和权限
 
 
+@app.route('/manage/demo', endpoint='innovation.innovation_manage_demo')
+def manage_demo():
+    """创新管理新版界面预览，不承载写入操作。"""
+    raw_name = session.get('feishu_user_name', '')
+    name_parts = str(raw_name).split('（', 1) if raw_name else []
+    feishu_user_name = name_parts[0].strip() if name_parts else str(raw_name).strip()
+    return render_template(
+        'manage_demo.html',
+        feishu_user_name=feishu_user_name or '当前用户',
+    )
+
+
 @app.route('/manage/mobile', endpoint='innovation.innovation_manage_mobile')
 def manage_mobile():
     """创新承接管理移动端页面"""

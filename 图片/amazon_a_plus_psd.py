@@ -1,15 +1,28 @@
 from __future__ import annotations
 
 import io
+import math
 import struct
 from dataclasses import dataclass
 from typing import Any
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageFilter, ImageOps
 
 
 PSD_MAX_DIMENSION = 30_000
 MAX_LAYER_COUNT = 128
+AMAZON_A_PLUS_ASPECT_RATIOS = {
+    "1:1": 1.0,
+    "2:3": 2 / 3,
+    "3:2": 3 / 2,
+    "3:4": 3 / 4,
+    "4:3": 4 / 3,
+    "4:5": 4 / 5,
+    "5:4": 5 / 4,
+    "9:16": 9 / 16,
+    "16:9": 16 / 9,
+    "21:9": 21 / 9,
+}
 
 
 @dataclass(frozen=True)
@@ -26,6 +39,43 @@ class LayerAsset:
     @property
     def bottom(self) -> int:
         return self.top + self.image.height
+
+
+def select_closest_aspect_ratio(canvas_size: tuple[int, int]) -> str:
+    width, height = int(canvas_size[0]), int(canvas_size[1])
+    if width <= 0 or height <= 0:
+        raise ValueError("Canvas dimensions must be positive.")
+    target_ratio = width / height
+    return min(
+        AMAZON_A_PLUS_ASPECT_RATIOS,
+        key=lambda label: abs(math.log(target_ratio / AMAZON_A_PLUS_ASPECT_RATIOS[label])),
+    )
+
+
+def fit_green_screen_to_canvas(image: Image.Image, canvas_size: tuple[int, int]) -> Image.Image:
+    target_width, target_height = int(canvas_size[0]), int(canvas_size[1])
+    if target_width <= 0 or target_height <= 0:
+        raise ValueError("Canvas dimensions must be positive.")
+    source = ImageOps.exif_transpose(image).convert("RGB")
+    if source.width <= 0 or source.height <= 0:
+        raise ValueError("Source image dimensions are invalid.")
+
+    scale = min(target_width / source.width, target_height / source.height)
+    resized_width = max(1, min(target_width, int(round(source.width * scale))))
+    resized_height = max(1, min(target_height, int(round(source.height * scale))))
+    resized = source.resize((resized_width, resized_height), Image.Resampling.LANCZOS)
+    if scale < 0.98:
+        resized = resized.filter(ImageFilter.UnsharpMask(radius=0.7, percent=90, threshold=3))
+    elif scale > 1.02:
+        resized = resized.filter(ImageFilter.UnsharpMask(radius=0.9, percent=110, threshold=3))
+
+    canvas = Image.new("RGB", (target_width, target_height), (0, 255, 0))
+    offset = (
+        (target_width - resized_width) // 2,
+        (target_height - resized_height) // 2,
+    )
+    canvas.paste(resized, offset)
+    return canvas
 
 
 def _u16(value: int) -> bytes:
@@ -151,6 +201,67 @@ def build_layered_psd(
     )
 
 
+def clean_green_edge_spill(image: Image.Image) -> Image.Image:
+    """Recover foreground color and alpha from opaque green-screen edge pixels."""
+    source = ImageOps.exif_transpose(image).convert("RGBA")
+    try:
+        import cv2
+        import numpy as np
+
+        array = np.array(source)
+        alpha = array[:, :, 3].astype(np.uint8)
+        visible = alpha >= 8
+        if not visible.any() or not (alpha < 8).any():
+            return source
+
+        rgb = array[:, :, :3].astype(np.float32)
+        red = rgb[:, :, 0]
+        green = rgb[:, :, 1]
+        blue = rgb[:, :, 2]
+        distance_inside = cv2.distanceTransform(visible.astype(np.uint8), cv2.DIST_L2, 5)
+        edge_width = max(2.5, min(6.0, min(source.size) * 0.008))
+
+        # A green-screen blend can be approximated as foreground color plus a
+        # [0, 255, 0] background contribution. Estimate the foreground green
+        # channel from red/blue, then solve that contribution back out.
+        expected_foreground_green = red * 0.58 + blue * 0.42
+        green_spill = np.clip(green - expected_foreground_green, 0.0, 255.0)
+        green_dominance = green - np.maximum(red, blue)
+        contaminated = (
+            visible
+            & (distance_inside <= edge_width)
+            & (green_spill >= 10.0)
+            & (green_dominance >= 3.0)
+        )
+        if not contaminated.any():
+            return source
+
+        recovered_alpha = np.clip(255.0 - green_spill, 0.0, 255.0)
+        new_alpha = alpha.astype(np.float32)
+        new_alpha[contaminated] = np.minimum(new_alpha[contaminated], recovered_alpha[contaminated])
+        new_alpha[new_alpha < 10.0] = 0.0
+
+        color_alpha_fraction = np.maximum(recovered_alpha / 255.0, 0.04)
+        background_fraction = 1.0 - color_alpha_fraction
+        recovered_red = np.clip(red / color_alpha_fraction, 0.0, 255.0)
+        recovered_blue = np.clip(blue / color_alpha_fraction, 0.0, 255.0)
+        recovered_green = np.clip(
+            (green - background_fraction * 255.0) / color_alpha_fraction,
+            0.0,
+            255.0,
+        )
+        array[:, :, 0] = np.where(contaminated, recovered_red, red).astype(np.uint8)
+        array[:, :, 1] = np.where(contaminated, recovered_green, green).astype(np.uint8)
+        array[:, :, 2] = np.where(contaminated, recovered_blue, blue).astype(np.uint8)
+        array[:, :, 3] = new_alpha.astype(np.uint8)
+
+        transparent = array[:, :, 3] == 0
+        array[:, :, :3] = np.where(transparent[:, :, None], 0, array[:, :, :3]).astype(np.uint8)
+        return Image.fromarray(array, mode="RGBA")
+    except Exception:
+        return source
+
+
 def remove_green_screen(image: Image.Image) -> Image.Image:
     source = ImageOps.exif_transpose(image).convert("RGBA")
     try:
@@ -231,7 +342,7 @@ def remove_green_screen(image: Image.Image) -> Image.Image:
         array[:, :, 3] = alpha
         transparent = alpha == 0
         array[:, :, :3] = np.where(transparent[:, :, None], 0, array[:, :, :3]).astype(np.uint8)
-        return Image.fromarray(array, mode="RGBA")
+        return clean_green_edge_spill(Image.fromarray(array, mode="RGBA"))
     except Exception:
         return source
 

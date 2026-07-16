@@ -11,6 +11,10 @@ __pycache__/
 venv/
 env/
 
+# Frontend dependencies and generated build metadata
+node_modules/
+*.tsbuildinfo
+
 # Local secrets and machine-specific config
 .env
 .env.*

@@ -33,7 +33,11 @@ PROJECT_ROOT = APP_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 from secret_settings import relocate_storage_path, sql_server_config
-from 图片.amazon_a_plus_psd import build_layered_a_plus
+from 图片.amazon_a_plus_psd import (
+    build_layered_a_plus,
+    fit_green_screen_to_canvas,
+    select_closest_aspect_ratio,
+)
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
@@ -157,6 +161,7 @@ JIMENG_CONCURRENT_LIMIT_RETRY_COUNT = 3
 JIMENG_CONCURRENT_LIMIT_RETRY_DELAYS = (3, 6, 10)
 AMAZON_A_PLUS_MAX_EDGE = 10_000
 AMAZON_A_PLUS_MAX_PIXELS = 40_000_000
+AMAZON_A_PLUS_NATIVE_IMAGE_SIZE = "4K"
 
 # Kept only for loading older sessions that still reference the retired local matting helpers.
 IMAGE_MATTING_DEFAULT_MODEL_PATH = APP_DIR / "image_matting" / "briaai" / "RMBG-1.4" / "model.onnx"
@@ -527,6 +532,8 @@ FEATURES = [
             "保持最终 A+ 版式所需的大致坐标，但任何两个元素都不能接触、重叠或被阴影连接，元素之间至少保留 32px 纯绿间距。"
             "同一段文字可以作为一个完整元素，但不同文字块必须分开；不要生成跨越多个元素的底板、分栏线或大面积装饰背景。"
             "只使用上传图片中的产品或主体内容，不要替换主体，不要加入无关商品。"
+            "必须以原生 4K 高清质量绘制，商品纹理、睫毛丝、人物五官和所有文字边缘都要清晰锐利；"
+            "禁止模糊、虚焦、低分辨率、涂抹感、过度降噪、像素化、压缩痕迹和不可辨认的小字。"
             "所有元素边缘必须清晰，不得带绿色描边或绿色光晕。最终只输出 1 张绿幕元素底稿。"
         ),
     },
@@ -2711,7 +2718,23 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     feature_key=feature_key,
                 )
         else:
-            if feature_key == "hd_batch" and str(job_context.get("output_mode") or "") == "image":
+            if feature_key == "amazon_a_plus" and str(job_context.get("output_mode") or "") == "image":
+                target_size = job_context.get("target_size")
+                request_aspect_ratio = (
+                    select_closest_aspect_ratio((int(target_size[0]), int(target_size[1])))
+                    if target_size
+                    else str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO)
+                )
+                result = call_openrouter_images_api(
+                    model=str(job_context["model"]),
+                    prompt=str(job_context["prompt"]),
+                    uploaded_files=list(job_context["uploaded_files"]),
+                    aspect_ratio=request_aspect_ratio,
+                    resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+                )
+                result["channel"] = "Images API 原生 4K"
+                result["requested_aspect_ratio"] = request_aspect_ratio
+            elif feature_key == "hd_batch" and str(job_context.get("output_mode") or "") == "image":
                 result = call_openrouter_portrait_hd(
                     model=str(job_context["model"]),
                     prompt=str(job_context["prompt"]),
@@ -2731,7 +2754,7 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
         if job_context["output_mode"] == "image":
             target_size = job_context.get("target_size")
             min_output_edge = get_feature_min_output_edge(feature_key)
-            if target_size:
+            if target_size and feature_key != "amazon_a_plus":
                 result["images"] = [
                     resize_image_to_exact_size(image_url, int(target_size[0]), int(target_size[1]))
                     for image_url in (result.get("images") or [])
@@ -4661,11 +4684,12 @@ def build_amazon_a_plus_layered_result(
     except Exception as exc:
         raise RuntimeError(f"无法读取模型返回的绿幕 A+ 底稿：{exc}") from exc
 
-    if target_size and green_screen.size != (int(target_size[0]), int(target_size[1])):
-        green_screen = green_screen.resize(
+    source_generation_size = green_screen.size
+    if target_size:
+        green_screen = fit_green_screen_to_canvas(
+            green_screen,
             (int(target_size[0]), int(target_size[1])),
-            Image.Resampling.LANCZOS,
-        )
+        ).convert("RGBA")
 
     try:
         layered = build_layered_a_plus(green_screen)
@@ -4685,6 +4709,7 @@ def build_amazon_a_plus_layered_result(
     ]
     processed_result["layer_count"] = layer_count
     processed_result["layer_manifest"] = list(layered.get("layer_manifest") or [])
+    processed_result["source_generation_size"] = source_generation_size
     processed_result["psd_bytes"] = bytes(layered["psd_bytes"])
     processed_result["psd_file_name"] = psd_file_name
     original_text = str(result.get("text") or "").strip()
@@ -4692,6 +4717,7 @@ def build_amazon_a_plus_layered_result(
         part
         for part in (
             original_text,
+            f"高清底稿尺寸为 {source_generation_size[0]}*{source_generation_size[1]}px，已按比例适配到目标画布。",
             f"已从绿幕底稿中识别并生成 {layer_count} 个独立可编辑图层。",
         )
         if part
@@ -6602,6 +6628,24 @@ def render_history_toggle(feature: dict[str, Any]) -> None:
 def render_history_records(feature: dict[str, Any]) -> None:
     account_name = str(st.session_state.get("auth_username") or "admin")
     cache_key = get_history_cache_key(account_name, feature["key"])
+    is_expanded = bool(st.session_state.history_panel_expanded.get(cache_key, False))
+    button_label = "加载历史记录" if not is_expanded else "收起历史记录"
+    button_icon = ":material/history:" if not is_expanded else ":material/expand_less:"
+    if st.button(
+        button_label,
+        key=f"lazy_history_{feature['key']}",
+        use_container_width=True,
+        type="secondary",
+        icon=button_icon,
+    ):
+        next_state = not is_expanded
+        st.session_state.history_panel_expanded[cache_key] = next_state
+        if next_state:
+            set_history_visible_limit(cache_key, HISTORY_PAGE_SIZE)
+        st.rerun()
+    if not is_expanded:
+        return
+
     if cache_key not in st.session_state.history_visible_counts:
         set_history_visible_limit(cache_key, HISTORY_PAGE_SIZE)
     visible_limit = get_history_visible_limit(cache_key)
@@ -8251,6 +8295,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     if feature.get("key") == "hd_batch":
         default_model_for_feature = NANO_BANANA_MODEL
         model_options_for_feature = [NANO_BANANA_MODEL]
+    elif feature.get("key") == "amazon_a_plus":
+        default_model_for_feature = NANO_BANANA_MODEL
+        model_options_for_feature = [NANO_BANANA_MODEL]
     if not supports_jimeng_generation and default_model_for_feature not in model_options_for_feature:
         default_model_for_feature = model_options_for_feature[0] if model_options_for_feature else DEFAULT_MODEL
     min_images = int(feature.get("min_images", 0))
@@ -8285,6 +8332,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         '<span class="meta-pill">单张最大 50MB</span>',
     ]
     if supports_amazon_a_plus:
+        meta_items.append('<span class="meta-pill">原生 4K 高清底稿</span>')
         meta_items.append('<span class="meta-pill">纯绿幕独立元素底稿</span>')
         meta_items.append('<span class="meta-pill">自动裁切并导出分层 PSD</span>')
     elif supports_outpaint:
@@ -8563,6 +8611,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 )
             if feature.get("key") == "hd_batch":
                 st.caption("即梦 4.6 高清已暂时关闭，当前仅保留 Nano Banana 2 生图。")
+            elif supports_amazon_a_plus:
+                st.caption("A+ 使用原生 4K Images API 生成高清绿幕底稿。")
     with right_col:
         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
         result_images = list(result.get("images") or [])
@@ -8745,6 +8795,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "元素之间至少保留 32px 纯 #00FF00 间距；除独立元素外，整张画布只能出现纯 #00FF00。"
                     "不要生成底板、分栏线、大面积背景、场景地面或跨元素装饰。"
                     "元素位置要体现清晰、商业化的 A+ 信息层级，但不要替换上传主体，也不要生成无关商品。"
+                    "必须使用原生 4K 高清细节，商品纹理、睫毛丝、眼部细节、人物五官和文字边缘必须清晰锐利。"
+                    "禁止模糊、虚焦、低分辨率、涂抹、过度柔化、像素化和压缩痕迹。"
                     f"绿幕底稿画布尺寸必须严格等于 {target_width}*{target_height}px。"
                     "仅输出 1 张绿幕元素底稿，不要输出成品背景图、透明图、草图或分步骤图。"
                 )

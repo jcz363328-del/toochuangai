@@ -9,7 +9,7 @@ if innovation_path not in sys.path:
 
 # 导入创新系统的所有函数
 from innovation.web_app import (
-    index, mobile_index, submit, dashboard, points, excellent_cases, manage, manage_mobile,
+    index, mobile_index, submit, dashboard, points, excellent_cases, manage, manage_demo, manage_mobile,
     submit_innovation, get_innovations, transfer_innovation,
     request_help, get_flow_details, get_project_departments,
     handle_innovation, update_committee_score, submit_to_meeting, update_user_points_summary,
@@ -65,6 +65,13 @@ def innovation_excellent_cases():
 def innovation_manage():
     """管理页面"""
     return manage()
+
+
+@innovation_bp.route('/manage/demo')
+def innovation_manage_demo():
+    """创新管理新版界面预览。"""
+    return manage_demo()
+
 
 @innovation_bp.route('/manage/mobile')
 def innovation_manage_mobile():

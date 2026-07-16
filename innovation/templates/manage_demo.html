@@ -1,0 +1,1347 @@
+{% extends "base.html" %}
+
+{% block title %}创新管理 Demo - 团队创新奖励管理系统{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --demo-ink: #18212b;
+    --demo-muted: #66717f;
+    --demo-line: #dfe4ea;
+    --demo-soft: #f5f7f9;
+    --demo-blue: #1769aa;
+    --demo-green: #16835d;
+    --demo-amber: #a96508;
+    --demo-red: #b13a45;
+}
+body {
+    background: #eef1f4;
+    color: var(--demo-ink);
+}
+main.container {
+    width: 100%;
+    max-width: 1560px;
+    margin-top: 18px !important;
+    padding-left: 18px;
+    padding-right: 18px;
+}
+.demo-shell {
+    min-height: calc(100vh - 112px);
+    display: grid;
+    grid-template-columns: 212px minmax(0, 1fr);
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #d8dee5;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(28, 39, 51, .08);
+}
+.demo-sidebar {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 18px 12px 12px;
+    background: #f7f9fb;
+    border-right: 1px solid var(--demo-line);
+}
+.demo-brand {
+    padding: 0 8px 17px;
+    border-bottom: 1px solid var(--demo-line);
+}
+.demo-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+.demo-brand-mark {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 34px;
+    border-radius: 6px;
+    background: #174f7a;
+    color: #fff;
+    font-size: 18px;
+}
+.demo-brand h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 750;
+    letter-spacing: 0;
+}
+.demo-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    margin-top: 4px;
+    padding: 0 6px;
+    border: 1px solid #b8c4cf;
+    border-radius: 4px;
+    color: #53606d;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 700;
+}
+.demo-nav {
+    display: grid;
+    gap: 4px;
+    margin-top: 16px;
+}
+.demo-nav-label {
+    padding: 9px 10px 4px;
+    color: #7b8590;
+    font-size: 11px;
+    font-weight: 700;
+}
+.demo-nav-button {
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: #3b4652;
+    text-align: left;
+    font-size: 14px;
+}
+.demo-nav-button i {
+    width: 18px;
+    text-align: center;
+    color: #697582;
+}
+.demo-nav-button:hover {
+    background: #edf1f5;
+}
+.demo-nav-button.active {
+    border-color: #c7d9e8;
+    background: #e7f0f7;
+    color: #124f7c;
+    font-weight: 700;
+}
+.demo-nav-button.active i {
+    color: #1769aa;
+}
+.demo-nav-count {
+    min-width: 28px;
+    margin-left: auto;
+    color: #6d7782;
+    text-align: right;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.demo-user {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: auto;
+    padding: 13px 8px 2px;
+    border-top: 1px solid var(--demo-line);
+    color: var(--demo-muted);
+    font-size: 13px;
+}
+.demo-user-avatar {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 30px;
+    border: 1px solid #ced6de;
+    border-radius: 50%;
+    background: #fff;
+    color: #46515c;
+}
+.demo-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.demo-topbar {
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--demo-line);
+}
+.demo-title h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 760;
+    letter-spacing: 0;
+}
+.demo-title p {
+    margin: 3px 0 0;
+    color: var(--demo-muted);
+    font-size: 12px;
+}
+.demo-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.demo-icon-button {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid #cfd7df;
+    border-radius: 5px;
+    background: #fff;
+    color: #37424d;
+}
+.demo-icon-button:hover {
+    background: #f2f5f7;
+    color: #174f7a;
+}
+.demo-command {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border: 1px solid #cbd4dc;
+    border-radius: 5px;
+    background: #fff;
+    color: #33404c;
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+}
+.demo-command:hover {
+    background: #f3f6f8;
+    color: #1e2a35;
+}
+.demo-command.primary {
+    border-color: #1769aa;
+    background: #1769aa;
+    color: #fff;
+}
+.demo-command.primary:hover {
+    background: #11598f;
+    color: #fff;
+}
+.demo-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-bottom: 1px solid var(--demo-line);
+    background: #fbfcfd;
+}
+.demo-metric {
+    min-width: 0;
+    min-height: 74px;
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 18px;
+    border: 0;
+    border-right: 1px solid var(--demo-line);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+}
+.demo-metric:last-child {
+    border-right: 0;
+}
+.demo-metric:hover,
+.demo-metric.active {
+    background: #f0f5f8;
+}
+.demo-metric-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #66717f;
+}
+.demo-metric[data-status="待承接"] .demo-metric-dot { background: var(--demo-amber); }
+.demo-metric[data-status="进行中"] .demo-metric-dot { background: var(--demo-blue); }
+.demo-metric[data-status="已完成"] .demo-metric-dot { background: var(--demo-green); }
+.demo-metric-label {
+    color: var(--demo-muted);
+    font-size: 12px;
+}
+.demo-metric-value {
+    font-size: 24px;
+    font-weight: 760;
+    font-variant-numeric: tabular-nums;
+}
+.demo-filters {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--demo-line);
+    background: #fff;
+}
+.demo-filter-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.7fr) repeat(4, minmax(130px, .8fr)) auto;
+    gap: 8px;
+    align-items: center;
+}
+.demo-filter-extra {
+    display: none;
+    grid-template-columns: repeat(2, minmax(150px, 220px));
+    gap: 8px;
+    margin-top: 8px;
+}
+.demo-filter-extra.open {
+    display: grid;
+}
+.demo-search {
+    position: relative;
+}
+.demo-search i {
+    position: absolute;
+    top: 50%;
+    left: 11px;
+    z-index: 2;
+    color: #7a8590;
+    transform: translateY(-50%);
+}
+.demo-search input {
+    padding-left: 34px;
+}
+.demo-filters .form-control,
+.demo-filters .form-select,
+.demo-reward-toolbar .form-control,
+.demo-reward-toolbar .form-select {
+    min-height: 36px;
+    border-color: #ccd5de;
+    border-radius: 5px;
+    font-size: 13px;
+}
+.demo-content {
+    min-height: 0;
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 370px;
+}
+.demo-proposals {
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.demo-list-pane {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--demo-line);
+}
+.demo-list-head {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--demo-line);
+}
+.demo-list-head strong {
+    font-size: 14px;
+}
+.demo-list-summary {
+    color: var(--demo-muted);
+    font-size: 12px;
+}
+.demo-table-wrap {
+    min-width: 0;
+    overflow: auto;
+}
+.demo-table {
+    width: 100%;
+    min-width: 660px;
+    margin: 0;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.demo-table th {
+    height: 38px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--demo-line);
+    background: #f7f9fb;
+    color: #697481;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+}
+.demo-table td {
+    height: 64px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e8ecf0;
+    color: #34404b;
+    font-size: 12px;
+    vertical-align: middle;
+}
+.demo-table tbody tr {
+    cursor: pointer;
+}
+.demo-table tbody tr:hover,
+.demo-table tbody tr.selected {
+    background: #f0f6fa;
+}
+.demo-table tbody tr.selected td:first-child {
+    box-shadow: inset 3px 0 #1769aa;
+}
+.demo-col-id { width: 60px; }
+.demo-col-proposal { width: auto; }
+.demo-col-status { width: 74px; }
+.demo-col-dept { width: 110px; }
+.demo-col-user { width: 72px; }
+.demo-col-score { width: 50px; text-align: center !important; }
+.demo-col-date { width: 88px; }
+.demo-id {
+    color: #5d6975;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.demo-proposal-title {
+    overflow: hidden;
+    color: #17232f;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.demo-proposal-copy {
+    overflow: hidden;
+    margin-top: 4px;
+    color: #77818c;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.demo-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #53606d;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.demo-status::before {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 7px;
+    border-radius: 50%;
+    background: #78838e;
+    content: '';
+}
+.demo-status.pending::before { background: var(--demo-amber); }
+.demo-status.processing::before { background: var(--demo-blue); }
+.demo-status.completed::before { background: var(--demo-green); }
+.demo-status.cancelled::before { background: var(--demo-red); }
+.demo-score {
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+.demo-empty,
+.demo-loading {
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #7b8590;
+    font-size: 13px;
+}
+.demo-empty i {
+    color: #9aa4ae;
+    font-size: 30px;
+}
+.demo-pagination {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding: 8px 14px;
+    border-top: 1px solid var(--demo-line);
+    background: #fff;
+}
+.demo-pagination-info {
+    color: var(--demo-muted);
+    font-size: 12px;
+}
+.demo-page-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.demo-page-number {
+    min-width: 82px;
+    color: #4d5965;
+    text-align: center;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.demo-detail {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fbfcfd;
+}
+.demo-detail-head {
+    min-height: 49px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--demo-line);
+    background: #fff;
+}
+.demo-detail-head strong {
+    font-size: 14px;
+}
+.demo-detail-close {
+    display: none;
+}
+.demo-detail-body {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+}
+.demo-detail-empty {
+    height: 100%;
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #87919b;
+    text-align: center;
+}
+.demo-detail-empty i {
+    font-size: 30px;
+}
+.demo-detail-title {
+    margin: 0;
+    color: #17232f;
+    font-size: 18px;
+    font-weight: 760;
+    line-height: 1.5;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+}
+.demo-detail-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 14px 0 0;
+    border-top: 1px solid var(--demo-line);
+    border-left: 1px solid var(--demo-line);
+}
+.demo-detail-meta > div {
+    min-width: 0;
+    padding: 9px 10px;
+    border-right: 1px solid var(--demo-line);
+    border-bottom: 1px solid var(--demo-line);
+    background: #fff;
+}
+.demo-detail-label {
+    display: block;
+    margin-bottom: 3px;
+    color: #7a8590;
+    font-size: 11px;
+}
+.demo-detail-value {
+    display: block;
+    overflow: hidden;
+    color: #34404b;
+    font-size: 12px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.demo-section {
+    padding: 15px 0;
+    border-bottom: 1px solid var(--demo-line);
+}
+.demo-section h4 {
+    margin: 0 0 8px;
+    color: #54606c;
+    font-size: 12px;
+    font-weight: 750;
+    letter-spacing: 0;
+}
+.demo-section p {
+    margin: 0;
+    color: #34404b;
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.demo-progress-list {
+    display: grid;
+    gap: 8px;
+}
+.demo-progress-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 9px;
+    border: 1px solid var(--demo-line);
+    border-radius: 5px;
+    background: #fff;
+    font-size: 12px;
+}
+.demo-media {
+    width: 100%;
+    max-height: 220px;
+    display: block;
+    object-fit: contain;
+    border: 1px solid var(--demo-line);
+    border-radius: 5px;
+    background: #fff;
+}
+.demo-detail-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: auto;
+    padding: 12px 14px;
+    border-top: 1px solid var(--demo-line);
+    background: #fff;
+}
+.demo-rewards {
+    min-height: 0;
+    flex: 1;
+    display: none;
+    flex-direction: column;
+}
+.demo-rewards.active {
+    display: flex;
+}
+.demo-proposals.hidden {
+    display: none;
+}
+.demo-reward-toolbar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 180px 180px auto;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--demo-line);
+}
+.demo-reward-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-bottom: 1px solid var(--demo-line);
+    background: #fbfcfd;
+}
+.demo-reward-stat {
+    min-height: 68px;
+    padding: 12px 16px;
+    border-right: 1px solid var(--demo-line);
+}
+.demo-reward-stat:last-child { border-right: 0; }
+.demo-reward-stat span {
+    display: block;
+    color: var(--demo-muted);
+    font-size: 11px;
+}
+.demo-reward-stat strong {
+    display: block;
+    margin-top: 3px;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+}
+.demo-reward-image {
+    width: 42px;
+    height: 42px;
+    display: block;
+    border: 1px solid #dde3e9;
+    border-radius: 5px;
+    background: #f4f6f8;
+    object-fit: cover;
+}
+.demo-reward-name {
+    font-weight: 700;
+}
+@media (max-width: 1199px) {
+    .demo-shell { grid-template-columns: 188px minmax(0, 1fr); }
+    .demo-content { grid-template-columns: minmax(0, 1fr) 330px; }
+    .demo-filter-row { grid-template-columns: minmax(220px, 1.5fr) repeat(2, minmax(130px, 1fr)) auto; }
+    .demo-filter-row .wide-filter { display: none; }
+}
+@media (max-width: 991px) {
+    main.container {
+        max-width: none;
+        margin-top: 10px !important;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    .demo-shell {
+        min-height: calc(100vh - 92px);
+        display: block;
+    }
+    .demo-sidebar {
+        display: block;
+        padding: 9px;
+        border-right: 0;
+        border-bottom: 1px solid var(--demo-line);
+    }
+    .demo-brand,
+    .demo-nav-label,
+    .demo-user { display: none; }
+    .demo-nav {
+        display: flex;
+        gap: 5px;
+        margin: 0;
+        overflow-x: auto;
+    }
+    .demo-nav-button {
+        width: auto;
+        min-width: max-content;
+    }
+    .demo-nav-count { display: none; }
+    .demo-content { display: block; }
+    .demo-list-pane { border-right: 0; }
+    .demo-detail {
+        position: fixed;
+        z-index: 1080;
+        inset: 62px 0 0;
+        display: none;
+        background: #fff;
+    }
+    .demo-detail.mobile-open { display: flex; }
+    .demo-detail-close { display: inline-flex; }
+    .demo-metrics,
+    .demo-reward-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .demo-metric:nth-child(2),
+    .demo-reward-stat:nth-child(2) { border-right: 0; }
+    .demo-metric:nth-child(-n+2),
+    .demo-reward-stat:nth-child(-n+2) { border-bottom: 1px solid var(--demo-line); }
+    .demo-filter-row { grid-template-columns: minmax(200px, 1fr) minmax(130px, .55fr) auto; }
+    .demo-filter-row select:nth-of-type(n+2) { display: none; }
+    .demo-reward-toolbar { grid-template-columns: 1fr 150px auto; }
+    .demo-reward-toolbar select:nth-of-type(2) { display: none; }
+}
+@media (max-width: 575px) {
+    main.container { padding-left: 0; padding-right: 0; }
+    .demo-shell { border-left: 0; border-right: 0; border-radius: 0; }
+    .demo-topbar { align-items: flex-start; padding: 11px 12px; }
+    .demo-title p { display: none; }
+    .demo-top-actions .demo-command:not(.primary) { display: none; }
+    .demo-command.primary span { display: none; }
+    .demo-command.primary { width: 36px; justify-content: center; padding: 0; }
+    .demo-metric { min-height: 64px; padding: 10px 12px; }
+    .demo-metric-value { font-size: 20px; }
+    .demo-filters { padding: 9px; }
+    .demo-filter-row { grid-template-columns: minmax(0, 1fr) 112px 36px; }
+    .demo-filter-extra { grid-template-columns: 1fr 1fr; }
+    .demo-list-head { padding: 8px 10px; }
+    .demo-pagination { padding: 8px 9px; }
+    .demo-pagination-info { display: none; }
+    .demo-page-actions { width: 100%; justify-content: flex-end; }
+    .demo-reward-toolbar { grid-template-columns: 1fr 118px 36px; padding: 9px; }
+}
+</style>
+
+<div class="demo-shell">
+    <aside class="demo-sidebar">
+        <div class="demo-brand">
+            <div class="demo-brand-row">
+                <span class="demo-brand-mark"><i class="bi bi-lightbulb"></i></span>
+                <div>
+                    <h1>创新管理</h1>
+                    <span class="demo-tag">DEMO</span>
+                </div>
+            </div>
+        </div>
+
+        <nav class="demo-nav" aria-label="管理视图">
+            <div class="demo-nav-label">提案</div>
+            <button class="demo-nav-button active" type="button" data-view="proposals" data-scope="all">
+                <i class="bi bi-inbox"></i><span>全部提案</span><span class="demo-nav-count" id="navTotal">--</span>
+            </button>
+            <button class="demo-nav-button" type="button" data-view="proposals" data-scope="pending">
+                <i class="bi bi-hourglass-split"></i><span>待承接</span><span class="demo-nav-count" id="navPending">--</span>
+            </button>
+            <button class="demo-nav-button" type="button" data-view="proposals" data-scope="processing">
+                <i class="bi bi-arrow-repeat"></i><span>进行中</span><span class="demo-nav-count" id="navProcessing">--</span>
+            </button>
+            <button class="demo-nav-button" type="button" data-view="proposals" data-scope="completed">
+                <i class="bi bi-check2-circle"></i><span>已完成</span><span class="demo-nav-count" id="navCompleted">--</span>
+            </button>
+            <button class="demo-nav-button" type="button" data-view="proposals" data-scope="favorites">
+                <i class="bi bi-star"></i><span>我的收藏</span><span class="demo-nav-count"></span>
+            </button>
+            <div class="demo-nav-label">运营</div>
+            <button class="demo-nav-button" type="button" data-view="rewards" data-scope="rewards">
+                <i class="bi bi-gift"></i><span>奖品管理</span><span class="demo-nav-count" id="navRewards">--</span>
+            </button>
+        </nav>
+
+        <div class="demo-user">
+            <span class="demo-user-avatar"><i class="bi bi-person"></i></span>
+            <span>{{ feishu_user_name }}</span>
+        </div>
+    </aside>
+
+    <section class="demo-main">
+        <header class="demo-topbar">
+            <div class="demo-title">
+                <h2 id="workspaceTitle">提案工作台</h2>
+                <p id="workspaceSubtitle">聚合承接、处理、评分与追踪</p>
+            </div>
+            <div class="demo-top-actions">
+                <a class="demo-command" href="{{ url_for('innovation.innovation_manage') }}">
+                    <i class="bi bi-box-arrow-up-right"></i><span>当前版本</span>
+                </a>
+                <button class="demo-icon-button" type="button" id="scoreGuideButton" title="评分标准" data-bs-toggle="modal" data-bs-target="#demoScoreGuideModal">
+                    <i class="bi bi-info-circle"></i>
+                </button>
+                <button class="demo-icon-button" type="button" id="refreshButton" title="刷新">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+                <button class="demo-command primary" type="button" id="exportButton">
+                    <i class="bi bi-download"></i><span>导出</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="demo-proposals" id="proposalWorkspace">
+            <div class="demo-metrics" aria-label="提案统计">
+                <button class="demo-metric active" type="button" data-status="">
+                    <span class="demo-metric-dot"></span>
+                    <span class="demo-metric-label">全部提案</span>
+                    <strong class="demo-metric-value" id="metricTotal">--</strong>
+                </button>
+                <button class="demo-metric" type="button" data-status="待承接">
+                    <span class="demo-metric-dot"></span>
+                    <span class="demo-metric-label">待承接</span>
+                    <strong class="demo-metric-value" id="metricPending">--</strong>
+                </button>
+                <button class="demo-metric" type="button" data-status="进行中">
+                    <span class="demo-metric-dot"></span>
+                    <span class="demo-metric-label">进行中</span>
+                    <strong class="demo-metric-value" id="metricProcessing">--</strong>
+                </button>
+                <button class="demo-metric" type="button" data-status="已完成">
+                    <span class="demo-metric-dot"></span>
+                    <span class="demo-metric-label">已完成</span>
+                    <strong class="demo-metric-value" id="metricCompleted">--</strong>
+                </button>
+            </div>
+
+            <div class="demo-filters">
+                <div class="demo-filter-row">
+                    <label class="demo-search" aria-label="搜索提案">
+                        <i class="bi bi-search"></i>
+                        <input class="form-control" id="proposalSearch" type="search" placeholder="搜索标题、内容或发起人">
+                    </label>
+                    <select class="form-select" id="statusFilter" aria-label="状态">
+                        <option value="">全部状态</option>
+                        <option value="待承接">待承接</option>
+                        <option value="进行中">进行中</option>
+                        <option value="已完成">已完成</option>
+                        <option value="已取消">已取消</option>
+                    </select>
+                    <select class="form-select" id="departmentFilter" aria-label="承接部门">
+                        <option value="">全部承接部门</option>
+                        <option value="AI部">AI部</option>
+                        <option value="TK项目">TK项目</option>
+                        <option value="技术部">技术部</option>
+                        <option value="研发部">研发部</option>
+                        <option value="运营一部">运营一部</option>
+                        <option value="运营二部">运营二部</option>
+                        <option value="运营三部">运营三部</option>
+                        <option value="运营六部">运营六部</option>
+                        <option value="采购部">采购部</option>
+                        <option value="人力行政部">人力行政部</option>
+                    </select>
+                    <select class="form-select wide-filter" id="operationFilter" aria-label="处理类型">
+                        <option value="">全部处理类型</option>
+                        <option value="adopted">采纳</option>
+                        <option value="not_adopted">未采纳</option>
+                        <option value="pending">待处理</option>
+                        <option value="disputed">有异议，上会</option>
+                    </select>
+                    <select class="form-select wide-filter" id="scoreFilter" aria-label="分数">
+                        <option value="">全部分数</option>
+                        <option value="0">0 分</option>
+                        <option value="10">10 分</option>
+                        <option value="20">20 分</option>
+                        <option value="30">30 分</option>
+                        <option value="50">50 分</option>
+                    </select>
+                    <button class="demo-icon-button" type="button" id="moreFiltersButton" title="日期筛选" aria-expanded="false">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                </div>
+                <div class="demo-filter-extra" id="extraFilters">
+                    <input class="form-control" id="startDateFilter" type="date" aria-label="开始日期">
+                    <input class="form-control" id="endDateFilter" type="date" aria-label="结束日期">
+                </div>
+            </div>
+
+            <div class="demo-content">
+                <div class="demo-list-pane">
+                    <div class="demo-list-head">
+                        <strong>提案列表</strong>
+                        <span class="demo-list-summary" id="listSummary">正在载入...</span>
+                    </div>
+                    <div class="demo-table-wrap" id="proposalTableWrap">
+                        <div class="demo-loading"><span class="spinner-border spinner-border-sm"></span><span>正在载入</span></div>
+                    </div>
+                    <div class="demo-pagination">
+                        <span class="demo-pagination-info" id="paginationInfo">--</span>
+                        <div class="demo-page-actions">
+                            <button class="demo-icon-button" type="button" id="firstPageButton" title="第一页"><i class="bi bi-chevron-bar-left"></i></button>
+                            <button class="demo-icon-button" type="button" id="previousPageButton" title="上一页"><i class="bi bi-chevron-left"></i></button>
+                            <span class="demo-page-number" id="pageNumber">1 / 1</span>
+                            <button class="demo-icon-button" type="button" id="nextPageButton" title="下一页"><i class="bi bi-chevron-right"></i></button>
+                            <button class="demo-icon-button" type="button" id="lastPageButton" title="最后一页"><i class="bi bi-chevron-bar-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="demo-detail" id="proposalDetail">
+                    <div class="demo-detail-head">
+                        <strong>提案详情</strong>
+                        <button class="demo-icon-button demo-detail-close" type="button" id="closeDetailButton" title="关闭"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="demo-detail-body" id="detailBody">
+                        <div class="demo-detail-empty"><i class="bi bi-layout-text-sidebar-reverse"></i><span>未选择提案</span></div>
+                    </div>
+                    <div class="demo-detail-footer" id="detailFooter" hidden>
+                        <a class="demo-command primary" href="{{ url_for('innovation.innovation_manage') }}"><i class="bi bi-gear"></i><span>进入正式页处理</span></a>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <div class="demo-rewards" id="rewardWorkspace">
+            <div class="demo-reward-metrics">
+                <div class="demo-reward-stat"><span>奖品总数</span><strong id="rewardTotal">--</strong></div>
+                <div class="demo-reward-stat"><span>可兑换</span><strong id="rewardAvailable">--</strong></div>
+                <div class="demo-reward-stat"><span>低库存</span><strong id="rewardLowStock">--</strong></div>
+                <div class="demo-reward-stat"><span>分类</span><strong id="rewardCategories">--</strong></div>
+            </div>
+            <div class="demo-reward-toolbar">
+                <label class="demo-search" aria-label="搜索奖品">
+                    <i class="bi bi-search"></i>
+                    <input class="form-control" id="rewardSearch" type="search" placeholder="搜索奖品名称">
+                </label>
+                <select class="form-select" id="rewardCategory" aria-label="奖品分类"><option value="">全部分类</option></select>
+                <select class="form-select" id="rewardStock" aria-label="库存状态">
+                    <option value="">全部库存</option>
+                    <option value="available">有库存</option>
+                    <option value="low">低库存</option>
+                    <option value="empty">已兑完</option>
+                </select>
+                <button class="demo-icon-button" type="button" id="resetRewardFilters" title="清除筛选"><i class="bi bi-x-circle"></i></button>
+            </div>
+            <div class="demo-table-wrap" id="rewardTableWrap">
+                <div class="demo-loading"><span class="spinner-border spinner-border-sm"></span><span>正在载入</span></div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="modal fade" id="demoScoreGuideModal" tabindex="-1" aria-labelledby="demoScoreGuideTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="demoScoreGuideTitle">评分标准</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light"><tr><th class="ps-3">分数</th><th>等级</th><th>判断标准</th></tr></thead>
+                        <tbody>
+                            <tr><td class="ps-3 fw-bold">50</td><td>突破创新</td><td>形成可复制的方法或带来显著经营价值</td></tr>
+                            <tr><td class="ps-3 fw-bold">30</td><td>重点改善</td><td>解决关键问题，效果明确且可持续</td></tr>
+                            <tr><td class="ps-3 fw-bold">20</td><td>有效改善</td><td>方案可落地，对效率或体验有实际提升</td></tr>
+                            <tr><td class="ps-3 fw-bold">10</td><td>基础建议</td><td>方向合理，但价值或落地条件仍需验证</td></tr>
+                            <tr><td class="ps-3 fw-bold">0</td><td>暂不采纳</td><td>重复、不可行或暂不具备实施价值</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const proposalState = {
+        page: 1,
+        perPage: 20,
+        total: 0,
+        totalPages: 1,
+        items: [],
+        selectedId: null,
+        favoriteOnly: false,
+        loading: false,
+        requestId: 0
+    };
+    const rewardState = {items: [], filtered: []};
+    let searchTimer = null;
+
+    const byId = (id) => document.getElementById(id);
+    const escapeHtml = (value) => String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+
+    function formatNumber(value) {
+        return Number(value || 0).toLocaleString('zh-CN');
+    }
+
+    function formatDate(value) {
+        if (!value) return '-';
+        const text = String(value).replace('T', ' ');
+        return text.length >= 10 ? text.slice(0, 10) : text;
+    }
+
+    function compactText(value, maxLength = 72) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+    }
+
+    function statusClass(status) {
+        return {
+            '待承接': 'pending',
+            '进行中': 'processing',
+            '已完成': 'completed',
+            '已取消': 'cancelled',
+            '已拒绝': 'cancelled'
+        }[status] || '';
+    }
+
+    function proposalParams(page = proposalState.page) {
+        const params = new URLSearchParams({page: String(page), per_page: String(proposalState.perPage)});
+        const filters = [
+            ['status', byId('statusFilter').value],
+            ['department', byId('departmentFilter').value],
+            ['operation_type', byId('operationFilter').value],
+            ['search', byId('proposalSearch').value.trim()],
+            ['start_date', byId('startDateFilter').value],
+            ['end_date', byId('endDateFilter').value]
+        ];
+        filters.forEach(([key, value]) => { if (value) params.set(key, value); });
+        if (byId('scoreFilter').value) params.append('max_score', byId('scoreFilter').value);
+        if (proposalState.favoriteOnly) params.set('favorite_only', '1');
+        return params;
+    }
+
+    async function loadStatistics() {
+        try {
+            const response = await fetch('/innovation/api/get_statistics', {credentials: 'same-origin'});
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '统计载入失败');
+            const data = result.data || {};
+            const mapping = {
+                metricTotal: data.total_count,
+                metricPending: data.pending_count,
+                metricProcessing: data.processing_count,
+                metricCompleted: data.completed_count,
+                navTotal: data.total_count,
+                navPending: data.pending_count,
+                navProcessing: data.processing_count,
+                navCompleted: data.completed_count
+            };
+            Object.entries(mapping).forEach(([id, value]) => { byId(id).textContent = formatNumber(value); });
+        } catch (error) {
+            ['metricTotal', 'metricPending', 'metricProcessing', 'metricCompleted'].forEach((id) => { byId(id).textContent = '--'; });
+        }
+    }
+
+    function renderProposalTable() {
+        const wrap = byId('proposalTableWrap');
+        if (!proposalState.items.length) {
+            wrap.innerHTML = '<div class="demo-empty"><i class="bi bi-inbox"></i><span>暂无符合条件的提案</span></div>';
+            renderPagination();
+            renderDetail(null);
+            return;
+        }
+        const rows = proposalState.items.map((item) => {
+            const id = String(item.id ?? '');
+            const departments = item.department || Object.keys(item.department_status || {}).join('、') || '-';
+            const score = Number(item.score || 0);
+            return `
+                <tr data-proposal-id="${escapeHtml(id)}" class="${String(proposalState.selectedId) === id ? 'selected' : ''}" tabindex="0">
+                    <td class="demo-col-id"><span class="demo-id">#${escapeHtml(item.bianhao || item.id || '-')}</span></td>
+                    <td class="demo-col-proposal">
+                        <div class="demo-proposal-title">${escapeHtml(item.title || '无标题')}</div>
+                        <div class="demo-proposal-copy">${escapeHtml(compactText(item.content || '无内容'))}</div>
+                    </td>
+                    <td class="demo-col-status"><span class="demo-status ${statusClass(item.status)}">${escapeHtml(item.status || '未知')}</span></td>
+                    <td class="demo-col-dept" title="${escapeHtml(departments)}">${escapeHtml(compactText(departments, 18))}</td>
+                    <td class="demo-col-user">${escapeHtml(item.initiator || '-')}</td>
+                    <td class="demo-col-score"><span class="demo-score">${score}</span></td>
+                    <td class="demo-col-date">${escapeHtml(formatDate(item.initiation_time))}</td>
+                </tr>`;
+        }).join('');
+        wrap.innerHTML = `
+            <table class="demo-table">
+                <thead><tr>
+                    <th class="demo-col-id">编号</th><th class="demo-col-proposal">提案</th><th class="demo-col-status">状态</th>
+                    <th class="demo-col-dept">承接部门</th><th class="demo-col-user">发起人</th><th class="demo-col-score">分数</th><th class="demo-col-date">发起时间</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        wrap.querySelectorAll('tbody tr').forEach((row) => {
+            const select = () => selectProposal(row.dataset.proposalId);
+            row.addEventListener('click', select);
+            row.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); }
+            });
+        });
+        renderPagination();
+        const selected = proposalState.items.find((item) => String(item.id) === String(proposalState.selectedId));
+        renderDetail(selected || proposalState.items[0]);
+    }
+
+    function renderPagination() {
+        const start = proposalState.total ? (proposalState.page - 1) * proposalState.perPage + 1 : 0;
+        const end = Math.min(proposalState.page * proposalState.perPage, proposalState.total);
+        byId('listSummary').textContent = `共 ${formatNumber(proposalState.total)} 条`;
+        byId('paginationInfo').textContent = `${formatNumber(start)}-${formatNumber(end)} / ${formatNumber(proposalState.total)}`;
+        byId('pageNumber').textContent = `${proposalState.page} / ${proposalState.totalPages}`;
+        const atFirst = proposalState.page <= 1;
+        const atLast = proposalState.page >= proposalState.totalPages;
+        byId('firstPageButton').disabled = atFirst;
+        byId('previousPageButton').disabled = atFirst;
+        byId('nextPageButton').disabled = atLast;
+        byId('lastPageButton').disabled = atLast;
+    }
+
+    function selectProposal(id) {
+        proposalState.selectedId = id;
+        byId('proposalTableWrap').querySelectorAll('tbody tr').forEach((row) => {
+            row.classList.toggle('selected', row.dataset.proposalId === String(id));
+        });
+        const item = proposalState.items.find((proposal) => String(proposal.id) === String(id));
+        renderDetail(item || null);
+        if (window.matchMedia('(max-width: 991px)').matches) byId('proposalDetail').classList.add('mobile-open');
+    }
+
+    function mediaUrl(pathValue) {
+        const raw = String(pathValue || '').split(';').find((value) => value.trim());
+        if (!raw) return '';
+        const path = raw.trim().replaceAll('\\', '/');
+        if (/^https?:\/\//i.test(path) || path.startsWith('/')) return path;
+        return '/uploads/' + encodeURIComponent(path.split('/').pop());
+    }
+
+    function renderDetail(item) {
+        const body = byId('detailBody');
+        const footer = byId('detailFooter');
+        if (!item) {
+            proposalState.selectedId = null;
+            body.innerHTML = '<div class="demo-detail-empty"><i class="bi bi-layout-text-sidebar-reverse"></i><span>未选择提案</span></div>';
+            footer.hidden = true;
+            return;
+        }
+        proposalState.selectedId = String(item.id);
+        const departments = item.department || Object.keys(item.department_status || {}).join('、') || '-';
+        const progressEntries = Object.entries(item.department_status || {});
+        const progressHtml = progressEntries.length
+            ? progressEntries.map(([department, info]) => `
+                <div class="demo-progress-row">
+                    <span>${escapeHtml(department)}</span>
+                    <span class="demo-status ${statusClass(info.status)}">${escapeHtml(info.status || '未知')}${info.score ? ` · ${escapeHtml(info.score)}分` : ''}</span>
+                </div>`).join('')
+            : `<div class="demo-progress-row"><span>${escapeHtml(departments)}</span><span class="demo-status ${statusClass(item.status)}">${escapeHtml(item.status || '未知')}</span></div>`;
+        const image = mediaUrl(item.image_path);
+        const similarity = item.similar_top1
+            ? `<div class="demo-section"><h4>相似提案</h4><p>#${escapeHtml(item.similar_top1.bianhao || '-')}&nbsp;&nbsp;${escapeHtml(item.similar_top1.title || '')} · ${escapeHtml(item.similar_top1.score_percent || 0)}%</p></div>`
+            : '';
+        body.innerHTML = `
+            <span class="demo-status ${statusClass(item.status)}">${escapeHtml(item.status || '未知')}</span>
+            <h3 class="demo-detail-title">${escapeHtml(item.title || '无标题')}</h3>
+            <div class="demo-detail-meta">
+                <div><span class="demo-detail-label">编号</span><span class="demo-detail-value">#${escapeHtml(item.bianhao || item.id || '-')}</span></div>
+                <div><span class="demo-detail-label">发起人</span><span class="demo-detail-value">${escapeHtml(item.initiator || '-')}</span></div>
+                <div><span class="demo-detail-label">承接部门</span><span class="demo-detail-value" title="${escapeHtml(departments)}">${escapeHtml(departments)}</span></div>
+                <div><span class="demo-detail-label">项目得分</span><span class="demo-detail-value">${escapeHtml(item.score || 0)} 分</span></div>
+                <div><span class="demo-detail-label">发起时间</span><span class="demo-detail-value">${escapeHtml(formatDate(item.initiation_time))}</span></div>
+                <div><span class="demo-detail-label">截止时间</span><span class="demo-detail-value">${escapeHtml(formatDate(item.deadline))}</span></div>
+            </div>
+            <div class="demo-section"><h4>提案内容</h4><p>${escapeHtml(item.content || '未填写')}</p></div>
+            ${item.solution ? `<div class="demo-section"><h4>解决方案</h4><p>${escapeHtml(item.solution)}</p></div>` : ''}
+            <div class="demo-section"><h4>承接进度</h4><div class="demo-progress-list">${progressHtml}</div></div>
+            ${similarity}
+            ${item.handler_notes ? `<div class="demo-section"><h4>最新处理备注</h4><p>${escapeHtml(item.handler_notes)}</p></div>` : ''}
+            ${image ? `<div class="demo-section"><h4>附件图片</h4><img class="demo-media" src="${escapeHtml(image)}" alt="提案附件" onerror="this.closest('.demo-section').remove()"></div>` : ''}`;
+        footer.hidden = false;
+    }
+
+    async function loadProposals(page = 1) {
+        const requestId = ++proposalState.requestId;
+        proposalState.loading = true;
+        byId('proposalTableWrap').innerHTML = '<div class="demo-loading"><span class="spinner-border spinner-border-sm"></span><span>正在载入</span></div>';
+        try {
+            const response = await fetch(`/innovation/api/get_innovations?${proposalParams(page).toString()}`, {credentials: 'same-origin'});
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '提案载入失败');
+            if (requestId !== proposalState.requestId) return;
+            proposalState.items = Array.isArray(result.data) ? result.data : [];
+            proposalState.page = Number(result.page || page);
+            proposalState.total = Number(result.total || 0);
+            proposalState.totalPages = Math.max(1, Number(result.total_pages || 1));
+            if (!proposalState.items.some((item) => String(item.id) === String(proposalState.selectedId))) {
+                proposalState.selectedId = proposalState.items[0] ? String(proposalState.items[0].id) : null;
+            }
+            renderProposalTable();
+        } catch (error) {
+            if (requestId !== proposalState.requestId) return;
+            byId('proposalTableWrap').innerHTML = `<div class="demo-empty"><i class="bi bi-exclamation-circle"></i><span>${escapeHtml(error.message || '载入失败')}</span></div>`;
+            byId('listSummary').textContent = '载入失败';
+        } finally {
+            if (requestId === proposalState.requestId) proposalState.loading = false;
+        }
+    }
+
+    function setStatusFilter(status) {
+        byId('statusFilter').value = status || '';
+        document.querySelectorAll('.demo-metric').forEach((button) => button.classList.toggle('active', button.dataset.status === (status || '')));
+        proposalState.favoriteOnly = false;
+        loadProposals(1);
+    }
+
+    function resetProposalFilters() {
+        ['proposalSearch', 'statusFilter', 'departmentFilter', 'operationFilter', 'scoreFilter', 'startDateFilter', 'endDateFilter'].forEach((id) => { byId(id).value = ''; });
+        proposalState.favoriteOnly = false;
+        document.querySelectorAll('.demo-metric').forEach((button) => button.classList.toggle('active', button.dataset.status === ''));
+    }
+
+    function renderRewards() {
+        const search = byId('rewardSearch').value.trim().toLowerCase();
+        const category = byId('rewardCategory').value;
+        const stockFilter = byId('rewardStock').value;
+        rewardState.filtered = rewardState.items.filter((item) => {
+            const stock = Number(item.stock ?? -1);
+            if (search && !String(item.name || '').toLowerCase().includes(search)) return false;
+            if (category && item.category !== category) return false;
+            if (stockFilter === 'available' && stock === 0) return false;
+            if (stockFilter === 'low' && !(stock > 0 && stock <= 5)) return false;
+            if (stockFilter === 'empty' && stock !== 0) return false;
+            return true;
+        });
+        if (!rewardState.filtered.length) {
+            byId('rewardTableWrap').innerHTML = '<div class="demo-empty"><i class="bi bi-gift"></i><span>暂无符合条件的奖品</span></div>';
+            return;
+        }
+        const rows = rewardState.filtered.map((item) => {
+            const stock = Number(item.stock ?? -1);
+            const image = mediaUrl(item.image_path);
+            const stockText = stock < 0 ? '不限量' : String(stock);
+            const available = Boolean(item.available) && stock !== 0;
+            return `<tr>
+                <td style="width:62px">${image ? `<img class="demo-reward-image" src="${escapeHtml(image)}" alt="${escapeHtml(item.name || '奖品')}" onerror="this.style.visibility='hidden'">` : '<span class="demo-reward-image"></span>'}</td>
+                <td><div class="demo-reward-name">${escapeHtml(item.name || '-')}</div><div class="demo-proposal-copy">${escapeHtml(compactText(item.description || '暂无描述', 56))}</div></td>
+                <td style="width:130px">${escapeHtml(item.category || '其他')}</td>
+                <td style="width:100px"><span class="demo-score">${escapeHtml(item.points_required || 0)}</span> 积分</td>
+                <td style="width:90px">${escapeHtml(stockText)}</td>
+                <td style="width:100px"><span class="demo-status ${available ? 'completed' : 'cancelled'}">${available ? '可兑换' : '已下架'}</span></td>
+            </tr>`;
+        }).join('');
+        byId('rewardTableWrap').innerHTML = `<table class="demo-table" style="min-width:760px"><thead><tr><th style="width:62px">图片</th><th>奖品</th><th style="width:130px">分类</th><th style="width:100px">所需积分</th><th style="width:90px">库存</th><th style="width:100px">状态</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    async function loadRewards() {
+        byId('rewardTableWrap').innerHTML = '<div class="demo-loading"><span class="spinner-border spinner-border-sm"></span><span>正在载入</span></div>';
+        try {
+            const response = await fetch('/innovation/api/get_rewards?manage_mode=true', {credentials: 'same-origin'});
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '奖品载入失败');
+            rewardState.items = Array.isArray(result.data) ? result.data : [];
+            const categories = [...new Set(rewardState.items.map((item) => item.category || '其他'))].sort();
+            byId('rewardCategory').innerHTML = '<option value="">全部分类</option>' + categories.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+            const available = rewardState.items.filter((item) => item.available && Number(item.stock ?? -1) !== 0).length;
+            const lowStock = rewardState.items.filter((item) => Number(item.stock) > 0 && Number(item.stock) <= 5).length;
+            byId('rewardTotal').textContent = formatNumber(rewardState.items.length);
+            byId('rewardAvailable').textContent = formatNumber(available);
+            byId('rewardLowStock').textContent = formatNumber(lowStock);
+            byId('rewardCategories').textContent = formatNumber(categories.length);
+            byId('navRewards').textContent = formatNumber(rewardState.items.length);
+            renderRewards();
+        } catch (error) {
+            byId('rewardTableWrap').innerHTML = `<div class="demo-empty"><i class="bi bi-exclamation-circle"></i><span>${escapeHtml(error.message || '载入失败')}</span></div>`;
+        }
+    }
+
+    function switchWorkspace(button) {
+        document.querySelectorAll('.demo-nav-button').forEach((item) => item.classList.toggle('active', item === button));
+        const isRewards = button.dataset.view === 'rewards';
+        byId('proposalWorkspace').classList.toggle('hidden', isRewards);
+        byId('rewardWorkspace').classList.toggle('active', isRewards);
+        byId('scoreGuideButton').hidden = isRewards;
+        byId('exportButton').hidden = isRewards;
+        byId('workspaceTitle').textContent = isRewards ? '奖品管理' : '提案工作台';
+        byId('workspaceSubtitle').textContent = isRewards ? '库存、积分与兑换状态' : '聚合承接、处理、评分与追踪';
+        if (isRewards) {
+            if (!rewardState.items.length) loadRewards();
+            return;
+        }
+        resetProposalFilters();
+        const scope = button.dataset.scope;
+        if (scope === 'pending') byId('statusFilter').value = '待承接';
+        if (scope === 'processing') byId('statusFilter').value = '进行中';
+        if (scope === 'completed') byId('statusFilter').value = '已完成';
+        proposalState.favoriteOnly = scope === 'favorites';
+        const currentStatus = byId('statusFilter').value;
+        document.querySelectorAll('.demo-metric').forEach((metric) => metric.classList.toggle('active', !proposalState.favoriteOnly && metric.dataset.status === currentStatus));
+        loadProposals(1);
+    }
+
+    document.querySelectorAll('.demo-nav-button').forEach((button) => button.addEventListener('click', () => switchWorkspace(button)));
+    document.querySelectorAll('.demo-metric').forEach((button) => button.addEventListener('click', () => setStatusFilter(button.dataset.status)));
+    ['statusFilter', 'departmentFilter', 'operationFilter', 'scoreFilter', 'startDateFilter', 'endDateFilter'].forEach((id) => {
+        byId(id).addEventListener('change', () => { proposalState.favoriteOnly = false; loadProposals(1); });
+    });
+    byId('proposalSearch').addEventListener('input', () => {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => { proposalState.favoriteOnly = false; loadProposals(1); }, 320);
+    });
+    byId('moreFiltersButton').addEventListener('click', () => {
+        const open = byId('extraFilters').classList.toggle('open');
+        byId('moreFiltersButton').setAttribute('aria-expanded', String(open));
+    });
+    byId('firstPageButton').addEventListener('click', () => loadProposals(1));
+    byId('previousPageButton').addEventListener('click', () => loadProposals(Math.max(1, proposalState.page - 1)));
+    byId('nextPageButton').addEventListener('click', () => loadProposals(Math.min(proposalState.totalPages, proposalState.page + 1)));
+    byId('lastPageButton').addEventListener('click', () => loadProposals(proposalState.totalPages));
+    byId('closeDetailButton').addEventListener('click', () => byId('proposalDetail').classList.remove('mobile-open'));
+    byId('refreshButton').addEventListener('click', () => {
+        if (byId('rewardWorkspace').classList.contains('active')) loadRewards();
+        else { loadStatistics(); loadProposals(proposalState.page); }
+    });
+    byId('exportButton').addEventListener('click', () => {
+        const params = new URLSearchParams();
+        if (byId('startDateFilter').value) params.set('start_date', byId('startDateFilter').value);
+        if (byId('endDateFilter').value) params.set('end_date', byId('endDateFilter').value);
+        if (byId('operationFilter').value) params.append('operation_types', byId('operationFilter').value);
+        window.location.href = `/innovation/api/export_innovations?${params.toString()}`;
+    });
+    ['rewardSearch', 'rewardCategory', 'rewardStock'].forEach((id) => byId(id).addEventListener(id === 'rewardSearch' ? 'input' : 'change', renderRewards));
+    byId('resetRewardFilters').addEventListener('click', () => {
+        byId('rewardSearch').value = '';
+        byId('rewardCategory').value = '';
+        byId('rewardStock').value = '';
+        renderRewards();
+    });
+
+    loadStatistics();
+    loadProposals(1);
+})();
+</script>
+{% endblock %}
