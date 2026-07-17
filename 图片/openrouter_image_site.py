@@ -173,6 +173,68 @@ JIMENG_CONCURRENT_LIMIT_RETRY_DELAYS = (3, 6, 10)
 AMAZON_A_PLUS_MAX_EDGE = 10_000
 AMAZON_A_PLUS_MAX_PIXELS = 40_000_000
 AMAZON_A_PLUS_NATIVE_IMAGE_SIZE = "4K"
+AMAZON_A_PLUS_FEATURE_KEY = "amazon_a_plus"
+MAIN_IMAGE_A_PLUS_FEATURE_KEY = "main_image_a_plus"
+A_PLUS_IMAGES_API_FEATURE_KEYS = {
+    AMAZON_A_PLUS_FEATURE_KEY,
+    MAIN_IMAGE_A_PLUS_FEATURE_KEY,
+}
+MAIN_IMAGE_A_PLUS_MAX_FILES = 10
+MAIN_IMAGE_A_PLUS_SECTION_COUNT = 4
+MAIN_IMAGE_A_PLUS_MODE_FREE = "free_create"
+MAIN_IMAGE_A_PLUS_MODE_TEMPLATE = "template_replace"
+MAIN_IMAGE_A_PLUS_MODE_LABELS = {
+    MAIN_IMAGE_A_PLUS_MODE_FREE: "自由创作",
+    MAIN_IMAGE_A_PLUS_MODE_TEMPLATE: "套版替换",
+}
+MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY = "desktop_equal"
+MAIN_IMAGE_A_PLUS_LAYOUTS: dict[str, dict[str, Any]] = {
+    "mobile_equal": {
+        "label": "手机端｜600×1800｜4 段均分",
+        "target_size": (600, 1800),
+        "section_heights": (450, 450, 450, 450),
+        "text_margin_x": 48,
+        "text_margin_y": 32,
+    },
+    "desktop_equal": {
+        "label": "电脑端｜1464×2400｜4 段均分",
+        "target_size": (1464, 2400),
+        "section_heights": (600, 600, 600, 600),
+        "text_margin_x": 120,
+        "text_margin_y": 72,
+    },
+    "desktop_hero": {
+        "label": "电脑端｜1464×2400｜首屏突出",
+        "target_size": (1464, 2400),
+        "section_heights": (800, 533, 533, 534),
+        "text_margin_x": 120,
+        "text_margin_y": 64,
+    },
+}
+MAIN_IMAGE_A_PLUS_SECTION_PURPOSES = (
+    "商品与品牌主视觉",
+    "核心卖点与关键细节",
+    "使用场景、功能表现或工艺展示",
+    "套装规格、包装信息与品牌收尾",
+)
+MAIN_IMAGE_A_PLUS_TEMPLATE_DEFAULT_PROMPT = (
+    "请执行电商 A+ 成品套版替换。版式模板只用于锁定构图和设计结构，内容参考图用于提供新的品牌、文案、模特、商品、包装和细节素材。"
+    "必须保持模板中的分区边界、元素位置、相对尺寸、图片窗口形状、对齐方式、视觉层级、留白关系、背景色、装饰、字体风格和整体设计节奏基本不变。"
+    "必须把模板中的原品牌名、原 Logo、原文案、原模特、原商品、原包装、原眼部效果、原产品特写、原参数和原标签全部替换为内容参考图中对应的新内容。"
+    "自动识别内容参考图中各素材的角色，并将模特替换到模板模特位、商品与包装替换到商品位、局部特写替换到细节位、文案与品牌信息替换到对应文字位。"
+    "不得保留模板中的旧品牌、旧模特、旧产品、旧文案或旧参数；不得把模板原内容与新内容混合。"
+    "只能使用内容参考图中清楚可见或用户补充要求中明确提供的信息，不得编造品牌、卖点、参数、认证、功效、价格或承诺。"
+    "如果内容参考图没有提供某个旧内容的替代素材，应删除该旧内容并以匹配模板风格的中性背景或装饰补齐，不能继续保留旧内容。"
+    "所有新文案必须清楚、完整、可读，不能出现乱码、错别字、缺字或被边缘截断；商品、模特和 Logo 必须保持真实身份与外观。"
+    "最终结果应像在同一份专业设计源文件中完成的内容替换，而不是重新设计、拼贴或在旧内容上覆盖贴纸。"
+)
+# Backward-compatible aliases for older sessions and callers that expect the original default layout.
+MAIN_IMAGE_A_PLUS_TARGET_SIZE = tuple(
+    MAIN_IMAGE_A_PLUS_LAYOUTS[MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY]["target_size"]
+)
+MAIN_IMAGE_A_PLUS_SECTION_HEIGHT = int(
+    MAIN_IMAGE_A_PLUS_LAYOUTS[MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY]["section_heights"][0]
+)
 
 # Kept only for loading older sessions that still reference the retired local matting helpers.
 IMAGE_MATTING_DEFAULT_MODEL_PATH = APP_DIR / "image_matting" / "briaai" / "RMBG-1.4" / "model.onnx"
@@ -622,8 +684,38 @@ FEATURES = [
         ),
     },
     {
+        "key": MAIN_IMAGE_A_PLUS_FEATURE_KEY,
+        "name": "主图生A+",
+        "summary": "支持自由创作与成品套版替换，最多10张内容参考图",
+        "mode": "openrouter",
+        "output_mode": "image",
+        "min_images": 1,
+        "max_input_images": MAIN_IMAGE_A_PLUS_MAX_FILES,
+        "max_output_images": 1,
+        "target_size": MAIN_IMAGE_A_PLUS_TARGET_SIZE,
+        "description": "最多上传 10 张内容参考图，可自由创作或锁定成品模板版式替换全部内容，生成手机端或电脑端商业级 A+ 长图。",
+        "default_prompt": (
+            "请严格基于上传的主图设计一张完整的电商 A+ 宣传长图。"
+            "第 1 张图是核心主图，决定商品身份、品牌、包装、颜色、材质和外观；其余图片只用于补充角度、细节、套装内容、使用方式与视觉素材。"
+            "最终画布尺寸、四个区域的具体高度和文字安全距离必须严格遵守当前选择的版式说明。"
+            "第 1 部分为品牌与商品主视觉，清楚展示完整商品和核心形象；"
+            "第 2 部分为核心卖点与关键细节，使用清晰特写和简洁信息层级；"
+            "第 3 部分为使用场景、功能表现或工艺细节，必须与上传素材一致；"
+            "第 4 部分为套装、规格、包装或品牌收尾，形成完整购买信息闭环。"
+            "四部分必须边界清楚、节奏分明，同时保持统一的品牌色、字体风格、光影和商业质感；不要做成杂乱拼图，不要出现重复商品、无关商品或空白断层。"
+            "画面背景、场景、色块、纹理和装饰必须满版延伸到画布四边，不能出现外边框、白边、黑边、模糊边带或留白。"
+            "安全区只用于文字排版：每个宣传区域内部必须为文字保留版式指定的内边距；文字不得贴近左右边缘，不得跨越相邻部分的分界位置，任何文字都不能被画布边缘或分区边界截断。"
+            "必须准确保持商品主体、品牌标识、包装结构、颜色、比例和关键细节，不得擅自换款、变形或虚构不存在的配件。"
+            "只能使用上传图片中明确可见或用户补充说明中明确提供的卖点、规格和宣传信息；不得编造参数、认证、功效、折扣或承诺。"
+            "所有商品纹理、边缘、Logo、包装文字和宣传文字必须清楚锐利、易读，禁止乱码、错别字、模糊、虚焦、涂抹、像素化、压缩痕迹和过度柔化。"
+            "所有可读文字必须保留充足安全区，不要贴近左右边缘；非文字画面仍需满版铺满。"
+            "使用原生 4K 高清细节生成；系统会将四个模块无缝拼接为 1 张完整 A+ 宣传成品，不要输出绿幕、透明图、线框、草图或候选版式。"
+        ),
+    },
+    {
         "key": "amazon_a_plus",
         "name": "亚马逊A+生成",
+        "hidden": True,
         "summary": "绿幕生成独立元素并导出分层PSD",
         "mode": "openrouter",
         "output_mode": "image",
@@ -679,6 +771,187 @@ def get_feature_by_key(feature_key: str) -> dict[str, Any] | None:
         if str(feature.get("key") or "").strip() == normalized_key:
             return feature
     return None
+
+
+def get_visible_features() -> list[dict[str, Any]]:
+    return [feature for feature in FEATURES if not bool(feature.get("hidden"))]
+
+
+def get_main_image_a_plus_layout(layout_key: str | None = None) -> dict[str, Any]:
+    normalized_key = str(layout_key or "").strip()
+    if normalized_key not in MAIN_IMAGE_A_PLUS_LAYOUTS:
+        normalized_key = MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY
+    layout = dict(MAIN_IMAGE_A_PLUS_LAYOUTS[normalized_key])
+    layout["key"] = normalized_key
+    layout["target_size"] = tuple(int(value) for value in layout["target_size"])
+    layout["section_heights"] = tuple(int(value) for value in layout["section_heights"])
+    return layout
+
+
+def get_main_image_a_plus_template_layout(template_input: Any) -> dict[str, Any]:
+    if template_input is None:
+        raise RuntimeError("套版替换需要先上传 1 张成品 A+ 模板。")
+    template_bytes = get_uploaded_file_bytes(template_input)
+    try:
+        with Image.open(io.BytesIO(template_bytes)) as image:
+            normalized = ImageOps.exif_transpose(image)
+            target_width, target_height = normalized.size
+    except Exception as exc:
+        raise RuntimeError(f"无法读取成品 A+ 模板尺寸：{exc}") from exc
+    if (
+        target_width <= 0
+        or target_height < MAIN_IMAGE_A_PLUS_SECTION_COUNT
+        or target_width > AMAZON_A_PLUS_MAX_EDGE
+        or target_height > AMAZON_A_PLUS_MAX_EDGE
+        or target_width * target_height > AMAZON_A_PLUS_MAX_PIXELS
+    ):
+        raise RuntimeError(
+            "成品 A+ 模板尺寸不受支持：最长边不能超过 10000px，画布不能超过 4000 万像素。"
+        )
+    base_section_height, remainder = divmod(target_height, MAIN_IMAGE_A_PLUS_SECTION_COUNT)
+    section_heights = [base_section_height] * MAIN_IMAGE_A_PLUS_SECTION_COUNT
+    section_heights[-1] += remainder
+    return {
+        "key": "template_original_size",
+        "label": f"跟随模板原尺寸｜{target_width}×{target_height}",
+        "target_size": (target_width, target_height),
+        "section_heights": tuple(section_heights),
+        "text_margin_x": max(24, round(target_width * 0.08)),
+        "text_margin_y": max(20, round(min(section_heights) * 0.1)),
+    }
+
+
+def normalize_main_image_a_plus_mode(mode: str | None = None) -> str:
+    normalized_mode = str(mode or "").strip()
+    if normalized_mode not in MAIN_IMAGE_A_PLUS_MODE_LABELS:
+        return MAIN_IMAGE_A_PLUS_MODE_FREE
+    return normalized_mode
+
+
+def describe_main_image_a_plus_sections(layout: dict[str, Any]) -> str:
+    section_heights = tuple(int(value) for value in layout.get("section_heights") or ())
+    if not section_heights:
+        return ""
+    if len(set(section_heights)) == 1:
+        return f"4 段均分，每段 {section_heights[0]}px"
+    return (
+        f"首段 {section_heights[0]}px，后 3 段约 "
+        f"{round(sum(section_heights[1:]) / max(len(section_heights) - 1, 1))}px"
+    )
+
+
+def build_main_image_a_plus_layout_notes(layout_key: str, image_count: int) -> str:
+    layout = get_main_image_a_plus_layout(layout_key)
+    target_width, target_height = layout["target_size"]
+    section_heights = layout["section_heights"]
+    text_margin_x = int(layout.get("text_margin_x") or 0)
+    text_margin_y = int(layout.get("text_margin_y") or 0)
+    section_lines: list[str] = []
+    start_y = 0
+    for index, (section_height, purpose) in enumerate(
+        zip(section_heights, MAIN_IMAGE_A_PLUS_SECTION_PURPOSES),
+        start=1,
+    ):
+        end_y = start_y + section_height
+        section_lines.append(
+            f"第 {index} 部分为 y={start_y}–{end_y}px，高 {section_height}px，用于{purpose}；"
+        )
+        start_y = end_y
+    return (
+        f"当前共上传 {image_count} 张商品主图，图片顺序即参考优先级。"
+        "第 1 张必须作为核心主图，严格锁定商品身份、品牌、包装、颜色、材质、结构和比例；"
+        "第 2 张至最后一张只用于补充商品角度、局部细节、套装内容、使用方式和可用场景。"
+        f"当前选择的版式为“{layout['label']}”。"
+        f"最终成品必须是一张 {target_width}×{target_height}px 的完整竖版 A+ 宣传长图，"
+        f"所有区域宽度均为 {target_width}px，从上到下严格分为 {MAIN_IMAGE_A_PLUS_SECTION_COUNT} 个区域。"
+        f"{''.join(section_lines)}"
+        "每个区域都必须有明确独立的信息重点和完整构图，区域之间允许使用色块、场景或自然过渡，"
+        "但不能合并成一个无分区的大画面，也不能做成凌乱的九宫格或多图拼贴。"
+        "只允许展示上传图片中真实存在的商品、配件、包装和信息，不得增加无关商品，不得改变品牌与商品外观。"
+        "不得编造参数、认证、功效、促销价格或承诺；补充宣传要求与图片冲突时，以主图中的真实商品信息为准。"
+        "背景、场景、色块、纹理和装饰必须满版延伸到画布四边，不得生成边框、白边、黑边、模糊边带或可见留白。"
+        f"安全区只限制文字：所有标题、卖点、参数、说明文字和可读 Logo 必须左右至少内缩 {text_margin_x}px，"
+        f"并与每段的上下边界至少保持 {text_margin_y}px 距离。"
+        "文字不能贴边、跨区或压在分界线上，不能出现半个字、缺字或被截断的行；非文字画面仍须满版铺满。"
+        "必须使用原生 4K 高清细节，商品纹理、边缘、Logo、包装字和宣传字必须清晰锐利、可辨认。"
+        "严禁乱码、错别字、模糊、虚焦、涂抹、过度柔化、像素化、压缩痕迹、重复主体和明显 AI 伪影。"
+        "系统会将四段无缝合成为 1 张完整成品；不要输出绿幕、透明图、草图、线框或多张候选版式。"
+    )
+
+
+def build_main_image_a_plus_section_prompt(
+    full_prompt: str,
+    layout: dict[str, Any],
+    section_index: int,
+) -> str:
+    target_width, target_height = layout["target_size"]
+    section_heights = layout["section_heights"]
+    section_height = int(section_heights[section_index])
+    purpose = MAIN_IMAGE_A_PLUS_SECTION_PURPOSES[section_index]
+    text_margin_x = int(layout.get("text_margin_x") or 0)
+    text_margin_y = int(layout.get("text_margin_y") or 0)
+    return (
+        f"{str(full_prompt or '').strip()}\n\n"
+        "分段生成执行指令：系统会分别生成四个模块并在生成后无缝竖向拼接。"
+        f"本次只生成第 {section_index + 1} 个横向模块“{purpose}”，不要生成整张长图，也不要包含其他三个模块。"
+        f"本次模块的最终尺寸必须严格为 {target_width}×{section_height}px；"
+        f"它将被放入总尺寸 {target_width}×{target_height}px 的成品中。"
+        "画面、背景、色块和场景必须铺满模块四边，不要边框、白边、黑边或透明边缘。"
+        f"所有可读文字左右至少内缩 {text_margin_x}px，上下至少内缩 {text_margin_y}px，"
+        "任何文字、Logo 或商品关键信息都不能被模块边缘截断。"
+        "保持与其余模块一致的商品身份、品牌色、字体风格、光影方向和商业质感。"
+        "只输出这一张模块成品图。"
+    )
+
+
+def build_main_image_a_plus_template_notes(layout_or_key: dict[str, Any] | str, image_count: int) -> str:
+    layout = (
+        dict(layout_or_key)
+        if isinstance(layout_or_key, dict)
+        else get_main_image_a_plus_layout(layout_or_key)
+    )
+    target_width, target_height = layout["target_size"]
+    section_heights = layout["section_heights"]
+    text_margin_x = int(layout.get("text_margin_x") or 0)
+    text_margin_y = int(layout.get("text_margin_y") or 0)
+    return (
+        f"当前套版任务包含 1 张完整成品 A+ 模板和 {image_count} 张内容参考图。"
+        "模板图不提供可复用的品牌、人物、产品或文案，只提供版式与设计结构；内容参考图才是新内容的唯一来源。"
+        f"当前选择的成品规格为“{layout['label']}”，最终合成长图必须严格为 {target_width}×{target_height}px。"
+        f"四段高度依次为 {'、'.join(str(value) + 'px' for value in section_heights)}。"
+        "系统会先按这四段高度拆分模板，再逐段执行同位置、同层级、同视觉比例的内容替换。"
+        "每一处原模特、原产品、原包装、原 Logo、原品牌名、原宣传语、原参数、原标签和原细节照片都必须被替换或删除，不能残留。"
+        "内容参考图中的第一张作为核心商品与品牌识别依据，其余图片用于匹配模特、不同角度、细节、效果、包装、文案和规格。"
+        "替换后的内容必须完整落在模板原有槽位中，不得移动主要槽位、改变分栏比例、打乱阅读顺序或新增模板没有的大型版块。"
+        f"所有可读文字左右至少内缩 {text_margin_x}px，并与所在分段上下边界至少保持 {text_margin_y}px 距离。"
+        "背景与装饰仍须满版到边，文字、Logo 和商品关键信息不得被画布边缘或分区边界截断。"
+    )
+
+
+def build_main_image_a_plus_template_section_prompt(
+    full_prompt: str,
+    layout: dict[str, Any],
+    section_index: int,
+) -> str:
+    target_width, target_height = layout["target_size"]
+    section_heights = layout["section_heights"]
+    section_height = int(section_heights[section_index])
+    text_margin_x = int(layout.get("text_margin_x") or 0)
+    text_margin_y = int(layout.get("text_margin_y") or 0)
+    return (
+        f"{str(full_prompt or '').strip()}\n\n"
+        "套版分段执行指令：输入图片中的第 1 张是当前分段的版式模板，后续图片全部是要替换进去的新内容参考图。"
+        f"本次只处理第 {section_index + 1}/{MAIN_IMAGE_A_PLUS_SECTION_COUNT} 段，"
+        f"输出必须严格为 {target_width}×{section_height}px，最终将合成 {target_width}×{target_height}px 长图。"
+        "先识别模板中所有人物位、产品位、包装位、Logo 位、标题位、正文位、参数位、标签位和细节图位，"
+        "再从后续内容参考图中找到语义对应的新内容逐一替换。"
+        "必须锁定模板中每个槽位的坐标、占比、裁切形状、叠放关系、对齐、背景、色彩、装饰和阅读顺序；不要重新设计版式。"
+        "模板原有的品牌、Logo、文案、模特、产品、包装、局部特写、参数和标签都属于待删除内容，绝对不能出现在结果中。"
+        "如果后续参考图没有提供某个槽位的替代内容，删除旧内容并延续相邻背景或装饰，不得保留旧内容或编造新信息。"
+        "替换内容必须自然融入原槽位，不要出现贴纸感、硬边、遮挡残留、双重文字、重复商品或新旧内容混合。"
+        f"所有文字左右至少内缩 {text_margin_x}px，上下至少内缩 {text_margin_y}px，必须完整可读且不能被截断。"
+        "只输出这一段完成套版替换后的商业级成品图。"
+    )
 
 
 def get_infinite_canvas_step_features() -> list[dict[str, Any]]:
@@ -1139,7 +1412,8 @@ def ensure_state() -> None:
     if "feature_results" not in st.session_state:
         st.session_state.feature_results = {}
     if "selected_feature_key" not in st.session_state:
-        st.session_state.selected_feature_key = FEATURES[0]["key"]
+        visible_features = get_visible_features()
+        st.session_state.selected_feature_key = visible_features[0]["key"]
     if "is_authenticated" not in st.session_state:
         st.session_state.is_authenticated = False
     if "auth_username" not in st.session_state:
@@ -2704,11 +2978,224 @@ def run_infinite_canvas_job(job_context: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def split_main_image_a_plus_template(
+    template_input: Any,
+    target_width: int,
+    section_heights: tuple[int, ...],
+) -> list[dict[str, Any]]:
+    if template_input is None:
+        raise RuntimeError("套版替换需要先上传 1 张成品 A+ 模板。")
+    template_bytes = get_uploaded_file_bytes(template_input)
+    try:
+        with Image.open(io.BytesIO(template_bytes)) as image:
+            template = ImageOps.exif_transpose(image).convert("RGB")
+            target_height = sum(section_heights)
+            if template.size != (target_width, target_height):
+                template = template.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            sections: list[dict[str, Any]] = []
+            start_y = 0
+            for index, section_height in enumerate(section_heights, start=1):
+                section = template.crop((0, start_y, target_width, start_y + section_height))
+                output = io.BytesIO()
+                section.save(output, format="PNG")
+                sections.append(
+                    {
+                        "data": output.getvalue(),
+                        "name": f"a_plus_layout_template_section_{index}.png",
+                        "type": "image/png",
+                    }
+                )
+                start_y += section_height
+            return sections
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"成品 A+ 模板读取或拆分失败：{exc}") from exc
+
+
+def stitch_main_image_a_plus_sections(
+    section_image_urls: list[str],
+    target_width: int,
+    section_heights: tuple[int, ...],
+) -> str:
+    if len(section_image_urls) != len(section_heights):
+        raise RuntimeError("主图生A+分段数量不完整，无法合成长图。")
+    target_height = sum(section_heights)
+    canvas = Image.new("RGB", (target_width, target_height), "white")
+    current_y = 0
+    for section_image_url, section_height in zip(section_image_urls, section_heights):
+        image_bytes, _mime_type = load_image_bytes_from_url(section_image_url)
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                section = ImageOps.exif_transpose(image).convert("RGB")
+                if section.size != (target_width, section_height):
+                    section = section.resize((target_width, section_height), Image.Resampling.LANCZOS)
+                canvas.paste(section, (0, current_y))
+        except Exception as exc:
+            raise RuntimeError(f"主图生A+分段图片读取失败：{exc}") from exc
+        current_y += section_height
+    output = io.BytesIO()
+    canvas.save(output, format="PNG")
+    return image_bytes_to_data_url(output.getvalue(), "image/png")
+
+
+def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
+    job_id = str(job_context.get("job_id") or "")
+    generation_mode = normalize_main_image_a_plus_mode(
+        str(job_context.get("main_image_a_plus_mode") or "")
+    )
+    layout = (
+        dict(job_context["main_image_a_plus_layout"])
+        if isinstance(job_context.get("main_image_a_plus_layout"), dict)
+        else get_main_image_a_plus_layout(
+            str(job_context.get("main_image_a_plus_layout_key") or "")
+        )
+    )
+    target_width, target_height = layout["target_size"]
+    section_heights = layout["section_heights"]
+    uploaded_files = list(job_context.get("uploaded_files") or [])
+    section_image_urls: list[str] = []
+    section_texts: list[str] = []
+    requested_aspect_ratios: list[str] = []
+    template_sections = (
+        split_main_image_a_plus_template(
+            job_context.get("main_image_a_plus_template"),
+            target_width,
+            section_heights,
+        )
+        if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+        else []
+    )
+
+    for section_index, section_height in enumerate(section_heights):
+        if job_id:
+            progress_value = 12 + math.floor((section_index / MAIN_IMAGE_A_PLUS_SECTION_COUNT) * 60)
+            set_task_progress(
+                job_id,
+                progress_value,
+                (
+                    f"正在套版替换第 {section_index + 1}/{MAIN_IMAGE_A_PLUS_SECTION_COUNT} 个 A+ 模块"
+                    if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                    else f"正在生成第 {section_index + 1}/{MAIN_IMAGE_A_PLUS_SECTION_COUNT} 个 A+ 模块"
+                ),
+            )
+        request_aspect_ratio = select_closest_aspect_ratio((target_width, section_height))
+        requested_aspect_ratios.append(request_aspect_ratio)
+        section_prompt = (
+            build_main_image_a_plus_template_section_prompt(
+                str(job_context.get("prompt") or ""),
+                layout,
+                section_index,
+            )
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            else build_main_image_a_plus_section_prompt(
+                str(job_context.get("prompt") or ""),
+                layout,
+                section_index,
+            )
+        )
+        section_uploaded_files = (
+            [template_sections[section_index], *uploaded_files]
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            else uploaded_files
+        )
+        section_result = call_openrouter_images_api(
+            model=str(job_context["model"]),
+            prompt=section_prompt,
+            uploaded_files=section_uploaded_files,
+            aspect_ratio=request_aspect_ratio,
+            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+        )
+        generated_images = list(section_result.get("images") or [])
+        if not generated_images:
+            raise RuntimeError(
+                f"主图生A+第 {section_index + 1} 个模块没有返回图片，请重试。"
+            )
+        section_image_urls.append(str(generated_images[0]))
+        section_text = str(section_result.get("text") or "").strip()
+        if section_text:
+            section_texts.append(f"第 {section_index + 1} 段：{section_text}")
+
+    if job_id:
+        set_task_progress(job_id, 76, "正在无缝拼接四个 A+ 模块")
+    final_image_url = stitch_main_image_a_plus_sections(
+        section_image_urls,
+        target_width,
+        section_heights,
+    )
+    if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
+        summary = (
+            "已按模板原图尺寸拆分成品模板并逐段替换为上传内容，无缝合成为套版成品。"
+            "模板仅保留版式与设计结构，原品牌、原模特、原产品和原文案均要求替换或删除。"
+        )
+    else:
+        summary = (
+            f"已按“{layout['label']}”使用原生 4K 分别生成四个模块，并无缝合成为 "
+            f"{target_width}×{target_height}px 成品；{describe_main_image_a_plus_sections(layout)}。"
+            "画面满版铺满，文字按安全区向内排版。"
+        )
+    return {
+        "images": [final_image_url],
+        "text": "\n\n".join([*section_texts, summary]).strip(),
+        "channel": (
+            "Images API 原生 4K · 套版替换"
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            else "Images API 原生 4K · 四段独立生成"
+        ),
+        "requested_aspect_ratios": tuple(requested_aspect_ratios),
+        "target_size": (target_width, target_height),
+        "section_count": MAIN_IMAGE_A_PLUS_SECTION_COUNT,
+        "section_heights": section_heights,
+        "section_height": section_heights[0] if len(set(section_heights)) == 1 else None,
+        "main_image_a_plus_layout_key": layout["key"],
+        "main_image_a_plus_layout_label": layout["label"],
+        "main_image_a_plus_mode": generation_mode,
+    }
+
+
 def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
     job_id = str(job_context.get("job_id") or "")
     if job_id:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
+    if feature_key == MAIN_IMAGE_A_PLUS_FEATURE_KEY:
+        uploaded_files = list(job_context.get("uploaded_files") or [])
+        feature = dict(job_context.get("feature") or {})
+        generation_mode = normalize_main_image_a_plus_mode(
+            str(
+                job_context.get("main_image_a_plus_mode")
+                or feature.get("main_image_a_plus_mode")
+                or ""
+            )
+        )
+        if not uploaded_files:
+            raise RuntimeError("主图生A+至少需要上传 1 张内容参考图。")
+        if len(uploaded_files) > MAIN_IMAGE_A_PLUS_MAX_FILES:
+            raise RuntimeError(f"主图生A+最多只能上传 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张主图。")
+        if (
+            generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            and job_context.get("main_image_a_plus_template") is None
+        ):
+            raise RuntimeError("套版替换需要先上传 1 张成品 A+ 模板。")
+        layout = (
+            get_main_image_a_plus_template_layout(job_context.get("main_image_a_plus_template"))
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            else get_main_image_a_plus_layout(
+                str(
+                    job_context.get("main_image_a_plus_layout_key")
+                    or feature.get("main_image_a_plus_layout_key")
+                    or ""
+                )
+            )
+        )
+        job_context = dict(job_context)
+        job_context["main_image_a_plus_mode"] = generation_mode
+        job_context["main_image_a_plus_layout"] = layout
+        job_context["main_image_a_plus_layout_key"] = layout["key"]
+        job_context["target_size"] = layout["target_size"]
+        job_context["section_heights"] = layout["section_heights"]
+        result = run_main_image_a_plus_job(job_context)
+        return finalize_feature_job_result(job_context, result, job_id)
     if feature_key == "infinite_canvas":
         result = run_infinite_canvas_job(job_context)
         return finalize_canvas_job_result(job_context, result, job_id)
@@ -2823,7 +3310,7 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     feature_key=feature_key,
                 )
         else:
-            if feature_key == "amazon_a_plus" and str(job_context.get("output_mode") or "") == "image":
+            if feature_key in A_PLUS_IMAGES_API_FEATURE_KEYS and str(job_context.get("output_mode") or "") == "image":
                 target_size = job_context.get("target_size")
                 request_aspect_ratio = (
                     select_closest_aspect_ratio((int(target_size[0]), int(target_size[1])))
@@ -2859,7 +3346,7 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
         if job_context["output_mode"] == "image":
             target_size = job_context.get("target_size")
             min_output_edge = get_feature_min_output_edge(feature_key)
-            if target_size and feature_key != "amazon_a_plus":
+            if target_size and feature_key != AMAZON_A_PLUS_FEATURE_KEY:
                 result["images"] = [
                     resize_image_to_exact_size(image_url, int(target_size[0]), int(target_size[1]))
                     for image_url in (result.get("images") or [])
@@ -2873,7 +3360,7 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     )
                     for image_url in (result.get("images") or [])
                 ]
-            if feature_key == "amazon_a_plus" and (result.get("images") or []):
+            if feature_key == AMAZON_A_PLUS_FEATURE_KEY and (result.get("images") or []):
                 if job_id:
                     set_task_progress(job_id, 80, "正在识别绿幕元素并生成分层 PSD")
                 result = build_amazon_a_plus_layered_result(result, target_size)
@@ -4056,10 +4543,17 @@ def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str,
         f"当前执行功能：{feature['name']}",
         feature.get("default_prompt", ""),
     ]
-    if feature.get("key") == "amazon_a_plus":
+    if feature.get("key") in A_PLUS_IMAGES_API_FEATURE_KEYS:
         size_text = str(feature.get("target_size_text", "")).strip()
+        if not size_text:
+            target_size = feature.get("target_size")
+            if isinstance(target_size, (tuple, list)) and len(target_size) == 2:
+                size_text = f"{int(target_size[0])}*{int(target_size[1])}"
         if size_text:
-            sections.append(f"最终输出尺寸必须严格等于 {size_text}px。")
+            if feature.get("key") == MAIN_IMAGE_A_PLUS_FEATURE_KEY:
+                sections.append(f"四个模块无缝合成后的最终成品尺寸必须严格等于 {size_text}px。")
+            else:
+                sections.append(f"最终输出尺寸必须严格等于 {size_text}px。")
     elif feature.get("output_mode") == "image":
         sections.append(
             f"最终输出必须保持原始比例不变，并且宽度和高度都不小于 {get_feature_min_output_edge(feature)}px。"
@@ -8425,7 +8919,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     if feature.get("key") == "hd_batch":
         default_model_for_feature = NANO_BANANA_MODEL
         model_options_for_feature = [NANO_BANANA_MODEL]
-    elif feature.get("key") == "amazon_a_plus":
+    elif feature.get("key") in A_PLUS_IMAGES_API_FEATURE_KEYS:
         default_model_for_feature = NANO_BANANA_MODEL
         model_options_for_feature = [NANO_BANANA_MODEL]
     if not supports_jimeng_generation and default_model_for_feature not in model_options_for_feature:
@@ -8439,7 +8933,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     supports_eye_shape_reference = feature["key"] == "eye_shape_change"
     supports_side_angle_reference = feature["key"] == "three_view"
     supports_ai_qa_image = feature["key"] == "ai_qa_image"
-    supports_amazon_a_plus = feature["key"] == "amazon_a_plus"
+    supports_amazon_a_plus = feature["key"] == AMAZON_A_PLUS_FEATURE_KEY
+    supports_main_image_a_plus = feature["key"] == MAIN_IMAGE_A_PLUS_FEATURE_KEY
+    supports_a_plus_images_api = supports_amazon_a_plus or supports_main_image_a_plus
     supports_pose_references = feature["key"] == "pose_change"
     supports_scene_references = feature["key"] == "scene_change"
     supports_outpaint = feature["key"] == "outpaint"
@@ -8461,7 +8957,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         '<span class="meta-pill">支持 JPG、PNG、WEBP 格式</span>',
         '<span class="meta-pill">单张最大 50MB</span>',
     ]
-    if supports_amazon_a_plus:
+    if supports_main_image_a_plus:
+        meta_items.append('<span class="meta-pill">直接输出商业级产品图</span>')
+        meta_items.append('<span class="meta-pill">支持成品 A+ 套版替换</span>')
+        meta_items.append('<span class="meta-pill">自由创作：3 种规格</span>')
+        meta_items.append('<span class="meta-pill">套版：跟随模板原尺寸</span>')
+        meta_items.append('<span class="meta-pill">纵向 4 部分</span>')
+        meta_items.append('<span class="meta-pill">满版画面 · 文字安全区</span>')
+        meta_items.append(f'<span class="meta-pill">最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张主图</span>')
+        meta_items.append('<span class="meta-pill">原生 4K 高清生成</span>')
+    elif supports_amazon_a_plus:
         meta_items.append('<span class="meta-pill">原生 4K 高清底稿</span>')
         meta_items.append('<span class="meta-pill">纯绿幕独立元素底稿</span>')
         meta_items.append('<span class="meta-pill">自动裁切并导出分层 PSD</span>')
@@ -8497,6 +9002,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         jimeng_prompt = ""
         amazon_source_files: list[Any] = []
         amazon_size_text = "1464*600"
+        main_image_a_plus_prompt = ""
+        main_image_a_plus_mode = MAIN_IMAGE_A_PLUS_MODE_FREE
+        main_image_a_plus_template_file = None
+        main_image_a_plus_layout_key = MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY
         pose_reference_files: list[Any] = []
         scene_reference_files: list[Any] = []
         batch_source_files: list[Any] = []
@@ -8642,6 +9151,95 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 height=120,
                 label_visibility="collapsed",
             )
+        elif supports_main_image_a_plus:
+            st.markdown('<div class="panel-subtitle">生成方式</div>', unsafe_allow_html=True)
+            main_image_a_plus_mode = st.radio(
+                "选择主图生A+生成方式",
+                options=list(MAIN_IMAGE_A_PLUS_MODE_LABELS),
+                index=0,
+                format_func=lambda value: MAIN_IMAGE_A_PLUS_MODE_LABELS[value],
+                key=f"main_image_a_plus_mode_{feature['key']}",
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
+                st.markdown('<div class="panel-subtitle">成品 A+ 版式模板（1 张）</div>', unsafe_allow_html=True)
+                main_image_a_plus_template_file = render_single_image_uploader(
+                    "上传成品A+版式模板",
+                    key=f"main_image_a_plus_template_{feature['key']}",
+                    help_text=(
+                        "上传要套用版式的完整成品 A+。模板只保留布局、色彩和视觉层级，"
+                        "原品牌、原文案、原模特和原产品都会被替换或删除。"
+                    ),
+                )
+                st.markdown(
+                    '<div class="slot-helper">套版结果自动跟随模板原图尺寸，无需另外选择规格</div>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown(
+                (
+                    f'<div class="panel-subtitle">替换内容参考图（最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张）</div>'
+                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                    else f'<div class="panel-subtitle">商品主图（最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张）</div>'
+                ),
+                unsafe_allow_html=True,
+            )
+            amazon_source_files = render_multi_image_uploader(
+                (
+                    "上传要替换进去的内容参考图"
+                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                    else "上传商品主图"
+                ),
+                key=f"main_image_a_plus_uploader_{feature['key']}",
+                help_text=(
+                    (
+                        "可上传包含新文案、品牌、Logo、模特、产品、包装、细节和参数的 JPG / PNG / WEBP。"
+                        "第 1 张作为核心商品与品牌依据，其余图片由 AI 自动匹配到模板对应位置，"
+                        f"最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张。"
+                    )
+                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                    else (
+                        "可上传 JPG / PNG / WEBP。第 1 张作为核心商品主图，其余图片用于补充角度、细节、"
+                        f"套装内容和使用场景，最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张。"
+                    )
+                ),
+                max_files=MAIN_IMAGE_A_PLUS_MAX_FILES,
+            )
+            st.markdown(
+                (
+                    '<div class="slot-helper">请把最能代表新商品与品牌的图片放在第一张；其余文案、模特、产品细节图可继续上传</div>'
+                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                    else '<div class="slot-helper">请把最能代表商品的图片第一个上传；图片顺序即参考优先级</div>'
+                ),
+                unsafe_allow_html=True,
+            )
+            if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_FREE:
+                st.markdown('<div class="panel-subtitle">选择成品规格</div>', unsafe_allow_html=True)
+                layout_keys = list(MAIN_IMAGE_A_PLUS_LAYOUTS)
+                main_image_a_plus_layout_key = st.selectbox(
+                    "选择主图生A+规格",
+                    options=layout_keys,
+                    index=layout_keys.index(MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY),
+                    format_func=lambda value: str(MAIN_IMAGE_A_PLUS_LAYOUTS[value]["label"]),
+                    key=f"main_image_a_plus_layout_{feature['key']}",
+                    label_visibility="collapsed",
+                )
+                selected_a_plus_layout = get_main_image_a_plus_layout(main_image_a_plus_layout_key)
+                selected_width, selected_height = selected_a_plus_layout["target_size"]
+                st.info(
+                    f"{selected_width}×{selected_height}px，"
+                    f"{describe_main_image_a_plus_sections(selected_a_plus_layout)}；"
+                    "系统将 4 个模块分别高清生成后无缝合成商业级宣传长图；"
+                    "不生成绿幕或 PSD；背景和产品画面满版铺满，仅文字与可读 Logo 向内排版，避免被截断。"
+                )
+            st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
+            main_image_a_plus_prompt = st.text_area(
+                "输入主图生A+补充要求",
+                key=f"main_image_a_plus_prompt_{feature['key']}",
+                placeholder="例如：突出轻盈、自然和佩戴舒适；整体使用黑金高级风格。请只填写真实、可核实的卖点。",
+                height=110,
+                label_visibility="collapsed",
+            )
         elif supports_amazon_a_plus:
             st.markdown('<div class="panel-subtitle">A+原图（最多 3 张）</div>', unsafe_allow_html=True)
             amazon_source_files = render_multi_image_uploader(
@@ -8741,6 +9339,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 )
             if feature.get("key") == "hd_batch":
                 st.caption("即梦 4.6 高清已暂时关闭，当前仅保留 Nano Banana 2 生图。")
+            elif supports_main_image_a_plus:
+                st.caption("主图生A+使用 Nano Banana 2 原生 4K Images API；画面满版，文字使用安全区避免被截断。")
             elif supports_amazon_a_plus:
                 st.caption("A+ 使用原生 4K Images API 生成高清绿幕底稿。")
     with right_col:
@@ -8830,14 +9430,43 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             files = list(batch_source_files)
         elif supports_ai_qa_image:
             files = list(ai_qa_source_files)
-        elif supports_amazon_a_plus:
+        elif supports_a_plus_images_api:
             files = list(amazon_source_files)
         elif supports_jimeng_generation:
             files = list(jimeng_source_files)
         else:
             files = [uploaded_file] if uploaded_file is not None else []
-        custom_prompt = jimeng_prompt if supports_jimeng_generation else (ai_qa_prompt if supports_ai_qa_image else "")
-        target_size = parse_size_text(amazon_size_text) if supports_amazon_a_plus else None
+        custom_prompt = (
+            jimeng_prompt
+            if supports_jimeng_generation
+            else ai_qa_prompt
+            if supports_ai_qa_image
+            else main_image_a_plus_prompt
+            if supports_main_image_a_plus
+            else ""
+        )
+        main_image_a_plus_template_layout_error = ""
+        if (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            and main_image_a_plus_template_file is not None
+        ):
+            try:
+                selected_main_image_a_plus_layout = get_main_image_a_plus_template_layout(
+                    main_image_a_plus_template_file
+                )
+            except RuntimeError as exc:
+                selected_main_image_a_plus_layout = None
+                main_image_a_plus_template_layout_error = str(exc)
+        else:
+            selected_main_image_a_plus_layout = get_main_image_a_plus_layout(main_image_a_plus_layout_key)
+        target_size = (
+            selected_main_image_a_plus_layout["target_size"]
+            if supports_main_image_a_plus and selected_main_image_a_plus_layout is not None
+            else parse_size_text(amazon_size_text)
+            if supports_amazon_a_plus
+            else None
+        )
         using_jimeng_for_request = supports_jimeng_generation or is_jimeng_model(active_model)
         if supports_jimeng_generation and not jimeng_prompt.strip():
             st.warning("请输入 Agent 的生图要求。")
@@ -8851,6 +9480,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             st.warning("AI问答生图功能最多只能上传 3 张参考图。")
         elif supports_ai_qa_image and not ai_qa_prompt.strip():
             st.warning("请输入你的文字要求。")
+        elif (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            and main_image_a_plus_template_file is None
+        ):
+            st.warning("套版替换需要先上传 1 张完整的成品 A+ 版式模板。")
+        elif supports_main_image_a_plus and main_image_a_plus_template_layout_error:
+            st.warning(main_image_a_plus_template_layout_error)
+        elif supports_main_image_a_plus and len(files) > MAIN_IMAGE_A_PLUS_MAX_FILES:
+            st.warning(f"主图生A+最多只能上传 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张主图。")
         elif supports_amazon_a_plus and len(files) > 3:
             st.warning("亚马逊A+功能最多只能上传 3 张原图。")
         elif supports_amazon_a_plus and target_size is None:
@@ -8915,9 +9554,20 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "如果用户要求保留原图中的人物、商品、场景或构图，需要优先保持一致。"
                     "只输出 1 张最终结果图，不要输出多个版本。"
                 )
+            elif supports_main_image_a_plus:
+                extra_notes = (
+                    build_main_image_a_plus_template_notes(
+                        selected_main_image_a_plus_layout,
+                        len(files),
+                    )
+                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                    else build_main_image_a_plus_layout_notes(
+                        main_image_a_plus_layout_key,
+                        len(files),
+                    )
+                )
             elif supports_amazon_a_plus:
                 target_width, target_height = target_size
-                feature["target_size_text"] = f"{target_width}*{target_height}"
                 extra_notes = (
                     f"当前共上传 {len(files)} 张原图。"
                     "请将原图中的主体内容设计成适合亚马逊 A+ 模块的独立视觉元素底稿。"
@@ -8987,10 +9637,20 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "仅生成 1 张结果图，不要输出多个版本。",
                 ]
                 extra_notes = "".join(parts)
+            feature_for_request = dict(feature)
+            if supports_main_image_a_plus:
+                feature_for_request["main_image_a_plus_mode"] = main_image_a_plus_mode
+                feature_for_request["main_image_a_plus_layout_key"] = main_image_a_plus_layout_key
+                feature_for_request["main_image_a_plus_layout"] = selected_main_image_a_plus_layout
+                if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
+                    feature_for_request["default_prompt"] = MAIN_IMAGE_A_PLUS_TEMPLATE_DEFAULT_PROMPT
+            if target_size is not None:
+                feature_for_request["target_size"] = tuple(target_size)
+                feature_for_request["target_size_text"] = f"{int(target_size[0])}*{int(target_size[1])}"
             if using_jimeng_for_request:
-                final_prompt = build_jimeng_prompt(feature, custom_prompt, aspect_ratio, extra_notes)
+                final_prompt = build_jimeng_prompt(feature_for_request, custom_prompt, aspect_ratio, extra_notes)
             else:
-                final_prompt = build_prompt(feature, custom_prompt, aspect_ratio, extra_notes)
+                final_prompt = build_prompt(feature_for_request, custom_prompt, aspect_ratio, extra_notes)
             selected_hd_reference_input = hd_skin_texture_reference_file or hd_skin_reference_file
             if feature["key"] == "hd_batch" and selected_hd_reference_input is not None:
                 batch_groups = [[item, selected_hd_reference_input] for item in files]
@@ -9007,7 +9667,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             submit_feature_job(
                 feature,
                 {
-                    "feature": dict(feature),
+                    "feature": feature_for_request,
                     "model": active_model,
                     "prompt": final_prompt,
                     "uploaded_files": [prepare_uploaded_input(item) for item in files] if not supports_batch_multi_upload else [],
@@ -9029,7 +9689,23 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     ),
                     "output_mode": feature["output_mode"],
                     "max_output_images": max_output_images,
-                    "target_size": target_size if supports_amazon_a_plus and target_size is not None else None,
+                    "target_size": target_size if supports_a_plus_images_api and target_size is not None else None,
+                    "main_image_a_plus_layout_key": (
+                        main_image_a_plus_layout_key if supports_main_image_a_plus else None
+                    ),
+                    "main_image_a_plus_layout": (
+                        selected_main_image_a_plus_layout if supports_main_image_a_plus else None
+                    ),
+                    "main_image_a_plus_mode": (
+                        main_image_a_plus_mode if supports_main_image_a_plus else None
+                    ),
+                    "main_image_a_plus_template": (
+                        prepare_uploaded_input(main_image_a_plus_template_file)
+                        if supports_main_image_a_plus
+                        and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                        and main_image_a_plus_template_file is not None
+                        else None
+                    ),
                     "outpaint_settings": (
                         {
                             "top": outpaint_top_px,
@@ -9079,7 +9755,7 @@ def render_side_menu(current_feature: dict[str, Any]) -> None:
         """,
         unsafe_allow_html=True,
     )
-    for feature in FEATURES:
+    for feature in get_visible_features():
         is_active = st.session_state.selected_feature_key == feature["key"]
         if st.button(
             feature["name"],
@@ -9138,12 +9814,13 @@ def main() -> None:
     inject_clipboard_paste_support()
     if not st.session_state.is_authenticated:
         authenticate_requested_user()
-    feature_keys = {feature["key"] for feature in FEATURES}
+    visible_features = get_visible_features()
+    feature_keys = {feature["key"] for feature in visible_features}
     if st.session_state.selected_feature_key not in feature_keys:
-        st.session_state.selected_feature_key = FEATURES[0]["key"]
+        st.session_state.selected_feature_key = visible_features[0]["key"]
 
     current_feature = next(
-        feature for feature in FEATURES if feature["key"] == st.session_state.selected_feature_key
+        feature for feature in visible_features if feature["key"] == st.session_state.selected_feature_key
     )
     if not bool(jimeng_static_server.get("started")):
         st.warning(

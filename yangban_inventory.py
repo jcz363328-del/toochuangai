@@ -23,6 +23,7 @@ _FLOW_TABLE = "YangBan_LiuShui"
 _TAG_TABLE = "YangBan_BiaoQian"
 _LOCATION_TABLE = "YangBan_KuWei"
 _VALID_FLOW_TYPES = {"RuKu", "ChuKu", "GuiHuan", "PanDian"}
+_SAMPLE_CATEGORIES = ("研发", "采购")
 _SAMPLE_STATUSES = {"ZhengChang", "TingYong"}
 _TAG_STATUSES = {"ZhengChang", "TingYong"}
 _LOCATION_TYPES = {"Gui", "Ceng", "Ge"}
@@ -241,9 +242,6 @@ def _sample_to_payload(row, tag_lookup=None):
     tag_names = _parse_tag_names(item.get("BiaoQian"))
     item["BiaoQianList"] = tag_names
     item["BiaoQianItems"] = _decorate_tags(tag_names, tag_lookup)
-    current_stock = Decimal(str(item.get("DangQianKuCun") or 0))
-    warning_stock = Decimal(str(item.get("YuJingKuCun") or 0))
-    item["IsLowStock"] = current_stock <= warning_stock
     image_name = _sample_image_filename(item.get("TuPian") or item.get("tupian"))
     item["TuPianUrl"] = f"/procurement/yangban/image/{image_name}" if image_name else ""
     return item
@@ -268,12 +266,13 @@ def _where_for_samples(args):
             "CHARINDEX(%s, ISNULL(YangBanBianHao, N'')) > 0 OR "
             "CHARINDEX(%s, ISNULL(YangBanMingCheng, N'')) > 0 OR "
             "CHARINDEX(%s, ISNULL(FenLei, N'')) > 0 OR "
-            "CHARINDEX(%s, ISNULL(GuiGe, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(GongChang, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(FuZeRen, N'')) > 0 OR "
             "CHARINDEX(%s, ISNULL(KuWei, N'')) > 0 OR "
             "CHARINDEX(%s, ISNULL(BiaoQian, N'')) > 0"
             ")"
         )
-        params.extend([keyword, keyword, keyword, keyword, keyword, keyword])
+        params.extend([keyword, keyword, keyword, keyword, keyword, keyword, keyword])
     if bianhao:
         clauses.append("CHARINDEX(%s, ISNULL(YangBanBianHao, N'')) > 0")
         params.append(bianhao)
@@ -625,7 +624,7 @@ def _location_payload_from_request(data, location_type=None, parent_id=None, exi
 
 
 def _build_flow_query(args, export=False):
-    clauses = []
+    clauses = ["ISNULL(l.BianDongLeiXing, N'') <> N'ChuKu'"]
     params = []
     start = _clean_text(args.get("start"), 20)
     end = _clean_text(args.get("end"), 20)
@@ -660,6 +659,7 @@ def _build_flow_query(args, export=False):
     select_sql = f"""
         SELECT
             l.Id, l.YangBanId, y.YangBanBianHao, y.YangBanMingCheng,
+            y.FenLei, y.GongChang, y.FuZeRen, y.DanWei,
             l.BianDongLeiXing, l.BianDongShuLiang, l.CaoZuoRen,
             l.GuanLianDanHao, l.BeiZhu, l.ChuangJianShiJian
         FROM {_FLOW_TABLE} l
@@ -686,9 +686,9 @@ def _sample_payload_from_request(data, existing=None):
     if status not in _SAMPLE_STATUSES:
         raise ValueError("样板状态不正确")
 
-    warning_stock = _decimal(payload.get("YuJingKuCun") or 0, "预警库存")
-    if warning_stock < 0:
-        raise ValueError("预警库存不能小于0")
+    category = _clean_text(payload.get("FenLei"), 80)
+    if category not in _SAMPLE_CATEGORIES:
+        raise ValueError("分类只能选择研发或采购")
 
     tag_names = _unique_names(_parse_tag_names(payload.get("BiaoQianList") or payload.get("BiaoQian") or []))
     active_names = {str(row.get("BiaoQianMingCheng") or "") for row in _tag_rows(False)}
@@ -702,11 +702,11 @@ def _sample_payload_from_request(data, existing=None):
     return {
         "YangBanBianHao": bianhao,
         "YangBanMingCheng": mingcheng,
-        "FenLei": _clean_text(payload.get("FenLei"), 80),
+        "FenLei": category,
         "BiaoQian": json.dumps(tag_names, ensure_ascii=False),
-        "GuiGe": _clean_text(payload.get("GuiGe"), 120),
+        "GongChang": _clean_text(payload.get("GongChang"), 120),
         "DanWei": _clean_text(payload.get("DanWei"), 40),
-        "YuJingKuCun": warning_stock,
+        "FuZeRen": _clean_text(payload.get("FuZeRen"), 80),
         "KuWei": _validate_sample_kuwei(payload.get("KuWei"), existing),
         "ZhuangTai": status,
         "BeiZhu": _clean_text(payload.get("BeiZhu"), 500),
@@ -716,9 +716,9 @@ def _sample_payload_from_request(data, existing=None):
 def _get_sample(sample_id):
     rows = _select(
         f"""
-        SELECT Id, YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GuiGe, DanWei,
+        SELECT Id, YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GongChang, DanWei,
                [tupian] AS TuPian,
-               DangQianKuCun, YuJingKuCun, KuWei, ZhuangTai, BeiZhu,
+               DangQianKuCun, FuZeRen, KuWei, ZhuangTai, BeiZhu,
                ChuangJianShiJian, GengXinShiJian
         FROM {_SAMPLE_TABLE}
         WHERE Id = %s
@@ -931,38 +931,51 @@ def api_dashboard():
     try:
         total_samples = _scalar(f"SELECT COUNT(1) FROM {_SAMPLE_TABLE}")
         total_stock = _scalar(f"SELECT ISNULL(SUM(ISNULL(DangQianKuCun, 0)), 0) FROM {_SAMPLE_TABLE}")
-        low_stock = _scalar(
-            f"""
-            SELECT COUNT(1)
-            FROM {_SAMPLE_TABLE}
-            WHERE ISNULL(DangQianKuCun, 0) <= ISNULL(YuJingKuCun, 0)
-            """
-        )
         today_in = _scalar(
             f"""
             SELECT ISNULL(SUM(BianDongShuLiang), 0)
             FROM {_FLOW_TABLE}
-            WHERE BianDongLeiXing IN (N'RuKu', N'GuiHuan')
+            WHERE BianDongLeiXing = N'RuKu'
               AND CONVERT(date, ChuangJianShiJian) = CONVERT(date, GETDATE())
             """
         )
-        today_out = _scalar(
+        inbound_breakdown = _select(
             f"""
-            SELECT ISNULL(SUM(ABS(BianDongShuLiang)), 0)
-            FROM {_FLOW_TABLE}
-            WHERE BianDongLeiXing = N'ChuKu'
-              AND CONVERT(date, ChuangJianShiJian) = CONVERT(date, GETDATE())
+            SELECT
+                y.FenLei,
+                ISNULL(NULLIF(LTRIM(RTRIM(y.FuZeRen)), N''), N'未填写') AS FuZeRen,
+                ISNULL(NULLIF(LTRIM(RTRIM(y.DanWei)), N''), N'未填写') AS DanWei,
+                ISNULL(SUM(l.BianDongShuLiang), 0) AS RuKuShuLiang
+            FROM {_FLOW_TABLE} l
+            INNER JOIN {_SAMPLE_TABLE} y ON y.Id = l.YangBanId
+            WHERE l.BianDongLeiXing = N'RuKu'
+              AND y.FenLei IN (N'研发', N'采购')
+            GROUP BY
+                y.FenLei,
+                ISNULL(NULLIF(LTRIM(RTRIM(y.FuZeRen)), N''), N'未填写'),
+                ISNULL(NULLIF(LTRIM(RTRIM(y.DanWei)), N''), N'未填写')
+            ORDER BY
+                CASE WHEN y.FenLei = N'研发' THEN 0 ELSE 1 END,
+                FuZeRen,
+                DanWei
             """
         )
+        category_totals = {category: Decimal("0") for category in _SAMPLE_CATEGORIES}
+        for row in inbound_breakdown:
+            category = str(row.get("FenLei") or "")
+            if category in category_totals:
+                category_totals[category] += Decimal(str(row.get("RuKuShuLiang") or 0))
         recent = _select(
             f"""
             SELECT TOP 12
                 l.Id, l.YangBanId, y.YangBanBianHao, y.YangBanMingCheng,
+                y.FenLei, y.GongChang, y.FuZeRen, y.DanWei,
                 y.[tupian] AS TuPian,
                 l.BianDongLeiXing, l.BianDongShuLiang, l.CaoZuoRen,
                 l.GuanLianDanHao, l.BeiZhu, l.ChuangJianShiJian
             FROM {_FLOW_TABLE} l
             LEFT JOIN {_SAMPLE_TABLE} y ON y.Id = l.YangBanId
+            WHERE l.BianDongLeiXing = N'RuKu'
             ORDER BY l.ChuangJianShiJian DESC, l.Id DESC
             """
         )
@@ -976,10 +989,11 @@ def api_dashboard():
                 "data": {
                     "total_samples": total_samples,
                     "total_stock": total_stock,
-                    "low_stock": low_stock,
                     "today_in": today_in,
-                    "today_out": today_out,
-                    "recent_flows": recent,
+                    "research_in": _json_value(category_totals["研发"]),
+                    "procurement_in": _json_value(category_totals["采购"]),
+                    "inbound_breakdown": inbound_breakdown,
+                    "recent_inbounds": recent,
                 },
             }
         )
@@ -991,14 +1005,6 @@ def api_dashboard():
 @require_permission("procurement_dept")
 def api_options():
     try:
-        categories = _select(
-            f"""
-            SELECT DISTINCT FenLei AS value
-            FROM {_SAMPLE_TABLE}
-            WHERE ISNULL(FenLei, N'') <> N''
-            ORDER BY FenLei
-            """
-        )
         locations = _select(
             f"""
             SELECT DISTINCT KuWei AS value
@@ -1029,7 +1035,7 @@ def api_options():
             {
                 "success": True,
                 "data": {
-                    "categories": [row.get("value") for row in categories if row.get("value")],
+                    "categories": list(_SAMPLE_CATEGORIES),
                     "locations": [row.get("value") for row in locations if row.get("value")],
                     "statuses": [row.get("value") for row in statuses if row.get("value")],
                     "tags": _tag_rows(True),
@@ -1053,8 +1059,8 @@ def api_samples():
             _execute(
                 f"""
                 INSERT INTO {_SAMPLE_TABLE}
-                    (YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GuiGe, DanWei,
-                     [tupian], DangQianKuCun, YuJingKuCun, KuWei, ZhuangTai, BeiZhu,
+                    (YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GongChang, DanWei,
+                     [tupian], DangQianKuCun, FuZeRen, KuWei, ZhuangTai, BeiZhu,
                      ChuangJianShiJian, GengXinShiJian)
                 VALUES
                     (%s, %s, %s, %s, %s, %s,
@@ -1066,10 +1072,10 @@ def api_samples():
                     payload["YangBanMingCheng"],
                     payload["FenLei"],
                     payload["BiaoQian"],
-                    payload["GuiGe"],
+                    payload["GongChang"],
                     payload["DanWei"],
                     image_path,
-                    payload["YuJingKuCun"],
+                    payload["FuZeRen"],
                     payload["KuWei"],
                     payload["ZhuangTai"],
                     payload["BeiZhu"],
@@ -1089,9 +1095,9 @@ def api_samples():
         total = _scalar(f"SELECT COUNT(1) FROM {_SAMPLE_TABLE} {where_sql}", params)
         rows = _select(
             f"""
-            SELECT Id, YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GuiGe, DanWei,
+            SELECT Id, YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GongChang, DanWei,
                    [tupian] AS TuPian,
-                   DangQianKuCun, YuJingKuCun, KuWei, ZhuangTai, BeiZhu,
+                   DangQianKuCun, FuZeRen, KuWei, ZhuangTai, BeiZhu,
                    ChuangJianShiJian, GengXinShiJian
             FROM {_SAMPLE_TABLE}
             {where_sql}
@@ -1135,10 +1141,10 @@ def api_sample_detail(sample_id):
                        YangBanMingCheng = %s,
                        FenLei = %s,
                        BiaoQian = %s,
-                       GuiGe = %s,
+                       GongChang = %s,
                        DanWei = %s,
                        [tupian] = %s,
-                       YuJingKuCun = %s,
+                       FuZeRen = %s,
                        KuWei = %s,
                        ZhuangTai = %s,
                        BeiZhu = %s,
@@ -1150,10 +1156,10 @@ def api_sample_detail(sample_id):
                     payload["YangBanMingCheng"],
                     payload["FenLei"],
                     payload["BiaoQian"],
-                    payload["GuiGe"],
+                    payload["GongChang"],
                     payload["DanWei"],
                     image_path,
-                    payload["YuJingKuCun"],
+                    payload["FuZeRen"],
                     payload["KuWei"],
                     payload["ZhuangTai"],
                     payload["BeiZhu"],
@@ -1176,6 +1182,7 @@ def api_sample_detail(sample_id):
                    CaoZuoRen, GuanLianDanHao, BeiZhu, ChuangJianShiJian
             FROM {_FLOW_TABLE}
             WHERE YangBanId = %s
+              AND ISNULL(BianDongLeiXing, N'') <> N'ChuKu'
             ORDER BY ChuangJianShiJian DESC, Id DESC
             """,
             [sample_id],
@@ -1339,6 +1346,10 @@ def api_flows_export():
                 {
                     "样板编号": row.get("YangBanBianHao"),
                     "样板名称": row.get("YangBanMingCheng"),
+                    "分类": row.get("FenLei"),
+                    "工厂": row.get("GongChang"),
+                    "负责人": row.get("FuZeRen"),
+                    "单位": row.get("DanWei"),
                     "操作类型": _flow_type_label(row.get("BianDongLeiXing")),
                     "变动数量": row.get("BianDongShuLiang"),
                     "操作人": row.get("CaoZuoRen"),

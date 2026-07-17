@@ -723,9 +723,17 @@
             <div class="stats-grid">
                 <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-box"></i>样板总数</div><div class="stat-value" id="statSamples">0</div></div>
                 <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-cubes"></i>库存总量</div><div class="stat-value" id="statStock">0</div></div>
-                <div class="stat-card warn"><div class="stat-label"><i class="fa-solid fa-triangle-exclamation"></i>低库存样板</div><div class="stat-value" id="statLow">0</div></div>
                 <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-arrow-down"></i>今日入库</div><div class="stat-value" id="statIn">0</div></div>
-                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-arrow-up"></i>今日出库</div><div class="stat-value" id="statOut">0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-flask"></i>研发累计入库</div><div class="stat-value" id="statResearchIn">0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-cart-shopping"></i>采购累计入库</div><div class="stat-value" id="statProcurementIn">0</div></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><i class="fa-solid fa-chart-column"></i>累计入库量（按负责人和单位）</h2>
+                    <span class="muted">研发、采购分别统计，不同单位分开汇总</span>
+                </div>
+                <div class="table-wrap" id="inboundSummaryTable"></div>
             </div>
 
             <div class="panel">
@@ -754,7 +762,7 @@
                 </div>
                 <label class="dash-search-input">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input id="dashKeyword" type="text" placeholder="输入样板编号、名称、分类、规格、标签或库位...">
+                    <input id="dashKeyword" type="text" placeholder="输入样板编号、名称、分类、工厂、负责人、标签或库位...">
                 </label>
                 <div class="dash-filter-row">
                     <div class="field"><label>分类</label><select id="dashFenLei"><option value="">全部分类</option></select></div>
@@ -762,7 +770,6 @@
                     <div class="field"><label>结束日期</label><input id="dashEnd" type="date"></div>
                     <div class="field"><label>库位</label><select id="dashKuWei"><option value="">全部库位</option></select></div>
                     <div class="field"><label>状态</label><select id="dashStatus"><option value="">全部状态</option><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
-                    <button class="btn" id="showLowOnly"><i class="fa-solid fa-triangle-exclamation"></i>低库存</button>
                 </div>
                 <div class="tag-filter-block">
                     <div class="tag-filter-title"><i class="fa-solid fa-tags"></i>关键词标签</div>
@@ -778,7 +785,7 @@
 
             <div class="panel" style="margin-top:12px;">
                 <div class="panel-head">
-                    <h2 class="panel-title"><i class="fa-solid fa-clock"></i>最近库存流水</h2>
+                    <h2 class="panel-title"><i class="fa-solid fa-clock"></i>最近入库记录</h2>
                     <button class="btn small" data-tab-jump="flows"><i class="fa-solid fa-list"></i>更多</button>
                 </div>
                 <div class="table-wrap" id="recentFlowTable"></div>
@@ -830,17 +837,10 @@
                     </div>
                     <div class="operation-buttons">
                         <button class="btn green" data-op="RuKu"><i class="fa-solid fa-arrow-down"></i>入库</button>
-                        <button class="btn red" data-op="ChuKu"><i class="fa-solid fa-arrow-up"></i>出库</button>
                         <button class="btn primary" data-op="GuiHuan"><i class="fa-solid fa-rotate-left"></i>归还</button>
                         <button class="btn orange" data-op="PanDian"><i class="fa-solid fa-scale-balanced"></i>盘点</button>
                     </div>
                 </div>
-            </div>
-            <div class="panel">
-                <div class="panel-head">
-                    <h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation"></i>低库存样板</h2>
-                </div>
-                <div class="table-wrap" id="lowStockTable"></div>
             </div>
         </section>
 
@@ -858,7 +858,7 @@
                     <div class="field"><label>开始时间</label><input id="ffStart" type="date"></div>
                     <div class="field"><label>结束时间</label><input id="ffEnd" type="date"></div>
                     <div class="field"><label>样板</label><select id="ffSample"><option value="">全部</option></select></div>
-                    <div class="field"><label>操作类型</label><select id="ffType"><option value="">全部</option><option value="RuKu">入库</option><option value="ChuKu">出库</option><option value="GuiHuan">归还</option><option value="PanDian">盘点</option></select></div>
+                    <div class="field"><label>操作类型</label><select id="ffType"><option value="">全部</option><option value="RuKu">入库</option><option value="GuiHuan">归还</option><option value="PanDian">盘点</option></select></div>
                     <div class="field"><label>操作人</label><input id="ffOperator" type="text"></div>
                 </div>
             </div>
@@ -899,10 +899,10 @@
                 <input id="sampleId" type="hidden">
                 <div class="field"><label>样板编号</label><input id="mYangBanBianHao" type="text" required></div>
                 <div class="field"><label>样板名称</label><input id="mYangBanMingCheng" type="text" required></div>
-                <div class="field"><label>分类</label><input id="mFenLei" type="text"></div>
-                <div class="field"><label>规格</label><input id="mGuiGe" type="text"></div>
+                <div class="field"><label>分类</label><select id="mFenLei" required><option value="">请选择</option><option value="研发">研发</option><option value="采购">采购</option></select></div>
+                <div class="field"><label>工厂</label><input id="mGongChang" type="text"></div>
                 <div class="field"><label>单位</label><input id="mDanWei" type="text"></div>
-                <div class="field"><label>预警库存</label><input id="mYuJingKuCun" type="number" min="0" step="0.01" value="0"></div>
+                <div class="field"><label>负责人</label><input id="mFuZeRen" type="text"></div>
                 <div class="field"><label>库位</label><input id="mKuWei" type="text"></div>
                 <div class="field"><label>状态</label><select id="mZhuangTai"><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
                 <div class="field wide">
@@ -997,7 +997,6 @@ const state = {
     flowPage: 1,
     flowTotalPages: 1,
     dashboardTag: "",
-    dashboardLowOnly: false,
     dashboardResults: [],
     sampleModalLegacy: [],
     loading: false
@@ -1147,8 +1146,7 @@ function getDashboardCriteria() {
         zhuangtai: (document.getElementById("dashStatus")?.value || "").trim(),
         start: (document.getElementById("dashStart")?.value || "").trim(),
         end: (document.getElementById("dashEnd")?.value || "").trim(),
-        biaoqian: state.dashboardTag || "",
-        low: !!state.dashboardLowOnly
+        biaoqian: state.dashboardTag || ""
     };
 }
 function applyDashboardCriteria(criteria) {
@@ -1160,7 +1158,6 @@ function applyDashboardCriteria(criteria) {
     setValue("dashStart", c.start || "");
     setValue("dashEnd", c.end || "");
     state.dashboardTag = c.biaoqian || "";
-    state.dashboardLowOnly = !!c.low;
     renderDashboardTagFilters();
     renderDashboardActiveFilters();
 }
@@ -1172,7 +1169,6 @@ function dashboardCriteriaLabel(criteria) {
     if (c.biaoqian) parts.push(c.biaoqian);
     if (c.kuwei) parts.push(c.kuwei);
     if (c.zhuangtai) parts.push(statusLabels[c.zhuangtai] || c.zhuangtai);
-    if (c.low) parts.push("低库存");
     return parts.join(" / ") || "全部样板";
 }
 function renderDashboardSavedSearches() {
@@ -1223,7 +1219,6 @@ function renderDashboardActiveFilters() {
     if (c.kuwei) chips.push(["库位", c.kuwei]);
     if (c.zhuangtai) chips.push(["状态", statusLabels[c.zhuangtai] || c.zhuangtai]);
     if (c.biaoqian) chips.push(["标签", c.biaoqian]);
-    if (c.low) chips.push(["库存", "低库存"]);
     wrap.innerHTML = chips.length
         ? chips.map(([k, v]) => `<span class="dash-chip active">${esc(k)}：${esc(v)}</span>`).join("")
         : '<span class="muted">未设置筛选条件</span>';
@@ -1246,10 +1241,7 @@ async function loadDashboardCards() {
     try {
         renderDashboardActiveFilters();
         const data = await apiJson(API + "/samples?" + dashboardParams().toString());
-        let items = data.items || [];
-        if (state.dashboardLowOnly) {
-            items = items.filter(item => item.IsLowStock);
-        }
+        const items = data.items || [];
         state.dashboardResults = items;
         renderDashboardCards(items, data.total || items.length);
     } catch (e) {
@@ -1266,8 +1258,8 @@ function renderDashboardCards(items, total) {
         return;
     }
     wrap.innerHTML = items.map(row => {
-        const statusClass = row.IsLowStock ? "card-status-warn" : (row.ZhuangTai === "ZhengChang" ? "card-status-ok" : "card-status-off");
-        const statusText = row.IsLowStock ? "低库存" : (statusLabels[row.ZhuangTai] || row.ZhuangTai || "-");
+        const statusClass = row.ZhuangTai === "ZhengChang" ? "card-status-ok" : "card-status-off";
+        const statusText = statusLabels[row.ZhuangTai] || row.ZhuangTai || "-";
         const imageHtml = row.TuPianUrl
             ? `<img class="sample-card-img" src="${esc(row.TuPianUrl)}" alt="样板照片">`
             : '<div class="sample-card-noimg">暂无照片</div>';
@@ -1279,7 +1271,8 @@ function renderDashboardCards(items, total) {
             ${imageHtml}
             <div class="sample-card-lines">
                 <div class="sample-card-line"><span>名称：<b>${esc(row.YangBanMingCheng || "-")}</b></span><span class="sample-card-strong">库存：${numberText(row.DangQianKuCun)}${esc(row.DanWei || "")}</span></div>
-                <div class="sample-card-line"><span>分类：${esc(row.FenLei || "-")}</span><span>预警：${numberText(row.YuJingKuCun)}</span></div>
+                <div class="sample-card-line"><span>分类：${esc(row.FenLei || "-")}</span><span>工厂：${esc(row.GongChang || "-")}</span></div>
+                <div class="sample-card-line"><span>负责人：${esc(row.FuZeRen || "-")}</span><span>单位：${esc(row.DanWei || "-")}</span></div>
                 <div>${renderTags(row.BiaoQianItems)}</div>
             </div>
             <div class="sample-card-footer">
@@ -1298,32 +1291,50 @@ async function loadDashboard() {
         const data = await apiJson(API + "/dashboard");
         document.getElementById("statSamples").textContent = numberText(data.total_samples);
         document.getElementById("statStock").textContent = numberText(data.total_stock);
-        document.getElementById("statLow").textContent = numberText(data.low_stock);
         document.getElementById("statIn").textContent = numberText(data.today_in);
-        document.getElementById("statOut").textContent = numberText(data.today_out);
-        renderRecentFlows(data.recent_flows || []);
+        document.getElementById("statResearchIn").textContent = numberText(data.research_in);
+        document.getElementById("statProcurementIn").textContent = numberText(data.procurement_in);
+        renderInboundSummary(data.inbound_breakdown || []);
+        renderRecentFlows(data.recent_inbounds || []);
         await loadDashboardCards();
     } catch (e) {
         toast(e.message, "error");
     }
 }
-function renderRecentFlows(items) {
-    const wrap = document.getElementById("recentFlowTable");
+function renderInboundSummary(items) {
+    const wrap = document.getElementById("inboundSummaryTable");
     if (!items.length) {
-        wrap.innerHTML = emptyTable("暂无库存流水");
+        wrap.innerHTML = emptyTable("暂无研发或采购入库记录");
         return;
     }
     wrap.innerHTML = `<table><thead><tr>
-        <th>照片</th><th>样板编号</th><th>样板名称</th><th>操作类型</th><th>变动数量</th><th>操作人</th><th>关联单号</th><th>操作时间</th>
+        <th>分类</th><th>负责人</th><th>单位</th><th>累计入库量</th>
+    </tr></thead><tbody>${items.map(row => `
+        <tr>
+            <td>${esc(row.FenLei)}</td>
+            <td>${esc(row.FuZeRen)}</td>
+            <td>${esc(row.DanWei)}</td>
+            <td class="stock-cell">${numberText(row.RuKuShuLiang)} ${esc(row.DanWei === "未填写" ? "" : row.DanWei)}</td>
+        </tr>`).join("")}</tbody></table>`;
+}
+function renderRecentFlows(items) {
+    const wrap = document.getElementById("recentFlowTable");
+    if (!items.length) {
+        wrap.innerHTML = emptyTable("暂无入库记录");
+        return;
+    }
+    wrap.innerHTML = `<table><thead><tr>
+        <th>照片</th><th>样板编号</th><th>样板名称</th><th>分类</th><th>工厂</th><th>负责人</th><th>入库量</th><th>操作人</th><th>操作时间</th>
     </tr></thead><tbody>${items.map(row => `
         <tr>
             <td>${row.TuPianUrl ? `<img class="sample-thumb" src="${esc(row.TuPianUrl)}" alt="样板照片">` : '<span class="muted">-</span>'}</td>
             <td>${esc(row.YangBanBianHao)}</td>
             <td>${esc(row.YangBanMingCheng)}</td>
-            <td>${esc(row.BianDongLeiXingText || flowLabels[row.BianDongLeiXing] || row.BianDongLeiXing)}</td>
-            <td class="${Number(row.BianDongShuLiang) < 0 ? "flow-minus" : "flow-plus"}">${numberText(row.BianDongShuLiang)}</td>
+            <td>${esc(row.FenLei)}</td>
+            <td>${esc(row.GongChang)}</td>
+            <td>${esc(row.FuZeRen)}</td>
+            <td class="flow-plus">${numberText(row.BianDongShuLiang)} ${esc(row.DanWei)}</td>
             <td>${esc(row.CaoZuoRen)}</td>
-            <td>${esc(row.GuanLianDanHao)}</td>
             <td>${esc(row.ChuangJianShiJian)}</td>
         </tr>`).join("")}</tbody></table>`;
 }
@@ -1361,19 +1372,19 @@ function renderSamples(items) {
         return;
     }
     wrap.innerHTML = `<table><thead><tr>
-        <th>照片</th><th>样板编号</th><th>样板名称</th><th>分类</th><th>规格</th><th>标签</th><th>当前库存</th>
-        <th>单位</th><th>预警库存</th><th>库位</th><th>状态</th><th>更新时间</th><th style="text-align:right;">操作</th>
+        <th>照片</th><th>样板编号</th><th>样板名称</th><th>分类</th><th>工厂</th><th>标签</th><th>当前库存</th>
+        <th>单位</th><th>负责人</th><th>库位</th><th>状态</th><th>更新时间</th><th style="text-align:right;">操作</th>
     </tr></thead><tbody>${items.map(row => `
-        <tr class="${row.IsLowStock ? "low-stock" : ""}">
+        <tr>
             <td>${row.TuPianUrl ? `<img class="sample-thumb" src="${esc(row.TuPianUrl)}" alt="样板照片">` : '<span class="muted">-</span>'}</td>
             <td>${esc(row.YangBanBianHao)}</td>
             <td>${esc(row.YangBanMingCheng)}</td>
             <td>${esc(row.FenLei)}</td>
-            <td>${esc(row.GuiGe)}</td>
+            <td>${esc(row.GongChang)}</td>
             <td>${renderTags(row.BiaoQianItems)}</td>
             <td class="stock-cell">${numberText(row.DangQianKuCun)}</td>
             <td>${esc(row.DanWei)}</td>
-            <td>${numberText(row.YuJingKuCun)}</td>
+            <td>${esc(row.FuZeRen)}</td>
             <td>${esc(row.KuWei)}</td>
             <td>${statusPill(row.ZhuangTai)}</td>
             <td>${esc(row.GengXinShiJian || row.ChuangJianShiJian)}</td>
@@ -1383,7 +1394,6 @@ function renderSamples(items) {
                     <button class="btn small" data-edit="${row.Id}"><i class="fa-regular fa-pen-to-square"></i>编辑</button>
                     ${row.ZhuangTai === "ZhengChang" ? `
                     <button class="btn small green" data-row-op="RuKu" data-id="${row.Id}"><i class="fa-solid fa-arrow-down"></i>入库</button>
-                    <button class="btn small red" data-row-op="ChuKu" data-id="${row.Id}"><i class="fa-solid fa-arrow-up"></i>出库</button>
                     <button class="btn small" data-disable="${row.Id}"><i class="fa-solid fa-ban"></i>停用</button>
                     ` : ""}
                 </div>
@@ -1402,21 +1412,6 @@ async function loadSampleChoices() {
     fillSelect("operationSampleSelect", active, "请选择样板", mapItem);
     fillSelect("opSample", active, "请选择样板", mapItem);
     fillSelect("ffSample", state.sampleChoices, "全部", s => ({ value: s.Id, label: `${s.YangBanBianHao || ""} ${s.YangBanMingCheng || ""}` }));
-    renderLowStock(active.filter(s => s.IsLowStock));
-}
-function renderLowStock(items) {
-    const wrap = document.getElementById("lowStockTable");
-    if (!items.length) {
-        wrap.innerHTML = emptyTable("暂无低库存样板");
-        return;
-    }
-    wrap.innerHTML = `<table><thead><tr><th>样板编号</th><th>样板名称</th><th>当前库存</th><th>预警库存</th><th>单位</th><th>库位</th><th style="text-align:right;">操作</th></tr></thead><tbody>
-        ${items.map(row => `<tr class="low-stock">
-            <td>${esc(row.YangBanBianHao)}</td><td>${esc(row.YangBanMingCheng)}</td>
-            <td class="stock-cell">${numberText(row.DangQianKuCun)}</td><td>${numberText(row.YuJingKuCun)}</td>
-            <td>${esc(row.DanWei)}</td><td>${esc(row.KuWei)}</td>
-            <td><div class="action-row"><button class="btn small green" data-row-op="RuKu" data-id="${row.Id}"><i class="fa-solid fa-arrow-down"></i>入库</button><button class="btn small primary" data-row-op="PanDian" data-id="${row.Id}"><i class="fa-solid fa-scale-balanced"></i>盘点</button></div></td>
-        </tr>`).join("")}</tbody></table>`;
 }
 async function loadOperationData() {
     try {
@@ -1468,9 +1463,9 @@ async function openSampleModal(id) {
         setValue("mYangBanBianHao", s.YangBanBianHao);
         setValue("mYangBanMingCheng", s.YangBanMingCheng);
         setValue("mFenLei", s.FenLei);
-        setValue("mGuiGe", s.GuiGe);
+        setValue("mGongChang", s.GongChang);
         setValue("mDanWei", s.DanWei);
-        setValue("mYuJingKuCun", s.YuJingKuCun || 0);
+        setValue("mFuZeRen", s.FuZeRen);
         setValue("mKuWei", s.KuWei);
         setValue("mZhuangTai", s.ZhuangTai || "ZhengChang");
         setValue("mBeiZhu", s.BeiZhu);
@@ -1479,7 +1474,6 @@ async function openSampleModal(id) {
     } else {
         document.getElementById("sampleModalTitle").textContent = "新建样板";
         setValue("mZhuangTai", "ZhengChang");
-        setValue("mYuJingKuCun", 0);
     }
     openModal("sampleModal");
 }
@@ -1490,9 +1484,9 @@ async function saveSample() {
     payload.append("YangBanBianHao", document.getElementById("mYangBanBianHao").value);
     payload.append("YangBanMingCheng", document.getElementById("mYangBanMingCheng").value);
     payload.append("FenLei", document.getElementById("mFenLei").value);
-    payload.append("GuiGe", document.getElementById("mGuiGe").value);
+    payload.append("GongChang", document.getElementById("mGongChang").value);
     payload.append("DanWei", document.getElementById("mDanWei").value);
-    payload.append("YuJingKuCun", document.getElementById("mYuJingKuCun").value || 0);
+    payload.append("FuZeRen", document.getElementById("mFuZeRen").value);
     payload.append("KuWei", document.getElementById("mKuWei").value);
     payload.append("ZhuangTai", document.getElementById("mZhuangTai").value);
     payload.append("BeiZhu", document.getElementById("mBeiZhu").value);
@@ -1509,7 +1503,7 @@ async function saveSample() {
     }
 }
 async function disableSample(id) {
-    if (!confirm("确认停用该样板？停用后不能进行入库、出库、归还、盘点。")) return;
+    if (!confirm("确认停用该样板？停用后不能再进行库存操作。")) return;
     try {
         await apiPost(API + "/samples/" + id + "/disable", {});
         toast("样板已停用", "success");
@@ -1524,8 +1518,8 @@ async function openDetail(id) {
         const s = data.sample;
         const fields = [
             ["样板编号", s.YangBanBianHao], ["样板名称", s.YangBanMingCheng], ["分类", s.FenLei],
-            ["规格", s.GuiGe], ["单位", s.DanWei], ["库位", s.KuWei],
-            ["当前库存", numberText(s.DangQianKuCun)], ["预警库存", numberText(s.YuJingKuCun)], ["状态", statusLabels[s.ZhuangTai] || s.ZhuangTai],
+            ["工厂", s.GongChang], ["负责人", s.FuZeRen], ["单位", s.DanWei], ["库位", s.KuWei],
+            ["当前库存", numberText(s.DangQianKuCun)], ["状态", statusLabels[s.ZhuangTai] || s.ZhuangTai],
             ["创建时间", s.ChuangJianShiJian], ["更新时间", s.GengXinShiJian], ["备注", s.BeiZhu]
         ];
         const flowRows = (data.flows || []).map(row => `<tr>
@@ -1618,11 +1612,13 @@ function renderFlows(items) {
         wrap.innerHTML = emptyTable("暂无库存流水");
         return;
     }
-    wrap.innerHTML = `<table><thead><tr><th>样板名称</th><th>操作类型</th><th>变动数量</th><th>操作人</th><th>关联单号</th><th>备注</th><th>操作时间</th></tr></thead><tbody>
+    wrap.innerHTML = `<table><thead><tr><th>样板名称</th><th>分类</th><th>负责人</th><th>操作类型</th><th>变动数量</th><th>操作人</th><th>关联单号</th><th>备注</th><th>操作时间</th></tr></thead><tbody>
         ${items.map(row => `<tr>
             <td>${esc(row.YangBanMingCheng || row.YangBanBianHao)}</td>
+            <td>${esc(row.FenLei)}</td>
+            <td>${esc(row.FuZeRen)}</td>
             <td>${esc(row.BianDongLeiXingText || flowLabels[row.BianDongLeiXing] || row.BianDongLeiXing)}</td>
-            <td class="${Number(row.BianDongShuLiang) < 0 ? "flow-minus" : "flow-plus"}">${numberText(row.BianDongShuLiang)}</td>
+            <td class="${Number(row.BianDongShuLiang) < 0 ? "flow-minus" : "flow-plus"}">${numberText(row.BianDongShuLiang)} ${esc(row.DanWei)}</td>
             <td>${esc(row.CaoZuoRen)}</td><td>${esc(row.GuanLianDanHao)}</td><td>${esc(row.BeiZhu)}</td><td>${esc(row.ChuangJianShiJian)}</td>
         </tr>`).join("")}</tbody></table>`;
 }
@@ -1710,13 +1706,6 @@ function bindEvents() {
     document.getElementById("saveDashboardSearch").addEventListener("click", saveDashboardSearch);
     document.getElementById("resetDashboardSearch").addEventListener("click", () => {
         applyDashboardCriteria({});
-        document.getElementById("showLowOnly").classList.remove("orange");
-        loadDashboardCards();
-    });
-    document.getElementById("showLowOnly").addEventListener("click", () => {
-        state.dashboardLowOnly = !state.dashboardLowOnly;
-        document.getElementById("showLowOnly").classList.toggle("orange", state.dashboardLowOnly);
-        renderDashboardActiveFilters();
         loadDashboardCards();
     });
     document.getElementById("dashboardTagFilters").addEventListener("click", e => {
@@ -1733,7 +1722,6 @@ function bindEvents() {
         const item = getDashboardSavedSearches()[Number(btn.dataset.savedIndex)];
         if (!item) return;
         applyDashboardCriteria(item.criteria || {});
-        document.getElementById("showLowOnly").classList.toggle("orange", state.dashboardLowOnly);
         loadDashboardCards();
     });
     document.getElementById("dashboardSampleCards").addEventListener("click", e => {
@@ -1774,10 +1762,6 @@ function bindEvents() {
         if (detail) openDetail(detail.dataset.detail);
         if (edit) openSampleModal(edit.dataset.edit);
         if (disable) disableSample(disable.dataset.disable);
-        if (op) openOperation(op.dataset.rowOp, op.dataset.id);
-    });
-    document.getElementById("lowStockTable").addEventListener("click", e => {
-        const op = e.target.closest("[data-row-op]");
         if (op) openOperation(op.dataset.rowOp, op.dataset.id);
     });
     document.querySelectorAll("[data-op]").forEach(btn => btn.addEventListener("click", () => openOperation(btn.dataset.op)));

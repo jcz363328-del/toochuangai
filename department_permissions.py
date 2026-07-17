@@ -46,6 +46,7 @@ DEPARTMENT_ID_MAPPING = {
 }
 
 DEPARTMENT_TREE_INHERIT_ROOTS = {'TK项目', '运营部'}
+DEPARTMENT_TREE_INHERIT_EXCLUDED_DEPARTMENTS = {'新人组'}
 
 # 权限配置 - 根据需求定义各功能模块的部门权限
 PERMISSION_CONFIG = {
@@ -100,7 +101,7 @@ PERMISSION_CONFIG = {
     # 部门组功能卡片
     'tk_project_group': {
         'name': 'TK项目组功能',
-        'allowed_departments': ['TK项目','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', 'AI部', '总经办','财务部','','亚马逊'],
+        'allowed_departments': ['TK项目','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', '新人组', 'AI部', '总经办','财务部','','亚马逊'],
         'description': 'TK项目组专属功能模块'
     },
     'warehouse_group': {
@@ -117,22 +118,22 @@ PERMISSION_CONFIG = {
     },
     'operation_dept_1': {
         'name': '运营一部功能',
-        'allowed_departments': ['运营一部', 'AI部', '总经办'],
+        'allowed_departments': ['运营一部', '新人组', 'AI部', '总经办'],
         'description': '运营一部专属功能模块'
     },
     'operation_dept_2': {
         'name': '运营二部功能',
-        'allowed_departments': ['运营二部', 'AI部', '总经办'],
+        'allowed_departments': ['运营二部', '新人组', 'AI部', '总经办'],
         'description': '运营二部专属功能模块'
     },
     'operation_dept_3': {
         'name': '运营三部功能',
-        'allowed_departments': ['运营三部', 'AI部', '总经办'],
+        'allowed_departments': ['运营三部', '新人组', 'AI部', '总经办'],
         'description': '运营三部专属功能模块'
     },
     'operation_dept_6': {
         'name': '运营六部功能',
-        'allowed_departments': ['运营六部', 'AI部', '总经办'],
+        'allowed_departments': ['运营六部', '新人组', 'AI部', '总经办'],
         'description': '运营六部专属功能模块'
     },
     'procurement_dept': {
@@ -1099,6 +1100,11 @@ class FeishuPermissionManager:
                 continue
             dept_id = str(row.get('department_id') or '').strip()
             if not dept_id:
+                continue
+            dept_name = str(
+                row.get('name') or DEPARTMENT_ID_MAPPING.get(dept_id) or ''
+            ).strip()
+            if dept_name in DEPARTMENT_TREE_INHERIT_EXCLUDED_DEPARTMENTS:
                 continue
             if self._department_matches_root_name(dept_id, root_name):
                 return True

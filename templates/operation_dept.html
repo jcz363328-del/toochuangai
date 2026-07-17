@@ -374,6 +374,7 @@
             </div>
             {% else %}
             {% if dept_id not in ['general_office', 'visual_design_dept'] %}
+            {% if can_view_review_analysis|default(true) %}
             <!-- 差评分析功能 -->
             <div class="dept-feature-card">
                 <div class="dept-feature-icon">
@@ -387,6 +388,7 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
             <!-- 模特排队功能 -->
             <div class="dept-feature-card">
@@ -459,7 +461,7 @@
                 </div>
             </div>
             {% endif %}
-            {% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6'] %}
+            {% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'newcomer_group'] %}
             <div class="dept-feature-card">
                 <div class="dept-feature-icon">
                     <i class="fas fa-ship"></i>
@@ -473,7 +475,7 @@
                 </div>
             </div>
             {% endif %}
-            {% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6'] %}
+            {% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6'] and can_view_amazon_reply|default(true) %}
             <div class="dept-feature-card">
                 <div class="dept-feature-icon">
                     <i class="fas fa-envelope-open-text"></i>

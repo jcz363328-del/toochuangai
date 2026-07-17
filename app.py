@@ -16000,6 +16000,7 @@ _OPERATION_DEPT_FUNCTIONS = {
     'operation_dept_3',
     'operation_dept_6',
 }
+_FBA_SHIPPING_ACCESS_FUNCTIONS = _OPERATION_DEPT_FUNCTIONS | {'newcomer_group'}
 _FBA_SHIPPING_TABLE = 'FBAHuoJian_YunShuFangShi'
 _FBA_SHIPPING_PAGE_SIZE = 200
 
@@ -16008,7 +16009,7 @@ def _operation_dept_has_access():
     user_id = session.get('feishu_user_id')
     if not user_id:
         return False
-    for function_name in _OPERATION_DEPT_FUNCTIONS:
+    for function_name in _FBA_SHIPPING_ACCESS_FUNCTIONS:
         try:
             ok, _ = permission_manager.check_user_permission(user_id, function_name)
             if ok:
@@ -16016,6 +16017,28 @@ def _operation_dept_has_access():
         except Exception as e:
             _safe_debug_print(f"运营部门权限检查失败: {function_name} -> {e}")
     return False
+
+
+def _operation_page_permission_flags(user_id):
+    flags = {
+        'can_view_review_analysis': False,
+        'can_view_amazon_reply': False,
+    }
+    if not user_id:
+        return flags
+    for function_name, flag_name in (
+        ('review_analysis', 'can_view_review_analysis'),
+        ('amazon_reply_agent', 'can_view_amazon_reply'),
+    ):
+        try:
+            allowed, _ = permission_manager.check_user_permission(
+                user_id,
+                function_name,
+            )
+            flags[flag_name] = bool(allowed)
+        except Exception as e:
+            _safe_debug_print(f"运营板块内部权限检查失败: {function_name} -> {e}")
+    return flags
 
 
 def _fba_shipping_sql_ident(name):
@@ -16316,8 +16339,9 @@ def operation_fba_shipping_methods_page():
         'operation_dept_2': '运营二部',
         'operation_dept_3': '运营三部',
         'operation_dept_6': '运营六部',
+        'newcomer_group': '新人组',
     }
-    back_url = url_for(source) if source in _OPERATION_DEPT_FUNCTIONS else url_for('dashboard')
+    back_url = url_for(source) if source in _FBA_SHIPPING_ACCESS_FUNCTIONS else url_for('dashboard')
     return render_template(
         'operation_fba_shipping_methods.html',
         user_name=session.get('feishu_user_name', '用户'),
@@ -16333,12 +16357,14 @@ def operation_dept_1():
     """运营一部功能页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
+    permission_flags = _operation_page_permission_flags(user_id)
     return render_template('operation_dept.html',
                            user_name=user_name,
                            user_id=user_id,
                            dept_name='运营一部',
                            dept_id='operation_dept_1',
-                           can_view_tk_90=(user_name in (dashboard_90_users or [])))
+                           can_view_tk_90=(user_name in (dashboard_90_users or [])),
+                           **permission_flags)
 
 
 @app.route('/operation_dept_2')
@@ -16347,11 +16373,13 @@ def operation_dept_2():
     """运营二部功能页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
+    permission_flags = _operation_page_permission_flags(user_id)
     return render_template('operation_dept.html',
                            user_name=user_name,
                            user_id=user_id,
                            dept_name='运营二部',
-                           dept_id='operation_dept_2')
+                           dept_id='operation_dept_2',
+                           **permission_flags)
 
 
 @app.route('/operation_dept_3')
@@ -16360,11 +16388,13 @@ def operation_dept_3():
     """运营三部功能页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
+    permission_flags = _operation_page_permission_flags(user_id)
     return render_template('operation_dept.html',
                            user_name=user_name,
                            user_id=user_id,
                            dept_name='运营三部',
-                           dept_id='operation_dept_3')
+                           dept_id='operation_dept_3',
+                           **permission_flags)
 
 
 @app.route('/operation_dept_6')
@@ -16373,13 +16403,15 @@ def operation_dept_6():
     """运营六部功能页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
+    permission_flags = _operation_page_permission_flags(user_id)
     return render_template('operation_dept.html',
                            user_name=user_name,
                            user_id=user_id,
                            dept_name='运营六部',
                            dept_id='operation_dept_6',
                            can_view_tk_82=(user_name in (dashboard_82_users or [])),
-                           can_view_tk_88=(user_name in (dashboard_88_users or [])))
+                           can_view_tk_88=(user_name in (dashboard_88_users or [])),
+                           **permission_flags)
 
 @app.route('/tech_dept')
 @require_permission('tech_dept')
@@ -16496,12 +16528,14 @@ def newcomer_group():
     """新人组功能页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
+    permission_flags = _operation_page_permission_flags(user_id)
     return render_template('operation_dept.html',
                            user_name=user_name,
                            user_id=user_id,
                            dept_name='新人组',
                            dept_id='newcomer_group',
-                           can_view_tk_88=(user_name in (dashboard_88_users or [])))
+                           can_view_tk_88=(user_name in (dashboard_88_users or [])),
+                           **permission_flags)
 
 
 def generate_cache_key(product_name, features, script_number):
