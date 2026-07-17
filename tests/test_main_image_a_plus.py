@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import base64
 import io
+import threading
+import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PIL import Image, ImageDraw
 
@@ -79,21 +81,31 @@ class MainImageAPlusTests(unittest.TestCase):
         )
 
         self.assertIn("600×1800px", prompt)
-        self.assertIn("第 1 部分为 y=0–450px，高 450px", prompt)
-        self.assertIn("第 4 部分为 y=1350–1800px，高 450px", prompt)
+        self.assertNotIn("y=0–450px", prompt)
+        self.assertNotIn("每段 450px", prompt)
+        self.assertIn("四个阶段只代表信息节奏", prompt)
+        self.assertIn("不按固定像素、固定距离或等高方框划分", prompt)
+        self.assertIn("允许跨越相邻阶段", prompt)
+        self.assertIn("不要绘制分割线、边框、卡片底板", prompt)
         self.assertIn("原生 4K", prompt)
         self.assertIn("满版延伸到画布四边", prompt)
-        self.assertIn("左右至少内缩 48px", prompt)
+        self.assertNotIn("左右至少内缩 48px", prompt)
+        self.assertIn("不显示任何安全距离", prompt)
+        self.assertIn("首屏必须是完整的商业主视觉", prompt)
+        self.assertIn("参考图只是可选择的素材池，不要求全部出现在首屏", prompt)
+        self.assertIn("严禁在首屏中直接堆叠多个产品抠图", prompt)
         self.assertIn("整体采用黑金风格", prompt)
-        self.assertIn("四个模块无缝合成后的最终成品尺寸必须严格等于 600*1800px", prompt)
+        self.assertIn("最终连续长图成品尺寸必须严格等于 600*1800px", prompt)
 
-    def test_prompt_uses_desktop_hero_section_heights(self) -> None:
+    def test_free_prompt_hides_desktop_hero_section_distances(self) -> None:
         notes = site.build_main_image_a_plus_layout_notes("desktop_hero", 2)
 
         self.assertIn("1464×2400px", notes)
-        self.assertIn("第 1 部分为 y=0–800px，高 800px", notes)
-        self.assertIn("第 2 部分为 y=800–1333px，高 533px", notes)
-        self.assertIn("第 4 部分为 y=1866–2400px，高 534px", notes)
+        self.assertNotIn("y=0–800px", notes)
+        self.assertNotIn("高 800px", notes)
+        self.assertNotIn("533px", notes)
+        self.assertIn("不按固定像素、固定距离或等高方框划分", notes)
+        self.assertIn("不能暴露内部拼接位置", notes)
 
     def test_template_prompt_requires_layout_lock_and_full_content_replacement(self) -> None:
         notes = site.build_main_image_a_plus_template_notes("desktop_equal", 5)
@@ -105,8 +117,14 @@ class MainImageAPlusTests(unittest.TestCase):
 
         self.assertIn("模板图不提供可复用的品牌、人物、产品或文案", notes)
         self.assertIn("每一处原模特、原产品、原包装、原 Logo", notes)
+        self.assertIn("第一张模板图决定最终原始宽高", notes)
+        self.assertIn("不得移动、增删、合并或拆分槽位", notes)
+        self.assertIn("禁止新增模板中不存在的人物、产品、配件", notes)
         self.assertIn("第 1 张是当前分段的版式模板", section_prompt)
-        self.assertIn("锁定模板中每个槽位的坐标、占比、裁切形状", section_prompt)
+        self.assertIn("像素级锁定模板中每个槽位的坐标、宽高、占比", section_prompt)
+        self.assertIn("只替换文案、人物、产品、包装、Logo", section_prompt)
+        self.assertIn("严格一对一替换且保持模板原有元素数量", section_prompt)
+        self.assertIn("禁止重复人物、重复商品、重复 Logo", section_prompt)
         self.assertIn("绝对不能出现在结果中", section_prompt)
 
     def test_template_layout_follows_original_image_dimensions(self) -> None:
@@ -206,11 +224,27 @@ class MainImageAPlusTests(unittest.TestCase):
             result = site.run_feature_job(job_context)
 
         self.assertEqual(request_images.call_count, 4)
-        for request_call in request_images.call_args_list:
+        for index, request_call in enumerate(request_images.call_args_list):
             call_kwargs = request_call.kwargs
             self.assertEqual(len(call_kwargs["uploaded_files"]), 10)
             self.assertEqual(call_kwargs["aspect_ratio"], "21:9")
             self.assertEqual(call_kwargs["resolution"], "4K")
+        first_section_prompt = request_images.call_args_list[0].kwargs["prompt"]
+        second_section_prompt = request_images.call_args_list[1].kwargs["prompt"]
+        self.assertIn("首屏商业主视觉专项规则", first_section_prompt)
+        self.assertIn("一位模特为唯一视觉主体", first_section_prompt)
+        self.assertIn("模特必须位于最上层、最前景", first_section_prompt)
+        self.assertIn("不能反向遮挡模特", first_section_prompt)
+        self.assertIn("禁止把多个商品抠图", first_section_prompt)
+        self.assertNotIn("首屏商业主视觉专项规则", second_section_prompt)
+        self.assertIn("都可以延伸到片段顶部或底部", second_section_prompt)
+        self.assertNotIn("最后一张是紧邻当前画面上方的已生成连续片段", second_section_prompt)
+        self.assertFalse(
+            any(
+                str(uploaded.get("name") or "").startswith("a_plus_continuity_")
+                for uploaded in request_images.call_args_list[1].kwargs["uploaded_files"]
+            )
+        )
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.size, (1464, 2400))
         self.assertEqual(result["section_count"], 4)
@@ -247,12 +281,119 @@ class MainImageAPlusTests(unittest.TestCase):
             result = site.run_feature_job(job_context)
 
         self.assertEqual(request_images.call_count, 4)
+        self.assertEqual(len(request_images.call_args_list[0].kwargs["uploaded_files"]), 1)
+        self.assertEqual(len(request_images.call_args_list[1].kwargs["uploaded_files"]), 2)
+        self.assertEqual(
+            request_images.call_args_list[1].kwargs["uploaded_files"][-1]["name"],
+            "a_plus_continuity_section_1.jpg",
+        )
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.size, (600, 1800))
         self.assertEqual(result["requested_aspect_ratios"], ("4:3", "4:3", "4:3", "4:3"))
         self.assertEqual(result["section_heights"], (450, 450, 450, 450))
         self.assertEqual(result["section_height"], 450)
         self.assertEqual(result["main_image_a_plus_layout_key"], "mobile_equal")
+
+    def test_continuity_reference_is_resized_and_compressed(self) -> None:
+        source = Image.new("RGB", (1200, 900), "purple")
+
+        reference = site.build_main_image_a_plus_continuity_reference(
+            image_data_url(source),
+            600,
+            450,
+            "previous-section.png",
+        )
+
+        self.assertEqual(reference["name"], "previous-section.jpg")
+        self.assertEqual(reference["type"], "image/jpeg")
+        with Image.open(io.BytesIO(reference["data"])) as compressed:
+            self.assertEqual(compressed.size, (600, 450))
+
+    def test_uploaded_references_are_prepared_once_for_fast_reuse(self) -> None:
+        source = Image.new("RGB", (3200, 2400), "purple")
+
+        reference = site.prepare_main_image_a_plus_reference_input(
+            image_uploaded_input(source, "large-reference.png")
+        )
+
+        self.assertEqual(reference["name"], "large-reference_a_plus_ref.jpg")
+        self.assertEqual(reference["type"], "image/jpeg")
+        self.assertLessEqual(len(reference["data"]), site.MAIN_IMAGE_A_PLUS_REFERENCE_TARGET_BYTES)
+        with Image.open(io.BytesIO(reference["data"])) as compressed:
+            self.assertLessEqual(max(compressed.size), site.MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE)
+
+    def test_template_sections_are_generated_in_parallel_and_kept_in_order(self) -> None:
+        generated = image_data_url(Image.new("RGB", (146, 60), "white"))
+        template = Image.new("RGB", (146, 240), "pink")
+        active_count = 0
+        max_active_count = 0
+        lock = threading.Lock()
+
+        def slow_request(**_kwargs: object) -> dict[str, object]:
+            nonlocal active_count, max_active_count
+            with lock:
+                active_count += 1
+                max_active_count = max(max_active_count, active_count)
+            time.sleep(0.04)
+            with lock:
+                active_count -= 1
+            return {"images": [generated], "text": ""}
+
+        with patch.object(site, "call_openrouter_images_api", side_effect=slow_request):
+            result = site.run_main_image_a_plus_job(
+                {
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "并行套版",
+                    "uploaded_files": [{"name": "new-product.png", "data": b"content"}],
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_TEMPLATE,
+                    "main_image_a_plus_layout": {
+                        "key": "test-template",
+                        "label": "测试模板",
+                        "target_size": (146, 240),
+                        "section_heights": (60, 60, 60, 60),
+                        "text_margin_x": 12,
+                        "text_margin_y": 8,
+                    },
+                    "main_image_a_plus_template": image_uploaded_input(template, "template.png"),
+                }
+            )
+
+        self.assertGreaterEqual(max_active_count, 2)
+        self.assertEqual(result["generation_waves"], 1)
+        self.assertEqual(result["max_parallel_sections"], 4)
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.size, (146, 240))
+
+    def test_images_api_retries_transient_read_timeout(self) -> None:
+        success_response = Mock(status_code=200)
+        success_response.json.return_value = {
+            "data": [{"b64_json": "aW1hZ2U=", "media_type": "image/png"}]
+        }
+
+        with (
+            patch.object(site, "load_api_key", return_value="test-key"),
+            patch.object(
+                site.requests,
+                "post",
+                side_effect=[site.requests.ReadTimeout("temporary timeout"), success_response],
+            ) as request_post,
+            patch.object(site.time, "sleep") as retry_sleep,
+        ):
+            result = site.call_openrouter_images_api(
+                model=site.NANO_BANANA_MODEL,
+                prompt="生成测试图片",
+            )
+
+        self.assertEqual(request_post.call_count, 2)
+        self.assertEqual(retry_sleep.call_count, 1)
+        self.assertEqual(
+            request_post.call_args_list[0].kwargs["timeout"],
+            (
+                site.OPENROUTER_IMAGES_CONNECT_TIMEOUT_SECONDS,
+                site.OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS,
+            ),
+        )
+        self.assertEqual(result["images"], ["data:image/png;base64,aW1hZ2U="])
 
     def test_template_mode_sends_template_section_first_and_replaces_content(self) -> None:
         generated = Image.new("RGB", (200, 100), "white")

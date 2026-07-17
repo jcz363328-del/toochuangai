@@ -14,7 +14,7 @@ import sys
 import time
 import urllib.parse
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -63,6 +63,10 @@ HISTORY_FILE = HISTORY_DIR / "records.json"
 MAX_HISTORY_RECORDS = 120
 HISTORY_PAGE_SIZE = 20
 DB_HISTORY_TABLE = "AI_TuPian"
+XIAOHA_DASHBOARD_KEY = "__usage_dashboard__"
+XIAOHA_DASHBOARD_HISTORY_DAYS = 7
+XIAOHA_DASHBOARD_CACHE_SECONDS = 60
+XIAOHA_DASHBOARD_MAX_FEATURE_LINES = 6
 JIMENG_API_HOST = "visual.volcengineapi.com"
 JIMENG_API_ENDPOINT = f"https://{JIMENG_API_HOST}/"
 JIMENG_API_REGION = "cn-north-1"
@@ -91,6 +95,11 @@ JIMENG_I2I_MAX_EDGE = 4096
 OPENROUTER_MAX_INPUT_IMAGE_BYTES = 29 * 1024 * 1024
 OPENROUTER_SAFE_INPUT_TARGET_BYTES = 24 * 1024 * 1024
 OPENROUTER_MAX_INPUT_IMAGE_EDGE = 4096
+OPENROUTER_IMAGES_CONNECT_TIMEOUT_SECONDS = 30
+OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS = 360
+OPENROUTER_IMAGES_MAX_ATTEMPTS = 2
+OPENROUTER_IMAGES_RETRY_DELAYS = (4,)
+OPENROUTER_IMAGES_TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 JIMENG_HD_API_RESOLUTION = "8k"
 JIMENG_HD_API_SCALE = 30
 DB_IMAGE_DIR = Path(r"D:\tuchuangai\视觉图片")
@@ -163,8 +172,12 @@ BATCH_MULTI_IMAGE_MAX_FILES = 20
 INFINITE_CANVAS_STEP_FEATURE_KEYS = ("hd_batch", "remove_eyelashes", "outpaint", "single_to_double")
 INFINITE_CANVAS_MAX_INPUT_IMAGES = 6
 INFINITE_CANVAS_MAX_STEPS = 4
-OUTPAINT_MAX_EXTENSION_PX = 300
+OUTPAINT_FALLBACK_MAX_EXTENSION_PX = 300
 OUTPAINT_DEFAULT_EXTENSION_PX = 100
+OUTPAINT_MAX_CANVAS_MULTIPLIER = 3
+OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX = 30_000
+OUTPAINT_RESULTS_PER_SOURCE = 1
+OUTPAINT_GUIDE_MAX_EDGE = 1024
 MAX_BATCH_API_CONCURRENCY = 4
 DEFAULT_BATCH_API_CONCURRENCY = 4
 JIMENG_MAX_API_CONCURRENCY = 1
@@ -181,6 +194,9 @@ A_PLUS_IMAGES_API_FEATURE_KEYS = {
 }
 MAIN_IMAGE_A_PLUS_MAX_FILES = 10
 MAIN_IMAGE_A_PLUS_SECTION_COUNT = 4
+MAIN_IMAGE_A_PLUS_MAX_SECTION_CONCURRENCY = 4
+MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE = 2048
+MAIN_IMAGE_A_PLUS_REFERENCE_TARGET_BYTES = 3 * 1024 * 1024
 MAIN_IMAGE_A_PLUS_MODE_FREE = "free_create"
 MAIN_IMAGE_A_PLUS_MODE_TEMPLATE = "template_replace"
 MAIN_IMAGE_A_PLUS_MODE_LABELS = {
@@ -190,14 +206,14 @@ MAIN_IMAGE_A_PLUS_MODE_LABELS = {
 MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY = "desktop_equal"
 MAIN_IMAGE_A_PLUS_LAYOUTS: dict[str, dict[str, Any]] = {
     "mobile_equal": {
-        "label": "手机端｜600×1800｜4 段均分",
+        "label": "手机端｜600×1800｜自然流动",
         "target_size": (600, 1800),
         "section_heights": (450, 450, 450, 450),
         "text_margin_x": 48,
         "text_margin_y": 32,
     },
     "desktop_equal": {
-        "label": "电脑端｜1464×2400｜4 段均分",
+        "label": "电脑端｜1464×2400｜自然均衡",
         "target_size": (1464, 2400),
         "section_heights": (600, 600, 600, 600),
         "text_margin_x": 120,
@@ -212,19 +228,23 @@ MAIN_IMAGE_A_PLUS_LAYOUTS: dict[str, dict[str, Any]] = {
     },
 }
 MAIN_IMAGE_A_PLUS_SECTION_PURPOSES = (
-    "商品与品牌主视觉",
+    "模特与品牌主视觉",
     "核心卖点与关键细节",
     "使用场景、功能表现或工艺展示",
     "套装规格、包装信息与品牌收尾",
 )
 MAIN_IMAGE_A_PLUS_TEMPLATE_DEFAULT_PROMPT = (
     "请执行电商 A+ 成品套版替换。版式模板只用于锁定构图和设计结构，内容参考图用于提供新的品牌、文案、模特、商品、包装和细节素材。"
-    "必须保持模板中的分区边界、元素位置、相对尺寸、图片窗口形状、对齐方式、视觉层级、留白关系、背景色、装饰、字体风格和整体设计节奏基本不变。"
-    "必须把模板中的原品牌名、原 Logo、原文案、原模特、原商品、原包装、原眼部效果、原产品特写、原参数和原标签全部替换为内容参考图中对应的新内容。"
+    "第一张模板图是唯一版式标准：最终宽高必须与第一张模板图完全一致，不能改尺寸、比例、裁切范围或画布方向。"
+    "必须严格保持模板中的分区数量与边界、每个元素槽位的坐标、宽高、相对占比、图片窗口形状、裁切方式、叠放关系、对齐方式、视觉层级、留白、背景、边框、色块、装饰线条、字体风格和阅读顺序不变。"
+    "只允许替换内容层：原品牌名、原 Logo、原文案、原模特、原商品、原包装、原产品效果、原产品特写、原参数和原标签；模板中的背景、色块、边框、分隔、装饰和结构元素不是替换对象，必须保留原有位置与数量。"
     "自动识别内容参考图中各素材的角色，并将模特替换到模板模特位、商品与包装替换到商品位、局部特写替换到细节位、文案与品牌信息替换到对应文字位。"
     "不得保留模板中的旧品牌、旧模特、旧产品、旧文案或旧参数；不得把模板原内容与新内容混合。"
+    "严格执行一对一槽位替换：模板有几个内容槽位，结果就保留几个对应槽位；禁止新增、删除、合并、拆分或移动槽位。"
+    "禁止自行增加模板中没有的人物、产品、配件、图标、徽章、花朵、光效、标签、边框、装饰、文字块或卖点模块；禁止重复人物、重复产品、重复 Logo 和堆叠无关元素。"
+    "元素必须疏密有序，不得变成拼贴、九宫格或杂乱堆放；每个替换内容只能进入语义对应的原槽位，不能跨区、遮挡文字或挤占留白。"
     "只能使用内容参考图中清楚可见或用户补充要求中明确提供的信息，不得编造品牌、卖点、参数、认证、功效、价格或承诺。"
-    "如果内容参考图没有提供某个旧内容的替代素材，应删除该旧内容并以匹配模板风格的中性背景或装饰补齐，不能继续保留旧内容。"
+    "如果内容参考图没有提供某个旧内容的替代素材，应清除该槽位的旧内容并自然延续该槽位原有背景，不得保留旧内容、编造新内容或添加额外装饰。"
     "所有新文案必须清楚、完整、可读，不能出现乱码、错别字、缺字或被边缘截断；商品、模特和 Logo 必须保持真实身份与外观。"
     "最终结果应像在同一份专业设计源文件中完成的内容替换，而不是重新设计、拼贴或在旧内容上覆盖贴纸。"
 )
@@ -279,6 +299,15 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             self.serve_infinite_canvas_bootstrap(request_url.query)
             return
         super().do_GET()
+
+    def end_headers(self) -> None:
+        request_url = urllib.parse.urlsplit(self.path)
+        query = urllib.parse.parse_qs(request_url.query)
+        if str((query.get("download") or [""])[0]).strip() == "1":
+            file_name = Path(urllib.parse.unquote(request_url.path or "")).name or "image.png"
+            encoded_name = urllib.parse.quote(file_name)
+            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{encoded_name}")
+        super().end_headers()
 
     def serve_infinite_canvas_bootstrap(self, query_text: str) -> None:
         query = urllib.parse.parse_qs(query_text)
@@ -566,30 +595,19 @@ FEATURES = [
         "mode": "openrouter",
         "output_mode": "image",
         "min_images": 1,
+        "max_output_images": OUTPAINT_RESULTS_PER_SOURCE,
         "description": "适合半身补全、边缘扩展、补足背景和人物缺失区域，但原图已有细节必须完全保持不变。",
         "default_prompt": (
-            "You are performing canvas extension only. "
-            "The existing image is locked. "
-            "Every non-transparent pixel is read-only and must remain pixel-identical. "
-            "Only generate new content inside transparent regions. "
-            "Do not modify any existing pixels. "
-            "Do not redraw, enhance, beautify, retouch, resize, reposition, crop, rotate, or reinterpret any existing content. "
-            "Maintain exactly the same subject size, camera distance, focal length, framing, perspective, lighting, colors, and composition as the original image. "
-            "The person must occupy exactly the same proportion of the frame as in the original image. "
-            "Never zoom in. "
-            "Never zoom out. "
-            "Never move the subject. "
-            "Never change the crop or framing. "
-            "Do not recreate the photograph. "
-            "Do not generate a new portrait. "
-            "Do not improve or optimize the composition. "
-            "Only continue the missing background, clothing, body parts, and surrounding environment naturally beyond the original image borders. "
-            "Only complete content inside the transparent canvas extension. "
-            "Treat transparent pixels as missing canvas, not as a background color. "
-            "The output canvas size and aspect ratio must match the expanded input canvas exactly. Do not crop, zoom, stretch, compress, rotate, or reposition the original image region. "
-            "The outpainted content must seamlessly match the existing image in lighting, perspective, texture, and photographic style. "
-            "The final result must look like the exact same photograph with a larger canvas, not a newly generated image. "
-            "Output one continuous, realistic photograph without duplicated subjects, split frames, mirrored content, stretched pixels, tiled textures, or repeated background elements."
+            "Perform one-pass direct outpainting from the uploaded original photograph. "
+            "Generate the entire larger-frame photograph as one continuous image in a single model pass. "
+            "Do not paste, composite, embed, overlay, or preserve the source as a rectangular block inside the result. "
+            "There must be no visible original-image rectangle, inset photo, border, frame, hard edge, color block, tonal step, or rectangular seam anywhere in the final image. "
+            "Extend the camera field of view beyond the requested original borders while keeping the same person, identity, face, expression, pose, hairstyle, clothing, camera viewpoint, perspective, lighting, colors, focus, and photographic style as stable as possible. "
+            "Do not preserve the original crop or the subject's old frame occupancy: the subject and original field of view must become proportionally smaller inside the final frame whenever expansion is requested. "
+            "Continue the environment, background, clothing, and any anatomically necessary body area naturally through the former image boundaries. "
+            "The transition across every former image edge must be structurally and photographically continuous, with coherent geometry, texture, light, depth, and detail rather than blur or smudging. "
+            "Do not create a collage, split frame, picture-in-picture result, duplicated subject, mirrored content, stretched pixels, tiled texture, repeated background, or newly composed portrait. "
+            "The final result must look like one photograph captured with a wider canvas, never like an original photo placed on top of generated surroundings."
         ),
     },
     {
@@ -697,19 +715,19 @@ FEATURES = [
         "default_prompt": (
             "请严格基于上传的主图设计一张完整的电商 A+ 宣传长图。"
             "第 1 张图是核心主图，决定商品身份、品牌、包装、颜色、材质和外观；其余图片只用于补充角度、细节、套装内容、使用方式与视觉素材。"
-            "最终画布尺寸、四个区域的具体高度和文字安全距离必须严格遵守当前选择的版式说明。"
-            "第 1 部分为品牌与商品主视觉，清楚展示完整商品和核心形象；"
-            "第 2 部分为核心卖点与关键细节，使用清晰特写和简洁信息层级；"
-            "第 3 部分为使用场景、功能表现或工艺细节，必须与上传素材一致；"
-            "第 4 部分为套装、规格、包装或品牌收尾，形成完整购买信息闭环。"
-            "四部分必须边界清楚、节奏分明，同时保持统一的品牌色、字体风格、光影和商业质感；不要做成杂乱拼图，不要出现重复商品、无关商品或空白断层。"
+            "自由创作时，整张长图只需从上到下大体形成四个内容阶段，不按固定距离划分，也不显示分段高度、坐标、间距或辅助线。"
+            "第一阶段建立具有商业审美的品牌与商品主视觉：形成单一明确焦点，通过专业网格、主次比例、留白、光影、景深和色彩关系形成高级海报感；不得把上传素材直接平铺、堆叠或全部塞入首屏。"
+            "随后自然过渡到核心卖点与关键细节、使用场景或工艺表现，最后以套装规格、包装信息或品牌形象收尾。"
+            "四个阶段只是阅读节奏，不是四个独立方框；不得出现明显分割线、硬边界、卡片式分栏或四块等高拼接感。"
+            "人物、产品、场景、光影、色块、纹理、装饰和大图形可以在相邻阶段之间自然跨越、遮挡和延伸，使整张长图像一次完成的连续商业设计。"
+            "保持统一的品牌色、字体风格、光影和商业质感；不要做成杂乱拼图，不要出现重复商品、无关商品或空白断层。"
             "画面背景、场景、色块、纹理和装饰必须满版延伸到画布四边，不能出现外边框、白边、黑边、模糊边带或留白。"
-            "安全区只用于文字排版：每个宣传区域内部必须为文字保留版式指定的内边距；文字不得贴近左右边缘，不得跨越相邻部分的分界位置，任何文字都不能被画布边缘或分区边界截断。"
+            "文字排版只需在画布外边缘保留自然可读空间；不要显示安全距离或测量标记。完整文案、参数和可读 Logo 不能被画布边缘或实际拼接位置截断。"
             "必须准确保持商品主体、品牌标识、包装结构、颜色、比例和关键细节，不得擅自换款、变形或虚构不存在的配件。"
             "只能使用上传图片中明确可见或用户补充说明中明确提供的卖点、规格和宣传信息；不得编造参数、认证、功效、折扣或承诺。"
             "所有商品纹理、边缘、Logo、包装文字和宣传文字必须清楚锐利、易读，禁止乱码、错别字、模糊、虚焦、涂抹、像素化、压缩痕迹和过度柔化。"
             "所有可读文字必须保留充足安全区，不要贴近左右边缘；非文字画面仍需满版铺满。"
-            "使用原生 4K 高清细节生成；系统会将四个模块无缝拼接为 1 张完整 A+ 宣传成品，不要输出绿幕、透明图、线框、草图或候选版式。"
+            "使用原生 4K 高清细节生成；最终必须呈现为一张连续完整的 A+ 宣传成品，不要输出绿幕、透明图、线框、草图或候选版式。"
         ),
     },
     {
@@ -828,54 +846,34 @@ def normalize_main_image_a_plus_mode(mode: str | None = None) -> str:
     return normalized_mode
 
 
-def describe_main_image_a_plus_sections(layout: dict[str, Any]) -> str:
-    section_heights = tuple(int(value) for value in layout.get("section_heights") or ())
-    if not section_heights:
-        return ""
-    if len(set(section_heights)) == 1:
-        return f"4 段均分，每段 {section_heights[0]}px"
-    return (
-        f"首段 {section_heights[0]}px，后 3 段约 "
-        f"{round(sum(section_heights[1:]) / max(len(section_heights) - 1, 1))}px"
-    )
-
-
 def build_main_image_a_plus_layout_notes(layout_key: str, image_count: int) -> str:
     layout = get_main_image_a_plus_layout(layout_key)
     target_width, target_height = layout["target_size"]
-    section_heights = layout["section_heights"]
-    text_margin_x = int(layout.get("text_margin_x") or 0)
-    text_margin_y = int(layout.get("text_margin_y") or 0)
-    section_lines: list[str] = []
-    start_y = 0
-    for index, (section_height, purpose) in enumerate(
-        zip(section_heights, MAIN_IMAGE_A_PLUS_SECTION_PURPOSES),
-        start=1,
-    ):
-        end_y = start_y + section_height
-        section_lines.append(
-            f"第 {index} 部分为 y={start_y}–{end_y}px，高 {section_height}px，用于{purpose}；"
-        )
-        start_y = end_y
     return (
         f"当前共上传 {image_count} 张商品主图，图片顺序即参考优先级。"
         "第 1 张必须作为核心主图，严格锁定商品身份、品牌、包装、颜色、材质、结构和比例；"
         "第 2 张至最后一张只用于补充商品角度、局部细节、套装内容、使用方式和可用场景。"
         f"当前选择的版式为“{layout['label']}”。"
-        f"最终成品必须是一张 {target_width}×{target_height}px 的完整竖版 A+ 宣传长图，"
-        f"所有区域宽度均为 {target_width}px，从上到下严格分为 {MAIN_IMAGE_A_PLUS_SECTION_COUNT} 个区域。"
-        f"{''.join(section_lines)}"
-        "每个区域都必须有明确独立的信息重点和完整构图，区域之间允许使用色块、场景或自然过渡，"
-        "但不能合并成一个无分区的大画面，也不能做成凌乱的九宫格或多图拼贴。"
+        f"最终成品必须是一张 {target_width}×{target_height}px 的完整竖版 A+ 宣传长图；"
+        "画布尺寸只用于控制最终输出，画面中绝不能出现尺寸数字、坐标、距离、辅助线或分段说明。"
+        "整张长图从上到下大体形成四个阅读阶段：模特与品牌主视觉、核心卖点与关键细节、"
+        "使用场景或工艺表现、套装包装与品牌收尾。"
+        "四个阶段只代表信息节奏，不按固定像素、固定距离或等高方框划分，也不要求内容严格待在各自范围内。"
+        "首屏必须是完整的商业主视觉，而不是素材陈列区：必须以上传参考图中的一位模特为唯一主视觉核心，商品、品牌与场景作为辅助层级。"
+        "模特必须处于画面最上层和视觉最前景，保持身份、脸部、发型、姿态与服饰真实一致；商品、文字、Logo、色块、光效和装饰均不得遮挡模特的脸、眼睛、头发轮廓、身体主体或关键服饰。"
+        "参考图只是可选择的素材池，不要求全部出现在首屏；必须主动取舍素材，使用专业网格、大小对比、前中后景、光影、留白和品牌文字层级完成高级海报式构图。"
+        "严禁在首屏中直接堆叠多个产品抠图、重复人物、重复包装、大量小图、标签和文字块；严禁做成拼贴、产品清单、九宫格或把所有参考图平铺进去。"
+        "不要绘制分割线、边框、卡片底板、硬切色块或明显的四块拼接结构；四个阶段之间必须使用构图、景深、光影、色彩和视觉动线自然衔接。"
+        "人物、商品、包装、场景、光影、色块、纹理、装饰、大标题图形和其他非正文视觉元素允许跨越相邻阶段，"
+        "可以自然遮挡、叠压和延伸，形成一个连续整体，但不能变成凌乱的九宫格或多图拼贴。"
         "只允许展示上传图片中真实存在的商品、配件、包装和信息，不得增加无关商品，不得改变品牌与商品外观。"
         "不得编造参数、认证、功效、促销价格或承诺；补充宣传要求与图片冲突时，以主图中的真实商品信息为准。"
         "背景、场景、色块、纹理和装饰必须满版延伸到画布四边，不得生成边框、白边、黑边、模糊边带或可见留白。"
-        f"安全区只限制文字：所有标题、卖点、参数、说明文字和可读 Logo 必须左右至少内缩 {text_margin_x}px，"
-        f"并与每段的上下边界至少保持 {text_margin_y}px 距离。"
-        "文字不能贴边、跨区或压在分界线上，不能出现半个字、缺字或被截断的行；非文字画面仍须满版铺满。"
+        "标题、卖点、参数、说明文字和可读 Logo 只需在画布外边缘保留自然可读空间，不显示任何安全距离。"
+        "文字可以跟随整体构图跨越概念阶段，但每一段完整文字都不能被画布边缘或实际拼接位置切断，不能出现半个字、缺字或被截断的行。"
         "必须使用原生 4K 高清细节，商品纹理、边缘、Logo、包装字和宣传字必须清晰锐利、可辨认。"
         "严禁乱码、错别字、模糊、虚焦、涂抹、过度柔化、像素化、压缩痕迹、重复主体和明显 AI 伪影。"
-        "系统会将四段无缝合成为 1 张完整成品；不要输出绿幕、透明图、草图、线框或多张候选版式。"
+        "最终结果必须看起来像一次完成的一张连续长图，不能暴露内部拼接位置；不要输出绿幕、透明图、草图、线框或多张候选版式。"
     )
 
 
@@ -883,24 +881,57 @@ def build_main_image_a_plus_section_prompt(
     full_prompt: str,
     layout: dict[str, Any],
     section_index: int,
+    has_previous_section_reference: bool = False,
+    continuity_reference_role: str = "",
 ) -> str:
     target_width, target_height = layout["target_size"]
     section_heights = layout["section_heights"]
     section_height = int(section_heights[section_index])
     purpose = MAIN_IMAGE_A_PLUS_SECTION_PURPOSES[section_index]
-    text_margin_x = int(layout.get("text_margin_x") or 0)
-    text_margin_y = int(layout.get("text_margin_y") or 0)
+    hero_design_rules = (
+        "首屏商业主视觉专项规则：本段必须以上传参考图中的一位模特为唯一视觉主体，模特占据首屏最主要面积与最高视觉权重；商品、品牌和场景只作为辅助信息。"
+        "模特必须位于最上层、最前景，不能被任何商品、包装、文字、Logo、标签、色块、光效、纹理或装饰覆盖；脸部、眼睛、头发轮廓、身体主体和关键服饰必须完整清晰。"
+        "如果需要产生遮挡关系，只能由模特遮挡后方的商品、文字或装饰，不能反向遮挡模特。"
+        "必须主动筛选参考素材，不要求全部使用；通过专业网格、非对称平衡、主次比例、前中后景、自然遮挡、留白、光影和品牌色建立高级广告海报感。"
+        "商品、人物、标题和卖点必须形成清楚的视觉层级，不能彼此争抢焦点。"
+        "禁止把多个商品抠图、人物、包装、小图、图标、标签和文字块直接向画面中堆叠；禁止重复主体、素材平铺、拼贴、九宫格、产品清单和拥挤排版。"
+        if section_index == 0
+        else ""
+    )
+    if has_previous_section_reference and continuity_reference_role == "style_anchor":
+        continuation_rules = (
+            "输入图片中的最后一张是已生成的首屏风格锚点，不是当前片段的内容素材。"
+            "必须锁定其中的品牌色、字体气质、商品表现、场景材质、光影方向、景深、纹理、装饰语言和整体商业质感，"
+            "让当前片段看起来属于同一张连续长图；不要复制首屏构图，不要重复首屏主体，也不要把锚点当成新商品参考。"
+            "当前片段顶部和底部都要使用可自然延续的背景、色彩、光影和视觉动线，避免独立卡片感。"
+        )
+    elif has_previous_section_reference:
+        continuation_rules = (
+            "输入图片中的最后一张是紧邻当前画面上方的已生成连续片段，只用于衔接参考；其余输入图片仍是商品内容参考图。"
+            "必须观察上一片段底部的背景、主体边缘、场景透视、色彩、光影、纹理、装饰和视觉动线，"
+            "从当前片段顶部无痕延续下来；如果上一片段有商品、人物、光影、色块或装饰伸向底边，应在当前片段中自然接续，不能突然切断或重新开始。"
+            "不要复刻整张上一片段，也不要把上一片段当成新的商品参考。"
+        )
+    else:
+        continuation_rules = (
+            "这是整张长图的起始片段，需要为后续内容保留自然向下延伸的场景、光影、色彩和视觉动线。"
+            if section_index == 0
+            else "当前没有额外连续片段参考，必须严格依照总提示中的品牌色、商品身份、字体气质、光影方向和场景语言完成本段，并让上下边缘保持可自然延续。"
+        )
     return (
         f"{str(full_prompt or '').strip()}\n\n"
-        "分段生成执行指令：系统会分别生成四个模块并在生成后无缝竖向拼接。"
-        f"本次只生成第 {section_index + 1} 个横向模块“{purpose}”，不要生成整张长图，也不要包含其他三个模块。"
-        f"本次模块的最终尺寸必须严格为 {target_width}×{section_height}px；"
-        f"它将被放入总尺寸 {target_width}×{target_height}px 的成品中。"
-        "画面、背景、色块和场景必须铺满模块四边，不要边框、白边、黑边或透明边缘。"
-        f"所有可读文字左右至少内缩 {text_margin_x}px，上下至少内缩 {text_margin_y}px，"
-        "任何文字、Logo 或商品关键信息都不能被模块边缘截断。"
-        "保持与其余模块一致的商品身份、品牌色、字体风格、光影方向和商业质感。"
-        "只输出这一张模块成品图。"
+        "连续长图生成执行指令：系统会依次制作连续画面片段并组合为一张长图，片段不是独立卡片或独立版块。"
+        f"本次制作第 {section_index + 1} 个连续画面片段，当前信息重点大体为“{purpose}”，但相邻阶段的内容可以进入本片段。"
+        f"内部输出尺寸必须为 {target_width}×{section_height}px，并将组成 {target_width}×{target_height}px 的成品；"
+        "这些尺寸仅用于系统输出控制，绝不能作为文字、标尺、坐标或说明出现在画面里。"
+        f"{hero_design_rules}"
+        f"{continuation_rules}"
+        "不要绘制上下分界线、边框、独立卡片、硬切背景或明显的模块边界。"
+        "人物、商品、场景、光影、色块、纹理、装饰和大图形都可以延伸到片段顶部或底部，以便跨片段形成连续视觉。"
+        "画面、背景、色块和场景必须铺满四边，不要白边、黑边或透明边缘。"
+        "完整文案、参数与可读 Logo 不要压在实际上下拼接边缘，避免在合成时被切断；画布左右边缘只需保留自然可读空间，不显示距离标记。"
+        "保持整张长图统一的商品身份、品牌色、字体风格、光影方向、透视关系和商业质感。"
+        "只输出当前连续画面片段，不要输出辅助线、版式说明或候选方案。"
     )
 
 
@@ -920,9 +951,12 @@ def build_main_image_a_plus_template_notes(layout_or_key: dict[str, Any] | str, 
         f"当前选择的成品规格为“{layout['label']}”，最终合成长图必须严格为 {target_width}×{target_height}px。"
         f"四段高度依次为 {'、'.join(str(value) + 'px' for value in section_heights)}。"
         "系统会先按这四段高度拆分模板，再逐段执行同位置、同层级、同视觉比例的内容替换。"
+        "第一张模板图决定最终原始宽高、每个内容槽位的大小与位置，禁止改尺寸、改比例、改裁切、改分栏或重新排版。"
         "每一处原模特、原产品、原包装、原 Logo、原品牌名、原宣传语、原参数、原标签和原细节照片都必须被替换或删除，不能残留。"
         "内容参考图中的第一张作为核心商品与品牌识别依据，其余图片用于匹配模特、不同角度、细节、效果、包装、文案和规格。"
-        "替换后的内容必须完整落在模板原有槽位中，不得移动主要槽位、改变分栏比例、打乱阅读顺序或新增模板没有的大型版块。"
+        "替换后的内容必须一对一完整落在模板原有槽位中，不得移动、增删、合并或拆分槽位，不得改变分栏比例或打乱阅读顺序。"
+        "除文案、人物、产品、包装、Logo 与对应产品细节外，模板背景、色块、边框、装饰线和结构元素保持不变。"
+        "禁止新增模板中不存在的人物、产品、配件、图标、徽章、标签、光效、装饰或文字模块，禁止重复主体与杂乱堆叠。"
         f"所有可读文字左右至少内缩 {text_margin_x}px，并与所在分段上下边界至少保持 {text_margin_y}px 距离。"
         "背景与装饰仍须满版到边，文字、Logo 和商品关键信息不得被画布边缘或分区边界截断。"
     )
@@ -943,12 +977,15 @@ def build_main_image_a_plus_template_section_prompt(
         "套版分段执行指令：输入图片中的第 1 张是当前分段的版式模板，后续图片全部是要替换进去的新内容参考图。"
         f"本次只处理第 {section_index + 1}/{MAIN_IMAGE_A_PLUS_SECTION_COUNT} 段，"
         f"输出必须严格为 {target_width}×{section_height}px，最终将合成 {target_width}×{target_height}px 长图。"
+        "第 1 张模板分段决定本次输出的精确宽高、构图边界和全部元素槽位，输出不得改变画布比例或裁切范围。"
         "先识别模板中所有人物位、产品位、包装位、Logo 位、标题位、正文位、参数位、标签位和细节图位，"
         "再从后续内容参考图中找到语义对应的新内容逐一替换。"
-        "必须锁定模板中每个槽位的坐标、占比、裁切形状、叠放关系、对齐、背景、色彩、装饰和阅读顺序；不要重新设计版式。"
+        "必须像素级锁定模板中每个槽位的坐标、宽高、占比、裁切形状、叠放关系、对齐、背景、色彩、边框、装饰、留白和阅读顺序；不要重新设计版式。"
+        "只替换文案、人物、产品、包装、Logo 与对应产品细节；背景、色块、边框、分隔线和结构装饰保持原位。"
         "模板原有的品牌、Logo、文案、模特、产品、包装、局部特写、参数和标签都属于待删除内容，绝对不能出现在结果中。"
         "如果后续参考图没有提供某个槽位的替代内容，删除旧内容并延续相邻背景或装饰，不得保留旧内容或编造新信息。"
-        "替换内容必须自然融入原槽位，不要出现贴纸感、硬边、遮挡残留、双重文字、重复商品或新旧内容混合。"
+        "严格一对一替换且保持模板原有元素数量；禁止添加任何模板没有的人物、产品、配件、图标、徽章、标签、花纹、光效、装饰或文字块。"
+        "禁止重复人物、重复商品、重复 Logo、跨槽位放大、元素堆叠和杂乱拼贴；替换内容必须自然融入原槽位，不要出现贴纸感、硬边、遮挡残留、双重文字或新旧内容混合。"
         f"所有文字左右至少内缩 {text_margin_x}px，上下至少内缩 {text_margin_y}px，必须完整可读且不能被截断。"
         "只输出这一段完成套版替换后的商业级成品图。"
     )
@@ -1312,6 +1349,7 @@ def consume_pending_outpaint_drag() -> bool:
     except Exception:
         return False
     keys = dict(payload.get("keys") or {})
+    limits = dict(payload.get("limits") or {})
     changed = False
     for direction in ("top", "bottom", "left", "right"):
         state_key = str(keys.get(direction) or "").strip()
@@ -1321,7 +1359,15 @@ def consume_pending_outpaint_drag() -> bool:
             value = int(payload.get(direction) or 0)
         except Exception:
             value = 0
-        value = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(round(value / 50) * 50)))
+        try:
+            direction_limit = int(limits.get(direction) or OUTPAINT_FALLBACK_MAX_EXTENSION_PX)
+        except Exception:
+            direction_limit = OUTPAINT_FALLBACK_MAX_EXTENSION_PX
+        direction_limit = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, direction_limit))
+        if direction_limit > 0 and value >= direction_limit - 25:
+            value = direction_limit
+        else:
+            value = max(0, min(direction_limit, int(round(value / 50) * 50)))
         st.session_state[state_key] = value
         changed = True
     return changed
@@ -1412,8 +1458,7 @@ def ensure_state() -> None:
     if "feature_results" not in st.session_state:
         st.session_state.feature_results = {}
     if "selected_feature_key" not in st.session_state:
-        visible_features = get_visible_features()
-        st.session_state.selected_feature_key = visible_features[0]["key"]
+        st.session_state.selected_feature_key = XIAOHA_DASHBOARD_KEY
     if "is_authenticated" not in st.session_state:
         st.session_state.is_authenticated = False
     if "auth_username" not in st.session_state:
@@ -1565,6 +1610,24 @@ def build_history_download_public_url(image_source: str) -> str:
     return f"{upload_base_url}/{encoded_parts}"
 
 
+def build_direct_image_download_url(image_source: str) -> str:
+    download_source = build_history_download_public_url(image_source)
+    if not download_source.startswith(("http://", "https://")):
+        return download_source
+    parsed = urllib.parse.urlsplit(download_source)
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    query["download"] = ["1"]
+    return urllib.parse.urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            urllib.parse.urlencode(query, doseq=True),
+            parsed.fragment,
+        )
+    )
+
+
 def get_uploaded_file_bytes(uploaded_file: Any) -> bytes:
     if isinstance(uploaded_file, Path):
         return uploaded_file.read_bytes()
@@ -1658,76 +1721,198 @@ def prepare_openrouter_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
     raise RuntimeError("OpenRouter 输入图片超过 30MB，自动压缩后仍然太大，请降低图片尺寸后重试。")
 
 
-def prepare_outpaint_uploaded_input(
-    uploaded_file: Any,
+def get_uploaded_input_closest_aspect_ratio(
+    uploaded_input: Any,
+    fallback: str = DEFAULT_ASPECT_RATIO,
+) -> str:
+    try:
+        image_bytes = get_uploaded_file_bytes(uploaded_input)
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            normalized = ImageOps.exif_transpose(image)
+            if normalized.width > 0 and normalized.height > 0:
+                return select_closest_aspect_ratio((normalized.width, normalized.height))
+    except Exception:
+        pass
+    return str(fallback or DEFAULT_ASPECT_RATIO)
+
+
+def get_uploaded_input_dimensions(uploaded_input: Any) -> tuple[int, int]:
+    image_bytes = get_uploaded_file_bytes(uploaded_input)
+    if not image_bytes:
+        raise RuntimeError("上传图片为空，请重新上传。")
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            source = ImageOps.exif_transpose(image)
+            return max(int(source.width), 1), max(int(source.height), 1)
+    except Exception as exc:
+        raise RuntimeError(f"无法读取上传图片尺寸：{exc}") from exc
+
+
+def get_outpaint_extension_limits(original_input: Any) -> dict[str, int]:
+    source_w, source_h = get_uploaded_input_dimensions(original_input)
+    per_side_factor = max((float(OUTPAINT_MAX_CANVAS_MULTIPLIER) - 1.0) / 2.0, 0.0)
+    horizontal_limit = min(
+        OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX,
+        max(int(round(source_w * per_side_factor)), 0),
+    )
+    vertical_limit = min(
+        OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX,
+        max(int(round(source_h * per_side_factor)), 0),
+    )
+    return {
+        "top": vertical_limit,
+        "bottom": vertical_limit,
+        "left": horizontal_limit,
+        "right": horizontal_limit,
+    }
+
+
+def clamp_outpaint_extensions(
+    original_input: Any,
     top_px: int,
     bottom_px: int,
     left_px: int,
     right_px: int,
-    feather_strength: int,
-    error_prefix: str = "模特扩图失败",
-) -> dict[str, Any]:
-    normalized = normalize_uploaded_input(uploaded_file)
-    image_bytes = bytes(normalized.get("data") or b"")
-    if not image_bytes:
-        raise RuntimeError(f"{error_prefix}：没有可用的原图数据。")
+) -> tuple[int, int, int, int]:
+    limits = get_outpaint_extension_limits(original_input)
+    return (
+        max(0, min(limits["top"], int(top_px))),
+        max(0, min(limits["bottom"], int(bottom_px))),
+        max(0, min(limits["left"], int(left_px))),
+        max(0, min(limits["right"], int(right_px))),
+    )
 
-    top_px = max(int(top_px), 0)
-    bottom_px = max(int(bottom_px), 0)
-    left_px = max(int(left_px), 0)
-    right_px = max(int(right_px), 0)
-    feather_strength = max(int(feather_strength), 0)
 
+def get_outpaint_default_extension(direction_limit: int) -> int:
+    limit = max(int(direction_limit), 0)
+    if limit <= 0:
+        return 0
+    target = limit * 0.5
+    if limit < 50:
+        return max(1, int(round(target)))
+    return max(50, min(limit, int(round(target / 50.0) * 50)))
+
+
+def get_outpaint_target_canvas_size(
+    original_input: Any,
+    top_px: int,
+    bottom_px: int,
+    left_px: int,
+    right_px: int,
+) -> tuple[int, int]:
     try:
-        with Image.open(io.BytesIO(image_bytes)) as image:
-            source = ImageOps.exif_transpose(image).convert("RGBA")
-            source_w, source_h = source.size
-            canvas_width = source_w + left_px + right_px
-            canvas_height = source_h + top_px + bottom_px
-            canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
-            canvas.alpha_composite(source, (left_px, top_px))
-
-            output = io.BytesIO()
-            canvas.save(output, format="PNG")
-            stem = Path(str(normalized.get("name") or "outpaint_input")).stem or "outpaint_input"
-            return {
-                "data": output.getvalue(),
-                "name": f"{sanitize_file_name(stem)}_outpaint.png",
-                "type": "image/png",
-            }
+        source_w, source_h = get_uploaded_input_dimensions(original_input)
+        top_px, bottom_px, left_px, right_px = clamp_outpaint_extensions(
+            original_input,
+            top_px,
+            bottom_px,
+            left_px,
+            right_px,
+        )
+        return (
+            max(1, source_w + left_px + right_px),
+            max(1, source_h + top_px + bottom_px),
+        )
     except RuntimeError:
         raise
     except Exception as exc:
-        raise RuntimeError(f"{error_prefix}：扩图预处理失败。{exc}") from exc
+        raise RuntimeError(f"模特扩图失败：无法读取原图尺寸。{exc}") from exc
 
 
-def restore_original_region_after_outpaint(
-    image_source: str,
+def get_outpaint_target_aspect_ratio(
+    original_input: Any,
+    top_px: int,
+    bottom_px: int,
+    left_px: int,
+    right_px: int,
+    fallback: str = DEFAULT_ASPECT_RATIO,
+) -> str:
+    try:
+        return select_closest_aspect_ratio(
+            get_outpaint_target_canvas_size(
+                original_input,
+                top_px,
+                bottom_px,
+                left_px,
+                right_px,
+            )
+        )
+    except Exception:
+        return str(fallback or DEFAULT_ASPECT_RATIO)
+
+
+def build_outpaint_source_framing_instruction(
     original_input: Any,
     top_px: int,
     bottom_px: int,
     left_px: int,
     right_px: int,
 ) -> str:
-    try:
-        result_bytes, _result_mime = load_image_bytes_from_url(str(image_source))
-        with Image.open(io.BytesIO(result_bytes)) as result_image:
-            result = ImageOps.exif_transpose(result_image).convert("RGBA")
-        original = uploaded_input_to_pil_image(original_input)
-        original_w, original_h = original.size
-        canvas_w = max(1, original_w + max(int(left_px), 0) + max(int(right_px), 0))
-        canvas_h = max(1, original_h + max(int(top_px), 0) + max(int(bottom_px), 0))
-        if result.size != (canvas_w, canvas_h):
-            result = result.resize((canvas_w, canvas_h), Image.Resampling.LANCZOS)
-        paste_left = max(int(left_px), 0)
-        paste_top = max(int(top_px), 0)
-        if paste_left + original_w > result.width or paste_top + original_h > result.height:
-            return str(image_source)
+    source_w, source_h = get_uploaded_input_dimensions(original_input)
+    top_px, bottom_px, left_px, right_px = clamp_outpaint_extensions(
+        original_input,
+        top_px,
+        bottom_px,
+        left_px,
+        right_px,
+    )
+    target_w = source_w + left_px + right_px
+    target_h = source_h + top_px + bottom_px
+    width_share = (source_w / target_w) * 100.0
+    height_share = (source_h / target_h) * 100.0
+    left_share = (left_px / target_w) * 100.0
+    right_share = (right_px / target_w) * 100.0
+    top_share = (top_px / target_h) * 100.0
+    bottom_share = (bottom_px / target_h) * 100.0
+    source_area_share = ((source_w * source_h) / float(target_w * target_h)) * 100.0
+    new_area_share = max(0.0, 100.0 - source_area_share)
+    return (
+        "MANDATORY OUTPAINT FRAMING GEOMETRY — this overrides any instruction to keep the old crop or old subject size. "
+        f"The uploaded source field of view must occupy only about {width_share:.1f}% of the final frame width and {height_share:.1f}% of the final frame height. "
+        f"Place that conceptual source field with about {left_share:.1f}% new visual space on the left, {right_share:.1f}% on the right, {top_share:.1f}% above, and {bottom_share:.1f}% below. "
+        f"Approximately {new_area_share:.1f}% of the final frame area must show genuinely new, naturally continued scene content that was outside the uploaded crop. "
+        "These percentages describe field-of-view geometry only; do not draw a box, border, inset, or pasted source rectangle. "
+        "The final result must show an unmistakably wider/taller camera view and visibly more surroundings. "
+        "Returning the same crop, the same subject frame occupancy, a merely retouched copy, or an image with no clearly visible new outer scene is a failed result."
+    )
 
-        result.alpha_composite(original, (paste_left, paste_top))
-        return image_bytes_to_data_url(image_to_png_bytes(result), "image/png")
-    except Exception:
-        return str(image_source)
+
+def build_outpaint_region_guide(
+    original_input: Any,
+    top_px: int,
+    bottom_px: int,
+    left_px: int,
+    right_px: int,
+) -> dict[str, Any]:
+    source_w, source_h = get_uploaded_input_dimensions(original_input)
+    top_px, bottom_px, left_px, right_px = clamp_outpaint_extensions(
+        original_input,
+        top_px,
+        bottom_px,
+        left_px,
+        right_px,
+    )
+    target_w = source_w + left_px + right_px
+    target_h = source_h + top_px + bottom_px
+    scale = min(OUTPAINT_GUIDE_MAX_EDGE / float(max(target_w, target_h)), 1.0)
+    guide_w = max(32, int(round(target_w * scale)))
+    guide_h = max(32, int(round(target_h * scale)))
+    guide = Image.new("RGB", (guide_w, guide_h), (0, 0, 0))
+    draw = ImageDraw.Draw(guide)
+    source_box = (
+        int(round(left_px / target_w * guide_w)),
+        int(round(top_px / target_h * guide_h)),
+        int(round((left_px + source_w) / target_w * guide_w)) - 1,
+        int(round((top_px + source_h) / target_h * guide_h)) - 1,
+    )
+    draw.rectangle(source_box, fill=(255, 255, 255))
+    output = io.BytesIO()
+    guide.save(output, format="PNG", optimize=True)
+    return {
+        "data": output.getvalue(),
+        "name": "outpaint_region_layout_mask.png",
+        "type": "image/png",
+    }
 
 
 def clear_upload_cache(widget_key: str, account_name: str | None = None) -> None:
@@ -1883,6 +2068,80 @@ def clear_task_progress(job_id: str) -> None:
         runtime.progress.pop(job_id, None)
 
 
+def build_running_job_spinner_html(progress_value: int, progress_stage: str) -> str:
+    normalized_progress = max(1, min(int(progress_value), 99))
+    safe_stage = html.escape(str(progress_stage or "正在处理中").strip() or "正在处理中")
+    return f"""
+    <style>
+      .xiaoha-task-spinner-card {{
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 14px 16px;
+        margin: 4px 0 10px;
+        border: 1px solid rgba(126, 96, 255, 0.22);
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(126, 96, 255, 0.10), rgba(18, 31, 55, 0.44));
+      }}
+      .xiaoha-task-spinner-circle {{
+        position: relative;
+        width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        display: grid;
+        place-items: center;
+      }}
+      .xiaoha-task-spinner-orbit {{
+        position: absolute;
+        inset: 0;
+        box-sizing: border-box;
+        border: 4px solid rgba(126, 96, 255, 0.18);
+        border-top-color: #8d78ff;
+        border-right-color: #39d7c5;
+        border-radius: 50%;
+        animation: xiaoha-task-spinner-rotate 0.9s linear infinite;
+      }}
+      .xiaoha-task-spinner-value {{
+        color: #f5f7ff;
+        font-size: 11px;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: -0.2px;
+      }}
+      .xiaoha-task-spinner-stage {{
+        color: #f5f7ff;
+        font-size: 14px;
+        line-height: 1.45;
+        font-weight: 750;
+      }}
+      .xiaoha-task-spinner-subtitle {{
+        margin-top: 3px;
+        color: rgba(214, 219, 255, 0.68);
+        font-size: 12px;
+        line-height: 1.35;
+      }}
+      @keyframes xiaoha-task-spinner-rotate {{
+        to {{ transform: rotate(360deg); }}
+      }}
+      @media (prefers-reduced-motion: reduce) {{
+        .xiaoha-task-spinner-orbit {{ animation-duration: 1.8s; }}
+      }}
+    </style>
+    <div class="xiaoha-task-spinner-card" role="status" aria-live="polite">
+      <div class="xiaoha-task-spinner-circle" aria-hidden="true">
+        <div class="xiaoha-task-spinner-orbit"></div>
+        <span class="xiaoha-task-spinner-value">{normalized_progress}%</span>
+      </div>
+      <div>
+        <div class="xiaoha-task-spinner-stage">{safe_stage}</div>
+        <div class="xiaoha-task-spinner-subtitle">任务在后台运行，状态会自动更新</div>
+      </div>
+    </div>
+    """
+
+
 @st.fragment(run_every="3s")
 def render_running_job_status(feature_key: str) -> None:
     sync_background_jobs()
@@ -1891,14 +2150,20 @@ def render_running_job_status(feature_key: str) -> None:
     if status == "running":
         progress_value = max(1, min(int(current_job.get("progress") or 1), 99))
         progress_stage = str(current_job.get("stage") or "正在处理中").strip() or "正在处理中"
-        st.progress(progress_value, text=f"{progress_stage}（{progress_value}%）")
+        st.markdown(
+            build_running_job_spinner_html(progress_value, progress_stage),
+            unsafe_allow_html=True,
+        )
         st.info("当前任务正在后台处理中，你可以切换到其他功能继续操作，结果完成后会保留。")
         st.caption("任务状态会自动刷新，运行期间也可以展开历史记录。")
         return
     st.rerun()
 
 
-def get_external_request_kwargs(timeout: int, use_proxy: bool = True) -> dict[str, Any]:
+def get_external_request_kwargs(
+    timeout: int | tuple[int, int],
+    use_proxy: bool = True,
+) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"timeout": timeout}
     if use_proxy:
         kwargs["proxies"] = REQUEST_PROXIES
@@ -1938,6 +2203,568 @@ def execute_db_query(query: str, params: tuple[Any, ...] | None = None) -> list[
                 conn.close()
             except Exception:
                 pass
+
+
+def normalize_dashboard_date(value: Any) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text_value = str(value or "").strip()
+    if not text_value:
+        return None
+    try:
+        return date.fromisoformat(text_value[:10])
+    except ValueError:
+        return None
+
+
+def build_xiaoha_usage_dashboard_data(
+    rows: list[tuple[Any, ...]],
+    reference_date: date | datetime | str | None = None,
+) -> dict[str, Any]:
+    today = normalize_dashboard_date(reference_date) or datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    first_day = today - timedelta(days=XIAOHA_DASHBOARD_HISTORY_DAYS - 1)
+    usage_counts: dict[tuple[date, int, str], int] = {}
+    today_active_accounts = 0
+
+    for row in rows:
+        if len(row) > 4:
+            try:
+                today_active_accounts = max(today_active_accounts, int(row[4] or 0))
+            except (TypeError, ValueError):
+                pass
+        usage_day = normalize_dashboard_date(row[0] if len(row) > 0 else None)
+        if usage_day is None or usage_day < first_day or usage_day > today:
+            continue
+        try:
+            usage_hour = int(row[1] if len(row) > 1 else 0)
+        except (TypeError, ValueError):
+            usage_hour = 0
+        usage_hour = max(0, min(usage_hour, 23))
+        feature_name = str(row[2] if len(row) > 2 else "").strip() or "未分类功能"
+        try:
+            usage_count = max(int(row[3] if len(row) > 3 else 0), 0)
+        except (TypeError, ValueError):
+            usage_count = 0
+        key = (usage_day, usage_hour, feature_name)
+        usage_counts[key] = usage_counts.get(key, 0) + usage_count
+
+    day_sequence = [first_day + timedelta(days=offset) for offset in range(XIAOHA_DASHBOARD_HISTORY_DAYS)]
+    hour_labels = [f"{hour:02d}:00" for hour in range(24)]
+    today_feature_totals: dict[str, int] = {}
+    recent_feature_totals: dict[str, int] = {}
+    today_hour_totals = [0] * 24
+    yesterday_hour_totals = [0] * 24
+    daily_totals = {usage_day: 0 for usage_day in day_sequence}
+
+    for (usage_day, usage_hour, feature_name), usage_count in usage_counts.items():
+        recent_feature_totals[feature_name] = recent_feature_totals.get(feature_name, 0) + usage_count
+        daily_totals[usage_day] = daily_totals.get(usage_day, 0) + usage_count
+        if usage_day == today:
+            today_feature_totals[feature_name] = today_feature_totals.get(feature_name, 0) + usage_count
+            today_hour_totals[usage_hour] += usage_count
+        elif usage_day == yesterday:
+            yesterday_hour_totals[usage_hour] += usage_count
+
+    sorted_today_features = sorted(
+        today_feature_totals.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    line_feature_source = sorted_today_features or sorted(
+        recent_feature_totals.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    line_feature_names = [
+        feature_name
+        for feature_name, _count in line_feature_source[:XIAOHA_DASHBOARD_MAX_FEATURE_LINES]
+    ]
+    feature_hour_series = []
+    for feature_name in line_feature_names:
+        feature_hour_series.append(
+            {
+                "name": feature_name,
+                "data": [
+                    usage_counts.get((today, hour, feature_name), 0)
+                    for hour in range(24)
+                ],
+            }
+        )
+
+    today_total = sum(today_hour_totals)
+    yesterday_total = sum(yesterday_hour_totals)
+    delta_count = today_total - yesterday_total
+    if yesterday_total > 0:
+        delta_percent = round((delta_count / yesterday_total) * 100, 1)
+        delta_label = f"{delta_percent:+g}% 较昨日"
+    elif today_total > 0:
+        delta_label = "今日新增记录"
+    else:
+        delta_label = "今日暂无记录"
+
+    peak_count = max(today_hour_totals) if today_hour_totals else 0
+    peak_hour = today_hour_totals.index(peak_count) if peak_count > 0 else None
+    top_feature_name = sorted_today_features[0][0] if sorted_today_features else "暂无"
+    top_feature_count = sorted_today_features[0][1] if sorted_today_features else 0
+
+    return {
+        "date": today.isoformat(),
+        "date_label": today.strftime("%Y年%m月%d日"),
+        "updated_at": datetime.now().strftime("%H:%M:%S"),
+        "today_total": today_total,
+        "yesterday_total": yesterday_total,
+        "delta_count": delta_count,
+        "delta_label": delta_label,
+        "active_accounts": today_active_accounts,
+        "active_features": len([count for count in today_feature_totals.values() if count > 0]),
+        "peak_hour": f"{peak_hour:02d}:00" if peak_hour is not None else "—",
+        "peak_count": peak_count,
+        "top_feature_name": top_feature_name,
+        "top_feature_count": top_feature_count,
+        "feature_names": [feature_name for feature_name, _count in sorted_today_features],
+        "feature_counts": [count for _feature_name, count in sorted_today_features],
+        "hour_labels": hour_labels,
+        "today_hour_totals": today_hour_totals,
+        "yesterday_hour_totals": yesterday_hour_totals,
+        "day_labels": [usage_day.strftime("%m-%d") for usage_day in day_sequence],
+        "day_totals": [daily_totals.get(usage_day, 0) for usage_day in day_sequence],
+        "feature_hour_series": feature_hour_series,
+        "has_today_data": today_total > 0,
+    }
+
+
+@st.cache_data(ttl=XIAOHA_DASHBOARD_CACHE_SECONDS, show_spinner=False)
+def load_xiaoha_usage_dashboard_rows(reference_date_text: str) -> list[tuple[Any, ...]]:
+    today = normalize_dashboard_date(reference_date_text) or datetime.now().date()
+    range_start = datetime.combine(
+        today - timedelta(days=XIAOHA_DASHBOARD_HISTORY_DAYS - 1),
+        datetime.min.time(),
+    )
+    today_start = datetime.combine(today, datetime.min.time())
+    range_end = today_start + timedelta(days=1)
+    query = f"""
+        WITH UsageByHour AS (
+            SELECT
+                CAST(RiQi AS date) AS UsageDate,
+                DATEPART(hour, RiQi) AS UsageHour,
+                CASE
+                    WHEN NULLIF(LTRIM(RTRIM(GongNeng)), '') IS NULL THEN N'未分类功能'
+                    ELSE LTRIM(RTRIM(GongNeng))
+                END AS FeatureName,
+                COUNT_BIG(*) AS UsageCount
+            FROM {DB_HISTORY_TABLE}
+            WHERE RiQi >= %s AND RiQi < %s
+            GROUP BY
+                CAST(RiQi AS date),
+                DATEPART(hour, RiQi),
+                CASE
+                    WHEN NULLIF(LTRIM(RTRIM(GongNeng)), '') IS NULL THEN N'未分类功能'
+                    ELSE LTRIM(RTRIM(GongNeng))
+                END
+        ),
+        TodayAccounts AS (
+            SELECT COUNT(DISTINCT NULLIF(LTRIM(RTRIM(ZhangHao)), '')) AS ActiveAccounts
+            FROM {DB_HISTORY_TABLE}
+            WHERE RiQi >= %s AND RiQi < %s
+        )
+        SELECT
+            UsageByHour.UsageDate,
+            UsageByHour.UsageHour,
+            UsageByHour.FeatureName,
+            UsageByHour.UsageCount,
+            TodayAccounts.ActiveAccounts
+        FROM TodayAccounts
+        LEFT JOIN UsageByHour ON 1 = 1
+        ORDER BY UsageByHour.UsageDate, UsageByHour.UsageHour, UsageByHour.UsageCount DESC
+    """
+    return execute_db_query(
+        query,
+        (range_start, range_end, today_start, range_end),
+    )
+
+
+def build_xiaoha_usage_dashboard_html(dashboard_data: dict[str, Any]) -> str:
+    serialized_data = (
+        json.dumps(dashboard_data, ensure_ascii=False)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )
+    empty_note = "" if bool(dashboard_data.get("has_today_data")) else (
+        '<div class="empty-note">今天暂时没有使用记录，图表将在产生新记录后自动更新。</div>'
+    )
+    return f"""
+    <!doctype html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"
+                onerror="this.onerror=null;this.src='https://unpkg.com/echarts@5.5.1/dist/echarts.min.js';"></script>
+        <style>
+            * {{ box-sizing: border-box; }}
+            html, body {{
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                color: #f6f7ff;
+                font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+            }}
+            .dashboard {{ padding: 4px 2px 18px; }}
+            .hero {{
+                position: relative;
+                overflow: hidden;
+                padding: 24px 26px;
+                border: 1px solid rgba(255,255,255,.09);
+                border-radius: 22px;
+                background:
+                    radial-gradient(circle at 82% 18%, rgba(126,100,255,.28), transparent 32%),
+                    linear-gradient(135deg, rgba(15,27,54,.98), rgba(10,18,39,.96));
+                box-shadow: 0 20px 55px rgba(0,0,0,.24);
+            }}
+            .hero::after {{
+                content: "";
+                position: absolute;
+                width: 240px;
+                height: 240px;
+                right: -80px;
+                top: -125px;
+                border: 42px solid rgba(102,231,255,.08);
+                border-radius: 50%;
+            }}
+            .eyebrow {{
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                padding: 6px 10px;
+                border-radius: 999px;
+                background: rgba(116,91,255,.18);
+                color: #b9adff;
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: .08em;
+            }}
+            .eyebrow::before {{
+                content: "";
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: #6ce5ff;
+                box-shadow: 0 0 14px rgba(108,229,255,.9);
+            }}
+            h1 {{ margin: 12px 0 5px; font-size: 27px; line-height: 1.15; }}
+            .subtitle {{ color: rgba(220,226,255,.68); font-size: 13px; }}
+            .metrics {{
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 12px;
+                margin-top: 18px;
+            }}
+            .metric {{
+                min-height: 100px;
+                padding: 15px 16px;
+                border: 1px solid rgba(255,255,255,.075);
+                border-radius: 16px;
+                background: linear-gradient(150deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+            }}
+            .metric-label {{ color: rgba(221,226,255,.65); font-size: 12px; }}
+            .metric-value {{ margin-top: 6px; font-size: 27px; line-height: 1.05; font-weight: 800; }}
+            .metric-sub {{
+                margin-top: 8px;
+                color: #8fddff;
+                font-size: 11px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }}
+            .empty-note {{
+                margin-top: 12px;
+                padding: 10px 13px;
+                border: 1px solid rgba(247,197,92,.18);
+                border-radius: 12px;
+                background: rgba(247,197,92,.07);
+                color: #f5d990;
+                font-size: 12px;
+            }}
+            .chart-grid {{
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                gap: 14px;
+                margin-top: 14px;
+            }}
+            .chart-card {{
+                min-width: 0;
+                padding: 15px 15px 8px;
+                border: 1px solid rgba(255,255,255,.075);
+                border-radius: 18px;
+                background: linear-gradient(145deg, rgba(12,24,49,.94), rgba(8,17,36,.94));
+                box-shadow: 0 14px 38px rgba(0,0,0,.18);
+            }}
+            .chart-card.wide {{ grid-column: 1 / -1; }}
+            .chart-title {{ margin: 0 0 1px 4px; font-size: 14px; font-weight: 750; }}
+            .chart-caption {{ margin: 3px 0 0 4px; color: rgba(216,223,255,.52); font-size: 11px; }}
+            .chart {{ width: 100%; height: 300px; }}
+            .chart-card.wide .chart {{ height: 330px; }}
+            .load-error {{
+                display: none;
+                margin-top: 14px;
+                padding: 14px;
+                border-radius: 14px;
+                background: rgba(255,103,133,.10);
+                color: #ffb2c0;
+                font-size: 13px;
+            }}
+            @media (max-width: 850px) {{
+                .metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+                .chart-grid {{ grid-template-columns: 1fr; }}
+                .chart-card.wide {{ grid-column: auto; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <main class="dashboard">
+            <section class="hero">
+                <div class="eyebrow">TODAY · {html.escape(str(dashboard_data.get('date') or ''))}</div>
+                <h1>功能使用仪表盘</h1>
+                <div class="subtitle">数据来自 AI_TuPian · 按 GongNeng 统计 · 每 {XIAOHA_DASHBOARD_CACHE_SECONDS} 秒自动更新</div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">今日使用记录</div>
+                        <div class="metric-value">{int(dashboard_data.get('today_total') or 0):,}</div>
+                        <div class="metric-sub">{html.escape(str(dashboard_data.get('delta_label') or ''))}</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">今日活跃账号</div>
+                        <div class="metric-value">{int(dashboard_data.get('active_accounts') or 0):,}</div>
+                        <div class="metric-sub">产生过使用记录的账号</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">今日使用功能</div>
+                        <div class="metric-value">{int(dashboard_data.get('active_features') or 0):,}</div>
+                        <div class="metric-sub">最高：{html.escape(str(dashboard_data.get('top_feature_name') or '暂无'))} · {int(dashboard_data.get('top_feature_count') or 0):,} 次</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">今日高峰时段</div>
+                        <div class="metric-value">{html.escape(str(dashboard_data.get('peak_hour') or '—'))}</div>
+                        <div class="metric-sub">该小时共 {int(dashboard_data.get('peak_count') or 0):,} 条记录</div>
+                    </div>
+                </div>
+                {empty_note}
+            </section>
+            <section class="chart-grid">
+                <article class="chart-card">
+                    <div class="chart-title">今日各功能使用排行</div>
+                    <div class="chart-caption">展示当天 AI_TuPian 中全部 GongNeng 记录</div>
+                    <div id="featureRanking" class="chart"></div>
+                </article>
+                <article class="chart-card">
+                    <div class="chart-title">最近 7 天使用趋势</div>
+                    <div class="chart-caption">按天汇总全部功能，观察整体使用变化</div>
+                    <div id="dailyTrend" class="chart"></div>
+                </article>
+                <article class="chart-card wide">
+                    <div class="chart-title">每小时使用对比</div>
+                    <div class="chart-caption">今日各功能走势，并以虚线对比昨日总量</div>
+                    <div id="hourlyTrend" class="chart"></div>
+                </article>
+            </section>
+            <div id="loadError" class="load-error">图表组件暂时未加载成功，请刷新页面后重试。</div>
+        </main>
+        <script>
+            const dashboardData = {serialized_data};
+            const palette = ['#8b78ff', '#55d7ff', '#ff7fa7', '#5ce0a0', '#f6c95c', '#ff9b69'];
+            const axisColor = 'rgba(215,223,255,.48)';
+            const gridLine = 'rgba(205,216,255,.075)';
+            const charts = [];
+
+            function baseTooltip() {{
+                return {{
+                    trigger: 'axis',
+                    backgroundColor: 'rgba(7,14,30,.96)',
+                    borderColor: 'rgba(139,120,255,.35)',
+                    textStyle: {{ color: '#f5f7ff', fontSize: 12 }},
+                    axisPointer: {{ type: 'line', lineStyle: {{ color: 'rgba(108,229,255,.3)' }} }}
+                }};
+            }}
+
+            function initDashboard() {{
+                if (!window.echarts) {{
+                    document.getElementById('loadError').style.display = 'block';
+                    return;
+                }}
+
+                const ranking = echarts.init(document.getElementById('featureRanking'));
+                const rankingNames = [...dashboardData.feature_names].reverse();
+                const rankingCounts = [...dashboardData.feature_counts].reverse();
+                ranking.setOption({{
+                    animationDuration: 650,
+                    color: [palette[0]],
+                    tooltip: baseTooltip(),
+                    grid: {{ left: 108, right: 38, top: 18, bottom: 25 }},
+                    xAxis: {{
+                        type: 'value',
+                        minInterval: 1,
+                        axisLabel: {{ color: axisColor, fontSize: 10 }},
+                        splitLine: {{ lineStyle: {{ color: gridLine }} }}
+                    }},
+                    yAxis: {{
+                        type: 'category',
+                        data: rankingNames,
+                        axisTick: {{ show: false }},
+                        axisLine: {{ show: false }},
+                        axisLabel: {{
+                            color: '#dfe4ff',
+                            fontSize: 11,
+                            width: 92,
+                            overflow: 'truncate'
+                        }}
+                    }},
+                    series: [{{
+                        name: '使用记录',
+                        type: 'bar',
+                        data: rankingCounts,
+                        barMaxWidth: 15,
+                        showBackground: true,
+                        backgroundStyle: {{ color: 'rgba(255,255,255,.035)', borderRadius: 8 }},
+                        itemStyle: {{
+                            borderRadius: [0, 8, 8, 0],
+                            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                {{ offset: 0, color: '#715bff' }},
+                                {{ offset: 1, color: '#58d8ff' }}
+                            ])
+                        }},
+                        label: {{ show: true, position: 'right', color: '#f5f7ff', fontSize: 10 }}
+                    }}]
+                }});
+                charts.push(ranking);
+
+                const daily = echarts.init(document.getElementById('dailyTrend'));
+                daily.setOption({{
+                    animationDuration: 650,
+                    color: [palette[1]],
+                    tooltip: baseTooltip(),
+                    grid: {{ left: 44, right: 22, top: 25, bottom: 34 }},
+                    xAxis: {{
+                        type: 'category',
+                        boundaryGap: false,
+                        data: dashboardData.day_labels,
+                        axisTick: {{ show: false }},
+                        axisLine: {{ lineStyle: {{ color: gridLine }} }},
+                        axisLabel: {{ color: axisColor, fontSize: 10 }}
+                    }},
+                    yAxis: {{
+                        type: 'value',
+                        minInterval: 1,
+                        axisLine: {{ show: false }},
+                        axisLabel: {{ color: axisColor, fontSize: 10 }},
+                        splitLine: {{ lineStyle: {{ color: gridLine }} }}
+                    }},
+                    series: [{{
+                        name: '使用记录',
+                        type: 'line',
+                        smooth: .28,
+                        symbol: 'circle',
+                        symbolSize: 7,
+                        lineStyle: {{ width: 3 }},
+                        areaStyle: {{
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                {{ offset: 0, color: 'rgba(85,215,255,.36)' }},
+                                {{ offset: 1, color: 'rgba(85,215,255,.015)' }}
+                            ])
+                        }},
+                        data: dashboardData.day_totals
+                    }}]
+                }});
+                charts.push(daily);
+
+                const hourly = echarts.init(document.getElementById('hourlyTrend'));
+                const featureSeries = dashboardData.feature_hour_series.map((item, index) => ({{
+                    name: item.name,
+                    type: 'line',
+                    smooth: .32,
+                    showSymbol: false,
+                    emphasis: {{ focus: 'series' }},
+                    lineStyle: {{ width: 2 }},
+                    data: item.data,
+                    color: palette[index % palette.length]
+                }}));
+                featureSeries.push({{
+                    name: '昨日总量',
+                    type: 'line',
+                    smooth: .25,
+                    showSymbol: false,
+                    data: dashboardData.yesterday_hour_totals,
+                    color: 'rgba(225,231,255,.46)',
+                    lineStyle: {{ width: 1.5, type: 'dashed' }}
+                }});
+                hourly.setOption({{
+                    animationDuration: 650,
+                    tooltip: baseTooltip(),
+                    legend: {{
+                        type: 'scroll',
+                        top: 5,
+                        left: 45,
+                        right: 20,
+                        textStyle: {{ color: 'rgba(226,231,255,.72)', fontSize: 10 }},
+                        pageTextStyle: {{ color: axisColor }}
+                    }},
+                    grid: {{ left: 46, right: 22, top: 48, bottom: 35 }},
+                    xAxis: {{
+                        type: 'category',
+                        boundaryGap: false,
+                        data: dashboardData.hour_labels,
+                        axisTick: {{ show: false }},
+                        axisLine: {{ lineStyle: {{ color: gridLine }} }},
+                        axisLabel: {{ color: axisColor, fontSize: 9, interval: 2 }}
+                    }},
+                    yAxis: {{
+                        type: 'value',
+                        minInterval: 1,
+                        axisLine: {{ show: false }},
+                        axisLabel: {{ color: axisColor, fontSize: 10 }},
+                        splitLine: {{ lineStyle: {{ color: gridLine }} }}
+                    }},
+                    series: featureSeries
+                }});
+                charts.push(hourly);
+                window.addEventListener('resize', () => charts.forEach(chart => chart.resize()));
+            }}
+
+            if (document.readyState === 'complete') {{
+                initDashboard();
+            }} else {{
+                window.addEventListener('load', initDashboard, {{ once: true }});
+            }}
+        </script>
+    </body>
+    </html>
+    """
+
+
+def render_xiaoha_usage_dashboard() -> None:
+    title_col, refresh_col = st.columns([5.6, 0.8], vertical_alignment="bottom")
+    with title_col:
+        st.markdown("## 今日数据看板")
+        st.caption("查看当天各功能使用情况，以及最近 7 天与昨日的时间线对比。")
+    with refresh_col:
+        if st.button("刷新数据", key="refresh_xiaoha_usage_dashboard", use_container_width=True):
+            load_xiaoha_usage_dashboard_rows.clear()
+            st.rerun()
+
+    today = datetime.now().date()
+    try:
+        rows = load_xiaoha_usage_dashboard_rows(today.isoformat())
+    except Exception as exc:
+        st.error("数据看板暂时无法连接统计数据库，请稍后刷新。")
+        st.caption(f"统计查询错误：{format_user_facing_error_message(exc)}")
+        return
+    dashboard_data = build_xiaoha_usage_dashboard_data(rows, today)
+    components.html(
+        build_xiaoha_usage_dashboard_html(dashboard_data),
+        height=1050,
+        scrolling=False,
+    )
 
 
 def execute_db_non_query(query: str, params: tuple[Any, ...] | None = None) -> None:
@@ -2116,6 +2943,65 @@ def build_uploaded_input_from_image_url_raw(image_url: str, base_name: str = "hd
         "data": image_bytes,
         "name": sanitize_file_name(base_name),
         "type": mime_type or "image/png",
+    }
+
+
+def prepare_main_image_a_plus_reference_input(uploaded_input: Any) -> dict[str, Any]:
+    normalized = normalize_uploaded_input(uploaded_input)
+    image_bytes = bytes(normalized.get("data") or b"")
+    if not image_bytes:
+        return normalized
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            working = ImageOps.exif_transpose(image).convert("RGB")
+            if max(working.size) > MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE:
+                scale = MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE / float(max(working.size))
+                working = working.resize(
+                    (
+                        max(1, int(round(working.width * scale))),
+                        max(1, int(round(working.height * scale))),
+                    ),
+                    Image.Resampling.LANCZOS,
+                )
+            output_bytes = b""
+            for quality in (92, 88, 84, 80, 76, 72):
+                output = io.BytesIO()
+                working.save(output, format="JPEG", quality=quality, optimize=True)
+                output_bytes = output.getvalue()
+                if len(output_bytes) <= MAIN_IMAGE_A_PLUS_REFERENCE_TARGET_BYTES:
+                    break
+            stem = Path(str(normalized.get("name") or "a_plus_reference")).stem or "a_plus_reference"
+            return {
+                "data": output_bytes,
+                "name": f"{sanitize_file_name(stem)}_a_plus_ref.jpg",
+                "type": "image/jpeg",
+            }
+    except Exception:
+        return normalized
+
+
+def build_main_image_a_plus_continuity_reference(
+    image_url: str,
+    target_width: int,
+    target_height: int,
+    base_name: str,
+) -> dict[str, Any]:
+    image_bytes, _mime_type = load_image_bytes_from_url(image_url)
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            working = ImageOps.exif_transpose(image).convert("RGB")
+            expected_size = (max(int(target_width), 1), max(int(target_height), 1))
+            if working.size != expected_size:
+                working = working.resize(expected_size, Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            working.save(output, format="JPEG", quality=88, optimize=True, subsampling=0)
+    except Exception as exc:
+        raise RuntimeError(f"A+ 连续片段参考图压缩失败：{exc}") from exc
+    safe_stem = Path(sanitize_file_name(base_name or "a_plus_continuity")).stem
+    return {
+        "data": output.getvalue(),
+        "name": f"{safe_stem}.jpg",
+        "type": "image/jpeg",
     }
 
 
@@ -2616,37 +3502,122 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
     source_name = get_uploaded_input_name(uploaded_group[0]) if uploaded_group else ""
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
     min_output_edge = get_feature_min_output_edge(feature_key)
-    if is_jimeng_model(str(job_context.get("model") or "")):
-        if feature_key == "hd_batch":
-            batch_result = call_jimeng_portrait_hd(
-                prompt=str(job_context["prompt"]),
-                aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                uploaded_files=list(uploaded_group),
+    request_aspect_ratio = str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO)
+    request_prompt = str(job_context["prompt"])
+    request_uploaded_group = list(uploaded_group)
+    outpaint_alignment: dict[str, int] = {}
+    if feature_key == "outpaint" and uploaded_group:
+        outpaint_settings = dict(job_context.get("outpaint_settings") or {})
+        top_px, bottom_px, left_px, right_px = clamp_outpaint_extensions(
+            uploaded_group[0],
+            int(outpaint_settings.get("top", 0) or 0),
+            int(outpaint_settings.get("bottom", 0) or 0),
+            int(outpaint_settings.get("left", 0) or 0),
+            int(outpaint_settings.get("right", 0) or 0),
+        )
+        target_width, target_height = get_outpaint_target_canvas_size(
+            uploaded_group[0],
+            top_px,
+            bottom_px,
+            left_px,
+            right_px,
+        )
+        source_width, source_height = get_uploaded_input_dimensions(uploaded_group[0])
+        outpaint_alignment = {
+            "source_width": source_width,
+            "source_height": source_height,
+            "target_width": target_width,
+            "target_height": target_height,
+            "top": top_px,
+            "bottom": bottom_px,
+            "left": left_px,
+            "right": right_px,
+        }
+        region_guide = build_outpaint_region_guide(
+            uploaded_group[0],
+            top_px,
+            bottom_px,
+            left_px,
+            right_px,
+        )
+        request_uploaded_group = [uploaded_group[0], region_guide]
+        request_aspect_ratio = get_outpaint_target_aspect_ratio(
+            uploaded_group[0],
+            top_px,
+            bottom_px,
+            left_px,
+            right_px,
+            fallback=request_aspect_ratio,
+        )
+        request_prompt += (
+            "\n\nCurrent source-specific expansion: "
+            f"top {top_px}px, bottom {bottom_px}px, left {left_px}px, right {right_px}px. "
+            f"The intended expanded canvas is {target_width}×{target_height} before mapping to the nearest supported model aspect ratio."
+            "\n\n"
+            + build_outpaint_source_framing_instruction(
+                uploaded_group[0],
+                top_px,
+                bottom_px,
+                left_px,
+                right_px,
+            )
+            + "\n\nThe first input image is the source photograph. The second input image is a strict black-and-white layout mask: "
+            + "the white rectangle is the exact final-frame location and size of the uploaded source field, and every black area is the direction and amount that must be newly generated. "
+            + "Use this mask only as geometry. Do not copy black, white, borders, rectangles, mask texture, or diagram styling into the photograph. "
+            + "The generated photograph must visibly follow the mask proportions and offset; changing the requested rectangle position or expansion direction is a failed result."
+        )
+
+    def generate_once(prompt_text: str) -> dict[str, Any]:
+        if is_jimeng_model(str(job_context.get("model") or "")):
+            if feature_key == "hd_batch":
+                return call_jimeng_portrait_hd(
+                    prompt=prompt_text,
+                    aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
+                    uploaded_files=list(request_uploaded_group),
+                    feature_key=feature_key,
+                )
+            return call_jimeng_v40(
+                prompt=prompt_text,
+                aspect_ratio=request_aspect_ratio,
+                uploaded_files=list(request_uploaded_group),
                 feature_key=feature_key,
             )
-        else:
-            batch_result = call_jimeng_v40(
-                prompt=str(job_context["prompt"]),
-                aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                uploaded_files=list(uploaded_group),
-                feature_key=feature_key,
-            )
-    else:
         if feature_key == "hd_batch" and str(job_context.get("output_mode") or "") == "image":
-            batch_result = call_openrouter_portrait_hd(
+            return call_openrouter_portrait_hd(
                 model=str(job_context["model"]),
-                prompt=str(job_context["prompt"]),
+                prompt=prompt_text,
                 aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                uploaded_files=list(uploaded_group),
+                uploaded_files=list(request_uploaded_group),
             )
-        else:
-            batch_result = call_openrouter(
-                model=str(job_context["model"]),
-                prompt=str(job_context["prompt"]),
-                uploaded_files=list(uploaded_group),
-                output_mode=str(job_context["output_mode"]),
-                aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
+        return call_openrouter(
+            model=str(job_context["model"]),
+            prompt=prompt_text,
+            uploaded_files=list(request_uploaded_group),
+            output_mode=str(job_context["output_mode"]),
+            aspect_ratio=request_aspect_ratio,
+        )
+
+    if feature_key == "outpaint" and str(job_context.get("output_mode") or "") == "image":
+        variant_count = max(int(job_context.get("max_output_images") or OUTPAINT_RESULTS_PER_SOURCE), 1)
+        variant_images: list[str] = []
+        variant_texts: list[str] = []
+        for variant_index in range(variant_count):
+            variant_result = generate_once(
+                request_prompt
+                + "\n\n"
+                + f"Generate candidate {variant_index + 1} of {variant_count}. Return exactly one finished image in this call. "
+                + "Keep the source identity and requested framing fixed, while giving the newly extended environment a natural independent variation."
             )
+            variant_images.extend(list(variant_result.get("images") or [])[:1])
+            variant_text = str(variant_result.get("text") or "").strip()
+            if variant_text:
+                variant_texts.append(variant_text)
+        batch_result = {
+            "images": variant_images,
+            "text": "\n\n".join(variant_texts),
+        }
+    else:
+        batch_result = generate_once(request_prompt)
     if job_context["output_mode"] == "image":
         target_size = job_context.get("target_size")
         if target_size:
@@ -2663,27 +3634,6 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                 )
                 for image_url in (batch_result.get("images") or [])
             ]
-        if feature_key == "outpaint" and (batch_result.get("images") or []):
-            outpaint_settings = dict(job_context.get("outpaint_settings") or {})
-            display_source_groups = list(job_context.get("display_source_groups") or [])
-            original_group = (
-                display_source_groups[group_index - 1]
-                if group_index - 1 < len(display_source_groups)
-                else []
-            )
-            original_input = original_group[0] if original_group else None
-            if original_input is not None:
-                batch_result["images"] = [
-                    restore_original_region_after_outpaint(
-                        image_url,
-                        original_input,
-                        int(outpaint_settings.get("top", 0) or 0),
-                        int(outpaint_settings.get("bottom", 0) or 0),
-                        int(outpaint_settings.get("left", 0) or 0),
-                        int(outpaint_settings.get("right", 0) or 0),
-                    )
-                    for image_url in (batch_result.get("images") or [])
-                ]
     max_output_images = int(job_context.get("max_output_images") or 0)
     if max_output_images > 0:
         batch_result["images"] = (batch_result.get("images") or [])[:max_output_images]
@@ -2692,6 +3642,7 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
         "source_name": source_name,
         "images": list(batch_result.get("images") or []),
         "text": str(batch_result.get("text") or "").strip(),
+        "outpaint_alignment": outpaint_alignment,
     }
 
 
@@ -2810,11 +3761,10 @@ def run_infinite_canvas_job(job_context: dict[str, Any]) -> dict[str, Any]:
     custom_prompt = str(job_context.get("custom_prompt") or "")
     canvas_step_settings = list(job_context.get("canvas_step_settings") or [])
     canvas_outpaint = dict(job_context.get("canvas_outpaint") or {})
-    outpaint_top_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(canvas_outpaint.get("top", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
-    outpaint_bottom_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(canvas_outpaint.get("bottom", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
-    outpaint_left_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(canvas_outpaint.get("left", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
-    outpaint_right_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(canvas_outpaint.get("right", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
-    outpaint_feather_strength = 0
+    outpaint_top_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(canvas_outpaint.get("top", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
+    outpaint_bottom_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(canvas_outpaint.get("bottom", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
+    outpaint_left_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(canvas_outpaint.get("left", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
+    outpaint_right_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(canvas_outpaint.get("right", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
     canvas_hd_reference = job_context.get("canvas_hd_reference")
     if canvas_hd_reference is not None:
         canvas_hd_reference = prepare_uploaded_input(canvas_hd_reference)
@@ -2853,63 +3803,61 @@ def run_infinite_canvas_job(job_context: dict[str, Any]) -> dict[str, Any]:
                 "当前输入可能是上一步已经处理过的结果，请把它作为唯一主体继续处理，"
                 "不要重置画面、不要生成多版本、不要改变已经稳定的主体身份。"
             )
+            step_aspect_ratio = aspect_ratio
             step_uploaded_files = [current_input]
             step_hd_reference = step_settings.get("hd_reference") or canvas_hd_reference
             if step_hd_reference is not None:
                 step_hd_reference = prepare_uploaded_input(step_hd_reference)
             if step_key == "hd_batch" and step_hd_reference is not None:
                 step_uploaded_files = [current_input, step_hd_reference]
-            outpaint_restore_input = None
-            outpaint_restore_settings: dict[str, int] | None = None
             if step_key == "outpaint":
                 step_outpaint = dict(step_settings.get("outpaint") or {})
-                current_top_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(step_outpaint.get("top", outpaint_top_px) or 0)))
-                current_bottom_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(step_outpaint.get("bottom", outpaint_bottom_px) or 0)))
-                current_left_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(step_outpaint.get("left", outpaint_left_px) or 0)))
-                current_right_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(step_outpaint.get("right", outpaint_right_px) or 0)))
+                current_top_px, current_bottom_px, current_left_px, current_right_px = clamp_outpaint_extensions(
+                    current_input,
+                    int(step_outpaint.get("top", outpaint_top_px) or 0),
+                    int(step_outpaint.get("bottom", outpaint_bottom_px) or 0),
+                    int(step_outpaint.get("left", outpaint_left_px) or 0),
+                    int(step_outpaint.get("right", outpaint_right_px) or 0),
+                )
                 if current_top_px + current_bottom_px + current_left_px + current_right_px <= 0:
                     raise RuntimeError("无限画布里的扩图步骤至少需要一个方向大于 0。")
-                current_outpaint_input = prepare_outpaint_uploaded_input(
+                step_uploaded_files = [current_input]
+                step_aspect_ratio = get_outpaint_target_aspect_ratio(
                     current_input,
                     current_top_px,
                     current_bottom_px,
                     current_left_px,
                     current_right_px,
-                    outpaint_feather_strength,
-                    error_prefix="无限画布扩图失败",
+                    fallback=aspect_ratio,
                 )
-                outpaint_restore_input = current_input
-                outpaint_restore_settings = {
-                    "top": current_top_px,
-                    "bottom": current_bottom_px,
-                    "left": current_left_px,
-                    "right": current_right_px,
-                }
-                step_uploaded_files = [current_outpaint_input]
                 extra_notes = (
                     build_outpaint_extra_notes(
                         current_top_px,
                         current_bottom_px,
                         current_left_px,
                         current_right_px,
-                        outpaint_feather_strength,
                     )
                     + "\n"
                     + extra_notes
                 )
-            step_prompt = build_prompt(dict(step_feature), custom_prompt, aspect_ratio, extra_notes)
+            step_prompt = build_prompt(
+                dict(step_feature),
+                custom_prompt,
+                step_aspect_ratio,
+                extra_notes,
+            )
             if is_jimeng_model(model):
                 if step_key == "hd_batch":
                     step_result = call_jimeng_portrait_hd(
                         prompt=step_prompt,
-                        aspect_ratio=aspect_ratio,
+                        aspect_ratio=step_aspect_ratio,
                         uploaded_files=step_uploaded_files,
                         feature_key=step_key,
                     )
                 else:
                     step_result = call_jimeng_v40(
                         prompt=step_prompt,
-                        aspect_ratio=aspect_ratio,
+                        aspect_ratio=step_aspect_ratio,
                         uploaded_files=step_uploaded_files,
                         feature_key=step_key,
                     )
@@ -2917,7 +3865,7 @@ def run_infinite_canvas_job(job_context: dict[str, Any]) -> dict[str, Any]:
                 step_result = call_openrouter_portrait_hd(
                     model=model,
                     prompt=step_prompt,
-                    aspect_ratio=aspect_ratio,
+                    aspect_ratio=step_aspect_ratio,
                     uploaded_files=step_uploaded_files,
                 )
             else:
@@ -2926,7 +3874,7 @@ def run_infinite_canvas_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     prompt=step_prompt,
                     uploaded_files=step_uploaded_files,
                     output_mode="image",
-                    aspect_ratio=aspect_ratio,
+                    aspect_ratio=step_aspect_ratio,
                 )
 
             step_images = list(step_result.get("images") or [])
@@ -2938,15 +3886,6 @@ def run_infinite_canvas_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     image_url,
                     get_feature_min_output_edge(step_key),
                     enhance_detail=should_enhance_output_detail(step_key),
-                )
-            if step_key == "outpaint" and outpaint_restore_input is not None and outpaint_restore_settings is not None:
-                image_url = restore_original_region_after_outpaint(
-                    image_url,
-                    outpaint_restore_input,
-                    int(outpaint_restore_settings.get("top", 0) or 0),
-                    int(outpaint_restore_settings.get("bottom", 0) or 0),
-                    int(outpaint_restore_settings.get("left", 0) or 0),
-                    int(outpaint_restore_settings.get("right", 0) or 0),
                 )
             step_text = str(step_result.get("text") or "").strip()
             if step_text:
@@ -3053,10 +3992,10 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
     )
     target_width, target_height = layout["target_size"]
     section_heights = layout["section_heights"]
-    uploaded_files = list(job_context.get("uploaded_files") or [])
-    section_image_urls: list[str] = []
-    section_texts: list[str] = []
-    requested_aspect_ratios: list[str] = []
+    uploaded_files = [
+        prepare_main_image_a_plus_reference_input(item)
+        for item in list(job_context.get("uploaded_files") or [])
+    ]
     template_sections = (
         split_main_image_a_plus_template(
             job_context.get("main_image_a_plus_template"),
@@ -3067,20 +4006,13 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
         else []
     )
 
-    for section_index, section_height in enumerate(section_heights):
-        if job_id:
-            progress_value = 12 + math.floor((section_index / MAIN_IMAGE_A_PLUS_SECTION_COUNT) * 60)
-            set_task_progress(
-                job_id,
-                progress_value,
-                (
-                    f"正在套版替换第 {section_index + 1}/{MAIN_IMAGE_A_PLUS_SECTION_COUNT} 个 A+ 模块"
-                    if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-                    else f"正在生成第 {section_index + 1}/{MAIN_IMAGE_A_PLUS_SECTION_COUNT} 个 A+ 模块"
-                ),
-            )
+    def generate_section(
+        section_index: int,
+        continuity_reference: dict[str, Any] | None = None,
+        continuity_reference_role: str = "",
+    ) -> dict[str, Any]:
+        section_height = int(section_heights[section_index])
         request_aspect_ratio = select_closest_aspect_ratio((target_width, section_height))
-        requested_aspect_ratios.append(request_aspect_ratio)
         section_prompt = (
             build_main_image_a_plus_template_section_prompt(
                 str(job_context.get("prompt") or ""),
@@ -3092,12 +4024,17 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
                 str(job_context.get("prompt") or ""),
                 layout,
                 section_index,
+                has_previous_section_reference=continuity_reference is not None,
+                continuity_reference_role=continuity_reference_role,
             )
         )
         section_uploaded_files = (
             [template_sections[section_index], *uploaded_files]
             if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-            else uploaded_files
+            else [
+                *uploaded_files,
+                *([continuity_reference] if continuity_reference is not None else []),
+            ]
         )
         section_result = call_openrouter_images_api(
             model=str(job_context["model"]),
@@ -3111,13 +4048,110 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
             raise RuntimeError(
                 f"主图生A+第 {section_index + 1} 个模块没有返回图片，请重试。"
             )
-        section_image_urls.append(str(generated_images[0]))
-        section_text = str(section_result.get("text") or "").strip()
-        if section_text:
-            section_texts.append(f"第 {section_index + 1} 段：{section_text}")
+        return {
+            "index": section_index,
+            "image": str(generated_images[0]),
+            "text": str(section_result.get("text") or "").strip(),
+            "aspect_ratio": request_aspect_ratio,
+        }
+
+    section_results: dict[int, dict[str, Any]] = {}
+
+    def generate_sections_in_parallel(
+        section_specs: list[tuple[int, dict[str, Any] | None, str]],
+        progress_label: str,
+        progress_start: int,
+        progress_span: int,
+    ) -> None:
+        if not section_specs:
+            return
+        worker_count = min(MAIN_IMAGE_A_PLUS_MAX_SECTION_CONCURRENCY, len(section_specs))
+        completed_count = 0
+        with ThreadPoolExecutor(max_workers=worker_count) as section_executor:
+            future_map = {
+                section_executor.submit(generate_section, section_index, reference, role): section_index
+                for section_index, reference, role in section_specs
+            }
+            for future in as_completed(future_map):
+                section_result = future.result()
+                section_results[int(section_result["index"])] = section_result
+                completed_count += 1
+                if job_id:
+                    set_task_progress(
+                        job_id,
+                        progress_start + math.floor((completed_count / len(section_specs)) * progress_span),
+                        f"{progress_label} {completed_count}/{len(section_specs)}",
+                    )
+
+    if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
+        generation_waves = 1
+        max_parallel_sections = MAIN_IMAGE_A_PLUS_SECTION_COUNT
+        if job_id:
+            set_task_progress(job_id, 12, "正在并行替换 4 个 A+ 模板片段")
+        generate_sections_in_parallel(
+            [(index, None, "") for index in range(MAIN_IMAGE_A_PLUS_SECTION_COUNT)],
+            "已完成套版片段",
+            12,
+            60,
+        )
+    elif len(uploaded_files) >= MAIN_IMAGE_A_PLUS_MAX_FILES:
+        generation_waves = 1
+        max_parallel_sections = MAIN_IMAGE_A_PLUS_SECTION_COUNT
+        if job_id:
+            set_task_progress(job_id, 12, "正在并行生成 4 个 A+ 连续画面片段")
+        generate_sections_in_parallel(
+            [(index, None, "") for index in range(MAIN_IMAGE_A_PLUS_SECTION_COUNT)],
+            "已完成画面片段",
+            12,
+            60,
+        )
+    else:
+        generation_waves = 2
+        max_parallel_sections = MAIN_IMAGE_A_PLUS_SECTION_COUNT - 1
+        if job_id:
+            set_task_progress(job_id, 12, "正在生成 A+ 首屏风格锚点")
+        first_section_result = generate_section(0)
+        section_results[0] = first_section_result
+        continuity_reference = None
+        try:
+            continuity_reference = build_main_image_a_plus_continuity_reference(
+                str(first_section_result["image"]),
+                target_width,
+                int(section_heights[0]),
+                base_name="a_plus_continuity_section_1.png",
+            )
+        except Exception:
+            continuity_reference = None
+        if job_id:
+            set_task_progress(job_id, 32, "首屏完成，正在并行生成剩余 3 个片段")
+        generate_sections_in_parallel(
+            [
+                (
+                    index,
+                    continuity_reference,
+                    "previous" if index == 1 else "style_anchor",
+                )
+                for index in range(1, MAIN_IMAGE_A_PLUS_SECTION_COUNT)
+            ],
+            "已完成剩余片段",
+            32,
+            40,
+        )
+
+    ordered_section_results = [
+        section_results[index]
+        for index in range(MAIN_IMAGE_A_PLUS_SECTION_COUNT)
+    ]
+    section_image_urls = [str(item["image"]) for item in ordered_section_results]
+    requested_aspect_ratios = [str(item["aspect_ratio"]) for item in ordered_section_results]
+    section_texts = [
+        f"第 {index + 1} 段：{str(item['text']).strip()}"
+        for index, item in enumerate(ordered_section_results)
+        if str(item.get("text") or "").strip()
+    ]
 
     if job_id:
-        set_task_progress(job_id, 76, "正在无缝拼接四个 A+ 模块")
+        set_task_progress(job_id, 76, "正在合成连续 A+ 长图")
     final_image_url = stitch_main_image_a_plus_sections(
         section_image_urls,
         target_width,
@@ -3125,22 +4159,22 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
     )
     if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
         summary = (
-            "已按模板原图尺寸拆分成品模板并逐段替换为上传内容，无缝合成为套版成品。"
+            "已按模板原图尺寸拆分成品模板，并行替换各片段后按原顺序无缝合成套版成品。"
             "模板仅保留版式与设计结构，原品牌、原模特、原产品和原文案均要求替换或删除。"
         )
     else:
         summary = (
-            f"已按“{layout['label']}”使用原生 4K 分别生成四个模块，并无缝合成为 "
-            f"{target_width}×{target_height}px 成品；{describe_main_image_a_plus_sections(layout)}。"
-            "画面满版铺满，文字按安全区向内排版。"
+            f"已按“{layout['label']}”使用原生 4K 生成连续画面，并合成为 "
+            f"{target_width}×{target_height}px 成品。"
+            "四个内容阶段自然衔接且不显示硬边界，视觉元素可跨阶段延伸；画面满版铺满，完整文字不会被截断。"
         )
     return {
         "images": [final_image_url],
         "text": "\n\n".join([*section_texts, summary]).strip(),
         "channel": (
-            "Images API 原生 4K · 套版替换"
+            "Images API 原生 4K · 并行套版替换"
             if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-            else "Images API 原生 4K · 四段独立生成"
+            else "Images API 原生 4K · 快速连续长图生成"
         ),
         "requested_aspect_ratios": tuple(requested_aspect_ratios),
         "target_size": (target_width, target_height),
@@ -3150,6 +4184,9 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
         "main_image_a_plus_layout_key": layout["key"],
         "main_image_a_plus_layout_label": layout["label"],
         "main_image_a_plus_mode": generation_mode,
+        "generation_waves": generation_waves,
+        "max_parallel_sections": max_parallel_sections,
+        "prepared_reference_count": len(uploaded_files),
     }
 
 
@@ -3210,6 +4247,7 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
         merged_source_images: list[str] = []
         merged_texts: list[str] = []
         merged_captions: list[str] = []
+        merged_outpaint_alignments: list[dict[str, int]] = []
         total_groups = max(len(batch_groups), 1)
         requested_batch_concurrency = max(
             1,
@@ -3260,6 +4298,8 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
             group_result = completed_results[group_index]
             batch_images = list(group_result.get("images") or [])
             merged_images.extend(batch_images)
+            group_alignment = dict(group_result.get("outpaint_alignment") or {})
+            merged_outpaint_alignments.extend([group_alignment] * len(batch_images))
             if batch_images:
                 uploaded_group = (
                     display_source_groups[group_index - 1]
@@ -3289,6 +4329,7 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
             "source_images": merged_source_images,
             "text": "\n\n".join(merged_texts).strip(),
             "captions": merged_captions,
+            "outpaint_alignments": merged_outpaint_alignments,
         }
     else:
         if job_id:
@@ -3424,10 +4465,22 @@ def sync_background_jobs() -> None:
         try:
             result = future.result()
         except Exception as exc:
+            progress_info = get_task_progress(job_id) or {}
+            failed_stage = str(progress_info.get("stage") or "任务执行失败").strip()
+            user_error = format_user_facing_error_message(exc)
             job_info["status"] = "error"
-            job_info["error"] = format_user_facing_error_message(exc)
+            job_info["error"] = (
+                f"{failed_stage}：{user_error}"
+                if failed_stage and failed_stage != "任务执行失败"
+                else user_error
+            )
             job_info["progress"] = 0
-            job_info["stage"] = "任务执行失败"
+            job_info["stage"] = failed_stage or "任务执行失败"
+            print(
+                f"[background-job] job_id={job_id} feature={feature_key} stage={failed_stage} "
+                f"error={type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
         else:
             job_info["status"] = "completed"
             job_info["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -4551,9 +5604,13 @@ def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str,
                 size_text = f"{int(target_size[0])}*{int(target_size[1])}"
         if size_text:
             if feature.get("key") == MAIN_IMAGE_A_PLUS_FEATURE_KEY:
-                sections.append(f"四个模块无缝合成后的最终成品尺寸必须严格等于 {size_text}px。")
+                sections.append(f"最终连续长图成品尺寸必须严格等于 {size_text}px，尺寸信息不得出现在画面中。")
             else:
                 sections.append(f"最终输出尺寸必须严格等于 {size_text}px。")
+    elif feature.get("key") == "outpaint":
+        sections.append(
+            "最终输出必须采用扩展后的目标画幅，并由模型一次生成完整连续画面；禁止把原图作为矩形图层覆盖或拼接回结果。"
+        )
     elif feature.get("output_mode") == "image":
         sections.append(
             f"最终输出必须保持原始比例不变，并且宽度和高度都不小于 {get_feature_min_output_edge(feature)}px。"
@@ -4583,7 +5640,6 @@ def build_outpaint_extra_notes(
     bottom_px: int,
     left_px: int,
     right_px: int,
-    feather_strength: int,
 ) -> str:
     active_directions = [
         f"expand upward by {top_px}px" if top_px > 0 else "",
@@ -4594,26 +5650,28 @@ def build_outpaint_extra_notes(
     active_directions = [item for item in active_directions if item]
     direction_text = ", ".join(active_directions)
     return (
-        "This is a directional outpainting task. "
-        f"Follow these canvas expansion instructions exactly: {direction_text}. "
-        "The input image contains transparent blank margins created for the requested expansion; these transparent margins are missing canvas that must be newly painted. "
-        "Do not interpret transparent margins as black, gray, or colored background. "
-        "The final output must preserve the expanded canvas size and aspect ratio exactly; do not crop, zoom, stretch, compress, rotate, pad, or reposition the original image region. "
-        "Do not generate content on any side where no expansion value is specified. "
-        "The output must be a single coherent, continuous image. Do not create a collage, split-frame, multi-panel layout, or duplicated scenes. "
+        "This is direct, one-pass directional outpainting from the uploaded original image. "
+        f"Extend the apparent camera canvas according to these framing instructions: {direction_text}. "
+        "The pixel amounts describe how much additional visual space is needed on each side; they must never appear as blank bands, frames, overlays, or separate image regions. "
+        "Use the uploaded image directly as the source photograph and synthesize the entire final frame coherently in one generation. "
+        "Do not make a transparent padded canvas, do not paste the original back afterward, and do not reproduce the source as a smaller rectangle inside a larger generated image. "
+        "Do not create any visible rectangle around the former image bounds, including hard seams, straight tonal changes, borders, frames, inset-photo edges, picture-in-picture layouts, or abrupt texture boundaries. "
+        "Keep the original subject at the proportional position implied by the requested directional expansion, while reducing its occupancy of the final frame enough to reveal the requested new surroundings. "
+        "Do not add visual space on a side where no expansion value is specified. "
+        "The output must be one coherent, continuous photograph, not a collage, split-frame, multi-panel layout, or duplicated scene. "
         "If the expanded area involves the head, face, chin, forehead, hairline, ears, neck, or facial contour, the completion must remain a realistic natural human face and anatomically correct human structure. "
         "It is strictly forbidden to turn the face into a non-human face, mask-like face, cartoon face, fake face, distorted facial features, misaligned features, duplicated features, blurred face, or abstract texture. "
         "The completed face must remain the same person as in the original image, with continuous consistency in facial proportions, face shape, skin texture, skin tone, makeup, hairstyle, expression, apparent age, and real photographic quality. "
-        "All existing subject content, details, composition, and sharpness in the original image must remain completely unchanged, and only the newly expanded canvas area may be completed. "
+        "Preserve the original subject identity, facial features, pose, clothing, details, composition, and sharpness as closely as possible while generating the larger continuous frame. "
         "The newly expanded area must remain sharp, high-definition, and detailed, matching the focus and texture clarity of the original photo. "
         "Do not apply blur, haze, soft-focus, low-resolution texture, smeared details, over-smoothing, or feathered softness to either the original image or the new expanded area. "
-        "The transition must be natural through coherent content matching, not through blurring or smudging. "
+        "Every former image boundary must disappear through coherent scene generation, not through copy-paste, rectangular compositing, blurring, or smudging. "
         "Never stretch, smear, mirror, tile, clone, or repeat the border pixels of the original image. "
         "For left or right expansion on portrait/selfie/model photos, the newly expanded side margins should primarily be natural background continuation: room wall, furniture, shadows, lighting, depth, and environmental texture. "
         "Do not place any extra hands, arms, sleeves, shoulders, chest, torso fragments, skin patches, hair fragments, duplicate face, duplicate person, duplicate clothing, or cropped body parts in the new side margins. "
         "If the original image already contains a hand, arm, sleeve, or clothing edge near a border, do not mirror, clone, stretch, or continue it into the expanded blank margin; keep the original body part only inside the original image area and complete the new margin as background unless a single anatomically correct continuation is unavoidable. "
         "The result must contain exactly one main person, with no repeated limbs and no duplicated subject fragments. "
-        "The outpainted result must connect naturally and avoid seams, breaks, repeated textures, stretched deformation, blur, softness, or obvious AI-generated artifacts."
+        "The outpainted result must be visually seamless and avoid rectangular joins, breaks, repeated textures, stretched deformation, blur, softness, or obvious AI-generated artifacts."
     )
 
 
@@ -5011,15 +6069,46 @@ def call_openrouter_images_api(
         "HTTP-Referer": "http://127.0.0.1:10808",
         "X-Title": "OpenRouter Image Workspace",
     }
-    try:
-        response = requests.post(
-            OPENROUTER_IMAGES_URL,
-            headers=headers,
-            json=payload,
-            **get_external_request_kwargs(timeout=300),
-        )
-    except requests.RequestException as exc:
-        raise RuntimeError(f"OpenRouter Images API 连接失败：{exc}") from exc
+    response = None
+    last_request_error: requests.RequestException | None = None
+    for attempt_index in range(OPENROUTER_IMAGES_MAX_ATTEMPTS):
+        try:
+            response = requests.post(
+                OPENROUTER_IMAGES_URL,
+                headers=headers,
+                json=payload,
+                **get_external_request_kwargs(
+                    timeout=(
+                        OPENROUTER_IMAGES_CONNECT_TIMEOUT_SECONDS,
+                        OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS,
+                    )
+                ),
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_request_error = exc
+            if attempt_index + 1 >= OPENROUTER_IMAGES_MAX_ATTEMPTS:
+                raise RuntimeError(
+                    f"OpenRouter Images API 连接失败，已自动尝试 {OPENROUTER_IMAGES_MAX_ATTEMPTS} 次：{exc}"
+                ) from exc
+            retry_delay = OPENROUTER_IMAGES_RETRY_DELAYS[
+                min(attempt_index, len(OPENROUTER_IMAGES_RETRY_DELAYS) - 1)
+            ]
+            time.sleep(retry_delay)
+            continue
+        except requests.RequestException as exc:
+            raise RuntimeError(f"OpenRouter Images API 连接失败：{exc}") from exc
+        if (
+            response.status_code in OPENROUTER_IMAGES_TRANSIENT_STATUS_CODES
+            and attempt_index + 1 < OPENROUTER_IMAGES_MAX_ATTEMPTS
+        ):
+            retry_delay = OPENROUTER_IMAGES_RETRY_DELAYS[
+                min(attempt_index, len(OPENROUTER_IMAGES_RETRY_DELAYS) - 1)
+            ]
+            time.sleep(retry_delay)
+            continue
+        break
+    if response is None:
+        raise RuntimeError(f"OpenRouter Images API 连接失败：{last_request_error or '未收到响应'}")
 
     try:
         data = response.json()
@@ -5363,17 +6452,17 @@ def render_outpaint_extension_preview_card(
         st.caption("扩图预览暂时无法显示，可继续调整参数后处理。")
         return
 
-    top_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(top_px)))
-    bottom_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(bottom_px)))
-    left_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(left_px)))
-    right_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(right_px)))
+    limits = get_outpaint_extension_limits(uploaded_file)
+    top_px = max(0, min(limits["top"], int(top_px)))
+    bottom_px = max(0, min(limits["bottom"], int(bottom_px)))
+    left_px = max(0, min(limits["left"], int(left_px)))
+    right_px = max(0, min(limits["right"], int(right_px)))
     max_preview_edge = max(260, int(max_preview_edge))
     is_draggable = bool(drag_state_keys)
-    max_band = OUTPAINT_MAX_EXTENSION_PX if is_draggable else 0
-    top_band = float(max_band if is_draggable else top_px)
-    bottom_band = float(max_band if is_draggable else bottom_px)
-    left_band = float(max_band if is_draggable else left_px)
-    right_band = float(max_band if is_draggable else right_px)
+    top_band = float(limits["top"] if is_draggable else top_px)
+    bottom_band = float(limits["bottom"] if is_draggable else bottom_px)
+    left_band = float(limits["left"] if is_draggable else left_px)
+    right_band = float(limits["right"] if is_draggable else right_px)
     canvas_w = max(source_w + left_band + right_band, 1)
     canvas_h = max(source_h + top_band + bottom_band, 1)
     scale = min(max_preview_edge / canvas_w, max_preview_edge / canvas_h)
@@ -5432,7 +6521,7 @@ def render_outpaint_extension_preview_card(
         "bottom": bottom_px,
         "left": left_px,
         "right": right_px,
-        "max": OUTPAINT_MAX_EXTENSION_PX,
+        "limits": limits,
         "step": 50,
         "source_width": source_w,
         "source_height": source_h,
@@ -5599,10 +6688,15 @@ def render_outpaint_extension_preview_card(
         left: Number(config_{component_key}.left || 0),
         right: Number(config_{component_key}.right || 0),
       }};
-      const roundValue_{component_key} = (value) => {{
-        const max = Number(config_{component_key}.max || 300);
+      const directionLimit_{component_key} = (direction) => {{
+        return Number((config_{component_key}.limits || {{}})[direction] || 0);
+      }};
+      const roundValue_{component_key} = (value, direction) => {{
+        const max = directionLimit_{component_key}(direction);
         const step = Number(config_{component_key}.step || 50);
-        return Math.max(0, Math.min(max, Math.round(Number(value || 0) / step) * step));
+        const numericValue = Math.max(0, Number(value || 0));
+        if (max > 0 && numericValue >= max - step / 2) return max;
+        return Math.max(0, Math.min(max, Math.round(numericValue / step) * step));
       }};
       const renderScale_{component_key} = () => {{
         const rect = stage_{component_key}.getBoundingClientRect();
@@ -5616,13 +6710,14 @@ def render_outpaint_extension_preview_card(
         const stageScale = renderScale_{component_key}();
         const scaleX = baseScale * stageScale.x;
         const scaleY = baseScale * stageScale.y;
-        const max = Number(config_{component_key}.max || 300);
+        const maxX = directionLimit_{component_key}("left");
+        const maxY = directionLimit_{component_key}("top");
         const sourceWidth = Number(config_{component_key}.source_width || 1);
         const sourceHeight = Number(config_{component_key}.source_height || 1);
-        const left = (max - values_{component_key}.left) * scaleX;
-        const top = (max - values_{component_key}.top) * scaleY;
-        const right = (max + sourceWidth + values_{component_key}.right) * scaleX;
-        const bottom = (max + sourceHeight + values_{component_key}.bottom) * scaleY;
+        const left = (maxX - values_{component_key}.left) * scaleX;
+        const top = (maxY - values_{component_key}.top) * scaleY;
+        const right = (maxX + sourceWidth + values_{component_key}.right) * scaleX;
+        const bottom = (maxY + sourceHeight + values_{component_key}.bottom) * scaleY;
         box_{component_key}.style.left = `${{left}}px`;
         box_{component_key}.style.top = `${{top}}px`;
         box_{component_key}.style.width = `${{Math.max(right - left, 1)}}px`;
@@ -5637,15 +6732,16 @@ def render_outpaint_extension_preview_card(
         const stageScale = renderScale_{component_key}();
         const scaleX = baseScale * stageScale.x;
         const scaleY = baseScale * stageScale.y;
-        const max = Number(config_{component_key}.max || 300);
+        const maxX = directionLimit_{component_key}("left");
+        const maxY = directionLimit_{component_key}("top");
         const sourceWidth = Number(config_{component_key}.source_width || 1);
         const sourceHeight = Number(config_{component_key}.source_height || 1);
         const x = (event.clientX - rect.left) / scaleX;
         const y = (event.clientY - rect.top) / scaleY;
-        if (edge.includes("left")) values_{component_key}.left = roundValue_{component_key}(max - x);
-        if (edge.includes("top")) values_{component_key}.top = roundValue_{component_key}(max - y);
-        if (edge.includes("right")) values_{component_key}.right = roundValue_{component_key}(x - max - sourceWidth);
-        if (edge.includes("bottom")) values_{component_key}.bottom = roundValue_{component_key}(y - max - sourceHeight);
+        if (edge.includes("left")) values_{component_key}.left = roundValue_{component_key}(maxX - x, "left");
+        if (edge.includes("top")) values_{component_key}.top = roundValue_{component_key}(maxY - y, "top");
+        if (edge.includes("right")) values_{component_key}.right = roundValue_{component_key}(x - maxX - sourceWidth, "right");
+        if (edge.includes("bottom")) values_{component_key}.bottom = roundValue_{component_key}(y - maxY - sourceHeight, "bottom");
         applyBox_{component_key}();
       }};
       const commit_{component_key} = () => {{
@@ -5658,6 +6754,7 @@ def render_outpaint_extension_preview_card(
             bottom: values_{component_key}.bottom,
             left: values_{component_key}.left,
             right: values_{component_key}.right,
+            limits: config_{component_key}.limits || {{}},
           }}));
           parentWindow.location.href = next.toString();
         }} catch (error) {{}}
@@ -6831,6 +7928,7 @@ def render_before_after_compare_gallery(
     result_images: list[str],
     captions: list[str],
     feature_key: str,
+    outpaint_alignments: list[dict[str, Any]] | None = None,
 ) -> None:
     pairs: list[dict[str, Any]] = []
     for index, result_image in enumerate(result_images):
@@ -6841,11 +7939,22 @@ def render_before_after_compare_gallery(
         result_item = build_gallery_item(str(result_image), compress_preview=True, include_full_src=True)
         if not source_item or not result_item:
             continue
+        result_full_source = str(result_item.get("full_src") or result_image)
+        download_source = build_direct_image_download_url(result_full_source)
+        download_path = Path(urllib.parse.unquote(urllib.parse.urlsplit(download_source).path or ""))
+        download_extension = download_path.suffix if download_path.suffix.lower() in REFERENCE_IMAGE_EXTENSIONS else ".png"
         pairs.append(
             {
                 "source": source_item["src"],
                 "result": result_item["src"],
+                "download": download_source,
+                "download_name": f"扩图效果图_{index + 1}{download_extension}",
                 "caption": str(captions[index] if index < len(captions) else f"结果 {index + 1}").strip(),
+                "alignment": (
+                    dict(outpaint_alignments[index] or {})
+                    if outpaint_alignments and index < len(outpaint_alignments)
+                    else {}
+                ),
             }
         )
     if not pairs:
@@ -6853,7 +7962,7 @@ def render_before_after_compare_gallery(
         return
     component_key = re.sub(r"[^a-zA-Z0-9_]", "_", f"compare_{feature_key}_{len(pairs)}")
     payload = json.dumps(pairs, ensure_ascii=False)
-    row_height = 402
+    row_height = 672
     html_content = f"""
     <div id="{component_key}" class="compare-gallery-root"></div>
     <style>
@@ -6877,9 +7986,7 @@ def render_before_after_compare_gallery(
         margin: 0 0 7px;
       }}
       .compare-pair {{
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 0;
+        display: block;
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 14px;
         overflow: hidden;
@@ -6889,23 +7996,11 @@ def render_before_after_compare_gallery(
       }}
       .compare-pane {{
         position: relative;
-        height: 348px;
+        height: 620px;
         background: rgba(4, 10, 24, 0.72);
         overflow: hidden;
         touch-action: none;
         box-sizing: border-box;
-      }}
-      .compare-pane + .compare-pane {{
-        border-left: 1px solid rgba(255, 255, 255, 0.10);
-      }}
-      .compare-pane img {{
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        user-select: none;
-        -webkit-user-drag: none;
       }}
       .compare-stage {{
         cursor: ew-resize;
@@ -6977,12 +8072,47 @@ def render_before_after_compare_gallery(
       }}
       .compare-label.left {{ left: 8px; }}
       .compare-label.right {{ right: 8px; }}
+      .compare-download-hint {{
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(3, 8, 22, 0.72);
+        color: rgba(245, 247, 255, 0.82);
+        font-size: 11px;
+        font-weight: 650;
+        pointer-events: none;
+        z-index: 5;
+      }}
+      .compare-context-menu {{
+        position: absolute;
+        display: none;
+        min-width: 150px;
+        padding: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 10px;
+        background: rgba(8, 15, 31, 0.98);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.38);
+        z-index: 20;
+      }}
+      .compare-context-menu.open {{ display: block; }}
+      .compare-context-menu button {{
+        width: 100%;
+        border: 0;
+        border-radius: 7px;
+        padding: 9px 12px;
+        background: transparent;
+        color: #f5f7ff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        text-align: left;
+        cursor: pointer;
+      }}
+      .compare-context-menu button:hover {{ background: rgba(126, 96, 255, 0.24); }}
       @media (max-width: 720px) {{
-        .compare-pair {{ grid-template-columns: 1fr; }}
-        .compare-pane + .compare-pane {{
-          border-left: none;
-          border-top: 1px solid rgba(255, 255, 255, 0.10);
-        }}
+        .compare-pane {{ height: 520px; }}
       }}
     </style>
     <script>
@@ -6996,17 +8126,17 @@ def render_before_after_compare_gallery(
         const grid = document.createElement("div");
         grid.className = "compare-pair";
         grid.innerHTML = `
-          <div class="compare-pane">
-            <img src="${{pair.result}}" alt="效果图">
-            <span class="compare-label left">效果图</span>
-          </div>
           <div class="compare-pane compare-control compare-stage">
             <canvas class="compare-canvas"></canvas>
             <span class="compare-label left">原图</span>
             <span class="compare-label right">效果图</span>
+            <span class="compare-download-hint">右键效果图显示保存选项</span>
             <div class="compare-line"></div>
             <div class="compare-knob"></div>
             <input class="compare-slider" type="range" min="0" max="100" value="50" aria-label="对比滑块">
+            <div class="compare-context-menu" role="menu">
+              <button type="button" role="menuitem">保存效果图</button>
+            </div>
           </div>`;
         wrap.appendChild(title);
         wrap.appendChild(grid);
@@ -7017,6 +8147,8 @@ def render_before_after_compare_gallery(
         const slider = control.querySelector(".compare-slider");
         const line = control.querySelector(".compare-line");
         const knob = control.querySelector(".compare-knob");
+        const contextMenu = control.querySelector(".compare-context-menu");
+        const saveButton = contextMenu.querySelector("button");
         const sourceImage = new Image();
         const resultImage = new Image();
         let currentValue = 50;
@@ -7055,20 +8187,36 @@ def render_before_after_compare_gallery(
           ctx.clearRect(0, 0, stageWidth, stageHeight);
           const sourceReady = sourceImage.complete && sourceImage.naturalWidth > 0;
           const resultReady = resultImage.complete && resultImage.naturalWidth > 0;
-          if (!sourceReady) {{
+          if (!sourceReady || !resultReady) {{
             return;
           }}
-          drawBox = getContainBox(sourceImage, stageWidth, stageHeight);
-          drawImageContain(sourceImage, drawBox);
-          if (resultReady) {{
-            const revealWidth = drawBox.width * currentValue / 100;
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(drawBox.x, drawBox.y, revealWidth, drawBox.height);
-            ctx.clip();
-            drawImageContain(resultImage, drawBox);
-            ctx.restore();
+          drawBox = getContainBox(resultImage, stageWidth, stageHeight);
+          drawImageContain(resultImage, drawBox);
+          const revealWidth = drawBox.width * currentValue / 100;
+          const alignment = pair.alignment || {{}};
+          const targetWidth = Number(alignment.target_width || 0);
+          const targetHeight = Number(alignment.target_height || 0);
+          const sourceWidth = Number(alignment.source_width || 0);
+          const sourceHeight = Number(alignment.source_height || 0);
+          const hasAlignment = targetWidth > 0 && targetHeight > 0 && sourceWidth > 0 && sourceHeight > 0;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(drawBox.x, drawBox.y, revealWidth, drawBox.height);
+          ctx.clip();
+          if (hasAlignment) {{
+            ctx.fillStyle = "rgba(4, 10, 24, 0.98)";
+            ctx.fillRect(drawBox.x, drawBox.y, drawBox.width, drawBox.height);
+            const sourceBox = {{
+              x: drawBox.x + (Number(alignment.left || 0) / targetWidth) * drawBox.width,
+              y: drawBox.y + (Number(alignment.top || 0) / targetHeight) * drawBox.height,
+              width: (sourceWidth / targetWidth) * drawBox.width,
+              height: (sourceHeight / targetHeight) * drawBox.height,
+            }};
+            drawImageContain(sourceImage, sourceBox);
+          }} else {{
+            drawImageContain(sourceImage, drawBox);
           }}
+          ctx.restore();
           const lineLeft = drawBox.x + drawBox.width * currentValue / 100;
           line.style.left = `${{lineLeft}}px`;
           line.style.top = `${{drawBox.y}}px`;
@@ -7092,6 +8240,9 @@ def render_before_after_compare_gallery(
         }};
         let dragging = false;
         control.addEventListener("pointerdown", (event) => {{
+          if (event.button !== 0) return;
+          if (contextMenu.contains(event.target)) return;
+          contextMenu.classList.remove("open");
           dragging = true;
           control.setPointerCapture && control.setPointerCapture(event.pointerId);
           updateFromPointer(event);
@@ -7104,6 +8255,38 @@ def render_before_after_compare_gallery(
         control.addEventListener("pointerup", stopDrag);
         control.addEventListener("pointercancel", stopDrag);
         control.addEventListener("lostpointercapture", stopDrag);
+        control.addEventListener("contextmenu", (event) => {{
+          const rect = control.getBoundingClientRect();
+          const localX = event.clientX - rect.left;
+          const effectStart = drawBox.x + drawBox.width * currentValue / 100;
+          if (localX < effectStart) {{
+            contextMenu.classList.remove("open");
+            return;
+          }}
+          event.preventDefault();
+          event.stopPropagation();
+          const menuWidth = 162;
+          const menuHeight = 52;
+          contextMenu.style.left = `${{Math.max(8, Math.min(localX, rect.width - menuWidth - 8))}}px`;
+          contextMenu.style.top = `${{Math.max(8, Math.min(event.clientY - rect.top, rect.height - menuHeight - 8))}}px`;
+          contextMenu.classList.add("open");
+        }});
+        saveButton.addEventListener("click", (event) => {{
+          event.preventDefault();
+          event.stopPropagation();
+          contextMenu.classList.remove("open");
+          const link = document.createElement("a");
+          link.href = pair.download || pair.result;
+          link.download = pair.download_name || `扩图效果图_${{index + 1}}.png`;
+          link.target = "_blank";
+          link.rel = "noopener";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }});
+        document.addEventListener("click", (event) => {{
+          if (!contextMenu.contains(event.target)) contextMenu.classList.remove("open");
+        }});
         slider.addEventListener("input", () => update(slider.value));
         window.addEventListener("resize", () => update(slider.value));
         sourceImage.addEventListener("load", () => update(currentValue));
@@ -8565,10 +9748,10 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
             if preview_outpaint_index is not None
             else "infinite_canvas_outpaint"
         )
-        outpaint_top_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_top", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
-        outpaint_bottom_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_bottom", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
-        outpaint_left_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_left", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
-        outpaint_right_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_right", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
+        outpaint_top_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_top", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
+        outpaint_bottom_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_bottom", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
+        outpaint_left_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_left", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
+        outpaint_right_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(st.session_state.get(f"{preview_outpaint_prefix}_right", OUTPAINT_DEFAULT_EXTENSION_PX) or 0)))
         canvas_outpaint_preview_renderer = None
         if "outpaint" in selected_steps_for_preview:
             def canvas_outpaint_preview_renderer(uploaded_input: Any, item_index: int, component_key: str) -> None:
@@ -8596,8 +9779,19 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
             preview_renderer=canvas_outpaint_preview_renderer,
             preview_slot_count=1 if canvas_outpaint_preview_renderer is not None else INFINITE_CANVAS_MAX_INPUT_IMAGES,
         )
+        canvas_outpaint_limits = {
+            "top": OUTPAINT_FALLBACK_MAX_EXTENSION_PX,
+            "bottom": OUTPAINT_FALLBACK_MAX_EXTENSION_PX,
+            "left": OUTPAINT_FALLBACK_MAX_EXTENSION_PX,
+            "right": OUTPAINT_FALLBACK_MAX_EXTENSION_PX,
+        }
+        if canvas_source_files:
+            try:
+                canvas_outpaint_limits = get_outpaint_extension_limits(canvas_source_files[0])
+            except Exception:
+                pass
         if "outpaint" in selected_steps_for_preview:
-            st.caption("紫色虚线是预计扩图后的范围，白色虚线是原图位置。")
+            st.caption("紫色虚线是预计扩图后的范围，白色虚线是原图位置；四边拉满时画布宽高最大为原图的 3 倍。")
 
         st.markdown('<div class="panel-subtitle">组合步骤</div>', unsafe_allow_html=True)
         canvas_step_settings: list[dict[str, Any]] = []
@@ -8630,16 +9824,33 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
                 step_setting: dict[str, Any] = {}
                 if selected_key == "outpaint":
                     st.markdown(f'<div class="panel-subtitle">第 {step_index + 1} 步设置：扩图参数</div>', unsafe_allow_html=True)
+                    vertical_limit = max(int(canvas_outpaint_limits["top"]), 1)
+                    horizontal_limit = max(int(canvas_outpaint_limits["left"]), 1)
+                    top_state_key = f"infinite_canvas_step_{step_index}_outpaint_top"
+                    bottom_state_key = f"infinite_canvas_step_{step_index}_outpaint_bottom"
+                    left_state_key = f"infinite_canvas_step_{step_index}_outpaint_left"
+                    right_state_key = f"infinite_canvas_step_{step_index}_outpaint_right"
+                    for state_key, direction_limit in (
+                        (top_state_key, vertical_limit),
+                        (bottom_state_key, vertical_limit),
+                        (left_state_key, horizontal_limit),
+                        (right_state_key, horizontal_limit),
+                    ):
+                        if state_key in st.session_state:
+                            st.session_state[state_key] = max(
+                                0,
+                                min(direction_limit, int(st.session_state[state_key] or 0)),
+                            )
                     step_top_col, step_bottom_col = st.columns(2, gap="small")
                     with step_top_col:
                         step_top_px = int(
                             st.slider(
                                 "上方扩展像素",
                                 0,
-                                OUTPAINT_MAX_EXTENSION_PX,
-                                OUTPAINT_DEFAULT_EXTENSION_PX,
-                                50,
-                                key=f"infinite_canvas_step_{step_index}_outpaint_top",
+                                vertical_limit,
+                                get_outpaint_default_extension(vertical_limit),
+                                50 if vertical_limit >= 50 else 1,
+                                key=top_state_key,
                             )
                         )
                     with step_bottom_col:
@@ -8647,10 +9858,10 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
                             st.slider(
                                 "下方扩展像素",
                                 0,
-                                OUTPAINT_MAX_EXTENSION_PX,
-                                OUTPAINT_DEFAULT_EXTENSION_PX,
-                                50,
-                                key=f"infinite_canvas_step_{step_index}_outpaint_bottom",
+                                vertical_limit,
+                                get_outpaint_default_extension(vertical_limit),
+                                50 if vertical_limit >= 50 else 1,
+                                key=bottom_state_key,
                             )
                         )
                     step_left_col, step_right_col = st.columns(2, gap="small")
@@ -8659,10 +9870,10 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
                             st.slider(
                                 "左侧扩展像素",
                                 0,
-                                OUTPAINT_MAX_EXTENSION_PX,
-                                OUTPAINT_DEFAULT_EXTENSION_PX,
-                                50,
-                                key=f"infinite_canvas_step_{step_index}_outpaint_left",
+                                horizontal_limit,
+                                get_outpaint_default_extension(horizontal_limit),
+                                50 if horizontal_limit >= 50 else 1,
+                                key=left_state_key,
                             )
                         )
                     with step_right_col:
@@ -8670,10 +9881,10 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
                             st.slider(
                                 "右侧扩展像素",
                                 0,
-                                OUTPAINT_MAX_EXTENSION_PX,
-                                OUTPAINT_DEFAULT_EXTENSION_PX,
-                                50,
-                                key=f"infinite_canvas_step_{step_index}_outpaint_right",
+                                horizontal_limit,
+                                get_outpaint_default_extension(horizontal_limit),
+                                50 if horizontal_limit >= 50 else 1,
+                                key=right_state_key,
                             )
                         )
                     step_setting["outpaint"] = {
@@ -8727,20 +9938,20 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
             top_col, bottom_col = st.columns(2, gap="small")
             with top_col:
                 outpaint_top_px = int(
-                    st.slider("上方扩展像素", 0, OUTPAINT_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_top")
+                    st.slider("上方扩展像素", 0, OUTPAINT_FALLBACK_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_top")
                 )
             with bottom_col:
                 outpaint_bottom_px = int(
-                    st.slider("下方扩展像素", 0, OUTPAINT_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_bottom")
+                    st.slider("下方扩展像素", 0, OUTPAINT_FALLBACK_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_bottom")
                 )
             left_px_col, right_px_col = st.columns(2, gap="small")
             with left_px_col:
                 outpaint_left_px = int(
-                    st.slider("左侧扩展像素", 0, OUTPAINT_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_left")
+                    st.slider("左侧扩展像素", 0, OUTPAINT_FALLBACK_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_left")
                 )
             with right_px_col:
                 outpaint_right_px = int(
-                    st.slider("右侧扩展像素", 0, OUTPAINT_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_right")
+                    st.slider("右侧扩展像素", 0, OUTPAINT_FALLBACK_MAX_EXTENSION_PX, OUTPAINT_DEFAULT_EXTENSION_PX, 50, key="infinite_canvas_outpaint_right")
                 )
 
         hd_reference_file = None
@@ -8962,7 +10173,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append('<span class="meta-pill">支持成品 A+ 套版替换</span>')
         meta_items.append('<span class="meta-pill">自由创作：3 种规格</span>')
         meta_items.append('<span class="meta-pill">套版：跟随模板原尺寸</span>')
-        meta_items.append('<span class="meta-pill">纵向 4 部分</span>')
+        meta_items.append('<span class="meta-pill">四阶段自然衔接 · 元素可跨区</span>')
         meta_items.append('<span class="meta-pill">满版画面 · 文字安全区</span>')
         meta_items.append(f'<span class="meta-pill">最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张主图</span>')
         meta_items.append('<span class="meta-pill">原生 4K 高清生成</span>')
@@ -8971,16 +10182,18 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append('<span class="meta-pill">纯绿幕独立元素底稿</span>')
         meta_items.append('<span class="meta-pill">自动裁切并导出分层 PSD</span>')
     elif supports_outpaint:
-        meta_items.append('<span class="meta-pill">结果尺寸 = 原图尺寸 + 扩展像素</span>')
-        meta_items.append('<span class="meta-pill">原图区域不拉伸不压缩</span>')
+        meta_items.append('<span class="meta-pill">画布宽高最大可扩至原图 3 倍</span>')
+        meta_items.append('<span class="meta-pill">自动匹配扩展画幅</span>')
+        meta_items.append('<span class="meta-pill">整图一次生成 · 无矩形拼接</span>')
+        meta_items.append('<span class="meta-pill">每张原图返回 1 张结果</span>')
     else:
         meta_items.append(f'<span class="meta-pill">等比例放大，宽高都不小于 {get_feature_min_output_edge(feature)}px</span>')
     if supports_batch_multi_upload:
         meta_items.append(f'<span class="meta-pill">支持批量上传，最多 {BATCH_MULTI_IMAGE_MAX_FILES} 张</span>')
     if supports_outpaint:
-        meta_items.append('<span class="meta-pill">支持上下左右扩展像素与羽化参数</span>')
-    if max_output_images == 1:
-        meta_items.append('<span class="meta-pill">默认输出 1 张结果图</span>')
+        meta_items.append('<span class="meta-pill">支持上下左右独立扩展</span>')
+    if max_output_images > 0 and not supports_outpaint:
+        meta_items.append(f'<span class="meta-pill">默认输出 {max_output_images} 张结果图</span>')
     st.markdown(f'<div class="meta-row">{"".join(meta_items)}</div>', unsafe_allow_html=True)
 
     submitted = False
@@ -9015,7 +10228,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         outpaint_bottom_px = OUTPAINT_DEFAULT_EXTENSION_PX
         outpaint_left_px = OUTPAINT_DEFAULT_EXTENSION_PX
         outpaint_right_px = OUTPAINT_DEFAULT_EXTENSION_PX
-        outpaint_feather_strength = 0
 
         supports_dual_reference_upload = (
             supports_skin_tone_reference
@@ -9051,7 +10263,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             outpaint_left_key = f"outpaint_left_{feature['key']}"
             outpaint_right_key = f"outpaint_right_{feature['key']}"
             if supports_outpaint:
-                outpaint_defaults_key = f"outpaint_defaults_{OUTPAINT_MAX_EXTENSION_PX}_{OUTPAINT_DEFAULT_EXTENSION_PX}_{feature['key']}"
+                outpaint_defaults_key = f"outpaint_defaults_{OUTPAINT_MAX_CANVAS_MULTIPLIER}x_{OUTPAINT_DEFAULT_EXTENSION_PX}_{feature['key']}"
                 if not st.session_state.get(outpaint_defaults_key):
                     for state_key in (outpaint_top_key, outpaint_bottom_key, outpaint_left_key, outpaint_right_key):
                         st.session_state[state_key] = OUTPAINT_DEFAULT_EXTENSION_PX
@@ -9061,8 +10273,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         st.session_state[state_key] = OUTPAINT_DEFAULT_EXTENSION_PX
                     if state_key in st.session_state:
                         try:
-                            current_px = max(0, min(OUTPAINT_MAX_EXTENSION_PX, int(st.session_state[state_key])))
-                            st.session_state[state_key] = int(round(current_px / 50) * 50)
+                            current_px = max(0, min(OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX, int(st.session_state[state_key])))
+                            st.session_state[state_key] = current_px
                         except Exception:
                             st.session_state[state_key] = OUTPAINT_DEFAULT_EXTENSION_PX
                 outpaint_top_px = int(st.session_state.get(outpaint_top_key, OUTPAINT_DEFAULT_EXTENSION_PX))
@@ -9096,6 +10308,34 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 preview_renderer=outpaint_preview_renderer,
                 preview_slot_count=1 if supports_outpaint else None,
             )
+            if supports_outpaint:
+                if batch_source_files:
+                    try:
+                        source_bytes = get_uploaded_file_bytes(batch_source_files[0])
+                        source_signature = hashlib.sha1(source_bytes).hexdigest()[:16]
+                        dynamic_defaults_key = f"outpaint_dynamic_defaults_source_{feature['key']}"
+                        if st.session_state.get(dynamic_defaults_key) != source_signature:
+                            direction_limits = get_outpaint_extension_limits(batch_source_files[0])
+                            st.session_state[outpaint_top_key] = get_outpaint_default_extension(direction_limits["top"])
+                            st.session_state[outpaint_bottom_key] = get_outpaint_default_extension(direction_limits["bottom"])
+                            st.session_state[outpaint_left_key] = get_outpaint_default_extension(direction_limits["left"])
+                            st.session_state[outpaint_right_key] = get_outpaint_default_extension(direction_limits["right"])
+                            st.session_state[dynamic_defaults_key] = source_signature
+                            st.rerun()
+                        outpaint_top_px, outpaint_bottom_px, outpaint_left_px, outpaint_right_px = clamp_outpaint_extensions(
+                            batch_source_files[0],
+                            outpaint_top_px,
+                            outpaint_bottom_px,
+                            outpaint_left_px,
+                            outpaint_right_px,
+                        )
+                        st.session_state[outpaint_top_key] = outpaint_top_px
+                        st.session_state[outpaint_bottom_key] = outpaint_bottom_px
+                        st.session_state[outpaint_left_key] = outpaint_left_px
+                        st.session_state[outpaint_right_key] = outpaint_right_px
+                    except Exception:
+                        pass
+                st.caption("上传后默认生成约 2 倍画布，四边拉满时最大为原图的 3 倍；每张原图返回 1 张整图结果，不进行矩形拼接。")
             if supports_skin_reference:
                 st.markdown('<div class="skin-reference-grid-marker"></div>', unsafe_allow_html=True)
                 skin_upload_col, skin_gallery_col = st.columns([1, 1], gap="small")
@@ -9227,10 +10467,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 selected_a_plus_layout = get_main_image_a_plus_layout(main_image_a_plus_layout_key)
                 selected_width, selected_height = selected_a_plus_layout["target_size"]
                 st.info(
-                    f"{selected_width}×{selected_height}px，"
-                    f"{describe_main_image_a_plus_sections(selected_a_plus_layout)}；"
-                    "系统将 4 个模块分别高清生成后无缝合成商业级宣传长图；"
-                    "不生成绿幕或 PSD；背景和产品画面满版铺满，仅文字与可读 Logo 向内排版，避免被截断。"
+                    f"最终成品为 {selected_width}×{selected_height}px。"
+                    "画面从上到下大体形成四个内容阶段，不显示分段距离，也不使用明显分割线或硬边界；"
+                    "人物、产品、光影和装饰可以自然跨越相邻阶段。"
+                    "不生成绿幕或 PSD；背景和产品画面满版铺满，完整文字与可读 Logo 不会被截断。"
                 )
             st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
             main_image_a_plus_prompt = st.text_area(
@@ -9347,15 +10587,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
         result_images = list(result.get("images") or [])
         source_images = list(result.get("source_images") or [])
-        if supports_outpaint and batch_source_files and result_images:
-            source_images = []
-            for source_file in batch_source_files[: len(result_images)]:
-                try:
-                    source_images.append(uploaded_input_to_data_url(source_file))
-                except Exception:
-                    source_images.append("")
+        outpaint_alignments = list(result.get("outpaint_alignments") or [])
         if not source_images and supports_batch_multi_upload and batch_source_files:
-            for source_file in batch_source_files[: len(result_images)]:
+            fallback_sources = list(batch_source_files)
+            if supports_outpaint:
+                fallback_sources = [
+                    source_file
+                    for source_file in batch_source_files
+                    for _ in range(OUTPAINT_RESULTS_PER_SOURCE)
+                ]
+            for source_file in fallback_sources[: len(result_images)]:
                 try:
                     source_images.append(uploaded_input_to_data_url(source_file))
                 except Exception:
@@ -9394,7 +10635,13 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     use_container_width=True,
                 )
         elif supports_batch_multi_upload and result_images and source_images:
-            render_before_after_compare_gallery(source_images, result_images, result_captions, feature["key"])
+            render_before_after_compare_gallery(
+                source_images,
+                result_images,
+                result_captions,
+                feature["key"],
+                outpaint_alignments=outpaint_alignments if supports_outpaint else None,
+            )
         elif supports_batch_multi_upload and result_images and result_captions:
             render_result_preview_with_captions(result_images, result_captions, feature["key"])
         else:
@@ -9519,23 +10766,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 )
             elif supports_outpaint:
                 display_source_groups = [[item] for item in files]
-                files = [
-                    prepare_outpaint_uploaded_input(
-                        item,
-                        outpaint_top_px,
-                        outpaint_bottom_px,
-                        outpaint_left_px,
-                        outpaint_right_px,
-                        outpaint_feather_strength,
-                    )
-                    for item in files
-                ]
                 extra_notes = build_outpaint_extra_notes(
                     outpaint_top_px,
                     outpaint_bottom_px,
                     outpaint_left_px,
                     outpaint_right_px,
-                    outpaint_feather_strength,
                 )
             elif supports_skin_tone_reference:
                 files.append(skin_tone_reference_file)
@@ -9712,7 +10947,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                             "bottom": outpaint_bottom_px,
                             "left": outpaint_left_px,
                             "right": outpaint_right_px,
-                            "feather": outpaint_feather_strength,
                         }
                         if supports_outpaint
                         else {}
@@ -9739,7 +10973,7 @@ def render_login_page() -> None:
     st.rerun()
 
 
-def render_side_menu(current_feature: dict[str, Any]) -> None:
+def render_side_menu(current_feature: dict[str, Any] | None = None) -> None:
     st.markdown(
         """
         <div class="side-menu-shell">
@@ -9766,6 +11000,16 @@ def render_side_menu(current_feature: dict[str, Any]) -> None:
             if st.session_state.selected_feature_key != feature["key"]:
                 st.session_state.selected_feature_key = feature["key"]
                 st.rerun()
+    is_dashboard_active = st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY
+    if st.button(
+        "数据看板",
+        key="side_menu_usage_dashboard",
+        use_container_width=True,
+        type="primary" if is_dashboard_active else "secondary",
+    ):
+        if not is_dashboard_active:
+            st.session_state.selected_feature_key = XIAOHA_DASHBOARD_KEY
+            st.rerun()
 
 
 def is_running_in_streamlit() -> bool:
@@ -9816,11 +11060,17 @@ def main() -> None:
         authenticate_requested_user()
     visible_features = get_visible_features()
     feature_keys = {feature["key"] for feature in visible_features}
-    if st.session_state.selected_feature_key not in feature_keys:
-        st.session_state.selected_feature_key = visible_features[0]["key"]
+    allowed_page_keys = feature_keys | {XIAOHA_DASHBOARD_KEY}
+    if st.session_state.selected_feature_key not in allowed_page_keys:
+        st.session_state.selected_feature_key = XIAOHA_DASHBOARD_KEY
 
     current_feature = next(
-        feature for feature in visible_features if feature["key"] == st.session_state.selected_feature_key
+        (
+            feature
+            for feature in visible_features
+            if feature["key"] == st.session_state.selected_feature_key
+        ),
+        None,
     )
     if not bool(jimeng_static_server.get("started")):
         st.warning(
@@ -9831,7 +11081,10 @@ def main() -> None:
     with menu_col:
         render_side_menu(current_feature)
     with content_col:
-        render_openrouter_feature(current_feature, model=DEFAULT_MODEL, aspect_ratio=DEFAULT_ASPECT_RATIO)
+        if st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY:
+            render_xiaoha_usage_dashboard()
+        elif current_feature is not None:
+            render_openrouter_feature(current_feature, model=DEFAULT_MODEL, aspect_ratio=DEFAULT_ASPECT_RATIO)
 
 
 if __name__ == "__main__":

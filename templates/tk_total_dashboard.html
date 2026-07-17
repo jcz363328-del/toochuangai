@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background:#f7f8fa; color:#1f2937; }
-        .container { max-width: 1080px; margin: 30px auto; padding: 20px; box-sizing:border-box; }
-        .card { background:white; border-radius:16px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); padding: 22px; margin-bottom: 20px; }
+        body { margin:0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background:#f4f6f9; color:#1f2937; }
+        .container { max-width: 1320px; margin: 24px auto; padding: 20px; box-sizing:border-box; }
+        .card { background:white; border:1px solid #edf0f4; border-radius:16px; box-shadow: 0 10px 30px rgba(15,23,42,0.06); padding: 22px; margin-bottom: 18px; }
         h1 { font-size: 24px; margin: 0 0 10px 0; }
         .desc { color:#6b7280; margin-bottom: 18px; }
         .form-row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
@@ -29,7 +29,7 @@
         .btn { background: linear-gradient(135deg, #6EE7B7 0%, #3B82F6 100%); color:white; padding: 10px 18px; border:none; border-radius: 10px; cursor:pointer; font-weight:600; }
         .btn.sm { padding:8px 14px; height:36px; }
         .btn i { margin-right:8px; }
-        .metrics { display:flex; gap:16px; flex-wrap:wrap; }
+        .metrics { display:grid; grid-template-columns:minmax(250px, .8fr) minmax(0, 2fr); gap:16px; }
         .metric { flex:1; min-width:280px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:14px; padding:12px; }
         .metric-center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
         .metric h3 { margin:0 0 10px 0; font-size:16px; color:#374151; }
@@ -70,7 +70,7 @@
             .desc { font-size: 13px; }
             .form-row { flex-direction: column; align-items: stretch; }
             .form-group, .form-group.compact, .form-group.action { flex: 1 1 auto; max-width: 100%; }
-            .metrics { flex-direction: column; }
+            .metrics { grid-template-columns:1fr; }
             .metric { min-width: auto; }
             .stack { min-width: 900px; }
             .data-table { min-width: 900px; table-layout: fixed; }
@@ -98,16 +98,44 @@
         .loading-box { background:white; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.08); padding:14px 18px; display:flex; align-items:center; gap:10px; color:#374151; font-size:15px; }
         .loading-box i { color:#3B82F6; font-size:18px; }
         .sub-label { padding-left: 22px; color:#4b5563; }
+        .sql-source { cursor: help; text-decoration: underline dotted #9ca3af; text-underline-offset: 3px; }
         .collapse-toggle { cursor: pointer; }
         .collapse-toggle-icon { margin-left: 6px; font-size: 12px; color:#9ca3af; }
-        .achratio-chart { padding:12px 16px; }
-        .achratio-chart-title { font-size:14px; font-weight:600; color:#374151; margin-bottom:8px; }
-        .achratio-bar-row { display:flex; align-items:center; margin:4px 0; font-size:13px; }
-        .achratio-bar-label { width:170px; color:#4b5563; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .achratio-bar-track { flex:1; height:14px; background:#e5e7eb; border-radius:999px; overflow:hidden; margin:0 8px; }
-        .achratio-bar-fill { height:100%; background: linear-gradient(135deg, #3b82f6 0%, #10b981 100%); }
-        .achratio-bar-value { width:70px; text-align:right; color:#374151; }
+        .visual-card { padding:22px; }
+        .visual-header { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:16px; }
+        .visual-header h2 { margin:0; font-size:19px; color:#111827; }
+        .visual-subtitle { margin-top:5px; color:#6b7280; font-size:13px; }
+        .visual-period { color:#4f46e5; background:#eef2ff; border-radius:999px; padding:6px 10px; font-size:12px; white-space:nowrap; }
+        .chart-kpis { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
+        .chart-kpi { padding:13px 15px; border-radius:12px; background:linear-gradient(145deg, #f8fafc, #f1f5f9); border:1px solid #e5e7eb; }
+        .chart-kpi-label { color:#64748b; font-size:12px; margin-bottom:5px; }
+        .chart-kpi-value { color:#0f172a; font-size:21px; font-weight:700; font-variant-numeric:tabular-nums; }
+        .chart-kpi-value.negative { color:#dc2626; }
+        .chart-grid { display:grid; grid-template-columns:minmax(0, 1.65fr) minmax(320px, 1fr); gap:14px; }
+        .chart-panel { min-width:0; border:1px solid #e5e7eb; border-radius:14px; padding:14px; background:#fff; }
+        .chart-panel.wide { grid-column:1 / -1; }
+        .chart-panel-title { margin:0 0 2px; font-size:15px; color:#1f2937; font-weight:700; }
+        .chart-panel-desc { margin:0 0 6px; font-size:12px; color:#6b7280; }
+        .chart-canvas { width:100%; height:320px; }
+        .chart-canvas.ranking { height:360px; }
+        .chart-fallback { height:100%; display:flex; align-items:center; justify-content:center; color:#9ca3af; font-size:13px; }
+        @media (max-width: 900px) {
+            .chart-grid { grid-template-columns:1fr; }
+            .chart-panel.wide { grid-column:auto; }
+        }
+        @media (max-width: 640px) {
+            .visual-card { padding:14px; }
+            .visual-header { align-items:flex-start; flex-direction:column; gap:8px; }
+            .chart-kpis { grid-template-columns:1fr; }
+            .chart-kpi { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+            .chart-kpi-label { margin:0; }
+            .chart-kpi-value { font-size:18px; }
+            .chart-panel { padding:10px; }
+            .chart-canvas { height:280px; }
+            .chart-canvas.ranking { height:340px; }
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js"></script>
     <script>
         const DEFAULT_SHOP_DATA = {{ default_payload|tojson }};
         const DEFAULT_SHOP_NAME = {{ default_shop_name|tojson }};
@@ -527,6 +555,8 @@
             document.getElementById('storageReturnReturnAchRatio').textContent = fmtPctAct(actStorageDetail.return_fee);
             document.getElementById('qdWageAchRatio').textContent = fmtPctAct(act.qingdao_wage);
             document.getElementById('szWageAchRatio').textContent = fmtPctAct(act.shenzhen_wage);
+            document.getElementById('qdRentAchRatio').textContent = fmtPctAct(act.qingdao_rent);
+            document.getElementById('szRentAchRatio').textContent = fmtPctAct(act.shenzhen_rent);
 
             if (FIXED_SHOP === '82' || FIXED_SHOP === '88' || FIXED_SHOP === '90' || RESTRICT_LIKE_82) {
                 const hideIds = [
@@ -545,10 +575,8 @@
                     if (el) el.textContent = '—';
                 });
             }
-            document.getElementById('qdRentAchRatio').textContent = fmtPctAct(act.qingdao_rent);
-            document.getElementById('szRentAchRatio').textContent = fmtPctAct(act.shenzhen_rent);
 
-            renderAchRatioChart();
+            renderDashboardCharts(data, monthStr, targetMonthLabel);
         }
 
         function initCacheSelect() {
@@ -625,53 +653,284 @@
             }
         }
 
-        function renderAchRatioChart() {
-            const container = document.getElementById('achRatioChart');
-            if (!container) return;
-            const rows = document.querySelectorAll('.module-content table.data-table tbody tr');
-            const items = [];
-            rows.forEach(row => {
-                const labelCell = row.querySelector('td');
-                const achCell = row.querySelector('td.col-achratio');
-                if (!labelCell || !achCell) return;
-                const label = (labelCell.textContent || '').trim();
-                if (!label || label === '销售额' || label === '毛利润' || label === '净利润') return;
-                const isDetail = labelCell.classList.contains('sub-label');
-                if (!isDetail && row.classList.contains('collapse-toggle')) return;
-                const text = (achCell.textContent || '').trim();
-                if (!text || text === '—') return;
-                const num = parseFloat(text.replace('%', '').trim());
-                if (!isFinite(num)) return;
-                items.push({ label, value: num });
-            });
-            items.sort((a, b) => a.value - b.value);
-            container.innerHTML = '';
-            const title = document.createElement('div');
-            title.className = 'achratio-chart-title';
-            title.textContent = '实际达成（各项支出占销售额的比例（从小到大））';
-            container.appendChild(title);
-            items.forEach(it => {
-                const row = document.createElement('div');
-                row.className = 'achratio-bar-row';
-                const labelDiv = document.createElement('div');
-                labelDiv.className = 'achratio-bar-label';
-                labelDiv.textContent = it.label;
-                const track = document.createElement('div');
-                track.className = 'achratio-bar-track';
-                const fill = document.createElement('div');
-                fill.className = 'achratio-bar-fill';
-                const width = Math.max(0, Math.min(100, it.value));
-                fill.style.width = width + '%';
-                track.appendChild(fill);
-                const valDiv = document.createElement('div');
-                valDiv.className = 'achratio-bar-value';
-                valDiv.textContent = it.value.toFixed(2) + '%';
-                row.appendChild(labelDiv);
-                row.appendChild(track);
-                row.appendChild(valDiv);
-                container.appendChild(row);
-            });
+        function getDashboardChart(id) {
+            const container = document.getElementById(id);
+            if (!container) return null;
+            if (!window.echarts) {
+                container.innerHTML = '<div class="chart-fallback">图表组件加载失败，请刷新页面重试</div>';
+                return null;
+            }
+            return echarts.getInstanceByDom(container) || echarts.init(container, null, { renderer: 'canvas' });
         }
+
+        function formatChartAmount(value) {
+            const num = Number(value || 0);
+            return new Intl.NumberFormat('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(isFinite(num) ? num : 0);
+        }
+
+        function formatCompactAmount(value) {
+            const num = Number(value || 0);
+            if (!isFinite(num)) return '0';
+            const abs = Math.abs(num);
+            if (abs >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (abs >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toFixed(0);
+        }
+
+        function setChartKpi(id, value, hidden) {
+            const element = document.getElementById(id);
+            if (!element) return;
+            const num = Number(value || 0);
+            element.textContent = hidden ? '—' : formatChartAmount(num);
+            element.classList.toggle('negative', !hidden && num < 0);
+        }
+
+        function renderDashboardCharts(data, monthStr, targetMonthLabel) {
+            const previous = data.business_results || {};
+            const target = data.monthly_targets || {};
+            const actual = data.actuals || {};
+            const restricted = FIXED_SHOP === '82' || FIXED_SHOP === '88' || FIXED_SHOP === '90' || RESTRICT_LIKE_82;
+            const amount = value => Math.abs(Number(value || 0));
+            const addAmounts = values => values.reduce((sum, value) => sum + amount(value), 0);
+
+            setChartKpi('chartActualSales', actual.monthly_sales, false);
+            setChartKpi('chartGrossProfit', actual.gross_profit, false);
+            setChartKpi('chartNetProfit', actual.net_profit, restricted);
+
+            const startInput = document.getElementById('start_date');
+            const endInput = document.getElementById('end_date');
+            const periodLabel = document.getElementById('chartPeriodLabel');
+            if (periodLabel) {
+                const start = startInput ? startInput.value : '';
+                const end = endInput ? endInput.value : '';
+                periodLabel.textContent = start && end ? `${start} 至 ${end}` : '当前筛选周期';
+            }
+
+            const trendChart = getDashboardChart('businessTrendChart');
+            if (trendChart) {
+                const stages = [monthStr ? `${monthStr} 上月` : '上月', targetMonthLabel ? `${targetMonthLabel}目标` : '本月目标', '实际达成'];
+                const series = [
+                    {
+                        name: '销售额',
+                        type: 'line',
+                        smooth: 0.25,
+                        symbol: 'circle',
+                        symbolSize: 8,
+                        data: [amount(previous.monthly_sales), amount(target.monthly_sales), amount(actual.monthly_sales)],
+                        lineStyle: { width: 3, color: '#2563eb' },
+                        itemStyle: { color: '#2563eb' },
+                        areaStyle: { color: 'rgba(37,99,235,0.08)' }
+                    },
+                    {
+                        name: '毛利润',
+                        type: 'line',
+                        smooth: 0.25,
+                        symbol: 'diamond',
+                        symbolSize: 8,
+                        data: [Number(previous.gross_profit || 0), Number(target.gross_profit || 0), Number(actual.gross_profit || 0)],
+                        lineStyle: { width: 3, color: '#10b981' },
+                        itemStyle: { color: '#10b981' }
+                    }
+                ];
+                if (!restricted) {
+                    series.push({
+                        name: '净利润',
+                        type: 'line',
+                        smooth: 0.25,
+                        symbol: 'triangle',
+                        symbolSize: 9,
+                        data: [Number(previous.net_profit || 0), Number(target.net_profit || 0), Number(actual.net_profit || 0)],
+                        lineStyle: { width: 3, color: '#f59e0b' },
+                        itemStyle: { color: '#f59e0b' }
+                    });
+                }
+                trendChart.setOption({
+                    animationDuration: 450,
+                    color: ['#2563eb', '#10b981', '#f59e0b'],
+                    aria: { enabled: true },
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(15,23,42,0.92)',
+                        borderWidth: 0,
+                        textStyle: { color: '#fff' },
+                        formatter: params => {
+                            if (!params || !params.length) return '';
+                            return `${params[0].axisValue}<br>${params.map(item => `${item.marker}${item.seriesName}：${formatChartAmount(item.value)}`).join('<br>')}`;
+                        }
+                    },
+                    legend: { top: 2, icon: 'roundRect', itemWidth: 16, itemHeight: 8, textStyle: { color: '#475569' } },
+                    grid: { left: 16, right: 18, top: 50, bottom: 18, containLabel: true },
+                    xAxis: {
+                        type: 'category',
+                        boundaryGap: false,
+                        data: stages,
+                        axisLine: { lineStyle: { color: '#cbd5e1' } },
+                        axisTick: { show: false },
+                        axisLabel: { color: '#64748b' }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: { color: '#64748b', formatter: value => formatCompactAmount(value) },
+                        splitLine: { lineStyle: { color: '#e5e7eb' } }
+                    },
+                    series
+                }, true);
+            }
+
+            const costData = [
+                { name: '达人相关', value: addAmounts([actual.influencer_commission, actual.influencer_video_fee, actual.activity_service_fee]) },
+                { name: '广告费', value: amount(actual.ad_fee) },
+                { name: '平台佣金', value: amount(actual.platform_commission) },
+                { name: '税费及调整', value: addAmounts([actual.vat_fee, actual.adjustment_fee, actual.other_platform_fee]) },
+                { name: '产品成本', value: amount(actual.product_cost) },
+                { name: '物流费用', value: addAmounts([actual.tou_cheng_cost, actual.wei_cheng_cost, actual.storage_return_cost]) }
+            ];
+            if (!restricted) {
+                costData.push(
+                    { name: '经营管理', value: addAmounts([actual.op_mgmt_qd, actual.op_mgmt_sz]) },
+                    { name: '工资及房租', value: addAmounts([actual.qingdao_wage, actual.shenzhen_wage, actual.qingdao_rent, actual.shenzhen_rent]) }
+                );
+            }
+            const visibleCosts = costData.filter(item => item.value > 0);
+            const totalCosts = visibleCosts.reduce((sum, item) => sum + item.value, 0);
+            const costChart = getDashboardChart('costCompositionChart');
+            if (costChart) {
+                if (!visibleCosts.length) {
+                    costChart.setOption({
+                        series: [],
+                        graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: '暂无成本数据', fill: '#94a3b8', fontSize: 14 } }]
+                    }, true);
+                } else {
+                    costChart.setOption({
+                        animationDuration: 450,
+                        color: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#64748b', '#ec4899'],
+                        aria: { enabled: true },
+                        title: {
+                            text: formatCompactAmount(totalCosts),
+                            subtext: '成本合计（USD）',
+                            left: 'center',
+                            top: '38%',
+                            textStyle: { color: '#0f172a', fontSize: 20, fontWeight: 700 },
+                            subtextStyle: { color: '#64748b', fontSize: 12 }
+                        },
+                        tooltip: {
+                            trigger: 'item',
+                            backgroundColor: 'rgba(15,23,42,0.92)',
+                            borderWidth: 0,
+                            textStyle: { color: '#fff' },
+                            formatter: item => `${item.marker}${item.name}<br>${formatChartAmount(item.value)} USD（${item.percent}%）`
+                        },
+                        legend: { type: 'scroll', bottom: 0, left: 'center', itemWidth: 10, itemHeight: 10, textStyle: { color: '#64748b', fontSize: 11 } },
+                        series: [{
+                            name: '实际成本',
+                            type: 'pie',
+                            radius: ['48%', '70%'],
+                            center: ['50%', '43%'],
+                            avoidLabelOverlap: true,
+                            itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 5 },
+                            label: { show: false },
+                            emphasis: { label: { show: true, formatter: '{b}\n{d}%', fontSize: 12, fontWeight: 700 } },
+                            data: visibleCosts
+                        }]
+                    }, true);
+                }
+            }
+
+            const actualSales = amount(actual.monthly_sales);
+            const rankItems = [
+                ['达人佣金', actual.influencer_commission],
+                ['渠道推广及维护', actual.influencer_video_fee],
+                ['活动服务费', actual.activity_service_fee],
+                ['广告费', actual.ad_fee],
+                ['平台佣金', actual.platform_commission],
+                ['税金', actual.vat_fee],
+                ['调整费', actual.adjustment_fee],
+                ['其他平台费', actual.other_platform_fee],
+                ['产品成本', actual.product_cost],
+                ['头程费用', actual.tou_cheng_cost],
+                ['尾程费用', actual.wei_cheng_cost],
+                ['仓储/退货/入库', actual.storage_return_cost]
+            ];
+            if (!restricted) {
+                rankItems.push(
+                    ['经营管理费', addAmounts([actual.op_mgmt_qd, actual.op_mgmt_sz])],
+                    ['工资', addAmounts([actual.qingdao_wage, actual.shenzhen_wage])],
+                    ['房租', addAmounts([actual.qingdao_rent, actual.shenzhen_rent])]
+                );
+            }
+            const ranking = rankItems
+                .map(item => ({ name: item[0], value: actualSales > 0 ? amount(item[1]) / actualSales * 100 : 0 }))
+                .filter(item => item.value > 0)
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 10);
+            const rankChart = getDashboardChart('achRatioChart');
+            if (rankChart) {
+                if (!ranking.length) {
+                    rankChart.setOption({
+                        series: [],
+                        graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: '暂无可计算的占比数据', fill: '#94a3b8', fontSize: 14 } }]
+                    }, true);
+                } else {
+                    rankChart.setOption({
+                        animationDuration: 450,
+                        aria: { enabled: true },
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: { type: 'shadow' },
+                            backgroundColor: 'rgba(15,23,42,0.92)',
+                            borderWidth: 0,
+                            textStyle: { color: '#fff' },
+                            formatter: params => params && params[0] ? `${params[0].name}<br>${params[0].marker}占销售额：${Number(params[0].value).toFixed(2)}%` : ''
+                        },
+                        grid: { left: 16, right: 64, top: 12, bottom: 18, containLabel: true },
+                        xAxis: {
+                            type: 'value',
+                            axisLabel: { color: '#64748b', formatter: '{value}%' },
+                            splitLine: { lineStyle: { color: '#e5e7eb' } }
+                        },
+                        yAxis: {
+                            type: 'category',
+                            inverse: true,
+                            data: ranking.map(item => item.name),
+                            axisLine: { show: false },
+                            axisTick: { show: false },
+                            axisLabel: { color: '#475569', width: 110, overflow: 'truncate' }
+                        },
+                        series: [{
+                            name: '占销售额',
+                            type: 'bar',
+                            barMaxWidth: 20,
+                            data: ranking.map(item => Number(item.value.toFixed(2))),
+                            label: { show: true, position: 'right', color: '#475569', formatter: '{c}%' },
+                            itemStyle: {
+                                borderRadius: [0, 7, 7, 0],
+                                color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                                    { offset: 0, color: '#3b82f6' },
+                                    { offset: 1, color: '#10b981' }
+                                ])
+                            }
+                        }]
+                    }, true);
+                }
+            }
+        }
+
+        let chartResizeTimer = null;
+        window.addEventListener('resize', () => {
+            window.clearTimeout(chartResizeTimer);
+            chartResizeTimer = window.setTimeout(() => {
+                ['businessTrendChart', 'costCompositionChart', 'achRatioChart'].forEach(id => {
+                    const container = document.getElementById(id);
+                    if (container && window.echarts) {
+                        const chart = echarts.getInstanceByDom(container);
+                        if (chart) chart.resize();
+                    }
+                });
+            }, 120);
+        });
 
         function toggleInfluencerCommissionDetail() {
             const rows = document.querySelectorAll('.influencer-commission-detail-row');
@@ -1027,6 +1286,47 @@
             </div>
         </div>
 
+        <section class="card visual-card" aria-labelledby="visualOverviewTitle">
+            <div class="visual-header">
+                <div>
+                    <h2 id="visualOverviewTitle">经营数据概览</h2>
+                    <div class="visual-subtitle">对比上月、本月目标与实际达成，并查看实际成本结构</div>
+                </div>
+                <div class="visual-period" id="chartPeriodLabel">当前筛选周期</div>
+            </div>
+            <div class="chart-kpis">
+                <div class="chart-kpi">
+                    <div class="chart-kpi-label">实际销售额（USD）</div>
+                    <div class="chart-kpi-value" id="chartActualSales">0.00</div>
+                </div>
+                <div class="chart-kpi">
+                    <div class="chart-kpi-label">实际毛利润（USD）</div>
+                    <div class="chart-kpi-value" id="chartGrossProfit">0.00</div>
+                </div>
+                <div class="chart-kpi">
+                    <div class="chart-kpi-label">实际净利润（USD）</div>
+                    <div class="chart-kpi-value" id="chartNetProfit">0.00</div>
+                </div>
+            </div>
+            <div class="chart-grid">
+                <div class="chart-panel">
+                    <h3 class="chart-panel-title">经营指标对比</h3>
+                    <p class="chart-panel-desc">金额单位：USD</p>
+                    <div id="businessTrendChart" class="chart-canvas" role="img" aria-label="上月、本月目标与实际销售额、毛利润和净利润对比折线图"></div>
+                </div>
+                <div class="chart-panel">
+                    <h3 class="chart-panel-title">实际成本构成</h3>
+                    <p class="chart-panel-desc">按当前筛选周期汇总</p>
+                    <div id="costCompositionChart" class="chart-canvas" role="img" aria-label="实际成本构成环形饼图"></div>
+                </div>
+                <div class="chart-panel wide">
+                    <h3 class="chart-panel-title">成本占销售额排行</h3>
+                    <p class="chart-panel-desc">展示占比最高的成本项</p>
+                    <div id="achRatioChart" class="chart-canvas ranking" role="img" aria-label="实际成本占销售额比例横向柱状图"></div>
+                </div>
+            </div>
+        </section>
+
         <div class="scroll-area">
         <div class="stack">
         <div class="card">
@@ -1151,7 +1451,7 @@
                                 <td class="col-achratio" id="influencerCommissionAchRatio">—</td>
                             </tr>
                             <tr class="influencer-commission-detail-row" style="display:none;">
-                <td class="sub-label">└ 创作者佣金</td>
+                <td class="sub-label sql-source" title="数据来源 SQL：&#10;SELECT ISNULL(SUM(创作者佣金), 0)&#10;FROM v_TK_JieSuan WITH (NOLOCK)&#10;WHERE 结算日期 &gt;= [开始日期]&#10;  AND 结算日期 &lt;= [结束日期]&#10;  AND 店 IN ([所选店铺]);">└ 创作者佣金（联盟佣金）</td>
                 <td class="value col-value" id="influencerCommissionCreator">0.00</td>
                 <td class="col-ratio" id="influencerCommissionCreatorRatio">—</td>
                 <td class="col-target" id="influencerCommissionCreatorTarget">—</td>
@@ -1175,7 +1475,7 @@
                 <td class="col-achratio" id="influencerCommissionAdOrderAchRatio">—</td>
             </tr>
             <tr class="influencer-commission-detail-row" style="display:none;">
-                <td class="sub-label">└ 达人渠道号佣金</td>
+                <td class="sub-label sql-source" title="数据来源 SQL：&#10;SELECT ISNULL(SUM(feiyonge), 0)&#10;FROM v_TK_FeiYong WITH (NOLOCK)&#10;WHERE riqi &gt;= [开始日期]&#10;  AND riqi &lt;= [结束日期]&#10;  AND dian IN ([所选店铺])&#10;  AND xiangmu = '达人渠道号佣金';">└ 达人渠道号佣金（手动）</td>
                 <td class="value col-value" id="influencerCommissionChannel">0.00</td>
                 <td class="col-ratio" id="influencerCommissionChannelRatio">—</td>
                 <td class="col-target" id="influencerCommissionChannelTarget">—</td>
@@ -1202,7 +1502,7 @@
                                 <td class="col-achratio" id="influencerVideoFeeAchRatio">—</td>
                             </tr>
             <tr class="influencer-video-detail-row" style="display:none;">
-                <td class="sub-label">└ 刷单费</td>
+                <td class="sub-label sql-source" title="数据来源 SQL：&#10;SELECT ISNULL(SUM(CASE WHEN xiangmu = '刷单费' THEN feiyonge ELSE 0 END), 0)&#10;FROM v_TK_FeiYong WITH (NOLOCK)&#10;WHERE riqi &gt;= [开始日期]&#10;  AND riqi &lt;= [结束日期]&#10;  AND dian IN ([所选店铺]);">└ 刷单费（ERP）（手动）</td>
                 <td class="value col-value" id="influencerVideoFeeShuaDan">0.00</td>
                 <td class="col-ratio" id="influencerVideoFeeShuaDanRatio">—</td>
                 <td class="col-target" id="influencerVideoFeeShuaDanTarget">—</td>
@@ -1210,7 +1510,7 @@
                 <td class="col-achratio" id="influencerVideoFeeShuaDanAchRatio">—</td>
             </tr>
             <tr class="influencer-video-detail-row" style="display:none;">
-                <td class="sub-label">└ 售后</td>
+                <td class="sub-label sql-source" title="数据来源 SQL：&#10;SELECT ISNULL(SUM(CASE WHEN xiangmu = '售后' THEN feiyonge ELSE 0 END), 0)&#10;FROM v_TK_FeiYong WITH (NOLOCK)&#10;WHERE riqi &gt;= [开始日期]&#10;  AND riqi &lt;= [结束日期]&#10;  AND dian IN ([所选店铺]);">└ 售后（手动）</td>
                 <td class="value col-value" id="influencerVideoFeeShouHou">0.00</td>
                 <td class="col-ratio" id="influencerVideoFeeShouHouRatio">—</td>
                 <td class="col-target" id="influencerVideoFeeShouHouTarget">—</td>
@@ -1226,7 +1526,7 @@
                 <td class="col-achratio" id="influencerVideoFeeKengWeiAchRatio">—</td>
             </tr>
             <tr class="influencer-video-detail-row" style="display:none;">
-                <td class="sub-label">└ 给网红购买产品费</td>
+                <td class="sub-label sql-source" title="数据来源 SQL：&#10;SELECT ISNULL(SUM(CASE WHEN xiangmu = '给网红购买产品费' THEN feiyonge ELSE 0 END), 0)&#10;FROM v_TK_FeiYong WITH (NOLOCK)&#10;WHERE riqi &gt;= [开始日期]&#10;  AND riqi &lt;= [结束日期]&#10;  AND dian IN ([所选店铺]);">└ 给网红购买产品费（手动）</td>
                 <td class="value col-value" id="influencerVideoFeeBuyProduct">0.00</td>
                 <td class="col-ratio" id="influencerVideoFeeBuyProductRatio">—</td>
                 <td class="col-target" id="influencerVideoFeeBuyProductTarget">—</td>
@@ -1234,7 +1534,7 @@
                 <td class="col-achratio" id="influencerVideoFeeBuyProductAchRatio">—</td>
             </tr>
             <tr class="influencer-video-detail-row" style="display:none;">
-                <td class="sub-label">└ 达人礼品费</td>
+                <td class="sub-label sql-source" title="数据来源 SQL：&#10;SELECT ISNULL(SUM(CASE WHEN xiangmu = '达人礼品费' THEN feiyonge ELSE 0 END), 0)&#10;FROM v_TK_FeiYong WITH (NOLOCK)&#10;WHERE riqi &gt;= [开始日期]&#10;  AND riqi &lt;= [结束日期]&#10;  AND dian IN ([所选店铺]);">└ 达人礼品费（手动）</td>
                 <td class="value col-value" id="influencerVideoFeeGift">0.00</td>
                 <td class="col-ratio" id="influencerVideoFeeGiftRatio">—</td>
                 <td class="col-target" id="influencerVideoFeeGiftTarget">—</td>
@@ -1413,8 +1713,8 @@
                                 <td class="col-achratio" id="weiChengCostAchRatio">—</td>
                             </tr>
                             <tr class="collapse-toggle" onclick="toggleStorageReturnDetail()">
-                                <td>
-                                    项目尾程仓储费+退货费
+                                <td class="sql-source" title="数据来源 SQL：&#10;SELECT ISNULL(SUM(CASE WHEN xiangmu IN ('入库费', '仓储费', '退货费') THEN feiyonge ELSE 0 END), 0)&#10;FROM v_TK_FeiYong WITH (NOLOCK)&#10;WHERE riqi &gt;= [开始日期]&#10;  AND riqi &lt;= [结束日期]&#10;  AND dian IN ([所选店铺]);">
+                                    项目尾程仓储费+退货费（海外仓）
                                     <span id="storageReturnToggleIcon" class="collapse-toggle-icon">▶</span>
                                 </td>
                                 <td class="value col-value" id="storageReturnCost">0.00</td>
@@ -1505,16 +1805,6 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="module-block">
-                <div class="module-label business">占比排序</div>
-                <div class="module-content">
-                    <div id="achRatioChart" class="achratio-chart">
-                        <div class="achratio-chart-title">实际达成（各项占销售额的比例（从小到大））</div>
-                    </div>
-                </div>
-            </div>
-        </div>
         </div>
         </div>
     </body>
