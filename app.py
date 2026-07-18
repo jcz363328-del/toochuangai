@@ -36,6 +36,7 @@ from department_permissions import permission_manager, require_permission, get_f
     handle_feishu_event, PERMISSION_CONFIG
 from bjc import sf_db, dui_db
 from innovation.message_service import MessageService
+from innovation.pending_reminder import innovation_pending_reminder
 from shenzhen_total import compute_shenzhen_expenses
 from knowledge_base_service import knowledge_base_bp, kb_service
 from feishu_skill_bridge import bootstrap_lark_cli_skills_env, get_skill_root_candidates
@@ -4023,6 +4024,93 @@ def api_ai_delete_innovation_project():
         return jsonify({'success': True, 'message': '删除成功'})
     except Exception as e:
         return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+
+
+@app.route('/api/ai/innovation_project_preview', methods=['GET'])
+@require_permission('ai_dept')
+def api_ai_innovation_project_preview():
+    try:
+        project_id = str(request.args.get('project_id') or '').strip()
+        if not project_id:
+            return jsonify({'success': False, 'message': '项目编号不能为空'}), 400
+        if not project_id.isdigit():
+            return jsonify({'success': False, 'message': '项目编号必须为数字'}), 400
+
+        rows = sf_db(f"""
+            SELECT TOP 1
+                ISNULL(CAST(标题 AS NVARCHAR(MAX)), ''),
+                ISNULL(CAST(内容 AS NVARCHAR(MAX)), '')
+            FROM chuangxin_tibao1
+            WHERE 编号 = {project_id}
+        """) or []
+        if not rows:
+            return jsonify({'success': False, 'message': f'未找到编号为 {project_id} 的创新项目'}), 404
+
+        project = rows[0]
+        return jsonify({
+            'success': True,
+            'data': {
+                'project_id': project_id,
+                'title': str(project[0] or '').strip(),
+                'content': str(project[1] or '').strip()
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'读取项目内容失败: {str(e)}'}), 500
+
+
+@app.route('/api/ai/innovation_pending_reminder/test-send', methods=['POST'])
+@require_permission('ai_dept')
+def api_ai_innovation_pending_reminder_test_send():
+    try:
+        result = innovation_pending_reminder.run_once(
+            now_dt=datetime.now(),
+            send_messages=True,
+            include_message_details=True,
+        )
+
+        recipient_ids = []
+        for assignee_result in (result.get('assignees') or {}).values():
+            for recipient in assignee_result.get('recipients') or []:
+                recipient_id = str(recipient.get('id') or '').strip()
+                if recipient_id and recipient_id not in recipient_ids:
+                    recipient_ids.append(recipient_id)
+
+        recipient_name_map = {}
+        if recipient_ids:
+            id_sql = ",".join(
+                f"N'{recipient_id.replace("'", "''")}'"
+                for recipient_id in recipient_ids
+            )
+            rows = sf_db(f"""
+                SELECT FeiShu_ID, YongHu
+                FROM feishu_id
+                WHERE FeiShu_ID IN ({id_sql})
+            """) or []
+            for row in rows:
+                if not isinstance(row, (list, tuple)) or len(row) < 2:
+                    continue
+                recipient_id = str(row[0] or '').strip()
+                recipient_name = str(row[1] or '').strip()
+                if recipient_id and recipient_name and recipient_id not in recipient_name_map:
+                    recipient_name_map[recipient_id] = recipient_name
+
+        for assignee, assignee_result in (result.get('assignees') or {}).items():
+            for recipient in assignee_result.get('recipients') or []:
+                recipient_id = str(recipient.get('id') or '').strip()
+                recipient['name'] = str(recipient.get('name') or '').strip() or recipient_name_map.get(recipient_id) or (
+                    assignee if recipient_id == assignee else recipient_id
+                )
+
+        return jsonify({
+            'success': True,
+            'message': '查询与发送已完成',
+            'data': result,
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'测试发送失败: {str(e)}'}), 500
+
+
 @app.route('/dev_login')
 def dev_login():
     """开发者调试登录"""
@@ -4123,6 +4211,10 @@ def check_feishu_user():
     middleware_started_at = time.perf_counter()
     try:
         _start_xiaotu_report_reminder_thread_once()
+    except Exception:
+        pass
+    try:
+        innovation_pending_reminder.start()
     except Exception:
         pass
     _safe_debug_print(f"\n=== 请求中间件检查 ===")
@@ -16687,6 +16779,12 @@ def ai_modules():
     return render_template('ai_modules.html', user_id=user_id, user_name=user_name)
 
 
+@app.route('/ai/innovation_pending_reminder_test')
+@require_permission('ai_dept')
+def innovation_pending_reminder_test_page():
+    return render_template('innovation_pending_reminder_test.html')
+
+
 def _get_env_int(name, default):
     try:
         return int(os.environ.get(name, default))
@@ -18304,4 +18402,5 @@ if __name__ == '__main__':
     debug_mode = str(os.environ.get("TC_FLASK_DEBUG", "")).strip().lower() in {"1", "true", "yes", "on"}
     if (not debug_mode) or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         _start_xiaotu_report_reminder_thread_once()
+        innovation_pending_reminder.start()
     app.run(debug=debug_mode, host='0.0.0.0', port=8000, use_reloader=False)

@@ -1691,6 +1691,43 @@ def get_innovations():
         except Exception as sim_err:
             _safe_print(f"⚠️ 查询相似提案失败: {sim_err}")
 
+        # 批量读取当前页每个项目最新的负责人记录。
+        project_responsible_map = {}
+        try:
+            project_numbers = []
+            for project in projects_data:
+                if project[0] is None:
+                    continue
+                project_number = str(project[0]).strip().replace("'", "''")
+                if project_number:
+                    project_numbers.append(f"N'{project_number}'")
+
+            if project_numbers:
+                responsible_sql = f"""
+                    WITH latest_responsible AS (
+                        SELECT
+                            CAST(BianHao AS NVARCHAR(50)) AS BianHao,
+                            FuZeRen,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY CAST(BianHao AS NVARCHAR(50))
+                                ORDER BY RiQi DESC, ID DESC
+                            ) AS row_number
+                        FROM chuangxin_fuzeren
+                        WHERE CAST(BianHao AS NVARCHAR(50)) IN ({",".join(project_numbers)})
+                    )
+                    SELECT BianHao, FuZeRen
+                    FROM latest_responsible
+                    WHERE row_number = 1
+                """
+                responsible_rows = sf_db(responsible_sql) or []
+                for responsible_row in responsible_rows:
+                    project_number = str(responsible_row[0]).strip() if responsible_row[0] is not None else ''
+                    responsible_name = str(responsible_row[1]).strip() if responsible_row[1] is not None else ''
+                    if project_number and responsible_name:
+                        project_responsible_map[project_number] = responsible_name
+        except Exception as responsible_err:
+            _safe_print(f"⚠️ 查询项目负责人失败: {responsible_err}")
+
         for i, project in enumerate(projects_data):
             project_id = project[0]
 
@@ -1928,6 +1965,7 @@ def get_innovations():
                 'handler': current_handler,
                 'handle_time': handle_time,
                 'handler_notes': handler_notes,
+                'project_responsible': project_responsible_map.get(str(project[0]).strip(), ''),
                 'flow_count': len(assignees_list),
                 'department_status': department_status,
                 'image_path': process_image_field(project[8]) if len(project) > 8 else None,
@@ -2278,15 +2316,22 @@ def get_project_departments(project_id):
 def handle_innovation():
     """处理创新项目"""
     try:
-        data = request.get_json()
-        innovation_id = data['innovation_id']
-        flow_id = data['flow_id']
-        status = data['status']
-        handler = data['handler']
-        notes = data.get('notes', '')
-        score = data.get('score', '')
-        committee_score = data.get('committee_score', '')  # 新增：委员会打分
-        operation_type = data.get('operation_type', '处理')
+        data = request.get_json(silent=True) or {}
+        try:
+            innovation_id = int(data.get('innovation_id'))
+            flow_id = int(data.get('flow_id'))
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': '项目编号或流转编号无效'}), 400
+
+        status = str(data.get('status') or '').strip()
+        handler = str(data.get('handler') or '').strip()
+        notes = str(data.get('handler_notes') or '').strip()
+        score = str(data.get('score') or '').strip()
+        committee_score = str(data.get('committee_score') or '').strip()
+        operation_type = str(data.get('operation_type') or '处理').strip()
+        project_responsible = str(data.get('project_responsible') or '').strip()
+        expected_completion_date = str(data.get('expected_completion_date') or '').strip()
+        is_deferred_adoption = operation_type == '采纳，暂缓执行'
 
         _safe_print(f"🔄 开始处理创新项目")
         _safe_print(f"📋 参数: innovation_id={innovation_id}, flow_id={flow_id}, status={status}")
@@ -2298,6 +2343,22 @@ def handle_innovation():
                 'success': False,
                 'message': '缺少必要参数'
             }), 400
+
+        if not notes:
+            return jsonify({'success': False, 'message': '处理备注不能为空，请填写处理意见'}), 400
+
+        if is_deferred_adoption:
+            if not project_responsible:
+                return jsonify({'success': False, 'message': '当前项目负责人不能为空'}), 400
+            if not expected_completion_date:
+                return jsonify({'success': False, 'message': '预计完成时间不能为空'}), 400
+            try:
+                expected_completion_date = datetime.strptime(
+                    expected_completion_date,
+                    '%Y-%m-%d',
+                ).strftime('%Y-%m-%d')
+            except ValueError:
+                return jsonify({'success': False, 'message': '预计完成时间格式无效'}), 400
 
         # 获取项目信息
         project_sql = f"SELECT 标题, 发起人 FROM chuangxin_tibao1 WHERE 编号 = {innovation_id}"
@@ -2358,19 +2419,6 @@ def handle_innovation():
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # 转义特殊字符
-        handler_escaped = handler.replace("'", "''")
-        # 在handle_innovation函数中，在获取notes后添加
-        notes = data.get('handler_notes', '').strip()
-
-        # 如果notes为空，返回错误
-        if not notes:
-            _safe_print(f"❌ 处理备注为空，拒绝处理")
-            return jsonify({
-                'success': False,
-                'message': '处理备注不能为空，请填写处理意见'
-            }), 400
-
         score_escaped = score_to_store.replace("'", "''") if score_to_store else ''  # 使用转换后的数字分数
 
         # 更新流转记录 - 存储数字分数和委员会打分，使用CASE语句进行真正的追加
@@ -2385,10 +2433,26 @@ def handle_innovation():
             # 没有委员会打分时的备注格式
             new_note_content = f"[{current_time}] {handler.replace("'", "''")}：{notes.replace("'", "''")}； "
 
+        responsible_insert_sql = ''
+        if is_deferred_adoption:
+            project_number_sql = _escape_sql_literal_for_pytds(str(innovation_id))
+            project_responsible_sql = _escape_sql_literal_for_pytds(project_responsible)
+            responsible_insert_sql = f"""
+                INSERT INTO chuangxin_fuzeren (BianHao, FuZeRen, RiQi, YuJiWanChengShiJian)
+                VALUES (
+                    N'{project_number_sql}',
+                    N'{project_responsible_sql}',
+                    CAST(GETDATE() AS DATE),
+                    CONVERT(DATE, '{expected_completion_date}', 23)
+                );
+            """
+
         flow_update_sql = f"""
+            SET XACT_ABORT ON;
+
             UPDATE chuangxin_liuzhuan1
             SET 状态 = '{status}',
-                处理备注 = CASE 
+                处理备注 = CASE
                     WHEN 处理备注 IS NULL OR 处理备注 = '' THEN '{new_note_content}'
                     ELSE 处理备注 + '{new_note_content}'
                 END,
@@ -2399,7 +2463,9 @@ def handle_innovation():
                 END,
                 处理时间 = '{current_time}',
                 操作类型='{operation_type.replace("'", "''")}'
-            WHERE 流转ID = {flow_id} AND 项目编号 = {innovation_id}
+            WHERE 流转ID = {flow_id} AND 项目编号 = {innovation_id};
+
+            {responsible_insert_sql}
         """
         _safe_print(f"🔄 更新流转记录SQL: {flow_update_sql}")
 

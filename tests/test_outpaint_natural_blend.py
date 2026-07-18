@@ -164,23 +164,28 @@ class NaturalOutpaintTests(unittest.TestCase):
         self.assertIn("Number(alignment.left || 0) / targetWidth", rendered_html)
         self.assertIn("sourceWidth / targetWidth", rendered_html)
         self.assertIn("height: 620px", rendered_html)
-        self.assertIn("右键效果图可选择保存方式", rendered_html)
-        self.assertIn("直接保存效果图", rendered_html)
-        self.assertIn("选择位置 / 系统保存", rendered_html)
-        self.assertIn("打开原图后保存", rendered_html)
-        self.assertIn('control.addEventListener("contextmenu"', rendered_html)
-        self.assertIn('saveButton.addEventListener("click"', rendered_html)
-        self.assertIn('saveAsButton.addEventListener("click"', rendered_html)
-        self.assertIn('openButton.addEventListener("click"', rendered_html)
-        self.assertIn("window.showSaveFilePicker", rendered_html)
-        self.assertIn("navigator.canShare", rendered_html)
-        self.assertIn("fetchOriginalBlob", rendered_html)
-        self.assertIn("浏览器限制另存为，已改用直接下载", rendered_html)
-        self.assertIn('contextMenu.classList.add("open")', rendered_html)
-        context_menu_handler = rendered_html.split(
-            'control.addEventListener("contextmenu"', 1
-        )[1].split("let saveToastTimer", 1)[0]
-        self.assertNotIn("link.click()", context_menu_handler)
+        self.assertIn("左键查看大图 · 右键使用 Chrome 原生菜单", rendered_html)
+        self.assertIn('<img class="compare-native-result"', rendered_html)
+        self.assertIn("normalizeNativeResultSrc_compare_outpaint_1", rendered_html)
+        self.assertIn(
+            "nativeResultImage.src = normalizeNativeResultSrc_compare_outpaint_1(pair.view || pair.result)",
+            rendered_html,
+        )
+        self.assertIn('parsed.pathname.startsWith("/history_images/")', rendered_html)
+        self.assertIn('parsed.pathname.startsWith("/jimeng_uploads/")', rendered_html)
+        self.assertIn("hostWindow_compare_outpaint_1.location.hostname", rendered_html)
+        self.assertIn("nativeResultImage.style.clipPath", rendered_html)
+        self.assertIn("nativeResultImage.style.left", rendered_html)
+        self.assertIn("pointer-events: none", rendered_html)
+        self.assertIn("opacity: 1", rendered_html)
+        self.assertIn("openCompareFullscreen_compare_outpaint_1", rendered_html)
+        self.assertIn('overlay.id = "lashforge-fullscreen-viewer"', rendered_html)
+        self.assertIn('control.addEventListener("click"', rendered_html)
+        self.assertIn("pointerDownOnEffect && !dragMoved", rendered_html)
+        self.assertIn("Math.hypot", rendered_html)
+        self.assertNotIn('control.addEventListener("contextmenu"', rendered_html)
+        self.assertNotIn("compare-context-menu", rendered_html)
+        self.assertNotIn("http://localhost:41595/api/item/addFromURL", rendered_html)
         self.assertNotIn('<img src="${pair.result}"', rendered_html)
 
     def test_direct_download_url_requests_attachment_response(self) -> None:

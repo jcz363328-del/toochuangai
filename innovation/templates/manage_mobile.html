@@ -31,6 +31,7 @@
 .mm-dept-item:last-child { border-bottom: 0; }
 .mm-op-grid { display: grid; gap: 6px; }
 .mm-op-grid .form-select, .mm-op-grid .form-control, .mm-op-grid textarea { font-size: 12px; border-radius: 8px; }
+.mm-deferred-fields { display: none; grid-template-columns: 1fr 1fr; gap: 6px; }
 .mm-op-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .mm-react { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
 .mm-react .btn { border-radius: 8px; font-size: 12px; }
@@ -211,6 +212,7 @@ function cardHtml(item){
   const ptype = item.project_type || '';
   const assignees = Array.isArray(item.assignees) ? item.assignees.join('、') : (item.department || '');
   const handler = item.handler || '';
+  const projectResponsible = item.project_responsible || '';
   const handleTime = item.handle_time || '';
   const notes = item.handler_notes || '';
   const solution = item.solution || '';
@@ -240,6 +242,7 @@ function cardHtml(item){
         <div class="kv"><b>创新类别：</b>${esc(ptype) || '无'}</div>
         <div class="kv"><b>承接部门：</b>${esc(assignees) || '无'}</div>
         <div class="kv"><b>当前承接人：</b>${esc(handler) || '无'}</div>
+        ${projectResponsible ? `<div class="kv"><b>当前项目负责人：</b>${esc(projectResponsible)}</div>` : ''}
         <div class="kv"><b>处理时间：</b>${esc(handleTime) || '无'}</div>
         <div class="kv"><b>截止时间：</b>${esc(ddl) || '无'}</div>
         <div class="kv"><b>处理备注：</b>${esc(notes) || '无'}</div>
@@ -260,13 +263,17 @@ function cardHtml(item){
 
         <div class="mm-op-grid">
           <select class="form-select form-select-sm" id="flow_${no}">${flowOptions(deptStatus)}</select>
-          <select class="form-select form-select-sm" id="action_${no}">
+          <select class="form-select form-select-sm" id="action_${no}" onchange="toggleDeferredFields(${no})">
             <option value="">请选择处理动作</option>
             <option value="进行中|采纳，立即执行">采纳，立即执行</option>
             <option value="进行中|采纳，暂缓执行">采纳，暂缓执行</option>
             <option value="已拒绝|不采纳，不执行">不采纳，不执行</option>
             <option value="已拒绝|重复提案">重复提案</option>
           </select>
+          <div class="mm-deferred-fields" id="deferred_fields_${no}">
+            <input class="form-control form-control-sm" id="project_responsible_${no}" maxlength="50" placeholder="当前项目负责人（必填）">
+            <input class="form-control form-control-sm" id="expected_completion_date_${no}" type="date" aria-label="预计完成时间">
+          </div>
           <select class="form-select form-select-sm" id="score_${no}">
             <option value="">评分（可选）</option>
             <option value="A+">A+（100）</option>
@@ -363,6 +370,23 @@ function submitMeeting(id){
   }).catch(()=>{});
 }
 
+function toggleDeferredFields(id){
+  const actionElement = document.getElementById(`action_${id}`);
+  const group = document.getElementById(`deferred_fields_${id}`);
+  const responsible = document.getElementById(`project_responsible_${id}`);
+  const expectedDate = document.getElementById(`expected_completion_date_${id}`);
+  if(!actionElement || !group || !responsible || !expectedDate) return;
+  const operationType = (actionElement.value.split('|')[1] || '').trim();
+  const isDeferred = operationType === '采纳，暂缓执行';
+  group.style.display = isDeferred ? 'grid' : 'none';
+  responsible.required = isDeferred;
+  expectedDate.required = isDeferred;
+  if(!isDeferred){
+    responsible.value = '';
+    expectedDate.value = '';
+  }
+}
+
 function submitHandle(id){
   const flowId = document.getElementById(`flow_${id}`).value;
   const action = document.getElementById(`action_${id}`).value;
@@ -370,6 +394,12 @@ function submitHandle(id){
   const notes = (document.getElementById(`notes_${id}`).value || '').trim();
   if(!flowId || !action || !notes) return;
   const [status, operation_type] = action.split('|');
+  const projectResponsible = (document.getElementById(`project_responsible_${id}`)?.value || '').trim();
+  const expectedCompletionDate = document.getElementById(`expected_completion_date_${id}`)?.value || '';
+  if(operation_type === '采纳，暂缓执行' && (!projectResponsible || !expectedCompletionDate)){
+    window.alert('请填写当前项目负责人和预计完成时间');
+    return;
+  }
   const data = {
     innovation_id: id,
     flow_id: flowId,
@@ -377,11 +407,19 @@ function submitHandle(id){
     handler: MM_HANDLER,
     handler_notes: notes,
     score: score,
-    operation_type: operation_type || ''
+    operation_type: operation_type || '',
+    project_responsible: projectResponsible,
+    expected_completion_date: expectedCompletionDate
   };
-  axios.post('/innovation/api/handle_innovation', data).then(() => {
-    fetchList(false);
-  }).catch(()=>{});
+  axios.post('/innovation/api/handle_innovation', data).then((response) => {
+    if(response.data && response.data.success){
+      fetchList(false);
+      return;
+    }
+    window.alert((response.data && response.data.message) || '处理失败，请稍后重试');
+  }).catch((error) => {
+    window.alert(error.response?.data?.message || '处理失败，请稍后重试');
+  });
 }
 
 function fetchList(append){

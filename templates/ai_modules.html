@@ -441,6 +441,24 @@
 
             <div class="module-card">
                 <div class="module-icon">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <h3>创新提案超时提醒测试</h3>
+                <p>查询全部待承接超时提案，并立即执行一次真实消息推送</p>
+                <ul class="feature-list">
+                    <li>与每天早上9点的提醒规则一致</li>
+                    <li>展示实际接收人与发送结果</li>
+                    <li>可查看每个承接部门的消息正文</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('innovation_pending_reminder_test_page') }}" style="display: inline-block; background:#2563eb; color:white; padding:10px 26px; border-radius:6px; text-decoration:none; font-weight:600;">
+                        <i class="fas fa-flask"></i> 进入测试页面
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
                     <i class="fas fa-comments"></i>
                 </div>
                 <h3>小图问答</h3>
@@ -698,23 +716,58 @@
                 alert('项目编号必须为数字');
                 return;
             }
-            if(!confirm('确定要删除编号为 ' + projectId + ' 的创新项目吗？此操作不可撤销。')){
-                return;
-            }
             var oldText = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '删除中...';
+            btn.textContent = '正在读取项目...';
             if(status){
                 status.textContent = '';
                 status.style.color = '#374151';
             }
-            fetch('/api/ai/delete_innovation_project', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({project_id: projectId})
-            }).then(function(r){
-                return r.json();
+            fetch('/api/ai/innovation_project_preview?project_id=' + encodeURIComponent(projectId))
+            .then(function(r){
+                return r.json().then(function(j){
+                    return {ok: r.ok, data: j};
+                });
+            }).then(function(result){
+                var previewResult = result.data || {};
+                if(!result.ok || !previewResult.success){
+                    throw new Error(previewResult.message || '未能读取项目内容');
+                }
+
+                var project = previewResult.data || {};
+                var title = (project.title || '').trim() || '（无标题）';
+                var content = (project.content || '').trim() || '（无内容）';
+                if(content.length > 500){
+                    content = content.slice(0, 500) + '\n……（内容较长，已展示前500字）';
+                }
+
+                var confirmed = confirm(
+                    '请确认要删除的创新项目：\n\n' +
+                    '项目编号：' + projectId + '\n' +
+                    '项目标题：' + title + '\n' +
+                    '项目内容：' + content + '\n\n' +
+                    '删除后无法恢复，是否继续？'
+                );
+                if(!confirmed){
+                    if(status){
+                        status.textContent = '已取消删除';
+                        status.style.color = '#374151';
+                    }
+                    return null;
+                }
+
+                btn.textContent = '删除中...';
+                return fetch('/api/ai/delete_innovation_project', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({project_id: projectId})
+                }).then(function(r){
+                    return r.json();
+                });
             }).then(function(j){
+                if(!j){
+                    return;
+                }
                 if(j && j.success){
                     if(status){
                         status.textContent = j.message || '删除成功';

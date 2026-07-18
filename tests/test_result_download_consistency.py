@@ -57,6 +57,18 @@ class ResultDownloadConsistencyTests(unittest.TestCase):
         rendered_html = render_html.call_args.args[0]
         self.assertIn('"view": "http://example.com/history/20260718_001.webp"', rendered_html)
         self.assertIn('"download_name": "20260718_001.webp"', rendered_html)
+        self.assertIn('<img class="compare-native-result"', rendered_html)
+        self.assertIn(
+            "nativeResultImage.src = normalizeNativeResultSrc_compare_outpaint_1(pair.view || pair.result)",
+            rendered_html,
+        )
+        self.assertIn("hostWindow_compare_outpaint_1.location.hostname", rendered_html)
+        self.assertIn(
+            "openCompareFullscreen_compare_outpaint_1(pair.view || pair.result)",
+            rendered_html,
+        )
+        self.assertNotIn('control.addEventListener("contextmenu"', rendered_html)
+        self.assertNotIn("compare-context-menu", rendered_html)
 
 
 if __name__ == "__main__":

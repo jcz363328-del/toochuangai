@@ -6590,26 +6590,47 @@ def inject_app_styles() -> None:
             height: 100% !important;
             min-height: 100% !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.upload-preview-root) > div[data-testid="element-container"]:has(.delete-marker) {
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker) {
             display: none !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.upload-preview-root) > div[data-testid="element-container"]:has(.delete-marker) + div[data-testid="element-container"] {
-            position: relative;
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker)
+            + div:is([data-testid="stElementContainer"], [data-testid="element-container"]) {
+            position: absolute !important;
             z-index: 20;
-            width: 100% !important;
-            height: 0 !important;
+            top: 6px !important;
+            right: 6px !important;
+            width: 28px !important;
+            height: 28px !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
-            display: flex;
-            justify-content: flex-end;
-            top: 6px;
-            padding-right: 6px !important;
+            display: block !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.upload-preview-root) > div[data-testid="element-container"]:has(.delete-marker) + div[data-testid="element-container"] .stButton > button {
-            min-height: 24px !important;
-            height: 24px !important;
-            width: 24px !important;
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker)
+            + div:is([data-testid="stElementContainer"], [data-testid="element-container"]) [data-testid="stButton"],
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker)
+            + div:is([data-testid="stElementContainer"], [data-testid="element-container"]) [data-testid="stTooltipIcon"],
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker)
+            + div:is([data-testid="stElementContainer"], [data-testid="element-container"]) [data-testid="stTooltipHoverTarget"] {
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+            min-height: 28px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker)
+            + div:is([data-testid="stElementContainer"], [data-testid="element-container"]) button {
+            min-height: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+            width: 28px !important;
             padding: 0 !important;
             border-radius: 50% !important;
             background: rgba(255, 77, 90, 0.96) !important;
@@ -6622,12 +6643,16 @@ def inject_app_styles() -> None:
             box-shadow: 0 6px 14px rgba(0, 0, 0, 0.34) !important;
             opacity: 1 !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.upload-preview-root) > div[data-testid="element-container"]:has(.delete-marker) + div[data-testid="element-container"] .stButton > button:hover {
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker)
+            + div:is([data-testid="stElementContainer"], [data-testid="element-container"]) button:hover {
             background: rgba(255, 36, 74, 1) !important;
             border-color: rgba(255, 255, 255, 1) !important;
             color: #ffffff !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.upload-preview-root) > div[data-testid="element-container"]:has(.delete-marker) + div[data-testid="element-container"] .stButton p {
+        div[data-testid="stVerticalBlock"]:has(.upload-preview-root)
+            > div:is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.delete-marker)
+            + div:is([data-testid="stElementContainer"], [data-testid="element-container"]) button p {
             color: inherit !important;
             font-size: 15px !important;
             font-weight: 800 !important;
@@ -8285,12 +8310,12 @@ def render_uploaded_preview_card(
             """,
             unsafe_allow_html=True,
         )
+        render_upload_delete_button(
+            widget_key,
+            item_index,
+            button_key=f"delete_upload_{component_key}_{item_index}",
+        )
         if preview_renderer is not None:
-            render_upload_delete_button(
-                widget_key,
-                item_index,
-                button_key=f"delete_upload_{component_key}_{item_index}",
-            )
             preview_renderer(uploaded_input, item_index, component_key)
         else:
             render_zoomable_image_gallery(
@@ -8300,7 +8325,6 @@ def render_uploaded_preview_card(
                 component_key=component_key,
                 fit_mode="contain",
                 max_width_percent=100,
-                context_delete_token=build_upload_delete_token(widget_key, item_index),
             )
         st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
         replacement_upload = st.file_uploader(
@@ -9625,7 +9649,19 @@ def render_before_after_compare_gallery(
         height: 100%;
         opacity: 0;
         cursor: ew-resize;
+        pointer-events: none;
         z-index: 6;
+      }}
+      .compare-native-result {{
+        position: absolute;
+        display: block;
+        margin: 0;
+        opacity: 1;
+        object-fit: fill;
+        cursor: zoom-in;
+        user-select: none;
+        -webkit-user-drag: none;
+        z-index: 3;
       }}
       .compare-label {{
         position: absolute;
@@ -9654,53 +9690,6 @@ def render_before_after_compare_gallery(
         pointer-events: none;
         z-index: 5;
       }}
-      .compare-context-menu {{
-        position: absolute;
-        display: none;
-        min-width: 150px;
-        padding: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 10px;
-        background: rgba(8, 15, 31, 0.98);
-        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.38);
-        z-index: 20;
-      }}
-      .compare-context-menu.open {{ display: block; }}
-      .compare-context-menu button {{
-        width: 100%;
-        border: 0;
-        border-radius: 7px;
-        padding: 9px 12px;
-        background: transparent;
-        color: #f5f7ff;
-        font: inherit;
-        font-size: 13px;
-        font-weight: 700;
-        text-align: left;
-        cursor: pointer;
-      }}
-      .compare-context-menu button:hover {{ background: rgba(126, 96, 255, 0.24); }}
-      .compare-context-menu button + button {{ margin-top: 2px; }}
-      .compare-save-toast {{
-        position: absolute;
-        left: 50%;
-        bottom: 48px;
-        transform: translateX(-50%) translateY(8px);
-        max-width: calc(100% - 32px);
-        padding: 7px 11px;
-        border-radius: 9px;
-        background: rgba(8, 15, 31, 0.94);
-        border: 1px solid rgba(126, 96, 255, 0.34);
-        color: #f5f7ff;
-        font-size: 12px;
-        font-weight: 650;
-        text-align: center;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity .16s ease, transform .16s ease;
-        z-index: 19;
-      }}
-      .compare-save-toast.show {{ opacity: 1; transform: translateX(-50%) translateY(0); }}
       @media (max-width: 720px) {{
         .compare-pane {{ height: 520px; }}
       }}
@@ -9708,6 +9697,194 @@ def render_before_after_compare_gallery(
     <script>
       const pairs_{component_key} = {payload};
       const root_{component_key} = document.getElementById("{component_key}");
+      const hostWindow_{component_key} = (() => {{
+        try {{
+          return window.parent;
+        }} catch (error) {{
+          return window;
+        }}
+      }})();
+      const hostDoc_{component_key} = (() => {{
+        try {{
+          return window.parent.document;
+        }} catch (error) {{
+          return document;
+        }}
+      }})();
+      const normalizeNativeResultSrc_{component_key} = (src) => {{
+        const raw = String(src || "").trim();
+        if (!raw || raw.startsWith("data:")) return raw;
+        try {{
+          const parsed = new URL(raw, hostWindow_{component_key}.location.href);
+          const isStaticImageRoute =
+            parsed.pathname.startsWith("{HISTORY_STATIC_ROUTE_PREFIX}/") ||
+            parsed.pathname.startsWith("{JIMENG_UPLOAD_ROUTE_PREFIX}/");
+          if (!isStaticImageRoute) return parsed.toString();
+          const currentProtocol = hostWindow_{component_key}.location.protocol || parsed.protocol;
+          const currentHostname = hostWindow_{component_key}.location.hostname || parsed.hostname;
+          const currentPort = parsed.port ? ":" + parsed.port : "";
+          return `${{currentProtocol}}//${{currentHostname}}${{currentPort}}${{parsed.pathname}}${{parsed.search}}${{parsed.hash}}`;
+        }} catch (error) {{
+          return raw;
+        }}
+      }};
+      const ensureCompareFullscreen_{component_key} = () => {{
+        if (!hostDoc_{component_key}.getElementById("lashforge-fullscreen-style")) {{
+          const style = hostDoc_{component_key}.createElement("style");
+          style.id = "lashforge-fullscreen-style";
+          style.textContent = `
+            #lashforge-fullscreen-viewer {{
+              position: fixed;
+              inset: 0;
+              z-index: 999999;
+              background: rgba(3, 8, 22, 0.96);
+              display: none;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+            }}
+            #lashforge-fullscreen-viewer.active {{ display: flex; }}
+            #lashforge-fullscreen-viewer img {{
+              max-width: 96vw;
+              max-height: 96vh;
+              object-fit: contain;
+              transform-origin: center center;
+              transition: transform 0.08s linear;
+              user-select: none;
+              -webkit-user-drag: none;
+              cursor: grab;
+            }}
+            #lashforge-fullscreen-viewer img.dragging {{ cursor: grabbing; }}
+            #lashforge-fullscreen-close {{
+              position: fixed;
+              top: 18px;
+              right: 18px;
+              z-index: 1000000;
+              width: 42px;
+              height: 42px;
+              border-radius: 999px;
+              border: 1px solid rgba(255, 255, 255, 0.7);
+              background: rgba(15, 23, 42, 0.86);
+              color: #ffffff;
+              font-size: 28px;
+              line-height: 38px;
+              text-align: center;
+              cursor: pointer;
+              box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+            }}
+            #lashforge-fullscreen-close:hover {{ background: rgba(239, 68, 68, 0.92); }}
+          `;
+          hostDoc_{component_key}.head.appendChild(style);
+        }}
+        let overlay = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
+        if (overlay) return overlay;
+        overlay = hostDoc_{component_key}.createElement("div");
+        overlay.id = "lashforge-fullscreen-viewer";
+        overlay.innerHTML = '<button id="lashforge-fullscreen-close" type="button" aria-label="关闭预览" title="关闭">×</button><img id="lashforge-fullscreen-image" src="" alt="preview" />';
+        hostDoc_{component_key}.body.appendChild(overlay);
+        const state = {{
+          scale: 1,
+          offsetX: 0,
+          offsetY: 0,
+          dragging: false,
+          dragStartX: 0,
+          dragStartY: 0,
+          dragOriginX: 0,
+          dragOriginY: 0,
+        }};
+        hostWindow_{component_key}.__lashforgeFullscreenState = state;
+        const image = overlay.querySelector("img");
+        const applyTransform = () => {{
+          image.style.transform =
+            "translate(" + state.offsetX + "px, " + state.offsetY + "px) scale(" + state.scale + ")";
+        }};
+        const resetTransform = () => {{
+          state.scale = 1;
+          state.offsetX = 0;
+          state.offsetY = 0;
+          state.dragging = false;
+          image.classList.remove("dragging");
+          applyTransform();
+        }};
+        const closeOverlay = () => {{
+          overlay.classList.remove("active");
+          resetTransform();
+        }};
+        hostWindow_{component_key}.__lashforgeCloseFullscreen = closeOverlay;
+        overlay.querySelector("#lashforge-fullscreen-close").addEventListener("click", (event) => {{
+          event.preventDefault();
+          event.stopPropagation();
+          closeOverlay();
+        }});
+        overlay.addEventListener("click", (event) => {{
+          if (event.target === overlay) closeOverlay();
+        }});
+        overlay.addEventListener("wheel", (event) => {{
+          if (!overlay.classList.contains("active")) return;
+          event.preventDefault();
+          state.scale = event.deltaY < 0
+            ? Math.min(state.scale + 0.16, 6)
+            : Math.max(state.scale - 0.16, 0.35);
+          applyTransform();
+        }}, {{ passive: false }});
+        image.addEventListener("pointerdown", (event) => {{
+          if (!overlay.classList.contains("active") || event.button !== 0) return;
+          event.preventDefault();
+          state.dragging = true;
+          state.dragStartX = event.clientX;
+          state.dragStartY = event.clientY;
+          state.dragOriginX = state.offsetX;
+          state.dragOriginY = state.offsetY;
+          image.classList.add("dragging");
+          image.setPointerCapture && image.setPointerCapture(event.pointerId);
+        }});
+        image.addEventListener("pointermove", (event) => {{
+          if (!state.dragging) return;
+          event.preventDefault();
+          state.offsetX = state.dragOriginX + (event.clientX - state.dragStartX);
+          state.offsetY = state.dragOriginY + (event.clientY - state.dragStartY);
+          applyTransform();
+        }});
+        const stopImageDrag = () => {{
+          state.dragging = false;
+          image.classList.remove("dragging");
+        }};
+        image.addEventListener("pointerup", stopImageDrag);
+        image.addEventListener("pointercancel", stopImageDrag);
+        image.addEventListener("lostpointercapture", stopImageDrag);
+        if (hostWindow_{component_key}.__lashforgeFullscreenKeyHandler) {{
+          try {{
+            hostDoc_{component_key}.removeEventListener(
+              "keydown",
+              hostWindow_{component_key}.__lashforgeFullscreenKeyHandler,
+              true
+            );
+          }} catch (error) {{}}
+        }}
+        hostWindow_{component_key}.__lashforgeFullscreenKeyHandler = (event) => {{
+          if (event.key === "Escape") closeOverlay();
+        }};
+        hostDoc_{component_key}.addEventListener(
+          "keydown",
+          hostWindow_{component_key}.__lashforgeFullscreenKeyHandler,
+          true
+        );
+        return overlay;
+      }};
+      const openCompareFullscreen_{component_key} = (src) => {{
+        const overlay = ensureCompareFullscreen_{component_key}();
+        const image = hostDoc_{component_key}.getElementById("lashforge-fullscreen-image");
+        const state = hostWindow_{component_key}.__lashforgeFullscreenState || {{}};
+        state.scale = 1;
+        state.offsetX = 0;
+        state.offsetY = 0;
+        state.dragging = false;
+        hostWindow_{component_key}.__lashforgeFullscreenState = state;
+        image.src = normalizeNativeResultSrc_{component_key}(src);
+        image.classList.remove("dragging");
+        image.style.transform = "translate(0px, 0px) scale(1)";
+        overlay.classList.add("active");
+      }};
       pairs_{component_key}.forEach((pair, index) => {{
         const wrap = document.createElement("div");
         const title = document.createElement("div");
@@ -9720,16 +9897,11 @@ def render_before_after_compare_gallery(
             <canvas class="compare-canvas"></canvas>
             <span class="compare-label left">原图</span>
             <span class="compare-label right">效果图</span>
-            <span class="compare-download-hint">右键效果图可选择保存方式</span>
+            <span class="compare-download-hint">左键查看大图 · 右键使用 Chrome 原生菜单</span>
             <div class="compare-line"></div>
             <div class="compare-knob"></div>
             <input class="compare-slider" type="range" min="0" max="100" value="50" aria-label="对比滑块">
-            <div class="compare-context-menu" role="menu">
-              <button type="button" role="menuitem" data-save-action="download">直接保存效果图</button>
-              <button type="button" role="menuitem" data-save-action="save-as">选择位置 / 系统保存</button>
-              <button type="button" role="menuitem" data-save-action="open">打开原图后保存</button>
-            </div>
-            <div class="compare-save-toast" role="status" aria-live="polite"></div>
+            <img class="compare-native-result" alt="效果图原图" draggable="false">
           </div>`;
         wrap.appendChild(title);
         wrap.appendChild(grid);
@@ -9740,11 +9912,7 @@ def render_before_after_compare_gallery(
         const slider = control.querySelector(".compare-slider");
         const line = control.querySelector(".compare-line");
         const knob = control.querySelector(".compare-knob");
-        const contextMenu = control.querySelector(".compare-context-menu");
-        const saveButton = contextMenu.querySelector('[data-save-action="download"]');
-        const saveAsButton = contextMenu.querySelector('[data-save-action="save-as"]');
-        const openButton = contextMenu.querySelector('[data-save-action="open"]');
-        const saveToast = control.querySelector(".compare-save-toast");
+        const nativeResultImage = control.querySelector(".compare-native-result");
         const sourceImage = new Image();
         const resultImage = new Image();
         let currentValue = 50;
@@ -9819,6 +9987,11 @@ def render_before_after_compare_gallery(
           line.style.height = `${{drawBox.height}}px`;
           knob.style.left = `${{lineLeft}}px`;
           knob.style.top = `${{drawBox.y + drawBox.height / 2}}px`;
+          nativeResultImage.style.left = `${{drawBox.x}}px`;
+          nativeResultImage.style.top = `${{drawBox.y}}px`;
+          nativeResultImage.style.width = `${{drawBox.width}}px`;
+          nativeResultImage.style.height = `${{drawBox.height}}px`;
+          nativeResultImage.style.clipPath = `inset(0 0 0 ${{currentValue}}%)`;
         }};
         const update = (nextValue) => {{
           const value = Math.max(0, Math.min(100, Number(nextValue ?? slider.value ?? 50)));
@@ -9835,147 +10008,53 @@ def render_before_after_compare_gallery(
           update(((localX - boxStart) / boxWidth) * 100);
         }};
         let dragging = false;
+        let dragMoved = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let pointerDownOnEffect = false;
         control.addEventListener("pointerdown", (event) => {{
           if (event.button !== 0) return;
-          if (contextMenu.contains(event.target)) return;
-          contextMenu.classList.remove("open");
           dragging = true;
+          dragMoved = false;
+          dragStartX = event.clientX;
+          dragStartY = event.clientY;
+          pointerDownOnEffect = event.target === nativeResultImage;
           control.setPointerCapture && control.setPointerCapture(event.pointerId);
-          updateFromPointer(event);
+          if (!pointerDownOnEffect) updateFromPointer(event);
         }});
         control.addEventListener("pointermove", (event) => {{
           if (!dragging) return;
+          if (Math.hypot(event.clientX - dragStartX, event.clientY - dragStartY) > 5) {{
+            dragMoved = true;
+          }}
+          if (!dragMoved && pointerDownOnEffect) return;
           updateFromPointer(event);
         }});
         const stopDrag = () => {{ dragging = false; }};
         control.addEventListener("pointerup", stopDrag);
-        control.addEventListener("pointercancel", stopDrag);
+        control.addEventListener("pointercancel", () => {{
+          dragging = false;
+          pointerDownOnEffect = false;
+          dragMoved = false;
+        }});
         control.addEventListener("lostpointercapture", stopDrag);
-        control.addEventListener("contextmenu", (event) => {{
-          const rect = control.getBoundingClientRect();
-          const localX = event.clientX - rect.left;
-          const effectStart = drawBox.x + drawBox.width * currentValue / 100;
-          if (localX < effectStart) {{
-            contextMenu.classList.remove("open");
-            return;
-          }}
+        control.addEventListener("click", (event) => {{
+          const shouldOpen = pointerDownOnEffect && !dragMoved;
+          pointerDownOnEffect = false;
+          dragMoved = false;
+          if (!shouldOpen) return;
           event.preventDefault();
           event.stopPropagation();
-          const menuWidth = 218;
-          const menuHeight = 132;
-          contextMenu.style.left = `${{Math.max(8, Math.min(localX, rect.width - menuWidth - 8))}}px`;
-          contextMenu.style.top = `${{Math.max(8, Math.min(event.clientY - rect.top, rect.height - menuHeight - 8))}}px`;
-          contextMenu.classList.add("open");
-        }});
-        let saveToastTimer = null;
-        const showSaveToast = (message) => {{
-          if (!saveToast) return;
-          saveToast.textContent = message;
-          saveToast.classList.add("show");
-          if (saveToastTimer) window.clearTimeout(saveToastTimer);
-          saveToastTimer = window.setTimeout(() => saveToast.classList.remove("show"), 2600);
-        }};
-        const getSaveName = () => pair.download_name || `扩图效果图_${{index + 1}}.png`;
-        const triggerLink = (href, fileName = "", openInNewTab = false) => {{
-          if (!href) return false;
-          const link = document.createElement("a");
-          link.href = href;
-          if (fileName) link.download = fileName;
-          if (openInNewTab) link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          return true;
-        }};
-        const fetchOriginalBlob = async () => {{
-          const source = pair.view || pair.download || pair.result;
-          const response = await fetch(source, {{ mode: "cors", credentials: "omit", cache: "no-store" }});
-          if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
-          const blob = await response.blob();
-          if (!blob || blob.size <= 0) throw new Error("empty image");
-          return blob;
-        }};
-        const downloadBlob = (blob, fileName) => {{
-          const blobUrl = URL.createObjectURL(blob);
-          triggerLink(blobUrl, fileName, false);
-          window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1800);
-        }};
-        saveButton.addEventListener("click", (event) => {{
-          event.preventDefault();
-          event.stopPropagation();
-          contextMenu.classList.remove("open");
-          triggerLink(pair.download || pair.view || pair.result, getSaveName(), true);
-          showSaveToast("已提交原图下载");
-        }});
-        saveAsButton.addEventListener("click", async (event) => {{
-          event.preventDefault();
-          event.stopPropagation();
-          contextMenu.classList.remove("open");
-          const fileName = getSaveName();
-          let fileHandle = null;
-          if (typeof window.showSaveFilePicker === "function") {{
-            try {{
-              fileHandle = await window.showSaveFilePicker({{
-                suggestedName: fileName,
-                types: [{{
-                  description: "图片文件",
-                  accept: {{
-                    "image/png": [".png"],
-                    "image/jpeg": [".jpg", ".jpeg"],
-                    "image/webp": [".webp"]
-                  }}
-                }}]
-              }});
-            }} catch (error) {{
-              if (error && error.name === "AbortError") return;
-              fileHandle = null;
-            }}
-          }}
-          try {{
-            const blob = await fetchOriginalBlob();
-            if (fileHandle) {{
-              const writable = await fileHandle.createWritable();
-              await writable.write(blob);
-              await writable.close();
-              showSaveToast("效果图已保存到所选位置");
-              return;
-            }}
-            if (typeof File === "function" && navigator.share && navigator.canShare) {{
-              const sharedFile = new File([blob], fileName, {{ type: blob.type || "image/png" }});
-              if (navigator.canShare({{ files: [sharedFile] }})) {{
-                try {{
-                  await navigator.share({{ files: [sharedFile], title: fileName }});
-                  showSaveToast("已打开系统保存 / 分享");
-                  return;
-                }} catch (error) {{
-                  if (error && error.name === "AbortError") return;
-                }}
-              }}
-            }}
-            downloadBlob(blob, fileName);
-            showSaveToast("当前浏览器已自动改为下载保存");
-          }} catch (error) {{
-            triggerLink(pair.download || pair.view || pair.result, fileName, true);
-            showSaveToast("浏览器限制另存为，已改用直接下载");
-          }}
-        }});
-        openButton.addEventListener("click", (event) => {{
-          event.preventDefault();
-          event.stopPropagation();
-          contextMenu.classList.remove("open");
-          triggerLink(pair.view || pair.download || pair.result, "", true);
-          showSaveToast("已在新页面打开原图，可使用浏览器保存");
-        }});
-        document.addEventListener("click", (event) => {{
-          if (!contextMenu.contains(event.target)) contextMenu.classList.remove("open");
+          openCompareFullscreen_{component_key}(pair.view || pair.result);
         }});
         slider.addEventListener("input", () => update(slider.value));
         window.addEventListener("resize", () => update(slider.value));
         sourceImage.addEventListener("load", () => update(currentValue));
         resultImage.addEventListener("load", () => update(currentValue));
+        nativeResultImage.addEventListener("dragstart", (event) => event.preventDefault());
         sourceImage.src = pair.source;
         resultImage.src = pair.result;
+        nativeResultImage.src = normalizeNativeResultSrc_{component_key}(pair.view || pair.result);
         update(50);
       }});
     </script>

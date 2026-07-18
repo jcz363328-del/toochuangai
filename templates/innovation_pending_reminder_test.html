@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创新提案超时提醒测试</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #172033; background: #f4f6f8; font-family: "Microsoft YaHei", Arial, sans-serif; }
+        .topbar { background: #ffffff; border-bottom: 1px solid #dfe3e8; }
+        .topbar-inner { width: min(1180px, calc(100% - 32px)); margin: 0 auto; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .topbar h1 { margin: 0; font-size: 20px; }
+        .back-link { color: #44546a; text-decoration: none; font-size: 14px; }
+        .page { width: min(1180px, calc(100% - 32px)); margin: 24px auto 48px; }
+        .action-panel { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px; background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; }
+        .action-copy h2 { margin: 0 0 7px; font-size: 18px; }
+        .action-copy p { margin: 0; color: #a15c00; font-size: 14px; line-height: 1.6; }
+        .send-btn { flex: 0 0 auto; min-height: 42px; padding: 0 18px; border: 0; border-radius: 6px; color: #fff; background: #c2410c; font-weight: 700; cursor: pointer; }
+        .send-btn:disabled { cursor: wait; opacity: .62; }
+        .status { min-height: 24px; margin: 14px 0; color: #526174; font-size: 14px; }
+        .status.error { color: #b42318; }
+        .status.success { color: #067647; }
+        .summary { display: none; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+        .metric { padding: 15px; background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; }
+        .metric span { display: block; color: #667085; font-size: 13px; }
+        .metric strong { display: block; margin-top: 5px; font-size: 24px; }
+        .result-list { display: grid; gap: 12px; }
+        .result-row { background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; overflow: hidden; }
+        .result-head { display: grid; grid-template-columns: minmax(130px, 1fr) repeat(4, minmax(80px, .7fr)); gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #e7eaee; }
+        .result-head h3 { margin: 0; font-size: 16px; }
+        .result-stat { color: #526174; font-size: 13px; }
+        .recipient-list { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .recipient { padding: 5px 8px; border: 1px solid #ccd3dc; border-radius: 5px; color: #344054; background: #f8fafc; font-size: 12px; overflow-wrap: anywhere; }
+        .recipient.ok { border-color: #75c69b; color: #067647; background: #ecfdf3; }
+        .recipient.fail { border-color: #f2a6a0; color: #b42318; background: #fef3f2; }
+        details { border-top: 1px solid #e7eaee; }
+        summary { padding: 12px 16px; color: #175cd3; cursor: pointer; font-size: 14px; }
+        pre { margin: 0; padding: 16px; max-height: 460px; overflow: auto; background: #111827; color: #edf2f7; font: 13px/1.65 Consolas, "Microsoft YaHei", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .empty { padding: 28px; text-align: center; background: #fff; border: 1px solid #dfe3e8; border-radius: 8px; color: #667085; }
+        @media (max-width: 760px) {
+            .action-panel { align-items: stretch; flex-direction: column; }
+            .send-btn { width: 100%; }
+            .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .result-head { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .result-head h3 { grid-column: 1 / -1; }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <h1><i class="fas fa-bell"></i> 创新提案超时提醒测试</h1>
+            <a class="back-link" href="{{ url_for('ai_modules') }}"><i class="fas fa-arrow-left"></i> 返回AI部功能</a>
+        </div>
+    </header>
+
+    <main class="page">
+        <section class="action-panel">
+            <div class="action-copy">
+                <h2>立即执行提醒</h2>
+                <p>此操作会查询实时数据，并立即向实际承接人发送飞书消息。</p>
+            </div>
+            <button class="send-btn" id="sendButton" type="button">
+                <i class="fas fa-paper-plane"></i> 立即查询并发送
+            </button>
+        </section>
+
+        <div class="status" id="statusText" aria-live="polite"></div>
+
+        <section class="summary" id="summaryPanel">
+            <div class="metric"><span>超时提案</span><strong id="overdueCount">0</strong></div>
+            <div class="metric"><span>承接人</span><strong id="assigneeCount">0</strong></div>
+            <div class="metric"><span>实际接收人</span><strong id="recipientCount">0</strong></div>
+            <div class="metric"><span>发送成功 / 失败</span><strong id="sendCount">0 / 0</strong></div>
+        </section>
+
+        <section class="result-list" id="resultList"></section>
+    </main>
+
+    <script>
+        function createTextElement(tag, className, text) {
+            const element = document.createElement(tag);
+            if (className) element.className = className;
+            element.textContent = text;
+            return element;
+        }
+
+        function renderResults(data) {
+            const summary = document.getElementById('summaryPanel');
+            const resultList = document.getElementById('resultList');
+            document.getElementById('overdueCount').textContent = String(data.overdue_count || 0);
+            document.getElementById('assigneeCount').textContent = String(data.assignee_count || 0);
+            document.getElementById('recipientCount').textContent = String(data.recipient_count || 0);
+            document.getElementById('sendCount').textContent = String(data.success_count || 0) + ' / ' + String(data.failed_count || 0);
+            summary.style.display = 'grid';
+            resultList.replaceChildren();
+
+            const assignees = data.assignees || {};
+            const entries = Object.entries(assignees);
+            if (!entries.length) {
+                resultList.appendChild(createTextElement('div', 'empty', '当前没有符合条件的超时待承接提案'));
+                return;
+            }
+
+            entries.forEach(function (entry) {
+                const assignee = entry[0];
+                const info = entry[1] || {};
+                const row = createTextElement('article', 'result-row', '');
+                const head = createTextElement('div', 'result-head', '');
+                head.appendChild(createTextElement('h3', '', assignee));
+                head.appendChild(createTextElement('div', 'result-stat', '提案 ' + String(info.project_count || 0) + ' 条'));
+                head.appendChild(createTextElement('div', 'result-stat', '接收人 ' + String(info.recipient_count || 0) + ' 人'));
+                head.appendChild(createTextElement('div', 'result-stat', '成功 ' + String(info.success || 0)));
+                head.appendChild(createTextElement('div', 'result-stat', '失败 ' + String(info.failed || 0)));
+                row.appendChild(head);
+
+                const recipients = createTextElement('div', 'recipient-list', '');
+                (info.recipients || []).forEach(function (recipient) {
+                    const displayName = recipient.name || recipient.id || '未知接收人';
+                    const idText = recipient.id && recipient.id !== displayName ? ' (' + recipient.id + ')' : '';
+                    const resultText = recipient.success ? '发送成功' : '发送失败';
+                    const errorText = !recipient.success && recipient.error ? ' · ' + recipient.error : '';
+                    recipients.appendChild(createTextElement(
+                        'span',
+                        'recipient ' + (recipient.success ? 'ok' : 'fail'),
+                        displayName + idText + ' · ' + resultText + errorText
+                    ));
+                });
+                row.appendChild(recipients);
+
+                const details = document.createElement('details');
+                details.appendChild(createTextElement('summary', '', '查看发送内容'));
+                details.appendChild(createTextElement('pre', '', info.message || '（无消息内容）'));
+                row.appendChild(details);
+                resultList.appendChild(row);
+            });
+        }
+
+        async function sendReminderTest() {
+            const button = document.getElementById('sendButton');
+            const status = document.getElementById('statusText');
+            button.disabled = true;
+            status.className = 'status';
+            status.textContent = '正在查询超时提案并发送飞书消息…';
+            try {
+                const response = await fetch('/api/ai/innovation_pending_reminder/test-send', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}'
+                });
+                const payload = await response.json().catch(function () { return {}; });
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.message || '查询或发送失败');
+                }
+                renderResults(payload.data || {});
+                status.className = 'status success';
+                status.textContent = payload.message || '查询与发送已完成';
+            } catch (error) {
+                status.className = 'status error';
+                status.textContent = error && error.message ? error.message : '查询或发送失败';
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        document.getElementById('sendButton').addEventListener('click', sendReminderTest);
+    </script>
+</body>
+</html>

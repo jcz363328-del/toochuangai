@@ -509,6 +509,18 @@
                         </select>
                     </div>
 
+                    <div class="row g-3 mb-3 d-none" id="deferredProjectFields">
+                        <div class="col-md-6">
+                            <label for="handleProjectResponsible" class="form-label">当前项目负责人 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="handleProjectResponsible" name="project_responsible"
+                                   maxlength="50" autocomplete="off" placeholder="请输入当前项目负责人">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="handleExpectedCompletionDate" class="form-label">预计完成时间 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="handleExpectedCompletionDate" name="expected_completion_date">
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label for="handleHandler" class="form-label">处理人 <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="handleHandler" name="handler" required
@@ -870,38 +882,51 @@ function initCommitteePermissions() {
     }
 }
 
-// 状态变化时显示/隐藏评分
-document.getElementById('handleStatus').addEventListener('change', function() {
+// 采纳类型变化时同步负责人、完成时间和评分校验。
+function updateHandleConditionalFields() {
+    const statusSelect = document.getElementById('handleStatus');
+    const selectedOption = statusSelect.options[statusSelect.selectedIndex];
+    const operationType = selectedOption ? (selectedOption.getAttribute('data-operation-type') || '') : '';
+    const isDeferred = operationType === '采纳，暂缓执行';
+    const deferredFields = document.getElementById('deferredProjectFields');
+    const projectResponsible = document.getElementById('handleProjectResponsible');
+    const expectedCompletionDate = document.getElementById('handleExpectedCompletionDate');
     const scoreGroup = document.getElementById('scoreGroup');
     const scoreSelect = document.getElementById('handleScore');
     const label = document.querySelector('label[for="handleScore"]');
     const scoreDescription = document.getElementById('scoreDescription');
 
-    // 根据状态决定是否显示评分选项
-    if (this.value === '采纳，立即执行' || this.value === '采纳，暂缓执行' ||
-        this.value === '重复提案' || this.value === '不采纳，不执行') {
-        // 这些状态需要评分
+    deferredFields.classList.toggle('d-none', !isDeferred);
+    projectResponsible.required = isDeferred;
+    expectedCompletionDate.required = isDeferred;
+    if (!isDeferred) {
+        projectResponsible.value = '';
+        expectedCompletionDate.value = '';
+    }
+
+    if (['采纳，立即执行', '采纳，暂缓执行', '重复提案', '不采纳，不执行'].includes(operationType)) {
         scoreGroup.style.display = 'block';
         scoreSelect.required = true;
         label.innerHTML = '提案评分 <span class="text-danger">*</span>';
 
-        if (this.value === '采纳，立即执行') {
+        if (operationType === '采纳，立即执行') {
             scoreDescription.textContent = '立即执行评分：基于提案创新性、可行性和预期效果进行评估';
-        } else if (this.value === '采纳，暂缓执行') {
+        } else if (operationType === '采纳，暂缓执行') {
             scoreDescription.textContent = '暂缓执行评分：基于提案价值和当前资源情况进行评估';
-        } else if (this.value === '重复提案') {
+        } else if (operationType === '重复提案') {
             scoreDescription.textContent = '重复提案评分：通常为E级，除非有新的创新点';
-        } else if (this.value === '不采纳，不执行') {
+        } else if (operationType === '不采纳，不执行') {
             scoreDescription.textContent = '不采纳评分：基于提案质量和可行性进行评估';
         }
     } else {
-        // 其他状态（如'已完成'、'待承接'、'进行中'等）不强制要求评分
         scoreGroup.style.display = 'block';
         scoreSelect.required = false;
         label.innerHTML = '提案评分';
         scoreDescription.textContent = '可选：如需要可以填写评分等级';
     }
-});
+}
+
+document.getElementById('handleStatus').addEventListener('change', updateHandleConditionalFields);
 
 // 图片预览
 document.getElementById('imageFile').addEventListener('change', function(e) {
@@ -1287,6 +1312,11 @@ function renderInnovations() {
                                 ${innovation.handler ? `
                                 <div class="col-sm-6">
                                     <i class="bi bi-person-check"></i> 最新处理人：${innovation.handler}
+                                </div>
+                                ` : ''}
+                                ${innovation.project_responsible ? `
+                                <div class="col-sm-6">
+                                    <i class="bi bi-person-badge-fill text-primary"></i> 当前项目负责人：${escapeHtml(innovation.project_responsible)}
                                 </div>
                                 ` : ''}
                                 ${innovation.handle_time ? `
@@ -2029,6 +2059,10 @@ function submitToMeeting(innovationId) {
 
 // 打开处理模态框
 function openHandleModal(innovationId) {
+    const handleForm = document.getElementById('handleForm');
+    handleForm.reset();
+    updateHandleConditionalFields();
+
     // 获取创新提案详情
     const innovation = allInnovations.find(item => item.id === innovationId);
     if (innovation) {
@@ -2529,7 +2563,9 @@ function submitHandle() {
         handler: document.getElementById('handleHandler').value,
         handler_notes: finalNotesValue, // 使用trim后的值
         score: document.getElementById('handleScore').value,
-        operation_type: operationType
+        operation_type: operationType,
+        project_responsible: document.getElementById('handleProjectResponsible').value.trim(),
+        expected_completion_date: document.getElementById('handleExpectedCompletionDate').value
     };
 
     console.log('📤 最终发送的数据:', data);
