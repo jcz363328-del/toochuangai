@@ -1,9 +1,16 @@
 param(
     [int]$CheckIntervalSeconds = 15,
+    [int]$ConsecutiveFailureThreshold = 3,
     [switch]$OpenBrowser
 )
 
 $ErrorActionPreference = "Stop"
+
+# Some launchers inject both `Path` and `PATH`. Start-Process treats them as
+# duplicate keys on Windows, so normalize the process environment first.
+$processPathValue = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable("PATH", $null, [EnvironmentVariableTarget]::Process)
+[Environment]::SetEnvironmentVariable("Path", $processPathValue, [EnvironmentVariableTarget]::Process)
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $appScript = Join-Path $scriptDir "openrouter_image_site.py"
@@ -79,7 +86,13 @@ function Start-XiaoHaProcess {
         "--server.baseUrlPath",
         "lashforge",
         "--server.headless",
-        "true"
+        "true",
+        "--server.websocketPingInterval",
+        "20",
+        "--server.disconnectedSessionTTL",
+        "86400",
+        "--server.fileWatcherType",
+        "none"
     )
 
     $process = Start-Process `
@@ -112,22 +125,35 @@ try {
 
     Write-Log ("XiaoHa watchdog started; data root: {0}" -f $dataRoot)
     $browserOpened = $false
+    $consecutiveFailures = 0
+    $failureThreshold = [Math]::Max(1, $ConsecutiveFailureThreshold)
 
     while ($true) {
         if (-not (Test-XiaoHaHealth)) {
-            Write-Log "Health check failed, restarting service"
-            Stop-XiaoHaProcess
-            Start-XiaoHaProcess
-            Start-Sleep -Seconds 8
-            if (Test-XiaoHaHealth) {
-                Write-Log "Service recovered successfully"
-            } else {
-                Write-Log "Service restart attempted but health check is still failing"
+            $consecutiveFailures += 1
+            Write-Log ("Health check failed ({0}/{1}); keeping the current process until the threshold is reached" -f $consecutiveFailures, $failureThreshold)
+            if ($consecutiveFailures -ge $failureThreshold) {
+                Write-Log "Health check failure threshold reached, restarting service"
+                Stop-XiaoHaProcess
+                Start-XiaoHaProcess
+                Start-Sleep -Seconds 8
+                if (Test-XiaoHaHealth) {
+                    Write-Log "Service recovered successfully"
+                    $consecutiveFailures = 0
+                } else {
+                    Write-Log "Service restart attempted but health check is still failing"
+                }
             }
-        } elseif (-not $browserOpened -and $OpenBrowser) {
-            Start-Process $publicUrl
-            $browserOpened = $true
-            Write-Log "Opened XiaoHa URL in browser"
+        } else {
+            if ($consecutiveFailures -gt 0) {
+                Write-Log "Health check recovered without restarting the service"
+                $consecutiveFailures = 0
+            }
+            if (-not $browserOpened -and $OpenBrowser) {
+                Start-Process $publicUrl
+                $browserOpened = $true
+                Write-Log "Opened XiaoHa URL in browser"
+            }
         }
 
         Start-Sleep -Seconds $CheckIntervalSeconds

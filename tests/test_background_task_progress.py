@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import inspect
 import unittest
+from unittest.mock import patch
 
 from 图片 import openrouter_image_site as site
 
@@ -18,6 +20,39 @@ class BackgroundTaskProgressTests(unittest.TestCase):
     def test_spinner_progress_is_clamped_to_running_range(self) -> None:
         self.assertIn("99%", site.build_running_job_spinner_html(100, "即将完成"))
         self.assertIn("1%", site.build_running_job_spinner_html(0, "正在准备"))
+
+    def test_manual_element_recognition_runs_as_a_background_job(self) -> None:
+        detected = {
+            "id": 2,
+            "name": "遗漏产品",
+            "type": "product",
+            "regions": [[100, 100, 400, 400]],
+        }
+        with (
+            patch.object(
+                site,
+                "analyze_main_image_a_plus_element_at_point",
+                return_value=detected,
+            ) as analyze,
+            patch.object(site, "set_task_progress") as progress,
+        ):
+            result = site.run_main_image_a_plus_manual_element_job(
+                {"name": "template.png", "type": "image/png", "data": b"image"},
+                (250, 300),
+                [{"id": 1, "name": "模特", "regions": [[0, 0, 100, 100]]}],
+                "manual-job",
+            )
+
+        self.assertEqual(result, detected)
+        analyze.assert_called_once()
+        self.assertEqual(progress.call_args_list[-1].args, ("manual-job", 100, "补漏识别完成"))
+
+        render_source = inspect.getsource(site.render_openrouter_feature)
+        self.assertIn("submit_main_image_a_plus_manual_element_job", render_source)
+        self.assertNotIn(
+            "new_element = analyze_main_image_a_plus_element_at_point",
+            render_source,
+        )
 
 
 if __name__ == "__main__":

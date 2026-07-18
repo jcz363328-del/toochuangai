@@ -692,7 +692,7 @@ def tk_dashboard_project_page():
         precomputed_shops=shop_options,
         precomputed_shop_payloads=_precomputed_shop_payloads,
         precomputed_week_shop_payloads=_precomputed_week_shop_payloads,
-        page_title='TK项目组部分权限看板',
+        page_title='内容生产工厂部分权限看板',
         page_desc='和TK整体看板一样可查看所有店铺，但展示字段与82号店看板一致',
         fixed_shop=None,
         restrict_like_82=True,

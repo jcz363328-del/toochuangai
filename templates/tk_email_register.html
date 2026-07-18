@@ -732,7 +732,7 @@
                 </a>
                 {% else %}
                 <a class="nav-link" href="{{ url_for('tk_project') }}">
-                    <i class="fas fa-project-diagram"></i> 返回TK项目
+                    <i class="fas fa-project-diagram"></i> 返回内容生产工厂
                 </a>
                 {% endif %}
                 <a class="nav-link" href="{{ url_for('dashboard') }}">
@@ -750,7 +750,7 @@
                 {% if is_tech_email %}
                 <li class="breadcrumb-item"><a href="{{ url_for('tech_dept') }}">技术部功能</a></li>
                 {% else %}
-                <li class="breadcrumb-item"><a href="{{ url_for('tk_project') }}">TK项目组功能</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('tk_project') }}">内容生产工厂</a></li>
                 {% endif %}
                 {% if is_tech_email %}
                 <li class="breadcrumb-item active" aria-current="page">定时邮件_技术部</li>
@@ -769,7 +769,7 @@
             <p class="lead">管理和跟踪技术部的邮件往来记录</p>
             {% else %}
             <h1><i class="fas fa-envelope"></i> 定时邮件</h1>
-            <p class="lead">统一管理TK项目组邮件登记、模板与定时发送</p>
+            <p class="lead">统一管理内容生产工厂邮件登记、模板与定时发送</p>
             {% endif %}
         </div>
     </div>

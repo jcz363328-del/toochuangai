@@ -22,7 +22,7 @@ FEISHU_CONFIG = dict(SECRET_FEISHU_CONFIG)
 DEPARTMENT_ID_MAPPING = {
     # 根据实际飞书组织架构配置部门ID和名称的映射关系
     # 格式: 'department_id': 'department_name'
-    'od-c560effca33bf715c15f79a0670fe6ba': 'TK项目',
+    'od-c560effca33bf715c15f79a0670fe6ba': '内容生产工厂',
     'od-1fd573a06618d5efc50558aa4c6c8fde': 'BD部',
     'od-411009520c49cf4d96112d486356cacd': '短视频部',
     'od-3a5fdfc4a7c8a87f5f35b297dce74113': '客服',
@@ -45,7 +45,8 @@ DEPARTMENT_ID_MAPPING = {
     'od-6fffe97f7129ad9bc85162ac5cabcb20': 'TK部门',
 }
 
-DEPARTMENT_TREE_INHERIT_ROOTS = {'TK项目', '运营部'}
+# 根部门权限按飞书父子部门链自动向下继承，无需逐个枚举子部门名称。
+DEPARTMENT_TREE_INHERIT_ROOTS = {'内容生产工厂', '运营部'}
 DEPARTMENT_TREE_INHERIT_EXCLUDED_DEPARTMENTS = {'新人组'}
 
 # 权限配置 - 根据需求定义各功能模块的部门权限
@@ -67,26 +68,26 @@ PERMISSION_CONFIG = {
         'description': '根据亚马逊站内信生成合规英文回复，并支持规则与场景管理'
     },
 
-    # TK项目组功能
+    # 内容生产工厂功能
     'tk_email_register': {
         'name': '定时邮件',
-        'allowed_departments': ['TK项目','TK部门','TK直播部','BD部', '短视频部', '客服', '产品&店铺运营', 'AI部', '总经办','深圳团队', '技术部'],
+        'allowed_departments': ['内容生产工厂','TK部门','TK直播部','BD部', '短视频部', '客服', '产品&店铺运营', 'AI部', '总经办','深圳团队', '技术部'],
         'description': '邮件定时发送功能'
     },
     'tk_video_realtime': {
         'name': '实时视频数据',
-        'allowed_departments': ['TK项目','TK部门','TK直播部','BD部', '短视频部', '客服', '产品&店铺运营', '摄影部', 'AI部', '总经办','财务部','深圳团队', '技术部'],
+        'allowed_departments': ['内容生产工厂','TK部门','TK直播部','BD部', '短视频部', '客服', '产品&店铺运营', '摄影部', 'AI部', '总经办','财务部','深圳团队', '技术部'],
         'description': '按店铺/达人查看视频链接、标题、标签、时长、点赞/播放/评论/收藏/分享、抓取时间等数据'
     },
     'tk_dashboard': {
         'name': 'OKAYLOVE数据看板',
-        'allowed_departments': ['TK项目','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', 'AI部', '总经办','财务部','深圳团队'],
-        'description': 'TK项目组86店数据看板'
+        'allowed_departments': ['内容生产工厂','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', 'AI部', '总经办','财务部','深圳团队'],
+        'description': '内容生产工厂86店数据看板'
     },
     'tk_total_dashboard': {
         'name': '数据看板汇总',
-        'allowed_departments': ['TK项目','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', 'AI部', '总经办','财务部','深圳团队'],
-        'description': 'TK项目组整体数据看板'
+        'allowed_departments': ['内容生产工厂','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', 'AI部', '总经办','财务部','深圳团队'],
+        'description': '内容生产工厂整体数据看板'
     },
     'xiaotu_qa': {
         'name': '小图问答',
@@ -100,9 +101,9 @@ PERMISSION_CONFIG = {
     },
     # 部门组功能卡片
     'tk_project_group': {
-        'name': 'TK项目组功能',
-        'allowed_departments': ['TK项目','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', '新人组', 'AI部', '总经办','财务部','','亚马逊'],
-        'description': 'TK项目组专属功能模块'
+        'name': '内容生产工厂',
+        'allowed_departments': ['内容生产工厂','TK部门','TK直播部', 'BD部', '短视频部', '客服', '产品&店铺运营', '新人组', 'AI部', '总经办','财务部','','亚马逊'],
+        'description': '内容生产工厂专属功能模块'
     },
     'warehouse_group': {
         'name': '仓储部组功能',
@@ -190,12 +191,12 @@ PERMISSION_CONFIG = {
     # 保留原有的特定功能（向后兼容）
     'script_generator': {
         'name': '脚本生成器',
-        'allowed_departments': ['BD部', 'TK部门', 'TK直播部', '短视频部', 'AI部', '总经办','深圳团队'],  # TK项目的短视频和BD部门 + AI部和总经办
+        'allowed_departments': ['BD部', 'TK部门', 'TK直播部', '短视频部', 'AI部', '总经办','深圳团队'],  # 内容生产工厂的短视频和BD部门 + AI部和总经办
         'description': '基于AI营销脚本生成工具'
     },
     'influencer_management': {
         'name': 'TK达人管理',
-        'allowed_departments': ['BD部', 'TK部门', 'TK直播部', '短视频部', 'AI部', '总经办','深圳团队'],  # TK项目的短视频和BD部门 + AI部和总经办
+        'allowed_departments': ['BD部', 'TK部门', 'TK直播部', '短视频部', 'AI部', '总经办','深圳团队'],  # 内容生产工厂的短视频和BD部门 + AI部和总经办
         'description': 'TikTok达人信息管理系统'
     },
     'model_library': {
@@ -746,7 +747,12 @@ class FeishuPermissionManager:
             "Content-Type": "application/json; charset=utf-8"  # 请求头
         }
         user_id_type = 'open_id' if str(user_id).startswith('ou_') else 'user_id'
-        params = {"user_id_type": user_id_type}
+        # 后续部门树继承使用 open_department_id 追溯父级，
+        # 这里必须要求用户接口返回同一类型的部门 ID。
+        params = {
+            "user_id_type": user_id_type,
+            "department_id_type": "open_department_id",
+        }
 
         _safe_print(f"📡 请求飞书API:")  # 打印请求的 API 信息
         _safe_print(f"  URL: {url}")
@@ -799,8 +805,18 @@ class FeishuPermissionManager:
                             _safe_print(f"    ⚠️ 映射中未找到部门 {dept_id}，回退到API调用...")
                             dept_info = self.get_department_info(dept_id)  # 通过API获取部门信息
                             if dept_info:
-                                departments.append(dept_info)
-                                _safe_print(f"    ✅ API调用成功: {dept_info}")
+                                # 飞书部门详情在 open_department_id 模式下通常只返回
+                                # open_department_id。权限继承内部统一使用 department_id，
+                                # 因此必须在这里规范化，否则未硬编码的多层子部门会无法追溯父级。
+                                normalized_dept_info = dict(dept_info)
+                                normalized_dept_info['department_id'] = str(
+                                    normalized_dept_info.get('open_department_id')
+                                    or dept_id
+                                    or normalized_dept_info.get('department_id')
+                                ).strip()
+                                normalized_dept_info.setdefault('source', 'api_fallback')
+                                departments.append(normalized_dept_info)
+                                _safe_print(f"    ✅ API调用成功: {normalized_dept_info}")
                                 # 自动生成映射更新建议
                                 self.suggest_department_mapping_update(dept_id, dept_info.get('name', '未知部门'))
                             else:
@@ -997,6 +1013,50 @@ class FeishuPermissionManager:
             return list(debug_departments), True
         return real_departments, False
 
+    def _resolve_effective_department_rows(
+        self,
+        real_user_departments,
+        effective_department_names,
+        using_debug_departments,
+    ):
+        """返回权限继承应使用的部门明细，确保模拟用户也按其真实部门树计算。"""
+        if not using_debug_departments:
+            return list(real_user_departments or [])
+
+        debug_user = self._get_debug_user_from_session()
+        debug_open_id = str(debug_user.get('open_id') or '').strip()
+        if debug_open_id:
+            try:
+                debug_rows = self.get_user_departments(debug_open_id) or []
+            except Exception as exc:
+                _safe_print(f"  ⚠️ 获取权限调试用户部门失败: {exc}")
+                debug_rows = []
+            if debug_rows:
+                return list(debug_rows)
+
+        # 兼容仅选择部门、没有指定模拟用户的旧调试方式。已知部门保留其
+        # open_department_id，未知部门仍可参与直接名称匹配，但不会误用登录人的部门树。
+        department_ids_by_name = {}
+        for department_id, department_name in DEPARTMENT_ID_MAPPING.items():
+            normalized_name = str(department_name or '').strip()
+            if normalized_name:
+                department_ids_by_name.setdefault(normalized_name, []).append(department_id)
+
+        synthetic_rows = []
+        for department_name in (effective_department_names or []):
+            normalized_name = str(department_name or '').strip()
+            if not normalized_name:
+                continue
+            matched_ids = department_ids_by_name.get(normalized_name) or ['']
+            for department_id in matched_ids:
+                synthetic_rows.append({
+                    'department_id': department_id,
+                    'open_department_id': department_id,
+                    'name': normalized_name,
+                    'status': 'active' if department_id else 'unmapped',
+                })
+        return synthetic_rows
+
     def _get_department_root_ids(self, root_name):
         """根据部门名称获取根部门ID集合（支持配置里同名多个ID）。"""
         target = str(root_name or '').strip()
@@ -1098,7 +1158,12 @@ class FeishuPermissionManager:
         for row in (user_departments or []):
             if str(row.get('status') or '').strip() == 'invalid':
                 continue
-            dept_id = str(row.get('department_id') or '').strip()
+            dept_id = str(
+                row.get('open_department_id')
+                or row.get('department_id')
+                or row.get('id')
+                or ''
+            ).strip()
             if not dept_id:
                 continue
             dept_name = str(
@@ -1111,7 +1176,7 @@ class FeishuPermissionManager:
         return False
 
     def _get_tree_inherited_departments(self, user_departments, allowed_departments):
-        """返回命中的部门树继承项，例如 TK项目/运营部。"""
+        """返回命中的部门树继承项，例如 内容生产工厂/运营部。"""
         inherited = []
         for root_name in DEPARTMENT_TREE_INHERIT_ROOTS:
             if root_name not in (allowed_departments or []):
@@ -1166,6 +1231,11 @@ class FeishuPermissionManager:
                 valid_departments.append(dept_name)  # 否则，加入有效部门列表
 
         user_dept_names, using_debug_departments = self._resolve_effective_departments(valid_departments, function_name)
+        effective_user_departments = self._resolve_effective_department_rows(
+            user_departments,
+            user_dept_names,
+            using_debug_departments,
+        )
 
         _safe_print(f"\n🔍 多部门权限检查:")  # 打印权限检查的调试信息
         _safe_print(f"  用户ID: {user_id}")
@@ -1184,7 +1254,7 @@ class FeishuPermissionManager:
         for dept_name in user_dept_names:
             if dept_name in allowed_departments:  # 如果用户的部门在允许访问的部门列表中
                 authorized_departments.append(dept_name)  # 将该部门添加到授权部门列表
-        for inherited_name in self._get_tree_inherited_departments(user_departments, allowed_departments):
+        for inherited_name in self._get_tree_inherited_departments(effective_user_departments, allowed_departments):
             if inherited_name not in authorized_departments:
                 authorized_departments.append(inherited_name)
 
@@ -1318,6 +1388,11 @@ class FeishuPermissionManager:
                 valid_departments.append(dept.get('name', ''))  # 有效部门加入有效部门列表
 
         user_dept_names, using_debug_departments = self._resolve_effective_departments(valid_departments, function_name='__dashboard__')
+        effective_user_departments = self._resolve_effective_department_rows(
+            user_departments,
+            user_dept_names,
+            using_debug_departments,
+        )
         _safe_print(f"👥 用户有效部门: {valid_departments}")
         if using_debug_departments:
             _safe_print(f"🧪 当前使用权限调试部门: {user_dept_names}")
@@ -1356,7 +1431,7 @@ class FeishuPermissionManager:
             for dept_name in user_dept_names:
                 if dept_name in allowed_departments:
                     authorized_departments.append(dept_name)  # 如果部门在允许访问的部门列表中，添加到授权部门列表
-            for inherited_name in self._get_tree_inherited_departments(user_departments, allowed_departments):
+            for inherited_name in self._get_tree_inherited_departments(effective_user_departments, allowed_departments):
                 if inherited_name not in authorized_departments:
                     authorized_departments.append(inherited_name)
 

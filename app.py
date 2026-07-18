@@ -7852,7 +7852,7 @@ def _parse_forward_departments(prompt_text):
         "AI部", "财务部", "人力行政部",
         "运营一部", "运营二部", "运营三部", "运营六部",
         "研发部", "技术部", "采购部", "摄影部", "视觉设计部",
-        "TK项目", "TK部门", "深圳团队", "仓储部", "短视频部", "BD部", "客服", "产品&店铺运营"
+        "内容生产工厂", "TK部门", "深圳团队", "仓储部", "短视频部", "BD部", "客服", "产品&店铺运营"
     ]
     for dep in candidates:
         if (f"发给{dep}" in t) or (f"给{dep}" in t) or (f"发到{dep}" in t) or (f"同步{dep}" in t):
@@ -13242,7 +13242,7 @@ def admin_dashboard():
 @app.route('/tk_project')
 @require_permission('tk_project_group')
 def tk_project():
-    """TK项目组功能页面"""
+    """内容生产工厂功能页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
 
@@ -15796,7 +15796,7 @@ def download_monthly_target_template():
 @app.route('/tk_dashboard')
 @require_permission('tk_project_group')
 def tk_dashboard():
-    """TK项目组数据看板页面"""
+    """内容生产工厂数据看板页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import inspect
 import io
 import threading
 import time
@@ -32,6 +33,18 @@ def open_data_url(data_url: str) -> Image.Image:
 
 
 class MainImageAPlusTests(unittest.TestCase):
+    def test_layout_keeps_primary_and_dynamic_actions_in_reserved_slots(self) -> None:
+        render_source = inspect.getsource(site.render_openrouter_feature)
+        style_source = inspect.getsource(site.inject_app_styles)
+
+        self.assertIn("primary_action_slot = st.empty()", render_source)
+        self.assertIn("main-action-dock-marker", render_source)
+        self.assertIn("a-plus-analysis-card-marker", render_source)
+        self.assertIn("a-plus-auto-fill-card-marker", render_source)
+        self.assertIn("disabled=True", render_source)
+        self.assertIn("position: sticky", style_source)
+        self.assertIn("a-plus-template-card-marker", style_source)
+
     def test_feature_has_three_layouts_and_ten_image_limit(self) -> None:
         feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
 
@@ -43,6 +56,14 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(site.MAIN_IMAGE_A_PLUS_SECTION_COUNT, 4)
         self.assertEqual(site.MAIN_IMAGE_A_PLUS_SECTION_HEIGHT, 600)
         self.assertEqual(set(site.MAIN_IMAGE_A_PLUS_LAYOUTS), {"mobile_equal", "desktop_equal", "desktop_hero"})
+        self.assertEqual(
+            site.MAIN_IMAGE_A_PLUS_MODE_LABELS[site.MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST],
+            "一张测试",
+        )
+        self.assertEqual(
+            site.MAIN_IMAGE_A_PLUS_MODE_LABELS[site.MAIN_IMAGE_A_PLUS_MODE_ELEMENT],
+            "指定元素替换",
+        )
 
         mobile_layout = site.get_main_image_a_plus_layout("mobile_equal")
         self.assertEqual(mobile_layout["target_size"], (600, 1800))
@@ -126,6 +147,196 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("严格一对一替换且保持模板原有元素数量", section_prompt)
         self.assertIn("禁止重复人物、重复商品、重复 Logo", section_prompt)
         self.assertIn("绝对不能出现在结果中", section_prompt)
+
+    def test_single_test_prompt_requires_one_complete_generation_without_stitching(self) -> None:
+        layout = site.get_main_image_a_plus_layout("desktop_equal")
+        notes = site.build_main_image_a_plus_single_test_notes(layout, 5)
+        prompt = site.build_main_image_a_plus_single_test_prompt(
+            site.MAIN_IMAGE_A_PLUS_SINGLE_TEST_DEFAULT_PROMPT + notes,
+            layout,
+        )
+
+        self.assertIn("第 1 张是完整成品 A+ 版式模板", prompt)
+        self.assertIn("一次直接生成 1 张完整的 1464×2400px", prompt)
+        self.assertIn("禁止拆成四段", prompt)
+        self.assertIn("禁止拼接", prompt)
+        self.assertIn("唯一允许保留的内容只有两类", prompt)
+        self.assertIn("除纯背景和版式结构之外", prompt)
+        self.assertIn("绝对不能只替换一部分", prompt)
+        self.assertIn("每一处旧产品、产品局部、包装、品牌名、Logo", prompt)
+        self.assertIn("将新模特替换全部旧人物位置", prompt)
+        self.assertIn("没有新模特时清除旧模特", prompt)
+        self.assertIn("残留数量为零", prompt)
+        self.assertIn("不要只替换首屏或明显主体", prompt)
+        self.assertIn("只输出这一张完整成品", prompt)
+
+    def test_element_analysis_parses_grouped_regions_and_builds_numbered_preview(self) -> None:
+        analysis_text = """```json
+        {"elements":[
+          {"name":"品牌 Logo","type":"brand_logo","description":"重复品牌标识","replacement_hint":"上传新 Logo", "regions":[[100,80,300,180],[700,820,900,920]]},
+          {"name":"主模特","type":"model","regions":[[0.35,0.12,0.85,0.58]]}
+        ]}
+        ```"""
+        elements = site.parse_main_image_a_plus_element_analysis(analysis_text, (200, 400))
+
+        self.assertEqual(len(elements), 2)
+        self.assertEqual(elements[0]["id"], 1)
+        self.assertEqual(elements[0]["name"], "品牌 Logo")
+        self.assertEqual(len(elements[0]["regions"]), 2)
+        self.assertEqual(elements[1]["regions"], [[350, 120, 850, 580]])
+
+        template = Image.new("RGB", (200, 400), "white")
+        preview_url = site.build_main_image_a_plus_element_preview(
+            image_uploaded_input(template, "template.png"),
+            elements,
+        )
+        with open_data_url(preview_url) as preview:
+            self.assertEqual(preview.size, (200, 400))
+            self.assertNotEqual(preview.getpixel((20, 32)), (255, 255, 255))
+
+    def test_element_analysis_uses_vision_model_and_strict_json_prompt(self) -> None:
+        template = image_uploaded_input(Image.new("RGB", (200, 400), "white"), "template.png")
+        response_text = '{"elements":[{"name":"产品","type":"product","regions":[[100,100,800,500]]}]}'
+
+        with patch.object(site, "call_openrouter", return_value={"text": response_text}) as analyze_request:
+            elements = site.analyze_main_image_a_plus_elements(template)
+
+        self.assertEqual(elements[0]["name"], "产品")
+        call_kwargs = analyze_request.call_args.kwargs
+        self.assertEqual(call_kwargs["model"], site.MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL)
+        self.assertEqual(call_kwargs["output_mode"], "text")
+        self.assertEqual(call_kwargs["uploaded_files"], [template])
+        self.assertIn("只返回严格 JSON", call_kwargs["prompt"])
+        self.assertIn("不要只分析首屏", call_kwargs["prompt"])
+
+    def test_replacement_material_analysis_matches_and_deduplicates_slots(self) -> None:
+        elements = [
+            {"id": 1, "name": "主模特", "type": "model", "regions": [[100, 100, 500, 700]]},
+            {"id": 2, "name": "产品包装", "type": "package", "regions": [[550, 200, 900, 600]]},
+        ]
+        response_text = """```json
+        {"matches":[
+          {"element_id":1,"image_index":2,"confidence":65,"detected_content":"人物","crop_box":[80,40,930,980]},
+          {"element_id":1,"image_index":1,"confidence":0.94,"detected_content":"新模特","crop_box":[120,60,850,960]},
+          {"element_id":2,"image_index":2,"confidence":0.88,"reason":"包装对应","crop_box":[220,260,780,740]},
+          {"element_id":9,"image_index":1,"confidence":1},
+          {"element_id":2,"image_index":8,"confidence":1}
+        ]}
+        ```"""
+
+        matches = site.parse_main_image_a_plus_replacement_matches(response_text, elements, 2)
+
+        self.assertEqual(len(matches), 2)
+        self.assertEqual(matches[0]["element_id"], 1)
+        self.assertEqual(matches[0]["image_index"], 1)
+        self.assertAlmostEqual(matches[0]["confidence"], 0.94)
+        self.assertEqual(matches[0]["crop_box"], [120, 60, 850, 960])
+        self.assertEqual(matches[1]["image_index"], 2)
+        self.assertEqual(matches[1]["crop_box"], [220, 260, 780, 740])
+
+    def test_replacement_material_analysis_uses_template_and_all_materials(self) -> None:
+        template = image_uploaded_input(Image.new("RGB", (300, 600), "white"), "template.png")
+        materials = [
+            image_uploaded_input(Image.new("RGB", (200, 200), "red"), "model.png"),
+            image_uploaded_input(Image.new("RGB", (200, 200), "blue"), "product.png"),
+        ]
+        elements = [
+            {"id": 1, "name": "模特", "type": "model", "regions": [[100, 100, 600, 700]]},
+        ]
+        response_text = (
+            '{"matches":[{"element_id":1,"image_index":1,"confidence":0.9,'
+            '"crop_box":[150,40,850,980]}]}'
+        )
+
+        with patch.object(site, "call_openrouter", return_value={"text": response_text}) as request:
+            matches = site.analyze_main_image_a_plus_replacement_matches(
+                template,
+                elements,
+                materials,
+            )
+
+        self.assertEqual(matches[0]["element_id"], 1)
+        call_kwargs = request.call_args.kwargs
+        self.assertEqual(call_kwargs["uploaded_files"], [template, *materials])
+        self.assertEqual(call_kwargs["output_mode"], "text")
+        self.assertIn("image_index=1 对应输入图片第 2 张", call_kwargs["prompt"])
+        self.assertIn("一张素材同时包含多类有效内容时可以匹配多个编号", call_kwargs["prompt"])
+        self.assertIn("每条匹配必须同时返回 crop_box", call_kwargs["prompt"])
+        self.assertIn("禁止用整张图片范围代替", call_kwargs["prompt"])
+
+    def test_recommended_replacement_is_cropped_to_element_only(self) -> None:
+        source = Image.new("RGB", (300, 200), "navy")
+        draw = ImageDraw.Draw(source)
+        draw.rectangle((60, 40, 180, 160), fill="red")
+
+        cropped_input = site.crop_main_image_a_plus_replacement_input(
+            image_uploaded_input(source, "full-poster.png"),
+            [200, 200, 600, 800],
+            3,
+            "产品包装",
+        )
+
+        self.assertIsNotNone(cropped_input)
+        assert cropped_input is not None
+        self.assertEqual(cropped_input["type"], "image/png")
+        self.assertIn("recommended_3_", cropped_input["name"])
+        with Image.open(io.BytesIO(cropped_input["data"])) as cropped:
+            self.assertLess(cropped.width, source.width)
+            self.assertLess(cropped.height, source.height)
+            self.assertEqual(cropped.getpixel((cropped.width // 2, cropped.height // 2)), (255, 0, 0))
+
+        self.assertIsNone(
+            site.crop_main_image_a_plus_replacement_input(
+                image_uploaded_input(source, "full-poster.png"),
+                [0, 0, 1000, 1000],
+                3,
+                "产品包装",
+            )
+        )
+
+    def test_manual_point_finds_existing_smallest_region_or_adds_new_element(self) -> None:
+        existing = [
+            {"id": 1, "name": "大区域", "regions": [[0, 0, 900, 900]]},
+            {"id": 2, "name": "产品", "regions": [[200, 200, 400, 400]]},
+        ]
+        matched = site.find_main_image_a_plus_element_at_point(existing, (300, 300))
+        self.assertEqual(matched["id"], 2)
+        self.assertIsNone(site.find_main_image_a_plus_element_at_point(existing, (950, 950)))
+
+        template = image_uploaded_input(Image.new("RGB", (300, 600), "white"), "template.png")
+        response_text = (
+            '{"elements":[{"name":"遗漏 Logo","type":"brand_logo",'
+            '"regions":[[700,700,900,820]]}]}'
+        )
+        with patch.object(site, "call_openrouter", return_value={"text": response_text}) as request:
+            new_element = site.analyze_main_image_a_plus_element_at_point(
+                template,
+                (800, 760),
+                existing,
+            )
+
+        self.assertEqual(new_element["id"], 3)
+        self.assertEqual(new_element["name"], "遗漏 Logo")
+        self.assertIn("位置为 (800, 760)", request.call_args.kwargs["prompt"])
+        self.assertIn("避免重复返回已经识别的元素", request.call_args.kwargs["prompt"])
+
+    def test_element_replacement_prompt_maps_each_reference_to_numbered_regions(self) -> None:
+        layout = site.get_main_image_a_plus_layout("desktop_equal")
+        replacements = [
+            {"id": 2, "name": "主模特", "type": "model", "regions": [[100, 50, 800, 700]]},
+            {"id": 5, "name": "产品包装", "type": "package", "regions": [[650, 720, 950, 980]]},
+        ]
+        prompt = site.build_main_image_a_plus_element_replacement_prompt(
+            site.MAIN_IMAGE_A_PLUS_ELEMENT_DEFAULT_PROMPT,
+            layout,
+            replacements,
+        )
+
+        self.assertIn("输入图片第 2 张 → 编号 #2“主模特”", prompt)
+        self.assertIn("输入图片第 3 张 → 编号 #5“产品包装”", prompt)
+        self.assertIn("只替换归一化区域 [100,50,800,700]", prompt)
+        self.assertIn("未列出的产品、品牌、Logo、模特、文字", prompt)
+        self.assertIn("选中元素全部替换、未选元素完全未改", prompt)
 
     def test_template_layout_follows_original_image_dimensions(self) -> None:
         template = Image.new("RGB", (721, 1603), "white")
@@ -440,6 +651,111 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("套版替换", result["channel"])
         self.assertEqual(result["target_size"], (146, 240))
         self.assertEqual(result["section_heights"], (60, 60, 60, 60))
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.size, (146, 240))
+
+    def test_single_test_mode_generates_complete_template_once_without_split_or_stitch(self) -> None:
+        generated = Image.new("RGB", (200, 300), "white")
+        template = Image.new("RGB", (146, 240), "pink")
+        feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
+        assert feature is not None
+        job_context = {
+            "feature": dict(feature),
+            "model": site.NANO_BANANA_MODEL,
+            "prompt": "使用完整模板一次替换全部内容",
+            "uploaded_files": [{"name": "new-product.png", "type": "image/png", "data": b"content"}],
+            "batch_groups": [],
+            "output_mode": "image",
+            "max_output_images": 1,
+            "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST,
+            "main_image_a_plus_template": image_uploaded_input(template, "finished-a-plus.png"),
+            "account_name": "tester",
+            "aspect_ratio": site.DEFAULT_ASPECT_RATIO,
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [image_data_url(generated)], "text": ""},
+            ) as request_images,
+            patch.object(site, "split_main_image_a_plus_template") as split_template,
+            patch.object(site, "stitch_main_image_a_plus_sections") as stitch_sections,
+            patch.object(site, "finalize_feature_job_result", side_effect=lambda _context, result, _job_id: result),
+        ):
+            result = site.run_feature_job(job_context)
+
+        request_images.assert_called_once()
+        split_template.assert_not_called()
+        stitch_sections.assert_not_called()
+        call_kwargs = request_images.call_args.kwargs
+        self.assertEqual(len(call_kwargs["uploaded_files"]), 2)
+        self.assertEqual(call_kwargs["uploaded_files"][0]["name"], "finished-a-plus.png")
+        self.assertEqual(call_kwargs["uploaded_files"][1]["name"], "new-product.png")
+        self.assertEqual(call_kwargs["resolution"], "4K")
+        self.assertIn("禁止拆成四段", call_kwargs["prompt"])
+        self.assertIn("禁止拼接", call_kwargs["prompt"])
+        self.assertEqual(result["main_image_a_plus_mode"], site.MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST)
+        self.assertEqual(result["section_count"], 1)
+        self.assertEqual(result["section_heights"], (240,))
+        self.assertIn("整图套版重绘", result["channel"])
+        self.assertIn("未拆分模板", result["text"])
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.size, (146, 240))
+
+    def test_element_mode_replaces_only_mapped_elements_in_one_complete_generation(self) -> None:
+        generated = Image.new("RGB", (200, 300), "white")
+        template = Image.new("RGB", (146, 240), "pink")
+        feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
+        assert feature is not None
+        replacements = [
+            {"id": 2, "name": "主模特", "type": "model", "regions": [[100, 50, 800, 700]]},
+            {"id": 5, "name": "产品包装", "type": "package", "regions": [[650, 720, 950, 980]]},
+        ]
+        job_context = {
+            "feature": dict(feature),
+            "model": site.NANO_BANANA_MODEL,
+            "prompt": "只替换指定编号",
+            "uploaded_files": [
+                {"name": "new-model.png", "type": "image/png", "data": b"model"},
+                {"name": "new-package.png", "type": "image/png", "data": b"package"},
+            ],
+            "batch_groups": [],
+            "output_mode": "image",
+            "max_output_images": 1,
+            "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_ELEMENT,
+            "main_image_a_plus_template": image_uploaded_input(template, "finished-a-plus.png"),
+            "main_image_a_plus_element_replacements": replacements,
+            "account_name": "tester",
+            "aspect_ratio": site.DEFAULT_ASPECT_RATIO,
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [image_data_url(generated)], "text": ""},
+            ) as request_images,
+            patch.object(site, "split_main_image_a_plus_template") as split_template,
+            patch.object(site, "stitch_main_image_a_plus_sections") as stitch_sections,
+            patch.object(site, "finalize_feature_job_result", side_effect=lambda _context, result, _job_id: result),
+        ):
+            result = site.run_feature_job(job_context)
+
+        request_images.assert_called_once()
+        split_template.assert_not_called()
+        stitch_sections.assert_not_called()
+        call_kwargs = request_images.call_args.kwargs
+        self.assertEqual(
+            [item["name"] for item in call_kwargs["uploaded_files"]],
+            ["finished-a-plus.png", "new-model.png", "new-package.png"],
+        )
+        self.assertIn("输入图片第 2 张 → 编号 #2“主模特”", call_kwargs["prompt"])
+        self.assertIn("输入图片第 3 张 → 编号 #5“产品包装”", call_kwargs["prompt"])
+        self.assertEqual(result["main_image_a_plus_mode"], site.MAIN_IMAGE_A_PLUS_MODE_ELEMENT)
+        self.assertEqual(result["replaced_element_count"], 2)
+        self.assertEqual(result["replaced_element_ids"], (2, 5))
+        self.assertIn("指定元素整图替换", result["channel"])
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.size, (146, 240))
 

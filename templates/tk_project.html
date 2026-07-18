@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>TK项目组功能 - 图创AI系统</title>
+    <title>内容生产工厂 - 图创AI系统</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
@@ -89,7 +89,7 @@
 
 <div class="page">
     <div class="page-head">
-        <h1 class="title"><i class="fas fa-project-diagram"></i>TK项目组功能中心</h1>
+        <h1 class="title"><i class="fas fa-project-diagram"></i>内容生产工厂</h1>
         <a class="back-btn" href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> 返回首页</a>
     </div>
 
@@ -154,7 +154,7 @@
                 <h3 class="group-name"><i class="fas fa-shield-halved"></i>管理工具</h3>
             </div>
             <div class="mini-grid">
-                {% if has_total %}{{ mini_card('TK项目组部分权限看板', '权限管理看板', url_for('tk_dashboard.tk_dashboard_project_page'), 'fas fa-chart-area') }}{% endif %}
+                {% if has_total %}{{ mini_card('内容生产工厂部分权限看板', '权限管理看板', url_for('tk_dashboard.tk_dashboard_project_page'), 'fas fa-chart-area') }}{% endif %}
                 {{ mini_card('邀请ID实时监控', '邀请码实时预警', url_for('tk_invite_monitor'), 'fas fa-id-badge') }}
                 {{ mini_card('12小时之内未检查的邀请码', '有待检查邀请码', url_for('tk_invite_monitor') ~ '#unchecked_12h', 'fas fa-triangle-exclamation') }}
                 {{ mini_card('模特排队', '模特排队与排队', url_for('model_management.queue'), 'fas fa-user-friends') }}

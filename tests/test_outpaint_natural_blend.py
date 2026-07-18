@@ -159,18 +159,27 @@ class NaturalOutpaintTests(unittest.TestCase):
 
         rendered_html = render_html.call_args.args[0]
         self.assertIn('"target_width": 300', rendered_html)
+        self.assertIn('"view": "result-image"', rendered_html)
         self.assertIn('"download": "result-image"', rendered_html)
         self.assertIn("Number(alignment.left || 0) / targetWidth", rendered_html)
         self.assertIn("sourceWidth / targetWidth", rendered_html)
         self.assertIn("height: 620px", rendered_html)
-        self.assertIn("右键效果图显示保存选项", rendered_html)
-        self.assertIn("保存效果图", rendered_html)
+        self.assertIn("右键效果图可选择保存方式", rendered_html)
+        self.assertIn("直接保存效果图", rendered_html)
+        self.assertIn("选择位置 / 系统保存", rendered_html)
+        self.assertIn("打开原图后保存", rendered_html)
         self.assertIn('control.addEventListener("contextmenu"', rendered_html)
         self.assertIn('saveButton.addEventListener("click"', rendered_html)
+        self.assertIn('saveAsButton.addEventListener("click"', rendered_html)
+        self.assertIn('openButton.addEventListener("click"', rendered_html)
+        self.assertIn("window.showSaveFilePicker", rendered_html)
+        self.assertIn("navigator.canShare", rendered_html)
+        self.assertIn("fetchOriginalBlob", rendered_html)
+        self.assertIn("浏览器限制另存为，已改用直接下载", rendered_html)
         self.assertIn('contextMenu.classList.add("open")', rendered_html)
         context_menu_handler = rendered_html.split(
             'control.addEventListener("contextmenu"', 1
-        )[1].split('saveButton.addEventListener("click"', 1)[0]
+        )[1].split("let saveToastTimer", 1)[0]
         self.assertNotIn("link.click()", context_menu_handler)
         self.assertNotIn('<img src="${pair.result}"', rendered_html)
 

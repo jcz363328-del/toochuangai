@@ -25,7 +25,7 @@ from uuid import uuid4
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps, ImageStat
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -64,6 +64,7 @@ MAX_HISTORY_RECORDS = 120
 HISTORY_PAGE_SIZE = 20
 DB_HISTORY_TABLE = "AI_TuPian"
 XIAOHA_DASHBOARD_KEY = "__usage_dashboard__"
+XIAOHA_DEFAULT_FEATURE_KEY = "hd_batch"
 XIAOHA_DASHBOARD_HISTORY_DAYS = 7
 XIAOHA_DASHBOARD_CACHE_SECONDS = 60
 XIAOHA_DASHBOARD_MAX_FEATURE_LINES = 6
@@ -115,6 +116,8 @@ GALLERY_PREVIEW_TARGET_BYTES = 220 * 1024
 UPLOAD_CACHE_DIR = Path(r"D:\tuchuangai\图片上传缓存")
 AUTH_QUERY_USER_KEY = "auth_user"
 AUTH_QUERY_TOKEN_KEY = "auth_token"
+FEATURE_QUERY_KEY = "feature"
+MAIN_IMAGE_A_PLUS_MANUAL_POINT_QUERY_KEY = "a_plus_manual_point"
 UPLOAD_DELETE_QUERY_KEY = "delete_upload"
 UPLOAD_REPLACE_WIDGET_QUERY_KEY = "replace_upload_widget"
 UPLOAD_REPLACE_INDEX_QUERY_KEY = "replace_upload_index"
@@ -197,11 +200,22 @@ MAIN_IMAGE_A_PLUS_SECTION_COUNT = 4
 MAIN_IMAGE_A_PLUS_MAX_SECTION_CONCURRENCY = 4
 MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE = 2048
 MAIN_IMAGE_A_PLUS_REFERENCE_TARGET_BYTES = 3 * 1024 * 1024
+MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL = "google/gemini-2.5-flash"
+MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS = 20
 MAIN_IMAGE_A_PLUS_MODE_FREE = "free_create"
 MAIN_IMAGE_A_PLUS_MODE_TEMPLATE = "template_replace"
+MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST = "single_test"
+MAIN_IMAGE_A_PLUS_MODE_ELEMENT = "element_replace"
 MAIN_IMAGE_A_PLUS_MODE_LABELS = {
     MAIN_IMAGE_A_PLUS_MODE_FREE: "自由创作",
     MAIN_IMAGE_A_PLUS_MODE_TEMPLATE: "套版替换",
+    MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST: "一张测试",
+    MAIN_IMAGE_A_PLUS_MODE_ELEMENT: "指定元素替换",
+}
+MAIN_IMAGE_A_PLUS_TEMPLATE_MODES = {
+    MAIN_IMAGE_A_PLUS_MODE_TEMPLATE,
+    MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST,
+    MAIN_IMAGE_A_PLUS_MODE_ELEMENT,
 }
 MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY = "desktop_equal"
 MAIN_IMAGE_A_PLUS_LAYOUTS: dict[str, dict[str, Any]] = {
@@ -247,6 +261,32 @@ MAIN_IMAGE_A_PLUS_TEMPLATE_DEFAULT_PROMPT = (
     "如果内容参考图没有提供某个旧内容的替代素材，应清除该槽位的旧内容并自然延续该槽位原有背景，不得保留旧内容、编造新内容或添加额外装饰。"
     "所有新文案必须清楚、完整、可读，不能出现乱码、错别字、缺字或被边缘截断；商品、模特和 Logo 必须保持真实身份与外观。"
     "最终结果应像在同一份专业设计源文件中完成的内容替换，而不是重新设计、拼贴或在旧内容上覆盖贴纸。"
+)
+MAIN_IMAGE_A_PLUS_SINGLE_TEST_DEFAULT_PROMPT = (
+    "请执行电商 A+ 成品整图套版重绘。输入图片中的第 1 张是完整成品 A+ 版式模板，后续图片全部是用于替换内容的新素材参考图。"
+    "必须把第 1 张模板作为一张不可拆分的完整画布来理解和重绘，一次直接生成一张完整结果图；禁止把模板拆成四段、禁止逐段生成、禁止拼接、禁止输出多张局部图。"
+    "唯一允许保留的内容只有两类：不携带旧商品或旧品牌信息的纯背景，以及模板的版式结构。版式结构包括宽高比例、画布方向、整体构图、分区数量、区域面积、元素槽位坐标、相对大小、裁切窗口、叠放关系、对齐方式、底层色块、结构边框、留白和阅读顺序。"
+    "除纯背景和版式结构之外，模板画面中的所有前景内容都必须替换或删除，绝对不能只替换一部分。"
+    "必须先完整盘点模板中的每一处旧产品、产品局部、包装、品牌名、Logo、水印、文案、参数、标签、图标、徽章、模特、人物脸部、头发、眼睛、手部、身体、服装、使用效果图、场景人物和带有旧商品语义的装饰元素，再逐项检查并全部替换。"
+    "同一个旧产品、旧品牌或旧模特即使在模板中出现多次，每一次出现都必须替换，不能遗漏任何角落、缩略图、局部特写、半透明叠图或背景中的旧内容。"
+    "后续内容参考图才是新内容的唯一来源：将新模特替换全部旧人物位置，将新产品与包装替换全部旧产品位置，将新细节替换全部旧细节位置，将新品牌、Logo、文案和参数替换全部对应文字位置。"
+    "严格执行一对一内容替换，不新增、不删除、不移动、不合并、不拆分模板中的内容槽位；不得重新设计版式，不得增加模板中没有的人物、产品、图标、徽章、标签、花朵、光效、边框、装饰或文字模块。"
+    "如果参考图没有提供某个旧内容的替代素材，必须清除该旧内容并自然补全该处原有背景；没有新模特时清除旧模特，没有新文案时清除旧文案，任何情况下都不得保留模板旧内容、编造新信息或添加无关元素。"
+    "只使用参考图中真实可见或用户明确填写的信息，不得编造品牌、参数、功效、认证、价格或承诺。"
+    "所有新文字与可读 Logo 必须完整、清楚、无乱码、无错字且不被画布边缘截断；人物和商品必须保持参考图中的真实身份、外观、颜色、材质、结构与比例。"
+    "输出前必须再次检查整张图，确认模板中的旧产品、旧品牌、旧 Logo、旧文案和旧模特残留数量为零。"
+    "输出必须是一张连贯、完整、商业级的 A+ 成品长图，不能出现接缝、断层、重复区域、四张图拼接感、贴纸覆盖感或新旧内容混合。"
+)
+MAIN_IMAGE_A_PLUS_ELEMENT_DEFAULT_PROMPT = (
+    "请执行电商 A+ 成品指定元素替换。输入图片中的第 1 张是完整成品 A+ 模板，后续每张图片都只对应一个用户指定的替换元素。"
+    "必须把模板作为一张不可拆分的完整画布一次生成最终成品，禁止拆段、拼接、分屏或输出多张结果。"
+    "模板的画布尺寸、背景、版式、分区、槽位坐标、元素大小、裁切窗口、叠放层级、对齐、留白、阅读顺序和所有未被指定的内容必须保持不变。"
+    "只允许修改元素映射清单中明确列出的编号与区域；每张替换参考图只能用于它对应的编号，禁止把一个编号的素材误用到其他元素。"
+    "同一编号包含多个出现区域时，必须把这些区域中的旧元素全部替换为该编号的新素材，不能遗漏角落、缩略图、局部特写或半透明重复元素。"
+    "没有上传替换图的元素必须完整保留，不能顺带改写品牌、模特、产品、文案、参数、背景或装饰。"
+    "替换内容必须自然融入原槽位，严格继承模板该位置的大小、角度、透视、裁切、光影与叠放关系，不能出现贴纸感、白边、旧内容残影或重复主体。"
+    "只使用对应替换图中真实可见的信息，不得编造品牌、Logo、文案、参数、功效、认证、价格或承诺。"
+    "最终只输出一张完整、清晰、商业级的 A+ 成品长图。"
 )
 # Backward-compatible aliases for older sessions and callers that expect the original default layout.
 MAIN_IMAGE_A_PLUS_TARGET_SIZE = tuple(
@@ -303,6 +343,8 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self) -> None:
         request_url = urllib.parse.urlsplit(self.path)
         query = urllib.parse.parse_qs(request_url.query)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type")
         if str((query.get("download") or [""])[0]).strip() == "1":
             file_name = Path(urllib.parse.unquote(request_url.path or "")).name or "image.png"
             encoded_name = urllib.parse.quote(file_name)
@@ -704,14 +746,14 @@ FEATURES = [
     {
         "key": MAIN_IMAGE_A_PLUS_FEATURE_KEY,
         "name": "主图生A+",
-        "summary": "支持自由创作与成品套版替换，最多10张内容参考图",
+        "summary": "支持自由创作、成品套版替换、整图测试与指定元素替换",
         "mode": "openrouter",
         "output_mode": "image",
         "min_images": 1,
         "max_input_images": MAIN_IMAGE_A_PLUS_MAX_FILES,
         "max_output_images": 1,
         "target_size": MAIN_IMAGE_A_PLUS_TARGET_SIZE,
-        "description": "最多上传 10 张内容参考图，可自由创作或锁定成品模板版式替换全部内容，生成手机端或电脑端商业级 A+ 长图。",
+        "description": "支持自由创作、分段套版、整图全量替换，以及识别模板元素后按编号上传素材进行指定替换。",
         "default_prompt": (
             "请严格基于上传的主图设计一张完整的电商 A+ 宣传长图。"
             "第 1 张图是核心主图，决定商品身份、品牌、包装、颜色、材质和外观；其余图片只用于补充角度、细节、套装内容、使用方式与视觉素材。"
@@ -846,6 +888,636 @@ def normalize_main_image_a_plus_mode(mode: str | None = None) -> str:
     return normalized_mode
 
 
+def get_main_image_a_plus_template_signature(template_input: Any) -> str:
+    template_bytes = get_uploaded_file_bytes(template_input)
+    return hashlib.sha1(template_bytes).hexdigest()[:16] if template_bytes else ""
+
+
+def normalize_main_image_a_plus_element_bbox(
+    raw_bbox: Any,
+    image_size: tuple[int, int],
+) -> list[int] | None:
+    if isinstance(raw_bbox, dict):
+        left = raw_bbox.get("left", raw_bbox.get("x", 0))
+        top = raw_bbox.get("top", raw_bbox.get("y", 0))
+        if "right" in raw_bbox or "bottom" in raw_bbox:
+            right = raw_bbox.get("right", left)
+            bottom = raw_bbox.get("bottom", top)
+        else:
+            right = float(left or 0) + float(raw_bbox.get("width", raw_bbox.get("w", 0)) or 0)
+            bottom = float(top or 0) + float(raw_bbox.get("height", raw_bbox.get("h", 0)) or 0)
+        values = [left, top, right, bottom]
+    elif isinstance(raw_bbox, (list, tuple)) and len(raw_bbox) >= 4:
+        values = list(raw_bbox[:4])
+    else:
+        return None
+    try:
+        left, top, right, bottom = [float(value) for value in values]
+    except (TypeError, ValueError):
+        return None
+    max_value = max(abs(left), abs(top), abs(right), abs(bottom))
+    if max_value <= 1.01:
+        left, top, right, bottom = [value * 1000 for value in (left, top, right, bottom)]
+    elif max_value > 1000:
+        image_width, image_height = image_size
+        if image_width <= 0 or image_height <= 0:
+            return None
+        left = left / image_width * 1000
+        right = right / image_width * 1000
+        top = top / image_height * 1000
+        bottom = bottom / image_height * 1000
+    left, right = sorted((max(0, min(1000, left)), max(0, min(1000, right))))
+    top, bottom = sorted((max(0, min(1000, top)), max(0, min(1000, bottom))))
+    if right - left < 5 or bottom - top < 5:
+        return None
+    return [round(left), round(top), round(right), round(bottom)]
+
+
+def parse_main_image_a_plus_element_analysis(
+    response_text: str,
+    image_size: tuple[int, int],
+) -> list[dict[str, Any]]:
+    raw_text = str(response_text or "").strip()
+    if not raw_text:
+        raise RuntimeError("元素识别没有返回结果，请重试。")
+    candidates = [raw_text]
+    fenced_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_text, re.IGNORECASE)
+    if fenced_match:
+        candidates.insert(0, fenced_match.group(1).strip())
+    object_start, object_end = raw_text.find("{"), raw_text.rfind("}")
+    if object_start >= 0 and object_end > object_start:
+        candidates.append(raw_text[object_start : object_end + 1])
+    list_start, list_end = raw_text.find("["), raw_text.rfind("]")
+    if list_start >= 0 and list_end > list_start:
+        candidates.append(raw_text[list_start : list_end + 1])
+    payload: Any = None
+    for candidate in candidates:
+        try:
+            payload = json.loads(candidate)
+            break
+        except Exception:
+            continue
+    if payload is None:
+        raise RuntimeError("元素识别结果格式不完整，请重新识别。")
+    raw_elements = payload.get("elements") if isinstance(payload, dict) else payload
+    if not isinstance(raw_elements, list):
+        raise RuntimeError("元素识别结果中没有可用的元素列表，请重新识别。")
+    elements: list[dict[str, Any]] = []
+    for raw_element in raw_elements:
+        if not isinstance(raw_element, dict):
+            continue
+        raw_regions = (
+            raw_element.get("regions")
+            or raw_element.get("boxes")
+            or raw_element.get("bboxes")
+            or raw_element.get("bbox")
+            or []
+        )
+        if isinstance(raw_regions, dict) or (
+            isinstance(raw_regions, (list, tuple))
+            and len(raw_regions) >= 4
+            and not isinstance(raw_regions[0], (list, tuple, dict))
+        ):
+            raw_regions = [raw_regions]
+        regions = [
+            bbox
+            for bbox in (
+                normalize_main_image_a_plus_element_bbox(raw_bbox, image_size)
+                for raw_bbox in list(raw_regions or [])
+            )
+            if bbox is not None
+        ]
+        if not regions:
+            continue
+        element_name = str(
+            raw_element.get("name")
+            or raw_element.get("label")
+            or raw_element.get("type")
+            or "可替换元素"
+        ).strip()[:48]
+        element_type = str(raw_element.get("type") or "other").strip().lower()[:32]
+        description = str(raw_element.get("description") or "").strip()[:240]
+        replacement_hint = str(
+            raw_element.get("replacement_hint")
+            or raw_element.get("hint")
+            or description
+        ).strip()[:240]
+        elements.append(
+            {
+                "id": len(elements) + 1,
+                "name": element_name or f"可替换元素 {len(elements) + 1}",
+                "type": element_type or "other",
+                "description": description,
+                "replacement_hint": replacement_hint,
+                "regions": regions,
+            }
+        )
+        if len(elements) >= MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS:
+            break
+    if not elements:
+        raise RuntimeError("没有识别到可替换元素，请确认上传的是完整 A+ 成品图后重试。")
+    return elements
+
+
+def analyze_main_image_a_plus_elements(template_input: Any) -> list[dict[str, Any]]:
+    if template_input is None:
+        raise RuntimeError("请先上传 1 张完整的成品 A+ 示例图。")
+    image_size = get_uploaded_input_dimensions(template_input)
+    analysis_prompt = (
+        "你是电商 A+ 视觉模板元素分析器。请完整识别这张成品 A+ 长图中所有可以用另一张图片替换的前景内容，"
+        "包括模特或人物、商品、包装、Logo/品牌、独立文案块、参数标签、徽章图标、使用效果、局部特写和带有商品语义的装饰。"
+        "不要把纯背景、底层色块、结构边框、留白、分区和整体版式列为可替换元素。"
+        "语义相同且应该使用同一份替换素材的重复内容合并成一个元素组，并在 regions 中列出它的全部出现位置；"
+        "语义不同的产品、人物、文字块或细节必须拆成不同元素组。请覆盖整张长图，不要只分析首屏。"
+        f"最多输出 {MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS} 个最完整的元素组。所有坐标都使用 0 到 1000 的归一化整数，"
+        "格式为 [left, top, right, bottom]。只返回严格 JSON，不要 Markdown，不要解释。"
+        "JSON 格式：{\"elements\":[{\"name\":\"主模特\",\"type\":\"model\","
+        "\"description\":\"模板中人物主体\",\"replacement_hint\":\"上传要替换进去的新模特图\","
+        "\"regions\":[[100,50,700,420]]}]}"
+    )
+    response = call_openrouter(
+        model=MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL,
+        prompt=analysis_prompt,
+        uploaded_files=[template_input],
+        output_mode="text",
+        aspect_ratio=DEFAULT_ASPECT_RATIO,
+    )
+    return parse_main_image_a_plus_element_analysis(
+        str(response.get("text") or ""),
+        image_size,
+    )
+
+
+def parse_main_image_a_plus_replacement_matches(
+    response_text: str,
+    elements: list[dict[str, Any]],
+    replacement_count: int,
+    replacement_sizes: list[tuple[int, int]] | None = None,
+) -> list[dict[str, Any]]:
+    raw_text = str(response_text or "").strip()
+    if not raw_text:
+        raise RuntimeError("替换素材识别没有返回结果，请重试。")
+    candidates = [raw_text]
+    fenced_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_text, re.IGNORECASE)
+    if fenced_match:
+        candidates.insert(0, fenced_match.group(1).strip())
+    object_start, object_end = raw_text.find("{"), raw_text.rfind("}")
+    if object_start >= 0 and object_end > object_start:
+        candidates.append(raw_text[object_start : object_end + 1])
+    payload: Any = None
+    for candidate in candidates:
+        try:
+            payload = json.loads(candidate)
+            break
+        except Exception:
+            continue
+    if payload is None:
+        raise RuntimeError("替换素材识别结果格式不完整，请重新识别。")
+    raw_matches = payload.get("matches") if isinstance(payload, dict) else payload
+    if not isinstance(raw_matches, list):
+        raise RuntimeError("替换素材识别结果中没有匹配清单，请重新识别。")
+    valid_element_ids = {
+        int(element.get("id") or index + 1)
+        for index, element in enumerate(elements)
+    }
+    best_matches: dict[int, dict[str, Any]] = {}
+    for raw_match in raw_matches:
+        if not isinstance(raw_match, dict):
+            continue
+        try:
+            element_id = int(raw_match.get("element_id") or raw_match.get("id") or 0)
+            image_index = int(raw_match.get("image_index") or raw_match.get("reference_index") or 0)
+        except (TypeError, ValueError):
+            continue
+        if element_id not in valid_element_ids or image_index < 1 or image_index > replacement_count:
+            continue
+        try:
+            confidence = float(raw_match.get("confidence") or 0.5)
+        except (TypeError, ValueError):
+            confidence = 0.5
+        if confidence > 1.0:
+            confidence = confidence / 100.0
+        confidence = max(0.0, min(1.0, confidence))
+        replacement_size = (
+            replacement_sizes[image_index - 1]
+            if replacement_sizes and image_index <= len(replacement_sizes)
+            else (1000, 1000)
+        )
+        raw_crop_box = (
+            raw_match.get("crop_box")
+            or raw_match.get("source_region")
+            or raw_match.get("bbox")
+            or raw_match.get("region")
+        )
+        crop_box = normalize_main_image_a_plus_element_bbox(
+            raw_crop_box,
+            replacement_size,
+        )
+        normalized_match = {
+            "element_id": element_id,
+            "image_index": image_index,
+            "confidence": confidence,
+            "crop_box": crop_box or [],
+            "reason": str(raw_match.get("reason") or "").strip()[:240],
+            "detected_content": str(
+                raw_match.get("detected_content") or raw_match.get("content") or ""
+            ).strip()[:160],
+        }
+        current_match = best_matches.get(element_id)
+        if current_match is None or confidence > float(current_match.get("confidence") or 0):
+            best_matches[element_id] = normalized_match
+    return [best_matches[element_id] for element_id in sorted(best_matches)]
+
+
+def analyze_main_image_a_plus_replacement_matches(
+    template_input: Any,
+    elements: list[dict[str, Any]],
+    replacement_inputs: list[Any],
+) -> list[dict[str, Any]]:
+    if template_input is None or not elements:
+        raise RuntimeError("请先上传 A+ 模板并完成元素识别。")
+    if not replacement_inputs:
+        raise RuntimeError("请先上传至少 1 张用于替换的新素材图。")
+    element_summary = "\n".join(
+        (
+            f"#{int(element.get('id') or index + 1)}｜名称：{str(element.get('name') or '元素')}｜"
+            f"类型：{str(element.get('type') or 'other')}｜说明："
+            f"{str(element.get('description') or element.get('replacement_hint') or '')}"
+        )
+        for index, element in enumerate(elements)
+    )
+    prompt = (
+        "你是电商 A+ 替换素材匹配器。输入图片第 1 张是带有待替换元素的完整 A+ 模板，"
+        "从输入图片第 2 张开始依次是用户上传的新素材图；返回 JSON 中的 image_index 从 1 开始，"
+        "其中 image_index=1 对应输入图片第 2 张。请识别每张新素材里真实存在的人物、产品、包装、"
+        "品牌 Logo、文字、参数、效果图和细节，并把它匹配到下面最合适的模板编号。"
+        "一张素材同时包含多类有效内容时可以匹配多个编号；一个编号只能选择最合适的一张素材。"
+        "每条匹配必须同时返回 crop_box，表示该替换元素在对应新素材图中的紧致范围，坐标使用 0 到 1000 的"
+        "归一化整数 [left,top,right,bottom]；crop_box 只能框住真正要替换的产品、人物、Logo、文字或细节，"
+        "尽量排除无关背景、其他商品、其他人物和整张海报。若一张素材匹配多个编号，必须为每个编号分别给出"
+        "各自的 crop_box。无法准确定位替换部分时不要返回该匹配，禁止用整张图片范围代替。"
+        "不要因为颜色相似就误配，不能识别清楚的编号不要返回。只返回严格 JSON，不要 Markdown。\n\n"
+        f"模板元素清单：\n{element_summary}\n\n"
+        "JSON 格式：{\"matches\":[{\"element_id\":1,\"image_index\":2,"
+        "\"confidence\":0.92,\"detected_content\":\"白色假睫毛包装盒\","
+        "\"crop_box\":[120,180,860,790],"
+        "\"reason\":\"素材中的包装对应模板产品包装槽位\"}]}"
+    )
+    response = call_openrouter(
+        model=MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL,
+        prompt=prompt,
+        uploaded_files=[template_input, *replacement_inputs],
+        output_mode="text",
+        aspect_ratio=DEFAULT_ASPECT_RATIO,
+    )
+    return parse_main_image_a_plus_replacement_matches(
+        str(response.get("text") or ""),
+        elements,
+        len(replacement_inputs),
+        [get_uploaded_input_dimensions(item) for item in replacement_inputs],
+    )
+
+
+def crop_main_image_a_plus_replacement_input(
+    replacement_input: Any,
+    crop_box: Any,
+    element_id: int,
+    element_name: str,
+) -> dict[str, Any] | None:
+    """Return only the matched replacement element, never the full source artwork."""
+    try:
+        source_bytes = get_uploaded_file_bytes(replacement_input)
+        with Image.open(io.BytesIO(source_bytes)) as source_image:
+            source_image = ImageOps.exif_transpose(source_image)
+            source_width, source_height = source_image.size
+            normalized_box = normalize_main_image_a_plus_element_bbox(
+                crop_box,
+                (source_width, source_height),
+            )
+            if normalized_box is None:
+                return None
+            left_n, top_n, right_n, bottom_n = normalized_box
+            left = math.floor(left_n / 1000 * source_width)
+            top = math.floor(top_n / 1000 * source_height)
+            right = math.ceil(right_n / 1000 * source_width)
+            bottom = math.ceil(bottom_n / 1000 * source_height)
+            crop_width = max(right - left, 1)
+            crop_height = max(bottom - top, 1)
+            padding = max(2, round(max(crop_width, crop_height) * 0.035))
+            left = max(0, left - padding)
+            top = max(0, top - padding)
+            right = min(source_width, right + padding)
+            bottom = min(source_height, bottom + padding)
+            if right - left < 4 or bottom - top < 4:
+                return None
+            cropped = source_image.crop((left, top, right, bottom))
+            if cropped.size == source_image.size:
+                return None
+            if cropped.mode not in {"RGB", "RGBA"}:
+                cropped = cropped.convert("RGBA" if "A" in cropped.getbands() else "RGB")
+            output = io.BytesIO()
+            cropped.save(output, format="PNG", optimize=True)
+    except Exception:
+        return None
+    safe_name = sanitize_file_name(str(element_name or f"element_{element_id}"))
+    return {
+        "data": output.getvalue(),
+        "name": f"recommended_{int(element_id)}_{safe_name}_crop.png",
+        "type": "image/png",
+    }
+
+
+def find_main_image_a_plus_element_at_point(
+    elements: list[dict[str, Any]],
+    point: tuple[int, int],
+) -> dict[str, Any] | None:
+    point_x, point_y = point
+    candidates: list[tuple[float, dict[str, Any]]] = []
+    for element in elements:
+        for region in list(element.get("regions") or []):
+            if not isinstance(region, (list, tuple)) or len(region) < 4:
+                continue
+            left, top, right, bottom = [float(value) for value in region[:4]]
+            if left <= point_x <= right and top <= point_y <= bottom:
+                candidates.append((max(1.0, (right - left) * (bottom - top)), element))
+    if not candidates:
+        return None
+    return min(candidates, key=lambda item: item[0])[1]
+
+
+def analyze_main_image_a_plus_element_at_point(
+    template_input: Any,
+    point: tuple[int, int],
+    existing_elements: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if template_input is None:
+        raise RuntimeError("请先上传完整 A+ 模板。")
+    if len(existing_elements) >= MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS:
+        raise RuntimeError(f"当前最多支持 {MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS} 个元素组。")
+    point_x, point_y = point
+    existing_summary = "；".join(
+        f"#{int(element.get('id') or index + 1)} {str(element.get('name') or '元素')}"
+        for index, element in enumerate(existing_elements)
+    )
+    prompt = (
+        "你是电商 A+ 模板补漏识别器。用户点击了完整模板中的一个漏识别元素，点击坐标使用 0 到 1000 "
+        f"归一化坐标，位置为 ({point_x}, {point_y})。请识别点击位置正下方或距离最近的完整前景元素，"
+        "判断它是人物、产品、包装、品牌 Logo、独立文字块、参数、徽章、效果图还是细节特写，"
+        "并返回该语义元素的完整边界；如果同一元素在模板中重复出现，请在 regions 中返回全部出现位置。"
+        "不要把背景、底层色块、结构边框或整个分区识别成元素。只返回 1 个元素的严格 JSON，不要 Markdown。"
+        f"已经识别的元素为：{existing_summary or '无'}。避免重复返回已经识别的元素。"
+        "JSON 格式：{\"elements\":[{\"name\":\"产品包装\",\"type\":\"package\","
+        "\"description\":\"点击位置的商品包装\",\"replacement_hint\":\"上传新产品包装图\","
+        "\"regions\":[[100,100,450,380]]}]}"
+    )
+    response = call_openrouter(
+        model=MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL,
+        prompt=prompt,
+        uploaded_files=[template_input],
+        output_mode="text",
+        aspect_ratio=DEFAULT_ASPECT_RATIO,
+    )
+    detected = parse_main_image_a_plus_element_analysis(
+        str(response.get("text") or ""),
+        get_uploaded_input_dimensions(template_input),
+    )
+    if not detected:
+        raise RuntimeError("点击位置没有识别到可替换元素，请点击元素主体后重试。")
+    new_element = dict(detected[0])
+    new_element["id"] = max(
+        [int(element.get("id") or 0) for element in existing_elements] or [0]
+    ) + 1
+    return new_element
+
+
+def consume_main_image_a_plus_manual_point(
+    template_signature: str,
+) -> tuple[int, int] | None:
+    raw_payload = str(
+        st.query_params.get(MAIN_IMAGE_A_PLUS_MANUAL_POINT_QUERY_KEY, "")
+    ).strip()
+    if not raw_payload:
+        return None
+    clear_query_param(MAIN_IMAGE_A_PLUS_MANUAL_POINT_QUERY_KEY)
+    try:
+        payload = json.loads(raw_payload)
+        if str(payload.get("template_signature") or "") != str(template_signature or ""):
+            return None
+        point_x = max(0, min(1000, int(round(float(payload.get("x") or 0)))))
+        point_y = max(0, min(1000, int(round(float(payload.get("y") or 0)))))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    return point_x, point_y
+
+
+def build_main_image_a_plus_element_preview(
+    template_input: Any,
+    elements: list[dict[str, Any]],
+) -> str:
+    template_bytes = get_uploaded_file_bytes(template_input)
+    try:
+        with Image.open(io.BytesIO(template_bytes)) as image:
+            preview = ImageOps.exif_transpose(image).convert("RGBA")
+            preview.thumbnail((1600, 2400), Image.Resampling.LANCZOS)
+    except Exception as exc:
+        raise RuntimeError(f"无法生成元素编号预览：{exc}") from exc
+    overlay = Image.new("RGBA", preview.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    palette = (
+        (126, 96, 255, 255),
+        (0, 190, 170, 255),
+        (255, 146, 43, 255),
+        (232, 73, 135, 255),
+        (55, 145, 255, 255),
+        (158, 197, 61, 255),
+    )
+    line_width = max(2, round(min(preview.size) * 0.004))
+    badge_padding = max(6, line_width * 2)
+    badge_font_size = max(20, min(58, round(min(preview.size) * 0.035)))
+    badge_font = None
+    for font_path in (
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/msyhbd.ttc",
+        "DejaVuSans-Bold.ttf",
+    ):
+        try:
+            badge_font = ImageFont.truetype(font_path, badge_font_size)
+            break
+        except (OSError, ValueError):
+            continue
+    if badge_font is None:
+        badge_font = ImageFont.load_default()
+    for element_index, element in enumerate(elements):
+        color = palette[element_index % len(palette)]
+        element_id = int(element.get("id") or element_index + 1)
+        for region_index, region in enumerate(list(element.get("regions") or [])):
+            if not isinstance(region, (list, tuple)) or len(region) < 4:
+                continue
+            left = round(float(region[0]) / 1000 * preview.width)
+            top = round(float(region[1]) / 1000 * preview.height)
+            right = round(float(region[2]) / 1000 * preview.width)
+            bottom = round(float(region[3]) / 1000 * preview.height)
+            region_fill = (color[0], color[1], color[2], 30)
+            draw.rectangle(
+                (left, top, right, bottom),
+                fill=region_fill,
+                outline=color,
+                width=line_width,
+            )
+            label = f"#{element_id}"
+            text_box = draw.textbbox((0, 0), label, font=badge_font)
+            text_width = text_box[2] - text_box[0]
+            text_height = text_box[3] - text_box[1]
+            badge_width = text_width + badge_padding * 2
+            badge_height = text_height + badge_padding * 2
+            badge_left = max(0, min(preview.width - badge_width, left))
+            badge_top = max(0, top - badge_height - line_width)
+            if badge_top == 0 and top < badge_height + line_width:
+                badge_top = min(preview.height - badge_height, top + line_width)
+            draw.rounded_rectangle(
+                (badge_left, badge_top, badge_left + badge_width, badge_top + badge_height),
+                radius=max(4, badge_padding),
+                fill=color,
+            )
+            draw.text(
+                (badge_left + badge_padding, badge_top + badge_padding - text_box[1]),
+                label,
+                fill=(255, 255, 255, 255),
+                font=badge_font,
+            )
+            if region_index == 0:
+                draw.line(
+                    (
+                        badge_left + badge_width / 2,
+                        badge_top + badge_height,
+                        (left + right) / 2,
+                        (top + bottom) / 2,
+                    ),
+                    fill=color,
+                    width=max(1, line_width // 2),
+                )
+    annotated = Image.alpha_composite(preview, overlay).convert("RGB")
+    output = io.BytesIO()
+    annotated.save(output, format="JPEG", quality=90, optimize=True)
+    return image_bytes_to_data_url(output.getvalue(), "image/jpeg")
+
+
+def render_main_image_a_plus_manual_element_picker(
+    annotated_preview: str,
+    template_signature: str,
+    component_key: str,
+) -> None:
+    safe_component_key = re.sub(r"[^A-Za-z0-9_-]+", "_", str(component_key or "picker"))
+    preview_json = json.dumps(str(annotated_preview or ""), ensure_ascii=False)
+    signature_json = json.dumps(str(template_signature or ""), ensure_ascii=False)
+    query_key_json = json.dumps(MAIN_IMAGE_A_PLUS_MANUAL_POINT_QUERY_KEY)
+    html_content = f"""
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        html, body {{ margin: 0; padding: 0; background: transparent; color: #eef3ff; font-family: Arial, sans-serif; }}
+        .picker-shell {{ position: relative; height: 720px; overflow: auto; border-radius: 14px; border: 1px solid rgba(139, 156, 255, .26); background: rgba(5, 12, 27, .72); }}
+        .picker-tip {{ position: sticky; top: 0; z-index: 3; padding: 10px 12px; background: rgba(9, 18, 39, .94); color: #dfe6ff; font-size: 13px; line-height: 1.5; border-bottom: 1px solid rgba(139, 156, 255, .18); }}
+        .picker-image-wrap {{ display: flex; justify-content: center; padding: 12px; }}
+        .picker-image {{ display: block; width: min(100%, 760px); height: auto; cursor: crosshair; border-radius: 8px; user-select: none; -webkit-user-drag: none; }}
+        .picker-image:hover {{ box-shadow: 0 0 0 2px rgba(126, 96, 255, .85); }}
+        .picker-loading {{ position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(3, 8, 22, .72); z-index: 5; font-weight: 700; }}
+      </style>
+    </head>
+    <body>
+      <div class="picker-shell" id="picker-shell-{safe_component_key}">
+        <div class="picker-tip" id="picker-tip-{safe_component_key}">点击机器漏掉的元素主体，系统会按点击位置补充识别并生成一个新编号。已带彩色编号的区域无需重复点击。</div>
+        <div class="picker-image-wrap"><img class="picker-image" id="picker-image-{safe_component_key}" alt="点击补漏" /></div>
+      </div>
+      <div class="picker-loading" id="picker-loading-{safe_component_key}">正在定位元素，请稍候…</div>
+      <script>
+        (() => {{
+          const image = document.getElementById("picker-image-{safe_component_key}");
+          const loading = document.getElementById("picker-loading-{safe_component_key}");
+          const tip = document.getElementById("picker-tip-{safe_component_key}");
+          const hostWindow = window.parent;
+          image.src = {preview_json};
+          image.addEventListener("click", (event) => {{
+            const rect = image.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const x = Math.max(0, Math.min(1000, Math.round((event.clientX - rect.left) / rect.width * 1000)));
+            const y = Math.max(0, Math.min(1000, Math.round((event.clientY - rect.top) / rect.height * 1000)));
+            const payload = JSON.stringify({{
+              template_signature: {signature_json},
+              x,
+              y
+            }});
+            const nextUrl = new URL(hostWindow.location.href);
+            nextUrl.searchParams.set({query_key_json}, payload);
+            loading.style.display = "flex";
+            hostWindow.location.replace(nextUrl.toString());
+            window.setTimeout(() => {{
+              loading.style.display = "none";
+              if (tip) tip.textContent = "点击已提交；如果页面没有更新，请再点击一次元素主体。";
+            }}, 6000);
+          }});
+        }})();
+      </script>
+    </body>
+    </html>
+    """
+    st.iframe(html_content, height=740, width="stretch")
+
+
+def build_main_image_a_plus_element_replacement_notes(
+    layout: dict[str, Any],
+    detected_element_count: int,
+    replacements: list[dict[str, Any]],
+) -> str:
+    target_width, target_height = layout["target_size"]
+    selected_names = "、".join(
+        f"#{int(item.get('id') or index + 1)} {str(item.get('name') or '元素')}"
+        for index, item in enumerate(replacements)
+    )
+    return (
+        f"系统共识别 {detected_element_count} 个可替换元素组，本次已指定 {len(replacements)} 个：{selected_names}。"
+        f"最终只生成一张 {target_width}×{target_height}px 完整 A+ 长图，尺寸和版式严格跟随模板。"
+        "只替换已上传对应图片的编号；没有上传图片的编号及所有未编号内容必须保持模板原样。"
+        "每个编号的替换图只能进入该编号的全部标注区域，不能用于其他编号，不能改变背景、版式或未选元素。"
+        "禁止拆段、拼接、多图输出、顺带重绘、扩大修改范围、遗漏同编号的重复出现位置或保留旧元素残影。"
+    )
+
+
+def build_main_image_a_plus_element_replacement_prompt(
+    full_prompt: str,
+    layout: dict[str, Any],
+    replacements: list[dict[str, Any]],
+) -> str:
+    target_width, target_height = layout["target_size"]
+    mapping_lines: list[str] = []
+    for reference_index, replacement in enumerate(replacements, start=2):
+        element_id = int(replacement.get("id") or reference_index - 1)
+        name = str(replacement.get("name") or f"元素 {element_id}").strip()
+        element_type = str(replacement.get("type") or "other").strip()
+        regions = list(replacement.get("regions") or [])
+        region_text = "、".join(
+            f"[{int(box[0])},{int(box[1])},{int(box[2])},{int(box[3])}]"
+            for box in regions
+            if isinstance(box, (list, tuple)) and len(box) >= 4
+        )
+        mapping_lines.append(
+            f"输入图片第 {reference_index} 张 → 编号 #{element_id}“{name}”（{element_type}），"
+            f"只替换归一化区域 {region_text or '按模板识别位置'}。"
+        )
+    return (
+        f"{str(full_prompt or '').strip()}\n\n"
+        "指定元素映射执行指令：输入图片第 1 张是未标注的完整 A+ 模板；后续图片与编号严格一一对应。\n"
+        + "\n".join(mapping_lines)
+        + f"\n一次生成 1 张完整的 {target_width}×{target_height}px 成品。"
+        "坐标采用模板宽高各自 0 到 1000 的归一化范围。只修改上述编号区域，同编号有多个区域时全部替换。"
+        "模板中未列出的产品、品牌、Logo、模特、文字、参数、图标、背景、装饰和版式必须保持不变。"
+        "禁止把第 2 张之后的素材混用、错位、跨编号扩散或添加到未指定区域。"
+        "输出前逐项核对映射，确保选中元素全部替换、未选元素完全未改。只输出这一张完整成品。"
+    )
+
+
 def build_main_image_a_plus_layout_notes(layout_key: str, image_count: int) -> str:
     layout = get_main_image_a_plus_layout(layout_key)
     target_width, target_height = layout["target_size"]
@@ -959,6 +1631,53 @@ def build_main_image_a_plus_template_notes(layout_or_key: dict[str, Any] | str, 
         "禁止新增模板中不存在的人物、产品、配件、图标、徽章、标签、光效、装饰或文字模块，禁止重复主体与杂乱堆叠。"
         f"所有可读文字左右至少内缩 {text_margin_x}px，并与所在分段上下边界至少保持 {text_margin_y}px 距离。"
         "背景与装饰仍须满版到边，文字、Logo 和商品关键信息不得被画布边缘或分区边界截断。"
+    )
+
+
+def build_main_image_a_plus_single_test_notes(
+    layout_or_key: dict[str, Any] | str,
+    image_count: int,
+) -> str:
+    layout = (
+        dict(layout_or_key)
+        if isinstance(layout_or_key, dict)
+        else get_main_image_a_plus_layout(layout_or_key)
+    )
+    target_width, target_height = layout["target_size"]
+    return (
+        f"当前一张测试任务包含 1 张完整成品 A+ 版式模板和 {image_count} 张内容替换参考图。"
+        "第 1 张模板只负责锁定整张长图的版式、构图、背景与设计语言，后续参考图负责提供全部新内容。"
+        f"最终只生成 1 张完整的 {target_width}×{target_height}px A+ 长图，并严格跟随模板原始宽高比例与画布方向。"
+        "必须把模板作为一个不可拆分的整体进行理解和重绘；禁止拆成四段，禁止生成四张局部图，禁止任何上下拼接、图块拼接或后期合成。"
+        "整张图只能调用一次生成流程，并在这一次生成中完成所有人物、产品、产品局部、包装、品牌、Logo、文案、参数、标签、图标和细节照片的全量替换。"
+        "只保留不带旧商品语义的纯背景，以及模板的整体构图、分区、槽位位置与大小、裁切窗口、叠放层级、对齐、底层色块、结构边框、留白和阅读顺序。"
+        "除背景和版式之外的全部内容都必须替换或删除，不能只替换明显的大产品而遗漏小产品、特写、旧品牌、旧模特、角落文字、半透明元素或背景中的旧内容。"
+        "模板旧内容必须全部替换或删除；内容参考图中的第一张作为核心商品和品牌依据，其余图片用于匹配模特、角度、细节、效果、包装、文案与规格。"
+        "只能替换内容，不能重新设计版式；不得新增、删除、移动、合并或拆分槽位，不得重复人物、商品、Logo 或添加无关装饰。"
+        "如果没有对应替换素材，清除模板旧内容并自然补全原背景，不得保留旧产品、旧品牌、旧文案或旧模特，不得编造信息。"
+        "输出前逐项复查所有槽位，确保模板旧产品、旧品牌、旧 Logo、旧文案和旧模特残留为零。"
+        "最终画面必须完整连贯、清晰锐利，没有接缝、断层、重复区域、贴纸覆盖感、四块拼接感或新旧内容混合。"
+        "所有文字与可读 Logo 必须完整清楚并避免被画布边缘截断。"
+    )
+
+
+def build_main_image_a_plus_single_test_prompt(
+    full_prompt: str,
+    layout: dict[str, Any],
+) -> str:
+    target_width, target_height = layout["target_size"]
+    return (
+        f"{str(full_prompt or '').strip()}\n\n"
+        "一张测试整图执行指令：输入图片中的第 1 张是完整成品 A+ 版式模板，后续图片全部是新内容参考图。"
+        f"一次直接生成 1 张完整的 {target_width}×{target_height}px 商业级 A+ 成品长图。"
+        "必须以第 1 张模板的整张画布为统一构图基准，在同一张结果图中完成全部内容替换。"
+        "禁止拆成四段或任何数量的局部区域分别生成；禁止拼接、分步合成、分屏、九宫格、多张候选图、接缝、断层和重复画面。"
+        "输出宽高比例、画布方向、分区位置、元素槽位、纯背景与视觉层级必须与模板一致。"
+        "除纯背景和版式结构外，模板中的文案、人物、产品、产品局部、包装、品牌、Logo、参数、标签、图标、效果图与带有旧商品语义的装饰必须全部替换或删除，一个都不能遗漏。"
+        "每一处重复出现的旧产品、旧品牌和旧模特都要分别替换；不要只替换首屏或明显主体。"
+        "不要保留任何模板旧内容，不要增加模板没有的元素；新内容必须自然融入原槽位，像在同一份专业设计源文件中一次完成。"
+        "生成完成前执行全图复查，旧产品、旧品牌、旧 Logo、旧文案、旧参数和旧模特的残留必须为零。"
+        "只输出这一张完整成品，不要输出局部图、过程图、辅助线或版式说明。"
     )
 
 
@@ -1232,6 +1951,19 @@ def clear_persisted_auth_session() -> None:
         pass
 
 
+def get_requested_feature_key() -> str:
+    return str(st.query_params.get(FEATURE_QUERY_KEY, "")).strip()
+
+
+def select_feature(feature_key: str) -> None:
+    normalized_key = str(feature_key or "").strip()
+    if not normalized_key:
+        return
+    st.session_state.selected_feature_key = normalized_key
+    if get_requested_feature_key() != normalized_key:
+        st.query_params[FEATURE_QUERY_KEY] = normalized_key
+
+
 def clear_query_param(param_key: str) -> None:
     try:
         del st.query_params[param_key]
@@ -1458,7 +2190,9 @@ def ensure_state() -> None:
     if "feature_results" not in st.session_state:
         st.session_state.feature_results = {}
     if "selected_feature_key" not in st.session_state:
-        st.session_state.selected_feature_key = XIAOHA_DASHBOARD_KEY
+        st.session_state.selected_feature_key = (
+            get_requested_feature_key() or XIAOHA_DEFAULT_FEATURE_KEY
+        )
     if "is_authenticated" not in st.session_state:
         st.session_state.is_authenticated = False
     if "auth_username" not in st.session_state:
@@ -2068,6 +2802,151 @@ def clear_task_progress(job_id: str) -> None:
         runtime.progress.pop(job_id, None)
 
 
+def run_main_image_a_plus_manual_element_job(
+    template_input: Any,
+    point: tuple[int, int],
+    existing_elements: list[dict[str, Any]],
+    job_id: str,
+) -> dict[str, Any]:
+    set_task_progress(job_id, 15, "正在读取点击位置")
+    set_task_progress(job_id, 35, "正在识别点击位置的完整元素")
+    new_element = analyze_main_image_a_plus_element_at_point(
+        template_input,
+        point,
+        existing_elements,
+    )
+    set_task_progress(job_id, 100, "补漏识别完成")
+    return new_element
+
+
+def submit_main_image_a_plus_manual_element_job(
+    job_state_key: str,
+    template_input: Any,
+    template_signature: str,
+    point: tuple[int, int],
+    existing_elements: list[dict[str, Any]],
+) -> dict[str, Any]:
+    current_state = dict(st.session_state.get(job_state_key) or {})
+    if str(current_state.get("status") or "").lower() == "running":
+        return current_state
+    runtime = get_task_runtime()
+    job_id = f"a_plus_manual_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+    set_task_progress(job_id, 5, "点击位置已提交")
+    future = runtime.executor.submit(
+        run_main_image_a_plus_manual_element_job,
+        prepare_uploaded_input(template_input),
+        tuple(point),
+        [dict(element) for element in existing_elements],
+        job_id,
+    )
+    with runtime.lock:
+        runtime.futures[job_id] = future
+    job_state = {
+        "job_id": job_id,
+        "status": "running",
+        "template_signature": str(template_signature or ""),
+        "point": tuple(point),
+        "progress": 5,
+        "stage": "点击位置已提交",
+        "error": "",
+    }
+    st.session_state[job_state_key] = job_state
+    return job_state
+
+
+def sync_main_image_a_plus_manual_element_job(
+    job_state_key: str,
+    analysis_state_key: str,
+    template_signature: str,
+) -> dict[str, Any]:
+    job_state = dict(st.session_state.get(job_state_key) or {})
+    if str(job_state.get("status") or "").lower() != "running":
+        return job_state
+    job_id = str(job_state.get("job_id") or "")
+    runtime = get_task_runtime()
+    with runtime.lock:
+        future = runtime.futures.get(job_id)
+    progress_info = get_task_progress(job_id)
+    if progress_info:
+        job_state["progress"] = int(progress_info.get("percent") or job_state.get("progress") or 5)
+        job_state["stage"] = str(progress_info.get("stage") or job_state.get("stage") or "正在识别")
+    if future is None:
+        job_state.update(
+            {
+                "status": "error",
+                "error": "补漏识别任务状态已丢失，请重新点击元素。",
+                "progress": 0,
+            }
+        )
+    elif future.done():
+        try:
+            new_element = dict(future.result())
+            analysis_state = dict(st.session_state.get(analysis_state_key) or {})
+            if str(analysis_state.get("template_signature") or "") != str(template_signature or ""):
+                raise RuntimeError("模板已经变化，请在当前模板上重新点击。")
+            current_elements = [
+                dict(item)
+                for item in list(analysis_state.get("elements") or [])
+                if isinstance(item, dict)
+            ]
+            if len(current_elements) >= MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS:
+                raise RuntimeError(f"当前最多支持 {MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS} 个元素组。")
+            new_element["id"] = max(
+                [int(element.get("id") or 0) for element in current_elements] or [0]
+            ) + 1
+            current_elements.append(new_element)
+            st.session_state[analysis_state_key] = {
+                "template_signature": template_signature,
+                "elements": current_elements,
+                "error": "",
+            }
+            job_state.update(
+                {
+                    "status": "completed",
+                    "progress": 100,
+                    "stage": "补漏识别完成",
+                    "new_element": new_element,
+                    "error": "",
+                }
+            )
+        except Exception as exc:
+            job_state.update(
+                {
+                    "status": "error",
+                    "progress": 0,
+                    "error": format_user_facing_error_message(exc),
+                }
+            )
+        with runtime.lock:
+            runtime.futures.pop(job_id, None)
+        clear_task_progress(job_id)
+    st.session_state[job_state_key] = job_state
+    return job_state
+
+
+@st.fragment(run_every="2s")
+def render_main_image_a_plus_manual_element_job_status(
+    job_state_key: str,
+    analysis_state_key: str,
+    template_signature: str,
+) -> None:
+    job_state = sync_main_image_a_plus_manual_element_job(
+        job_state_key,
+        analysis_state_key,
+        template_signature,
+    )
+    if str(job_state.get("status") or "").lower() == "running":
+        st.markdown(
+            build_running_job_spinner_html(
+                int(job_state.get("progress") or 5),
+                str(job_state.get("stage") or "正在识别点击位置"),
+            ),
+            unsafe_allow_html=True,
+        )
+        return
+    st.rerun()
+
+
 def build_running_job_spinner_html(progress_value: int, progress_stage: str) -> str:
     normalized_progress = max(1, min(int(progress_value), 99))
     safe_stage = html.escape(str(progress_stage or "正在处理中").strip() or "正在处理中")
@@ -2154,8 +3033,6 @@ def render_running_job_status(feature_key: str) -> None:
             build_running_job_spinner_html(progress_value, progress_stage),
             unsafe_allow_html=True,
         )
-        st.info("当前任务正在后台处理中，你可以切换到其他功能继续操作，结果完成后会保留。")
-        st.caption("任务状态会自动刷新，运行期间也可以展开历史记录。")
         return
     st.rerun()
 
@@ -3996,6 +4873,117 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
         prepare_main_image_a_plus_reference_input(item)
         for item in list(job_context.get("uploaded_files") or [])
     ]
+    if generation_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
+        template_input = job_context.get("main_image_a_plus_template")
+        if template_input is None:
+            raise RuntimeError("指定元素替换需要先上传并识别 1 张完整的成品 A+ 示例图。")
+        replacements = [
+            dict(item)
+            for item in list(job_context.get("main_image_a_plus_element_replacements") or [])
+            if isinstance(item, dict)
+        ]
+        if not replacements or len(replacements) != len(uploaded_files):
+            raise RuntimeError("指定元素与替换图片的映射不完整，请重新识别并为至少一个编号上传替换图。")
+        template_reference = normalize_uploaded_input(template_input)
+        request_aspect_ratio = select_closest_aspect_ratio((target_width, target_height))
+        if job_id:
+            set_task_progress(job_id, 12, f"正在按 {len(replacements)} 个编号执行指定元素替换")
+        element_result = call_openrouter_images_api(
+            model=str(job_context["model"]),
+            prompt=build_main_image_a_plus_element_replacement_prompt(
+                str(job_context.get("prompt") or ""),
+                layout,
+                replacements,
+            ),
+            uploaded_files=[template_reference, *uploaded_files],
+            aspect_ratio=request_aspect_ratio,
+            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+        )
+        generated_images = list(element_result.get("images") or [])
+        if not generated_images:
+            raise RuntimeError("指定元素替换没有返回完整 A+ 成品图，请重试。")
+        if job_id:
+            set_task_progress(job_id, 76, "指定元素替换完成，正在适配模板原尺寸")
+        final_image_url = resize_image_to_exact_size(
+            str(generated_images[0]),
+            target_width,
+            target_height,
+        )
+        replaced_labels = "、".join(
+            f"#{int(item.get('id') or index + 1)} {str(item.get('name') or '元素')}"
+            for index, item in enumerate(replacements)
+        )
+        summary = (
+            f"已按模板原尺寸一次生成 {target_width}×{target_height}px 成品，并完成指定元素替换：{replaced_labels}。"
+            "未选择的元素、背景和版式均要求保持不变；本模式未拆分模板或拼接图片。"
+        )
+        return {
+            "images": [final_image_url],
+            "text": summary,
+            "channel": "Images API 原生 4K · 指定元素整图替换",
+            "requested_aspect_ratios": (request_aspect_ratio,),
+            "target_size": (target_width, target_height),
+            "section_count": 1,
+            "section_heights": (target_height,),
+            "section_height": target_height,
+            "main_image_a_plus_layout_key": layout["key"],
+            "main_image_a_plus_layout_label": layout["label"],
+            "main_image_a_plus_mode": generation_mode,
+            "generation_waves": 1,
+            "max_parallel_sections": 1,
+            "prepared_reference_count": len(uploaded_files),
+            "replaced_element_count": len(replacements),
+            "replaced_element_ids": tuple(int(item.get("id") or 0) for item in replacements),
+        }
+    if generation_mode == MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST:
+        template_input = job_context.get("main_image_a_plus_template")
+        if template_input is None:
+            raise RuntimeError("一张测试需要先上传 1 张完整的成品 A+ 版式模板。")
+        template_reference = normalize_uploaded_input(template_input)
+        request_aspect_ratio = select_closest_aspect_ratio((target_width, target_height))
+        if job_id:
+            set_task_progress(job_id, 12, "正在识别完整 A+ 版式并进行整图内容替换")
+        single_result = call_openrouter_images_api(
+            model=str(job_context["model"]),
+            prompt=build_main_image_a_plus_single_test_prompt(
+                str(job_context.get("prompt") or ""),
+                layout,
+            ),
+            uploaded_files=[template_reference, *uploaded_files],
+            aspect_ratio=request_aspect_ratio,
+            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+        )
+        generated_images = list(single_result.get("images") or [])
+        if not generated_images:
+            raise RuntimeError("一张测试没有返回完整 A+ 成品图，请重试。")
+        if job_id:
+            set_task_progress(job_id, 76, "整图生成完成，正在适配模板原尺寸")
+        final_image_url = resize_image_to_exact_size(
+            str(generated_images[0]),
+            target_width,
+            target_height,
+        )
+        model_text = str(single_result.get("text") or "").strip()
+        summary = (
+            f"已将完整模板作为统一版式参考，一次生成 1 张 {target_width}×{target_height}px A+ 成品长图。"
+            "本模式未拆分模板、未生成四张局部图，也未执行任何图片拼接。"
+        )
+        return {
+            "images": [final_image_url],
+            "text": "\n\n".join(part for part in (model_text, summary) if part),
+            "channel": "Images API 原生 4K · 整图套版重绘",
+            "requested_aspect_ratios": (request_aspect_ratio,),
+            "target_size": (target_width, target_height),
+            "section_count": 1,
+            "section_heights": (target_height,),
+            "section_height": target_height,
+            "main_image_a_plus_layout_key": layout["key"],
+            "main_image_a_plus_layout_label": layout["label"],
+            "main_image_a_plus_mode": generation_mode,
+            "generation_waves": 1,
+            "max_parallel_sections": 1,
+            "prepared_reference_count": len(uploaded_files),
+        }
     template_sections = (
         split_main_image_a_plus_template(
             job_context.get("main_image_a_plus_template"),
@@ -4207,16 +5195,27 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
         )
         if not uploaded_files:
             raise RuntimeError("主图生A+至少需要上传 1 张内容参考图。")
-        if len(uploaded_files) > MAIN_IMAGE_A_PLUS_MAX_FILES:
-            raise RuntimeError(f"主图生A+最多只能上传 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张主图。")
+        reference_limit = (
+            MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            else MAIN_IMAGE_A_PLUS_MAX_FILES
+        )
+        if len(uploaded_files) > reference_limit:
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
+                raise RuntimeError(f"指定元素替换最多支持 {reference_limit} 个上传元素组。")
+            raise RuntimeError(f"主图生A+最多只能上传 {reference_limit} 张主图。")
         if (
-            generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            generation_mode in MAIN_IMAGE_A_PLUS_TEMPLATE_MODES
             and job_context.get("main_image_a_plus_template") is None
         ):
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
+                raise RuntimeError("指定元素替换需要先上传并识别 1 张完整的成品 A+ 示例图。")
+            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST:
+                raise RuntimeError("一张测试需要先上传 1 张完整的成品 A+ 版式模板。")
             raise RuntimeError("套版替换需要先上传 1 张成品 A+ 模板。")
         layout = (
             get_main_image_a_plus_template_layout(job_context.get("main_image_a_plus_template"))
-            if generation_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            if generation_mode in MAIN_IMAGE_A_PLUS_TEMPLATE_MODES
             else get_main_image_a_plus_layout(
                 str(
                     job_context.get("main_image_a_plus_layout_key")
@@ -4834,6 +5833,57 @@ def inject_app_styles() -> None:
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.06);
         }
+        .workflow-strip {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.38rem;
+            margin: 0.1rem 0 0.78rem;
+            padding: 0.48rem;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 13px;
+            background: rgba(5, 12, 27, 0.42);
+        }
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+            gap: 0.42rem;
+            color: rgba(230, 233, 255, 0.78);
+            font-size: 0.74rem;
+            line-height: 1.25;
+            white-space: nowrap;
+        }
+        .workflow-step-number {
+            display: grid;
+            place-items: center;
+            width: 22px;
+            height: 22px;
+            flex: 0 0 22px;
+            border-radius: 50%;
+            color: #f7f6ff;
+            font-size: 0.68rem;
+            font-weight: 800;
+            background: rgba(126, 96, 255, 0.2);
+            border: 1px solid rgba(145, 122, 255, 0.34);
+        }
+        .fixed-model-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.7rem;
+            margin: 0.08rem 0 0.42rem;
+            padding: 0.58rem 0.72rem;
+            border-radius: 11px;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.035);
+            color: rgba(214, 219, 255, 0.68);
+            font-size: 0.74rem;
+        }
+        .fixed-model-card strong {
+            color: #f3f5ff;
+            font-size: 0.82rem;
+            font-weight: 750;
+        }
         .guide-wrap {
             min-width: 140px;
         }
@@ -4898,6 +5948,90 @@ def inject_app_styles() -> None:
             margin-top: 0.42rem;
             padding-top: 0.48rem;
             border-top: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .main-action-dock-marker,
+        .a-plus-mode-selector-marker,
+        .a-plus-template-card-marker,
+        .a-plus-analysis-card-marker,
+        .a-plus-auto-fill-card-marker {
+            display: none !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) {
+            position: sticky;
+            top: 0.55rem;
+            z-index: 42;
+            margin: 0 0 0.72rem !important;
+            padding: 0.58rem 0.62rem 0.48rem !important;
+            border: 1px solid rgba(132, 111, 255, 0.34) !important;
+            border-radius: 14px !important;
+            border-color: rgba(132, 111, 255, 0.34) !important;
+            background:
+                linear-gradient(180deg, rgba(13, 23, 48, 0.98), rgba(8, 16, 34, 0.96)) !important;
+            box-shadow:
+                0 14px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.055);
+            backdrop-filter: blur(16px);
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker) .fixed-model-card,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) .fixed-model-card {
+            margin-top: 0 !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker) .inline-action-row,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) .inline-action-row {
+            display: none !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) > .stElementContainer:has(.stRadio) {
+            width: 100% !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio {
+            width: 100% !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio [role="radiogroup"] {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.34rem !important;
+            width: 100% !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio [role="radiogroup"] label {
+            min-width: 0 !important;
+            min-height: 34px !important;
+            padding: 0.18rem 0.36rem !important;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            background: rgba(8, 16, 34, 0.72);
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-template-card-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-template-card-marker) {
+            min-height: 272px;
+            padding: 0.62rem 0.68rem 0.52rem !important;
+            border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            border-radius: 14px !important;
+            background: rgba(7, 15, 31, 0.52) !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-analysis-card-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-analysis-card-marker) {
+            min-height: 178px;
+            padding: 0.62rem 0.68rem 0.52rem !important;
+            border: 1px solid rgba(132, 111, 255, 0.18) !important;
+            border-radius: 14px !important;
+            border-color: rgba(132, 111, 255, 0.18) !important;
+            background: rgba(10, 18, 38, 0.68) !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-auto-fill-card-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-auto-fill-card-marker) {
+            min-height: 210px;
+            padding: 0.62rem 0.68rem 0.52rem !important;
+            border: 1px solid rgba(132, 111, 255, 0.18) !important;
+            border-radius: 14px !important;
+            border-color: rgba(132, 111, 255, 0.18) !important;
+            background: rgba(10, 18, 38, 0.68) !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-analysis-card-marker) .stButton,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-analysis-card-marker) .stButton,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-auto-fill-card-marker) .stButton,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-auto-fill-card-marker) .stButton {
+            min-height: 34px;
         }
         div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
             div[data-testid="stHorizontalBlock"]:has(.panel-subtitle) {
@@ -5326,6 +6460,24 @@ def inject_app_styles() -> None:
             }
             .workspace-panel {
                 padding: 0.62rem;
+            }
+            .workflow-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .workflow-step:last-child {
+                grid-column: span 2;
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker),
+            div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) {
+                position: relative;
+                top: auto;
+            }
+            div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio [role="radiogroup"] {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-template-card-marker),
+            div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-template-card-marker) {
+                min-height: 224px;
             }
         }
         </style>
@@ -7775,6 +8927,50 @@ def render_single_image_uploader(
     return active_uploaded
 
 
+def render_compact_element_image_uploader(
+    label: str,
+    key: str,
+    help_text: str = "",
+) -> Any | None:
+    cached_files = load_upload_cache(key, max_files=1)
+    active_uploaded = cached_files[0] if cached_files else None
+
+    if active_uploaded is not None:
+        render_zoomable_image_gallery(
+            [uploaded_input_to_data_url(active_uploaded)],
+            columns=1,
+            thumb_height=112,
+            component_key=f"compact_element_preview_{key}",
+            fit_mode="contain",
+            max_width_percent=100,
+        )
+        st.caption(f"已选：{get_uploaded_file_name(active_uploaded)}")
+
+    uploaded = st.file_uploader(
+        "更换素材" if active_uploaded is not None else label,
+        type=["png", "jpg", "jpeg", "webp"],
+        key=get_uploader_widget_key(key),
+        help=help_text or None,
+        label_visibility="collapsed",
+    )
+    if uploaded is not None:
+        save_upload_cache(key, [uploaded])
+        reset_upload_widget(key)
+        st.rerun()
+
+    if active_uploaded is not None and st.button(
+        "移除当前素材",
+        key=f"clear_compact_element_upload_{key}",
+        use_container_width=True,
+        type="secondary",
+    ):
+        clear_upload_cache(key)
+        reset_upload_widget(key)
+        st.rerun()
+
+    return active_uploaded
+
+
 def render_multi_image_uploader(
     label: str,
     key: str,
@@ -7940,13 +9136,15 @@ def render_before_after_compare_gallery(
         if not source_item or not result_item:
             continue
         result_full_source = str(result_item.get("full_src") or result_image)
-        download_source = build_direct_image_download_url(result_full_source)
+        view_source = build_history_download_public_url(result_full_source)
+        download_source = build_direct_image_download_url(view_source)
         download_path = Path(urllib.parse.unquote(urllib.parse.urlsplit(download_source).path or ""))
         download_extension = download_path.suffix if download_path.suffix.lower() in REFERENCE_IMAGE_EXTENSIONS else ".png"
         pairs.append(
             {
                 "source": source_item["src"],
                 "result": result_item["src"],
+                "view": view_source,
                 "download": download_source,
                 "download_name": f"扩图效果图_{index + 1}{download_extension}",
                 "caption": str(captions[index] if index < len(captions) else f"结果 {index + 1}").strip(),
@@ -8111,6 +9309,27 @@ def render_before_after_compare_gallery(
         cursor: pointer;
       }}
       .compare-context-menu button:hover {{ background: rgba(126, 96, 255, 0.24); }}
+      .compare-context-menu button + button {{ margin-top: 2px; }}
+      .compare-save-toast {{
+        position: absolute;
+        left: 50%;
+        bottom: 48px;
+        transform: translateX(-50%) translateY(8px);
+        max-width: calc(100% - 32px);
+        padding: 7px 11px;
+        border-radius: 9px;
+        background: rgba(8, 15, 31, 0.94);
+        border: 1px solid rgba(126, 96, 255, 0.34);
+        color: #f5f7ff;
+        font-size: 12px;
+        font-weight: 650;
+        text-align: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .16s ease, transform .16s ease;
+        z-index: 19;
+      }}
+      .compare-save-toast.show {{ opacity: 1; transform: translateX(-50%) translateY(0); }}
       @media (max-width: 720px) {{
         .compare-pane {{ height: 520px; }}
       }}
@@ -8130,13 +9349,16 @@ def render_before_after_compare_gallery(
             <canvas class="compare-canvas"></canvas>
             <span class="compare-label left">原图</span>
             <span class="compare-label right">效果图</span>
-            <span class="compare-download-hint">右键效果图显示保存选项</span>
+            <span class="compare-download-hint">右键效果图可选择保存方式</span>
             <div class="compare-line"></div>
             <div class="compare-knob"></div>
             <input class="compare-slider" type="range" min="0" max="100" value="50" aria-label="对比滑块">
             <div class="compare-context-menu" role="menu">
-              <button type="button" role="menuitem">保存效果图</button>
+              <button type="button" role="menuitem" data-save-action="download">直接保存效果图</button>
+              <button type="button" role="menuitem" data-save-action="save-as">选择位置 / 系统保存</button>
+              <button type="button" role="menuitem" data-save-action="open">打开原图后保存</button>
             </div>
+            <div class="compare-save-toast" role="status" aria-live="polite"></div>
           </div>`;
         wrap.appendChild(title);
         wrap.appendChild(grid);
@@ -8148,7 +9370,10 @@ def render_before_after_compare_gallery(
         const line = control.querySelector(".compare-line");
         const knob = control.querySelector(".compare-knob");
         const contextMenu = control.querySelector(".compare-context-menu");
-        const saveButton = contextMenu.querySelector("button");
+        const saveButton = contextMenu.querySelector('[data-save-action="download"]');
+        const saveAsButton = contextMenu.querySelector('[data-save-action="save-as"]');
+        const openButton = contextMenu.querySelector('[data-save-action="open"]');
+        const saveToast = control.querySelector(".compare-save-toast");
         const sourceImage = new Image();
         const resultImage = new Image();
         let currentValue = 50;
@@ -8265,24 +9490,111 @@ def render_before_after_compare_gallery(
           }}
           event.preventDefault();
           event.stopPropagation();
-          const menuWidth = 162;
-          const menuHeight = 52;
+          const menuWidth = 218;
+          const menuHeight = 132;
           contextMenu.style.left = `${{Math.max(8, Math.min(localX, rect.width - menuWidth - 8))}}px`;
           contextMenu.style.top = `${{Math.max(8, Math.min(event.clientY - rect.top, rect.height - menuHeight - 8))}}px`;
           contextMenu.classList.add("open");
         }});
+        let saveToastTimer = null;
+        const showSaveToast = (message) => {{
+          if (!saveToast) return;
+          saveToast.textContent = message;
+          saveToast.classList.add("show");
+          if (saveToastTimer) window.clearTimeout(saveToastTimer);
+          saveToastTimer = window.setTimeout(() => saveToast.classList.remove("show"), 2600);
+        }};
+        const getSaveName = () => pair.download_name || `扩图效果图_${{index + 1}}.png`;
+        const triggerLink = (href, fileName = "", openInNewTab = false) => {{
+          if (!href) return false;
+          const link = document.createElement("a");
+          link.href = href;
+          if (fileName) link.download = fileName;
+          if (openInNewTab) link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          return true;
+        }};
+        const fetchOriginalBlob = async () => {{
+          const source = pair.view || pair.download || pair.result;
+          const response = await fetch(source, {{ mode: "cors", credentials: "omit", cache: "no-store" }});
+          if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
+          const blob = await response.blob();
+          if (!blob || blob.size <= 0) throw new Error("empty image");
+          return blob;
+        }};
+        const downloadBlob = (blob, fileName) => {{
+          const blobUrl = URL.createObjectURL(blob);
+          triggerLink(blobUrl, fileName, false);
+          window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1800);
+        }};
         saveButton.addEventListener("click", (event) => {{
           event.preventDefault();
           event.stopPropagation();
           contextMenu.classList.remove("open");
-          const link = document.createElement("a");
-          link.href = pair.download || pair.result;
-          link.download = pair.download_name || `扩图效果图_${{index + 1}}.png`;
-          link.target = "_blank";
-          link.rel = "noopener";
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
+          triggerLink(pair.download || pair.view || pair.result, getSaveName(), true);
+          showSaveToast("已提交原图下载");
+        }});
+        saveAsButton.addEventListener("click", async (event) => {{
+          event.preventDefault();
+          event.stopPropagation();
+          contextMenu.classList.remove("open");
+          const fileName = getSaveName();
+          let fileHandle = null;
+          if (typeof window.showSaveFilePicker === "function") {{
+            try {{
+              fileHandle = await window.showSaveFilePicker({{
+                suggestedName: fileName,
+                types: [{{
+                  description: "图片文件",
+                  accept: {{
+                    "image/png": [".png"],
+                    "image/jpeg": [".jpg", ".jpeg"],
+                    "image/webp": [".webp"]
+                  }}
+                }}]
+              }});
+            }} catch (error) {{
+              if (error && error.name === "AbortError") return;
+              fileHandle = null;
+            }}
+          }}
+          try {{
+            const blob = await fetchOriginalBlob();
+            if (fileHandle) {{
+              const writable = await fileHandle.createWritable();
+              await writable.write(blob);
+              await writable.close();
+              showSaveToast("效果图已保存到所选位置");
+              return;
+            }}
+            if (typeof File === "function" && navigator.share && navigator.canShare) {{
+              const sharedFile = new File([blob], fileName, {{ type: blob.type || "image/png" }});
+              if (navigator.canShare({{ files: [sharedFile] }})) {{
+                try {{
+                  await navigator.share({{ files: [sharedFile], title: fileName }});
+                  showSaveToast("已打开系统保存 / 分享");
+                  return;
+                }} catch (error) {{
+                  if (error && error.name === "AbortError") return;
+                }}
+              }}
+            }}
+            downloadBlob(blob, fileName);
+            showSaveToast("当前浏览器已自动改为下载保存");
+          }} catch (error) {{
+            triggerLink(pair.download || pair.view || pair.result, fileName, true);
+            showSaveToast("浏览器限制另存为，已改用直接下载");
+          }}
+        }});
+        openButton.addEventListener("click", (event) => {{
+          event.preventDefault();
+          event.stopPropagation();
+          contextMenu.classList.remove("open");
+          triggerLink(pair.view || pair.download || pair.result, "", true);
+          showSaveToast("已在新页面打开原图，可使用浏览器保存");
         }});
         document.addEventListener("click", (event) => {{
           if (!contextMenu.contains(event.target)) contextMenu.classList.remove("open");
@@ -10164,19 +11476,19 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     title_html = f'<div class="feature-title">{feature["name"]}<span class="feature-badge">AI 增强</span></div>'
     st.markdown(title_html, unsafe_allow_html=True)
     st.markdown(f'<div class="feature-desc">{page_subtitle}</div>', unsafe_allow_html=True)
-    meta_items = [
-        '<span class="meta-pill">支持 JPG、PNG、WEBP 格式</span>',
-        '<span class="meta-pill">单张最大 50MB</span>',
-    ]
+    if job_info.get("status") == "running":
+        render_running_job_status(feature["key"])
+    elif job_info.get("status") == "error":
+        st.error(f"后台任务失败：{format_user_facing_error_message(job_info.get('error'))}")
+    elif job_info.get("status") == "completed":
+        st.success("任务已完成，结果已更新到右侧预览区。")
+
+    meta_items = ['<span class="meta-pill">JPG、PNG、WEBP · 单张≤50MB</span>']
     if supports_main_image_a_plus:
-        meta_items.append('<span class="meta-pill">直接输出商业级产品图</span>')
-        meta_items.append('<span class="meta-pill">支持成品 A+ 套版替换</span>')
-        meta_items.append('<span class="meta-pill">自由创作：3 种规格</span>')
-        meta_items.append('<span class="meta-pill">套版：跟随模板原尺寸</span>')
-        meta_items.append('<span class="meta-pill">四阶段自然衔接 · 元素可跨区</span>')
-        meta_items.append('<span class="meta-pill">满版画面 · 文字安全区</span>')
-        meta_items.append(f'<span class="meta-pill">最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张主图</span>')
-        meta_items.append('<span class="meta-pill">原生 4K 高清生成</span>')
+        meta_items.append(f'<span class="meta-pill">最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张参考图</span>')
+        meta_items.append('<span class="meta-pill">4 种模式 · 支持指定元素替换</span>')
+        meta_items.append('<span class="meta-pill">3 种规格 · 套版跟随模板</span>')
+        meta_items.append('<span class="meta-pill">原生 4K · 文字不截断</span>')
     elif supports_amazon_a_plus:
         meta_items.append('<span class="meta-pill">原生 4K 高清底稿</span>')
         meta_items.append('<span class="meta-pill">纯绿幕独立元素底稿</span>')
@@ -10196,15 +11508,33 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append(f'<span class="meta-pill">默认输出 {max_output_images} 张结果图</span>')
     st.markdown(f'<div class="meta-row">{"".join(meta_items)}</div>', unsafe_allow_html=True)
 
+    if supports_main_image_a_plus:
+        workflow_steps = ("选择方式", "上传素材", "设置规格与要求", "开始生成", "查看结果")
+    elif supports_outpaint:
+        workflow_steps = ("上传原图", "框定扩图区域", "补充要求", "开始扩图", "对比结果")
+    else:
+        workflow_steps = ("上传图片", "补充参考", "填写要求", "开始处理", "查看结果")
+    workflow_html = "".join(
+        f'<div class="workflow-step"><span class="workflow-step-number">{index}</span><span>{label}</span></div>'
+        for index, label in enumerate(workflow_steps, start=1)
+    )
+    st.markdown(f'<div class="workflow-strip">{workflow_html}</div>', unsafe_allow_html=True)
+
     submitted = False
     active_batch_concurrency = DEFAULT_BATCH_API_CONCURRENCY if supports_batch_multi_upload else 1
 
     left_col, right_col = st.columns([0.88, 1.12], gap="medium")
     with left_col:
+        left_panel_title = (
+            "创作设置"
+            if supports_main_image_a_plus
+            else ("文字要求" if supports_jimeng_generation else "上传与设置")
+        )
         st.markdown(
-            '<div class="result-block-title">文字要求</div>' if supports_jimeng_generation else '<div class="result-block-title">上传图片</div>',
+            f'<div class="result-block-title">{left_panel_title}</div>',
             unsafe_allow_html=True,
         )
+        primary_action_slot = st.empty()
         skin_tone_reference_file = None
         pupil_color_reference_file = None
         eye_shape_reference_file = None
@@ -10219,6 +11549,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         main_image_a_plus_mode = MAIN_IMAGE_A_PLUS_MODE_FREE
         main_image_a_plus_template_file = None
         main_image_a_plus_layout_key = MAIN_IMAGE_A_PLUS_DEFAULT_LAYOUT_KEY
+        main_image_a_plus_detected_elements: list[dict[str, Any]] = []
+        main_image_a_plus_element_replacements: list[dict[str, Any]] = []
+        main_image_a_plus_element_preview = ""
+        main_image_a_plus_element_template_signature = ""
+        main_image_a_plus_element_review_confirmed = False
         pose_reference_files: list[Any] = []
         scene_reference_files: list[Any] = []
         batch_source_files: list[Any] = []
@@ -10392,7 +11727,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 label_visibility="collapsed",
             )
         elif supports_main_image_a_plus:
-            st.markdown('<div class="panel-subtitle">生成方式</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="a-plus-mode-selector-marker"></div>'
+                '<div class="panel-subtitle">生成方式</div>',
+                unsafe_allow_html=True,
+            )
             main_image_a_plus_mode = st.radio(
                 "选择主图生A+生成方式",
                 options=list(MAIN_IMAGE_A_PLUS_MODE_LABELS),
@@ -10402,57 +11741,498 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 horizontal=True,
                 label_visibility="collapsed",
             )
-            if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
-                st.markdown('<div class="panel-subtitle">成品 A+ 版式模板（1 张）</div>', unsafe_allow_html=True)
-                main_image_a_plus_template_file = render_single_image_uploader(
-                    "上传成品A+版式模板",
-                    key=f"main_image_a_plus_template_{feature['key']}",
-                    help_text=(
-                        "上传要套用版式的完整成品 A+。模板只保留布局、色彩和视觉层级，"
-                        "原品牌、原文案、原模特和原产品都会被替换或删除。"
-                    ),
-                )
+            uses_finished_a_plus_template = (
+                main_image_a_plus_mode in MAIN_IMAGE_A_PLUS_TEMPLATE_MODES
+            )
+            if uses_finished_a_plus_template:
+                with st.container(border=True):
+                    st.markdown(
+                        '<div class="a-plus-template-card-marker"></div>'
+                        '<div class="panel-subtitle">成品 A+ 版式模板（1 张）</div>',
+                        unsafe_allow_html=True,
+                    )
+                    main_image_a_plus_template_file = render_single_image_uploader(
+                        "上传成品A+版式模板",
+                        key=f"main_image_a_plus_template_{feature['key']}",
+                        help_text=(
+                            "上传完整成品 A+ 示例图。指定元素替换只修改你为编号上传了新素材的元素，"
+                            "其余内容、背景和版式保持不变。"
+                            if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+                            else (
+                                "上传要套用版式的完整成品 A+。模板只保留布局、色彩和视觉层级，"
+                                "原品牌、原文案、原模特和原产品都会被替换或删除。"
+                                + (
+                                    "一张测试会把完整模板作为一个整体，只保留纯背景和版式，其他内容全部替换；只生成一张成品，不拆分、不拼接。"
+                                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST
+                                    else ""
+                                )
+                            )
+                        ),
+                    )
+                    st.markdown(
+                        (
+                            '<div class="slot-helper">上传模板后先识别元素；图中编号与下方上传框一一对应，只替换已上传的编号</div>'
+                            if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+                            else (
+                                '<div class="slot-helper">整张模板一次重绘：只保留背景与版式，产品、品牌、模特和其他内容全部替换；不拆四段、不拼接</div>'
+                                if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST
+                                else '<div class="slot-helper">套版结果自动跟随模板原图尺寸，无需另外选择规格</div>'
+                            )
+                        ),
+                        unsafe_allow_html=True,
+                    )
+            if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
+                if main_image_a_plus_template_file is None:
+                    with st.container(border=True):
+                        st.markdown(
+                            '<div class="a-plus-analysis-card-marker"></div>'
+                            '<div class="panel-subtitle">识别并标注可替换元素</div>',
+                            unsafe_allow_html=True,
+                        )
+                        st.button(
+                            "识别可替换元素",
+                            key=f"analyze_main_image_a_plus_elements_{feature['key']}_empty",
+                            use_container_width=True,
+                            type="secondary",
+                            disabled=True,
+                        )
+                        st.info("请先上传完整 A+ 示例图，上传后按钮会在原位置启用。")
+                else:
+                    template_signature = get_main_image_a_plus_template_signature(
+                        main_image_a_plus_template_file
+                    )
+                    analysis_state_key = f"main_image_a_plus_element_analysis_{feature['key']}"
+                    analysis_state = dict(st.session_state.get(analysis_state_key) or {})
+                    analysis_matches_template = (
+                        str(analysis_state.get("template_signature") or "") == template_signature
+                    )
+                    analyze_elements_clicked = False
+                    with st.container(border=True):
+                        st.markdown(
+                            '<div class="a-plus-analysis-card-marker"></div>'
+                            '<div class="panel-subtitle">识别并标注可替换元素</div>',
+                            unsafe_allow_html=True,
+                        )
+                        analyze_elements_clicked = st.button(
+                            "重新识别可替换元素"
+                            if analysis_matches_template
+                            else "识别可替换元素",
+                            key=f"analyze_main_image_a_plus_elements_{feature['key']}_{template_signature}",
+                            use_container_width=True,
+                            type="secondary",
+                        )
+                        if analysis_matches_template:
+                            analysis_error = str(analysis_state.get("error") or "").strip()
+                            if analysis_error:
+                                st.error(f"元素识别失败：{analysis_error}")
+                            else:
+                                detected_count = len(
+                                    [
+                                        item
+                                        for item in list(analysis_state.get("elements") or [])
+                                        if isinstance(item, dict)
+                                    ]
+                                )
+                                st.success(f"已识别 {detected_count} 个元素组，可继续校对或重新识别。")
+                        else:
+                            st.info("模板已就绪，点击后会识别产品、品牌、模特、文案和细节元素。")
+                    if analyze_elements_clicked:
+                        with st.spinner("正在分析整张 A+ 的产品、品牌、模特、文案和细节元素…"):
+                            try:
+                                detected_elements = analyze_main_image_a_plus_elements(
+                                    main_image_a_plus_template_file
+                                )
+                                st.session_state[analysis_state_key] = {
+                                    "template_signature": template_signature,
+                                    "elements": detected_elements,
+                                    "error": "",
+                                }
+                            except Exception as exc:
+                                st.session_state[analysis_state_key] = {
+                                    "template_signature": template_signature,
+                                    "elements": [],
+                                    "error": format_user_facing_error_message(exc),
+                                }
+                        st.rerun()
+                    if analysis_matches_template:
+                        main_image_a_plus_detected_elements = [
+                            dict(item)
+                            for item in list(analysis_state.get("elements") or [])
+                            if isinstance(item, dict)
+                        ]
+                    if main_image_a_plus_detected_elements:
+                        manual_job_state_key = (
+                            f"main_image_a_plus_manual_job_{feature['key']}_{template_signature}"
+                        )
+                        manual_job_state = sync_main_image_a_plus_manual_element_job(
+                            manual_job_state_key,
+                            analysis_state_key,
+                            template_signature,
+                        )
+                        manual_job_status = str(
+                            manual_job_state.get("status") or ""
+                        ).lower()
+                        if manual_job_status == "completed":
+                            completed_element = dict(
+                                manual_job_state.get("new_element") or {}
+                            )
+                            if completed_element:
+                                refreshed_analysis_state = dict(
+                                    st.session_state.get(analysis_state_key) or {}
+                                )
+                                main_image_a_plus_detected_elements = [
+                                    dict(item)
+                                    for item in list(
+                                        refreshed_analysis_state.get("elements") or []
+                                    )
+                                    if isinstance(item, dict)
+                                ]
+                                st.success(
+                                    f"已补充 #{int(completed_element.get('id') or 0)} "
+                                    f"{str(completed_element.get('name') or '新元素')}。"
+                                )
+                        elif manual_job_status == "error":
+                            st.error(
+                                "点击补漏失败："
+                                f"{str(manual_job_state.get('error') or '请重新点击元素主体。')}"
+                            )
+                        manual_point = consume_main_image_a_plus_manual_point(template_signature)
+                        if manual_point is not None:
+                            existing_element = find_main_image_a_plus_element_at_point(
+                                main_image_a_plus_detected_elements,
+                                manual_point,
+                            )
+                            if existing_element is not None:
+                                st.info(
+                                    f"点击位置已经属于 #{int(existing_element.get('id') or 0)} "
+                                    f"{str(existing_element.get('name') or '元素')}，无需重复添加。"
+                                )
+                            else:
+                                manual_job_state = submit_main_image_a_plus_manual_element_job(
+                                    manual_job_state_key,
+                                    main_image_a_plus_template_file,
+                                    template_signature,
+                                    manual_point,
+                                    main_image_a_plus_detected_elements,
+                                )
+                                manual_job_status = str(
+                                    manual_job_state.get("status") or ""
+                                ).lower()
+                        if manual_job_status == "running":
+                            render_main_image_a_plus_manual_element_job_status(
+                                manual_job_state_key,
+                                analysis_state_key,
+                                template_signature,
+                            )
+                        main_image_a_plus_element_preview = build_main_image_a_plus_element_preview(
+                            main_image_a_plus_template_file,
+                            main_image_a_plus_detected_elements,
+                        )
+                        main_image_a_plus_element_template_signature = template_signature
+                        st.caption(
+                            f"已识别 {len(main_image_a_plus_detected_elements)} 个元素组。右侧可查看完整编号图，也可以切换到“手动补漏”点击漏掉的内容。"
+                        )
+                        auto_material_key = (
+                            f"main_image_a_plus_auto_materials_{feature['key']}_{template_signature}"
+                        )
+                        auto_material_files = load_upload_cache(
+                            auto_material_key,
+                            max_files=MAIN_IMAGE_A_PLUS_MAX_FILES,
+                        )
+                        auto_match_state_key = (
+                            f"main_image_a_plus_auto_matches_{feature['key']}_{template_signature}"
+                        )
+                        review_state_key = (
+                            f"main_image_a_plus_element_review_{feature['key']}_{template_signature}"
+                        )
+                        auto_match_state = dict(st.session_state.get(auto_match_state_key) or {})
+                        auto_matches_by_element: dict[int, dict[str, Any]] = {}
+                        auto_match_error = ""
+                        auto_match_applied_count: int | None = None
+                        auto_match_skipped_count = 0
+                        auto_match_uncropped_count = 0
+                        if (
+                            str(auto_match_state.get("template_signature") or "")
+                            == template_signature
+                        ):
+                            auto_matches_by_element = {
+                                int(item.get("element_id") or 0): dict(item)
+                                for item in list(auto_match_state.get("matches") or [])
+                                if isinstance(item, dict) and int(item.get("element_id") or 0) > 0
+                            }
+                            auto_match_error = str(auto_match_state.get("error") or "").strip()
+                            if "applied_count" in auto_match_state:
+                                auto_match_applied_count = int(
+                                    auto_match_state.get("applied_count") or 0
+                                )
+                                auto_match_skipped_count = int(
+                                    auto_match_state.get("skipped_count") or 0
+                                )
+                                auto_match_uncropped_count = int(
+                                    auto_match_state.get("uncropped_count") or 0
+                                )
+                        auto_match_clicked = False
+                        with st.container(border=True):
+                            st.markdown(
+                                '<div class="a-plus-auto-fill-card-marker"></div>'
+                                '<div class="panel-subtitle">AI 自动识别并填充替换素材</div>',
+                                unsafe_allow_html=True,
+                            )
+                            auto_match_clicked = st.button(
+                                "AI 识别素材并自动填充",
+                                key=f"auto_match_main_image_a_plus_{feature['key']}_{template_signature}",
+                                use_container_width=True,
+                                type="secondary",
+                                disabled=not auto_material_files,
+                            )
+                            if auto_match_error:
+                                st.error(f"自动填充失败：{auto_match_error}")
+                            elif auto_match_applied_count is not None:
+                                st.success(
+                                    f"AI 已裁切并填充 {auto_match_applied_count} 个编号；"
+                                    f"已有人工素材的 {auto_match_skipped_count} 个编号未覆盖；"
+                                    f"未能准确裁出的 {auto_match_uncropped_count} 个编号未自动填充。"
+                                )
+                            elif auto_material_files:
+                                st.caption("素材已就绪，上方按钮可开始自动匹配。")
+                            else:
+                                st.caption("先在下方上传素材，按钮会在原位置自动启用。")
+                            auto_material_files = render_multi_image_uploader(
+                                "批量上传替换素材",
+                                key=auto_material_key,
+                                help_text=(
+                                    "可混合上传产品、包装、模特、Logo、文案和细节图。"
+                                    "AI 会识别每张图里的内容，并自动放入最合适的编号卡片。"
+                                ),
+                                max_files=MAIN_IMAGE_A_PLUS_MAX_FILES,
+                                preview_slot_count=5,
+                            )
+                        if auto_match_clicked:
+                            with st.spinner("正在识别每张素材并匹配产品、模特、品牌、文案和细节编号…"):
+                                try:
+                                    auto_matches = analyze_main_image_a_plus_replacement_matches(
+                                        main_image_a_plus_template_file,
+                                        main_image_a_plus_detected_elements,
+                                        auto_material_files,
+                                    )
+                                    applied_matches: list[dict[str, Any]] = []
+                                    skipped_matches: list[dict[str, Any]] = []
+                                    uncropped_matches: list[dict[str, Any]] = []
+                                    processed_matches: list[dict[str, Any]] = []
+                                    for auto_match in auto_matches:
+                                        processed_match = dict(auto_match)
+                                        matched_element_id = int(auto_match.get("element_id") or 0)
+                                        matched_image_index = int(auto_match.get("image_index") or 0)
+                                        matched_element = next(
+                                            (
+                                                item
+                                                for item in main_image_a_plus_detected_elements
+                                                if int(item.get("id") or 0) == matched_element_id
+                                            ),
+                                            {},
+                                        )
+                                        matched_upload_key = (
+                                            f"main_image_a_plus_element_{feature['key']}_"
+                                            f"{template_signature}_{matched_element_id}"
+                                        )
+                                        existing_replacement_files = load_upload_cache(
+                                            matched_upload_key,
+                                            max_files=1,
+                                        )
+                                        previous_auto_match = auto_matches_by_element.get(
+                                            matched_element_id
+                                        )
+                                        existing_replacement_name = (
+                                            get_uploaded_file_name(existing_replacement_files[0])
+                                            if existing_replacement_files
+                                            else ""
+                                        )
+                                        previous_auto_names = set()
+                                        if previous_auto_match is not None:
+                                            previous_cropped_name = str(
+                                                previous_auto_match.get("cropped_reference_name") or ""
+                                            ).strip()
+                                            if previous_cropped_name:
+                                                previous_auto_names.add(previous_cropped_name)
+                                            previous_image_index = int(
+                                                previous_auto_match.get("image_index") or 0
+                                            )
+                                            if 1 <= previous_image_index <= len(auto_material_files):
+                                                previous_auto_names.add(
+                                                    get_uploaded_file_name(
+                                                        auto_material_files[previous_image_index - 1]
+                                                    )
+                                                )
+                                        existing_is_previous_auto_fill = bool(
+                                            existing_replacement_name
+                                            and existing_replacement_name in previous_auto_names
+                                        )
+                                        if (
+                                            existing_replacement_files
+                                            and not existing_is_previous_auto_fill
+                                        ):
+                                            processed_match["crop_status"] = "manual_preserved"
+                                            skipped_matches.append(processed_match)
+                                            processed_matches.append(processed_match)
+                                            continue
+                                        if 1 <= matched_image_index <= len(auto_material_files):
+                                            cropped_replacement = crop_main_image_a_plus_replacement_input(
+                                                auto_material_files[matched_image_index - 1],
+                                                auto_match.get("crop_box"),
+                                                matched_element_id,
+                                                str(
+                                                    matched_element.get("name")
+                                                    or auto_match.get("detected_content")
+                                                    or f"元素_{matched_element_id}"
+                                                ),
+                                            )
+                                            if cropped_replacement is None:
+                                                processed_match["crop_status"] = "not_located"
+                                                uncropped_matches.append(processed_match)
+                                                processed_matches.append(processed_match)
+                                                continue
+                                            save_upload_cache(
+                                                matched_upload_key,
+                                                [cropped_replacement],
+                                            )
+                                            processed_match["crop_status"] = "applied"
+                                            processed_match["cropped_reference_name"] = str(
+                                                cropped_replacement.get("name") or ""
+                                            )
+                                            applied_matches.append(processed_match)
+                                            processed_matches.append(processed_match)
+                                    st.session_state[auto_match_state_key] = {
+                                        "template_signature": template_signature,
+                                        "matches": processed_matches,
+                                        "applied_count": len(applied_matches),
+                                        "skipped_count": len(skipped_matches),
+                                        "uncropped_count": len(uncropped_matches),
+                                        "material_count": len(auto_material_files),
+                                    }
+                                    st.session_state[review_state_key] = False
+                                except Exception as exc:
+                                    st.session_state[auto_match_state_key] = {
+                                        "template_signature": template_signature,
+                                        "matches": [],
+                                        "error": format_user_facing_error_message(exc),
+                                    }
+                            st.rerun()
+                        st.markdown('<div class="panel-subtitle">按编号校对替换元素</div>', unsafe_allow_html=True)
+                        st.markdown(
+                            '<div class="slot-helper">逐项检查 AI 填充结果；可以更换、移除或为未匹配编号手动上传，留空编号保持原样</div>',
+                            unsafe_allow_html=True,
+                        )
+                        element_columns = st.columns(2, gap="small")
+                        for element_index, element in enumerate(main_image_a_plus_detected_elements):
+                            element_id = int(element.get("id") or 0)
+                            element_name = str(element.get("name") or f"元素 {element_id}")
+                            replacement_hint = str(
+                                element.get("replacement_hint")
+                                or element.get("description")
+                                or "上传包含该元素的新图片"
+                            )
+                            region_count = len(list(element.get("regions") or []))
+                            element_upload_key = (
+                                f"main_image_a_plus_element_{feature['key']}_{template_signature}_{element_id}"
+                            )
+                            has_uploaded_replacement = bool(
+                                load_upload_cache(element_upload_key, max_files=1)
+                            )
+                            auto_match = auto_matches_by_element.get(element_id)
+                            if has_uploaded_replacement and auto_match is not None:
+                                confidence_percent = round(
+                                    float(auto_match.get("confidence") or 0) * 100
+                                )
+                                status_text = f" · AI 裁切 {confidence_percent}%"
+                            elif (
+                                auto_match is not None
+                                and str(auto_match.get("crop_status") or "") == "not_located"
+                            ):
+                                status_text = " · 待手动裁切"
+                            else:
+                                status_text = " · 已上传" if has_uploaded_replacement else ""
+                            with element_columns[element_index % 2]:
+                                with st.expander(
+                                    f"#{element_id} {element_name} · {region_count} 处{status_text}",
+                                    expanded=has_uploaded_replacement,
+                                ):
+                                    st.caption(f"{replacement_hint}。留空则保持原元素不变。")
+                                    if auto_match is not None:
+                                        auto_reason = str(auto_match.get("reason") or "").strip()
+                                        auto_content = str(
+                                            auto_match.get("detected_content") or ""
+                                        ).strip()
+                                        if str(auto_match.get("crop_status") or "") == "not_located":
+                                            st.caption("未能定位出独立元素，已阻止整图自动填充，请手动上传裁切素材。")
+                                        if auto_reason or auto_content:
+                                            st.caption(
+                                                "AI 判断："
+                                                + "；".join(
+                                                    text
+                                                    for text in (auto_content, auto_reason)
+                                                    if text
+                                                )
+                                            )
+                                    replacement_file = render_compact_element_image_uploader(
+                                        f"上传 #{element_id} {element_name}",
+                                        key=element_upload_key,
+                                        help_text=f"只用于替换模板编号 #{element_id} 的“{element_name}”，不会用于其他编号。",
+                                    )
+                                    if replacement_file is not None:
+                                        amazon_source_files.append(replacement_file)
+                                        replacement_mapping = dict(element)
+                                        replacement_mapping["reference_name"] = get_uploaded_file_name(
+                                            replacement_file
+                                        )
+                                        main_image_a_plus_element_replacements.append(
+                                            replacement_mapping
+                                        )
+                        st.info(
+                            f"当前已选择 {len(main_image_a_plus_element_replacements)} / {len(main_image_a_plus_detected_elements)} 个元素进行替换。"
+                        )
+                        main_image_a_plus_element_review_confirmed = st.checkbox(
+                            "我已逐项校对编号、替换素材和未识别元素，可以开始替换",
+                            key=review_state_key,
+                            help="勾选后才会启用生成按钮；AI 自动填充不会直接开始生成。",
+                        )
+            else:
                 st.markdown(
-                    '<div class="slot-helper">套版结果自动跟随模板原图尺寸，无需另外选择规格</div>',
+                    (
+                        f'<div class="panel-subtitle">替换内容参考图（最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张）</div>'
+                        if uses_finished_a_plus_template
+                        else f'<div class="panel-subtitle">商品主图（最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张）</div>'
+                    ),
                     unsafe_allow_html=True,
                 )
-            st.markdown(
-                (
-                    f'<div class="panel-subtitle">替换内容参考图（最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张）</div>'
-                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-                    else f'<div class="panel-subtitle">商品主图（最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张）</div>'
-                ),
-                unsafe_allow_html=True,
-            )
-            amazon_source_files = render_multi_image_uploader(
-                (
-                    "上传要替换进去的内容参考图"
-                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-                    else "上传商品主图"
-                ),
-                key=f"main_image_a_plus_uploader_{feature['key']}",
-                help_text=(
+                amazon_source_files = render_multi_image_uploader(
                     (
-                        "可上传包含新文案、品牌、Logo、模特、产品、包装、细节和参数的 JPG / PNG / WEBP。"
-                        "第 1 张作为核心商品与品牌依据，其余图片由 AI 自动匹配到模板对应位置，"
-                        f"最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张。"
-                    )
-                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-                    else (
-                        "可上传 JPG / PNG / WEBP。第 1 张作为核心商品主图，其余图片用于补充角度、细节、"
-                        f"套装内容和使用场景，最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张。"
-                    )
-                ),
-                max_files=MAIN_IMAGE_A_PLUS_MAX_FILES,
-            )
-            st.markdown(
-                (
-                    '<div class="slot-helper">请把最能代表新商品与品牌的图片放在第一张；其余文案、模特、产品细节图可继续上传</div>'
-                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-                    else '<div class="slot-helper">请把最能代表商品的图片第一个上传；图片顺序即参考优先级</div>'
-                ),
-                unsafe_allow_html=True,
-            )
+                        "上传要替换进去的内容参考图"
+                        if uses_finished_a_plus_template
+                        else "上传商品主图"
+                    ),
+                    key=f"main_image_a_plus_uploader_{feature['key']}",
+                    help_text=(
+                        (
+                            "可上传包含新文案、品牌、Logo、模特、产品、包装、细节和参数的 JPG / PNG / WEBP。"
+                            "第 1 张作为核心商品与品牌依据，其余图片由 AI 自动匹配到模板对应位置，"
+                            f"最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张。"
+                        )
+                        if uses_finished_a_plus_template
+                        else (
+                            "可上传 JPG / PNG / WEBP。第 1 张作为核心商品主图，其余图片用于补充角度、细节、"
+                            f"套装内容和使用场景，最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张。"
+                        )
+                    ),
+                    max_files=MAIN_IMAGE_A_PLUS_MAX_FILES,
+                )
+                st.markdown(
+                    (
+                        '<div class="slot-helper">请把最能代表新商品与品牌的图片放在第一张；其余文案、模特、产品细节图可继续上传</div>'
+                        if uses_finished_a_plus_template
+                        else '<div class="slot-helper">请把最能代表商品的图片第一个上传；图片顺序即参考优先级</div>'
+                    ),
+                    unsafe_allow_html=True,
+                )
             if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_FREE:
                 st.markdown('<div class="panel-subtitle">选择成品规格</div>', unsafe_allow_html=True)
                 layout_keys = list(MAIN_IMAGE_A_PLUS_LAYOUTS)
@@ -10467,10 +12247,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 selected_a_plus_layout = get_main_image_a_plus_layout(main_image_a_plus_layout_key)
                 selected_width, selected_height = selected_a_plus_layout["target_size"]
                 st.info(
-                    f"最终成品为 {selected_width}×{selected_height}px。"
-                    "画面从上到下大体形成四个内容阶段，不显示分段距离，也不使用明显分割线或硬边界；"
-                    "人物、产品、光影和装饰可以自然跨越相邻阶段。"
-                    "不生成绿幕或 PSD；背景和产品画面满版铺满，完整文字与可读 Logo 不会被截断。"
+                    f"{selected_width}×{selected_height}px · 四阶段自然衔接 · 元素可跨区 · "
+                    "画面满版，完整文字与可读 Logo 不截断。"
                 )
             st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
             main_image_a_plus_prompt = st.text_area(
@@ -10550,41 +12328,84 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 help_text=help_text,
             )
 
-        st.markdown('<div class="inline-action-row"></div>', unsafe_allow_html=True)
-        if supports_jimeng_generation:
-            st.caption("当前模型：Agent")
-            submitted = st.button(
-                "开始处理",
-                key=f"process_{feature['key']}",
-                type="secondary",
-                use_container_width=True,
-            )
-        else:
-            selector_col, process_col = st.columns([1.35, 0.95], gap="small")
-            with selector_col:
-                active_model = st.selectbox(
-                    "模型切换",
-                    model_options_for_feature,
-                    index=model_options_for_feature.index(default_model_for_feature),
-                    format_func=get_model_display_name,
-                    key=f"model_select_{feature['key']}",
+        process_button_label = (
+            "开始生成 A+"
+            if supports_main_image_a_plus
+            else ("开始扩图" if supports_outpaint else "开始处理")
+        )
+        is_job_running = str(job_info.get("status") or "").strip().lower() == "running"
+        is_element_review_pending = bool(
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and not main_image_a_plus_element_review_confirmed
+        )
+        process_button_disabled = is_job_running or is_element_review_pending
+        with primary_action_slot:
+            with st.container(border=True):
+                st.markdown(
+                    '<div class="main-action-dock-marker"></div>'
+                    '<div class="inline-action-row"></div>',
+                    unsafe_allow_html=True,
                 )
-            with process_col:
-                st.markdown('<div class="panel-subtitle">&nbsp;</div>', unsafe_allow_html=True)
-                submitted = st.button(
-                    "开始处理",
-                    key=f"process_{feature['key']}",
-                    type="secondary",
-                    use_container_width=True,
-                )
-            if feature.get("key") == "hd_batch":
-                st.caption("即梦 4.6 高清已暂时关闭，当前仅保留 Nano Banana 2 生图。")
-            elif supports_main_image_a_plus:
-                st.caption("主图生A+使用 Nano Banana 2 原生 4K Images API；画面满版，文字使用安全区避免被截断。")
-            elif supports_amazon_a_plus:
-                st.caption("A+ 使用原生 4K Images API 生成高清绿幕底稿。")
+                if supports_jimeng_generation:
+                    st.caption("当前模型：Agent")
+                    submitted = st.button(
+                        process_button_label,
+                        key=f"process_{feature['key']}",
+                        type="primary",
+                        use_container_width=True,
+                        disabled=process_button_disabled,
+                    )
+                elif len(model_options_for_feature) == 1:
+                    active_model = model_options_for_feature[0]
+                    st.markdown(
+                        '<div class="fixed-model-card"><span>当前模型</span>'
+                        f'<strong>{html.escape(get_model_display_name(active_model))}</strong></div>',
+                        unsafe_allow_html=True,
+                    )
+                    submitted = st.button(
+                        process_button_label,
+                        key=f"process_{feature['key']}",
+                        type="primary",
+                        use_container_width=True,
+                        disabled=process_button_disabled,
+                    )
+                else:
+                    selector_col, process_col = st.columns([1.35, 0.95], gap="small")
+                    with selector_col:
+                        active_model = st.selectbox(
+                            "模型切换",
+                            model_options_for_feature,
+                            index=model_options_for_feature.index(default_model_for_feature),
+                            format_func=get_model_display_name,
+                            key=f"model_select_{feature['key']}",
+                        )
+                    with process_col:
+                        st.markdown('<div class="panel-subtitle">&nbsp;</div>', unsafe_allow_html=True)
+                        submitted = st.button(
+                            process_button_label,
+                            key=f"process_{feature['key']}",
+                            type="primary",
+                            use_container_width=True,
+                            disabled=process_button_disabled,
+                        )
+                if feature.get("key") == "hd_batch":
+                    st.caption("即梦 4.6 高清已暂时关闭，当前仅保留 Nano Banana 2 生图。")
+                elif supports_main_image_a_plus:
+                    st.caption("主图生A+使用 Nano Banana 2 原生 4K Images API；画面满版，文字使用安全区避免被截断。")
+                elif supports_amazon_a_plus:
+                    st.caption("A+ 使用原生 4K Images API 生成高清绿幕底稿。")
     with right_col:
-        st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
+        shows_element_map = bool(
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and main_image_a_plus_element_preview
+        )
+        right_panel_title = "元素标注与生成结果" if shows_element_map else "结果图预览"
+        st.markdown(
+            f'<div class="result-block-title">{right_panel_title}</div>',
+            unsafe_allow_html=True,
+        )
         result_images = list(result.get("images") or [])
         source_images = list(result.get("source_images") or [])
         outpaint_alignments = list(result.get("outpaint_alignments") or [])
@@ -10602,57 +12423,84 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 except Exception:
                     source_images.append("")
         result_captions = list(result.get("captions") or [])
-        if supports_amazon_a_plus and result_images:
-            layered_tab, green_tab = st.tabs(["分层结果", "AI 绿幕底稿"])
-            with layered_tab:
-                render_result_preview(result_images, show_title=False)
-            with green_tab:
-                green_screen_images = list(result.get("green_screen_images") or [])
-                if green_screen_images:
-                    render_zoomable_image_gallery(
-                        green_screen_images,
-                        columns=1,
-                        thumb_height=None,
-                        component_key="amazon_a_plus_green_screen_viewer",
-                        fit_mode="contain",
-                        max_width_percent=50,
-                        compress_preview=True,
-                        include_full_src=True,
-                    )
-                else:
-                    st.info("当前结果没有保留绿幕底稿。")
-            psd_bytes = result.get("psd_bytes")
-            if isinstance(psd_bytes, (bytes, bytearray)) and psd_bytes:
-                layer_count = int(result.get("layer_count") or 0)
-                st.caption(f"已生成 {layer_count} 个可编辑图层，画布与输入规格一致。")
-                st.download_button(
-                    "下载分层 PSD",
-                    data=bytes(psd_bytes),
-                    file_name=str(result.get("psd_file_name") or "amazon_a_plus.psd"),
-                    mime="image/vnd.adobe.photoshop",
-                    key=f"download_amazon_psd_{result.get('psd_file_name') or 'latest'}",
-                    icon=":material/download:",
-                    use_container_width=True,
-                )
-        elif supports_batch_multi_upload and result_images and source_images:
-            render_before_after_compare_gallery(
-                source_images,
-                result_images,
-                result_captions,
-                feature["key"],
-                outpaint_alignments=outpaint_alignments if supports_outpaint else None,
+        result_view_container = st.container()
+        if shows_element_map:
+            element_map_tab, manual_picker_tab, result_view_container = st.tabs(
+                ["元素标注图", "手动补漏", "生成结果"]
             )
-        elif supports_batch_multi_upload and result_images and result_captions:
-            render_result_preview_with_captions(result_images, result_captions, feature["key"])
-        else:
-            render_result_preview(result_images, show_title=False)
+            with element_map_tab:
+                render_zoomable_image_gallery(
+                    [main_image_a_plus_element_preview],
+                    columns=1,
+                    thumb_height=760,
+                    component_key=(
+                        "main_image_a_plus_element_map_"
+                        f"{main_image_a_plus_element_template_signature}"
+                    ),
+                    fit_mode="contain",
+                    max_width_percent=100,
+                    compress_preview=True,
+                    include_full_src=True,
+                )
+                st.caption(
+                    "点击标注图可全屏放大查看；右侧编号对应左侧同号上传卡片，同号多个区域共用一份替换素材。"
+                )
+            with manual_picker_tab:
+                render_main_image_a_plus_manual_element_picker(
+                    main_image_a_plus_element_preview,
+                    main_image_a_plus_element_template_signature,
+                    component_key=(
+                        "main_image_a_plus_manual_picker_"
+                        f"{main_image_a_plus_element_template_signature}"
+                    ),
+                )
+        with result_view_container:
+            if supports_amazon_a_plus and result_images:
+                layered_tab, green_tab = st.tabs(["分层结果", "AI 绿幕底稿"])
+                with layered_tab:
+                    render_result_preview(result_images, show_title=False)
+                with green_tab:
+                    green_screen_images = list(result.get("green_screen_images") or [])
+                    if green_screen_images:
+                        render_zoomable_image_gallery(
+                            green_screen_images,
+                            columns=1,
+                            thumb_height=None,
+                            component_key="amazon_a_plus_green_screen_viewer",
+                            fit_mode="contain",
+                            max_width_percent=50,
+                            compress_preview=True,
+                            include_full_src=True,
+                        )
+                    else:
+                        st.info("当前结果没有保留绿幕底稿。")
+                psd_bytes = result.get("psd_bytes")
+                if isinstance(psd_bytes, (bytes, bytearray)) and psd_bytes:
+                    layer_count = int(result.get("layer_count") or 0)
+                    st.caption(f"已生成 {layer_count} 个可编辑图层，画布与输入规格一致。")
+                    st.download_button(
+                        "下载分层 PSD",
+                        data=bytes(psd_bytes),
+                        file_name=str(result.get("psd_file_name") or "amazon_a_plus.psd"),
+                        mime="image/vnd.adobe.photoshop",
+                        key=f"download_amazon_psd_{result.get('psd_file_name') or 'latest'}",
+                        icon=":material/download:",
+                        use_container_width=True,
+                    )
+            elif supports_batch_multi_upload and result_images and source_images:
+                render_before_after_compare_gallery(
+                    source_images,
+                    result_images,
+                    result_captions,
+                    feature["key"],
+                    outpaint_alignments=outpaint_alignments if supports_outpaint else None,
+                )
+            elif supports_batch_multi_upload and result_images and result_captions:
+                render_result_preview_with_captions(result_images, result_captions, feature["key"])
+            else:
+                render_result_preview(result_images, show_title=False)
 
-    if job_info.get("status") == "running":
-        render_running_job_status(feature["key"])
-    elif job_info.get("status") == "error":
-        st.error(f"后台任务失败：{format_user_facing_error_message(job_info.get('error'))}")
-    elif job_info.get("status") == "completed":
-        st.success("后台任务已完成，可继续查看或处理其他功能。")
+    if job_info.get("status") == "completed":
         if feature.get("output_mode") == "image" and not (result.get("images") or []):
             st.warning("本次任务已结束，但模型没有返回图片。建议重试一次，或切换其他模型。")
         result_text = str(result.get("text") or "").strip()
@@ -10695,7 +12543,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         main_image_a_plus_template_layout_error = ""
         if (
             supports_main_image_a_plus
-            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            and main_image_a_plus_mode in MAIN_IMAGE_A_PLUS_TEMPLATE_MODES
             and main_image_a_plus_template_file is not None
         ):
             try:
@@ -10721,6 +12569,30 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             st.warning("即梦 4.6 高清已暂时关闭，请先使用 Nano Banana 2 生图。")
         elif using_jimeng_for_request and len(files) > JIMENG_MAX_INPUT_IMAGES and not supports_batch_multi_upload:
             st.warning(f"Agent 最多只能上传 {JIMENG_MAX_INPUT_IMAGES} 张图片。")
+        elif (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and main_image_a_plus_template_file is None
+        ):
+            st.warning("指定元素替换需要先上传 1 张完整的成品 A+ 示例图。")
+        elif (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and not main_image_a_plus_detected_elements
+        ):
+            st.warning("请先点击“识别可替换元素”，确认编号后再上传对应替换图。")
+        elif (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and not main_image_a_plus_element_replacements
+        ):
+            st.warning("请至少为 1 个编号上传对应的替换元素图片。")
+        elif (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and not main_image_a_plus_element_review_confirmed
+        ):
+            st.warning("请先逐项校对自动填充结果，并勾选确认后再开始替换。")
         elif len(files) < min_images:
             st.warning(f"当前功能至少需要上传 {min_images} 张参考图。")
         elif supports_ai_qa_image and len(files) > 3:
@@ -10729,13 +12601,31 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             st.warning("请输入你的文字要求。")
         elif (
             supports_main_image_a_plus
-            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+            and main_image_a_plus_mode in MAIN_IMAGE_A_PLUS_TEMPLATE_MODES
             and main_image_a_plus_template_file is None
         ):
-            st.warning("套版替换需要先上传 1 张完整的成品 A+ 版式模板。")
+            st.warning(
+                "指定元素替换需要先上传 1 张完整的成品 A+ 示例图。"
+                if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+                else (
+                    "一张测试需要先上传 1 张完整的成品 A+ 版式模板。"
+                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST
+                    else "套版替换需要先上传 1 张完整的成品 A+ 版式模板。"
+                )
+            )
         elif supports_main_image_a_plus and main_image_a_plus_template_layout_error:
             st.warning(main_image_a_plus_template_layout_error)
-        elif supports_main_image_a_plus and len(files) > MAIN_IMAGE_A_PLUS_MAX_FILES:
+        elif (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and len(files) > MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS
+        ):
+            st.warning(f"指定元素替换最多支持 {MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS} 个上传元素组。")
+        elif (
+            supports_main_image_a_plus
+            and main_image_a_plus_mode != MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+            and len(files) > MAIN_IMAGE_A_PLUS_MAX_FILES
+        ):
             st.warning(f"主图生A+最多只能上传 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张主图。")
         elif supports_amazon_a_plus and len(files) > 3:
             st.warning("亚马逊A+功能最多只能上传 3 张原图。")
@@ -10790,17 +12680,27 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "只输出 1 张最终结果图，不要输出多个版本。"
                 )
             elif supports_main_image_a_plus:
-                extra_notes = (
-                    build_main_image_a_plus_template_notes(
+                if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
+                    extra_notes = build_main_image_a_plus_element_replacement_notes(
+                        selected_main_image_a_plus_layout,
+                        len(main_image_a_plus_detected_elements),
+                        main_image_a_plus_element_replacements,
+                    )
+                elif main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST:
+                    extra_notes = build_main_image_a_plus_single_test_notes(
                         selected_main_image_a_plus_layout,
                         len(files),
                     )
-                    if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
-                    else build_main_image_a_plus_layout_notes(
+                elif main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
+                    extra_notes = build_main_image_a_plus_template_notes(
+                        selected_main_image_a_plus_layout,
+                        len(files),
+                    )
+                else:
+                    extra_notes = build_main_image_a_plus_layout_notes(
                         main_image_a_plus_layout_key,
                         len(files),
                     )
-                )
             elif supports_amazon_a_plus:
                 target_width, target_height = target_size
                 extra_notes = (
@@ -10877,7 +12777,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 feature_for_request["main_image_a_plus_mode"] = main_image_a_plus_mode
                 feature_for_request["main_image_a_plus_layout_key"] = main_image_a_plus_layout_key
                 feature_for_request["main_image_a_plus_layout"] = selected_main_image_a_plus_layout
-                if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
+                if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
+                    feature_for_request["default_prompt"] = MAIN_IMAGE_A_PLUS_ELEMENT_DEFAULT_PROMPT
+                elif main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST:
+                    feature_for_request["default_prompt"] = MAIN_IMAGE_A_PLUS_SINGLE_TEST_DEFAULT_PROMPT
+                elif main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE:
                     feature_for_request["default_prompt"] = MAIN_IMAGE_A_PLUS_TEMPLATE_DEFAULT_PROMPT
             if target_size is not None:
                 feature_for_request["target_size"] = tuple(target_size)
@@ -10937,9 +12841,15 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "main_image_a_plus_template": (
                         prepare_uploaded_input(main_image_a_plus_template_file)
                         if supports_main_image_a_plus
-                        and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_TEMPLATE
+                        and main_image_a_plus_mode in MAIN_IMAGE_A_PLUS_TEMPLATE_MODES
                         and main_image_a_plus_template_file is not None
                         else None
+                    ),
+                    "main_image_a_plus_element_replacements": (
+                        [dict(item) for item in main_image_a_plus_element_replacements]
+                        if supports_main_image_a_plus
+                        and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
+                        else []
                     ),
                     "outpaint_settings": (
                         {
@@ -10991,25 +12901,23 @@ def render_side_menu(current_feature: dict[str, Any] | None = None) -> None:
     )
     for feature in get_visible_features():
         is_active = st.session_state.selected_feature_key == feature["key"]
-        if st.button(
+        st.button(
             feature["name"],
             key=f"side_menu_feature_{feature['key']}",
             use_container_width=True,
             type="primary" if is_active else "secondary",
-        ):
-            if st.session_state.selected_feature_key != feature["key"]:
-                st.session_state.selected_feature_key = feature["key"]
-                st.rerun()
+            on_click=select_feature,
+            args=(feature["key"],),
+        )
     is_dashboard_active = st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY
-    if st.button(
+    st.button(
         "数据看板",
         key="side_menu_usage_dashboard",
         use_container_width=True,
         type="primary" if is_dashboard_active else "secondary",
-    ):
-        if not is_dashboard_active:
-            st.session_state.selected_feature_key = XIAOHA_DASHBOARD_KEY
-            st.rerun()
+        on_click=select_feature,
+        args=(XIAOHA_DASHBOARD_KEY,),
+    )
 
 
 def is_running_in_streamlit() -> bool:
@@ -11039,6 +12947,12 @@ def relaunch_with_streamlit() -> None:
             "lashforge",
             "--server.headless",
             "true",
+            "--server.websocketPingInterval",
+            "20",
+            "--server.disconnectedSessionTTL",
+            "86400",
+            "--server.fileWatcherType",
+            "none",
         ],
     )
 
@@ -11062,7 +12976,13 @@ def main() -> None:
     feature_keys = {feature["key"] for feature in visible_features}
     allowed_page_keys = feature_keys | {XIAOHA_DASHBOARD_KEY}
     if st.session_state.selected_feature_key not in allowed_page_keys:
-        st.session_state.selected_feature_key = XIAOHA_DASHBOARD_KEY
+        st.session_state.selected_feature_key = (
+            XIAOHA_DEFAULT_FEATURE_KEY
+            if XIAOHA_DEFAULT_FEATURE_KEY in feature_keys
+            else (visible_features[0]["key"] if visible_features else XIAOHA_DASHBOARD_KEY)
+        )
+        if st.session_state.selected_feature_key:
+            st.query_params[FEATURE_QUERY_KEY] = st.session_state.selected_feature_key
 
     current_feature = next(
         (
