@@ -134,6 +134,26 @@
             .chart-canvas { height:280px; }
             .chart-canvas.ranking { height:340px; }
         }
+        .calculation-field {
+            cursor: help;
+            text-decoration: underline dotted rgba(79, 70, 229, .55);
+            text-underline-offset: 3px;
+        }
+        .calculation-tooltip {
+            position: fixed;
+            display: none;
+            z-index: 3000;
+            width: min(430px, calc(100vw - 24px));
+            padding: 11px 13px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, .96);
+            color: #f8fafc;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, .28);
+            font-size: 13px;
+            line-height: 1.55;
+            white-space: pre-line;
+            pointer-events: none;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js"></script>
     <script>
@@ -144,6 +164,155 @@
         const PRECOMPUTED_WEEK_SHOP_PAYLOADS = {{ precomputed_week_shop_payloads|default({})|tojson }};
         const FIXED_SHOP = {{ fixed_shop|tojson }};
         const RESTRICT_LIKE_82 = {{ restrict_like_82|default(false)|tojson }};
+
+        const PARTIAL_FIELD_CALCULATIONS = {
+            'breakEvenRevenue': '固定成本合计 ÷ 毛利率。固定成本合计包含经营管理费、工资和房租。',
+            'orderCount': '所选日期和店铺范围内的净销售数量，来自 TK 结算数据。',
+            'profitTargetRevenue': '（固定成本合计 + 本月目标净利润）÷ 毛利率。',
+            'monthlySalesPrev': '销售额 = SUM(v_tk_bddingdan.DingDanYingJieSuanGMV)，按 DingGouShiJian 和 Dian 筛选。',
+            'netProfit': '净利润 = 毛利润 - 经营管理费 - 工资 - 房租。',
+            'grossProfit': '毛利润 = 销售额 - 达人佣金 - 渠道推广及维护费用 - 广告费 - 活动服务费 - 平台佣金 - 税金 - 调整费 - 产品成本 - 头程费用 - 尾程费用 - 海外仓费用 - 其他平台费用。',
+            'influencerCommission': '达人佣金 = 结算数据中的达人佣金 + 手工录入的达人渠道号佣金。',
+            'influencerCommissionCreator': 'SUM(v_TK_JieSuan.创作者佣金)，按结算日期和店铺筛选。',
+            'influencerCommissionPartner': 'SUM(v_TK_JieSuan.联盟伙伴佣金)，按结算日期和店铺筛选。',
+            'influencerCommissionAdOrder': 'SUM(v_TK_JieSuan.广告订单佣金)，按结算日期和店铺筛选。',
+            'influencerCommissionChannel': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 达人渠道号佣金，按日期和店铺筛选。',
+            'influencerCount': 'COUNT(DISTINCT 网红名)，来自 v_tk_yibiaopan，按最新发货日期和店铺筛选。',
+            'influencerVideoFee': '渠道推广及维护费用 = 刷单费 + 售后 + 网红坑位费 + 给网红购买产品费 + 达人礼品费。',
+            'influencerVideoFeeShuaDan': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 刷单费。',
+            'influencerVideoFeeShouHou': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 售后。',
+            'influencerVideoFeeKengWei': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 网红坑位费。',
+            'influencerVideoFeeBuyProduct': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 给网红购买产品费。',
+            'influencerVideoFeeGift': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 达人礼品费。',
+            'videoCount': 'COUNT(*)，来自 v_TK_HeZuoShiPin，按发布日期和店铺筛选。',
+            'activityServiceFee': 'SUM(v_TK_JieSuan.活动服务费)，按结算日期和店铺筛选。',
+            'adFee': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 广告。',
+            'platformCommission': 'SUM(v_TK_JieSuan.平台佣金)，按结算日期和店铺筛选。',
+            'vatFee': '税金 = v_TK_JieSuan 中的 VAT 税 + v_TK_FeiYong 中 xiangmu = 税金的费用（按系统汇率换算）。',
+            'adjustmentFee': 'SUM(v_TK_JieSuan.调整费)，按结算日期和店铺筛选。',
+            'otherPlatformFee': 'SUM(v_TK_JieSuan.平台其他费)，按结算日期和店铺筛选。',
+            'opMgmtQD': '青岛经营管理费 = 财务费用明细中 TK项目的贷方金额 ÷ 系统汇率 × 青岛分摊比例。',
+            'opMgmtSZ': '深圳经营管理费 = 财务费用明细中 深圳TK 的贷方金额 ÷ 系统汇率 × 深圳分摊比例。',
+            'prodCost': '产品成本 = 平台产品成本 + 样品成本 + 自发样品成本 + 售后订单成本。',
+            'prodCostPlatform': 'SUM(结算销量 × SKU采购价) ÷ 系统汇率，来自 v_TK_JieSuan、TK_DingDan 和 zidian。',
+            'prodCostSample': 'SUM(样品订单销量 × SKU采购价) ÷ 系统汇率，筛选 shifouyangpin = 是。',
+            'prodCostSelfSample': 'SUM(TK_DingDan_ShouHou.caigouchengben)，筛选 dingdanleixing = 自发样品且订单未作废。',
+            'prodCostAfterSales': 'SUM(TK_DingDan_ShouHou.caigouchengben)，筛选 dingdanleixing = 售后且订单未作废。',
+            'touChengCost': '头程费用 = 平台订单头程 + 样品订单头程 + 售后订单头程，按 SKU、日期和店铺汇总后除以系统汇率。',
+            'weiChengCost': '尾程费用 = 平台物流相关费用净额 + 售后实际运费 + 样品订单运费。',
+            'storageReturnCost': '海外仓费用 = 入库费 + 仓储费 + 退货费，来自 v_TK_FeiYong。',
+            'storageReturnInbound': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 入库费。',
+            'storageReturnStorage': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 仓储费。',
+            'storageReturnReturn': 'SUM(v_TK_FeiYong.feiyonge)，其中 xiangmu = 退货费。',
+            'qdWage': '青岛工资 = v_TK_RiJunFeiYong 中青岛工资日均合计 × 青岛工资分摊比例。',
+            'szWage': '深圳工资 = v_TK_RiJunFeiYong 中深圳工资日均合计 × 深圳工资分摊比例。',
+            'qdRent': '青岛房租 = v_TK_RiJunFeiYong 中青岛房租日均合计 × 青岛房租分摊比例。',
+            'szRent': '深圳房租 = v_TK_RiJunFeiYong 中深圳房租日均合计 × 深圳房租分摊比例。'
+        };
+
+        const COUNT_CALCULATION_FIELDS = new Set(['orderCount', 'influencerCount', 'videoCount']);
+
+        function attachPartialCalculationTooltips() {
+            if (!RESTRICT_LIKE_82 || document.getElementById('calculationTooltip')) return;
+
+            const tooltip = document.createElement('div');
+            tooltip.id = 'calculationTooltip';
+            tooltip.className = 'calculation-tooltip';
+            tooltip.setAttribute('role', 'tooltip');
+            document.body.appendChild(tooltip);
+
+            const bind = (element, text) => {
+                if (!element || !text) return;
+                const existing = element.getAttribute('title');
+                element.removeAttribute('title');
+                element.dataset.calculation = existing ? `${text}\n\n${existing}` : text;
+                element.classList.add('calculation-field');
+            };
+
+            const cellExplanation = (baseId, cellId, logic) => {
+                if (cellId.endsWith('AchRatio')) {
+                    return COUNT_CALCULATION_FIELDS.has(baseId)
+                        ? `数量指标不计算占销售额比例。\n\n指标口径：${logic}`
+                        : `实际占比 = 实际达成值 ÷ 实际销售额 × 100%。\n\n指标口径：${logic}`;
+                }
+                if (cellId.endsWith('Target')) {
+                    return `本月目标来自 sp_TK_Dashboard_GetTargets 中对应指标的目标配置，按月份和所选店铺汇总。\n\n指标口径：${logic}`;
+                }
+                if (cellId.endsWith('Actual')) {
+                    return `实际达成按当前选择的开始日期、结束日期和店铺计算。\n\n计算逻辑：${logic}`;
+                }
+                if (cellId.endsWith('Ratio')) {
+                    return COUNT_CALCULATION_FIELDS.has(baseId)
+                        ? `数量指标不计算上月销售额占比。\n\n指标口径：${logic}`
+                        : `上月占比 = 上月该指标值 ÷ 上月销售额 × 100%。\n\n指标口径：${logic}`;
+                }
+                return `上月实际值按结束日期的上一个自然月及所选店铺计算。\n\n计算逻辑：${logic}`;
+            };
+
+            Object.entries(PARTIAL_FIELD_CALCULATIONS).forEach(([baseId, logic]) => {
+                const baseElement = document.getElementById(baseId);
+                if (!baseElement) return;
+                const row = baseElement.closest('tr');
+                if (!row) return;
+                bind(row.querySelector('td:first-child'), `计算逻辑：${logic}`);
+                row.querySelectorAll('td[id]').forEach(cell => {
+                    bind(cell, cellExplanation(baseId, cell.id, logic));
+                });
+            });
+
+            const headerCalculations = [
+                ['salesHeader', '昨日销售额 = SUM(v_tk_bddingdan.DingDanYingJieSuanGMV)，筛选昨日、所选店铺。'],
+                ['salesValue', '昨日销售额 = SUM(v_tk_bddingdan.DingDanYingJieSuanGMV)，筛选昨日、所选店铺。'],
+                ['progressHeader', '时间进度 = 当前月已过天数 ÷ 当前月总天数 × 100%。'],
+                ['progressText', '时间进度 = 当前月已过天数 ÷ 当前月总天数 × 100%。'],
+                ['progressFooter', '已过天数 / 当前月总天数。'],
+                ['salesProgressHeader', '销售目标达成率 = 当前筛选周期实际销售额 ÷ 本月目标销售额 × 100%。'],
+                ['salesProgressText', '销售目标达成率 = 当前筛选周期实际销售额 ÷ 本月目标销售额 × 100%。'],
+                ['salesProgressDetail', '实际销售额 / 本月目标销售额。'],
+                ['influencerProgressHeader', '达人数达成率 = 当前筛选周期实际达人数 ÷ 本月目标达人数 × 100%。'],
+                ['influencerProgressText', '达人数达成率 = 当前筛选周期实际达人数 ÷ 本月目标达人数 × 100%。'],
+                ['influencerProgressDetail', '实际达人数 / 本月目标达人数。'],
+                ['videoProgressHeader', '视频数达成率 = 当前筛选周期实际视频数 ÷ 本月目标视频数 × 100%。'],
+                ['videoProgressText', '视频数达成率 = 当前筛选周期实际视频数 ÷ 本月目标视频数 × 100%。'],
+                ['videoProgressDetail', '实际视频数 / 本月目标视频数。'],
+                ['chartActualSales', PARTIAL_FIELD_CALCULATIONS.monthlySalesPrev],
+                ['chartGrossProfit', PARTIAL_FIELD_CALCULATIONS.grossProfit],
+                ['chartNetProfit', PARTIAL_FIELD_CALCULATIONS.netProfit],
+                ['businessTrendChart', '经营指标对比：对比上月实际、本月目标和当前筛选周期实际的销售额、毛利润及净利润。'],
+                ['costCompositionChart', '实际成本构成：汇总当前筛选周期内各类实际成本并展示构成。'],
+                ['achRatioChart', '成本占销售额 = 各项实际成本绝对值 ÷ 实际销售额绝对值 × 100%，按占比从高到低排列。']
+            ];
+            headerCalculations.forEach(([id, text]) => {
+                const element = document.getElementById(id);
+                bind(element, `计算逻辑：${text}`);
+                if (element && element.classList.contains('chart-kpi-value')) {
+                    bind(element.previousElementSibling, `计算逻辑：${text}`);
+                }
+            });
+
+            const placeTooltip = event => {
+                const gap = 14;
+                const maxLeft = Math.max(12, window.innerWidth - tooltip.offsetWidth - 12);
+                const maxTop = Math.max(12, window.innerHeight - tooltip.offsetHeight - 12);
+                tooltip.style.left = `${Math.min(maxLeft, event.clientX + gap)}px`;
+                tooltip.style.top = `${Math.min(maxTop, event.clientY + gap)}px`;
+            };
+            document.addEventListener('mouseover', event => {
+                const target = event.target.closest('.calculation-field');
+                if (!target || !target.dataset.calculation) return;
+                tooltip.textContent = target.dataset.calculation;
+                tooltip.style.display = 'block';
+                placeTooltip(event);
+            });
+            document.addEventListener('mousemove', event => {
+                if (tooltip.style.display === 'block') placeTooltip(event);
+            });
+            document.addEventListener('mouseout', event => {
+                const target = event.target.closest('.calculation-field');
+                if (!target || target.contains(event.relatedTarget)) return;
+                tooltip.style.display = 'none';
+            });
+        }
 
         function setLoading(show) {
             const ov = document.getElementById('loadingOverlay');
@@ -642,7 +811,12 @@
             if (payload && payload.success !== false) {
                 renderMetrics(payload);
             } else if (shops.length > 0) {
-                const body = { start_date: startStr, end_date: endStr, shops: shops };
+                const body = {
+                    start_date: startStr,
+                    end_date: endStr,
+                    shops: shops,
+                    sales_source: RESTRICT_LIKE_82 ? 'bd_order_settlement_gmv' : ''
+                };
                 const resp = await fetch('/tk/metrics', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1104,7 +1278,12 @@
                     : '/tk/metrics';
                 const resp = await fetch(apiUrl, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ start_date: start, end_date: end, shops })
+                    body: JSON.stringify({
+                        start_date: start,
+                        end_date: end,
+                        shops,
+                        sales_source: RESTRICT_LIKE_82 ? 'bd_order_settlement_gmv' : ''
+                    })
                 });
                 const data = await resp.json();
                 if (data.success) {
@@ -1127,6 +1306,7 @@
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('start_date').value = `${yyyy}-${mm}-01`;
             document.getElementById('end_date').value = `${yyyy}-${mm}-${dd}`;
+            attachPartialCalculationTooltips();
             if (!FIXED_SHOP) {
                 loadShops();
             }
@@ -1264,7 +1444,7 @@
                             <span id="salesProgressDetail"></span>
                         </div>
                         <div style="margin-top:8px;">
-                            <h4 style="font-size:14px; margin-bottom:6px;">达人数达成率</h4>
+                            <h4 id="influencerProgressHeader" style="font-size:14px; margin-bottom:6px;">达人数达成率</h4>
                             <div class="progress"><div id="influencerProgressBar" style="width:0%"></div></div>
                             <div class="footer">
                                 <span id="influencerProgressText">0%</span>
@@ -1273,7 +1453,7 @@
                             </div>
                         </div>
                         <div style="margin-top:8px;">
-                            <h4 style="font-size:14px; margin-bottom:6px;">视频数达成率</h4>
+                            <h4 id="videoProgressHeader" style="font-size:14px; margin-bottom:6px;">视频数达成率</h4>
                             <div class="progress"><div id="videoProgressBar" style="width:0%"></div></div>
                             <div class="footer">
                                 <span id="videoProgressText">0%</span>

@@ -126,7 +126,36 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertNotIn("高 800px", notes)
         self.assertNotIn("533px", notes)
         self.assertIn("不按固定像素、固定距离或等高方框划分", notes)
-        self.assertIn("不能暴露内部拼接位置", notes)
+        self.assertIn("禁止内部拆段、逐段生成、后期拼接", notes)
+
+    def test_free_prompt_requires_one_commercial_canvas_without_stitching(self) -> None:
+        layout = site.get_main_image_a_plus_layout("mobile_equal")
+        prompt = site.build_main_image_a_plus_free_prompt(
+            site.build_main_image_a_plus_layout_notes("mobile_equal", 3),
+            layout,
+        )
+
+        self.assertIn("一次模型生成中直接输出 1 张完整的 600×1800px", prompt)
+        self.assertIn("禁止把画布拆成四段", prompt)
+        self.assertIn("禁止调用多次生成后拼接", prompt)
+        self.assertIn("统一场景", prompt)
+        self.assertIn("主体跨区", prompt)
+        self.assertIn("四个内容阶段只负责阅读节奏", prompt)
+        self.assertIn("不会从上、下、左、右任何一侧裁切", prompt)
+        self.assertIn("四边都不是可牺牲区域", prompt)
+        self.assertIn("只挑选一位最清晰、最适合商业展示的模特", prompt)
+        self.assertIn("禁止出现第二位模特", prompt)
+        self.assertIn("禁止半个字、缺字、断行裁切", prompt)
+
+    def test_free_aspect_ratio_uses_closest_native_ratio_for_crop_free_fitting(self) -> None:
+        self.assertEqual(
+            site.select_main_image_a_plus_safe_aspect_ratio((600, 1800)),
+            "1:4",
+        )
+        self.assertEqual(
+            site.select_main_image_a_plus_safe_aspect_ratio((1464, 2400)),
+            "9:16",
+        )
 
     def test_template_prompt_requires_layout_lock_and_full_content_replacement(self) -> None:
         notes = site.build_main_image_a_plus_template_notes("desktop_equal", 5)
@@ -430,38 +459,32 @@ class MainImageAPlusTests(unittest.TestCase):
 
         with (
             patch.object(site, "call_openrouter_images_api", return_value={"images": [image_data_url(source)], "text": ""}) as request_images,
+            patch.object(site, "stitch_main_image_a_plus_sections") as stitch_sections,
             patch.object(site, "finalize_feature_job_result", side_effect=lambda _context, result, _job_id: result),
         ):
             result = site.run_feature_job(job_context)
 
-        self.assertEqual(request_images.call_count, 4)
-        for index, request_call in enumerate(request_images.call_args_list):
-            call_kwargs = request_call.kwargs
-            self.assertEqual(len(call_kwargs["uploaded_files"]), 10)
-            self.assertEqual(call_kwargs["aspect_ratio"], "21:9")
-            self.assertEqual(call_kwargs["resolution"], "4K")
-        first_section_prompt = request_images.call_args_list[0].kwargs["prompt"]
-        second_section_prompt = request_images.call_args_list[1].kwargs["prompt"]
-        self.assertIn("首屏商业主视觉专项规则", first_section_prompt)
-        self.assertIn("一位模特为唯一视觉主体", first_section_prompt)
-        self.assertIn("模特必须位于最上层、最前景", first_section_prompt)
-        self.assertIn("不能反向遮挡模特", first_section_prompt)
-        self.assertIn("禁止把多个商品抠图", first_section_prompt)
-        self.assertNotIn("首屏商业主视觉专项规则", second_section_prompt)
-        self.assertIn("都可以延伸到片段顶部或底部", second_section_prompt)
-        self.assertNotIn("最后一张是紧邻当前画面上方的已生成连续片段", second_section_prompt)
-        self.assertFalse(
-            any(
-                str(uploaded.get("name") or "").startswith("a_plus_continuity_")
-                for uploaded in request_images.call_args_list[1].kwargs["uploaded_files"]
-            )
-        )
+        request_images.assert_called_once()
+        stitch_sections.assert_not_called()
+        call_kwargs = request_images.call_args.kwargs
+        self.assertEqual(len(call_kwargs["uploaded_files"]), 10)
+        self.assertEqual(call_kwargs["aspect_ratio"], "9:16")
+        self.assertEqual(call_kwargs["resolution"], "4K")
+        self.assertEqual(call_kwargs["max_attempts"], 1)
+        self.assertIn("自由创作整图直出执行指令", call_kwargs["prompt"])
+        self.assertIn("禁止把画布拆成四段", call_kwargs["prompt"])
+        self.assertIn("只挑选一位最清晰、最适合商业展示的模特", call_kwargs["prompt"])
+        self.assertIn("禁止出现第二位模特", call_kwargs["prompt"])
+        self.assertIn("不能遮挡模特", call_kwargs["prompt"])
+        self.assertIn("不会从上、下、左、右任何一侧裁切", call_kwargs["prompt"])
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.size, (1464, 2400))
-        self.assertEqual(result["section_count"], 4)
-        self.assertEqual(result["section_height"], 600)
-        self.assertEqual(result["section_heights"], (600, 600, 600, 600))
+        self.assertEqual(result["section_count"], 1)
+        self.assertEqual(result["section_height"], 2400)
+        self.assertEqual(result["section_heights"], (2400,))
         self.assertEqual(result["main_image_a_plus_layout_key"], "desktop_equal")
+        self.assertIn("整图直出", result["channel"])
+        self.assertIn("没有执行图片拼接", result["text"])
         self.assertNotIn("safe_margin", result)
 
     def test_job_applies_mobile_layout_size_and_sections(self) -> None:
@@ -487,22 +510,23 @@ class MainImageAPlusTests(unittest.TestCase):
                 "call_openrouter_images_api",
                 return_value={"images": [image_data_url(source)], "text": ""},
             ) as request_images,
+            patch.object(site, "build_main_image_a_plus_continuity_reference") as continuity_reference,
+            patch.object(site, "stitch_main_image_a_plus_sections") as stitch_sections,
             patch.object(site, "finalize_feature_job_result", side_effect=lambda _context, result, _job_id: result),
         ):
             result = site.run_feature_job(job_context)
 
-        self.assertEqual(request_images.call_count, 4)
-        self.assertEqual(len(request_images.call_args_list[0].kwargs["uploaded_files"]), 1)
-        self.assertEqual(len(request_images.call_args_list[1].kwargs["uploaded_files"]), 2)
-        self.assertEqual(
-            request_images.call_args_list[1].kwargs["uploaded_files"][-1]["name"],
-            "a_plus_continuity_section_1.jpg",
-        )
+        request_images.assert_called_once()
+        continuity_reference.assert_not_called()
+        stitch_sections.assert_not_called()
+        self.assertEqual(len(request_images.call_args.kwargs["uploaded_files"]), 1)
+        self.assertEqual(request_images.call_args.kwargs["aspect_ratio"], "1:4")
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.size, (600, 1800))
-        self.assertEqual(result["requested_aspect_ratios"], ("4:3", "4:3", "4:3", "4:3"))
-        self.assertEqual(result["section_heights"], (450, 450, 450, 450))
-        self.assertEqual(result["section_height"], 450)
+        self.assertEqual(result["requested_aspect_ratios"], ("1:4",))
+        self.assertEqual(result["section_count"], 1)
+        self.assertEqual(result["section_heights"], (1800,))
+        self.assertEqual(result["section_height"], 1800)
         self.assertEqual(result["main_image_a_plus_layout_key"], "mobile_equal")
 
     def test_continuity_reference_is_resized_and_compressed(self) -> None:
@@ -519,6 +543,30 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(reference["type"], "image/jpeg")
         with Image.open(io.BytesIO(reference["data"])) as compressed:
             self.assertEqual(compressed.size, (600, 450))
+
+    def test_free_canvas_size_adapter_never_crops_left_or_right(self) -> None:
+        source = Image.new("RGB", (300, 100), "green")
+        source.paste("red", (0, 0, 100, 100))
+        source.paste("blue", (200, 0, 300, 100))
+
+        fitted_url = site.cover_image_to_exact_size(image_data_url(source), 100, 100)
+
+        with open_data_url(fitted_url) as fitted:
+            self.assertEqual(fitted.size, (100, 100))
+            self.assertEqual(fitted.getpixel((10, 50)), (255, 0, 0))
+            self.assertEqual(fitted.getpixel((90, 50)), (0, 0, 255))
+
+    def test_free_canvas_size_adapter_never_crops_top_or_bottom(self) -> None:
+        source = Image.new("RGB", (100, 300), "green")
+        source.paste("red", (0, 0, 100, 40))
+        source.paste("blue", (0, 260, 100, 300))
+
+        fitted_url = site.cover_image_to_exact_size(image_data_url(source), 100, 200)
+
+        with open_data_url(fitted_url) as fitted:
+            self.assertEqual(fitted.size, (100, 200))
+            self.assertEqual(fitted.getpixel((50, 0)), (255, 0, 0))
+            self.assertEqual(fitted.getpixel((50, 199)), (0, 0, 255))
 
     def test_uploaded_references_are_prepared_once_for_fast_reuse(self) -> None:
         source = Image.new("RGB", (3200, 2400), "purple")

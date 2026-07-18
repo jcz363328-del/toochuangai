@@ -38,8 +38,53 @@ _default_cached_exp = 0
 _default_thread_started = False
 _precomputed_shop_payloads = {}
 _precomputed_week_shop_payloads = {}
+PARTIAL_DASHBOARD_SALES_SOURCE = 'bd_order_settlement_gmv'
 
-def _compute_metrics_payload(start_dt, end_dt, shops, target_net_profit_param):
+
+def _get_bd_order_settlement_sales(start_dt, end_dt, prev_start, prev_end, shops):
+    """按店铺和日期汇总 v_tk_bddingdan.DingDanYingJieSuanGMV。"""
+    safe_shops = [str(shop).replace("'", "''") for shop in shops]
+    if not safe_shops:
+        return {'previous': 0.0, 'selected': 0.0, 'yesterday': 0.0}
+    in_clause = ','.join([f"'{shop}'" for shop in safe_shops])
+    yesterday = date.today() - timedelta(days=1)
+    overall_start = min(start_dt, prev_start, yesterday)
+    overall_end = max(end_dt, prev_end, yesterday)
+    sql = f"""
+        SELECT
+            ISNULL(SUM(CASE
+                WHEN DingGouShiJian >= '{prev_start:%Y-%m-%d}'
+                 AND DingGouShiJian < DATEADD(DAY, 1, CONVERT(date, '{prev_end:%Y-%m-%d}'))
+                THEN ISNULL(DingDanYingJieSuanGMV, 0) ELSE 0 END), 0) AS previous_sales,
+            ISNULL(SUM(CASE
+                WHEN DingGouShiJian >= '{start_dt:%Y-%m-%d}'
+                 AND DingGouShiJian < DATEADD(DAY, 1, CONVERT(date, '{end_dt:%Y-%m-%d}'))
+                THEN ISNULL(DingDanYingJieSuanGMV, 0) ELSE 0 END), 0) AS selected_sales,
+            ISNULL(SUM(CASE
+                WHEN DingGouShiJian >= '{yesterday:%Y-%m-%d}'
+                 AND DingGouShiJian < DATEADD(DAY, 1, CONVERT(date, '{yesterday:%Y-%m-%d}'))
+                THEN ISNULL(DingDanYingJieSuanGMV, 0) ELSE 0 END), 0) AS yesterday_sales
+        FROM v_tk_bddingdan WITH (NOLOCK)
+        WHERE DingGouShiJian >= '{overall_start:%Y-%m-%d}'
+          AND DingGouShiJian < DATEADD(DAY, 1, CONVERT(date, '{overall_end:%Y-%m-%d}'))
+          AND Dian IN ({in_clause})
+    """
+    rows = bjc.sf_db(sql, single=False) or []
+    row = rows[0] if rows else [0, 0, 0]
+    return {
+        'previous': float(row[0] or 0),
+        'selected': float(row[1] or 0),
+        'yesterday': float(row[2] or 0),
+    }
+
+
+def _compute_metrics_payload(
+    start_dt,
+    end_dt,
+    shops,
+    target_net_profit_param,
+    sales_source='',
+):
     safe_shops = [str(s).replace("'", "''") for s in shops]
     in_clause = ','.join([f"'{s}'" for s in safe_shops])
     yday = date.today() - timedelta(days=1)
@@ -66,6 +111,15 @@ def _compute_metrics_payload(start_dt, end_dt, shops, target_net_profit_param):
 
     prev_start_str = prev_start.strftime('%Y-%m-%d')
     prev_end_str = prev_end.strftime('%Y-%m-%d')
+    bd_order_sales = None
+    if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE:
+        bd_order_sales = _get_bd_order_settlement_sales(
+            start_dt,
+            end_dt,
+            prev_start,
+            prev_end,
+            shops,
+        )
 
     def _get_influencer_video_fee_detail(start_str, end_str):
         sql = f"""
@@ -205,6 +259,8 @@ def _compute_metrics_payload(start_dt, end_dt, shops, target_net_profit_param):
         int(prev_vals[18] or 0), int(prev_vals[19] or 0), int(prev_vals[20] or 0),
         float(prev_vals[21] or 0), float(prev_vals[22] or 0), float(prev_vals[23] or 0)
     )
+    if bd_order_sales is not None:
+        monthly_sales_prev = bd_order_sales['previous']
     vat_fee = (vat_tax or 0) + (tax_fee_prev or 0)
 
     fixed_costs = {
@@ -419,6 +475,9 @@ def _compute_metrics_payload(start_dt, end_dt, shops, target_net_profit_param):
         int(sel_vals[18] or 0), int(sel_vals[19] or 0), int(sel_vals[20] or 0),
         float(sel_vals[21] or 0), float(sel_vals[22] or 0), float(sel_vals[23] or 0)
     )
+    if bd_order_sales is not None:
+        monthly_sales_sel = bd_order_sales['selected']
+        yesterday_total = bd_order_sales['yesterday']
     vat_sel_total = (vat_tax_sel or 0) + (tax_sel or 0)
 
     sel_comm_detail = _get_influencer_commission_detail(sel_start_str, sel_end_str)
@@ -524,8 +583,39 @@ def _compute_metrics_payload(start_dt, end_dt, shops, target_net_profit_param):
         'variable_costs': variable_costs,
         'business_results': business_results,
         'monthly_targets': monthly_targets,
-        'actuals': actuals
+        'actuals': actuals,
+        'sales_source': sales_source or 'default'
     }
+    return payload
+
+
+def _get_cached_metrics_payload(
+    start_dt,
+    end_dt,
+    shops,
+    target_net_profit_param,
+    sales_source='',
+):
+    shops_key = '|'.join(sorted([str(shop) for shop in shops]))
+    cache_key = (
+        start_dt.strftime('%Y-%m-%d'),
+        end_dt.strftime('%Y-%m-%d'),
+        shops_key,
+        float(target_net_profit_param or 0),
+        sales_source or 'default',
+    )
+    now_ts = time.time()
+    cached = _metrics_cache.get(cache_key)
+    if cached and cached[0] > now_ts:
+        return cached[1]
+    payload = _compute_metrics_payload(
+        start_dt,
+        end_dt,
+        shops,
+        target_net_profit_param,
+        sales_source=sales_source,
+    )
+    _metrics_cache[cache_key] = (now_ts + METRICS_CACHE_TTL, payload)
     return payload
 
 
@@ -685,15 +775,28 @@ def tk_dashboard_project_page():
             label = f'店铺 {key}'
         shop_options.append({'key': key, 'label': label})
     shop_options = sorted(shop_options, key=lambda x: (0 if x['key'] == 'ALL' else 1, x['label']))
+    today = date.today()
+    project_default_payload = None
+    try:
+        project_default_payload = _get_cached_metrics_payload(
+            date(today.year, today.month, 1),
+            today,
+            [DEFAULT_SHOP_NAME],
+            0.0,
+            sales_source=PARTIAL_DASHBOARD_SALES_SOURCE,
+        )
+    except Exception:
+        pass
     return render_template(
         'tk_total_dashboard.html',
-        default_payload=_default_cached_payload,
+        default_payload=project_default_payload,
         default_shop_name=DEFAULT_SHOP_NAME,
         precomputed_shops=shop_options,
-        precomputed_shop_payloads=_precomputed_shop_payloads,
-        precomputed_week_shop_payloads=_precomputed_week_shop_payloads,
+        # 普通缓存仍使用 v_TK_JieSuan，部分权限看板必须按新销售额口径实时查询。
+        precomputed_shop_payloads={},
+        precomputed_week_shop_payloads={},
         page_title='内容生产工厂部分权限看板',
-        page_desc='和TK整体看板一样可查看所有店铺，但展示字段与82号店看板一致',
+        page_desc='和TK整体看板一样可查看所有店铺，销售额按订单应结算GMV统计',
         fixed_shop=None,
         restrict_like_82=True,
     )
@@ -1145,12 +1248,31 @@ def tk_metrics():
 
         # 缓存命中检查（相同开始/结束/店铺/目标利润 在 TTL 内直接返回）
         target_net_profit_param = float((data.get('target_net_profit') or 0) or 0)
+        sales_source = str(data.get('sales_source') or '').strip()
+        if sales_source != PARTIAL_DASHBOARD_SALES_SOURCE:
+            sales_source = ''
         shops_key = '|'.join(sorted([str(s) for s in shops]))
-        cache_key = (start_date_str, end_date_str, shops_key, target_net_profit_param)
+        cache_key = (
+            start_date_str,
+            end_date_str,
+            shops_key,
+            target_net_profit_param,
+            sales_source or 'default',
+        )
         now_ts = time.time()
         cached = _metrics_cache.get(cache_key)
         if cached and cached[0] > now_ts:
             return jsonify(cached[1])
+
+        if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE:
+            payload = _get_cached_metrics_payload(
+                start_dt,
+                end_dt,
+                shops,
+                target_net_profit_param,
+                sales_source=sales_source,
+            )
+            return jsonify(payload)
 
         today = date.today()
         period_days = (end_dt - start_dt).days + 1

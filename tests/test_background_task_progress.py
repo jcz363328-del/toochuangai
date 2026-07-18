@@ -21,6 +21,25 @@ class BackgroundTaskProgressTests(unittest.TestCase):
         self.assertIn("99%", site.build_running_job_spinner_html(100, "即将完成"))
         self.assertIn("1%", site.build_running_job_spinner_html(0, "正在准备"))
 
+    def test_running_progress_advances_in_small_steps_between_backend_stages(self) -> None:
+        self.assertEqual(site.calculate_smooth_running_progress(1, 5), 3)
+        self.assertEqual(site.calculate_smooth_running_progress(5, 12), 7)
+        self.assertEqual(site.calculate_smooth_running_progress(12, 12), 13)
+        self.assertEqual(site.calculate_smooth_running_progress(69, 12), 70)
+        self.assertEqual(site.calculate_smooth_running_progress(70, 76), 72)
+        self.assertEqual(site.calculate_smooth_running_progress(97, 100), 97)
+
+    def test_completed_backend_result_animates_to_one_hundred(self) -> None:
+        self.assertEqual(site.calculate_finishing_progress(20, 0), 20)
+        self.assertEqual(site.calculate_finishing_progress(20, 4), 60)
+        self.assertEqual(site.calculate_finishing_progress(20, 8), 100)
+        self.assertEqual(site.calculate_finishing_progress(20, 30), 100)
+
+        render_source = inspect.getsource(site.render_running_job_status)
+        sync_source = inspect.getsource(site.sync_background_jobs)
+        self.assertIn('run_every="1s"', render_source)
+        self.assertIn("completion_pending", sync_source)
+
     def test_manual_element_recognition_runs_as_a_background_job(self) -> None:
         detected = {
             "id": 2,

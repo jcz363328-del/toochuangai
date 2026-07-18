@@ -52,6 +52,13 @@ OUTPUTS_HD_REFERENCE_DIR = APP_DIR / "outputs" / "reference"
 OUTPUTS_HD_DEFAULT_REFERENCE_FILE = OUTPUTS_HD_REFERENCE_DIR / "参考1.png"
 SKIN_TEXTURE_REFERENCE_DIR = Path(r"D:\tuchuangai\肌肤质感参考")
 PORTRAIT_HD_DEFAULT_IMAGE_SIZE = "4K"
+PORTRAIT_HD_SKIN_LOCK_RULES = (
+    "肤色与肤质锁定是本次高清处理的最高优先级。"
+    "必须严格保持第1张原图皮肤的明暗、冷暖、色相、白平衡、通透度、红润度、肤色不均和局部色差完全一致，禁止提亮、压暗、增白、变黄、变红或统一肤色。"
+    "必须严格保持第1张原图已有的毛孔、皮肤颗粒、油脂光泽、干燥感、斑点、雀斑、痣、痘印、细纹、皱纹和眼周纹理，禁止磨皮、美颜、祛斑、去痣、去痘印、去细纹或重塑皮肤。"
+    "如果存在第2张肤质参考图，只能参考其清晰度、分辨率和细节解析水平，严禁迁移第2张图的肤色、肤质、毛孔形态、皮肤状态、光泽、颗粒、妆容或任何人物特征。"
+    "任何基础提示词、参考图或用户补充要求与此规则冲突时，都必须优先保持第1张原图的肤色和肤质不变。"
+)
 PROXY_URL = "socks5h://127.0.0.1:10808"
 REQUEST_PROXIES = {
     "http": PROXY_URL,
@@ -159,12 +166,16 @@ IMAGE_ONLY_OUTPUT_MODEL_PREFIXES = (
 )
 GEMINI_IMAGE_ASPECT_RATIOS = {
     "1:1",
+    "1:4",
+    "1:8",
     "2:3",
     "3:2",
     "3:4",
     "4:3",
+    "4:1",
     "4:5",
     "5:4",
+    "8:1",
     "9:16",
     "16:9",
     "21:9",
@@ -565,12 +576,14 @@ FEATURES = [
         "max_output_images": 1,
         "description": "高清增强，清晰优先，按原比例放大且宽高都不小于 3200px。",
         "default_prompt": (
-            "眼部不要任何改动请基于输入图片进行高清修复和细节增强，4k清晰度，不要改变人物身份、五官比例、脸型、表情、发型和构图，去掉斑点和细纹，高清透亮。眼部和睫毛是最重要的区域这个位置一定要清晰"
+            "请基于输入图片进行高清修复和细节增强，4K 清晰度，不要改变人物身份、五官比例、脸型、表情、发型和构图。"
+            + PORTRAIT_HD_SKIN_LOCK_RULES
+            + "眼部和睫毛是最重要的区域，只提升清晰度，不改变眼睛大小、眼型、眼神或睫毛形态。"
             "增强目标："
-            "1. 去掉脸上的斑点，细纹，稍微美颜，皮肤纹理清晰可见，不要模糊，人像整体提升到高清、干净、自然的感觉，。"
+            "1. 皮肤只提升原有细节的可见清晰度，原有肤色、肤质、毛孔、斑点、痣、痘印和细纹必须全部保留，不得美颜或修饰。"
             "2. 重点增强眼部区域：睫毛根根分明、自然纤细、不要变成假睫毛或夸张妆感。"
             "3. 提升眉毛、眼线边缘、虹膜高光、眼周皮肤纹理的清晰度。"
-            "4. 如果提供肤质参考图，皮肤状态必须严格参考第2张参考图。"
+            "4. 如果提供肤质参考图，只参考清晰度与细节解析水平，不能参考或迁移其肤色和肤质。"
             "5. 发丝、唇部边缘、鼻翼、面部轮廓保持自然锐利。"
             "6. 不添加文字、水印、滤镜边框，不改变背景主体关系。"
             "输出一张自然、真实、商业修图级的人像高清图。"
@@ -753,23 +766,25 @@ FEATURES = [
         "max_input_images": MAIN_IMAGE_A_PLUS_MAX_FILES,
         "max_output_images": 1,
         "target_size": MAIN_IMAGE_A_PLUS_TARGET_SIZE,
-        "description": "支持自由创作、分段套版、整图全量替换，以及识别模板元素后按编号上传素材进行指定替换。",
+        "description": "支持自由创作整图直出、成品套版、整图全量替换，以及识别模板元素后按编号上传素材进行指定替换。",
         "default_prompt": (
             "请严格基于上传的主图设计一张完整的电商 A+ 宣传长图。"
             "第 1 张图是核心主图，决定商品身份、品牌、包装、颜色、材质和外观；其余图片只用于补充角度、细节、套装内容、使用方式与视觉素材。"
+            "必须在一次生成中直接输出一张完整长图，禁止拆成多个片段分别生成，禁止纵向或横向拼接，禁止把任何原图作为矩形图层原样贴回画面。"
             "自由创作时，整张长图只需从上到下大体形成四个内容阶段，不按固定距离划分，也不显示分段高度、坐标、间距或辅助线。"
-            "第一阶段建立具有商业审美的品牌与商品主视觉：形成单一明确焦点，通过专业网格、主次比例、留白、光影、景深和色彩关系形成高级海报感；不得把上传素材直接平铺、堆叠或全部塞入首屏。"
+            "第一阶段建立具有商业审美的品牌与商品主视觉：形成单一明确焦点，通过专业网格、主次比例、留白、光影、景深和色彩关系形成高级海报感；如果上传素材中包含多个模特，只挑选一位最清晰、最适合商业展示的模特，放在整张长图最上方的首屏并置于最上层，禁止再出现第二位模特或重复同一模特；如果没有模特则以核心商品为主视觉且不得凭空添加人物；不得把上传素材直接平铺、堆叠或全部塞入首屏。"
             "随后自然过渡到核心卖点与关键细节、使用场景或工艺表现，最后以套装规格、包装信息或品牌形象收尾。"
-            "四个阶段只是阅读节奏，不是四个独立方框；不得出现明显分割线、硬边界、卡片式分栏或四块等高拼接感。"
+            "四个阶段只是同一张画布中的阅读节奏，不是四个独立方框；不得出现明显分割线、硬边界、卡片式分栏、接缝、重复背景或四块等高拼接感。"
             "人物、产品、场景、光影、色块、纹理、装饰和大图形可以在相邻阶段之间自然跨越、遮挡和延伸，使整张长图像一次完成的连续商业设计。"
             "保持统一的品牌色、字体风格、光影和商业质感；不要做成杂乱拼图，不要出现重复商品、无关商品或空白断层。"
             "画面背景、场景、色块、纹理和装饰必须满版延伸到画布四边，不能出现外边框、白边、黑边、模糊边带或留白。"
-            "文字排版只需在画布外边缘保留自然可读空间；不要显示安全距离或测量标记。完整文案、参数和可读 Logo 不能被画布边缘或实际拼接位置截断。"
+            "文字排版必须在画布上、下、左、右四条外边缘保留自然可读空间；不要显示安全距离或测量标记。完整文案、参数和可读 Logo 不能被任何一侧画布边缘截断。"
             "必须准确保持商品主体、品牌标识、包装结构、颜色、比例和关键细节，不得擅自换款、变形或虚构不存在的配件。"
             "只能使用上传图片中明确可见或用户补充说明中明确提供的卖点、规格和宣传信息；不得编造参数、认证、功效、折扣或承诺。"
             "所有商品纹理、边缘、Logo、包装文字和宣传文字必须清楚锐利、易读，禁止乱码、错别字、模糊、虚焦、涂抹、像素化、压缩痕迹和过度柔化。"
-            "所有可读文字必须保留充足安全区，不要贴近左右边缘；非文字画面仍需满版铺满。"
-            "使用原生 4K 高清细节生成；最终必须呈现为一张连续完整的 A+ 宣传成品，不要输出绿幕、透明图、线框、草图或候选版式。"
+            "所有可读文字必须保留充足安全区，不要贴近上、下、左、右任何一侧边缘；非文字背景仍需满版铺满。"
+            "画布四边必须完整保留，禁止从上下左右任何一侧裁切；任何标题、正文、参数、品牌名、商品主体和可读 Logo 都不能越过或贴住画布边缘，必须完整呈现，必要时缩小字号、换行、缩小主体或向画面内部移动。"
+            "使用原生 4K 高清细节生成；最终必须呈现为一张从顶部到底部统一构图、统一场景、统一光影的一体化 A+ 宣传成品，不要输出绿幕、透明图、线框、草图或候选版式。"
         ),
     },
     {
@@ -846,6 +861,14 @@ def get_main_image_a_plus_layout(layout_key: str | None = None) -> dict[str, Any
     layout["target_size"] = tuple(int(value) for value in layout["target_size"])
     layout["section_heights"] = tuple(int(value) for value in layout["section_heights"])
     return layout
+
+
+def select_main_image_a_plus_safe_aspect_ratio(canvas_size: tuple[int, int]) -> str:
+    """Choose the closest native ratio so four-sided crop-free fitting stays minimal."""
+    width, height = (int(value) for value in canvas_size)
+    if width <= 0 or height <= 0:
+        raise ValueError("A+ canvas dimensions must be positive.")
+    return select_closest_aspect_ratio((width, height))
 
 
 def get_main_image_a_plus_template_layout(template_input: Any) -> dict[str, Any]:
@@ -1531,8 +1554,8 @@ def build_main_image_a_plus_layout_notes(layout_key: str, image_count: int) -> s
         "整张长图从上到下大体形成四个阅读阶段：模特与品牌主视觉、核心卖点与关键细节、"
         "使用场景或工艺表现、套装包装与品牌收尾。"
         "四个阶段只代表信息节奏，不按固定像素、固定距离或等高方框划分，也不要求内容严格待在各自范围内。"
-        "首屏必须是完整的商业主视觉，而不是素材陈列区：必须以上传参考图中的一位模特为唯一主视觉核心，商品、品牌与场景作为辅助层级。"
-        "模特必须处于画面最上层和视觉最前景，保持身份、脸部、发型、姿态与服饰真实一致；商品、文字、Logo、色块、光效和装饰均不得遮挡模特的脸、眼睛、头发轮廓、身体主体或关键服饰。"
+        "首屏必须是完整的商业主视觉，而不是素材陈列区：如果上传参考图中包含多个模特，只挑选一位最清晰、最适合商业展示的模特作为唯一主视觉核心；如果没有模特，则以核心商品为唯一主视觉且不得虚构人物。"
+        "选中的唯一模特必须放在整张长图最上方的首屏区域，并处于画面最上层和视觉最前景；保持身份、脸部、发型、姿态与服饰真实一致，禁止再出现第二位模特或在下方重复该模特；商品、文字、Logo、色块、光效和装饰均不得遮挡模特的脸、眼睛、头发轮廓、身体主体或关键服饰。"
         "参考图只是可选择的素材池，不要求全部出现在首屏；必须主动取舍素材，使用专业网格、大小对比、前中后景、光影、留白和品牌文字层级完成高级海报式构图。"
         "严禁在首屏中直接堆叠多个产品抠图、重复人物、重复包装、大量小图、标签和文字块；严禁做成拼贴、产品清单、九宫格或把所有参考图平铺进去。"
         "不要绘制分割线、边框、卡片底板、硬切色块或明显的四块拼接结构；四个阶段之间必须使用构图、景深、光影、色彩和视觉动线自然衔接。"
@@ -1541,11 +1564,44 @@ def build_main_image_a_plus_layout_notes(layout_key: str, image_count: int) -> s
         "只允许展示上传图片中真实存在的商品、配件、包装和信息，不得增加无关商品，不得改变品牌与商品外观。"
         "不得编造参数、认证、功效、促销价格或承诺；补充宣传要求与图片冲突时，以主图中的真实商品信息为准。"
         "背景、场景、色块、纹理和装饰必须满版延伸到画布四边，不得生成边框、白边、黑边、模糊边带或可见留白。"
-        "标题、卖点、参数、说明文字和可读 Logo 只需在画布外边缘保留自然可读空间，不显示任何安全距离。"
-        "文字可以跟随整体构图跨越概念阶段，但每一段完整文字都不能被画布边缘或实际拼接位置切断，不能出现半个字、缺字或被截断的行。"
+        "标题、卖点、参数、说明文字和可读 Logo 必须在上、下、左、右四条画布外边缘保留自然可读空间，不显示任何安全距离。"
+        "文字可以跟随整体构图跨越概念阶段，但每一段完整文字都不能被画布边缘切断，不能出现半个字、缺字或被截断的行。"
+        "禁止在画布顶部、底部、左侧或右侧放置贴边文字；每个标题、正文、参数、品牌名和可读 Logo 必须完整保留字高、行高与四周呼吸空间，必要时缩小字号、自动换行或向画面内部移动。"
+        "最终规格适配必须完整保留原生画面的上下左右四边，不允许从任何一侧裁切人物、商品、文字、Logo、背景或装饰。"
         "必须使用原生 4K 高清细节，商品纹理、边缘、Logo、包装字和宣传字必须清晰锐利、可辨认。"
         "严禁乱码、错别字、模糊、虚焦、涂抹、过度柔化、像素化、压缩痕迹、重复主体和明显 AI 伪影。"
-        "最终结果必须看起来像一次完成的一张连续长图，不能暴露内部拼接位置；不要输出绿幕、透明图、草图、线框或多张候选版式。"
+        "必须只调用一次整图生成并直接得到一张连续长图，禁止内部拆段、逐段生成、后期拼接或覆盖原图；不要输出绿幕、透明图、草图、线框或多张候选版式。"
+    )
+
+
+def build_main_image_a_plus_free_prompt(
+    full_prompt: str,
+    layout: dict[str, Any],
+) -> str:
+    target_width, target_height = (int(value) for value in layout["target_size"])
+    request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio((target_width, target_height))
+    no_crop_note = (
+        f"原生生成使用最接近成品的 {request_aspect_ratio} 画幅，最终适配不会从上、下、左、右任何一侧裁切；"
+        "原生画面的全部像素都会保留并完整映射到成品，因此四边都不是可牺牲区域。"
+        "所有人物、商品、Logo、完整文字和关键装饰必须完整位于画布内部，背景与场景自然满版延续到四边。"
+    )
+    return (
+        f"{str(full_prompt or '').strip()}\n\n"
+        "自由创作整图直出执行指令：必须把全部参考图理解为同一商品与品牌的素材库，"
+        f"在一次模型生成中直接输出 1 张完整的 {target_width}×{target_height}px A+ 宣传长图。"
+        "禁止把画布拆成四段或多个模块分别生成，禁止调用多次生成后拼接，禁止复制粘贴原图矩形，"
+        "禁止出现接缝、断层、重复背景、突然换场、卡片边界、等高分块或四张图上下排列的视觉痕迹。"
+        "从顶部到底部必须共享同一套品牌色、统一场景空间、材质、透视、光源、景深、纹理和设计语言，"
+        "通过主体跨区、背景连续延伸、光影渐变、前后景叠压和视觉动线，让卖点内容自然融合为一个整体。"
+        "四个内容阶段只负责阅读节奏，任何人物、商品、场景、色块和装饰都可以跨越阶段，不能绘制阶段边框或分割线。"
+        "首屏必须有商业广告主视觉和清晰焦点，不能把上传图片缩小后平铺、堆叠或做成素材清单。"
+        "如果上传素材中有多张模特图，只挑选一位最清晰、最适合商业展示的模特，放在整张图最上方的首屏并置于最上层；"
+        "禁止出现第二位模特，禁止在中段或底部再次重复同一模特，任何元素都不能遮挡模特，商品、文字和装饰尤其不能遮挡选中的模特；"
+        "如果所有上传素材都没有模特，则以核心商品为首屏主视觉，不得凭空生成陌生人物。"
+        "所有标题、正文、参数、品牌名和可读 Logo 必须逐字完整、清晰可读，上下左右四边都要保留完整字高、行高和自然呼吸空间；"
+        "禁止半个字、缺字、断行裁切、文字或主体超出画布、紧贴任何一侧边缘，空间不足时必须缩小字号、换行、缩小主体或向内移动。"
+        f"{no_crop_note}"
+        "最终只返回这一张融合完成的商业级 A+ 成品，不返回局部图、过程图、拼接图或候选版本。"
     )
 
 
@@ -2802,6 +2858,40 @@ def clear_task_progress(job_id: str) -> None:
         runtime.progress.pop(job_id, None)
 
 
+def calculate_smooth_running_progress(
+    current_percent: int,
+    reported_percent: int,
+) -> int:
+    """Advance visible progress in small steps while a background task is running."""
+    current = max(1, min(int(current_percent or 1), 99))
+    reported = max(1, min(int(reported_percent or 1), 100))
+    reported_target = min(reported, 97)
+    if reported_target > current:
+        return min(reported_target, current + 2)
+
+    if reported <= 5:
+        waiting_cap = 10
+    elif reported < 72:
+        waiting_cap = 70
+    elif reported < 88:
+        waiting_cap = 86
+    else:
+        waiting_cap = 97
+    return min(waiting_cap, current + 1)
+
+
+def calculate_finishing_progress(
+    start_percent: int,
+    elapsed_seconds: float,
+    duration_seconds: float = 8.0,
+) -> int:
+    """Animate a completed backend task to 100 instead of jumping instantly."""
+    start = max(1, min(int(start_percent or 1), 99))
+    duration = max(float(duration_seconds), 0.1)
+    fraction = max(0.0, min(float(elapsed_seconds) / duration, 1.0))
+    return min(100, max(start, int(math.floor(start + ((100 - start) * fraction)))))
+
+
 def run_main_image_a_plus_manual_element_job(
     template_input: Any,
     point: tuple[int, int],
@@ -2868,7 +2958,10 @@ def sync_main_image_a_plus_manual_element_job(
         future = runtime.futures.get(job_id)
     progress_info = get_task_progress(job_id)
     if progress_info:
-        job_state["progress"] = int(progress_info.get("percent") or job_state.get("progress") or 5)
+        job_state["progress"] = calculate_smooth_running_progress(
+            int(job_state.get("progress") or 5),
+            int(progress_info.get("percent") or 5),
+        )
         job_state["stage"] = str(progress_info.get("stage") or job_state.get("stage") or "正在识别")
     if future is None:
         job_state.update(
@@ -2924,7 +3017,7 @@ def sync_main_image_a_plus_manual_element_job(
     return job_state
 
 
-@st.fragment(run_every="2s")
+@st.fragment(run_every="1s")
 def render_main_image_a_plus_manual_element_job_status(
     job_state_key: str,
     analysis_state_key: str,
@@ -3021,7 +3114,7 @@ def build_running_job_spinner_html(progress_value: int, progress_stage: str) -> 
     """
 
 
-@st.fragment(run_every="3s")
+@st.fragment(run_every="1s")
 def render_running_job_status(feature_key: str) -> None:
     sync_background_jobs()
     current_job = st.session_state.background_jobs.get(feature_key) or {}
@@ -3885,11 +3978,12 @@ def build_main_image_a_plus_continuity_reference(
 def build_portrait_hd_prompt(prompt: str) -> str:
     base_prompt = str(prompt or "").strip()
     rules = (
+        f"最高优先级硬性规则：{PORTRAIT_HD_SKIN_LOCK_RULES}\n"
         "图片使用规则：\n"
         "- 第一张图片是需要高清增强的主图，必须以第一张图片的人物身份、五官、脸型、表情、发型、构图和背景为准。\n"
-        "- 如果提供了第二张图片，第二张图片只作为肤质参考：皮肤状态必须严格参考第二张图片，仅参考皮肤纹理、毛孔细节、真实光泽、清透度、皮肤颗粒感、细腻程度和整体肤感。\n"
-        "- 不允许弱参考，不允许忽略第二张图的皮肤状态；最终皮肤观感必须尽量向第二张图贴近。\n"
-        "- 严禁从第二张图片借用或迁移脸型、五官、眼睛形状、鼻子、嘴唇、眉形、妆容、肤色、表情、发型、服饰、背景或人物身份。\n"
+        "- 如果提供了第二张图片，第二张图片仍作为高清参考图，但只允许参考其清晰度、分辨率和细节解析水平。\n"
+        "- 严禁从第二张图片借用或迁移肤色、肤质、毛孔状态、皮肤光泽、颗粒感、斑点、妆容、脸型、五官、眼睛、表情、发型、服饰、背景或人物身份。\n"
+        "- 最终皮肤必须逐项保持第1张原图状态，不得磨皮、祛斑、去痣、去痘印、去细纹、提亮或调色。\n"
         "- 最终结果必须仍然是第一张图片中的同一个人。"
     )
     if base_prompt:
@@ -4873,6 +4967,52 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
         prepare_main_image_a_plus_reference_input(item)
         for item in list(job_context.get("uploaded_files") or [])
     ]
+    if generation_mode == MAIN_IMAGE_A_PLUS_MODE_FREE:
+        request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio((target_width, target_height))
+        if job_id:
+            set_task_progress(job_id, 12, "正在一次生成完整 A+ 商业长图")
+        free_result = call_openrouter_images_api(
+            model=str(job_context["model"]),
+            prompt=build_main_image_a_plus_free_prompt(
+                str(job_context.get("prompt") or ""),
+                layout,
+            ),
+            uploaded_files=uploaded_files,
+            aspect_ratio=request_aspect_ratio,
+            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+            max_attempts=1,
+        )
+        generated_images = list(free_result.get("images") or [])
+        if not generated_images:
+            raise RuntimeError("自由创作没有返回完整 A+ 成品图，请重新提交。")
+        if job_id:
+            set_task_progress(job_id, 76, "整张 A+ 已生成，正在适配所选规格")
+        final_image_url = cover_image_to_exact_size(
+            str(generated_images[0]),
+            target_width,
+            target_height,
+        )
+        model_text = str(free_result.get("text") or "").strip()
+        summary = (
+            f"已按“{layout['label']}”一次生成并适配为 {target_width}×{target_height}px 商业 A+ 长图。"
+            "本次只调用一次整图生成，没有拆分模块、没有生成四张局部图，也没有执行图片拼接。"
+        )
+        return {
+            "images": [final_image_url],
+            "text": "\n\n".join(part for part in (model_text, summary) if part),
+            "channel": "Images API 原生 4K · A+ 整图直出",
+            "requested_aspect_ratios": (request_aspect_ratio,),
+            "target_size": (target_width, target_height),
+            "section_count": 1,
+            "section_heights": (target_height,),
+            "section_height": target_height,
+            "main_image_a_plus_layout_key": layout["key"],
+            "main_image_a_plus_layout_label": layout["label"],
+            "main_image_a_plus_mode": generation_mode,
+            "generation_waves": 1,
+            "max_parallel_sections": 1,
+            "prepared_reference_count": len(uploaded_files),
+        }
     if generation_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
         template_input = job_context.get("main_image_a_plus_template")
         if template_input is None:
@@ -5433,6 +5573,28 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
     }
 
 
+def store_completed_background_job_result(
+    feature_key: str,
+    job_info: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    job_info["status"] = "completed"
+    job_info["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    job_info["progress"] = 100
+    job_info["stage"] = "处理完成"
+    job_info.pop("completion_pending", None)
+    job_info.pop("completion_started_at", None)
+    job_info.pop("completion_start_progress", None)
+    st.session_state.feature_results[feature_key] = result
+    account_name = str(result.get("history_account_name") or st.session_state.get("auth_username") or "admin")
+    history_records = list(result.get("history_records") or [])
+    if history_records:
+        store_local_history_records(account_name, feature_key, history_records)
+    cache_key = get_history_cache_key(account_name, feature_key)
+    st.session_state.history_records_cache.pop(cache_key, None)
+    set_history_visible_limit(cache_key, HISTORY_PAGE_SIZE)
+
+
 def sync_background_jobs() -> None:
     runtime = get_task_runtime()
     jobs = st.session_state.get("background_jobs") or {}
@@ -5447,7 +5609,10 @@ def sync_background_jobs() -> None:
         if future is None:
             progress_info = get_task_progress(job_id)
             if progress_info:
-                job_info["progress"] = int(progress_info.get("percent") or job_info.get("progress") or 1)
+                job_info["progress"] = calculate_smooth_running_progress(
+                    int(job_info.get("progress") or 1),
+                    int(progress_info.get("percent") or 1),
+                )
                 job_info["stage"] = str(progress_info.get("stage") or job_info.get("stage") or "")
             else:
                 job_info["status"] = "error"
@@ -5455,10 +5620,48 @@ def sync_background_jobs() -> None:
                 job_info["progress"] = 0
                 job_info["stage"] = "任务状态丢失"
             continue
+        if bool(job_info.get("completion_pending")):
+            completion_started_at = float(job_info.get("completion_started_at") or time.time())
+            completion_start_progress = int(
+                job_info.get("completion_start_progress")
+                or job_info.get("progress")
+                or 1
+            )
+            animated_progress = calculate_finishing_progress(
+                completion_start_progress,
+                time.time() - completion_started_at,
+            )
+            job_info["progress"] = animated_progress
+            job_info["stage"] = "结果已生成，正在完成最后处理"
+            if animated_progress < 100:
+                continue
+            try:
+                result = future.result()
+            except Exception as exc:
+                progress_info = get_task_progress(job_id) or {}
+                failed_stage = str(progress_info.get("stage") or "任务执行失败").strip()
+                user_error = format_user_facing_error_message(exc)
+                job_info["status"] = "error"
+                job_info["error"] = (
+                    f"{failed_stage}：{user_error}"
+                    if failed_stage and failed_stage != "任务执行失败"
+                    else user_error
+                )
+                job_info["progress"] = 0
+                job_info["stage"] = failed_stage or "任务执行失败"
+            else:
+                store_completed_background_job_result(feature_key, job_info, result)
+            with runtime.lock:
+                runtime.futures.pop(job_id, None)
+            clear_task_progress(job_id)
+            continue
         if not future.done():
             progress_info = get_task_progress(job_id)
             if progress_info:
-                job_info["progress"] = int(progress_info.get("percent") or job_info.get("progress") or 1)
+                job_info["progress"] = calculate_smooth_running_progress(
+                    int(job_info.get("progress") or 1),
+                    int(progress_info.get("percent") or 1),
+                )
                 job_info["stage"] = str(progress_info.get("stage") or job_info.get("stage") or "")
             continue
         try:
@@ -5480,22 +5683,19 @@ def sync_background_jobs() -> None:
                 f"error={type(exc).__name__}: {exc}",
                 file=sys.stderr,
             )
+            with runtime.lock:
+                runtime.futures.pop(job_id, None)
+            clear_task_progress(job_id)
         else:
-            job_info["status"] = "completed"
-            job_info["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            job_info["progress"] = 100
-            job_info["stage"] = "处理完成"
-            st.session_state.feature_results[feature_key] = result
-            account_name = str(result.get("history_account_name") or st.session_state.get("auth_username") or "admin")
-            history_records = list(result.get("history_records") or [])
-            if history_records:
-                store_local_history_records(account_name, feature_key, history_records)
-            cache_key = get_history_cache_key(account_name, feature_key)
-            st.session_state.history_records_cache.pop(cache_key, None)
-            set_history_visible_limit(cache_key, HISTORY_PAGE_SIZE)
-        with runtime.lock:
-            runtime.futures.pop(job_id, None)
-        clear_task_progress(job_id)
+            completion_start_progress = calculate_smooth_running_progress(
+                int(job_info.get("progress") or 1),
+                100,
+            )
+            job_info["progress"] = completion_start_progress
+            job_info["stage"] = "结果已生成，正在完成最后处理"
+            job_info["completion_pending"] = True
+            job_info["completion_started_at"] = time.time()
+            job_info["completion_start_progress"] = completion_start_progress
 
 
 def inject_app_styles() -> None:
@@ -5543,7 +5743,7 @@ def inject_app_styles() -> None:
         }
         .main .block-container {
             max-width: 1540px;
-            padding-top: 0 !important;
+            padding-top: 0.72rem !important;
             margin-top: 0 !important;
             padding-left: 1rem;
             padding-right: 1rem;
@@ -5744,7 +5944,7 @@ def inject_app_styles() -> None:
             border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 16px;
             box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
-            padding: 0.72rem 0.82rem 0.78rem;
+            padding: 0.86rem 0.94rem 0.92rem;
             margin-top: 0;
         }
         .login-shell {
@@ -5852,6 +6052,15 @@ def inject_app_styles() -> None:
             font-size: 0.74rem;
             line-height: 1.25;
             white-space: nowrap;
+            position: relative;
+        }
+        .workflow-step:not(:last-child)::after {
+            content: "";
+            height: 1px;
+            flex: 1 1 auto;
+            min-width: 12px;
+            margin-left: 0.18rem;
+            background: linear-gradient(90deg, rgba(139, 117, 255, 0.46), rgba(139, 117, 255, 0.08));
         }
         .workflow-step-number {
             display: grid;
@@ -5953,8 +6162,54 @@ def inject_app_styles() -> None:
         .a-plus-mode-selector-marker,
         .a-plus-template-card-marker,
         .a-plus-analysis-card-marker,
-        .a-plus-auto-fill-card-marker {
+        .a-plus-auto-fill-card-marker,
+        .batch-left-column-marker,
+        .batch-right-column-marker,
+        .upload-add-marker,
+        .upload-more-marker {
             display: none !important;
+        }
+        div[data-testid="column"]:has(.batch-left-column-marker),
+        div[data-testid="column"]:has(.batch-right-column-marker) {
+            align-self: stretch !important;
+            min-width: 0 !important;
+            padding: 0.78rem 0.82rem 0.82rem !important;
+            border: 1px solid rgba(255, 255, 255, 0.075);
+            border-radius: 15px;
+            background:
+                radial-gradient(circle at top right, rgba(132, 111, 255, 0.075), transparent 31%),
+                rgba(5, 13, 29, 0.58);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+        }
+        div[data-testid="column"]:has(.batch-right-column-marker) .result-empty {
+            min-height: 390px;
+            margin-bottom: 0;
+        }
+        div[data-testid="column"]:has(.batch-left-column-marker) .result-block-title,
+        div[data-testid="column"]:has(.batch-right-column-marker) .result-block-title {
+            margin-bottom: 0.62rem;
+        }
+        .upload-summary-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            min-height: 34px;
+            margin: 0 0 0.5rem;
+            padding: 0.42rem 0.58rem;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.035);
+            color: rgba(214, 219, 255, 0.72);
+            font-size: 0.74rem;
+        }
+        .upload-summary-row strong {
+            color: #f3f5ff;
+            font-size: 0.78rem;
+            font-weight: 750;
+        }
+        .upload-summary-row span:last-child {
+            color: rgba(214, 219, 255, 0.56);
         }
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker),
         div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) {
@@ -6153,16 +6408,16 @@ def inject_app_styles() -> None:
             left: 0;
             top: 0;
         }
-        div[data-testid="stFileUploader"]:has(input[aria-label="继续上传"]) [data-testid="stFileUploaderDropzone"]::after {
+        div[data-testid="stFileUploader"]:has([aria-label="继续上传"]) [data-testid="stFileUploaderDropzone"]::after {
             content: "继续上传";
         }
-        div[data-testid="stFileUploader"]:has(input[aria-label="重新上传"]) [data-testid="stFileUploaderDropzone"]::after {
+        div[data-testid="stFileUploader"]:has([aria-label="重新上传"]) [data-testid="stFileUploaderDropzone"]::after {
             content: "重新上传";
         }
-        div[data-testid="stFileUploader"]:has(input[aria-label="上传图片"]) [data-testid="stFileUploaderDropzone"]::after {
+        div[data-testid="stFileUploader"]:has([aria-label="上传图片"]) [data-testid="stFileUploaderDropzone"]::after {
             content: "上传图片";
         }
-        div[data-testid="stFileUploader"]:has(input[aria-label="上传参考图"]) [data-testid="stFileUploaderDropzone"]::after {
+        div[data-testid="stFileUploader"]:has([aria-label="上传参考图"]) [data-testid="stFileUploaderDropzone"]::after {
             content: "上传参考图";
         }
         [data-testid="stFileUploaderFile"] {
@@ -6272,7 +6527,16 @@ def inject_app_styles() -> None:
             border-radius: 10px !important;
             background: rgba(10, 19, 38, 0.9) !important;
         }
-        div[data-testid="stFileUploader"]:has(input[aria-label="替换图片"]) [data-testid="stFileUploaderDropzone"]::after {
+        div[data-testid="element-container"]:has(.upload-replace-uploader-marker) + div[data-testid="element-container"] [data-testid="stFileUploaderDropzone"]::after {
+            content: "替换图片" !important;
+        }
+        div[data-testid="element-container"]:has(.upload-add-marker) + div[data-testid="element-container"] [data-testid="stFileUploaderDropzone"]::after {
+            content: "添加图片" !important;
+        }
+        div[data-testid="element-container"]:has(.upload-more-marker) + div[data-testid="element-container"] [data-testid="stFileUploaderDropzone"]::after {
+            content: "继续添加" !important;
+        }
+        div[data-testid="stFileUploader"]:has([aria-label="替换图片"]) [data-testid="stFileUploaderDropzone"]::after {
             content: "替换图片";
         }
         .upload-replace-hotspot {
@@ -6439,6 +6703,7 @@ def inject_app_styles() -> None:
         .stTextArea label p,
         .stSelectbox label p,
         .stRadio label p {
+            color: rgba(225, 229, 255, 0.82) !important;
             font-size: 0.76rem !important;
             font-weight: 600 !important;
         }
@@ -6466,6 +6731,12 @@ def inject_app_styles() -> None:
             }
             .workflow-step:last-child {
                 grid-column: span 2;
+            }
+            .workflow-step::after {
+                display: none !important;
+            }
+            div[data-testid="column"]:has(.batch-right-column-marker) .result-empty {
+                min-height: 250px;
             }
             div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker),
             div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) {
@@ -7186,6 +7457,7 @@ def call_openrouter_images_api(
     uploaded_files: list[Any] | None = None,
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
     resolution: str = "",
+    max_attempts: int | None = None,
 ) -> dict[str, Any]:
     """Call OpenRouter's dedicated Images API with correctly shaped references."""
     api_key = load_api_key()
@@ -7223,7 +7495,8 @@ def call_openrouter_images_api(
     }
     response = None
     last_request_error: requests.RequestException | None = None
-    for attempt_index in range(OPENROUTER_IMAGES_MAX_ATTEMPTS):
+    normalized_max_attempts = max(int(max_attempts or OPENROUTER_IMAGES_MAX_ATTEMPTS), 1)
+    for attempt_index in range(normalized_max_attempts):
         try:
             response = requests.post(
                 OPENROUTER_IMAGES_URL,
@@ -7238,9 +7511,9 @@ def call_openrouter_images_api(
             )
         except (requests.Timeout, requests.ConnectionError) as exc:
             last_request_error = exc
-            if attempt_index + 1 >= OPENROUTER_IMAGES_MAX_ATTEMPTS:
+            if attempt_index + 1 >= normalized_max_attempts:
                 raise RuntimeError(
-                    f"OpenRouter Images API 连接失败，已自动尝试 {OPENROUTER_IMAGES_MAX_ATTEMPTS} 次：{exc}"
+                    f"OpenRouter Images API 连接失败，已自动尝试 {normalized_max_attempts} 次：{exc}"
                 ) from exc
             retry_delay = OPENROUTER_IMAGES_RETRY_DELAYS[
                 min(attempt_index, len(OPENROUTER_IMAGES_RETRY_DELAYS) - 1)
@@ -7251,7 +7524,7 @@ def call_openrouter_images_api(
             raise RuntimeError(f"OpenRouter Images API 连接失败：{exc}") from exc
         if (
             response.status_code in OPENROUTER_IMAGES_TRANSIENT_STATUS_CODES
-            and attempt_index + 1 < OPENROUTER_IMAGES_MAX_ATTEMPTS
+            and attempt_index + 1 < normalized_max_attempts
         ):
             retry_delay = OPENROUTER_IMAGES_RETRY_DELAYS[
                 min(attempt_index, len(OPENROUTER_IMAGES_RETRY_DELAYS) - 1)
@@ -7489,6 +7762,30 @@ def resize_image_to_exact_size(image_url: str, target_width: int, target_height:
         if isinstance(exc, RuntimeError) and str(exc).startswith("图片下载失败："):
             raise
         raise RuntimeError(f"本地处理失败：返回图片已收到，但在尺寸处理时出错。{exc}") from exc
+
+
+def cover_image_to_exact_size(image_url: str, target_width: int, target_height: int) -> str:
+    """Fit A+ output to the exact size without cropping any generated edge."""
+    image_bytes, _mime_type = load_image_bytes_from_url(image_url)
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            converted = ImageOps.exif_transpose(image).convert("RGB")
+            safe_target_width = max(int(target_width), 1)
+            safe_target_height = max(int(target_height), 1)
+            # The closest supported native ratio may still differ slightly from the
+            # requested A+ canvas. Resize the complete frame instead of sacrificing
+            # text, logos, products, or background from any of the four edges.
+            fitted = converted.resize(
+                (safe_target_width, safe_target_height),
+                Image.Resampling.LANCZOS,
+            )
+            output = io.BytesIO()
+            fitted.save(output, format="PNG")
+        return image_bytes_to_data_url(output.getvalue(), "image/png")
+    except Exception as exc:
+        if isinstance(exc, RuntimeError) and str(exc).startswith("图片下载失败："):
+            raise
+        raise RuntimeError(f"本地处理失败：完整 A+ 已返回，但在保留四边画面的规格适配时出错。{exc}") from exc
 
 
 def parse_size_text(size_text: str) -> tuple[int, int] | None:
@@ -7988,12 +8285,12 @@ def render_uploaded_preview_card(
             """,
             unsafe_allow_html=True,
         )
-        render_upload_delete_button(
-            widget_key,
-            item_index,
-            button_key=f"delete_upload_{component_key}_{item_index}",
-        )
         if preview_renderer is not None:
+            render_upload_delete_button(
+                widget_key,
+                item_index,
+                button_key=f"delete_upload_{component_key}_{item_index}",
+            )
             preview_renderer(uploaded_input, item_index, component_key)
         else:
             render_zoomable_image_gallery(
@@ -8003,6 +8300,7 @@ def render_uploaded_preview_card(
                 component_key=component_key,
                 fit_mode="contain",
                 max_width_percent=100,
+                context_delete_token=build_upload_delete_token(widget_key, item_index),
             )
         st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
         replacement_upload = st.file_uploader(
@@ -8039,7 +8337,7 @@ def render_uploaded_gallery(
     if not files:
         st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
         return
-    columns_per_row = min(max(len(files), 1), max(slot_count, 1), 5)
+    columns_per_row = min(max(slot_count, 1), 5)
     for row_start in range(0, len(files), columns_per_row):
         columns = st.columns(columns_per_row)
         for column_index, column in enumerate(columns):
@@ -8053,7 +8351,8 @@ def render_uploaded_gallery(
                         component_key=f"upload_preview_{widget_key}_{item_index}",
                         preview_renderer=preview_renderer,
                     )
-    st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
+    if empty_text:
+        st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
 
 
 def image_source_to_data_url(image_source: str) -> str | None:
@@ -8850,18 +9149,8 @@ def render_zoomable_image_gallery(
         wrap.appendChild(img);
 
         if ({delete_token}) {{
-          const deleteForm = document.createElement("form");
-          deleteForm.method = "GET";
-          deleteForm.action = buildDeleteUrl_{component_key}();
-          deleteForm.target = "_top";
-          deleteForm.style.margin = "0";
-          deleteForm.style.position = "absolute";
-          deleteForm.style.top = "0";
-          deleteForm.style.right = "0";
-          deleteForm.style.zIndex = "4";
-
           const deleteButton = document.createElement("button");
-          deleteButton.type = "submit";
+          deleteButton.type = "button";
           deleteButton.className = "zoom-thumb-delete";
           deleteButton.title = "删除当前图片";
           deleteButton.textContent = "×";
@@ -8869,10 +9158,14 @@ def render_zoomable_image_gallery(
             event.stopPropagation();
           }});
           deleteButton.addEventListener("click", (event) => {{
+            event.preventDefault();
             event.stopPropagation();
+            const deleteUrl = buildDeleteUrl_{component_key}();
+            if (deleteUrl) {{
+              hostWindow_{component_key}.location.href = deleteUrl;
+            }}
           }});
-          deleteForm.appendChild(deleteButton);
-          wrap.appendChild(deleteForm);
+          wrap.appendChild(deleteButton);
         }}
 
         grid_{component_key}.appendChild(wrap);
@@ -8983,16 +9276,38 @@ def render_multi_image_uploader(
     active_uploaded_files = cached_files
 
     if active_uploaded_files:
+        st.markdown(
+            '<div class="upload-summary-row">'
+            '<strong>已上传图片</strong>'
+            f'<span>{len(active_uploaded_files)} / {max_files} 张</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
         render_uploaded_gallery(
             active_uploaded_files,
-            f"已上传 {len(active_uploaded_files)} / {max_files} 张原图",
+            "",
             widget_key=key,
             slot_count=preview_slot_count or max_files,
             preview_renderer=preview_renderer,
         )
+    else:
+        st.markdown(
+            '<div class="upload-main-empty">'
+            '<div class="empty-icon">＋</div>'
+            '<div class="empty-title">添加需要处理的图片</div>'
+            f'<div class="empty-subtitle">支持批量上传，最多 {max_files} 张</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
-    action_left, action_right = st.columns([1, 1], gap="small")
+    action_left, action_right = st.columns([1.4, 0.6], gap="small")
     with action_left:
+        st.markdown(
+            '<div class="upload-more-marker"></div>'
+            if active_uploaded_files
+            else '<div class="upload-add-marker"></div>',
+            unsafe_allow_html=True,
+        )
         uploaded_files = st.file_uploader(
             "继续上传" if active_uploaded_files else "上传图片",
             type=["png", "jpg", "jpeg", "webp"],
@@ -9061,7 +9376,36 @@ def render_reference_slot_uploaders(slot_prefix: str, slot_count: int = 5) -> li
     return uploaded_files
 
 
-def render_result_preview(images: list[str], show_title: bool = True) -> None:
+def build_result_download_sources(
+    images: list[str],
+    history_records: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    """Use the same persisted original-image URLs as the history gallery."""
+    history_items = flatten_history_items(list(history_records or []))
+    download_sources: list[str] = []
+    for index, image_source in enumerate(images):
+        history_source = ""
+        if index < len(history_items):
+            history_item = history_items[index]
+            history_source = str(
+                history_item.get("download_source")
+                or history_item.get("original_image")
+                or ""
+            ).strip()
+        preferred_source = history_source or str(image_source or "").strip()
+        try:
+            public_source = build_history_download_public_url(preferred_source)
+        except Exception:
+            public_source = preferred_source
+        download_sources.append(public_source or str(image_source or "").strip())
+    return download_sources
+
+
+def render_result_preview(
+    images: list[str],
+    show_title: bool = True,
+    download_images: list[str] | None = None,
+) -> None:
     if show_title:
         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
     if not images:
@@ -9076,6 +9420,7 @@ def render_result_preview(images: list[str], show_title: bool = True) -> None:
             unsafe_allow_html=True,
         )
     else:
+        normalized_download_images = list(download_images or build_result_download_sources(images))
         render_zoomable_image_gallery(
             images,
             columns=1,
@@ -9085,16 +9430,24 @@ def render_result_preview(images: list[str], show_title: bool = True) -> None:
             max_width_percent=25,
             compress_preview=True,
             include_full_src=True,
+            full_images=normalized_download_images,
+            embed_full_src=False,
         )
 
 
-def render_result_preview_with_captions(images: list[str], captions: list[str], feature_key: str) -> None:
+def render_result_preview_with_captions(
+    images: list[str],
+    captions: list[str],
+    feature_key: str,
+    download_images: list[str] | None = None,
+) -> None:
     if not images:
-        render_result_preview(images, show_title=False)
+        render_result_preview(images, show_title=False, download_images=download_images)
         return
     if len(captions) != len(images):
-        render_result_preview(images, show_title=False)
+        render_result_preview(images, show_title=False, download_images=download_images)
         return
+    normalized_download_images = list(download_images or build_result_download_sources(images))
     columns_per_row = min(4, max(len(images), 1))
     for row_start in range(0, len(images), columns_per_row):
         row_images = images[row_start : row_start + columns_per_row]
@@ -9116,6 +9469,12 @@ def render_result_preview_with_captions(images: list[str], captions: list[str], 
                     max_width_percent=100,
                     compress_preview=True,
                     include_full_src=True,
+                    full_images=(
+                        [normalized_download_images[row_start + column_index]]
+                        if row_start + column_index < len(normalized_download_images)
+                        else []
+                    ),
+                    embed_full_src=False,
                 )
 
 
@@ -9125,7 +9484,9 @@ def render_before_after_compare_gallery(
     captions: list[str],
     feature_key: str,
     outpaint_alignments: list[dict[str, Any]] | None = None,
+    download_images: list[str] | None = None,
 ) -> None:
+    normalized_download_images = list(download_images or build_result_download_sources(result_images))
     pairs: list[dict[str, Any]] = []
     for index, result_image in enumerate(result_images):
         source_image = source_images[index] if index < len(source_images) else ""
@@ -9135,18 +9496,23 @@ def render_before_after_compare_gallery(
         result_item = build_gallery_item(str(result_image), compress_preview=True, include_full_src=True)
         if not source_item or not result_item:
             continue
-        result_full_source = str(result_item.get("full_src") or result_image)
+        result_full_source = (
+            normalized_download_images[index]
+            if index < len(normalized_download_images)
+            else str(result_item.get("full_src") or result_image)
+        )
         view_source = build_history_download_public_url(result_full_source)
         download_source = build_direct_image_download_url(view_source)
-        download_path = Path(urllib.parse.unquote(urllib.parse.urlsplit(download_source).path or ""))
+        download_path = Path(urllib.parse.unquote(urllib.parse.urlsplit(view_source).path or ""))
         download_extension = download_path.suffix if download_path.suffix.lower() in REFERENCE_IMAGE_EXTENSIONS else ".png"
+        download_name = download_path.name or f"扩图效果图_{index + 1}{download_extension}"
         pairs.append(
             {
                 "source": source_item["src"],
                 "result": result_item["src"],
                 "view": view_source,
                 "download": download_source,
-                "download_name": f"扩图效果图_{index + 1}{download_extension}",
+                "download_name": download_name,
                 "caption": str(captions[index] if index < len(captions) else f"结果 {index + 1}").strip(),
                 "alignment": (
                     dict(outpaint_alignments[index] or {})
@@ -9156,7 +9522,12 @@ def render_before_after_compare_gallery(
             }
         )
     if not pairs:
-        render_result_preview_with_captions(result_images, captions, feature_key)
+        render_result_preview_with_captions(
+            result_images,
+            captions,
+            feature_key,
+            download_images=normalized_download_images,
+        )
         return
     component_key = re.sub(r"[^a-zA-Z0-9_]", "_", f"compare_{feature_key}_{len(pairs)}")
     payload = json.dumps(pairs, ensure_ascii=False)
@@ -11334,10 +11705,23 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
             st.markdown(f'<div class="canvas-flow-summary">{flow_chips}</div>', unsafe_allow_html=True)
         result_images = list(result.get("images") or [])
         result_captions = list(result.get("captions") or [])
+        result_download_images = build_result_download_sources(
+            result_images,
+            list(result.get("history_records") or []),
+        )
         if result_images and result_captions:
-            render_result_preview_with_captions(result_images, result_captions, feature["key"])
+            render_result_preview_with_captions(
+                result_images,
+                result_captions,
+                feature["key"],
+                download_images=result_download_images,
+            )
         elif result_images:
-            render_result_preview(result_images, show_title=False)
+            render_result_preview(
+                result_images,
+                show_title=False,
+                download_images=result_download_images,
+            )
         elif canvas_source_files:
             st.markdown('<div class="panel-subtitle">输入图预览</div>', unsafe_allow_html=True)
             preview_file = canvas_source_files[0]
@@ -11502,6 +11886,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append(f'<span class="meta-pill">等比例放大，宽高都不小于 {get_feature_min_output_edge(feature)}px</span>')
     if supports_batch_multi_upload:
         meta_items.append(f'<span class="meta-pill">支持批量上传，最多 {BATCH_MULTI_IMAGE_MAX_FILES} 张</span>')
+    if feature.get("key") == "hd_batch":
+        meta_items.append('<span class="meta-pill">肤色肤质锁定 · 参考图仅用于清晰度</span>')
     if supports_outpaint:
         meta_items.append('<span class="meta-pill">支持上下左右独立扩展</span>')
     if max_output_images > 0 and not supports_outpaint:
@@ -11525,6 +11911,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
 
     left_col, right_col = st.columns([0.88, 1.12], gap="medium")
     with left_col:
+        if supports_batch_multi_upload:
+            st.markdown('<div class="batch-left-column-marker"></div>', unsafe_allow_html=True)
         left_panel_title = (
             "创作设置"
             if supports_main_image_a_plus
@@ -11534,7 +11922,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             f'<div class="result-block-title">{left_panel_title}</div>',
             unsafe_allow_html=True,
         )
-        primary_action_slot = st.empty()
+        primary_action_slot = None
+        if not supports_batch_multi_upload:
+            primary_action_slot = st.empty()
         skin_tone_reference_file = None
         pupil_color_reference_file = None
         eye_shape_reference_file = None
@@ -12247,8 +12637,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 selected_a_plus_layout = get_main_image_a_plus_layout(main_image_a_plus_layout_key)
                 selected_width, selected_height = selected_a_plus_layout["target_size"]
                 st.info(
-                    f"{selected_width}×{selected_height}px · 四阶段自然衔接 · 元素可跨区 · "
-                    "画面满版，完整文字与可读 Logo 不截断。"
+                    f"{selected_width}×{selected_height}px · 整张一次生成 · 不拆段、不拼接 · "
+                    "上下左右四边完整保留 · 单一模特置于首屏最上方 · 完整文字与可读 Logo 不截断。"
                 )
             st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
             main_image_a_plus_prompt = st.text_area(
@@ -12340,15 +12730,52 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             and not main_image_a_plus_element_review_confirmed
         )
         process_button_disabled = is_job_running or is_element_review_pending
-        with primary_action_slot:
-            with st.container(border=True):
+        if primary_action_slot is None:
+            action_container = st.container(border=True)
+        else:
+            with primary_action_slot:
+                action_container = st.container(border=True)
+        with action_container:
+            st.markdown(
+                '<div class="main-action-dock-marker"></div>'
+                '<div class="inline-action-row"></div>',
+                unsafe_allow_html=True,
+            )
+            if supports_jimeng_generation:
+                st.caption("当前模型：Agent")
+                submitted = st.button(
+                    process_button_label,
+                    key=f"process_{feature['key']}",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=process_button_disabled,
+                )
+            elif len(model_options_for_feature) == 1:
+                active_model = model_options_for_feature[0]
                 st.markdown(
-                    '<div class="main-action-dock-marker"></div>'
-                    '<div class="inline-action-row"></div>',
+                    '<div class="fixed-model-card"><span>当前模型</span>'
+                    f'<strong>{html.escape(get_model_display_name(active_model))}</strong></div>',
                     unsafe_allow_html=True,
                 )
-                if supports_jimeng_generation:
-                    st.caption("当前模型：Agent")
+                submitted = st.button(
+                    process_button_label,
+                    key=f"process_{feature['key']}",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=process_button_disabled,
+                )
+            else:
+                selector_col, process_col = st.columns([1.35, 0.95], gap="small")
+                with selector_col:
+                    active_model = st.selectbox(
+                        "模型切换",
+                        model_options_for_feature,
+                        index=model_options_for_feature.index(default_model_for_feature),
+                        format_func=get_model_display_name,
+                        key=f"model_select_{feature['key']}",
+                    )
+                with process_col:
+                    st.markdown('<div class="panel-subtitle">&nbsp;</div>', unsafe_allow_html=True)
                     submitted = st.button(
                         process_button_label,
                         key=f"process_{feature['key']}",
@@ -12356,46 +12783,15 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         use_container_width=True,
                         disabled=process_button_disabled,
                     )
-                elif len(model_options_for_feature) == 1:
-                    active_model = model_options_for_feature[0]
-                    st.markdown(
-                        '<div class="fixed-model-card"><span>当前模型</span>'
-                        f'<strong>{html.escape(get_model_display_name(active_model))}</strong></div>',
-                        unsafe_allow_html=True,
-                    )
-                    submitted = st.button(
-                        process_button_label,
-                        key=f"process_{feature['key']}",
-                        type="primary",
-                        use_container_width=True,
-                        disabled=process_button_disabled,
-                    )
-                else:
-                    selector_col, process_col = st.columns([1.35, 0.95], gap="small")
-                    with selector_col:
-                        active_model = st.selectbox(
-                            "模型切换",
-                            model_options_for_feature,
-                            index=model_options_for_feature.index(default_model_for_feature),
-                            format_func=get_model_display_name,
-                            key=f"model_select_{feature['key']}",
-                        )
-                    with process_col:
-                        st.markdown('<div class="panel-subtitle">&nbsp;</div>', unsafe_allow_html=True)
-                        submitted = st.button(
-                            process_button_label,
-                            key=f"process_{feature['key']}",
-                            type="primary",
-                            use_container_width=True,
-                            disabled=process_button_disabled,
-                        )
-                if feature.get("key") == "hd_batch":
-                    st.caption("即梦 4.6 高清已暂时关闭，当前仅保留 Nano Banana 2 生图。")
-                elif supports_main_image_a_plus:
-                    st.caption("主图生A+使用 Nano Banana 2 原生 4K Images API；画面满版，文字使用安全区避免被截断。")
-                elif supports_amazon_a_plus:
-                    st.caption("A+ 使用原生 4K Images API 生成高清绿幕底稿。")
+            if feature.get("key") == "hd_batch":
+                st.caption("当前使用 Nano Banana 2 原生 4K；保留肤质参考图，但只参考清晰度，肤色和肤质以原图为准且不得修改。")
+            elif supports_main_image_a_plus:
+                st.caption("主图生A+使用 Nano Banana 2 原生 4K Images API；画面满版，文字使用安全区避免被截断。")
+            elif supports_amazon_a_plus:
+                st.caption("A+ 使用原生 4K Images API 生成高清绿幕底稿。")
     with right_col:
+        if supports_batch_multi_upload:
+            st.markdown('<div class="batch-right-column-marker"></div>', unsafe_allow_html=True)
         shows_element_map = bool(
             supports_main_image_a_plus
             and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
@@ -12407,6 +12803,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             unsafe_allow_html=True,
         )
         result_images = list(result.get("images") or [])
+        result_download_images = build_result_download_sources(
+            result_images,
+            list(result.get("history_records") or []),
+        )
         source_images = list(result.get("source_images") or [])
         outpaint_alignments = list(result.get("outpaint_alignments") or [])
         if not source_images and supports_batch_multi_upload and batch_source_files:
@@ -12458,7 +12858,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             if supports_amazon_a_plus and result_images:
                 layered_tab, green_tab = st.tabs(["分层结果", "AI 绿幕底稿"])
                 with layered_tab:
-                    render_result_preview(result_images, show_title=False)
+                    render_result_preview(
+                        result_images,
+                        show_title=False,
+                        download_images=result_download_images,
+                    )
                 with green_tab:
                     green_screen_images = list(result.get("green_screen_images") or [])
                     if green_screen_images:
@@ -12494,11 +12898,21 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     result_captions,
                     feature["key"],
                     outpaint_alignments=outpaint_alignments if supports_outpaint else None,
+                    download_images=result_download_images,
                 )
             elif supports_batch_multi_upload and result_images and result_captions:
-                render_result_preview_with_captions(result_images, result_captions, feature["key"])
+                render_result_preview_with_captions(
+                    result_images,
+                    result_captions,
+                    feature["key"],
+                    download_images=result_download_images,
+                )
             else:
-                render_result_preview(result_images, show_title=False)
+                render_result_preview(
+                    result_images,
+                    show_title=False,
+                    download_images=result_download_images,
+                )
 
     if job_info.get("status") == "completed":
         if feature.get("output_mode") == "image" and not (result.get("images") or []):
@@ -12648,10 +13062,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             st.session_state.feature_results.pop(feature["key"], None)
             if feature["key"] == "hd_batch":
                 extra_notes = (
-                    "第1张图必须作为唯一主体，不允许改变人物身份、五官比例、脸型、表情、发型和构图。"
-                    "如果存在第2张图，第2张图只作为肤质参考，但皮肤状态必须严格参考第2张图。"
-                    "必须重点贴近第2张图的肤理、毛孔、皮肤颗粒感、光泽方式、细腻程度、粗糙程度、通透感和整体肤感，不允许只做轻微参考。"
-                    "严禁从第2张图借用或迁移脸型、五官、眼睛形状、鼻子、嘴唇、眉形、妆容、肤色、表情、发型、服饰、背景或人物身份。"
+                    PORTRAIT_HD_SKIN_LOCK_RULES
+                    + "第1张图必须作为唯一主体，不允许改变人物身份、五官比例、脸型、表情、发型和构图。"
+                    "如果存在第2张图，第2张图仍作为高清参考图，但只用于参考清晰度、分辨率和细节解析水平。"
+                    "严禁从第2张图借用或迁移肤色、肤质、毛孔状态、皮肤光泽、颗粒感、斑点、妆容、脸型、五官、眼睛、表情、发型、服饰、背景或人物身份。"
                     "批量时上传几张主图，就只返回几张高清结果图；每张主图只允许对应1张结果图。"
                 )
             elif supports_outpaint:
