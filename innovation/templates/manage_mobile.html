@@ -62,7 +62,7 @@
         <button class="btn btn-outline-primary btn-sm" data-op="not_adopted" onclick="setOpFilter(this)">未采纳</button>
         <button class="btn btn-outline-warning btn-sm" id="favBtn" onclick="toggleFavoriteOnly()">我的收藏</button>
         <button class="btn btn-outline-warning btn-sm" data-fav-category="长期看效果" onclick="setFavCategory(this)">长期看效果</button>
-        <button class="btn btn-outline-warning btn-sm" data-fav-category="暂未有解决方案" onclick="setFavCategory(this)">暂未有解决方案</button>
+        <button class="btn btn-outline-warning btn-sm" data-fav-category="暂未有解决方案" onclick="setFavCategory(this)">暂未有有效解决方案</button>
     </div>
 
     <div id="mmList" class="mm-list"></div>
@@ -275,7 +275,7 @@ function cardHtml(item){
             <input class="form-control form-control-sm" id="expected_completion_date_${no}" type="date" aria-label="预计完成时间">
           </div>
           <select class="form-select form-select-sm" id="score_${no}">
-            <option value="">评分（可选）</option>
+            <option value="">评分（必填）</option>
             <option value="A+">A+（100）</option>
             <option value="A">A（50）</option>
             <option value="B">B（30）</option>
@@ -286,15 +286,8 @@ function cardHtml(item){
           <textarea class="form-control form-control-sm" id="notes_${no}" rows="2" placeholder="处理备注（必填）"></textarea>
           <div class="mm-op-buttons">
             <button class="btn btn-success btn-sm" onclick="submitHandle(${no})">提交处理</button>
-            <div class="dropdown">
-              <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">更多</button>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li><button class="dropdown-item" type="button" onclick="submitMeeting(${no})">一键上会</button></li>
-                <li><button class="dropdown-item" type="button" onclick="toggleFav(${no}, ${item.is_favorited ? 'false' : 'true'})">${item.is_favorited ? '已收藏' : '收藏'}</button></li>
-                <li><button class="dropdown-item" type="button" onclick="addFavCategory(${no}, '长期看效果')">长期看效果</button></li>
-                <li><button class="dropdown-item" type="button" onclick="addFavCategory(${no}, '暂未有解决方案')">暂未有解决方案</button></li>
-              </ul>
-            </div>
+            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="submitMeeting(${no})">一键上会</button>
+            <button class="btn btn-outline-warning btn-sm" type="button" onclick="toggleFav(${no}, ${item.is_favorited ? 'false' : 'true'})">${item.is_favorited ? '已收藏' : '收藏'}</button>
           </div>
         </div>
       </div>
@@ -392,7 +385,22 @@ function submitHandle(id){
   const action = document.getElementById(`action_${id}`).value;
   const score = document.getElementById(`score_${id}`).value;
   const notes = (document.getElementById(`notes_${id}`).value || '').trim();
-  if(!flowId || !action || !notes) return;
+  if(!flowId){
+    window.alert('请选择处理部门');
+    return;
+  }
+  if(!action){
+    window.alert('请选择处理动作');
+    return;
+  }
+  if(!score){
+    window.alert('请选择提案评分');
+    return;
+  }
+  if(!notes){
+    window.alert('请填写处理备注');
+    return;
+  }
   const [status, operation_type] = action.split('|');
   const projectResponsible = (document.getElementById(`project_responsible_${id}`)?.value || '').trim();
   const expectedCompletionDate = document.getElementById(`expected_completion_date_${id}`)?.value || '';

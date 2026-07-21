@@ -90,6 +90,67 @@ def _list_department_children(
             return items
 
 
+def _list_department_users(
+    session: requests.Session,
+    token: str,
+    department_id: str,
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    page_token = ""
+    while True:
+        params: dict[str, Any] = {
+            "department_id_type": "open_department_id",
+            "department_id": department_id,
+            "user_id_type": "open_id",
+            "page_size": 100,
+        }
+        if page_token:
+            params["page_token"] = page_token
+        data = _feishu_get(
+            session,
+            token,
+            "https://open.feishu.cn/open-apis/contact/v3/users",
+            params,
+        )
+        items.extend(item for item in (data.get("items") or []) if isinstance(item, dict))
+        page_token = str(data.get("page_token") or "").strip()
+        if not page_token:
+            break
+
+    users_by_open_id: dict[str, dict[str, Any]] = {}
+    for item in items:
+        open_id = str(item.get("open_id") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if not open_id or not name:
+            continue
+        status = item.get("status") if isinstance(item.get("status"), dict) else {}
+        users_by_open_id[open_id] = {
+            "姓名": name,
+            "飞书用户OpenId": open_id,
+            "飞书内部用户Id": str(item.get("user_id") or "").strip() or None,
+            "工号": str(item.get("employee_no") or "").strip() or None,
+            "职位": str(item.get("job_title") or "").strip() or None,
+            "是否离职": bool(status.get("is_resigned")),
+        }
+    return sorted(
+        users_by_open_id.values(),
+        key=lambda user: (str(user["姓名"]), str(user["飞书用户OpenId"])),
+    )
+
+
+def _get_application_name(session: requests.Session, token: str) -> str:
+    response = session.get(
+        "https://open.feishu.cn/open-apis/bot/v3/info",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=20,
+    )
+    data = response.json() if response.content else {}
+    if response.status_code != 200 or int(data.get("code") or 0) != 0:
+        return "未知应用"
+    bot = data.get("bot") or (data.get("data") or {}).get("bot") or data.get("data") or {}
+    return str(bot.get("app_name") or bot.get("name") or "未知应用").strip()
+
+
 def _to_int(value: Any) -> int | None:
     if value in (None, ""):
         return None
@@ -99,9 +160,12 @@ def _to_int(value: Any) -> int | None:
         return None
 
 
-def fetch_feishu_department_rows() -> list[dict[str, Any]]:
+def fetch_feishu_department_rows() -> tuple[list[dict[str, Any]], str, str]:
     session = requests.Session()
+    config = get_feishu_config()
     token = _get_tenant_access_token(session)
+    app_id = str(config.get("app_id") or "").strip()
+    app_name = _get_application_name(session, token)
     queue: list[tuple[str, str, int, list[str]]] = [("0", "department_id", 0, [])]
     seen: set[str] = set()
     rows: list[dict[str, Any]] = []
@@ -154,11 +218,19 @@ def fetch_feishu_department_rows() -> list[dict[str, Any]]:
         if row["FuJiBuMenId"] != "0":
             row["FuJiBuMenMingCheng"] = name_by_id.get(row["FuJiBuMenId"])
         row["ShiFouYouZiBuMen"] = row["FeiShuBuMenId"] in parent_ids
+        users = _list_department_users(session, token, row["FeiShuBuMenId"])
+        row["ChengYuanShuLiang"] = len(users)
+        row["BuMenRenYuanMingCheng"] = "、".join(str(user["姓名"]) for user in users)
+        row["BuMenRenYuanXinXi"] = json.dumps(users, ensure_ascii=False, separators=(",", ":"))
 
-    return sorted(rows, key=lambda row: (row["CengJi"], row["BuMenLuJing"], row["FeiShuBuMenId"]))
+    return (
+        sorted(rows, key=lambda row: (row["CengJi"], row["BuMenLuJing"], row["FeiShuBuMenId"])),
+        app_name,
+        app_id,
+    )
 
 
-def save_department_rows(rows: list[dict[str, Any]]) -> None:
+def save_department_rows(rows: list[dict[str, Any]], app_name: str, app_id: str) -> None:
     database_config = sql_server_config()
     _required_config(database_config, ("server", "database", "user", "password"), "数据库")
     migration_sql = MIGRATION_PATH.read_text(encoding="utf-8")
@@ -182,13 +254,15 @@ def save_department_rows(rows: list[dict[str, Any]]) -> None:
                 FuZeRenYongHuId,
                 BuMenQunLiaoId,
                 ChengYuanShuLiang,
+                BuMenRenYuanMingCheng,
+                BuMenRenYuanXinXi,
                 DanWeiIdLieBiao,
                 ShiFouYouZiBuMen,
                 ShiFouYiShanChu,
                 TongBuShiJian,
                 YuanShiShuJu
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             [
                 (
@@ -203,6 +277,8 @@ def save_department_rows(rows: list[dict[str, Any]]) -> None:
                     row["FuZeRenYongHuId"],
                     row["BuMenQunLiaoId"],
                     row["ChengYuanShuLiang"],
+                    row["BuMenRenYuanMingCheng"],
+                    row["BuMenRenYuanXinXi"],
                     row["DanWeiIdLieBiao"],
                     row["ShiFouYouZiBuMen"],
                     row["ShiFouYiShanChu"],
@@ -211,6 +287,20 @@ def save_department_rows(rows: list[dict[str, Any]]) -> None:
                 )
                 for row in rows
             ],
+        )
+        table_description = (
+            f"飞书通讯录部门组织架构，每行代表一个部门；"
+            f"数据来源企业自建应用：{app_name}（App ID：{app_id}）"
+        )
+        cursor.execute(
+            """
+            DECLARE @TableDescription NVARCHAR(4000) = %s;
+            EXEC sys.sp_updateextendedproperty
+                @name=N'MS_Description', @value=@TableDescription,
+                @level0type=N'SCHEMA', @level0name=N'dbo',
+                @level1type=N'TABLE', @level1name=N'FeiShu_JiaGou'
+            """,
+            (table_description,),
         )
         connection.commit()
     except Exception:
@@ -225,17 +315,20 @@ def main() -> None:
     parser.add_argument("--apply", action="store_true", help="实际写入 SQL Server；默认仅拉取并检查")
     args = parser.parse_args()
 
-    rows = fetch_feishu_department_rows()
+    rows, app_name, app_id = fetch_feishu_department_rows()
     max_level = max(row["CengJi"] for row in rows)
     top_level_count = sum(1 for row in rows if row["FuJiBuMenId"] == "0")
     if args.apply:
-        save_department_rows(rows)
+        save_department_rows(rows, app_name, app_id)
 
     print(json.dumps({
         "success": True,
         "mode": "applied" if args.apply else "dry-run",
         "table": f"dbo.{TABLE_NAME}",
+        "source_application": app_name,
+        "source_application_app_id": app_id,
         "department_count": len(rows),
+        "department_member_count": sum(row["ChengYuanShuLiang"] for row in rows),
         "top_level_count": top_level_count,
         "max_level": max_level,
     }, ensure_ascii=False, indent=2))

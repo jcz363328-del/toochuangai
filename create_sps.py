@@ -128,7 +128,7 @@ def create_stored_procedures():
                     ISNULL(SUM(CASE WHEN xiangmu IN (''入库费'',''仓储费'',''退货费'') THEN feiyonge ELSE 0 END),0) AS storage_fee,
                     ISNULL(SUM(CASE WHEN xiangmu IN (''刷单费'',''售后'',''网红坑位费'',''给网红购买产品费'') THEN feiyonge ELSE 0 END),0) AS other_costs,
                     ISNULL(SUM(CASE WHEN xiangmu=''广告'' THEN feiyonge ELSE 0 END),0) AS ad_fee
-                FROM v_TK_FeiYong WITH (NOLOCK)
+                FROM TK_FeiYong WITH (NOLOCK)
                 WHERE riqi >= ''' + @StartDate + ''' AND riqi <= ''' + @EndDate + ''' AND dian IN (' + @ShopList + ')
             ) AS f,
             (

@@ -16,6 +16,8 @@ BEGIN
         FuZeRenYongHuId NVARCHAR(100) NULL,
         BuMenQunLiaoId NVARCHAR(100) NULL,
         ChengYuanShuLiang INT NULL,
+        BuMenRenYuanMingCheng NVARCHAR(MAX) NULL,
+        BuMenRenYuanXinXi NVARCHAR(MAX) NULL,
         DanWeiIdLieBiao NVARCHAR(MAX) NULL,
         ShiFouYouZiBuMen BIT NOT NULL
             CONSTRAINT DF_FeiShu_JiaGou_ShiFouYouZiBuMen DEFAULT (0),
@@ -26,6 +28,12 @@ BEGIN
         YuanShiShuJu NVARCHAR(MAX) NULL
     );
 END;
+
+IF COL_LENGTH(N'dbo.FeiShu_JiaGou', N'BuMenRenYuanMingCheng') IS NULL
+    ALTER TABLE dbo.FeiShu_JiaGou ADD BuMenRenYuanMingCheng NVARCHAR(MAX) NULL;
+
+IF COL_LENGTH(N'dbo.FeiShu_JiaGou', N'BuMenRenYuanXinXi') IS NULL
+    ALTER TABLE dbo.FeiShu_JiaGou ADD BuMenRenYuanXinXi NVARCHAR(MAX) NULL;
 
 IF NOT EXISTS (
     SELECT 1
@@ -57,12 +65,12 @@ IF EXISTS (
       AND name = N'MS_Description'
 )
     EXEC sys.sp_updateextendedproperty
-        @name=N'MS_Description', @value=N'飞书通讯录部门组织架构，每行代表一个部门',
+        @name=N'MS_Description', @value=N'飞书通讯录部门组织架构，每行代表一个部门；数据来源企业自建应用：图创AI（App ID：cli_a824cfdcd32ed00c）',
         @level0type=N'SCHEMA', @level0name=N'dbo',
         @level1type=N'TABLE', @level1name=N'FeiShu_JiaGou';
 ELSE
     EXEC sys.sp_addextendedproperty
-        @name=N'MS_Description', @value=N'飞书通讯录部门组织架构，每行代表一个部门',
+        @name=N'MS_Description', @value=N'飞书通讯录部门组织架构，每行代表一个部门；数据来源企业自建应用：图创AI（App ID：cli_a824cfdcd32ed00c）',
         @level0type=N'SCHEMA', @level0name=N'dbo',
         @level1type=N'TABLE', @level1name=N'FeiShu_JiaGou';
 
@@ -85,6 +93,8 @@ VALUES
     (N'FuZeRenYongHuId', N'部门负责人飞书用户ID'),
     (N'BuMenQunLiaoId', N'部门关联群聊ID'),
     (N'ChengYuanShuLiang', N'部门成员数量'),
+    (N'BuMenRenYuanMingCheng', N'部门直属人员姓名，使用顿号分隔'),
+    (N'BuMenRenYuanXinXi', N'部门直属人员明细，使用JSON保存，包含姓名、飞书用户Open ID、飞书内部用户ID、工号、职位和离职状态'),
     (N'DanWeiIdLieBiao', N'飞书单位ID列表，使用JSON保存'),
     (N'ShiFouYouZiBuMen', N'是否存在子部门：1是，0否'),
     (N'ShiFouYiShanChu', N'飞书部门是否已删除：1是，0否'),

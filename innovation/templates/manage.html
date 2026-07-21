@@ -299,7 +299,7 @@
                                         <option value="">全部提案</option>
                                         <option value="mine">我的收藏</option>
                                         <option value="长期看效果">长期看效果</option>
-                                        <option value="暂未有解决方案">暂未有解决方案</option>
+                                        <option value="暂未有解决方案">暂未有有效解决方案</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6 d-flex gap-1 justify-content-end">
@@ -1381,28 +1381,16 @@ function renderInnovations() {
                                         data-innovation-id="${innovation.id}">
                                     <i class="bi bi-star"></i> 委员会打分
                                 </button>
-                                <div class="dropdown w-100">
-                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-three-dots"></i> 更多
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end w-100">
-                                        <li>
-                                            <button class="dropdown-item" type="button"
-                                                    onclick="submitToMeeting(${innovation.id})"
-                                                    data-innovation-id="${innovation.id}">
-                                                <i class="bi bi-arrow-up-circle"></i> 一键上会
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <button class="dropdown-item" type="button"
-                                                    onclick="toggleFavorite(${innovation.id}, ${innovation.is_favorited ? 'false' : 'true'})">
-                                                <i class="bi ${innovation.is_favorited ? 'bi-star-fill' : 'bi-star'}"></i> ${innovation.is_favorited ? '已收藏' : '收藏'}
-                                            </button>
-                                        </li>
-                                        <li><button class="dropdown-item" type="button" onclick="addFavoriteCategory(${innovation.id}, '长期看效果')"><i class="bi bi-hourglass-split"></i> 长期看效果</button></li>
-                                        <li><button class="dropdown-item" type="button" onclick="addFavoriteCategory(${innovation.id}, '暂未有解决方案')"><i class="bi bi-question-circle"></i> 暂未有解决方案</button></li>
-                                    </ul>
-                                </div>
+                                <button class="btn btn-outline-secondary btn-sm committee-meeting-btn"
+                                        type="button"
+                                        onclick="submitToMeeting(${innovation.id})"
+                                        data-innovation-id="${innovation.id}">
+                                    <i class="bi bi-arrow-up-circle"></i> 一键上会
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm" type="button"
+                                        onclick="toggleFavorite(${innovation.id}, ${innovation.is_favorited ? 'false' : 'true'})">
+                                    <i class="bi ${innovation.is_favorited ? 'bi-star-fill' : 'bi-star'}"></i> ${innovation.is_favorited ? '已收藏' : '收藏'}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1938,6 +1926,13 @@ function openCommitteeScoreModal(innovationId) {
                                     <option value="D">D - 10分（建议性意见）</option>
                                     <option value="E">E - 0分（无效提案）</option>
                                 </select>
+
+                                <label for="committeeFollowCategory" class="form-label mt-3">跟进分类（可选）</label>
+                                <select class="form-select" id="committeeFollowCategory">
+                                    <option value="">不设置分类</option>
+                                    <option value="长期看效果">长期看效果</option>
+                                    <option value="暂未有解决方案">暂未有有效解决方案</option>
+                                </select>
                             </div>
 
                             <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
@@ -1981,6 +1976,8 @@ function submitCommitteeScore(innovationId) {
     const selectedScore = scoreSelect.value;
     const notesInput = document.getElementById('committeeNotes');
     const committeeNotes = notesInput ? notesInput.value.trim() : '';
+    const categorySelect = document.getElementById('committeeFollowCategory');
+    const followCategory = categorySelect ? categorySelect.value : '';
 
     if (!selectedScore) {
         alert('请选择评分等级');
@@ -1988,11 +1985,7 @@ function submitCommitteeScore(innovationId) {
     }
 
     // 调用更新函数，带备注
-    updateCommitteeScoreInModal(innovationId, selectedScore, committeeNotes);
-
-    // 关闭模态框
-    const modal = bootstrap.Modal.getInstance(document.getElementById('committeeScoreModal'));
-    modal.hide();
+    updateCommitteeScoreInModal(innovationId, selectedScore, committeeNotes, followCategory);
 }
 
 // 一键上会功能
@@ -2451,7 +2444,7 @@ function updateCommitteeScore(innovationId, committeeScore) {
 }
 
 // 处理框中的委员会打分直接更新函数
-function updateCommitteeScoreInModal(innovationId, committeeScore, committeeNotes = '') {
+function updateCommitteeScoreInModal(innovationId, committeeScore, committeeNotes = '', followCategory = '') {
     console.log(`🔄 处理框中更新委员会打分: 项目ID=${innovationId}, 评分=${committeeScore}`);
 
     // 显示加载提示
@@ -2476,32 +2469,58 @@ function updateCommitteeScoreInModal(innovationId, committeeScore, committeeNote
         committee_notes: committeeNotes
     })
     .then(response => {
-        // 移除加载提示
-        document.body.removeChild(loadingToast);
-
-        if (response.data.success) {
-            console.log('✅ 处理框中委员会打分更新成功');
-            InnovationApp.showMessage('委员会打分已更新', 'success');
-
-            // 不刷新列表，仅关闭处理模态框
-            const handleModal = bootstrap.Modal.getInstance(document.getElementById('handleModal'));
-            if (handleModal) {
-                handleModal.hide();
-            }
-        } else {
-            console.error('❌ 处理框中委员会打分更新失败:', response.data.message);
-            InnovationApp.showMessage(response.data.message, 'error');
+        if (!response.data.success) {
+            throw new Error(response.data.message || '委员会打分更新失败');
         }
+        if (!followCategory) {
+            return null;
+        }
+        return axios.post('/innovation/api/add_favorite_category', {
+            innovation_id: innovationId,
+            fenlei: followCategory
+        }).then(categoryResponse => {
+            if (!categoryResponse.data || !categoryResponse.data.success) {
+                throw new Error(categoryResponse.data?.message || '跟进分类保存失败');
+            }
+            return categoryResponse;
+        });
+    })
+    .then(() => {
+        if (loadingToast.isConnected) {
+            loadingToast.remove();
+        }
+        console.log('✅ 处理框中委员会打分更新成功');
+        const successMessage = followCategory
+            ? `委员会打分已更新，已加入“${followCategory}”`
+            : '委员会打分已更新';
+        InnovationApp.showMessage(successMessage, 'success');
+
+        const committeeModalElement = document.getElementById('committeeScoreModal');
+        const committeeModal = committeeModalElement
+            ? bootstrap.Modal.getInstance(committeeModalElement)
+            : null;
+        if (committeeModal) {
+            committeeModal.hide();
+        }
+
+        const handleModal = bootstrap.Modal.getInstance(document.getElementById('handleModal'));
+        if (handleModal) {
+            handleModal.hide();
+        }
+        loadInnovations(currentPage || 1);
     })
     .catch(error => {
-        // 移除加载提示
-        document.body.removeChild(loadingToast);
+        if (loadingToast.isConnected) {
+            loadingToast.remove();
+        }
         
         console.error('❌ 处理框中委员会打分更新失败:', error);
         let errorMessage = '网络错误，请重试';
         
         if (error.response && error.response.data && error.response.data.message) {
             errorMessage = error.response.data.message;
+        } else if (error.message) {
+            errorMessage = error.message;
         }
         
         InnovationApp.showMessage(errorMessage, 'error');
@@ -2613,7 +2632,8 @@ function submitHandle() {
                 }
             }
             console.error('处理失败:', error);
-            InnovationApp.showMessage('处理失败，请重试', 'error');
+            const errorMessage = error.response?.data?.message || '处理失败，请重试';
+            InnovationApp.showMessage(errorMessage, 'error');
         });
 }
 

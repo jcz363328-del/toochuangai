@@ -14,8 +14,10 @@ if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 
 from amazon_a_plus_psd import (
+    build_commercial_a_plus_background,
     build_layered_a_plus,
     clean_green_edge_spill,
+    fit_background_to_canvas_without_distortion,
     fit_green_screen_to_canvas,
     remove_green_screen,
     select_closest_aspect_ratio,
@@ -68,6 +70,20 @@ class AmazonAPlusPsdTests(unittest.TestCase):
             self.assertEqual(psd_image.size, (240, 160))
             psd_image.load()
 
+    def test_builds_complete_commercial_preview_with_editable_background_layer(self) -> None:
+        green_screen = self.build_green_screen_fixture()
+        background = build_commercial_a_plus_background(green_screen)
+
+        result = build_layered_a_plus(green_screen, background=background)
+
+        self.assertEqual(result["composite"].size, green_screen.size)
+        self.assertEqual(result["composite"].getpixel((220, 145))[3], 255)
+        self.assertEqual(result["layer_manifest"][-1]["name"], "A+ Background")
+        self.assertEqual(read_psd_layer_count(result["psd_bytes"]), result["layer_count"])
+        with Image.open(io.BytesIO(result["psd_bytes"])) as psd_image:
+            self.assertEqual(psd_image.size, green_screen.size)
+            psd_image.load()
+
     def test_selects_closest_native_4k_aspect_ratio(self) -> None:
         self.assertEqual(select_closest_aspect_ratio((1464, 600)), "21:9")
         self.assertEqual(select_closest_aspect_ratio((600, 600)), "1:1")
@@ -80,6 +96,26 @@ class AmazonAPlusPsdTests(unittest.TestCase):
         self.assertEqual(result.size, (100, 100))
         self.assertEqual(result.getpixel((50, 5)), (0, 255, 0))
         self.assertNotEqual(result.getpixel((50, 50)), (0, 255, 0))
+
+    def test_background_fit_preserves_element_aspect_ratio(self) -> None:
+        source = Image.new("RGB", (300, 100), "black")
+        draw = ImageDraw.Draw(source)
+        draw.rectangle((130, 30, 169, 69), fill="red")
+
+        result = fit_background_to_canvas_without_distortion(source, (100, 100))
+        red_pixels = [
+            (x, y)
+            for y in range(result.height)
+            for x in range(result.width)
+            if result.getpixel((x, y))[0] > 150
+            and result.getpixel((x, y))[1] < 80
+            and result.getpixel((x, y))[2] < 80
+        ]
+
+        self.assertTrue(red_pixels)
+        red_width = max(x for x, _y in red_pixels) - min(x for x, _y in red_pixels) + 1
+        red_height = max(y for _x, y in red_pixels) - min(y for _x, y in red_pixels) + 1
+        self.assertLessEqual(abs(red_width - red_height), 1)
 
     def test_removes_opaque_green_spill_from_antialiased_edges(self) -> None:
         large = Image.new("RGB", (400, 400), (0, 255, 0))

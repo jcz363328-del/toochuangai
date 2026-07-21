@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import io
+import inspect
 import unittest
 from unittest.mock import patch
 
@@ -53,15 +54,21 @@ class NaturalOutpaintTests(unittest.TestCase):
         self.assertEqual(request_image.call_count, 1)
         for request_call in request_image.call_args_list:
             self.assertEqual(request_call.kwargs["aspect_ratio"], "21:9")
-            self.assertEqual(len(request_call.kwargs["uploaded_files"]), 2)
+            self.assertEqual(len(request_call.kwargs["uploaded_files"]), 3)
             self.assertEqual(request_call.kwargs["uploaded_files"][0]["data"], source["data"])
             self.assertEqual(
                 request_call.kwargs["uploaded_files"][1]["name"],
+                "outpaint_exact_source_canvas.png",
+            )
+            self.assertEqual(
+                request_call.kwargs["uploaded_files"][2]["name"],
                 "outpaint_region_layout_mask.png",
             )
             self.assertIn("must occupy only about 33.3% of the final frame width", request_call.kwargs["prompt"])
             self.assertIn("same subject frame occupancy", request_call.kwargs["prompt"])
             self.assertIn("strict black-and-white layout mask", request_call.kwargs["prompt"])
+            self.assertIn("exact outpaint canvas", request_call.kwargs["prompt"])
+            self.assertIn("zero requested expansion must remain exactly on the final image edge", request_call.kwargs["prompt"])
         self.assertEqual(result["images"], [generated])
         self.assertEqual(
             result["outpaint_alignment"],
@@ -102,6 +109,68 @@ class NaturalOutpaintTests(unittest.TestCase):
             self.assertEqual(guide.getpixel((50, 25)), (0, 0, 0))
             self.assertEqual(guide.getpixel((150, 75)), (0, 0, 0))
             self.assertEqual(guide.getpixel((50, 75)), (255, 255, 255))
+
+    def test_exact_source_canvas_places_original_at_selected_asymmetric_coordinates(self) -> None:
+        source_image = Image.new("RGB", (100, 50), (240, 20, 20))
+        source = uploaded_image(source_image)
+
+        canvas_input = site.build_outpaint_source_canvas(
+            source,
+            top_px=50,
+            bottom_px=0,
+            left_px=0,
+            right_px=100,
+        )
+
+        self.assertEqual(canvas_input["name"], "outpaint_exact_source_canvas.png")
+        with Image.open(io.BytesIO(canvas_input["data"])) as canvas:
+            self.assertEqual(canvas.size, (200, 100))
+            rgba = canvas.convert("RGBA")
+            self.assertEqual(rgba.getpixel((50, 25))[3], 0)
+            self.assertEqual(rgba.getpixel((150, 75))[3], 0)
+            self.assertEqual(rgba.getpixel((50, 75)), (240, 20, 20, 255))
+
+    def test_result_crop_preserves_unexpanded_edge_for_asymmetric_selection(self) -> None:
+        source = uploaded_image(Image.new("RGB", (100, 100), "white"))
+        generated = Image.new("RGB", (400, 100), "blue")
+        for x in range(200):
+            for y in range(100):
+                generated.putpixel((x, y), (240, 20, 20))
+
+        right_only = site.crop_outpaint_result_to_selected_region(
+            image_data_url(generated),
+            source,
+            top_px=0,
+            bottom_px=0,
+            left_px=0,
+            right_px=100,
+        )
+        left_only = site.crop_outpaint_result_to_selected_region(
+            image_data_url(generated),
+            source,
+            top_px=0,
+            bottom_px=0,
+            left_px=100,
+            right_px=0,
+        )
+
+        right_bytes, _mime = site.load_image_bytes_from_url(right_only)
+        left_bytes, _mime = site.load_image_bytes_from_url(left_only)
+        with Image.open(io.BytesIO(right_bytes)) as right_result:
+            self.assertEqual(right_result.size, (200, 100))
+            self.assertEqual(right_result.getpixel((10, 50)), (240, 20, 20))
+        with Image.open(io.BytesIO(left_bytes)) as left_result:
+            self.assertEqual(left_result.size, (200, 100))
+            self.assertEqual(left_result.getpixel((190, 50)), (0, 0, 255))
+
+    def test_drag_selection_is_not_rounded_to_fifty_pixels(self) -> None:
+        consume_source = inspect.getsource(site.consume_pending_outpaint_drag)
+        preview_source = inspect.getsource(site.render_outpaint_extension_preview_card)
+
+        self.assertEqual(site.OUTPAINT_DRAG_STEP_PX, 1)
+        self.assertIn("value / drag_step", consume_source)
+        self.assertNotIn("value / 50", consume_source)
+        self.assertIn('"step": OUTPAINT_DRAG_STEP_PX', preview_source)
 
     def test_maximum_expansion_is_three_times_original_dimensions(self) -> None:
         source = uploaded_image(Image.new("RGB", (120, 80), "white"))

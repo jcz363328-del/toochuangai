@@ -2333,6 +2333,26 @@ def handle_innovation():
         expected_completion_date = str(data.get('expected_completion_date') or '').strip()
         is_deferred_adoption = operation_type == '采纳，暂缓执行'
 
+        score_mapping = {
+            'A+': 100,
+            'A': 50,
+            'B': 30,
+            'C': 20,
+            'D': 10,
+            'E': 0,
+        }
+        score_required_operations = {
+            '采纳，立即执行',
+            '采纳，暂缓执行',
+            '不采纳，不执行',
+            '重复提案',
+        }
+
+        def is_valid_score(value):
+            if value in score_mapping:
+                return True
+            return value.isdigit() and 0 <= int(value) <= 100
+
         _safe_print(f"🔄 开始处理创新项目")
         _safe_print(f"📋 参数: innovation_id={innovation_id}, flow_id={flow_id}, status={status}")
         _safe_print(f"👤 处理人: {handler}, 备注: {notes}, 部门评分: {score}")
@@ -2346,6 +2366,13 @@ def handle_innovation():
 
         if not notes:
             return jsonify({'success': False, 'message': '处理备注不能为空，请填写处理意见'}), 400
+
+        if operation_type in score_required_operations and not (score or committee_score):
+            return jsonify({'success': False, 'message': '请选择提案评分'}), 400
+        if score and not is_valid_score(score):
+            return jsonify({'success': False, 'message': '提案评分无效，请重新选择'}), 400
+        if committee_score and not is_valid_score(committee_score):
+            return jsonify({'success': False, 'message': '委员会评分无效，请重新选择'}), 400
 
         if is_deferred_adoption:
             if not project_responsible:
@@ -2380,16 +2407,6 @@ def handle_innovation():
         final_score_for_display = score  # 用于通知显示的评分
         committee_score_to_store = ''
 
-        # 评分映射
-        score_mapping = {
-            'A+': 100,
-            'A': 50,
-            'B': 30,
-            'C': 20,
-            'D': 10,
-            'E': 0,
-        }
-
         # 优先处理委员会打分，如果有委员会打分则覆盖部门打分
         if committee_score:
             if committee_score in score_mapping:
@@ -2419,19 +2436,23 @@ def handle_innovation():
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        score_escaped = score_to_store.replace("'", "''") if score_to_store else ''  # 使用转换后的数字分数
+        score_escaped = _escape_sql_literal_for_pytds(score_to_store) if score_to_store else ''
 
         # 更新流转记录 - 存储数字分数和委员会打分，使用CASE语句进行真正的追加
-        committee_score_escaped = committee_score_to_store.replace("'", "''") if committee_score_to_store else ''
+        committee_score_escaped = _escape_sql_literal_for_pytds(committee_score_to_store) if committee_score_to_store else ''
+        status_escaped = _escape_sql_literal_for_pytds(status)
+        handler_escaped = _escape_sql_literal_for_pytds(handler)
+        notes_escaped = _escape_sql_literal_for_pytds(notes)
+        operation_type_escaped = _escape_sql_literal_for_pytds(operation_type)
 
         # 构建新的处理备注内容
         if committee_score:
             # 有委员会打分时的备注格式
             committee_score_display = committee_score_to_store if committee_score_to_store else committee_score
-            new_note_content = f"[{current_time}] {handler.replace("'", "''")}：{notes.replace("'", "''")}[{current_time}] 委员会打分：{committee_score_display}分； "
+            new_note_content = f"[{current_time}] {handler_escaped}：{notes_escaped}[{current_time}] 委员会打分：{committee_score_display}分； "
         else:
             # 没有委员会打分时的备注格式
-            new_note_content = f"[{current_time}] {handler.replace("'", "''")}：{notes.replace("'", "''")}； "
+            new_note_content = f"[{current_time}] {handler_escaped}：{notes_escaped}； "
 
         responsible_insert_sql = ''
         if is_deferred_adoption:
@@ -2451,7 +2472,7 @@ def handle_innovation():
             SET XACT_ABORT ON;
 
             UPDATE chuangxin_liuzhuan1
-            SET 状态 = '{status}',
+            SET 状态 = '{status_escaped}',
                 处理备注 = CASE
                     WHEN 处理备注 IS NULL OR 处理备注 = '' THEN '{new_note_content}'
                     ELSE 处理备注 + '{new_note_content}'
@@ -2462,7 +2483,7 @@ def handle_innovation():
                     ELSE '{committee_score_escaped}'
                 END,
                 处理时间 = '{current_time}',
-                操作类型='{operation_type.replace("'", "''")}'
+                操作类型='{operation_type_escaped}'
             WHERE 流转ID = {flow_id} AND 项目编号 = {innovation_id};
 
             {responsible_insert_sql}
@@ -2480,7 +2501,7 @@ def handle_innovation():
             }), 500
 
         # 更新创新项目总得分（优先使用委员会打分，否则取所有部门评分的最高分）
-        if numeric_score > 0:
+        if score or committee_score:
             # 首先查询是否有委员会打分
             committee_score_sql = f"""
                 SELECT TOP 1 CASE 

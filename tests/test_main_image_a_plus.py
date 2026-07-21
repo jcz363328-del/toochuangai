@@ -6,6 +6,7 @@ import io
 import threading
 import time
 import unittest
+import zipfile
 from unittest.mock import Mock, patch
 
 from PIL import Image, ImageDraw
@@ -33,6 +34,63 @@ def open_data_url(data_url: str) -> Image.Image:
 
 
 class MainImageAPlusTests(unittest.TestCase):
+    def test_mobile_and_desktop_crop_archives_contain_four_ordered_png_segments(self) -> None:
+        mobile_source = Image.new("RGB", (60, 180), "white")
+        mobile_draw = ImageDraw.Draw(mobile_source)
+        colors = ("red", "green", "blue", "yellow")
+        for index, color in enumerate(colors):
+            mobile_draw.rectangle((0, index * 45, 59, (index + 1) * 45 - 1), fill=color)
+        mobile_bytes = io.BytesIO()
+        mobile_source.save(mobile_bytes, format="PNG")
+
+        mobile_archive = site.build_main_image_a_plus_crop_archive(
+            mobile_bytes.getvalue(),
+            "mobile",
+            "sample.png",
+        )
+        self.assertEqual(mobile_archive["source_size"], (60, 180))
+        self.assertEqual(mobile_archive["normalized_size"], (600, 1800))
+        self.assertEqual(mobile_archive["segment_sizes"], [(600, 450)] * 4)
+        self.assertTrue(mobile_archive["file_name"].endswith("_mobile_4_segments.zip"))
+        with zipfile.ZipFile(io.BytesIO(mobile_archive["data"])) as archive:
+            names = archive.namelist()
+            self.assertEqual(len(names), 4)
+            self.assertEqual(names[0], "sample_mobile_01.png")
+            for index, name in enumerate(names):
+                with Image.open(io.BytesIO(archive.read(name))) as segment:
+                    self.assertEqual(segment.size, (600, 450))
+                    expected = Image.new("RGB", (1, 1), colors[index]).getpixel((0, 0))
+                    actual = segment.convert("RGB").getpixel((300, 225))
+                    self.assertEqual(actual, expected)
+
+        desktop_source = Image.new("RGB", (80, 2400), "white")
+        desktop_bytes = io.BytesIO()
+        desktop_source.save(desktop_bytes, format="PNG")
+        desktop_archive = site.build_main_image_a_plus_crop_archive(
+            desktop_bytes.getvalue(),
+            "desktop",
+            "desktop-result.jpg",
+        )
+        self.assertEqual(desktop_archive["normalized_size"], (80, 2400))
+        self.assertEqual(desktop_archive["segment_sizes"], [(80, 600)] * 4)
+        with zipfile.ZipFile(io.BytesIO(desktop_archive["data"])) as archive:
+            self.assertEqual(len(archive.namelist()), 4)
+            with Image.open(io.BytesIO(archive.read(archive.namelist()[-1]))) as segment:
+                self.assertEqual(segment.size, (80, 600))
+
+    def test_a_plus_crop_options_are_hidden_until_opened_and_enabled_for_history(self) -> None:
+        crop_source = inspect.getsource(site.render_main_image_a_plus_crop_downloads)
+        history_source = inspect.getsource(site.render_history_gallery)
+        page_source = inspect.getsource(site.render_openrouter_feature)
+
+        self.assertIn("options_visible", crop_source)
+        self.assertIn("if not is_visible", crop_source)
+        self.assertIn("手机端裁切", str(site.MAIN_IMAGE_A_PLUS_CROP_PRESETS))
+        self.assertIn("电脑端裁切", str(site.MAIN_IMAGE_A_PLUS_CROP_PRESETS))
+        self.assertIn("st.download_button", crop_source)
+        self.assertIn("enable_a_plus_crop_downloads", history_source)
+        self.assertIn("render_main_image_a_plus_crop_downloads", page_source)
+
     def test_layout_keeps_primary_and_dynamic_actions_in_reserved_slots(self) -> None:
         render_source = inspect.getsource(site.render_openrouter_feature)
         style_source = inspect.getsource(site.inject_app_styles)
@@ -64,6 +122,14 @@ class MainImageAPlusTests(unittest.TestCase):
             site.MAIN_IMAGE_A_PLUS_MODE_LABELS[site.MAIN_IMAGE_A_PLUS_MODE_ELEMENT],
             "指定元素替换",
         )
+        self.assertEqual(
+            site.MAIN_IMAGE_A_PLUS_MODE_LABELS[site.MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN],
+            "首屏设计感",
+        )
+        self.assertEqual(
+            site.MAIN_IMAGE_A_PLUS_FREE_MODES,
+            {site.MAIN_IMAGE_A_PLUS_MODE_FREE, site.MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN},
+        )
 
         mobile_layout = site.get_main_image_a_plus_layout("mobile_equal")
         self.assertEqual(mobile_layout["target_size"], (600, 1800))
@@ -78,12 +144,13 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(hero_layout["section_heights"], (800, 533, 533, 534))
         self.assertEqual(sum(hero_layout["section_heights"]), hero_layout["target_size"][1])
 
-    def test_only_direct_commercial_a_plus_is_visible(self) -> None:
+    def test_commercial_a_plus_and_free_psd_entries_are_visible(self) -> None:
         visible_keys = {feature["key"] for feature in site.get_visible_features()}
 
         self.assertIn(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY, visible_keys)
-        self.assertNotIn(site.AMAZON_A_PLUS_FEATURE_KEY, visible_keys)
+        self.assertIn(site.AMAZON_A_PLUS_FEATURE_KEY, visible_keys)
         self.assertIn("套版替换", site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)["summary"])
+        self.assertEqual(site.get_feature_by_key(site.AMAZON_A_PLUS_FEATURE_KEY)["name"], "自由创作 PSD")
 
     def test_prompt_uses_selected_mobile_layout(self) -> None:
         feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
@@ -118,6 +185,49 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("整体采用黑金风格", prompt)
         self.assertIn("最终连续长图成品尺寸必须严格等于 600*1800px", prompt)
 
+    def test_all_generation_prompts_include_the_global_geometry_lock(self) -> None:
+        feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
+        assert feature is not None
+
+        prompt = site.build_prompt(feature, "", site.DEFAULT_ASPECT_RATIO, "")
+        jimeng_payload = site.build_jimeng_request_payload("Create a commercial image", "1:1")
+
+        self.assertIn("GLOBAL GEOMETRY LOCK", prompt)
+        self.assertIn("Only uniform scaling up or down is allowed", prompt)
+        self.assertIn("GLOBAL GEOMETRY LOCK", jimeng_payload["prompt"])
+        self.assertIn("aspect ratio", jimeng_payload["prompt"])
+
+    def test_all_a_plus_modes_apply_the_absolute_product_lock(self) -> None:
+        layout = site.get_main_image_a_plus_layout("desktop_equal")
+        replacements = [
+            {
+                "id": 1,
+                "name": "核心产品",
+                "type": "product",
+                "regions": [[100, 100, 500, 500]],
+            }
+        ]
+        prompts = [
+            site.build_main_image_a_plus_free_prompt("生成 A+", layout),
+            site.build_main_image_a_plus_hero_design_prompt("生成 A+", layout),
+            site.build_main_image_a_plus_section_prompt("生成 A+", layout, 0),
+            site.build_main_image_a_plus_single_test_prompt("生成 A+", layout),
+            site.build_main_image_a_plus_template_section_prompt("生成 A+", layout, 0),
+            site.build_main_image_a_plus_element_replacement_prompt("生成 A+", layout, replacements),
+        ]
+
+        for prompt in prompts:
+            self.assertIn("产品绝对锁定规则", prompt)
+            self.assertIn("严禁对用户产品进行重绘、改写、再设计", prompt)
+            self.assertIn("品牌名、Logo、包装结构、包装图案", prompt)
+            self.assertIn("产品只允许作为一个完整、不可编辑的整体", prompt)
+            self.assertIn("绝不能调整产品本身", prompt)
+
+        main_feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
+        psd_feature = site.get_feature_by_key(site.AMAZON_A_PLUS_FEATURE_KEY)
+        self.assertIn("产品绝对锁定规则", str(main_feature["default_prompt"]))
+        self.assertIn("产品绝对锁定规则", str(psd_feature["default_prompt"]))
+
     def test_free_prompt_hides_desktop_hero_section_distances(self) -> None:
         notes = site.build_main_image_a_plus_layout_notes("desktop_hero", 2)
 
@@ -146,6 +256,60 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("只挑选一位最清晰、最适合商业展示的模特", prompt)
         self.assertIn("禁止出现第二位模特", prompt)
         self.assertIn("禁止半个字、缺字、断行裁切", prompt)
+
+    def test_hero_design_prompt_keeps_free_creation_flow_and_strengthens_first_screen(self) -> None:
+        layout = site.get_main_image_a_plus_layout("desktop_equal")
+        prompt = site.build_main_image_a_plus_hero_design_prompt(
+            "突出自然轻盈感",
+            layout,
+        )
+
+        self.assertIn("自由创作整图直出执行指令", prompt)
+        self.assertIn("首屏设计感模式最高优先级执行规则", prompt)
+        self.assertIn("只有一个明确视觉中心和一条清晰阅读动线", prompt)
+        self.assertIn("高级杂志式的不对称平衡构图", prompt)
+        self.assertIn("首屏最多只能出现 3 个独立文字区", prompt)
+        self.assertIn("副标题与卖点标签二选一", prompt)
+        self.assertIn("主标题最多 2 行", prompt)
+        self.assertIn("禁止长段落、三行以上标题、卖点列表", prompt)
+        self.assertIn("至少保留 45% 的无文字视觉区域", prompt)
+        self.assertIn("不得占据首屏面积的 20% 以上", prompt)
+        self.assertIn("其余经核实的卖点放到后续内容阶段或直接省略", prompt)
+        self.assertIn("首屏不能成为独立硬边界模块", prompt)
+        self.assertIn("不得在画面中显示网格、比例、层级说明", prompt)
+        self.assertIn("突出自然轻盈感", prompt)
+
+    def test_hero_design_job_reuses_single_pass_free_creation_pipeline(self) -> None:
+        source = Image.new("RGB", (200, 300), "white")
+        layout = site.get_main_image_a_plus_layout("mobile_equal")
+        with patch.object(
+            site,
+            "call_openrouter_images_api",
+            return_value={"images": [image_data_url(source)], "text": ""},
+        ) as request_images:
+            result = site.run_main_image_a_plus_job(
+                {
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成更有设计感的首屏",
+                    "uploaded_files": [{"name": "main.png", "data": b"image"}],
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN,
+                    "main_image_a_plus_layout": layout,
+                }
+            )
+
+        request_images.assert_called_once()
+        call_kwargs = request_images.call_args.kwargs
+        self.assertEqual(call_kwargs["aspect_ratio"], "1:4")
+        self.assertEqual(call_kwargs["resolution"], "4K")
+        self.assertEqual(call_kwargs["max_attempts"], 1)
+        self.assertIn("首屏设计感模式最高优先级执行规则", call_kwargs["prompt"])
+        self.assertIn("禁止机械左右对半", call_kwargs["prompt"])
+        self.assertEqual(result["main_image_a_plus_mode"], site.MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN)
+        self.assertEqual(result["section_count"], 1)
+        self.assertIn("首屏设计感整图直出", result["channel"])
+        self.assertIn("没有执行图片拼接", result["text"])
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.size, (600, 1800))
 
     def test_free_aspect_ratio_uses_closest_native_ratio_for_crop_free_fitting(self) -> None:
         self.assertEqual(
@@ -379,25 +543,27 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(layout["section_heights"], (400, 400, 400, 403))
         self.assertEqual(sum(layout["section_heights"]), 1603)
 
-    def test_exact_resize_keeps_full_bleed_edge_content(self) -> None:
-        source = Image.new("RGB", (90, 160), "white")
+    def test_exact_resize_keeps_content_proportions_without_stretching(self) -> None:
+        source = Image.new("RGB", (300, 100), "black")
         draw = ImageDraw.Draw(source)
-        draw.rectangle((0, 0, 89, 39), fill="green")
-        draw.rectangle((0, 40, 89, 79), fill="yellow")
-        draw.rectangle((0, 80, 89, 119), fill="purple")
-        draw.rectangle((0, 120, 89, 159), fill="orange")
-        draw.rectangle((0, 0, 5, 159), fill="red")
-        draw.rectangle((84, 0, 89, 159), fill="blue")
+        draw.rectangle((130, 30, 169, 69), fill="red")
 
-        result_url = site.resize_image_to_exact_size(image_data_url(source), 146, 240)
+        result_url = site.resize_image_to_exact_size(image_data_url(source), 100, 100)
 
         with open_data_url(result_url) as result:
-            self.assertEqual(result.size, (146, 240))
-            # All four vertical sections remain and the design reaches both side edges.
-            self.assertGreater(result.getpixel((73, 5))[1], result.getpixel((73, 5))[0])
-            self.assertGreater(result.getpixel((73, 235))[0], result.getpixel((73, 235))[1])
-            self.assertGreater(result.getpixel((0, 120))[0], result.getpixel((0, 120))[2])
-            self.assertGreater(result.getpixel((145, 120))[2], result.getpixel((145, 120))[0])
+            self.assertEqual(result.size, (100, 100))
+            red_pixels = [
+                (x, y)
+                for y in range(result.height)
+                for x in range(result.width)
+                if result.getpixel((x, y))[0] > 150
+                and result.getpixel((x, y))[1] < 80
+                and result.getpixel((x, y))[2] < 80
+            ]
+            self.assertTrue(red_pixels)
+            red_width = max(x for x, _y in red_pixels) - min(x for x, _y in red_pixels) + 1
+            red_height = max(y for _x, y in red_pixels) - min(y for _x, y in red_pixels) + 1
+            self.assertLessEqual(abs(red_width - red_height), 1)
 
     def test_stitches_hero_sections_in_exact_vertical_order(self) -> None:
         section_urls = [
@@ -651,6 +817,10 @@ class MainImageAPlusTests(unittest.TestCase):
                 site.OPENROUTER_IMAGES_CONNECT_TIMEOUT_SECONDS,
                 site.OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS,
             ),
+        )
+        self.assertIn(
+            "GLOBAL GEOMETRY LOCK",
+            request_post.call_args_list[0].kwargs["json"]["prompt"],
         )
         self.assertEqual(result["images"], ["data:image/png;base64,aW1hZ2U="])
 

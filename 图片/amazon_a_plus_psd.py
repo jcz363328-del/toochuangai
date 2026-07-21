@@ -6,7 +6,7 @@ import struct
 from dataclasses import dataclass
 from typing import Any
 
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 
 PSD_MAX_DIMENSION = 30_000
@@ -56,6 +56,34 @@ def select_closest_aspect_ratio(canvas_size: tuple[int, int]) -> str:
     )
 
 
+def fit_background_to_canvas_without_distortion(
+    image: Image.Image,
+    canvas_size: tuple[int, int],
+) -> Image.Image:
+    """Fit a background to the PSD canvas without stretching its geometry."""
+    target_width, target_height = int(canvas_size[0]), int(canvas_size[1])
+    if target_width <= 0 or target_height <= 0:
+        raise ValueError("Canvas dimensions must be positive.")
+    source = ImageOps.exif_transpose(image).convert("RGBA")
+    scale = min(target_width / source.width, target_height / source.height)
+    resized_size = (
+        max(1, min(target_width, int(round(source.width * scale)))),
+        max(1, min(target_height, int(round(source.height * scale)))),
+    )
+    resized = source.resize(resized_size, Image.Resampling.LANCZOS)
+    if resized.size == (target_width, target_height):
+        return resized
+
+    average_color = source.convert("RGB").resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+    canvas = Image.new("RGBA", (target_width, target_height), (*average_color, 255))
+    offset = (
+        (target_width - resized.width) // 2,
+        (target_height - resized.height) // 2,
+    )
+    canvas.alpha_composite(resized, dest=offset)
+    return canvas
+
+
 def fit_green_screen_to_canvas(image: Image.Image, canvas_size: tuple[int, int]) -> Image.Image:
     target_width, target_height = int(canvas_size[0]), int(canvas_size[1])
     if target_width <= 0 or target_height <= 0:
@@ -80,6 +108,72 @@ def fit_green_screen_to_canvas(image: Image.Image, canvas_size: tuple[int, int])
     )
     canvas.paste(resized, offset)
     return canvas
+
+
+def build_commercial_a_plus_background(image: Image.Image) -> Image.Image:
+    """Create a restrained brand-tinted background for editable A+ PSD output."""
+    source = ImageOps.exif_transpose(image).convert("RGB")
+    width, height = source.size
+    if width <= 0 or height <= 0:
+        raise ValueError("Source image dimensions are invalid.")
+
+    sample = source.copy()
+    sample.thumbnail((96, 96), Image.Resampling.BILINEAR)
+    foreground_colors: list[tuple[int, int, int]] = []
+    sample_pixels = (
+        sample.get_flattened_data()
+        if hasattr(sample, "get_flattened_data")
+        else sample.getdata()
+    )
+    for red, green, blue in sample_pixels:
+        is_green_screen = green >= 120 and green - max(red, blue) >= 36
+        if not is_green_screen:
+            foreground_colors.append((red, green, blue))
+    if foreground_colors:
+        count = len(foreground_colors)
+        accent = tuple(sum(color[channel] for color in foreground_colors) // count for channel in range(3))
+    else:
+        accent = (196, 172, 184)
+
+    def blend_with_white(color: tuple[int, int, int], amount: float) -> tuple[int, int, int]:
+        return tuple(
+            max(0, min(255, int(round(255 * (1.0 - amount) + channel * amount))))
+            for channel in color
+        )
+
+    top_color = blend_with_white(accent, 0.07)
+    bottom_color = blend_with_white(accent, 0.16)
+    gradient_strip = Image.new("RGB", (1, max(height, 1)), top_color)
+    strip_pixels = gradient_strip.load()
+    for y in range(height):
+        ratio = y / max(height - 1, 1)
+        softened_ratio = ratio * ratio * (3.0 - 2.0 * ratio)
+        strip_pixels[0, y] = tuple(
+            int(round(top_color[channel] * (1.0 - softened_ratio) + bottom_color[channel] * softened_ratio))
+            for channel in range(3)
+        )
+    background = gradient_strip.resize((width, height), Image.Resampling.BILINEAR).convert("RGBA")
+
+    glow_scale = min(1.0, 900.0 / max(width, height))
+    glow_size = (max(1, int(round(width * glow_scale))), max(1, int(round(height * glow_scale))))
+    glow = Image.new("RGBA", glow_size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(glow)
+    glow_accent = (*blend_with_white(accent, 0.56), 36)
+    secondary_accent = (*blend_with_white((accent[2], accent[0], accent[1]), 0.34), 24)
+    glow_width, glow_height = glow.size
+    draw.ellipse(
+        (-glow_width * 0.25, -glow_height * 0.04, glow_width * 0.78, glow_height * 0.42),
+        fill=glow_accent,
+    )
+    draw.ellipse(
+        (glow_width * 0.44, glow_height * 0.56, glow_width * 1.18, glow_height * 1.04),
+        fill=secondary_accent,
+    )
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=max(18, int(min(glow.size) * 0.07))))
+    if glow.size != background.size:
+        glow = glow.resize(background.size, Image.Resampling.BILINEAR)
+    background.alpha_composite(glow)
+    return background
 
 
 def _u16(value: int) -> bytes:
@@ -416,7 +510,10 @@ def extract_element_layers(image: Image.Image) -> list[LayerAsset]:
     return layers
 
 
-def build_layered_a_plus(image: Image.Image) -> dict[str, Any]:
+def build_layered_a_plus(
+    image: Image.Image,
+    background: Image.Image | None = None,
+) -> dict[str, Any]:
     green_screen = ImageOps.exif_transpose(image).convert("RGBA")
     transparent = remove_green_screen(green_screen)
     alpha = transparent.getchannel("A")
@@ -428,9 +525,30 @@ def build_layered_a_plus(image: Image.Image) -> dict[str, Any]:
         raise RuntimeError("The generated image does not contain a recognizable green-screen background.")
     if visible_ratio < 0.0001:
         raise RuntimeError("The generated green-screen image does not contain visible elements.")
-    layers = extract_element_layers(transparent)
-    composite = Image.new("RGBA", transparent.size, (0, 0, 0, 0))
-    for layer in reversed(layers):
+    element_layers = extract_element_layers(transparent)
+    background_layer: LayerAsset | None = None
+    if background is not None:
+        normalized_background = ImageOps.exif_transpose(background).convert("RGBA")
+        if normalized_background.size != transparent.size:
+            normalized_background = fit_background_to_canvas_without_distortion(
+                normalized_background,
+                transparent.size,
+            )
+        background_layer = LayerAsset(
+            name="A+ Background",
+            image=normalized_background,
+            left=0,
+            top=0,
+        )
+        if len(element_layers) + 1 > MAX_LAYER_COUNT:
+            raise RuntimeError(f"Too many isolated elements were found (maximum {MAX_LAYER_COUNT - 1} with background).")
+    layers = [*element_layers, *([background_layer] if background_layer is not None else [])]
+    composite = (
+        background_layer.image.copy()
+        if background_layer is not None
+        else Image.new("RGBA", transparent.size, (0, 0, 0, 0))
+    )
+    for layer in reversed(element_layers):
         composite.alpha_composite(layer.image, dest=(layer.left, layer.top))
     psd_bytes = build_layered_psd(transparent.size, layers, composite=composite)
     manifest = [
