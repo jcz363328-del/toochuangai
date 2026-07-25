@@ -932,7 +932,7 @@ def _load_partial_dashboard_cache_snapshot():
 
 
 def _refresh_partial_dashboard_cache_once():
-    """后台预计算部分权限看板常用的本月和近一周结果。"""
+    """后台预计算订单维度看板常用的本月和近一周结果。"""
     global _partial_default_cached_payload
     global _partial_precomputed_shop_payloads, _partial_precomputed_week_shop_payloads
 
@@ -1120,7 +1120,7 @@ def tk_dashboard_project_page():
         precomputed_shops=shop_options,
         precomputed_shop_payloads=_partial_precomputed_shop_payloads,
         precomputed_week_shop_payloads=_partial_precomputed_week_shop_payloads,
-        page_title='内容生产工厂部分权限看板',
+        page_title='内容生产工厂订单维度看板',
         page_desc='和TK整体看板一样可查看所有店铺，销售额按订单应结算GMV统计',
         fixed_shop=None,
         restrict_like_82=True,

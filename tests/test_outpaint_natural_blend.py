@@ -26,7 +26,7 @@ def uploaded_image(image: Image.Image, name: str = "source.png") -> dict[str, ob
 class NaturalOutpaintTests(unittest.TestCase):
     def test_expanded_canvas_drives_model_aspect_ratio(self) -> None:
         source = uploaded_image(Image.new("RGB", (100, 100), "white"))
-        generated = image_data_url(Image.new("RGB", (300, 100), "white"))
+        generated = image_data_url(Image.new("RGB", (300, 100), "blue"))
         feature = site.get_feature_by_key("outpaint")
         assert feature is not None
         job_context = {
@@ -44,30 +44,38 @@ class NaturalOutpaintTests(unittest.TestCase):
             },
         }
 
-        with patch.object(
-            site,
-            "call_openrouter",
-            return_value={"images": [generated], "text": ""},
-        ) as request_image:
+        with (
+            patch.object(
+                site,
+                "call_openrouter",
+                return_value={"images": [generated], "text": ""},
+            ) as request_image,
+            patch.object(
+                site,
+                "build_outpaint_region_guide",
+                side_effect=AssertionError("geometry guide must not be sent to normal outpainting"),
+            ),
+        ):
             result = site.process_batch_group(job_context, [source], 1)
 
         self.assertEqual(request_image.call_count, 1)
         for request_call in request_image.call_args_list:
             self.assertEqual(request_call.kwargs["aspect_ratio"], "21:9")
-            self.assertEqual(len(request_call.kwargs["uploaded_files"]), 3)
-            self.assertEqual(request_call.kwargs["uploaded_files"][0]["data"], source["data"])
-            self.assertEqual(
-                request_call.kwargs["uploaded_files"][1]["name"],
-                "outpaint_exact_source_canvas.png",
-            )
-            self.assertEqual(
-                request_call.kwargs["uploaded_files"][2]["name"],
-                "outpaint_region_layout_mask.png",
-            )
+            self.assertEqual(len(request_call.kwargs["uploaded_files"]), 1)
+            transition_input = request_call.kwargs["uploaded_files"][0]
+            self.assertEqual(transition_input["name"], "outpaint_transition_canvas.png")
+            with Image.open(io.BytesIO(transition_input["data"])) as transition_canvas:
+                self.assertEqual(transition_canvas.size, (300, 100))
+                self.assertEqual(transition_canvas.getpixel((10, 50))[3], 0)
+                self.assertEqual(transition_canvas.getpixel((150, 50)), (255, 255, 255, 255))
             self.assertIn("must occupy only about 33.3% of the final frame width", request_call.kwargs["prompt"])
             self.assertIn("same subject frame occupancy", request_call.kwargs["prompt"])
-            self.assertIn("strict black-and-white layout mask", request_call.kwargs["prompt"])
-            self.assertIn("exact outpaint canvas", request_call.kwargs["prompt"])
+            self.assertIn("There is exactly one input image", request_call.kwargs["prompt"])
+            self.assertIn("authoritative outpaint working canvas", request_call.kwargs["prompt"])
+            self.assertIn("Every transparent outer area is mandatory new scene area", request_call.kwargs["prompt"])
+            self.assertIn("softly feathered boundary", request_call.kwargs["prompt"])
+            self.assertIn("Globally harmonize exposure, white balance", request_call.kwargs["prompt"])
+            self.assertIn("do not restart a different body or object", request_call.kwargs["prompt"])
             self.assertIn("zero requested expansion must remain exactly on the final image edge", request_call.kwargs["prompt"])
         self.assertEqual(result["images"], [generated])
         self.assertEqual(
@@ -83,6 +91,89 @@ class NaturalOutpaintTests(unittest.TestCase):
                 "right": 100,
             },
         )
+
+    def test_unchanged_crop_is_retried_once(self) -> None:
+        source = uploaded_image(Image.new("RGB", (100, 100), "red"))
+        unchanged = image_data_url(Image.new("RGB", (100, 100), "red"))
+        expanded = image_data_url(Image.new("RGB", (300, 100), "green"))
+        feature = site.get_feature_by_key("outpaint")
+        assert feature is not None
+        job_context = {
+            "feature": feature,
+            "model": site.NANO_BANANA_MODEL,
+            "prompt": "expand",
+            "output_mode": "image",
+            "aspect_ratio": site.DEFAULT_ASPECT_RATIO,
+            "max_output_images": 1,
+            "outpaint_settings": {
+                "top": 0,
+                "bottom": 0,
+                "left": 100,
+                "right": 100,
+            },
+        }
+
+        with patch.object(
+            site,
+            "call_openrouter",
+            side_effect=[
+                {"images": [unchanged], "text": ""},
+                {"images": [expanded], "text": ""},
+            ],
+        ) as request_image:
+            result = site.process_batch_group(job_context, [source], 1)
+
+        self.assertEqual(request_image.call_count, 2)
+        self.assertIn(
+            "previous attempt failed because it returned the original crop",
+            request_image.call_args_list[1].kwargs["prompt"],
+        )
+        self.assertEqual(result["images"], [expanded])
+
+    def test_rectangular_join_triggers_one_full_frame_repair_pass(self) -> None:
+        source = uploaded_image(Image.new("RGB", (100, 100), "red"))
+        stitched_image = Image.new("RGB", (300, 100), "blue")
+        for x in range(100, 200):
+            for y in range(100):
+                stitched_image.putpixel((x, y), (255, 0, 0))
+        stitched = image_data_url(stitched_image)
+        repaired = image_data_url(Image.new("RGB", (300, 100), "green"))
+        feature = site.get_feature_by_key("outpaint")
+        assert feature is not None
+        job_context = {
+            "feature": feature,
+            "model": site.NANO_BANANA_MODEL,
+            "prompt": "expand seamlessly",
+            "output_mode": "image",
+            "aspect_ratio": site.DEFAULT_ASPECT_RATIO,
+            "max_output_images": 1,
+            "outpaint_settings": {
+                "top": 0,
+                "bottom": 0,
+                "left": 100,
+                "right": 100,
+            },
+        }
+
+        with patch.object(
+            site,
+            "call_openrouter",
+            side_effect=[
+                {"images": [stitched], "text": ""},
+                {"images": [repaired], "text": ""},
+            ],
+        ) as request_image:
+            result = site.process_batch_group(job_context, [source], 1)
+
+        self.assertEqual(request_image.call_count, 2)
+        repair_call = request_image.call_args_list[1]
+        self.assertEqual(
+            repair_call.kwargs["uploaded_files"][0]["name"],
+            "outpaint_seam_repair_reference.jpg",
+        )
+        self.assertIn("FULL-FRAME SEAM REPAIR PASS", repair_call.kwargs["prompt"])
+        self.assertIn("artifact, not protected content", repair_call.kwargs["prompt"])
+        self.assertEqual(result["images"], [repaired])
 
     def test_target_canvas_size_is_calculated_without_padding_source(self) -> None:
         source = uploaded_image(Image.new("RGB", (120, 80), "white"))
@@ -122,13 +213,54 @@ class NaturalOutpaintTests(unittest.TestCase):
             right_px=100,
         )
 
-        self.assertEqual(canvas_input["name"], "outpaint_exact_source_canvas.png")
+        self.assertEqual(canvas_input["name"], "outpaint_transition_canvas.png")
         with Image.open(io.BytesIO(canvas_input["data"])) as canvas:
             self.assertEqual(canvas.size, (200, 100))
             rgba = canvas.convert("RGBA")
             self.assertEqual(rgba.getpixel((50, 25))[3], 0)
             self.assertEqual(rgba.getpixel((150, 75))[3], 0)
             self.assertEqual(rgba.getpixel((50, 75)), (240, 20, 20, 255))
+            self.assertLess(rgba.getpixel((50, 50))[3], 255)
+            self.assertLess(rgba.getpixel((99, 75))[3], 255)
+
+    def test_transition_canvas_clears_a_real_rebuild_strip_at_expanded_edges(self) -> None:
+        source = uploaded_image(Image.new("RGB", (200, 200), (240, 20, 20)))
+
+        canvas_input = site.build_outpaint_source_canvas(
+            source,
+            top_px=100,
+            bottom_px=100,
+            left_px=100,
+            right_px=100,
+        )
+
+        with Image.open(io.BytesIO(canvas_input["data"])) as canvas:
+            rgba = canvas.convert("RGBA")
+            self.assertEqual(rgba.getpixel((100, 200))[3], 0)
+            self.assertEqual(rgba.getpixel((299, 200))[3], 0)
+            self.assertEqual(rgba.getpixel((200, 100))[3], 0)
+            self.assertEqual(rgba.getpixel((200, 299))[3], 0)
+            self.assertEqual(rgba.getpixel((200, 200))[3], 255)
+
+    def test_boundary_detector_finds_the_old_source_rectangle(self) -> None:
+        source = uploaded_image(Image.new("RGB", (100, 100), "red"))
+        stitched_image = Image.new("RGB", (300, 100), "blue")
+        for x in range(100, 200):
+            for y in range(100):
+                stitched_image.putpixel((x, y), (255, 0, 0))
+
+        measurements = site.measure_outpaint_boundary_seams(
+            image_data_url(stitched_image),
+            source,
+            top_px=0,
+            bottom_px=0,
+            left_px=100,
+            right_px=100,
+        )
+
+        self.assertEqual([item["side"] for item in measurements], ["left", "right"])
+        self.assertTrue(all(item["detected"] for item in measurements))
+        self.assertTrue(all(float(item["ratio"]) > 2.2 for item in measurements))
 
     def test_result_crop_preserves_unexpanded_edge_for_asymmetric_selection(self) -> None:
         source = uploaded_image(Image.new("RGB", (100, 100), "white"))
@@ -163,6 +295,23 @@ class NaturalOutpaintTests(unittest.TestCase):
             self.assertEqual(left_result.size, (200, 100))
             self.assertEqual(left_result.getpixel((190, 50)), (0, 0, 255))
 
+    def test_same_ratio_model_result_is_resized_to_exact_selected_pixels(self) -> None:
+        source = uploaded_image(Image.new("RGB", (100, 100), "white"))
+        generated = image_data_url(Image.new("RGB", (1000, 500), "blue"))
+
+        exact_result = site.crop_outpaint_result_to_selected_region(
+            generated,
+            source,
+            top_px=0,
+            bottom_px=0,
+            left_px=50,
+            right_px=50,
+        )
+
+        exact_bytes, _mime = site.load_image_bytes_from_url(exact_result)
+        with Image.open(io.BytesIO(exact_bytes)) as image:
+            self.assertEqual(image.size, (200, 100))
+
     def test_drag_selection_is_not_rounded_to_fifty_pixels(self) -> None:
         consume_source = inspect.getsource(site.consume_pending_outpaint_drag)
         preview_source = inspect.getsource(site.render_outpaint_extension_preview_card)
@@ -171,6 +320,36 @@ class NaturalOutpaintTests(unittest.TestCase):
         self.assertIn("value / drag_step", consume_source)
         self.assertNotIn("value / 50", consume_source)
         self.assertIn('"step": OUTPAINT_DRAG_STEP_PX', preview_source)
+
+    def test_source_can_be_dragged_inside_a_fixed_target_canvas(self) -> None:
+        source = uploaded_image(Image.new("RGB", (120, 80), "white"))
+
+        with patch.object(site.components, "html") as render_html:
+            site.render_outpaint_extension_preview_card(
+                source,
+                top_px=20,
+                bottom_px=20,
+                left_px=30,
+                right_px=30,
+                component_key="outpaint_position_test",
+                drag_state_keys={
+                    "top": "outpaint_top_outpaint",
+                    "bottom": "outpaint_bottom_outpaint",
+                    "left": "outpaint_left_outpaint",
+                    "right": "outpaint_right_outpaint",
+                    "mode": "outpaint_drag_mode_outpaint",
+                },
+            )
+
+        rendered_html = render_html.call_args.args[0]
+        self.assertIn('data-mode="position"', rendered_html)
+        self.assertIn('class="outpaint-source-handle"', rendered_html)
+        self.assertIn("horizontalTotal", rendered_html)
+        self.assertIn("verticalTotal", rendered_html)
+        self.assertIn("horizontalTotal - nextLeft", rendered_html)
+        self.assertIn("verticalTotal - nextTop", rendered_html)
+        self.assertIn("targetWidth = sourceWidth", rendered_html)
+        self.assertIn("mode: mode_outpaint_position_test", rendered_html)
 
     def test_maximum_expansion_is_three_times_original_dimensions(self) -> None:
         source = uploaded_image(Image.new("RGB", (120, 80), "white"))
@@ -200,6 +379,9 @@ class NaturalOutpaintTests(unittest.TestCase):
         self.assertIn("100.0% of the final frame height", instruction)
         self.assertIn("66.7% of the final frame area", instruction)
         self.assertIn("same crop", instruction)
+        self.assertIn("target canvas of 300x100px", instruction)
+        self.assertIn("coordinate x=100px, y=0px", instruction)
+        self.assertIn("[100, 0] to [200, 100]", instruction)
 
     def test_compare_gallery_places_source_inside_expanded_result_coordinates(self) -> None:
         alignment = {
@@ -274,8 +456,15 @@ class NaturalOutpaintTests(unittest.TestCase):
         prompt = site.build_prompt(feature, "", "4:5", notes)
 
         self.assertIn("one-pass", prompt)
+        self.assertIn("four numeric directional expansion amounts", prompt)
         self.assertIn("do not paste the original back", prompt)
         self.assertIn("禁止把原图作为矩形图层覆盖或拼接回结果", prompt)
+        self.assertIn("transition corridor", prompt)
+        self.assertIn("no straight horizontal or vertical join", prompt)
+        self.assertIn("working canvas is a geometry constraint", prompt)
+        self.assertIn("synthesize every transparent outer pixel", prompt)
+        self.assertIn("Reconstruct both sides of every former boundary together", prompt)
+        self.assertIn("globally harmonize exposure, white balance", prompt)
         self.assertNotIn("transparent blank margins", prompt)
         self.assertNotIn("最终输出必须保持原始比例不变", prompt)
 

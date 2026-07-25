@@ -6,269 +6,1028 @@
     <title>创新数据 - 人力行政部</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
     <style>
-        body { margin:0; font-family:'Microsoft YaHei', Arial, sans-serif; background:#f5f7fb; color:#172033; }
-        .topbar { background:#fff; border-bottom:1px solid #e6eaf2; }
-        .topbar-inner { max-width:1320px; margin:0 auto; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
-        .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:20px; }
-        .brand i { color:#2563eb; }
-        .links { display:flex; gap:10px; align-items:center; }
-        .links a { color:#2563eb; text-decoration:none; font-size:14px; }
-        .page { max-width:1320px; margin:0 auto; padding:22px 18px 52px; }
-        .toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
-        .filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-        select, input { height:36px; border:1px solid #d8dee9; border-radius:6px; background:#fff; padding:0 10px; font-size:14px; }
-        .btn { height:36px; border:0; border-radius:6px; background:#2563eb; color:#fff; padding:0 14px; cursor:pointer; }
-        .status { color:#64748b; font-size:13px; }
-        .kpis { display:grid; grid-template-columns:repeat(4, minmax(160px, 1fr)); gap:12px; margin-bottom:14px; }
-        .kpi, .panel { background:#fff; border:1px solid #e6eaf2; border-radius:8px; }
-        .kpi { padding:16px; }
-        .kpi-label { color:#64748b; font-size:13px; margin-bottom:8px; }
-        .kpi-value { font-size:26px; font-weight:800; }
-        .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-        .panel { padding:16px; min-width:0; }
-        .panel-wide { grid-column:1 / -1; }
-        .panel-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
-        .panel-title h2 { font-size:17px; margin:0; }
-        .chart-box { border:1px solid #eef1f6; border-radius:6px; padding:12px; margin-bottom:12px; min-height:96px; background:#fbfdff; }
-        .bar-list { display:flex; flex-direction:column; gap:8px; }
-        .bar-row { display:grid; grid-template-columns:132px 1fr 58px; gap:10px; align-items:center; font-size:13px; }
-        .bar-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#334155; }
-        .bar-track { height:8px; background:#eef2f7; border-radius:999px; overflow:visible; position:relative; }
-        .bar-fill { height:100%; background:#2563eb; border-radius:999px; min-width:2px; position:relative; cursor:default; }
-        .bar-fill:hover::after { content:attr(data-tip); position:absolute; left:50%; bottom:20px; transform:translateX(-50%); background:#111827; color:#fff; font-size:12px; line-height:1.4; padding:6px 8px; border-radius:6px; white-space:nowrap; z-index:5; box-shadow:0 8px 18px rgba(15,23,42,.18); }
-        .bar-value { text-align:right; font-weight:700; }
-        .mini-bars { display:grid; grid-template-columns:repeat(auto-fit, minmax(90px, 1fr)); gap:14px; align-items:end; min-height:112px; }
-        .mini-bar { display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:6px; min-height:96px; }
-        .mini-bar-fill { width:26px; max-width:42%; min-height:3px; border-radius:6px 6px 2px 2px; background:#0f766e; cursor:default; position:relative; }
-        .mini-bar-fill:hover::after { content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%); background:#111827; color:#fff; font-size:12px; line-height:1.4; padding:6px 8px; border-radius:6px; white-space:nowrap; z-index:5; box-shadow:0 8px 18px rgba(15,23,42,.18); }
-        .mini-bar-label { color:#475569; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
-        .table-wrap { overflow:auto; max-height:430px; border:1px solid #eef1f6; border-radius:6px; }
-        table { width:100%; border-collapse:collapse; font-size:13px; background:#fff; }
-        th, td { padding:9px 10px; border-bottom:1px solid #eef1f6; text-align:left; white-space:nowrap; }
-        th { position:sticky; top:0; background:#f8fafc; color:#475569; z-index:1; user-select:none; cursor:pointer; }
-        th.sortable:hover { color:#2563eb; background:#eef6ff; }
-        th .sort-icon { margin-left:6px; color:#94a3b8; font-size:11px; }
-        .empty { padding:18px; color:#64748b; text-align:center; }
-        @media (max-width: 900px) {
-            .grid, .kpis { grid-template-columns:1fr; }
-            .bar-row { grid-template-columns:92px 1fr 46px; }
+        :root {
+            --ink: #14213d;
+            --muted: #64748b;
+            --line: #e3e9f2;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --primary: #3157d5;
+            --primary-dark: #2748b7;
+            --green: #0f9f74;
+            --orange: #ed8b32;
+            --purple: #7656c9;
+            --shadow: 0 14px 34px rgba(42, 58, 92, .08);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            background:
+                radial-gradient(circle at 92% 4%, rgba(49, 87, 213, .09), transparent 25rem),
+                linear-gradient(180deg, #f6f8fc 0, #f2f5fa 100%);
+        }
+        button, input, select { font: inherit; }
+        button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+            outline: 3px solid rgba(49, 87, 213, .2);
+            outline-offset: 2px;
+        }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            border-bottom: 1px solid rgba(227, 233, 242, .9);
+            background: rgba(255, 255, 255, .9);
+            backdrop-filter: blur(14px);
+        }
+        .topbar-inner {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            border-radius: 13px;
+            color: #fff;
+            background: linear-gradient(145deg, #3f68e7, #2448bd);
+            box-shadow: 0 8px 18px rgba(49, 87, 213, .24);
+        }
+        .brand-copy strong { display: block; font-size: 18px; letter-spacing: .02em; }
+        .brand-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+        .links { display: flex; align-items: center; gap: 8px; }
+        .links a {
+            padding: 8px 11px;
+            border-radius: 9px;
+            color: #475569;
+            text-decoration: none;
+            font-size: 13px;
+            transition: background .18s, color .18s;
+        }
+        .links a:hover { color: var(--primary); background: #eef3ff; }
+        .page { max-width: 1440px; margin: 0 auto; padding: 26px 24px 56px; }
+        .page-heading {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+        .page-heading h1 { margin: 0 0 7px; font-size: 27px; line-height: 1.2; letter-spacing: -.02em; }
+        .page-heading p { margin: 0; color: var(--muted); font-size: 14px; }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 30px;
+            color: var(--muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(15, 159, 116, .1); }
+        .filter-card {
+            position: relative;
+            z-index: 20;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 16px;
+            padding: 16px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, .96);
+            box-shadow: 0 8px 26px rgba(34, 53, 86, .05);
+        }
+        .filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 11px; min-width: 0; }
+        .field { display: flex; flex-direction: column; gap: 7px; min-width: 150px; }
+        .field-keyword { width: min(260px, 28vw); }
+        .field-label { color: #5b677c; font-size: 12px; font-weight: 700; }
+        .control, .multi-trigger {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #d6deea;
+            border-radius: 10px;
+            color: var(--ink);
+            background: #fff;
+            transition: border-color .18s, box-shadow .18s;
+        }
+        .control { padding: 0 12px; }
+        .control:hover, .multi-trigger:hover { border-color: #aebcd1; }
+        .control:focus, .multi-trigger[aria-expanded="true"] {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(49, 87, 213, .1);
+        }
+        .multi-select { position: relative; width: 240px; }
+        .multi-trigger {
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .multi-trigger-copy {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            overflow: hidden;
+        }
+        .multi-trigger-copy i { color: var(--primary); }
+        #monthFilterText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .multi-chevron { color: #94a3b8; font-size: 11px; transition: transform .18s; }
+        .multi-trigger[aria-expanded="true"] .multi-chevron { transform: rotate(180deg); }
+        .multi-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            z-index: 40;
+            width: 310px;
+            max-width: calc(100vw - 48px);
+            padding: 10px;
+            border: 1px solid var(--line);
+            border-radius: 13px;
+            background: #fff;
+            box-shadow: 0 20px 45px rgba(30, 44, 73, .16);
+        }
+        .multi-menu[hidden] { display: none; }
+        .multi-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 2px 3px 9px;
+            border-bottom: 1px solid #edf1f6;
+        }
+        .multi-actions span { color: var(--muted); font-size: 12px; }
+        .multi-action-buttons { display: flex; gap: 4px; }
+        .text-btn {
+            border: 0;
+            padding: 5px 8px;
+            border-radius: 7px;
+            color: var(--primary);
+            background: transparent;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .text-btn:hover { background: #edf3ff; }
+        .month-options { max-height: 246px; overflow: auto; padding: 7px 1px 1px; }
+        .month-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 9px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .month-option:hover { background: #f3f6fb; }
+        .month-option input { width: 16px; height: 16px; accent-color: var(--primary); }
+        .filter-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .btn {
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 0 14px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: transform .16s, box-shadow .16s, background .16s;
+        }
+        .btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-secondary { border-color: #d8e0eb; color: #475569; background: #fff; }
+        .btn-secondary:hover:not(:disabled) { color: var(--primary); background: #f6f8fc; }
+        .btn-primary { color: #fff; background: linear-gradient(135deg, #3157d5, #2448bd); box-shadow: 0 8px 18px rgba(49, 87, 213, .18); }
+        .btn-export { color: #fff; background: linear-gradient(135deg, #14a87d, #0b8a66); box-shadow: 0 8px 18px rgba(15, 159, 116, .17); }
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+        .kpi {
+            position: relative;
+            overflow: hidden;
+            min-height: 116px;
+            padding: 19px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--surface);
+            box-shadow: 0 9px 24px rgba(35, 52, 82, .055);
+        }
+        .kpi::after {
+            content: "";
+            position: absolute;
+            right: -22px;
+            bottom: -32px;
+            width: 94px;
+            height: 94px;
+            border-radius: 50%;
+            background: var(--kpi-tint, rgba(49, 87, 213, .08));
+        }
+        .kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .kpi-label { color: var(--muted); font-size: 13px; font-weight: 700; }
+        .kpi-icon {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            color: var(--kpi-color, var(--primary));
+            background: var(--kpi-tint, rgba(49, 87, 213, .09));
+        }
+        .kpi-value { margin-top: 9px; font-size: 30px; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .panel {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+        }
+        .panel-wide { grid-column: 1 / -1; }
+        .panel-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 5px; }
+        .panel-title h2 { margin: 0; font-size: 16px; line-height: 1.35; }
+        .panel-title p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+        .panel-tag { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; color: #526078; background: #f1f4f9; font-size: 11px; }
+        .chart-box { width: 100%; height: 318px; }
+        .panel-wide .chart-box { height: 340px; }
+        details { margin-top: 2px; border-top: 1px solid #edf1f6; }
+        summary {
+            padding: 12px 2px 2px;
+            color: #5d6980;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            list-style: none;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: "\f054"; margin-right: 7px; color: #94a3b8; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: 9px; }
+        details[open] summary::before { content: "\f078"; }
+        .table-wrap { margin-top: 10px; max-height: 370px; overflow: auto; border: 1px solid #e7ecf3; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; font-size: 12px; }
+        th, td { padding: 9px 11px; border-bottom: 1px solid #edf1f6; text-align: left; white-space: nowrap; }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            color: #536079;
+            background: #f7f9fc;
+            user-select: none;
+        }
+        th.sortable { cursor: pointer; }
+        th.sortable:hover { color: var(--primary); background: #eef3ff; }
+        .sort-icon { margin-left: 5px; color: #a2adbd; font-size: 10px; }
+        .empty { padding: 25px 12px; color: var(--muted); text-align: center; }
+        .toast {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 80;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            max-width: min(380px, calc(100vw - 48px));
+            padding: 12px 15px;
+            border-radius: 11px;
+            color: #fff;
+            background: #172033;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, .24);
+            font-size: 13px;
+            transform: translateY(18px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .18s, transform .18s;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        @media (max-width: 1040px) {
+            .filter-card { align-items: stretch; flex-direction: column; }
+            .filter-actions { justify-content: flex-start; }
+            .field-keyword { width: 240px; }
+        }
+        @media (max-width: 840px) {
+            .page { padding: 20px 15px 42px; }
+            .topbar-inner { padding: 12px 15px; }
+            .brand-copy span { display: none; }
+            .page-heading { align-items: flex-start; flex-direction: column; }
+            .kpis, .grid { grid-template-columns: 1fr 1fr; }
+            .panel-wide { grid-column: 1 / -1; }
+            .chart-box, .panel-wide .chart-box { height: 300px; }
+        }
+        @media (max-width: 620px) {
+            .links a:first-child { display: none; }
+            .page-heading h1 { font-size: 23px; }
+            .filters, .field, .field-keyword, .multi-select { width: 100%; }
+            .filter-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+            .btn-export { grid-column: 1 / -1; }
+            .kpis, .grid { grid-template-columns: 1fr; }
+            .panel-wide { grid-column: auto; }
+            .panel { padding: 15px; }
+            .kpi { min-height: 104px; }
+            .multi-menu { width: 100%; max-width: 100%; }
         }
     </style>
 </head>
 <body>
     <header class="topbar">
         <div class="topbar-inner">
-            <div class="brand"><i class="fas fa-chart-column"></i><span>创新数据</span></div>
-            <div class="links">
-                <a href="{{ url_for('hr_admin_modules') }}">人力行政部</a>
-                <a href="{{ url_for('dashboard') }}">主页</a>
+            <div class="brand">
+                <div class="brand-mark"><i class="fas fa-chart-column"></i></div>
+                <div class="brand-copy">
+                    <strong>创新数据</strong>
+                    <span>人力行政部 · 数据洞察中心</span>
+                </div>
             </div>
+            <nav class="links" aria-label="页面导航">
+                <a href="{{ url_for('hr_admin_modules') }}"><i class="fas fa-users"></i> 人力行政部</a>
+                <a href="{{ url_for('dashboard') }}"><i class="fas fa-house"></i> 主页</a>
+            </nav>
         </div>
     </header>
-    <main class="page">
-        <div class="toolbar">
-            <div class="filters">
-                <select id="monthFilter"><option value="">全部月份</option></select>
-                <select id="deptFilter"><option value="">全部部门</option></select>
-                <input id="keywordFilter" type="search" placeholder="搜索发起人/类别/部门">
-                <button class="btn" id="reloadBtn" type="button"><i class="fas fa-rotate-right"></i> 刷新</button>
-            </div>
-            <div class="status" id="statusText">加载中...</div>
-        </div>
 
-        <section class="kpis">
-            <div class="kpi"><div class="kpi-label">提案总数</div><div class="kpi-value" id="kpiTotal">-</div></div>
-            <div class="kpi"><div class="kpi-label">有效提案数</div><div class="kpi-value" id="kpiValid">-</div></div>
-            <div class="kpi"><div class="kpi-label">参与人数</div><div class="kpi-value" id="kpiPeople">-</div></div>
-            <div class="kpi"><div class="kpi-label">覆盖部门</div><div class="kpi-value" id="kpiDept">-</div></div>
+    <main class="page">
+        <section class="page-heading">
+            <div>
+                <h1>创新提案数据总览</h1>
+                <p>跨月份对比提案表现，快速查看部门、人员、分数与创新类别趋势。</p>
+            </div>
+            <div class="status" aria-live="polite"><span class="status-dot"></span><span id="statusText">正在加载数据...</span></div>
+        </section>
+
+        <section class="filter-card" aria-label="数据筛选">
+            <div class="filters">
+                <div class="field">
+                    <label class="field-label" id="monthFilterLabel">月份（可多选）</label>
+                    <div class="multi-select" id="monthFilter">
+                        <button class="multi-trigger" id="monthFilterTrigger" type="button" aria-expanded="false" aria-haspopup="true" aria-labelledby="monthFilterLabel monthFilterText">
+                            <span class="multi-trigger-copy"><i class="far fa-calendar"></i><span id="monthFilterText">正在加载...</span></span>
+                            <i class="fas fa-chevron-down multi-chevron"></i>
+                        </button>
+                        <div class="multi-menu" id="monthFilterMenu" hidden>
+                            <div class="multi-actions">
+                                <span id="monthSelectionCount">已选 0 项</span>
+                                <div class="multi-action-buttons">
+                                    <button class="text-btn" id="selectAllMonths" type="button">全选</button>
+                                    <button class="text-btn" id="selectRecentMonths" type="button">近3个月</button>
+                                    <button class="text-btn" id="clearMonths" type="button">清空</button>
+                                </div>
+                            </div>
+                            <div class="month-options" id="monthOptions" role="group" aria-label="选择月份"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="deptFilter">部门</label>
+                    <select class="control" id="deptFilter"><option value="">全部部门</option></select>
+                </div>
+                <div class="field field-keyword">
+                    <label class="field-label" for="keywordFilter">关键词</label>
+                    <input class="control" id="keywordFilter" type="search" placeholder="发起人 / 类别 / 部门" autocomplete="off">
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button class="btn btn-secondary" id="resetBtn" type="button"><i class="fas fa-rotate-left"></i> 重置</button>
+                <button class="btn btn-primary" id="reloadBtn" type="button"><i class="fas fa-rotate-right"></i> 刷新</button>
+                <button class="btn btn-export" id="exportBtn" type="button" disabled><i class="fas fa-file-arrow-down"></i> 一键导出 Excel</button>
+            </div>
+        </section>
+
+        <section class="kpis" aria-label="核心指标">
+            <article class="kpi">
+                <div class="kpi-top"><span class="kpi-label">提案总数</span><span class="kpi-icon"><i class="far fa-lightbulb"></i></span></div>
+                <div class="kpi-value" id="kpiTotal">—</div>
+            </article>
+            <article class="kpi" style="--kpi-color:#0f9f74;--kpi-tint:rgba(15,159,116,.1);">
+                <div class="kpi-top"><span class="kpi-label">有效提案数</span><span class="kpi-icon"><i class="fas fa-circle-check"></i></span></div>
+                <div class="kpi-value" id="kpiValid">—</div>
+            </article>
+            <article class="kpi" style="--kpi-color:#7656c9;--kpi-tint:rgba(118,86,201,.1);">
+                <div class="kpi-top"><span class="kpi-label">参与人数</span><span class="kpi-icon"><i class="fas fa-user-group"></i></span></div>
+                <div class="kpi-value" id="kpiPeople">—</div>
+            </article>
+            <article class="kpi" style="--kpi-color:#ed8b32;--kpi-tint:rgba(237,139,50,.11);">
+                <div class="kpi-top"><span class="kpi-label">覆盖部门</span><span class="kpi-icon"><i class="fas fa-building"></i></span></div>
+                <div class="kpi-value" id="kpiDept">—</div>
+            </article>
         </section>
 
         <section class="grid">
-            <div class="panel panel-wide">
-                <div class="panel-title"><h2>月度提案总量</h2></div>
-                <div id="monthlyBars" class="chart-box bar-list"></div>
-                <div class="table-wrap"><table id="monthlyTable"></table></div>
-            </div>
-            <div class="panel">
-                <div class="panel-title"><h2>部门月度提案数量</h2></div>
-                <div id="deptChart" class="chart-box"></div>
-                <div class="table-wrap"><table id="deptTable"></table></div>
-            </div>
-            <div class="panel">
-                <div class="panel-title"><h2>部门有效提案数量</h2></div>
-                <div id="validChart" class="chart-box"></div>
-                <div class="table-wrap"><table id="validTable"></table></div>
-            </div>
-            <div class="panel">
-                <div class="panel-title"><h2>月度发起人明细</h2></div>
-                <div id="peopleChart" class="chart-box"></div>
-                <div class="table-wrap"><table id="peopleTable"></table></div>
-            </div>
-            <div class="panel">
-                <div class="panel-title"><h2>分数分布</h2></div>
-                <div id="scoreChart" class="chart-box"></div>
-                <div class="table-wrap"><table id="scoreTable"></table></div>
-            </div>
-            <div class="panel panel-wide">
-                <div class="panel-title"><h2>创新类别分布</h2></div>
-                <div id="categoryChart" class="chart-box"></div>
-                <div class="table-wrap"><table id="categoryTable"></table></div>
-            </div>
+            <article class="panel panel-wide">
+                <div class="panel-title">
+                    <div><h2>月度提案趋势</h2><p>查看所选月份的提案规模与平均水平</p></div>
+                    <span class="panel-tag">趋势</span>
+                </div>
+                <div id="monthlyChart" class="chart-box" role="img" aria-label="月度提案趋势图"></div>
+                <details><summary>查看明细数据</summary><div class="table-wrap"><table id="monthlyTable"></table></div></details>
+            </article>
+
+            <article class="panel">
+                <div class="panel-title">
+                    <div><h2>部门提案数量</h2><p>各部门提案规模对比</p></div>
+                    <span class="panel-tag">部门</span>
+                </div>
+                <div id="deptChart" class="chart-box" role="img" aria-label="部门提案数量图"></div>
+                <details><summary>查看明细数据</summary><div class="table-wrap"><table id="deptTable"></table></div></details>
+            </article>
+
+            <article class="panel">
+                <div class="panel-title">
+                    <div><h2>部门有效提案</h2><p>有效提案数量与部门贡献</p></div>
+                    <span class="panel-tag">有效性</span>
+                </div>
+                <div id="validChart" class="chart-box" role="img" aria-label="部门有效提案图"></div>
+                <details><summary>查看明细数据</summary><div class="table-wrap"><table id="validTable"></table></div></details>
+            </article>
+
+            <article class="panel">
+                <div class="panel-title">
+                    <div><h2>部门参与人数</h2><p>按部门汇总去重后的创新参与者</p></div>
+                    <span class="panel-tag">参与度</span>
+                </div>
+                <div id="peopleChart" class="chart-box" role="img" aria-label="部门参与人数图"></div>
+                <details><summary>查看明细数据</summary><div class="table-wrap"><table id="peopleTable"></table></div></details>
+            </article>
+
+            <article class="panel">
+                <div class="panel-title">
+                    <div><h2>提案分数分布</h2><p>各评分段的提案数量</p></div>
+                    <span class="panel-tag">质量</span>
+                </div>
+                <div id="scoreChart" class="chart-box" role="img" aria-label="提案分数分布图"></div>
+                <details><summary>查看明细数据</summary><div class="table-wrap"><table id="scoreTable"></table></div></details>
+            </article>
+
+            <article class="panel panel-wide">
+                <div class="panel-title">
+                    <div><h2>创新类别分布</h2><p>聚焦所选范围内的创新方向构成</p></div>
+                    <span class="panel-tag">类别</span>
+                </div>
+                <div id="categoryChart" class="chart-box" role="img" aria-label="创新类别分布图"></div>
+                <details><summary>查看明细数据</summary><div class="table-wrap"><table id="categoryTable"></table></div></details>
+            </article>
         </section>
     </main>
 
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
     <script>
         let rawData = {};
+        let monthValues = [];
+        let selectedMonths = new Set();
+        let monthsInitialized = false;
+        let toastTimer = null;
+        const charts = new Map();
         const sortState = {};
         const $ = id => document.getElementById(id);
-        const text = v => (v === null || v === undefined || v === '') ? '未填写' : String(v);
-        const num = v => Number(v || 0);
-        const esc = v => text(v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        const text = value => (value === null || value === undefined || value === '') ? '未填写' : String(value);
+        const num = value => Number(value || 0);
+        const esc = value => text(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+        const palette = ['#3157d5', '#0f9f74', '#ed8b32', '#7656c9', '#dc5d71', '#2a91b8', '#89a63f', '#9b6b43'];
 
-        function unique(arr) {
-            return Array.from(new Set(arr.filter(Boolean))).sort();
+        function unique(values) {
+            return Array.from(new Set(values.filter(Boolean)));
         }
+
+        function showToast(message, icon = 'fa-circle-check') {
+            const toast = $('toast');
+            toast.innerHTML = `<i class="fas ${icon}"></i><span>${esc(message)}</span>`;
+            toast.classList.add('show');
+            window.clearTimeout(toastTimer);
+            toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2800);
+        }
+
+        function setStatus(message, state = 'ready') {
+            $('statusText').textContent = message;
+            const dot = document.querySelector('.status-dot');
+            dot.style.background = state === 'error' ? '#dc5d71' : state === 'loading' ? '#ed8b32' : '#0f9f74';
+            dot.style.boxShadow = state === 'error'
+                ? '0 0 0 4px rgba(220,93,113,.1)'
+                : state === 'loading'
+                    ? '0 0 0 4px rgba(237,139,50,.1)'
+                    : '0 0 0 4px rgba(15,159,116,.1)';
+        }
+
         function currentFilters() {
             return {
-                month: $('monthFilter').value,
-                dept: $('deptFilter').value,
-                keyword: $('keywordFilter').value.trim().toLowerCase()
+                months: selectedMonths,
+                department: $('deptFilter').value,
+                keyword: $('keywordFilter').value.trim().toLocaleLowerCase('zh-CN')
             };
         }
+
         function matchRow(row) {
-            const f = currentFilters();
-            if (f.month && row['月份'] !== f.month) return false;
-            if (f.dept && row['部门'] !== f.dept) return false;
-            if (f.keyword) {
-                const hay = Object.values(row).map(text).join(' ').toLowerCase();
-                if (!hay.includes(f.keyword)) return false;
+            const filters = currentFilters();
+            if (!filters.months.has(row['月份'])) return false;
+            if (filters.department && Object.prototype.hasOwnProperty.call(row, '部门') && row['部门'] !== filters.department) return false;
+            if (filters.keyword) {
+                const haystack = Object.values(row).map(text).join(' ').toLocaleLowerCase('zh-CN');
+                if (!haystack.includes(filters.keyword)) return false;
             }
             return true;
         }
+
+        function aggregate(rows, labelField, valueField) {
+            const values = new Map();
+            rows.forEach(row => {
+                const label = typeof labelField === 'function' ? labelField(row) : text(row[labelField]);
+                values.set(label, (values.get(label) || 0) + num(row[valueField]));
+            });
+            return Array.from(values, ([label, value]) => ({ label, value }));
+        }
+
+        function uniquePeopleByDepartment(rows) {
+            const departments = new Map();
+            rows.forEach(row => {
+                const department = text(row['部门']);
+                if (!departments.has(department)) departments.set(department, new Set());
+                departments.get(department).add(text(row['发起人']));
+            });
+            return Array.from(departments, ([label, people]) => ({ label, value: people.size }));
+        }
+
         function sortRows(tableId, rows) {
             const state = sortState[tableId];
             if (!state || !state.key) return rows.slice();
             return rows.slice().sort((a, b) => {
-                const av = a[state.key], bv = b[state.key];
-                const an = Number(av), bn = Number(bv);
-                let res;
-                if (!Number.isNaN(an) && !Number.isNaN(bn) && String(av).trim() !== '' && String(bv).trim() !== '') {
-                    res = an - bn;
+                const left = a[state.key];
+                const right = b[state.key];
+                const leftNumber = Number(left);
+                const rightNumber = Number(right);
+                let result;
+                if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber) && String(left).trim() && String(right).trim()) {
+                    result = leftNumber - rightNumber;
                 } else {
-                    res = text(av).localeCompare(text(bv), 'zh-CN', { numeric:true });
+                    result = text(left).localeCompare(text(right), 'zh-CN', { numeric: true });
                 }
-                return state.dir === 'desc' ? -res : res;
+                return state.direction === 'desc' ? -result : result;
             });
         }
+
         function renderTable(id, rows, columns) {
             const table = $(id);
             const sorted = sortRows(id, rows);
             if (!sorted.length) {
-                table.innerHTML = `<tbody><tr><td><div class="empty">暂无数据</div></td></tr></tbody>`;
+                table.innerHTML = '<tbody><tr><td><div class="empty">当前筛选下暂无数据</div></td></tr></tbody>';
                 return;
             }
             const state = sortState[id] || {};
-            table.innerHTML = `<thead><tr>${columns.map(c => {
-                const icon = state.key === c ? (state.dir === 'asc' ? '▲' : '▼') : '↕';
-                return `<th class="sortable" data-table="${id}" data-key="${esc(c)}">${esc(c)}<span class="sort-icon">${icon}</span></th>`;
+            table.innerHTML = `<thead><tr>${columns.map(column => {
+                const icon = state.key === column ? (state.direction === 'asc' ? '▲' : '▼') : '↕';
+                return `<th class="sortable" data-table="${id}" data-key="${esc(column)}">${esc(column)}<span class="sort-icon">${icon}</span></th>`;
             }).join('')}</tr></thead><tbody>` +
-                sorted.map(row => `<tr>${columns.map(c => `<td title="${esc(row[c])}">${esc(row[c])}</td>`).join('')}</tr>`).join('') +
+                sorted.map(row => `<tr>${columns.map(column => `<td title="${esc(row[column])}">${esc(row[column])}</td>`).join('')}</tr>`).join('') +
                 '</tbody>';
         }
-        function aggregate(rows, labelFn, valueField) {
-            const map = new Map();
-            rows.forEach(row => {
-                const label = labelFn(row);
-                map.set(label, (map.get(label) || 0) + num(row[valueField]));
+
+        function baseChartOption() {
+            return {
+                animationDuration: 650,
+                animationEasing: 'cubicOut',
+                textStyle: { fontFamily: '"Microsoft YaHei", "PingFang SC", Arial, sans-serif', color: '#536079' },
+                tooltip: { trigger: 'axis', backgroundColor: 'rgba(20,33,61,.94)', borderWidth: 0, textStyle: { color: '#fff' }, padding: [9, 11] },
+                toolbox: {
+                    right: 2,
+                    top: 4,
+                    feature: { saveAsImage: { name: '创新数据图表', pixelRatio: 2, title: '保存图表' } },
+                    iconStyle: { borderColor: '#8b98aa' },
+                    emphasis: { iconStyle: { borderColor: '#3157d5' } }
+                }
+            };
+        }
+
+        function getChart(id) {
+            if (!window.echarts) return null;
+            if (!charts.has(id)) charts.set(id, echarts.init($(id), null, { renderer: 'canvas' }));
+            return charts.get(id);
+        }
+
+        function emptyChartOption(message = '当前筛选下暂无数据') {
+            return {
+                title: {
+                    text: message,
+                    left: 'center',
+                    top: 'middle',
+                    textStyle: { color: '#94a3b8', fontSize: 13, fontWeight: 400 }
+                },
+                xAxis: { show: false },
+                yAxis: { show: false },
+                series: []
+            };
+        }
+
+        function setChart(id, option, hasData) {
+            const chart = getChart(id);
+            if (!chart) {
+                $(id).innerHTML = '<div class="empty">图表组件加载失败，请刷新页面重试</div>';
+                return;
+            }
+            chart.clear();
+            chart.setOption(hasData ? option : emptyChartOption(), true);
+        }
+
+        function renderMonthlyChart(rows) {
+            const values = rows.slice().sort((a, b) => text(a['月份']).localeCompare(text(b['月份'])));
+            const option = {
+                ...baseChartOption(),
+                grid: { left: 48, right: 24, top: 48, bottom: 42, containLabel: false },
+                xAxis: {
+                    type: 'category',
+                    data: values.map(row => row['月份']),
+                    axisLine: { lineStyle: { color: '#d8e0eb' } },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#64748b', margin: 13 }
+                },
+                yAxis: {
+                    type: 'value',
+                    minInterval: 1,
+                    axisLabel: { color: '#8491a5' },
+                    splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+                },
+                series: [{
+                    name: '提案数量',
+                    type: 'bar',
+                    barMaxWidth: 42,
+                    data: values.map(row => num(row['数量'])),
+                    itemStyle: {
+                        borderRadius: [7, 7, 2, 2],
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: '#4d70e4' },
+                            { offset: 1, color: '#3157d5' }
+                        ])
+                    },
+                    label: { show: true, position: 'top', color: '#41506a', fontWeight: 700 },
+                    markLine: {
+                        symbol: 'none',
+                        label: { formatter: '平均 {c}', color: '#7656c9' },
+                        lineStyle: { color: '#9d87dd', type: 'dashed' },
+                        data: [{ type: 'average', name: '平均值' }]
+                    }
+                }]
+            };
+            setChart('monthlyChart', option, values.length > 0);
+        }
+
+        function renderRankChart(id, items, name, color) {
+            const values = items.slice().sort((a, b) => b.value - a.value).slice(0, 16).reverse();
+            const option = {
+                ...baseChartOption(),
+                grid: { left: 18, right: 35, top: 45, bottom: 18, containLabel: true },
+                xAxis: {
+                    type: 'value',
+                    minInterval: 1,
+                    axisLabel: { color: '#8491a5' },
+                    splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: values.map(item => item.label),
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#536079', width: 92, overflow: 'truncate' }
+                },
+                series: [{
+                    name,
+                    type: 'bar',
+                    barMaxWidth: 20,
+                    data: values.map(item => item.value),
+                    itemStyle: { color, borderRadius: [0, 7, 7, 0] },
+                    label: { show: true, position: 'right', color: '#536079', fontWeight: 700 }
+                }]
+            };
+            setChart(id, option, values.length > 0);
+        }
+
+        function renderScoreChart(rows) {
+            const values = aggregate(rows, row => `${text(row['分数'])}分`, '数量').sort((a, b) => {
+                const left = Number.parseFloat(a.label);
+                const right = Number.parseFloat(b.label);
+                if (!Number.isNaN(left) && !Number.isNaN(right)) return left - right;
+                return a.label.localeCompare(b.label, 'zh-CN', { numeric: true });
             });
-            return Array.from(map.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+            const option = {
+                ...baseChartOption(),
+                grid: { left: 48, right: 25, top: 48, bottom: 40 },
+                xAxis: {
+                    type: 'category',
+                    data: values.map(item => item.label),
+                    axisLine: { lineStyle: { color: '#d8e0eb' } },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#64748b' }
+                },
+                yAxis: {
+                    type: 'value',
+                    minInterval: 1,
+                    axisLabel: { color: '#8491a5' },
+                    splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+                },
+                series: [{
+                    name: '提案数量',
+                    type: 'line',
+                    smooth: true,
+                    symbolSize: 8,
+                    data: values.map(item => item.value),
+                    lineStyle: { width: 3, color: '#ed8b32' },
+                    itemStyle: { color: '#ed8b32', borderWidth: 3, borderColor: '#fff' },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: 'rgba(237,139,50,.36)' },
+                            { offset: 1, color: 'rgba(237,139,50,.02)' }
+                        ])
+                    }
+                }]
+            };
+            setChart('scoreChart', option, values.length > 0);
         }
-        function renderHorizontalBars(id, items, color) {
-            const box = $(id);
-            const top = items.slice(0, 16);
-            const max = Math.max(...top.map(x => x.value), 1);
-            box.innerHTML = top.length ? top.map(item => {
-                const width = Math.max(2, Math.round(item.value / max * 100));
-                const tip = `${item.label}：${item.value}`;
-                return `<div class="bar-row"><div class="bar-label" title="${esc(item.label)}">${esc(item.label)}</div><div class="bar-track"><div class="bar-fill" title="${esc(tip)}" data-tip="${esc(tip)}" style="width:${width}%;background:${color};"></div></div><div class="bar-value">${item.value}</div></div>`;
-            }).join('') : '<div class="empty">暂无数据</div>';
+
+        function renderCategoryChart(rows) {
+            const values = aggregate(rows, '创新类别', '数量').sort((a, b) => b.value - a.value);
+            const option = {
+                ...baseChartOption(),
+                color: palette,
+                tooltip: { trigger: 'item', formatter: '{b}<br/>{c} 个（{d}%）', backgroundColor: 'rgba(20,33,61,.94)', borderWidth: 0, textStyle: { color: '#fff' } },
+                legend: {
+                    type: 'scroll',
+                    orient: 'vertical',
+                    right: '5%',
+                    top: 'middle',
+                    height: '72%',
+                    textStyle: { color: '#5f6c81' }
+                },
+                series: [{
+                    name: '创新类别',
+                    type: 'pie',
+                    radius: ['46%', '70%'],
+                    center: ['38%', '52%'],
+                    avoidLabelOverlap: true,
+                    padAngle: 2,
+                    itemStyle: { borderRadius: 7, borderColor: '#fff', borderWidth: 2 },
+                    label: { formatter: '{b}\n{d}%', color: '#536079', lineHeight: 17 },
+                    emphasis: { scaleSize: 7 },
+                    data: values.map(item => ({ name: item.label, value: item.value }))
+                }]
+            };
+            setChart('categoryChart', option, values.length > 0);
         }
-        function renderVerticalBars(id, items, color) {
-            const box = $(id);
-            const top = items.slice(0, 12);
-            const max = Math.max(...top.map(x => x.value), 1);
-            box.innerHTML = top.length ? `<div class="mini-bars">${top.map(item => {
-                const height = Math.max(3, Math.round(item.value / max * 88));
-                const tip = `${item.label}：${item.value}`;
-                return `<div class="mini-bar"><div class="mini-bar-fill" title="${esc(tip)}" data-tip="${esc(tip)}" style="height:${height}px;background:${color};"></div><div class="mini-bar-label" title="${esc(item.label)}">${esc(item.label)}</div></div>`;
-            }).join('')}</div>` : '<div class="empty">暂无数据</div>';
+
+        function buildFilteredData() {
+            const departmentRows = (rawData.monthly_department_total || []).filter(matchRow);
+            let monthlyRows = (rawData.monthly_total || []).filter(matchRow);
+            if ($('deptFilter').value) {
+                monthlyRows = aggregate(departmentRows, '月份', '数量')
+                    .map(item => ({ '月份': item.label, '数量': item.value }))
+                    .sort((a, b) => a['月份'].localeCompare(b['月份']));
+            }
+            return {
+                monthly: monthlyRows,
+                department: departmentRows,
+                valid: (rawData.valid_department_total || []).filter(matchRow),
+                people: (rawData.monthly_people || []).filter(matchRow),
+                score: (rawData.score_distribution || []).filter(matchRow),
+                category: (rawData.category_distribution || []).filter(matchRow)
+            };
         }
+
         function applyFilters() {
-            const monthly = (rawData.monthly_total || []).filter(matchRow);
-            const dept = (rawData.monthly_department_total || []).filter(matchRow);
-            const valid = (rawData.valid_department_total || []).filter(matchRow);
-            const people = (rawData.monthly_people || []).filter(matchRow);
-            const score = (rawData.score_distribution || []).filter(matchRow);
-            const category = (rawData.category_distribution || []).filter(matchRow);
+            const data = buildFilteredData();
+            const totalCount = data.monthly.reduce((sum, row) => sum + num(row['数量']), 0);
+            const validCount = data.valid.reduce((sum, row) => sum + num(row['有效提案数量']), 0);
+            const peopleKeys = unique(data.people.map(row => `${row['月份']}|${row['部门']}|${row['发起人']}`));
+            const departments = unique([].concat(data.department, data.valid, data.people, data.category).map(row => row['部门']));
 
-            $('kpiTotal').textContent = dept.length ? dept.reduce((s, r) => s + num(r['数量']), 0) : monthly.reduce((s, r) => s + num(r['数量']), 0);
-            $('kpiValid').textContent = valid.reduce((s, r) => s + num(r['有效提案数量']), 0);
-            $('kpiPeople').textContent = unique(people.map(r => `${r['月份']}|${r['部门']}|${r['发起人']}`)).length;
-            $('kpiDept').textContent = unique(dept.concat(valid).concat(people).map(r => r['部门'])).length;
+            $('kpiTotal').textContent = totalCount.toLocaleString('zh-CN');
+            $('kpiValid').textContent = validCount.toLocaleString('zh-CN');
+            $('kpiPeople').textContent = peopleKeys.length.toLocaleString('zh-CN');
+            $('kpiDept').textContent = departments.length.toLocaleString('zh-CN');
 
-            renderHorizontalBars('monthlyBars', monthly.map(r => ({ label:r['月份'], value:num(r['数量']) })), '#2563eb');
-            renderVerticalBars('deptChart', aggregate(dept, r => `${r['月份']} ${r['部门']}`, '数量'), '#2563eb');
-            renderVerticalBars('validChart', aggregate(valid, r => `${r['月份']} ${r['部门']}`, '有效提案数量'), '#16a34a');
-            renderHorizontalBars('peopleChart', aggregate(people.map(r => ({...r, 人数:1})), r => `${r['月份']} ${r['部门']}`, '人数'), '#7c3aed');
-            renderVerticalBars('scoreChart', aggregate(score, r => `${r['月份']} ${r['部门']} ${text(r['分数'])}分`, '数量'), '#f97316');
-            renderHorizontalBars('categoryChart', aggregate(category, r => `${r['月份']} ${text(r['创新类别'])}`, '数量'), '#0f766e');
+            renderMonthlyChart(data.monthly);
+            renderRankChart('deptChart', aggregate(data.department, '部门', '数量'), '提案数量', '#3157d5');
+            renderRankChart('validChart', aggregate(data.valid, '部门', '有效提案数量'), '有效提案', '#0f9f74');
+            renderRankChart('peopleChart', uniquePeopleByDepartment(data.people), '参与人数', '#7656c9');
+            renderScoreChart(data.score);
+            renderCategoryChart(data.category);
 
-            renderTable('monthlyTable', monthly, ['月份', '数量']);
-            renderTable('deptTable', dept, ['月份', '部门', '数量']);
-            renderTable('validTable', valid, ['月份', '部门', '有效提案数量']);
-            renderTable('peopleTable', people, ['月份', '部门', '发起人']);
-            renderTable('scoreTable', score, ['月份', '部门', '分数', '数量']);
-            renderTable('categoryTable', category, ['月份', '创新类别', '数量']);
-            $('statusText').textContent = `已加载 ${monthly.length} 个月份记录`;
+            renderTable('monthlyTable', data.monthly, ['月份', '数量']);
+            renderTable('deptTable', data.department, ['月份', '部门', '数量']);
+            renderTable('validTable', data.valid, ['月份', '部门', '有效提案数量']);
+            renderTable('peopleTable', data.people, ['月份', '部门', '发起人']);
+            renderTable('scoreTable', data.score, ['月份', '部门', '分数', '数量']);
+            renderTable('categoryTable', data.category, ['月份', '部门', '创新类别', '数量']);
+
+            const visibleRows = Object.values(data).reduce((sum, rows) => sum + rows.length, 0);
+            $('exportBtn').disabled = selectedMonths.size === 0 || visibleRows === 0;
+            setStatus(`已选 ${selectedMonths.size} 个月 · ${totalCount.toLocaleString('zh-CN')} 个提案`);
         }
+
+        function updateMonthFilterLabel() {
+            const selected = monthValues.filter(month => selectedMonths.has(month));
+            const label = selected.length === 0
+                ? '未选择月份'
+                : selected.length === monthValues.length
+                    ? `全部月份（${selected.length}）`
+                    : selected.length <= 2
+                        ? selected.join('、')
+                        : `已选 ${selected.length} 个月`;
+            $('monthFilterText').textContent = label;
+            $('monthSelectionCount').textContent = `已选 ${selected.length} 项`;
+            $('monthOptions').querySelectorAll('input[data-month]').forEach(input => {
+                input.checked = selectedMonths.has(input.dataset.month);
+            });
+        }
+
+        function renderMonthOptions() {
+            $('monthOptions').innerHTML = monthValues.length
+                ? monthValues.map(month => `
+                    <label class="month-option">
+                        <input type="checkbox" data-month="${esc(month)}" ${selectedMonths.has(month) ? 'checked' : ''}>
+                        <span>${esc(month)}</span>
+                    </label>`).join('')
+                : '<div class="empty">暂无月份数据</div>';
+            updateMonthFilterLabel();
+        }
+
         function fillFilters() {
-            const months = unique([].concat(
+            const previouslySelectedAll = monthsInitialized &&
+                monthValues.length > 0 &&
+                monthValues.every(month => selectedMonths.has(month));
+            const nextMonthValues = unique([].concat(
                 rawData.monthly_total || [],
                 rawData.monthly_department_total || [],
-                rawData.valid_department_total || []
-            ).map(r => r['月份']));
-            const depts = unique([].concat(
+                rawData.valid_department_total || [],
+                rawData.monthly_people || [],
+                rawData.score_distribution || [],
+                rawData.category_distribution || []
+            ).map(row => row['月份'])).sort().reverse();
+            const previousSelection = new Set(selectedMonths);
+            monthValues = nextMonthValues;
+            if (!monthsInitialized) {
+                selectedMonths = new Set(monthValues);
+                monthsInitialized = true;
+            } else if (previouslySelectedAll) {
+                selectedMonths = new Set(monthValues);
+            } else {
+                selectedMonths = new Set(monthValues.filter(month => previousSelection.has(month)));
+            }
+            renderMonthOptions();
+
+            const departments = unique([].concat(
                 rawData.monthly_department_total || [],
                 rawData.valid_department_total || [],
-                rawData.monthly_people || []
-            ).map(r => r['部门']));
-            $('monthFilter').innerHTML = '<option value="">全部月份</option>' + months.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
-            $('deptFilter').innerHTML = '<option value="">全部部门</option>' + depts.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+                rawData.monthly_people || [],
+                rawData.score_distribution || [],
+                rawData.category_distribution || []
+            ).map(row => row['部门'])).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+            const previousDepartment = $('deptFilter').value;
+            $('deptFilter').innerHTML = '<option value="">全部部门</option>' +
+                departments.map(department => `<option value="${esc(department)}">${esc(department)}</option>`).join('');
+            if (departments.includes(previousDepartment)) $('deptFilter').value = previousDepartment;
         }
+
+        function toggleMonthMenu(forceOpen) {
+            const trigger = $('monthFilterTrigger');
+            const menu = $('monthFilterMenu');
+            const shouldOpen = forceOpen === undefined ? menu.hidden : forceOpen;
+            menu.hidden = !shouldOpen;
+            trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+        }
+
         async function loadData() {
-            $('statusText').textContent = '加载中...';
-            const resp = await fetch('/api/hr/innovation_data');
-            const json = await resp.json();
-            if (!resp.ok || !json.success) throw new Error(json.message || '加载失败');
-            rawData = json.data || {};
-            fillFilters();
-            applyFilters();
+            setStatus('正在加载数据...', 'loading');
+            $('reloadBtn').disabled = true;
+            $('exportBtn').disabled = true;
+            try {
+                const response = await fetch('/api/hr/innovation_data', { headers: { 'Accept': 'application/json' } });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.message || '数据加载失败');
+                rawData = result.data || {};
+                fillFilters();
+                applyFilters();
+            } finally {
+                $('reloadBtn').disabled = false;
+            }
         }
-        ['monthFilter', 'deptFilter', 'keywordFilter'].forEach(id => $(id).addEventListener('input', applyFilters));
-        document.addEventListener('click', e => {
-            const th = e.target.closest('th.sortable');
-            if (!th) return;
-            const table = th.getAttribute('data-table');
-            const key = th.getAttribute('data-key');
-            const prev = sortState[table] || {};
-            sortState[table] = { key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' };
+
+        async function exportData() {
+            if ($('exportBtn').disabled) return;
+            const button = $('exportBtn');
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在生成';
+            try {
+                const params = new URLSearchParams();
+                if (selectedMonths.size === 0) params.set('month_mode', 'empty');
+                monthValues.filter(month => selectedMonths.has(month)).forEach(month => params.append('month', month));
+                if ($('deptFilter').value) params.set('department', $('deptFilter').value);
+                if ($('keywordFilter').value.trim()) params.set('keyword', $('keywordFilter').value.trim());
+                const response = await fetch(`/api/hr/innovation_data/export?${params.toString()}`);
+                if (!response.ok) {
+                    let message = '导出失败，请稍后重试';
+                    try {
+                        const error = await response.json();
+                        message = error.message || message;
+                    } catch (error) {}
+                    throw new Error(message);
+                }
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const today = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+                link.href = url;
+                link.download = `创新数据_${today}.xlsx`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+                showToast('Excel 已生成，正在下载');
+            } catch (error) {
+                showToast(error.message || '导出失败，请稍后重试', 'fa-circle-exclamation');
+            } finally {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }
+        }
+
+        $('monthFilterTrigger').addEventListener('click', () => toggleMonthMenu());
+        $('monthOptions').addEventListener('change', event => {
+            const checkbox = event.target.closest('input[data-month]');
+            if (!checkbox) return;
+            if (checkbox.checked) selectedMonths.add(checkbox.dataset.month);
+            else selectedMonths.delete(checkbox.dataset.month);
+            updateMonthFilterLabel();
             applyFilters();
         });
-        $('reloadBtn').addEventListener('click', () => loadData().catch(err => $('statusText').textContent = err.message || '加载失败'));
-        loadData().catch(err => {
-            $('statusText').textContent = err.message || '加载失败';
-            ['monthlyBars', 'deptChart', 'validChart', 'peopleChart', 'scoreChart', 'categoryChart'].forEach(id => $(id).innerHTML = '<div class="empty">加载失败</div>');
+        $('selectAllMonths').addEventListener('click', () => {
+            selectedMonths = new Set(monthValues);
+            updateMonthFilterLabel();
+            applyFilters();
+        });
+        $('selectRecentMonths').addEventListener('click', () => {
+            selectedMonths = new Set(monthValues.slice(0, 3));
+            updateMonthFilterLabel();
+            applyFilters();
+        });
+        $('clearMonths').addEventListener('click', () => {
+            selectedMonths.clear();
+            updateMonthFilterLabel();
+            applyFilters();
+        });
+        $('deptFilter').addEventListener('change', applyFilters);
+        $('keywordFilter').addEventListener('input', applyFilters);
+        $('resetBtn').addEventListener('click', () => {
+            selectedMonths = new Set(monthValues);
+            $('deptFilter').value = '';
+            $('keywordFilter').value = '';
+            updateMonthFilterLabel();
+            applyFilters();
+        });
+        $('reloadBtn').addEventListener('click', () => loadData().then(() => showToast('数据已刷新')).catch(error => {
+            setStatus(error.message || '数据加载失败', 'error');
+            showToast(error.message || '数据加载失败', 'fa-circle-exclamation');
+        }));
+        $('exportBtn').addEventListener('click', exportData);
+        document.addEventListener('click', event => {
+            if (!event.target.closest('#monthFilter')) toggleMonthMenu(false);
+            const header = event.target.closest('th.sortable');
+            if (!header) return;
+            const tableId = header.dataset.table;
+            const key = header.dataset.key;
+            const previous = sortState[tableId] || {};
+            sortState[tableId] = {
+                key,
+                direction: previous.key === key && previous.direction === 'asc' ? 'desc' : 'asc'
+            };
+            applyFilters();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') toggleMonthMenu(false);
+        });
+        window.addEventListener('resize', () => charts.forEach(chart => chart.resize()));
+
+        loadData().catch(error => {
+            setStatus(error.message || '数据加载失败', 'error');
+            ['monthlyChart', 'deptChart', 'validChart', 'peopleChart', 'scoreChart', 'categoryChart'].forEach(id => {
+                const chart = getChart(id);
+                if (chart) chart.setOption(emptyChartOption('数据加载失败'), true);
+            });
+            showToast(error.message || '数据加载失败', 'fa-circle-exclamation');
         });
     </script>
 </body>

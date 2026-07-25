@@ -9,6 +9,71 @@ from 图片 import openrouter_image_site as site
 
 
 class BackgroundTaskProgressTests(unittest.TestCase):
+    def test_jimeng_hd_global_fifo_accepts_ten_jobs_and_keeps_api_serial(self) -> None:
+        class SessionState(dict):
+            def __getattr__(self, name: str):
+                return self[name]
+
+            def __setattr__(self, name: str, value) -> None:
+                self[name] = value
+
+        runtime = site.TaskRuntime()
+        first_started = threading.Event()
+        release_first = threading.Event()
+        call_count = 0
+
+        def fake_run(_job_context):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                first_started.set()
+                release_first.wait(timeout=3)
+            return {"images": [f"jimeng-result-{call_count}"]}
+
+        state = SessionState(background_jobs={}, background_job_queue=[])
+        feature = {
+            "key": site.JIMENG_HD_FEATURE_KEY,
+            "name": "即梦超清",
+        }
+        submitted_jobs = []
+        try:
+            with (
+                patch.object(site.st, "session_state", state),
+                patch.object(site, "get_task_runtime", return_value=runtime),
+                patch.object(site, "run_feature_job", side_effect=fake_run),
+            ):
+                submitted_jobs.append(
+                    site.submit_feature_job(
+                        feature,
+                        {"account_name": "account-a", "output_mode": "image"},
+                    )
+                )
+                self.assertTrue(first_started.wait(timeout=1))
+                for index in range(2, 11):
+                    submitted_jobs.append(
+                        site.submit_feature_job(
+                            feature,
+                            {"account_name": f"account-{index}", "output_mode": "image"},
+                        )
+                    )
+
+                self.assertEqual(site.JIMENG_HD_QUEUE_CAPACITY, 10)
+                self.assertEqual(site.JIMENG_MAX_API_CONCURRENCY, 1)
+                self.assertEqual(len(state.background_job_queue), 10)
+                self.assertEqual(submitted_jobs[0]["status"], "running")
+                self.assertTrue(all(job["queue_key"] == site.JIMENG_HD_GLOBAL_QUEUE_KEY for job in submitted_jobs))
+                self.assertEqual(submitted_jobs[-1]["status"], "queued")
+                self.assertEqual(submitted_jobs[-1]["queue_position"], 10)
+                self.assertEqual(submitted_jobs[-1]["queue_capacity"], 10)
+                with self.assertRaisesRegex(RuntimeError, "队列已满.*最多 10 个"):
+                    site.submit_feature_job(
+                        feature,
+                        {"account_name": "account-eleven", "output_mode": "image"},
+                    )
+        finally:
+            release_first.set()
+            runtime.shutdown(wait=True)
+
     def test_submit_feature_job_keeps_existing_job_and_appends_next_one(self) -> None:
         class SessionState(dict):
             def __getattr__(self, name: str):

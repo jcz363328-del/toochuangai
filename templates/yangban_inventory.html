@@ -501,11 +501,39 @@
             font-weight: 800;
             min-width: 0;
         }
+        button.sample-location {
+            border: 0;
+            background: transparent;
+            padding: 4px 6px;
+            margin: -4px -6px;
+            border-radius: 7px;
+            cursor: pointer;
+            text-align: left;
+        }
+        button.sample-location:hover {
+            color: #1d4ed8;
+            background: #eff6ff;
+        }
         .sample-location span {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        .location-cell-btn,
+        .detail-location-btn {
+            border: 0;
+            background: transparent;
+            color: #1d4ed8;
+            padding: 0;
+            font: inherit;
+            font-weight: 800;
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 3px;
+        }
+        .location-cell-btn:hover,
+        .detail-location-btn:hover { color: #1e40af; }
         .card-status-ok { background: #ecfdf5; color: #059669; border: 1px solid #bbf7d0; }
         .card-status-off { background: #f3f4f6; color: #64748b; border: 1px solid #e5e7eb; }
         .card-status-warn { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
@@ -611,6 +639,162 @@
         }
         .modal-title { margin: 0; font-size: 16px; font-weight: 900; }
         .modal-body { padding: 12px; overflow: auto; }
+        .location-map-card {
+            width: min(1200px, 100%);
+            max-height: min(96vh, 900px);
+        }
+        .location-map-summary {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            background: #eff6ff;
+            color: #1e3a8a;
+        }
+        .location-map-summary.unmatched {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        .location-map-summary i { font-size: 22px; }
+        .location-map-summary strong {
+            display: block;
+            margin-bottom: 3px;
+            color: #0f172a;
+            font-size: 14px;
+        }
+        .location-map-summary span { font-size: 12px; line-height: 1.5; }
+        .location-map-layouts {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+        .location-cabinet {
+            border: 2px solid #334155;
+            border-radius: 9px;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, .08);
+        }
+        .location-cabinet-head {
+            min-height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 14px;
+            background: #f1f5f9;
+            border-bottom: 2px solid #334155;
+        }
+        .location-cabinet-title {
+            color: #0f172a;
+            font-size: 18px;
+            font-weight: 950;
+        }
+        .location-cabinet-meta {
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: right;
+        }
+        .location-cabinet-scroll {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+        .location-cabinet-sheet {
+            --slot-columns: 12;
+            min-width: 900px;
+        }
+        .location-section-heads,
+        .location-slot-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--slot-columns), minmax(62px, 1fr));
+            background: #334155;
+            gap: 2px;
+        }
+        .location-section-head {
+            grid-column: span var(--section-columns);
+            min-height: 42px;
+            display: grid;
+            place-items: center;
+            background: #e2e8f0;
+            color: #0f172a;
+            font-size: 20px;
+            font-weight: 950;
+        }
+        .location-slot-grid { border-top: 2px solid #334155; }
+        .location-slot {
+            position: relative;
+            min-height: 42px;
+            display: grid;
+            place-items: center;
+            padding: 6px;
+            background: #fff;
+            color: #1f2937;
+            font-size: 17px;
+            font-weight: 800;
+        }
+        .location-slot.empty {
+            color: transparent;
+            background: #f8fafc;
+        }
+        .location-slot.target {
+            z-index: 1;
+            color: #713f12;
+            background: #fde047;
+            box-shadow: inset 0 0 0 4px #f97316, 0 0 24px rgba(249, 115, 22, .75);
+            animation: locationPulse 1.25s ease-in-out infinite;
+        }
+        .location-slot.target::after {
+            content: "在这里";
+            position: absolute;
+            right: 3px;
+            top: 3px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            background: #c2410c;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 900;
+            line-height: 1.2;
+        }
+        .location-map-empty {
+            grid-column: 1 / -1;
+            padding: 34px 18px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            background: #f8fafc;
+            color: #64748b;
+            text-align: center;
+            line-height: 1.8;
+        }
+        .location-map-cabinet-list {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+        .location-map-cabinet-list span {
+            padding: 3px 7px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #334155;
+            font-size: 11px;
+            font-weight: 800;
+        }
+        .location-map-hint {
+            margin-right: auto;
+            color: #64748b;
+            font-size: 12px;
+        }
+        @keyframes locationPulse {
+            0%, 100% { filter: brightness(1); transform: scale(1); }
+            50% { filter: brightness(1.08); transform: scale(.97); }
+        }
         .form-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -693,6 +877,7 @@
             .dash-filter-row { grid-template-columns: 1fr; }
             .sample-card-grid { grid-template-columns: 1fr; }
             .operation-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .location-slot { min-height: 42px; font-size: 15px; }
             .table-wrap table { min-width: 900px; }
         }
     </style>
@@ -903,7 +1088,7 @@
                 <div class="field"><label>工厂</label><input id="mGongChang" type="text"></div>
                 <div class="field"><label>单位</label><input id="mDanWei" type="text"></div>
                 <div class="field"><label>负责人</label><input id="mFuZeRen" type="text"></div>
-                <div class="field"><label>库位</label><input id="mKuWei" type="text"></div>
+                <div class="field"><label>库位</label><input id="mKuWei" type="text" list="pdfLocationOptions" placeholder="例如 40-A3"><datalist id="pdfLocationOptions"></datalist></div>
                 <div class="field"><label>状态</label><select id="mZhuangTai"><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
                 <div class="field wide">
                     <label>样板照片</label>
@@ -930,6 +1115,26 @@
         <div class="modal-body" id="detailBody"></div>
         <div class="modal-foot">
             <button class="btn" data-close="detailModal">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div id="locationMapModal" class="modal">
+    <div class="modal-card location-map-card">
+        <div class="modal-head">
+            <h3 class="modal-title" id="locationMapTitle">完整柜体定位</h3>
+            <button class="btn icon" data-close="locationMapModal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="locationMapSummary" class="location-map-summary">
+                <i class="fa-solid fa-location-crosshairs"></i>
+                <div><strong>正在定位库位</strong><span>请稍候...</span></div>
+            </div>
+            <div id="locationMapLayouts" class="location-map-layouts"></div>
+        </div>
+        <div class="modal-foot">
+            <span class="location-map-hint">每张图完整展示 PDF 一页；黄色闪烁格就是样品所在位置</span>
+            <button class="btn primary" data-close="locationMapModal">知道了</button>
         </div>
     </div>
 </div>
@@ -1070,6 +1275,11 @@ function statusPill(status) {
     const cls = status === "ZhengChang" ? "status-ok" : "status-off";
     return `<span class="status-pill ${cls}">${esc(statusLabels[status] || status || "-")}</span>`;
 }
+function locationLink(value, className) {
+    const text = String(value == null ? "" : value).trim();
+    if (!text) return '<span class="muted">-</span>';
+    return `<button type="button" class="${esc(className || "location-cell-btn")}" data-location-map="${esc(text)}" title="点击查看具体柜位">${esc(text)}</button>`;
+}
 function emptyTable(text) {
     return `<div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">${esc(text || "暂无数据")}</div>`;
 }
@@ -1120,6 +1330,12 @@ async function loadOptions() {
     fillSelect("dashFenLei", state.options.categories, "全部分类");
     fillSelect("dashKuWei", state.options.locations, "全部库位");
     fillSelect("dashStatus", ["ZhengChang", "TingYong"], "全部状态", s => ({ value: s, label: statusLabels[s] || s }));
+    const locationOptions = document.getElementById("pdfLocationOptions");
+    if (locationOptions) {
+        locationOptions.innerHTML = (state.options.pdf_locations || []).map(item =>
+            `<option value="${esc(item.code)}">${esc(item.label)}</option>`
+        ).join("");
+    }
     renderDashboardTagFilters();
     renderDashboardSavedSearches();
 }
@@ -1276,7 +1492,9 @@ function renderDashboardCards(items, total) {
                 <div>${renderTags(row.BiaoQianItems)}</div>
             </div>
             <div class="sample-card-footer">
-                <div class="sample-location"><i class="fa-solid fa-location-dot"></i><span>${esc(row.KuWei || "未设置库位")}</span></div>
+                ${row.KuWei
+                    ? `<button type="button" class="sample-location" data-location-map="${esc(row.KuWei)}" title="点击查看具体柜位"><i class="fa-solid fa-location-dot"></i><span>${esc(row.KuWei)}</span></button>`
+                    : '<div class="sample-location"><i class="fa-solid fa-location-dot"></i><span>未设置库位</span></div>'}
                 <div class="action-row">
                     <button class="btn small icon" data-detail="${row.Id}" title="查看详情"><i class="fa-regular fa-eye"></i></button>
                     <button class="btn small icon" data-copy-location="${esc(row.KuWei || "")}" title="复制库位"><i class="fa-regular fa-copy"></i></button>
@@ -1385,7 +1603,7 @@ function renderSamples(items) {
             <td class="stock-cell">${numberText(row.DangQianKuCun)}</td>
             <td>${esc(row.DanWei)}</td>
             <td>${esc(row.FuZeRen)}</td>
-            <td>${esc(row.KuWei)}</td>
+            <td>${locationLink(row.KuWei, "location-cell-btn")}</td>
             <td>${statusPill(row.ZhuangTai)}</td>
             <td>${esc(row.GengXinShiJian || row.ChuangJianShiJian)}</td>
             <td>
@@ -1424,6 +1642,102 @@ async function loadOperationData() {
 function openModal(id) { document.getElementById(id).classList.add("show"); }
 function closeModal(id) { document.getElementById(id).classList.remove("show"); }
 function setValue(id, value) { const el = document.getElementById(id); if (el) el.value = value == null ? "" : value; }
+
+function renderLocationMap(data) {
+    const result = data || {};
+    const summary = document.getElementById("locationMapSummary");
+    const layouts = document.getElementById("locationMapLayouts");
+    const isUnmatched = result.status === "unmatched";
+    summary.classList.toggle("unmatched", isUnmatched);
+    const heading = result.matched
+        ? (result.ambiguous ? "找到多个同名位置" : "已找到样品位置")
+        : (result.status === "area" ? "已找到完整柜体" : "暂时无法定位");
+    summary.innerHTML = `
+        <i class="fa-solid ${isUnmatched ? "fa-triangle-exclamation" : "fa-location-crosshairs"}"></i>
+        <div><strong>${esc(heading)}</strong><span>${esc(result.message || "")}</span></div>`;
+
+    const items = result.layouts || [];
+    if (!items.length) {
+        const areas = (result.available_areas || []).map(item =>
+            `<span>第${esc(item.page)}页 · ${esc(item.area)}区</span>`
+        ).join("");
+        layouts.innerHTML = `<div class="location-map-empty">
+            <i class="fa-solid fa-map-location-dot"></i><br>
+            请检查库位是否包含区域号和格位，例如 <b>40-A3</b>。
+            <div class="location-map-cabinet-list">${areas}</div>
+        </div>`;
+        return;
+    }
+
+    layouts.innerHTML = items.map(layout => {
+        const sections = layout.sections || [];
+        const sectionHeads = sections.map(section =>
+            `<div class="location-section-head" style="--section-columns:${Number(section.columns) || 1}">${esc(section.area)}</div>`
+        ).join("");
+        const rowCount = Number(layout.rows_count) || 0;
+        const orderedCells = Array.from({ length: rowCount }, (_, rowIndex) =>
+            sections.flatMap(section => (section.rows || [])[rowIndex] || [])
+        ).flat();
+        const cells = orderedCells.map(cell => {
+            const classes = ["location-slot"];
+            if (!cell.label) classes.push("empty");
+            if (cell.target) classes.push("target");
+            const title = cell.label
+                ? `PDF第${layout.page}页完整柜体，${cell.area}区域，第${cell.row}行第${cell.column}列，位置${cell.label}`
+                : `PDF第${layout.page}页完整柜体，${cell.area}区域，第${cell.row}行第${cell.column}列，空白格`;
+            return `<div class="${classes.join(" ")}" title="${esc(title)}">${cell.label ? esc(cell.label) : "&nbsp;"}</div>`;
+        }).join("");
+        const meta = layout.highlighted
+            ? `PDF第${layout.page}页 · 点亮${layout.highlighted}格`
+            : `PDF第${layout.page}页 · 未指定格位`;
+        return `<article class="location-cabinet">
+            <div class="location-cabinet-head">
+                <div class="location-cabinet-title">${esc(layout.cabinet_label || "完整柜体")}</div>
+                <div class="location-cabinet-meta">${esc(meta)}</div>
+            </div>
+            <div class="location-cabinet-scroll">
+                <div class="location-cabinet-sheet" style="--slot-columns:${Number(layout.columns) || 12}">
+                    <div class="location-section-heads">${sectionHeads}</div>
+                    <div class="location-slot-grid">${cells}</div>
+                </div>
+            </div>
+        </article>`;
+    }).join("");
+
+    requestAnimationFrame(() => {
+        layouts.querySelectorAll(".location-cabinet-scroll").forEach(scroller => {
+            const target = scroller.querySelector(".location-slot.target");
+            if (!target) return;
+            scroller.scrollLeft = Math.max(
+                0,
+                target.offsetLeft - (scroller.clientWidth - target.clientWidth) / 2
+            );
+        });
+    });
+}
+
+async function openLocationMap(value) {
+    const kuwei = String(value == null ? "" : value).trim();
+    if (!kuwei) {
+        toast("该样品尚未设置库位", "error");
+        return;
+    }
+    document.getElementById("locationMapTitle").textContent = `完整柜体定位 · ${kuwei}`;
+    document.getElementById("locationMapSummary").className = "location-map-summary";
+    document.getElementById("locationMapSummary").innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><div><strong>正在定位库位</strong><span>正在匹配 PDF 柜位图...</span></div>';
+    document.getElementById("locationMapLayouts").innerHTML = "";
+    openModal("locationMapModal");
+    try {
+        const data = await apiJson(API + "/location-map?kuwei=" + encodeURIComponent(kuwei));
+        renderLocationMap(data);
+    } catch (e) {
+        renderLocationMap({
+            status: "unmatched",
+            message: e.message || "柜位图加载失败",
+            layouts: []
+        });
+    }
+}
 
 function setPhotoPreview(url, text) {
     const preview = document.getElementById("mPhotoPreview");
@@ -1530,7 +1844,7 @@ async function openDetail(id) {
         const photoHtml = s.TuPianUrl ? `<img class="detail-photo" src="${esc(s.TuPianUrl)}" alt="样板照片">` : "";
         document.getElementById("detailBody").innerHTML = `
             ${photoHtml}
-            <div class="detail-grid">${fields.map(([k, v]) => `<div class="detail-item"><div class="detail-label">${esc(k)}</div><div class="detail-value">${esc(v)}</div></div>`).join("")}</div>
+            <div class="detail-grid">${fields.map(([k, v]) => `<div class="detail-item"><div class="detail-label">${esc(k)}</div><div class="detail-value">${k === "库位" ? locationLink(v, "detail-location-btn") : esc(v)}</div></div>`).join("")}</div>
             <div style="margin-bottom:10px;">${renderTags(s.BiaoQianItems)}</div>
             <div class="table-wrap"><table><thead><tr><th>操作时间</th><th>操作类型</th><th>变动数量</th><th>操作人</th><th>关联单号</th><th>备注</th></tr></thead><tbody>${flowRows || '<tr><td colspan="6" class="muted">暂无流水</td></tr>'}</tbody></table></div>`;
         openModal("detailModal");
@@ -1700,6 +2014,12 @@ function bindEvents() {
     document.querySelectorAll("[data-tab-jump]").forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tabJump)));
     document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", () => closeModal(btn.dataset.close)));
     document.querySelectorAll(".modal").forEach(modal => modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("show"); }));
+    document.addEventListener("click", e => {
+        const locationButton = e.target.closest("[data-location-map]");
+        if (!locationButton) return;
+        e.preventDefault();
+        openLocationMap(locationButton.dataset.locationMap);
+    });
     document.getElementById("refreshAllBtn").addEventListener("click", initLoad);
     document.getElementById("runDashboardSearch").addEventListener("click", loadDashboardCards);
     document.getElementById("dashKeyword").addEventListener("keydown", e => { if (e.key === "Enter") loadDashboardCards(); });

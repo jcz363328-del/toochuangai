@@ -4,6 +4,7 @@ from io import BytesIO
 import json
 import os
 import re
+import unicodedata
 import uuid
 
 import pandas as pd
@@ -30,6 +31,115 @@ _LOCATION_TYPES = {"Gui", "Ceng", "Ge"}
 _LOCATION_STATUSES = {"ZhengChang", "TingYong"}
 _SAMPLE_IMAGE_DIR = r"D:\tuchuangai\样板图"
 _SAMPLE_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+
+# 根据《两个表格电子版.pdf》逐格录入：每一页是一个完整柜体，页内数字是区域号。
+# 空字符串代表 PDF 中的空白格。
+_PDF_CABINET_AREAS = (
+    {
+        "area": "48",
+        "page": 1,
+        "rows": (
+            ("A1", "A2", "A4"),
+            ("A5", "A6", "A7"),
+            ("A8", "A9", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+        ),
+    },
+    {
+        "area": "52",
+        "page": 1,
+        "rows": (
+            ("A1", "A2", "A3"),
+            ("A4", "A5", "A6"),
+            ("A7", "A8", "A9"),
+            ("A10", "A11", "A12"),
+            ("A13", "A14", "A15"),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+        ),
+    },
+    {
+        "area": "40",
+        "page": 1,
+        "rows": tuple((f"A{index}", f"B{index}", f"C{index}") for index in range(1, 9)),
+    },
+    {
+        "area": "51",
+        "page": 1,
+        "rows": (
+            ("A1", "B1", "C1"),
+            ("A2", "B3", "C4"),
+            ("A3", "B4", "C5"),
+            ("A4", "B5", "C6"),
+            ("A5", "B6", "C7"),
+            ("A6", "B7", "C8"),
+            ("A7", "B8", ""),
+            ("A8", "", ""),
+        ),
+    },
+    {
+        "area": "32",
+        "page": 2,
+        "rows": (
+            ("10", "32", "75"),
+            ("10", "32", ""),
+            ("11", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+        ),
+    },
+    {
+        "area": "18",
+        "page": 2,
+        "rows": tuple((f"A{index}", f"A{index}") for index in range(0, 7)) + (("", ""),),
+    },
+    {
+        "area": "64",
+        "page": 2,
+        "rows": tuple((f"A{index}",) for index in range(0, 7)) + (("",),),
+    },
+    {
+        "area": "33",
+        "page": 2,
+        "rows": (("33",), ("33",), ("53",), ("",), ("",), ("",), ("",), ("",)),
+    },
+    {
+        "area": "05",
+        "page": 2,
+        "rows": (
+            ("05", "05"),
+            ("05", "05"),
+            ("05", "05"),
+            ("05", "05"),
+            ("05", "05"),
+            ("", ""),
+            ("", ""),
+            ("", ""),
+        ),
+    },
+    {
+        "area": "23",
+        "page": 2,
+        "rows": (
+            ("23A3", "23A2", "23A1"),
+            ("23A6", "23A5", "23A4"),
+            ("23A9", "23A8", "23A7"),
+            ("", "", "23"),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+        ),
+    },
+)
 
 
 def _db_connect():
@@ -123,6 +233,201 @@ def _clean_text(value, limit=200):
     if limit and len(text) > limit:
         text = text[:limit]
     return text
+
+
+def _normalize_pdf_location(value):
+    text = unicodedata.normalize("NFKC", str(value or "")).upper().strip()
+    text = re.sub(r"(样品室|样板室|库位|位置|号柜|柜子|柜)", "", text)
+    return re.sub(r"[\s\-_/\\:：.]+", "", text)
+
+
+def _pdf_cell_aliases(area, label):
+    normalized = _normalize_pdf_location(label)
+    aliases = {normalized} if normalized else set()
+    area_key = _normalize_pdf_location(area)
+    if normalized.startswith(area_key) and normalized != area_key:
+        aliases.add(normalized[len(area_key):])
+    return aliases
+
+
+def _pdf_location_options():
+    options = []
+    seen = set()
+    for layout in _PDF_CABINET_AREAS:
+        area = layout["area"]
+        for row in layout["rows"]:
+            for label in row:
+                if not label:
+                    continue
+                aliases = _pdf_cell_aliases(area, label)
+                short_label = next(
+                    (alias for alias in aliases if alias != _normalize_pdf_location(label)),
+                    _normalize_pdf_location(label),
+                )
+                code = f"{area}-{short_label}"
+                if code in seen:
+                    continue
+                seen.add(code)
+                options.append(
+                    {
+                        "code": code,
+                        "label": f"PDF第{layout['page']}页完整柜体 · {area}区 · {label}",
+                        "page": layout["page"],
+                        "area": area,
+                        "position": label,
+                    }
+                )
+    return options
+
+
+def _resolve_pdf_location(value):
+    raw_value = _clean_text(value, 100)
+    token = _normalize_pdf_location(raw_value)
+    layouts_by_area = {layout["area"]: layout for layout in _PDF_CABINET_AREAS}
+    matched_cells = []
+    area_only = ""
+
+    coordinate_match = re.fullmatch(r"(\d{2})R(\d+)C(\d+)", token)
+    if coordinate_match and coordinate_match.group(1) in layouts_by_area:
+        area = coordinate_match.group(1)
+        row_index = int(coordinate_match.group(2)) - 1
+        column_index = int(coordinate_match.group(3)) - 1
+        layout = layouts_by_area[area]
+        if 0 <= row_index < len(layout["rows"]) and 0 <= column_index < len(layout["rows"][row_index]):
+            label = layout["rows"][row_index][column_index]
+            if label:
+                matched_cells.append((area, row_index, column_index))
+
+    if token and not matched_cells:
+        for area, layout in layouts_by_area.items():
+            area_key = _normalize_pdf_location(area)
+            if not token.startswith(area_key):
+                continue
+            suffix = token[len(area_key):]
+            if not suffix:
+                area_only = area
+                break
+            for row_index, row in enumerate(layout["rows"]):
+                for column_index, label in enumerate(row):
+                    if not label:
+                        continue
+                    aliases = _pdf_cell_aliases(area, label)
+                    if suffix in aliases:
+                        matched_cells.append((area, row_index, column_index))
+            break
+
+    if token and not matched_cells and not area_only:
+        for area, layout in layouts_by_area.items():
+            for row_index, row in enumerate(layout["rows"]):
+                for column_index, label in enumerate(row):
+                    if label and token in _pdf_cell_aliases(area, label):
+                        matched_cells.append((area, row_index, column_index))
+
+    target_set = set(matched_cells)
+    matched_areas = []
+    for area, _, _ in matched_cells:
+        if area not in matched_areas:
+            matched_areas.append(area)
+    if area_only and area_only not in matched_areas:
+        matched_areas.append(area_only)
+
+    matched_pages = []
+    for area in matched_areas:
+        page = layouts_by_area[area]["page"]
+        if page not in matched_pages:
+            matched_pages.append(page)
+
+    rendered_layouts = []
+    for page in matched_pages:
+        page_areas = [layout for layout in _PDF_CABINET_AREAS if layout["page"] == page]
+        highlighted = 0
+        sections = []
+        for layout in page_areas:
+            area = layout["area"]
+            rows = []
+            for row_index, row in enumerate(layout["rows"]):
+                cells = []
+                for column_index, label in enumerate(row):
+                    is_target = (area, row_index, column_index) in target_set
+                    if is_target:
+                        highlighted += 1
+                    cells.append(
+                        {
+                            "label": label,
+                            "row": row_index + 1,
+                            "column": column_index + 1,
+                            "area": area,
+                            "target": is_target,
+                        }
+                    )
+                rows.append(cells)
+            sections.append(
+                {
+                    "area": area,
+                    "columns": max((len(row) for row in layout["rows"]), default=1),
+                    "rows": rows,
+                }
+            )
+        rendered_layouts.append(
+            {
+                "page": page,
+                "cabinet_label": "完整柜体",
+                "columns": sum(section["columns"] for section in sections),
+                "rows_count": max((len(section["rows"]) for section in sections), default=0),
+                "highlighted": highlighted,
+                "sections": sections,
+            }
+        )
+
+    if matched_cells:
+        ambiguous = len(matched_areas) > 1
+        if ambiguous:
+            if len(matched_pages) > 1:
+                message = f"库位“{raw_value}”未包含区域号，在 {len(matched_pages)} 个完整柜体中找到同名位置。"
+            else:
+                message = (
+                    f"库位“{raw_value}”未包含区域号，在 PDF 第{matched_pages[0]}页完整柜体的 "
+                    f"{len(matched_areas)} 个区域中找到同名位置。"
+                )
+        else:
+            area = matched_areas[0]
+            page = layouts_by_area[area]["page"]
+            count_text = f"，共 {len(matched_cells)} 格" if len(matched_cells) > 1 else ""
+            message = f"已定位到 PDF 第{page}页完整柜体的 {area} 区域{count_text}。"
+        status = "matched"
+    elif area_only:
+        page = layouts_by_area[area_only]["page"]
+        message = f"已找到 PDF 第{page}页完整柜体的 {area_only} 区域，但库位未包含具体格位。"
+        status = "area"
+        ambiguous = False
+    else:
+        message = f"库位“{raw_value or '未填写'}”未在 PDF 柜位图中找到，请使用“区域号-位置”，例如 40-A3。"
+        status = "unmatched"
+        ambiguous = False
+
+    return {
+        "query": raw_value,
+        "normalized": token,
+        "status": status,
+        "matched": bool(matched_cells),
+        "ambiguous": ambiguous,
+        "message": message,
+        "highlight_count": len(matched_cells),
+        "available_areas": [
+            {"area": layout["area"], "page": layout["page"]}
+            for layout in _PDF_CABINET_AREAS
+        ],
+        "layouts": rendered_layouts,
+    }
+
+
+def _location_table_exists():
+    return bool(
+        _scalar(
+            "SELECT CASE WHEN OBJECT_ID(N'dbo.YangBan_KuWei', N'U') IS NULL THEN 0 ELSE 1 END",
+            default=0,
+        )
+    )
 
 
 def _clean_color(value):
@@ -331,6 +636,8 @@ def _location_status_label(status):
 
 
 def _location_rows():
+    if not _location_table_exists():
+        return []
     return _select(
         f"""
         SELECT Id, KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
@@ -343,6 +650,8 @@ def _location_rows():
 
 
 def _location_by_id(location_id):
+    if not _location_table_exists():
+        return None
     rows = _select(
         f"""
         SELECT Id, KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
@@ -360,6 +669,8 @@ def _location_code_exists(code, exclude_id=None):
     text = _clean_text(code, 80)
     if not text:
         return False
+    if not _location_table_exists():
+        return False
     params = [text]
     where_extra = ""
     if exclude_id:
@@ -375,6 +686,10 @@ def _location_code_exists(code, exclude_id=None):
 def _active_ge_location_exists(code):
     text = _clean_text(code, 80)
     if not text:
+        return False
+    if _resolve_pdf_location(text).get("matched"):
+        return True
+    if not _location_table_exists():
         return False
     count = _scalar(
         f"""
@@ -397,7 +712,7 @@ def _validate_sample_kuwei(kuwei, existing=None):
     if old_text and text == old_text:
         return text
     if not _active_ge_location_exists(text):
-        raise ValueError("库位只能选择正常状态的格位")
+        raise ValueError("库位不在 PDF 柜位图中，请按“区域号-位置”填写，例如 40-A3")
     return text
 
 
@@ -766,6 +1081,20 @@ def sample_image(filename):
     return send_from_directory(_SAMPLE_IMAGE_DIR, safe_name)
 
 
+@yangban_inventory_bp.route("/api/procurement/yangban/location-map")
+@require_permission("procurement_dept")
+def api_location_map():
+    try:
+        return jsonify(
+            {
+                "success": True,
+                "data": _resolve_pdf_location(request.args.get("kuwei")),
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载柜位图失败：{exc}"}), 500
+
+
 @yangban_inventory_bp.route("/api/procurement/yangban/locations/tree")
 @require_permission("procurement_dept")
 def api_location_tree():
@@ -1021,15 +1350,18 @@ def api_options():
             ORDER BY ZhuangTai
             """
         )
-        ge_locations = _select(
-            f"""
-            SELECT Id, KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
-                   FuJiId, WeiZhiLeiXing, PaiXuHao, ZuiDaRongLiang
-            FROM {_LOCATION_TABLE}
-            WHERE WeiZhiLeiXing = N'Ge'
-            ORDER BY ISNULL(PaiXuHao, 999999), KuWeiBianHao
-            """
-        )
+        if _location_table_exists():
+            ge_locations = _select(
+                f"""
+                SELECT Id, KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
+                       FuJiId, WeiZhiLeiXing, PaiXuHao, ZuiDaRongLiang
+                FROM {_LOCATION_TABLE}
+                WHERE WeiZhiLeiXing = N'Ge'
+                ORDER BY ISNULL(PaiXuHao, 999999), KuWeiBianHao
+                """
+            )
+        else:
+            ge_locations = []
         active_ge_locations = [row for row in ge_locations if row.get("ZhuangTai") == "ZhengChang"]
         return jsonify(
             {
@@ -1042,6 +1374,7 @@ def api_options():
                     "active_tags": _tag_rows(False),
                     "ge_locations": ge_locations,
                     "active_ge_locations": active_ge_locations,
+                    "pdf_locations": _pdf_location_options(),
                 },
             }
         )

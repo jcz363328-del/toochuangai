@@ -187,16 +187,304 @@
     gap: 4px;
 }
 
-#category-distribution {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+.innovation-dashboard {
+    --dash-ink: #17213b;
+    --dash-muted: #6b7890;
+    --dash-line: #e6eaf2;
+    --dash-primary: #4465d8;
+    overflow: hidden;
+    border: 1px solid var(--dash-line);
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at 100% 0, rgba(68, 101, 216, 0.09), transparent 28rem),
+        #f7f9fc;
+    box-shadow: 0 18px 48px rgba(30, 49, 87, 0.09);
 }
 
-#category-distribution .category-rank-item {
-    flex: 1;
-    min-height: 72px;
-    padding: 8px 0;
+.dashboard-heading {
+    padding: 24px 26px 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.dashboard-heading h5 {
+    margin: 0;
+    color: var(--dash-ink);
+    font-size: 21px;
+    font-weight: 700;
+}
+
+.dashboard-heading p {
+    margin: 6px 0 0;
+    color: var(--dash-muted);
+    font-size: 13px;
+}
+
+.dashboard-data-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 7px 11px;
+    border: 1px solid #dce4f2;
+    border-radius: 999px;
+    color: #5d6b83;
+    background: rgba(255, 255, 255, 0.88);
+    font-size: 12px;
+}
+
+.dashboard-data-status::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #18a578;
+    box-shadow: 0 0 0 4px rgba(24, 165, 120, 0.1);
+}
+
+.dashboard-data-status.loading::before {
+    background: #e89b32;
+    box-shadow: 0 0 0 4px rgba(232, 155, 50, 0.11);
+}
+
+.dashboard-data-status.error::before {
+    background: #df6075;
+    box-shadow: 0 0 0 4px rgba(223, 96, 117, 0.11);
+}
+
+.dashboard-filterbar {
+    margin: 0 26px 20px;
+    padding: 14px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid #e1e7f0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.94);
+}
+
+.dashboard-date-fields,
+.dashboard-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.dashboard-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dashboard-field label {
+    color: #68758b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.dashboard-field .form-control {
+    width: 158px;
+    height: 38px;
+    border-color: #d5deeb;
+    border-radius: 9px;
+    font-size: 13px;
+}
+
+.dashboard-actions .btn {
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 9px;
+    padding-inline: 13px;
+    font-weight: 600;
+}
+
+.dashboard-body {
+    padding: 0 26px 26px;
+}
+
+.dashboard-kpis {
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.innovation-dashboard .dashboard-kpi {
+    position: relative;
+    overflow: hidden;
+    min-height: 116px;
+    padding: 19px;
+    border: 1px solid #e2e8f1;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 9px 26px rgba(33, 51, 84, 0.055);
+}
+
+.innovation-dashboard .dashboard-kpi::after {
+    content: "";
+    position: absolute;
+    right: -25px;
+    bottom: -38px;
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    background: var(--kpi-tint, rgba(68, 101, 216, 0.09));
+}
+
+.dashboard-kpi-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.dashboard-kpi-label {
+    color: var(--dash-muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.dashboard-kpi-icon {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: var(--kpi-color, var(--dash-primary));
+    background: var(--kpi-tint, rgba(68, 101, 216, 0.09));
+}
+
+.dashboard-kpi-value {
+    position: relative;
+    z-index: 1;
+    margin-top: 10px;
+    color: var(--dash-ink);
+    font-size: 31px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+}
+
+.dashboard-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.innovation-dashboard .dashboard-chart-card {
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid #e2e8f1;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 9px 26px rgba(33, 51, 84, 0.055);
+}
+
+.innovation-dashboard .dashboard-chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(33, 51, 84, 0.09);
+}
+
+.dashboard-chart-card.wide {
+    grid-column: 1 / -1;
+}
+
+.dashboard-chart-card .card-header {
+    padding: 16px 18px 0;
+    border: 0;
+    background: transparent;
+}
+
+.dashboard-chart-title {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dash-ink);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.dashboard-chart-subtitle {
+    margin: 5px 0 0;
+    color: var(--dash-muted);
+    font-size: 12px;
+}
+
+.dashboard-chart-card .card-body {
+    padding: 4px 10px 10px;
+}
+
+.dashboard-chart {
+    width: 100%;
+    height: 310px;
+}
+
+.dashboard-chart.tall {
+    height: 360px;
+}
+
+.dashboard-chart.wide-chart {
+    height: 330px;
+}
+
+@media (max-width: 768px) {
+    .dashboard-heading {
+        padding: 20px 18px 14px;
+        flex-direction: column;
+    }
+
+    .dashboard-filterbar {
+        margin: 0 18px 18px;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .dashboard-body {
+        padding: 0 18px 20px;
+    }
+
+    .dashboard-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-chart-card.wide {
+        grid-column: auto;
+    }
+
+    .dashboard-chart,
+    .dashboard-chart.tall,
+    .dashboard-chart.wide-chart {
+        height: 300px;
+    }
+}
+
+@media (max-width: 520px) {
+    .dashboard-date-fields,
+    .dashboard-actions,
+    .dashboard-field,
+    .dashboard-field .form-control {
+        width: 100%;
+    }
+
+    .dashboard-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .dashboard-actions .btn:last-child {
+        grid-column: 1 / -1;
+    }
 }
 
 .loading-spinner {
@@ -366,163 +654,127 @@
 <!-- 数字看板 -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-bar-chart-fill text-info me-2"></i>
-                    数字看板
-                </h5>
-                <div class="d-flex align-items-center gap-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <label for="startDateFilter" class="form-label mb-0 text-nowrap">开始日期:</label>
-                        <input type="date" id="startDateFilter" class="form-control form-control-sm" style="width: 150px;">
+        <section class="innovation-dashboard" aria-labelledby="dashboardTitle">
+            <div class="dashboard-heading">
+                <div>
+                    <h5 id="dashboardTitle"><i class="bi bi-bar-chart-fill text-primary me-2"></i>创新数据看板</h5>
+                    <p>从提案规模、有效率、积分贡献、人员表现和创新方向查看团队创新活力。</p>
+                </div>
+                <span class="dashboard-data-status loading" id="dashboardDataStatus" aria-live="polite">正在加载数据</span>
+            </div>
+
+            <div class="dashboard-filterbar" aria-label="看板日期筛选">
+                <div class="dashboard-date-fields">
+                    <div class="dashboard-field">
+                        <label for="startDateFilter">开始日期</label>
+                        <input type="date" id="startDateFilter" class="form-control form-control-sm">
                     </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <label for="endDateFilter" class="form-label mb-0 text-nowrap">结束日期:</label>
-                        <input type="date" id="endDateFilter" class="form-control form-control-sm" style="width: 150px;">
+                    <div class="dashboard-field">
+                        <label for="endDateFilter">结束日期</label>
+                        <input type="date" id="endDateFilter" class="form-control form-control-sm">
                     </div>
-                    <button class="btn btn-primary btn-sm" onclick="filterByDateRange()">
+                </div>
+                <div class="dashboard-actions">
+                    <button class="btn btn-primary btn-sm" type="button" onclick="filterByDateRange()">
                         <i class="bi bi-search"></i> 查询
                     </button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="clearDateFilter()">
-                        <i class="bi bi-x-circle"></i> 清空
+                    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearDateFilter()">
+                        <i class="bi bi-x-circle"></i> 查看全部
                     </button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="refreshDashboard()">
+                    <button class="btn btn-outline-primary btn-sm" id="dashboardRefreshBtn" type="button" onclick="refreshDashboard()">
                         <i class="bi bi-arrow-clockwise"></i> 刷新
                     </button>
                 </div>
             </div>
-            <div class="card-body">
-                <!-- 基础统计卡片 -->
-                <div class="row mb-4">
-                    <div class="col-md-4 mb-3">
-                        <div class="card stats-card bg-primary text-white h-100">
-                            <div class="card-body text-center">
-                                <i class="bi bi-file-earmark-text display-4 dashboard-icon"></i>
-                                <h3 id="total-proposals">-</h3>
-                                <p class="card-text">总提案数</p>
-                            </div>
+
+            <div class="dashboard-body">
+                <div class="dashboard-kpis" aria-label="核心指标">
+                    <article class="dashboard-kpi">
+                        <div class="dashboard-kpi-head">
+                            <span class="dashboard-kpi-label">总提案数</span>
+                            <span class="dashboard-kpi-icon"><i class="bi bi-file-earmark-text"></i></span>
                         </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="card stats-card bg-success text-white h-100">
-                            <div class="card-body text-center">
-                                <i class="bi bi-check-circle display-4 dashboard-icon"></i>
-                                <h3 id="adopted-proposals">-</h3>
-                                <p class="card-text">采纳提案数</p>
-                            </div>
+                        <div class="dashboard-kpi-value" id="total-proposals">—</div>
+                    </article>
+                    <article class="dashboard-kpi" style="--kpi-color:#129a71;--kpi-tint:rgba(18,154,113,.1);">
+                        <div class="dashboard-kpi-head">
+                            <span class="dashboard-kpi-label">采纳提案数</span>
+                            <span class="dashboard-kpi-icon"><i class="bi bi-check-circle"></i></span>
                         </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="card stats-card bg-warning text-white h-100">
-                            <div class="card-body text-center">
-                                <i class="bi bi-percent display-4 dashboard-icon"></i>
-                                <h3 id="effectiveness-rate">-%</h3>
-                                <p class="card-text">提案有效率</p>
-                            </div>
+                        <div class="dashboard-kpi-value" id="adopted-proposals">—</div>
+                    </article>
+                    <article class="dashboard-kpi" style="--kpi-color:#e58c2e;--kpi-tint:rgba(229,140,46,.11);">
+                        <div class="dashboard-kpi-head">
+                            <span class="dashboard-kpi-label">提案有效率</span>
+                            <span class="dashboard-kpi-icon"><i class="bi bi-percent"></i></span>
                         </div>
-                    </div>
+                        <div class="dashboard-kpi-value" id="effectiveness-rate">—</div>
+                    </article>
                 </div>
 
-                <!-- 排行榜和分类统计 -->
-                <div class="row mb-4">
-                    <div class="col-md-6 mb-3">
-                        <div class="card dashboard-card ranking-card h-100">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-person-star text-info me-2"></i>
-                                    个人积分排行榜
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div id="top-person" class="text-center">
-                                    <div class="spinner-border loading-spinner" role="status">
-                                        <span class="visually-hidden">加载中...</span>
-                                    </div>
-                                </div>
-                            </div>
+                <div class="dashboard-chart-grid">
+                    <article class="card dashboard-card dashboard-chart-card wide">
+                        <div class="card-header">
+                            <h6 class="dashboard-chart-title"><i class="bi bi-building text-primary"></i>部门积分贡献</h6>
+                            <p class="dashboard-chart-subtitle">按部门累计提案最高分，展示前 10 名</p>
                         </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card dashboard-card ranking-card h-100">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-trophy text-warning me-2"></i>
-                                    个人提案数量前三
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div id="top-proposal-counts" class="text-center">
-                                    <div class="spinner-border loading-spinner" role="status">
-                                        <span class="visually-hidden">加载中...</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="card-body">
+                            <div id="top-department" class="dashboard-chart tall" role="img" aria-label="部门积分贡献排名图"></div>
                         </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card dashboard-card ranking-card h-100">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-star text-success me-2"></i>
-                                    单项提案最高分
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div id="top-highest-scores" class="text-center">
-                                    <div class="spinner-border loading-spinner" role="status">
-                                        <span class="visually-hidden">加载中...</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card dashboard-card ranking-card h-100">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-pie-chart text-success me-2"></i>
-                                    创新类别分布 (TOP 3)
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div id="category-distribution">
-                                    <div class="text-center">
-                                        <div class="spinner-border loading-spinner" role="status">
-                                            <span class="visually-hidden">加载中...</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    </article>
 
-
-                <!-- 月度趋势 -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card dashboard-card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-graph-up text-primary me-2"></i>
-                                    月度提案趋势 (最近6个月)
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div id="monthly-trend">
-                                    <div class="text-center">
-                                        <div class="spinner-border loading-spinner" role="status">
-                                            <span class="visually-hidden">加载中...</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    <article class="card dashboard-card dashboard-chart-card">
+                        <div class="card-header">
+                            <h6 class="dashboard-chart-title"><i class="bi bi-person-star text-primary"></i>个人积分排行榜</h6>
+                            <p class="dashboard-chart-subtitle">个人累计创新积分前三名</p>
                         </div>
-                    </div>
+                        <div class="card-body">
+                            <div id="top-person" class="dashboard-chart" role="img" aria-label="个人积分排行榜"></div>
+                        </div>
+                    </article>
+
+                    <article class="card dashboard-card dashboard-chart-card">
+                        <div class="card-header">
+                            <h6 class="dashboard-chart-title"><i class="bi bi-trophy text-warning"></i>个人提案表现</h6>
+                            <p class="dashboard-chart-subtitle">提案总量与有效提案量对比</p>
+                        </div>
+                        <div class="card-body">
+                            <div id="top-proposal-counts" class="dashboard-chart" role="img" aria-label="个人提案数量与有效数量对比图"></div>
+                        </div>
+                    </article>
+
+                    <article class="card dashboard-card dashboard-chart-card">
+                        <div class="card-header">
+                            <h6 class="dashboard-chart-title"><i class="bi bi-star text-success"></i>单项提案最高分</h6>
+                            <p class="dashboard-chart-subtitle">最高评分提案的人员分布</p>
+                        </div>
+                        <div class="card-body">
+                            <div id="top-highest-scores" class="dashboard-chart" role="img" aria-label="单项提案最高分图"></div>
+                        </div>
+                    </article>
+
+                    <article class="card dashboard-card dashboard-chart-card">
+                        <div class="card-header">
+                            <h6 class="dashboard-chart-title"><i class="bi bi-pie-chart text-success"></i>创新类别分布</h6>
+                            <p class="dashboard-chart-subtitle">主要创新方向及其提案占比</p>
+                        </div>
+                        <div class="card-body">
+                            <div id="category-distribution" class="dashboard-chart" role="img" aria-label="创新类别分布图"></div>
+                        </div>
+                    </article>
+
+                    <article class="card dashboard-card dashboard-chart-card wide">
+                        <div class="card-header">
+                            <h6 class="dashboard-chart-title"><i class="bi bi-graph-up text-primary"></i>月度提案趋势</h6>
+                            <p class="dashboard-chart-subtitle">所选日期范围内的月度变化；未筛选时展示最近 6 个月</p>
+                        </div>
+                        <div class="card-body">
+                            <div id="monthly-trend" class="dashboard-chart wide-chart" role="img" aria-label="月度提案趋势图"></div>
+                        </div>
+                    </article>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 </div>
 
@@ -530,6 +782,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>
 // 加载统计数据
 function loadStatistics() {
@@ -698,277 +951,407 @@ function showEmptyRanking() {
     if (emptyEl) emptyEl.style.display = 'block';
 }
 // 数字看板相关函数
-function loadDashboardData() {
-    console.log('加载数字看板数据...');
+const dashboardCharts = new Map();
+const dashboardChartIds = [
+    'top-department',
+    'top-person',
+    'top-proposal-counts',
+    'top-highest-scores',
+    'category-distribution',
+    'monthly-trend'
+];
+const dashboardPalette = ['#4465d8', '#17a078', '#e99735', '#7657c8', '#da6175', '#3796b7', '#8ba84b', '#9b7049'];
+let dashboardRequestId = 0;
 
-    // 获取当前选择的日期范围
+function setDashboardStatus(message, state = 'ready') {
+    const status = document.getElementById('dashboardDataStatus');
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('loading', state === 'loading');
+    status.classList.toggle('error', state === 'error');
+}
+
+function getDashboardChart(id) {
+    const element = document.getElementById(id);
+    if (!element) return null;
+    if (!window.echarts) {
+        element.innerHTML = '<div class="h-100 d-flex align-items-center justify-content-center text-muted small">图表组件加载失败，请刷新页面重试</div>';
+        return null;
+    }
+    if (!dashboardCharts.has(id)) {
+        dashboardCharts.set(id, echarts.init(element, null, { renderer: 'canvas' }));
+    }
+    return dashboardCharts.get(id);
+}
+
+function dashboardBaseOption() {
+    return {
+        animationDuration: 650,
+        animationEasing: 'cubicOut',
+        textStyle: {
+            fontFamily: '"Microsoft YaHei", "PingFang SC", Arial, sans-serif',
+            color: '#5f6c82'
+        },
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: 'rgba(23, 33, 59, .95)',
+            borderWidth: 0,
+            padding: [9, 11],
+            textStyle: { color: '#fff' }
+        },
+        toolbox: {
+            right: 10,
+            top: 5,
+            feature: {
+                saveAsImage: {
+                    name: '创新数据看板',
+                    title: '保存图表',
+                    pixelRatio: 2
+                }
+            },
+            iconStyle: { borderColor: '#8d99aa' },
+            emphasis: { iconStyle: { borderColor: '#4465d8' } }
+        }
+    };
+}
+
+function dashboardEmptyOption(message = '当前筛选范围暂无数据') {
+    return {
+        title: {
+            text: message,
+            left: 'center',
+            top: 'middle',
+            textStyle: { color: '#96a1b2', fontSize: 13, fontWeight: 400 }
+        },
+        xAxis: { show: false },
+        yAxis: { show: false },
+        series: []
+    };
+}
+
+function setDashboardChartOption(id, option, hasData) {
+    const chart = getDashboardChart(id);
+    if (!chart) return;
+    chart.hideLoading();
+    chart.clear();
+    chart.setOption(hasData ? option : dashboardEmptyOption(), true);
+}
+
+function showDashboardLoading() {
+    document.getElementById('total-proposals').textContent = '—';
+    document.getElementById('adopted-proposals').textContent = '—';
+    document.getElementById('effectiveness-rate').textContent = '—';
+    setDashboardStatus('正在加载数据', 'loading');
+    dashboardChartIds.forEach(id => {
+        const chart = getDashboardChart(id);
+        if (chart) {
+            chart.showLoading('default', {
+                text: '数据加载中',
+                color: '#4465d8',
+                textColor: '#6b7890',
+                maskColor: 'rgba(255,255,255,.82)'
+            });
+        }
+    });
+}
+
+function renderHorizontalDashboardChart(id, items, valueKey, seriesName, color, limit = 10) {
+    const values = (items || [])
+        .filter(item => item && item.name && item.name !== '暂无数据')
+        .slice(0, limit)
+        .reverse();
+    const option = {
+        ...dashboardBaseOption(),
+        grid: { left: 18, right: 48, top: 42, bottom: 18, containLabel: true },
+        xAxis: {
+            type: 'value',
+            minInterval: 1,
+            axisLabel: { color: '#8793a6' },
+            splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+        },
+        yAxis: {
+            type: 'category',
+            data: values.map(item => item.name),
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { color: '#536078', width: 110, overflow: 'truncate' }
+        },
+        series: [{
+            name: seriesName,
+            type: 'bar',
+            barMaxWidth: 22,
+            data: values.map(item => Number(item[valueKey] || 0)),
+            itemStyle: { color, borderRadius: [0, 7, 7, 0] },
+            label: {
+                show: true,
+                position: 'right',
+                color: '#536078',
+                fontWeight: 700
+            }
+        }]
+    };
+    setDashboardChartOption(id, option, values.length > 0);
+}
+
+function renderProposalPerformanceChart(items) {
+    const values = (items || []).filter(item => item && item.name).slice(0, 8);
+    const option = {
+        ...dashboardBaseOption(),
+        legend: {
+            top: 5,
+            left: 12,
+            data: ['提案总量', '有效提案'],
+            textStyle: { color: '#6b7890' }
+        },
+        grid: { left: 44, right: 20, top: 52, bottom: 48 },
+        xAxis: {
+            type: 'category',
+            data: values.map(item => item.name),
+            axisLine: { lineStyle: { color: '#d8e0ea' } },
+            axisTick: { show: false },
+            axisLabel: { color: '#647188', interval: 0, overflow: 'truncate', width: 70 }
+        },
+        yAxis: {
+            type: 'value',
+            minInterval: 1,
+            axisLabel: { color: '#8793a6' },
+            splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+        },
+        series: [
+            {
+                name: '提案总量',
+                type: 'bar',
+                barMaxWidth: 26,
+                data: values.map(item => Number(item.count || 0)),
+                itemStyle: { color: '#4465d8', borderRadius: [6, 6, 2, 2] }
+            },
+            {
+                name: '有效提案',
+                type: 'bar',
+                barMaxWidth: 26,
+                data: values.map(item => Number(item.effective_count || 0)),
+                itemStyle: { color: '#17a078', borderRadius: [6, 6, 2, 2] }
+            }
+        ]
+    };
+    setDashboardChartOption('top-proposal-counts', option, values.length > 0);
+}
+
+function renderHighestScoreChart(items) {
+    const values = (items || []).filter(item => item && item.name).slice(0, 10);
+    const option = {
+        ...dashboardBaseOption(),
+        grid: { left: 46, right: 20, top: 45, bottom: 52 },
+        xAxis: {
+            type: 'category',
+            data: values.map(item => item.name),
+            axisLine: { lineStyle: { color: '#d8e0ea' } },
+            axisTick: { show: false },
+            axisLabel: { color: '#647188', interval: 0, rotate: values.length > 5 ? 25 : 0 }
+        },
+        yAxis: {
+            type: 'value',
+            minInterval: 1,
+            name: '分数',
+            nameTextStyle: { color: '#8793a6' },
+            axisLabel: { color: '#8793a6' },
+            splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+        },
+        series: [{
+            name: '最高分',
+            type: 'bar',
+            barMaxWidth: 32,
+            data: values.map(item => Number(item.score || 0)),
+            itemStyle: {
+                borderRadius: [7, 7, 2, 2],
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: '#34b78f' },
+                    { offset: 1, color: '#128c68' }
+                ])
+            },
+            label: { show: true, position: 'top', color: '#536078', fontWeight: 700 }
+        }]
+    };
+    setDashboardChartOption('top-highest-scores', option, values.length > 0);
+}
+
+function renderCategoryDashboardChart(items) {
+    const values = (items || []).filter(item => item && item.name);
+    const option = {
+        ...dashboardBaseOption(),
+        color: dashboardPalette,
+        tooltip: {
+            trigger: 'item',
+            formatter: '{b}<br/>{c} 个提案（{d}%）',
+            backgroundColor: 'rgba(23, 33, 59, .95)',
+            borderWidth: 0,
+            textStyle: { color: '#fff' }
+        },
+        legend: {
+            type: 'scroll',
+            orient: 'vertical',
+            right: 4,
+            top: 'middle',
+            height: '72%',
+            textStyle: { color: '#647188' }
+        },
+        series: [{
+            name: '创新类别',
+            type: 'pie',
+            radius: ['43%', '68%'],
+            center: ['38%', '53%'],
+            padAngle: 2,
+            avoidLabelOverlap: true,
+            itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 7 },
+            label: { formatter: '{b}\n{d}%', color: '#536078', lineHeight: 17 },
+            emphasis: { scaleSize: 7 },
+            data: values.map(item => ({ name: item.name, value: Number(item.count || 0) }))
+        }]
+    };
+    setDashboardChartOption('category-distribution', option, values.length > 0);
+}
+
+function renderMonthlyDashboardChart(items) {
+    const values = (items || []).slice().sort((left, right) => String(left.month).localeCompare(String(right.month)));
+    const option = {
+        ...dashboardBaseOption(),
+        grid: { left: 48, right: 24, top: 50, bottom: 42 },
+        xAxis: {
+            type: 'category',
+            data: values.map(item => item.month),
+            axisLine: { lineStyle: { color: '#d8e0ea' } },
+            axisTick: { show: false },
+            axisLabel: { color: '#647188', margin: 12 }
+        },
+        yAxis: {
+            type: 'value',
+            minInterval: 1,
+            axisLabel: { color: '#8793a6' },
+            splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+        },
+        series: [{
+            name: '提案数量',
+            type: 'bar',
+            barMaxWidth: 42,
+            data: values.map(item => Number(item.count || 0)),
+            itemStyle: {
+                borderRadius: [7, 7, 2, 2],
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    { offset: 0, color: '#6380e5' },
+                    { offset: 1, color: '#4465d8' }
+                ])
+            },
+            label: { show: true, position: 'top', color: '#536078', fontWeight: 700 },
+            markLine: {
+                symbol: 'none',
+                label: { formatter: '平均 {c}', color: '#7657c8' },
+                lineStyle: { color: '#9c87db', type: 'dashed' },
+                data: [{ type: 'average', name: '平均值' }]
+            }
+        }]
+    };
+    setDashboardChartOption('monthly-trend', option, values.length > 0);
+}
+
+async function loadDashboardData() {
+    const requestId = ++dashboardRequestId;
     const startDate = document.getElementById('startDateFilter').value;
     const endDate = document.getElementById('endDateFilter').value;
-
-    let url = '/innovation/api/get_dashboard_data';
+    const refreshButton = document.getElementById('dashboardRefreshBtn');
     const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
 
-    if (startDate) {
-        params.append('start_date', startDate);
+    showDashboardLoading();
+    if (refreshButton) refreshButton.disabled = true;
+    try {
+        const url = '/innovation/api/get_dashboard_data' + (params.toString() ? '?' + params.toString() : '');
+        const response = await axios.get(url);
+        if (requestId !== dashboardRequestId) return;
+        if (!response.data.success) throw new Error(response.data.message || '获取看板数据失败');
+        displayDashboardData(response.data.data || {});
+    } catch (error) {
+        if (requestId !== dashboardRequestId) return;
+        console.error('获取看板数据失败:', error);
+        showDashboardError(error.message || '加载失败');
+    } finally {
+        if (requestId === dashboardRequestId && refreshButton) refreshButton.disabled = false;
     }
-    if (endDate) {
-        params.append('end_date', endDate);
-    }
-
-    if (params.toString()) {
-        url += '?' + params.toString();
-    }
-
-    axios.get(url)
-        .then(response => {
-            if (response.data.success) {
-                const data = response.data.data;
-                displayDashboardData(data);
-            } else {
-                console.error('获取看板数据失败:', response.data.message);
-                showDashboardError();
-            }
-        })
-        .catch(error => {
-            console.error('获取看板数据失败:', error);
-            showDashboardError();
-        });
 }
 
 function displayDashboardData(data) {
-    // 基础统计
-    document.getElementById('total-proposals').textContent = data.basic_stats.total_count;
-    document.getElementById('adopted-proposals').textContent = data.basic_stats.adopted_count;
-    document.getElementById('effectiveness-rate').textContent = data.basic_stats.effectiveness_rate + '%';
+    const basicStats = data.basic_stats || {};
+    document.getElementById('total-proposals').textContent = Number(basicStats.total_count || 0).toLocaleString('zh-CN');
+    document.getElementById('adopted-proposals').textContent = Number(basicStats.adopted_count || 0).toLocaleString('zh-CN');
+    document.getElementById('effectiveness-rate').textContent = `${Number(basicStats.effectiveness_rate || 0).toLocaleString('zh-CN')}%`;
 
-    // 部门排行榜（显示所有排名）
-    const topDeptElement = document.getElementById('top-department');
-    if (topDeptElement) {
-        if (data.top_departments && data.top_departments.length > 0) {
-            let deptHtml = '';
-            data.top_departments.forEach((dept, index) => {
-                let rankDisplay;
-                if (index === 0) {
-                    rankDisplay = '🥇';
-                } else if (index === 1) {
-                    rankDisplay = '🥈';
-                } else if (index === 2) {
-                    rankDisplay = '🥉';
-                } else {
-                    rankDisplay = `${index + 1}`;
-                }
+    renderHorizontalDashboardChart('top-department', data.top_departments, 'score', '部门积分', '#4465d8', 10);
+    renderHorizontalDashboardChart('top-person', data.top_persons, 'score', '个人积分', '#7657c8', 5);
+    renderProposalPerformanceChart(data.top_proposal_counts);
+    renderHighestScoreChart(data.top_highest_scores);
+    renderCategoryDashboardChart(data.categories);
+    renderMonthlyDashboardChart(data.monthly_trend);
 
-                deptHtml += `
-                    <div class="d-flex align-items-center justify-content-between mb-2 p-2 rounded" style="background-color: #f8f9fa;">
-                        <div class="d-flex align-items-center">
-                            <span class="me-2" style="font-size: 1.2rem; min-width: 30px; text-align: center;">${rankDisplay}</span>
-                            <div>
-                                <strong class="text-primary">${dept.name}</strong>
-                            </div>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-primary">${dept.score} 积分</span>
-                        </div>
-                    </div>
-                `;
-            });
-            topDeptElement.innerHTML = deptHtml;
-        } else {
-            topDeptElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
-        }
-    }
-
-    // 个人排行榜（前三名）
-    const topPersonElement = document.getElementById('top-person');
-    if (data.top_persons && data.top_persons.length > 0) {
-        let personHtml = '';
-        data.top_persons.forEach((person, index) => {
-            const rankIcons = ['🏆', '🏆', '🏆'];
-            const rankColors = ['text-warning', 'text-warning', 'text-warning'];
-            personHtml += `
-                <div class="d-flex align-items-center mb-2 ${index < data.top_persons.length - 1 ? 'border-bottom pb-2' : ''}">
-                    <div class="me-3">
-                        <span style="font-size: 1.5rem;">${rankIcons[index] || '🏆'}</span>
-                    </div>
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1 ${rankColors[index] || 'text-primary'}">${person.name}</h6>
-                        <p class="text-muted mb-1 small">${person.department}</p>
-                        <p class="mb-0"><strong class="text-primary">${person.score}</strong> 积分</p>
-                    </div>
-                </div>
-            `;
-        });
-        topPersonElement.innerHTML = personHtml;
-    } else {
-        topPersonElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
-    }
-
-    // 个人提案数量前三
-    const topProposalCountsElement = document.getElementById('top-proposal-counts');
-    if (data.top_proposal_counts && data.top_proposal_counts.length > 0) {
-        let proposalCountsHtml = '';
-        data.top_proposal_counts.forEach((person, index) => {
-            const rankIcons = ['🏆', '🏆', '🏆'];
-            const rankColors = ['text-warning', 'text-warning', 'text-warning'];
-            proposalCountsHtml += `
-                <div class="d-flex align-items-center mb-2 ${index < data.top_proposal_counts.length - 1 ? 'border-bottom pb-2' : ''}">
-                    <div class="me-3">
-                        <span style="font-size: 1.5rem;">${rankIcons[index] || '🏆'}</span>
-                    </div>
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1 ${rankColors[index] || 'text-primary'}">${person.name}</h6>
-                        <p class="text-muted mb-1 small">${person.department}</p>
-                        <p class="mb-0"><strong class="text-primary">${person.count}</strong> 个提案 (有效: ${person.effective_count})</p>
-                    </div>
-                </div>
-            `;
-        });
-        topProposalCountsElement.innerHTML = proposalCountsHtml;
-    } else {
-        topProposalCountsElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
-    }
-
-    // 个人提案最高分
-    const topHighestScoresElement = document.getElementById('top-highest-scores');
-    if (data.top_highest_scores && data.top_highest_scores.length > 0) {
-        let highestScoresHtml = '';
-        data.top_highest_scores.forEach((person, index) => {
-            const rankIcons = ['🏆', '🏆', '🏆'];
-            const rankColors = ['text-warning', 'text-secondary', 'text-warning'];
-            highestScoresHtml += `
-                <div class="d-flex align-items-center mb-2 ${index < data.top_highest_scores.length - 1 ? 'border-bottom pb-2' : ''}">
-                    <div class="me-3">
-                        <span style="font-size: 1.5rem;">${rankIcons[index] || '🏆'}</span>
-                    </div>
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1 ${rankColors[index] || 'text-primary'}">${person.name}</h6>
-                        <p class="text-muted mb-1 small">${person.department}</p>
-                        <p class="mb-0"><strong class="text-success">${person.score}</strong> 分 <span class="text-muted">(${person.count}次)</span></p>
-                    </div>
-                </div>
-            `;
-        });
-        topHighestScoresElement.innerHTML = highestScoresHtml;
-    } else {
-        topHighestScoresElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
-    }
-
-
-
-    // 创新类别分布
-    const categoryElement = document.getElementById('category-distribution');
-    if (data.categories && data.categories.length > 0) {
-        let categoryHtml = '';
-        data.categories.forEach((category, index) => {
-            const colors = ['primary', 'success', 'warning'];
-            const color = colors[index] || 'secondary';
-            categoryHtml += `
-                <div class="category-rank-item d-flex align-items-center justify-content-between ${index < data.categories.length - 1 ? 'border-bottom' : ''}">
-                    <div class="d-flex align-items-center">
-                        <div class="badge bg-${color} me-2" style="width: 16px; height: 16px;"></div>
-                        <strong>${category.name}</strong>
-                    </div>
-                    <small class="text-muted">${category.count} 个提案</small>
-                </div>
-            `;
-        });
-        categoryElement.innerHTML = categoryHtml;
-    } else {
-        categoryElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
-    }
-
-    // 月度趋势
-    const trendElement = document.getElementById('monthly-trend');
-    if (data.monthly_trend && data.monthly_trend.length > 0) {
-        let trendHtml = '<div class="row">';
-        data.monthly_trend.forEach(trend => {
-            trendHtml += `
-                <div class="col-md-2 mb-2 text-center">
-                    <div class="border rounded p-2">
-                        <div class="h5 text-primary mb-1">${trend.count}</div>
-                        <small class="text-muted">${trend.month}</small>
-                    </div>
-                </div>
-            `;
-        });
-        trendHtml += '</div>';
-        trendElement.innerHTML = trendHtml;
-    } else {
-        trendElement.innerHTML = '<p class="text-muted text-center">暂无数据</p>';
-    }
+    const startDate = document.getElementById('startDateFilter').value;
+    const endDate = document.getElementById('endDateFilter').value;
+    const periodText = startDate || endDate
+        ? `${startDate || '最早'} 至 ${endDate || '今天'}`
+        : '全部日期';
+    setDashboardStatus(`${periodText} · 已更新`);
 }
 
-function showDashboardError() {
-    const setIfExists = (id, html) => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = html;
-    };
-    document.getElementById('total-proposals').textContent = '错误';
-    document.getElementById('adopted-proposals').textContent = '错误';
-    document.getElementById('effectiveness-rate').textContent = '错误';
-    setIfExists('top-department', '<p class="text-danger text-center">加载失败</p>');
-    setIfExists('top-person', '<p class="text-danger text-center">加载失败</p>');
-    setIfExists('top-proposal-counts', '<p class="text-danger text-center">加载失败</p>');
-    setIfExists('top-highest-scores', '<p class="text-danger text-center">加载失败</p>');
-    setIfExists('category-distribution', '<p class="text-danger text-center">加载失败</p>');
-    setIfExists('monthly-trend', '<p class="text-danger text-center">加载失败</p>');
+function showDashboardError(message = '加载失败') {
+    document.getElementById('total-proposals').textContent = '—';
+    document.getElementById('adopted-proposals').textContent = '—';
+    document.getElementById('effectiveness-rate').textContent = '—';
+    setDashboardStatus(message, 'error');
+    dashboardChartIds.forEach(id => {
+        const chart = getDashboardChart(id);
+        if (!chart) return;
+        chart.hideLoading();
+        chart.clear();
+        chart.setOption(dashboardEmptyOption('数据加载失败，请稍后重试'), true);
+    });
 }
 
 function refreshDashboard() {
-    // 显示加载状态
-    document.getElementById('total-proposals').textContent = '-';
-    document.getElementById('adopted-proposals').textContent = '-';
-    document.getElementById('effectiveness-rate').textContent = '-%';
-
-    const loadingHtml = `
-        <div class="text-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
-            </div>
-        </div>
-    `;
-
-    const setIfExists = (id, html) => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = html;
-    };
-    setIfExists('top-department', loadingHtml);
-    setIfExists('top-person', loadingHtml);
-    setIfExists('top-proposal-counts', loadingHtml);
-    setIfExists('top-highest-scores', loadingHtml);
-    setIfExists('category-distribution', loadingHtml);
-    setIfExists('monthly-trend', loadingHtml);
-
-    // 重新加载数据
     loadDashboardData();
 }
 
-// 日期筛选相关函数
 function filterByDateRange() {
-    // 当日期范围改变时，重新加载数据
+    const startInput = document.getElementById('startDateFilter');
+    const endInput = document.getElementById('endDateFilter');
+    startInput.setCustomValidity('');
+    if (startInput.value && endInput.value && startInput.value > endInput.value) {
+        startInput.setCustomValidity('开始日期不能晚于结束日期');
+        startInput.reportValidity();
+        return;
+    }
     loadDashboardData();
 }
 
 function clearDateFilter() {
-    // 清空日期筛选
     document.getElementById('startDateFilter').value = '';
     document.getElementById('endDateFilter').value = '';
-    // 重新加载数据
     loadDashboardData();
 }
 
+function formatLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function initializeDateFilter() {
-    // 设置默认日期范围为当前月份
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
     const startDateInput = document.getElementById('startDateFilter');
     const endDateInput = document.getElementById('endDateFilter');
-
     if (startDateInput && endDateInput) {
-        startDateInput.value = firstDay.toISOString().split('T')[0];
-        endDateInput.value = lastDay.toISOString().split('T')[0];
+        startDateInput.value = formatLocalDate(firstDay);
+        endDateInput.value = formatLocalDate(lastDay);
     }
 }
 
@@ -992,6 +1375,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+});
+
+window.addEventListener('resize', function() {
+    dashboardCharts.forEach(chart => chart.resize());
 });
 </script>
 <style>

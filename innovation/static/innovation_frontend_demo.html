@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创新奖励管理系统 · 前端优化 Demo</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --ink: #18233d;
+            --muted: #738096;
+            --line: #e4e8ef;
+            --canvas: #f4f5f7;
+            --surface: #fff;
+            --surface-soft: #f8f9fb;
+            --primary: #3658d4;
+            --primary-dark: #2745b3;
+            --mint: #17a27a;
+            --amber: #e89a35;
+            --rose: #df6679;
+            --violet: #7457c5;
+            --sidebar: #17213a;
+            --shadow: 0 12px 35px rgba(33, 45, 74, .08);
+            --radius: 18px;
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            background: var(--canvas);
+            font-family: "Microsoft YaHei", "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        button, input, select, textarea { font: inherit; }
+        button { color: inherit; }
+        button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 3px solid rgba(54, 88, 212, .2);
+            outline-offset: 2px;
+        }
+
+        .app-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 238px minmax(0, 1fr);
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            padding: 22px 16px 16px;
+            color: #fff;
+            background:
+                radial-gradient(circle at 10% 0, rgba(89, 115, 220, .28), transparent 18rem),
+                var(--sidebar);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 0 7px 23px;
+        }
+
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border-radius: 13px;
+            color: #fff;
+            background: linear-gradient(145deg, #6280ef, #3658d4);
+            box-shadow: 0 9px 22px rgba(54, 88, 212, .38);
+            font-size: 20px;
+        }
+
+        .brand-copy strong { display: block; font-size: 15px; letter-spacing: .02em; }
+        .brand-copy span { display: block; margin-top: 3px; color: #aeb8cd; font-size: 10px; letter-spacing: .12em; }
+
+        .nav-label {
+            margin: 8px 10px 7px;
+            color: #78869f;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .14em;
+        }
+
+        .nav-list { display: grid; gap: 5px; }
+        .nav-item {
+            width: 100%;
+            min-height: 43px;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            border: 0;
+            border-radius: 11px;
+            padding: 0 12px;
+            color: #b8c2d5;
+            background: transparent;
+            text-align: left;
+            cursor: pointer;
+            transition: color .18s, background .18s, transform .18s;
+        }
+        .nav-item i { width: 19px; text-align: center; font-size: 17px; }
+        .nav-item:hover { color: #fff; background: rgba(255, 255, 255, .07); transform: translateX(2px); }
+        .nav-item.active { color: #fff; background: rgba(93, 123, 238, .2); }
+        .nav-item .badge {
+            margin-left: auto;
+            min-width: 22px;
+            padding: 3px 6px;
+            border-radius: 999px;
+            color: #fff;
+            background: #e7667a;
+            font-size: 10px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .sidebar-spacer { flex: 1; }
+        .sidebar-help {
+            margin: 14px 3px;
+            padding: 14px;
+            border: 1px solid rgba(255, 255, 255, .09);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .045);
+        }
+        .sidebar-help i { color: #8ea4ff; font-size: 18px; }
+        .sidebar-help strong { display: block; margin: 8px 0 4px; font-size: 12px; }
+        .sidebar-help p { margin: 0 0 10px; color: #8f9bb2; font-size: 10px; line-height: 1.55; }
+        .sidebar-help button {
+            width: 100%;
+            height: 31px;
+            border: 1px solid rgba(255, 255, 255, .16);
+            border-radius: 8px;
+            color: #d5dcec;
+            background: transparent;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        .sidebar-help button:hover { background: rgba(255, 255, 255, .07); }
+
+        .main { min-width: 0; }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 0 28px;
+            border-bottom: 1px solid rgba(228, 232, 239, .9);
+            background: rgba(255, 255, 255, .88);
+            backdrop-filter: blur(15px);
+        }
+
+        .mobile-menu {
+            display: none;
+            width: 38px;
+            height: 38px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+        }
+
+        .breadcrumb { color: var(--muted); font-size: 12px; }
+        .breadcrumb strong { color: var(--ink); }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .icon-btn {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .icon-btn:hover { color: var(--primary); border-color: #cbd5ea; background: #f8faff; }
+        .notification-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 7px;
+            height: 7px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            background: var(--rose);
+        }
+        .profile {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding-left: 4px;
+        }
+        .avatar {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            color: #fff;
+            background: linear-gradient(145deg, #f0a249, #db7752);
+            font-size: 13px;
+            font-weight: 800;
+        }
+        .profile-copy strong { display: block; font-size: 12px; }
+        .profile-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+
+        .content {
+            width: min(1440px, 100%);
+            margin: 0 auto;
+            padding: 24px 28px 54px;
+        }
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+            min-height: 210px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 28px;
+            padding: 31px 34px;
+            border-radius: 22px;
+            color: #fff;
+            background:
+                radial-gradient(circle at 78% 12%, rgba(137, 159, 255, .32), transparent 14rem),
+                linear-gradient(125deg, #23365e 0%, #3658d4 58%, #5474e1 100%);
+            box-shadow: 0 18px 42px rgba(43, 68, 151, .22);
+        }
+        .hero::before,
+        .hero::after {
+            content: "";
+            position: absolute;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .hero::before { width: 290px; height: 290px; right: -90px; top: -155px; }
+        .hero::after { width: 190px; height: 190px; right: 105px; bottom: -135px; }
+        .hero-copy { position: relative; z-index: 1; max-width: 630px; }
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 9px;
+            border: 1px solid rgba(255, 255, 255, .15);
+            border-radius: 999px;
+            color: #dbe3ff;
+            background: rgba(255, 255, 255, .08);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .08em;
+        }
+        .hero h1 { margin: 15px 0 9px; font-size: clamp(25px, 3vw, 38px); line-height: 1.2; letter-spacing: -.025em; }
+        .hero p { margin: 0; color: #d6ddf2; font-size: 13px; line-height: 1.7; }
+        .hero-actions { margin-top: 21px; display: flex; gap: 9px; flex-wrap: wrap; }
+        .btn {
+            height: 39px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 0 14px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform .16s, background .16s, box-shadow .16s;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-light { color: var(--primary-dark); background: #fff; box-shadow: 0 8px 20px rgba(25, 39, 78, .16); }
+        .btn-ghost { border-color: rgba(255, 255, 255, .22); color: #fff; background: rgba(255, 255, 255, .07); }
+        .btn-primary { color: #fff; background: var(--primary); box-shadow: 0 8px 18px rgba(54, 88, 212, .2); }
+        .btn-outline { border-color: var(--line); color: #536078; background: #fff; }
+        .btn-danger-soft { color: #c64e62; background: #fff0f2; }
+
+        .hero-orbit {
+            position: relative;
+            z-index: 1;
+            width: 220px;
+            height: 150px;
+            flex: 0 0 auto;
+        }
+        .orbit-core {
+            position: absolute;
+            left: 75px;
+            top: 41px;
+            width: 74px;
+            height: 74px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 24px;
+            color: #fff;
+            background: rgba(255, 255, 255, .14);
+            box-shadow: inset 0 0 25px rgba(255, 255, 255, .08), 0 16px 26px rgba(15, 29, 68, .18);
+            backdrop-filter: blur(8px);
+            font-size: 31px;
+        }
+        .orbit-item {
+            position: absolute;
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, .17);
+            border-radius: 14px;
+            color: #fff;
+            background: rgba(255, 255, 255, .11);
+            font-size: 17px;
+        }
+        .orbit-item.one { left: 2px; top: 18px; }
+        .orbit-item.two { right: 2px; top: 4px; }
+        .orbit-item.three { left: 18px; bottom: 0; }
+        .orbit-item.four { right: 18px; bottom: 4px; }
+
+        .quick-actions {
+            margin-top: 17px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 13px;
+        }
+        .quick-card {
+            position: relative;
+            overflow: hidden;
+            min-height: 111px;
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 16px;
+            background: var(--surface);
+            box-shadow: 0 7px 22px rgba(33, 45, 74, .045);
+            cursor: pointer;
+            transition: transform .18s, border-color .18s, box-shadow .18s;
+        }
+        .quick-card:hover { transform: translateY(-3px); border-color: #cad5ec; box-shadow: var(--shadow); }
+        .quick-icon {
+            width: 43px;
+            height: 43px;
+            flex: 0 0 auto;
+            display: grid;
+            place-items: center;
+            border-radius: 13px;
+            color: var(--quick-color, var(--primary));
+            background: var(--quick-tint, #eef2ff);
+            font-size: 19px;
+        }
+        .quick-copy strong { display: block; font-size: 13px; }
+        .quick-copy span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.45; }
+        .quick-arrow { position: absolute; top: 13px; right: 13px; color: #b4bdca; font-size: 11px; }
+
+        .section-head {
+            margin: 27px 0 12px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 15px;
+        }
+        .section-head h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+        .section-head p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+        .period-tabs, .filter-tabs {
+            display: inline-flex;
+            gap: 3px;
+            padding: 3px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fff;
+        }
+        .period-tab, .filter-tab {
+            height: 29px;
+            border: 0;
+            border-radius: 7px;
+            padding: 0 10px;
+            color: var(--muted);
+            background: transparent;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .period-tab.active, .filter-tab.active { color: var(--primary); background: #eef2ff; }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 13px;
+        }
+        .metric {
+            min-height: 106px;
+            padding: 17px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--surface);
+            box-shadow: 0 7px 22px rgba(33, 45, 74, .04);
+        }
+        .metric-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .metric-label { color: var(--muted); font-size: 11px; font-weight: 600; }
+        .metric-trend { display: inline-flex; align-items: center; gap: 3px; color: var(--mint); font-size: 9px; font-weight: 700; }
+        .metric-value { margin-top: 10px; font-size: 27px; font-weight: 800; line-height: 1; letter-spacing: -.035em; }
+        .metric-note { margin-top: 8px; color: #9aa4b3; font-size: 9px; }
+
+        .insight-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.6fr) minmax(300px, .8fr);
+            gap: 14px;
+        }
+        .panel {
+            min-width: 0;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: var(--surface);
+            box-shadow: 0 8px 24px rgba(33, 45, 74, .045);
+        }
+        .panel-head {
+            padding: 17px 18px 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .panel-head h3 { margin: 0; font-size: 14px; }
+        .panel-head p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+        .panel-tag { padding: 4px 7px; border-radius: 999px; color: var(--primary); background: #eef2ff; font-size: 9px; font-weight: 700; }
+        .chart { width: 100%; height: 286px; }
+
+        .secondary-grid {
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(290px, .65fr);
+            gap: 14px;
+        }
+        .proposal-panel { padding-bottom: 8px; }
+        .proposal-tools {
+            padding: 13px 18px 11px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid #edf0f4;
+        }
+        .search {
+            position: relative;
+            width: min(240px, 40%);
+        }
+        .search i {
+            position: absolute;
+            left: 11px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a1abb9;
+            font-size: 13px;
+        }
+        .search input {
+            width: 100%;
+            height: 34px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            padding: 0 10px 0 31px;
+            background: #fafbfc;
+            font-size: 10px;
+        }
+        .proposal-list { padding: 2px 12px; }
+        .proposal-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1.55fr) minmax(120px, .5fr) minmax(88px, .35fr) 28px;
+            gap: 12px;
+            align-items: center;
+            padding: 13px 6px;
+            border-bottom: 1px solid #edf0f4;
+            transition: background .16s;
+        }
+        .proposal-row:last-child { border-bottom: 0; }
+        .proposal-row:hover { background: #fafbfe; }
+        .proposal-main { min-width: 0; }
+        .proposal-main strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+        .proposal-main span { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
+        .proposal-owner { color: #59667c; font-size: 10px; }
+        .proposal-owner span { display: block; margin-top: 3px; color: #9aa4b3; font-size: 9px; }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: fit-content;
+            padding: 4px 7px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 700;
+        }
+        .status.pending { color: #bd741c; background: #fff2de; }
+        .status.progress { color: #3152be; background: #edf1ff; }
+        .status.done { color: #11815f; background: #e7f7f1; }
+        .status.review { color: #7754bd; background: #f1ecfb; }
+        .row-action {
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-items: center;
+            border: 0;
+            border-radius: 8px;
+            color: #919bab;
+            background: transparent;
+            cursor: pointer;
+        }
+        .row-action:hover { color: var(--primary); background: #eef2ff; }
+        .empty-state { display: none; padding: 38px; color: var(--muted); text-align: center; font-size: 11px; }
+
+        .ranking { padding: 11px 17px 14px; }
+        .rank-row {
+            display: grid;
+            grid-template-columns: 28px 34px minmax(0, 1fr) auto;
+            gap: 9px;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #edf0f4;
+        }
+        .rank-row:last-child { border-bottom: 0; }
+        .rank-number { color: #a1abb9; font-size: 10px; font-weight: 800; text-align: center; }
+        .rank-number.top { color: #d08725; }
+        .rank-avatar {
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            color: var(--avatar-color, #3658d4);
+            background: var(--avatar-bg, #eef2ff);
+            font-size: 10px;
+            font-weight: 800;
+        }
+        .rank-copy strong { display: block; font-size: 10px; }
+        .rank-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 8px; }
+        .rank-score { color: var(--primary); font-size: 11px; font-weight: 800; }
+
+        .demo-note {
+            margin-top: 18px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            border: 1px dashed #ccd5e6;
+            border-radius: 12px;
+            color: #68758b;
+            background: rgba(255, 255, 255, .55);
+            font-size: 10px;
+        }
+        .demo-note i { color: var(--primary); font-size: 15px; }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: rgba(17, 26, 47, .54);
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity .2s, visibility .2s;
+        }
+        .modal-backdrop.open { opacity: 1; visibility: visible; }
+        .modal {
+            width: min(560px, 100%);
+            max-height: calc(100vh - 40px);
+            overflow: auto;
+            border-radius: 20px;
+            background: #fff;
+            box-shadow: 0 28px 80px rgba(12, 22, 47, .3);
+            transform: translateY(14px) scale(.98);
+            transition: transform .22s;
+        }
+        .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+        .modal-head {
+            padding: 21px 22px 15px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid var(--line);
+        }
+        .modal-head h2 { margin: 0; font-size: 17px; }
+        .modal-head p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+        .modal-close {
+            width: 31px;
+            height: 31px;
+            border: 0;
+            border-radius: 9px;
+            color: #7d899d;
+            background: #f4f6f9;
+            cursor: pointer;
+        }
+        .modal-body { padding: 19px 22px 8px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+        .form-field { display: flex; flex-direction: column; gap: 6px; }
+        .form-field.full { grid-column: 1 / -1; }
+        .form-field label { color: #59667b; font-size: 10px; font-weight: 700; }
+        .form-field input, .form-field select, .form-field textarea {
+            width: 100%;
+            border: 1px solid #dfe4ec;
+            border-radius: 9px;
+            padding: 9px 10px;
+            color: var(--ink);
+            background: #fbfcfd;
+            font-size: 11px;
+        }
+        .form-field textarea { min-height: 88px; resize: vertical; }
+        .modal-foot {
+            padding: 15px 22px 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .toast {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 100;
+            max-width: min(360px, calc(100vw - 48px));
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 12px 15px;
+            border-radius: 12px;
+            color: #fff;
+            background: #18233d;
+            box-shadow: 0 16px 36px rgba(18, 29, 54, .24);
+            font-size: 11px;
+            transform: translateY(16px);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform .2s, opacity .2s;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 35;
+            background: rgba(18, 29, 52, .45);
+        }
+
+        @media (max-width: 1100px) {
+            .quick-actions, .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .insight-grid, .secondary-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 780px) {
+            .app-shell { grid-template-columns: 1fr; }
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 238px;
+                transform: translateX(-100%);
+                transition: transform .22s;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar-overlay.open { display: block; }
+            .mobile-menu { display: grid; place-items: center; }
+            .topbar { height: 62px; padding: 0 16px; }
+            .breadcrumb { display: none; }
+            .topbar-actions { margin-left: auto; }
+            .profile-copy { display: none; }
+            .content { padding: 17px 15px 38px; }
+            .hero { min-height: 0; padding: 27px 24px; }
+            .hero-orbit { display: none; }
+            .quick-actions, .metrics { grid-template-columns: 1fr 1fr; }
+            .proposal-row { grid-template-columns: minmax(0, 1fr) auto 28px; }
+            .proposal-owner { display: none; }
+        }
+
+        @media (max-width: 540px) {
+            .topbar .icon-btn:first-of-type { display: none; }
+            .hero h1 { font-size: 25px; }
+            .hero-actions { display: grid; grid-template-columns: 1fr; }
+            .quick-actions, .metrics { grid-template-columns: 1fr; }
+            .section-head { align-items: flex-start; flex-direction: column; }
+            .proposal-tools { align-items: stretch; flex-direction: column; }
+            .search { width: 100%; }
+            .filter-tabs { width: 100%; }
+            .filter-tab { flex: 1; }
+            .proposal-row { grid-template-columns: minmax(0, 1fr) auto; }
+            .row-action { display: none; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-field.full { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar">
+            <div class="brand">
+                <div class="brand-mark"><i class="bi bi-lightbulb-fill"></i></div>
+                <div class="brand-copy">
+                    <strong>创新奖励管理</strong>
+                    <span>INNOVATION HUB</span>
+                </div>
+            </div>
+
+            <div class="nav-label">工作台</div>
+            <nav class="nav-list" aria-label="主导航">
+                <button class="nav-item active" type="button" data-scroll="overview"><i class="bi bi-grid-1x2-fill"></i><span>创新首页</span></button>
+                <button class="nav-item" type="button" data-scroll="proposals"><i class="bi bi-kanban"></i><span>承接管理</span><span class="badge">8</span></button>
+                <button class="nav-item" type="button" data-scroll="insights"><i class="bi bi-graph-up-arrow"></i><span>数据洞察</span></button>
+                <button class="nav-item" type="button" data-action="points"><i class="bi bi-stars"></i><span>个人积分</span></button>
+            </nav>
+
+            <div class="nav-label">创新文化</div>
+            <nav class="nav-list" aria-label="创新文化导航">
+                <button class="nav-item" type="button" data-action="star"><i class="bi bi-award"></i><span>创新星主场</span></button>
+                <button class="nav-item" type="button" data-action="cases"><i class="bi bi-journal-richtext"></i><span>优秀案例库</span></button>
+            </nav>
+
+            <div class="sidebar-spacer"></div>
+            <div class="sidebar-help">
+                <i class="bi bi-question-circle"></i>
+                <strong>需要帮助？</strong>
+                <p>查看创新提报、承接和积分规则。</p>
+                <button type="button" data-action="guide">查看操作指南</button>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <div class="main">
+            <header class="topbar">
+                <button class="mobile-menu" id="mobileMenu" type="button" aria-label="打开导航"><i class="bi bi-list"></i></button>
+                <div class="breadcrumb">创新奖励管理 / <strong>创新首页</strong></div>
+                <div class="topbar-actions">
+                    <button class="icon-btn" type="button" data-action="search" aria-label="全局搜索"><i class="bi bi-search"></i></button>
+                    <button class="icon-btn" type="button" data-action="notification" aria-label="通知"><i class="bi bi-bell"></i><span class="notification-dot"></span></button>
+                    <div class="profile">
+                        <div class="avatar">小图</div>
+                        <div class="profile-copy"><strong>图创伙伴</strong><span>创新推动者</span></div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="content">
+                <section class="hero" id="overview">
+                    <div class="hero-copy">
+                        <span class="eyebrow"><i class="bi bi-stars"></i> 让好想法持续发生</span>
+                        <h1>把每一个好想法，推向真实改变</h1>
+                        <p>从提出、承接到落地，用更清晰的协作流程连接创意与价值，让团队的每一次改善都被看见。</p>
+                        <div class="hero-actions">
+                            <button class="btn btn-light" type="button" data-open-modal><i class="bi bi-plus-lg"></i> 发起创新提案</button>
+                            <button class="btn btn-ghost" type="button" data-scroll="proposals"><i class="bi bi-arrow-right"></i> 查看待办任务</button>
+                        </div>
+                    </div>
+                    <div class="hero-orbit" aria-hidden="true">
+                        <div class="orbit-core"><i class="bi bi-lightbulb-fill"></i></div>
+                        <div class="orbit-item one"><i class="bi bi-chat-square-heart"></i></div>
+                        <div class="orbit-item two"><i class="bi bi-people"></i></div>
+                        <div class="orbit-item three"><i class="bi bi-graph-up-arrow"></i></div>
+                        <div class="orbit-item four"><i class="bi bi-award"></i></div>
+                    </div>
+                </section>
+
+                <section class="quick-actions" aria-label="快捷入口">
+                    <article class="quick-card" data-open-modal>
+                        <i class="bi bi-arrow-up-right quick-arrow"></i>
+                        <div class="quick-icon"><i class="bi bi-plus-circle"></i></div>
+                        <div class="quick-copy"><strong>发起创新</strong><span>约 2 分钟完成提报</span></div>
+                    </article>
+                    <article class="quick-card" style="--quick-color:#17a27a;--quick-tint:#e8f7f2;" data-scroll="proposals">
+                        <i class="bi bi-arrow-up-right quick-arrow"></i>
+                        <div class="quick-icon"><i class="bi bi-inboxes"></i></div>
+                        <div class="quick-copy"><strong>待我承接 · 8</strong><span>3 项即将超过响应时限</span></div>
+                    </article>
+                    <article class="quick-card" style="--quick-color:#7457c5;--quick-tint:#f0ecfa;" data-action="review">
+                        <i class="bi bi-arrow-up-right quick-arrow"></i>
+                        <div class="quick-icon"><i class="bi bi-clipboard2-check"></i></div>
+                        <div class="quick-copy"><strong>参与评审 · 3</strong><span>为高价值提案提供评分</span></div>
+                    </article>
+                    <article class="quick-card" style="--quick-color:#e89a35;--quick-tint:#fff3e2;" data-action="points">
+                        <i class="bi bi-arrow-up-right quick-arrow"></i>
+                        <div class="quick-icon"><i class="bi bi-stars"></i></div>
+                        <div class="quick-copy"><strong>我的积分 · 1,280</strong><span>本月新增 120 积分</span></div>
+                    </article>
+                </section>
+
+                <section id="insights">
+                    <div class="section-head">
+                        <div><h2>创新进展</h2><p>快速了解团队创新活跃度与落地表现</p></div>
+                        <div class="period-tabs" aria-label="数据周期">
+                            <button class="period-tab" type="button" data-period="week">本周</button>
+                            <button class="period-tab active" type="button" data-period="month">本月</button>
+                            <button class="period-tab" type="button" data-period="year">本年</button>
+                        </div>
+                    </div>
+
+                    <div class="metrics">
+                        <article class="metric">
+                            <div class="metric-top"><span class="metric-label">提案总数</span><span class="metric-trend"><i class="bi bi-arrow-up-short"></i>12.4%</span></div>
+                            <div class="metric-value" data-metric="total">326</div>
+                            <div class="metric-note">较上个周期增加 36 项</div>
+                        </article>
+                        <article class="metric">
+                            <div class="metric-top"><span class="metric-label">已采纳</span><span class="metric-trend"><i class="bi bi-arrow-up-short"></i>8.7%</span></div>
+                            <div class="metric-value" data-metric="adopted">74</div>
+                            <div class="metric-note">其中 31 项已进入执行</div>
+                        </article>
+                        <article class="metric">
+                            <div class="metric-top"><span class="metric-label">提案有效率</span><span class="metric-trend"><i class="bi bi-arrow-up-short"></i>2.1%</span></div>
+                            <div class="metric-value" data-metric="rate">22.7%</div>
+                            <div class="metric-note">目标值 25%，持续提升中</div>
+                        </article>
+                        <article class="metric">
+                            <div class="metric-top"><span class="metric-label">参与部门</span><span class="metric-trend"><i class="bi bi-dash"></i>持平</span></div>
+                            <div class="metric-value" data-metric="departments">18</div>
+                            <div class="metric-note">覆盖 86% 的业务部门</div>
+                        </article>
+                    </div>
+
+                    <div class="insight-grid" style="margin-top:14px;">
+                        <article class="panel">
+                            <div class="panel-head">
+                                <div><h3>提案增长趋势</h3><p>提案总量与已采纳数量的月度变化</p></div>
+                                <span class="panel-tag">近 6 个月</span>
+                            </div>
+                            <div class="chart" id="trendChart" role="img" aria-label="提案增长趋势图"></div>
+                        </article>
+                        <article class="panel">
+                            <div class="panel-head">
+                                <div><h3>创新类别</h3><p>当前周期的提案方向分布</p></div>
+                                <span class="panel-tag">TOP 5</span>
+                            </div>
+                            <div class="chart" id="categoryChart" role="img" aria-label="创新类别分布图"></div>
+                        </article>
+                    </div>
+
+                    <div class="insight-grid" style="margin-top:14px;grid-template-columns:1fr;">
+                        <article class="panel">
+                            <div class="panel-head">
+                                <div><h3>部门创新贡献</h3><p>按创新积分展示主要部门贡献情况</p></div>
+                                <span class="panel-tag">部门排行</span>
+                            </div>
+                            <div class="chart" id="departmentChart" role="img" aria-label="部门创新贡献图"></div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="secondary-grid" id="proposals">
+                    <article class="panel proposal-panel">
+                        <div class="panel-head">
+                            <div><h3>最近创新提案</h3><p>查看提案状态并快速进入承接处理</p></div>
+                            <button class="btn btn-outline" type="button" data-action="all-proposals">查看全部</button>
+                        </div>
+                        <div class="proposal-tools">
+                            <div class="filter-tabs" aria-label="提案状态筛选">
+                                <button class="filter-tab active" type="button" data-filter="all">全部</button>
+                                <button class="filter-tab" type="button" data-filter="pending">待承接</button>
+                                <button class="filter-tab" type="button" data-filter="progress">进行中</button>
+                                <button class="filter-tab" type="button" data-filter="done">已完成</button>
+                            </div>
+                            <label class="search">
+                                <i class="bi bi-search"></i>
+                                <input id="proposalSearch" type="search" placeholder="搜索提案或发起人">
+                            </label>
+                        </div>
+                        <div class="proposal-list" id="proposalList">
+                            <div class="proposal-row" data-status="pending" data-search="包装组装工序防错优化 林晓 视觉设计部">
+                                <div class="proposal-main"><strong>包装组装工序防错优化</strong><span>#CX-2026-0715 · 效率提升</span></div>
+                                <div class="proposal-owner">林晓<span>视觉设计部</span></div>
+                                <span class="status pending">待承接</span>
+                                <button class="row-action" type="button" data-action="proposal"><i class="bi bi-chevron-right"></i></button>
+                            </div>
+                            <div class="proposal-row" data-status="progress" data-search="AI模特图批处理工作流 周宁 AI部">
+                                <div class="proposal-main"><strong>AI 模特图批处理工作流</strong><span>#CX-2026-0712 · 技术创新</span></div>
+                                <div class="proposal-owner">周宁<span>AI部</span></div>
+                                <span class="status progress">进行中</span>
+                                <button class="row-action" type="button" data-action="proposal"><i class="bi bi-chevron-right"></i></button>
+                            </div>
+                            <div class="proposal-row" data-status="review" data-search="滞销库存预警机制 王璐 采购部">
+                                <div class="proposal-main"><strong>滞销库存预警机制</strong><span>#CX-2026-0709 · 管理改善</span></div>
+                                <div class="proposal-owner">王璐<span>采购部</span></div>
+                                <span class="status review">待评审</span>
+                                <button class="row-action" type="button" data-action="proposal"><i class="bi bi-chevron-right"></i></button>
+                            </div>
+                            <div class="proposal-row" data-status="done" data-search="日报信息自动聚合工具 陈涛 技术部">
+                                <div class="proposal-main"><strong>日报信息自动聚合工具</strong><span>#CX-2026-0705 · 工具改善</span></div>
+                                <div class="proposal-owner">陈涛<span>技术部</span></div>
+                                <span class="status done">已完成</span>
+                                <button class="row-action" type="button" data-action="proposal"><i class="bi bi-chevron-right"></i></button>
+                            </div>
+                        </div>
+                        <div class="empty-state" id="proposalEmpty"><i class="bi bi-inbox"></i><br><br>没有找到匹配的提案</div>
+                    </article>
+
+                    <article class="panel">
+                        <div class="panel-head">
+                            <div><h3>创新先锋榜</h3><p>本月个人创新积分排名</p></div>
+                            <span class="panel-tag">实时</span>
+                        </div>
+                        <div class="ranking">
+                            <div class="rank-row">
+                                <span class="rank-number top">01</span>
+                                <span class="rank-avatar">雨菲</span>
+                                <div class="rank-copy"><strong>叶雨菲</strong><span>运营三部 · 6 项提案</span></div>
+                                <strong class="rank-score">280</strong>
+                            </div>
+                            <div class="rank-row">
+                                <span class="rank-number top">02</span>
+                                <span class="rank-avatar" style="--avatar-color:#17a27a;--avatar-bg:#e8f7f2;">俊成</span>
+                                <div class="rank-copy"><strong>周俊成</strong><span>AI部 · 5 项提案</span></div>
+                                <strong class="rank-score">240</strong>
+                            </div>
+                            <div class="rank-row">
+                                <span class="rank-number top">03</span>
+                                <span class="rank-avatar" style="--avatar-color:#e89a35;--avatar-bg:#fff3e2;">晓飞</span>
+                                <div class="rank-copy"><strong>陶晓飞</strong><span>技术部 · 4 项提案</span></div>
+                                <strong class="rank-score">220</strong>
+                            </div>
+                            <div class="rank-row">
+                                <span class="rank-number">04</span>
+                                <span class="rank-avatar" style="--avatar-color:#7457c5;--avatar-bg:#f0ecfa;">景春</span>
+                                <div class="rank-copy"><strong>毕景春</strong><span>AI部 · 4 项提案</span></div>
+                                <strong class="rank-score">190</strong>
+                            </div>
+                            <div class="rank-row">
+                                <span class="rank-number">05</span>
+                                <span class="rank-avatar" style="--avatar-color:#df6679;--avatar-bg:#fff0f2;">洁</span>
+                                <div class="rank-copy"><strong>孙洁</strong><span>运营一部 · 3 项提案</span></div>
+                                <strong class="rank-score">165</strong>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+
+                <div class="demo-note">
+                    <i class="bi bi-info-circle"></i>
+                    <span>这是独立前端 Demo，使用模拟数据展示视觉与交互方向，不会写入现有创新系统。</span>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="proposalModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal">
+            <div class="modal-head">
+                <div><h2 id="modalTitle">发起创新提案</h2><p>描述问题、想法与预期价值，提交后将自动进入承接流程。</p></div>
+                <button class="modal-close" type="button" data-close-modal aria-label="关闭"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form id="proposalForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-field full">
+                            <label for="demoTitle">提案标题</label>
+                            <input id="demoTitle" required placeholder="用一句话说明你的创新想法">
+                        </div>
+                        <div class="form-field">
+                            <label for="demoCategory">创新类别</label>
+                            <select id="demoCategory" required>
+                                <option value="">请选择</option>
+                                <option>效率提升</option>
+                                <option>技术创新</option>
+                                <option>管理改善</option>
+                                <option>成本优化</option>
+                                <option>体验升级</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="demoDepartment">建议承接部门</label>
+                            <select id="demoDepartment" required>
+                                <option value="">请选择</option>
+                                <option>AI部</option>
+                                <option>技术部</option>
+                                <option>人力行政部</option>
+                                <option>视觉设计部</option>
+                                <option>采购部</option>
+                            </select>
+                        </div>
+                        <div class="form-field full">
+                            <label for="demoProblem">当前问题</label>
+                            <textarea id="demoProblem" required placeholder="目前遇到了什么问题？影响是什么？"></textarea>
+                        </div>
+                        <div class="form-field full">
+                            <label for="demoSolution">解决方案</label>
+                            <textarea id="demoSolution" required placeholder="建议如何改善？预计能带来什么价值？"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-foot">
+                    <button class="btn btn-outline" type="button" data-close-modal>取消</button>
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-send"></i> 提交 Demo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+        const demoData = {
+            week: {
+                metrics: { total: 42, adopted: 11, rate: '26.2%', departments: 12 },
+                trend: [18, 24, 21, 28, 34, 42],
+                adopted: [4, 5, 6, 7, 9, 11]
+            },
+            month: {
+                metrics: { total: 326, adopted: 74, rate: '22.7%', departments: 18 },
+                trend: [188, 214, 238, 271, 294, 326],
+                adopted: [39, 45, 51, 60, 67, 74]
+            },
+            year: {
+                metrics: { total: 1842, adopted: 468, rate: '25.4%', departments: 21 },
+                trend: [870, 1035, 1220, 1416, 1628, 1842],
+                adopted: [208, 263, 309, 358, 416, 468]
+            }
+        };
+        const months = ['2月', '3月', '4月', '5月', '6月', '7月'];
+        const charts = new Map();
+        let activeProposalFilter = 'all';
+        let toastTimer = null;
+
+        function showToast(message, icon = 'bi-check-circle') {
+            const toast = document.getElementById('toast');
+            toast.innerHTML = `<i class="bi ${icon}"></i><span>${message}</span>`;
+            toast.classList.add('show');
+            window.clearTimeout(toastTimer);
+            toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2600);
+        }
+
+        function getChart(id) {
+            const element = document.getElementById(id);
+            if (!element || !window.echarts) return null;
+            if (!charts.has(id)) charts.set(id, echarts.init(element, null, { renderer: 'canvas' }));
+            return charts.get(id);
+        }
+
+        function renderTrendChart(period = 'month') {
+            const chart = getChart('trendChart');
+            if (!chart) return;
+            const data = demoData[period];
+            chart.setOption({
+                animationDuration: 650,
+                color: ['#3658d4', '#17a27a'],
+                tooltip: { trigger: 'axis', backgroundColor: 'rgba(24,35,61,.95)', borderWidth: 0, textStyle: { color: '#fff' } },
+                legend: { top: 8, left: 18, data: ['提案总量', '已采纳'], textStyle: { color: '#738096', fontSize: 10 } },
+                grid: { left: 48, right: 22, top: 52, bottom: 37 },
+                xAxis: { type: 'category', data: months, axisTick: { show: false }, axisLine: { lineStyle: { color: '#dfe4ec' } }, axisLabel: { color: '#7b8799', fontSize: 10 } },
+                yAxis: { type: 'value', axisLabel: { color: '#909bab', fontSize: 9 }, splitLine: { lineStyle: { color: '#edf0f4', type: 'dashed' } } },
+                series: [
+                    {
+                        name: '提案总量',
+                        type: 'line',
+                        smooth: true,
+                        symbolSize: 7,
+                        data: data.trend,
+                        lineStyle: { width: 3 },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(54,88,212,.24)' },
+                                { offset: 1, color: 'rgba(54,88,212,.02)' }
+                            ])
+                        }
+                    },
+                    {
+                        name: '已采纳',
+                        type: 'line',
+                        smooth: true,
+                        symbolSize: 6,
+                        data: data.adopted,
+                        lineStyle: { width: 2 }
+                    }
+                ]
+            }, true);
+        }
+
+        function renderCategoryChart() {
+            const chart = getChart('categoryChart');
+            if (!chart) return;
+            chart.setOption({
+                animationDuration: 650,
+                color: ['#3658d4', '#17a27a', '#e89a35', '#7457c5', '#df6679'],
+                tooltip: { trigger: 'item', formatter: '{b}<br>{c} 项 · {d}%', backgroundColor: 'rgba(24,35,61,.95)', borderWidth: 0, textStyle: { color: '#fff' } },
+                legend: { type: 'scroll', bottom: 7, left: 'center', itemWidth: 9, itemHeight: 9, textStyle: { color: '#738096', fontSize: 9 } },
+                series: [{
+                    type: 'pie',
+                    radius: ['43%', '68%'],
+                    center: ['50%', '47%'],
+                    padAngle: 2,
+                    itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+                    label: { show: false },
+                    emphasis: { scaleSize: 6 },
+                    data: [
+                        { name: '效率提升', value: 96 },
+                        { name: '技术创新', value: 78 },
+                        { name: '管理改善', value: 62 },
+                        { name: '成本优化', value: 51 },
+                        { name: '体验升级', value: 39 }
+                    ]
+                }]
+            }, true);
+        }
+
+        function renderDepartmentChart() {
+            const chart = getChart('departmentChart');
+            if (!chart) return;
+            const departments = ['运营三部', 'AI部', '技术部', '视觉设计部', '采购部', '人力行政部'];
+            const values = [1280, 1160, 980, 860, 740, 620];
+            chart.setOption({
+                animationDuration: 650,
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(24,35,61,.95)', borderWidth: 0, textStyle: { color: '#fff' } },
+                grid: { left: 22, right: 48, top: 26, bottom: 19, containLabel: true },
+                xAxis: { type: 'value', axisLabel: { color: '#909bab', fontSize: 9 }, splitLine: { lineStyle: { color: '#edf0f4', type: 'dashed' } } },
+                yAxis: { type: 'category', inverse: true, data: departments, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: '#59667c', fontSize: 10 } },
+                series: [{
+                    name: '创新积分',
+                    type: 'bar',
+                    barMaxWidth: 18,
+                    data: values,
+                    label: { show: true, position: 'right', color: '#59667c', fontWeight: 700, fontSize: 9 },
+                    itemStyle: {
+                        borderRadius: [0, 7, 7, 0],
+                        color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                            { offset: 0, color: '#3658d4' },
+                            { offset: 1, color: '#6e89ea' }
+                        ])
+                    }
+                }]
+            }, true);
+        }
+
+        function updatePeriod(period) {
+            const data = demoData[period];
+            document.querySelector('[data-metric="total"]').textContent = data.metrics.total.toLocaleString('zh-CN');
+            document.querySelector('[data-metric="adopted"]').textContent = data.metrics.adopted.toLocaleString('zh-CN');
+            document.querySelector('[data-metric="rate"]').textContent = data.metrics.rate;
+            document.querySelector('[data-metric="departments"]').textContent = data.metrics.departments;
+            document.querySelectorAll('.period-tab').forEach(button => button.classList.toggle('active', button.dataset.period === period));
+            renderTrendChart(period);
+        }
+
+        function applyProposalFilter() {
+            const keyword = document.getElementById('proposalSearch').value.trim().toLowerCase();
+            let visibleCount = 0;
+            document.querySelectorAll('.proposal-row').forEach(row => {
+                const matchesStatus = activeProposalFilter === 'all' || row.dataset.status === activeProposalFilter;
+                const matchesSearch = !keyword || row.dataset.search.toLowerCase().includes(keyword);
+                const visible = matchesStatus && matchesSearch;
+                row.style.display = visible ? '' : 'none';
+                if (visible) visibleCount += 1;
+            });
+            document.getElementById('proposalEmpty').style.display = visibleCount ? 'none' : 'block';
+        }
+
+        function openModal() {
+            const modal = document.getElementById('proposalModal');
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            window.setTimeout(() => document.getElementById('demoTitle').focus(), 120);
+        }
+
+        function closeModal() {
+            document.getElementById('proposalModal').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('open');
+        }
+
+        document.querySelectorAll('[data-open-modal]').forEach(element => element.addEventListener('click', openModal));
+        document.querySelectorAll('[data-close-modal]').forEach(element => element.addEventListener('click', closeModal));
+        document.getElementById('proposalModal').addEventListener('click', event => {
+            if (event.target.id === 'proposalModal') closeModal();
+        });
+        document.getElementById('proposalForm').addEventListener('submit', event => {
+            event.preventDefault();
+            closeModal();
+            event.target.reset();
+            showToast('Demo 提案已模拟提交，不会写入系统');
+        });
+
+        document.querySelectorAll('.period-tab').forEach(button => {
+            button.addEventListener('click', () => updatePeriod(button.dataset.period));
+        });
+        document.querySelectorAll('.filter-tab').forEach(button => {
+            button.addEventListener('click', () => {
+                activeProposalFilter = button.dataset.filter;
+                document.querySelectorAll('.filter-tab').forEach(item => item.classList.toggle('active', item === button));
+                applyProposalFilter();
+            });
+        });
+        document.getElementById('proposalSearch').addEventListener('input', applyProposalFilter);
+
+        document.querySelectorAll('[data-scroll]').forEach(element => {
+            element.addEventListener('click', () => {
+                const target = document.getElementById(element.dataset.scroll);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item === element));
+                closeSidebar();
+            });
+        });
+        document.querySelectorAll('[data-action]').forEach(element => {
+            element.addEventListener('click', () => {
+                const labels = {
+                    points: '个人积分页面',
+                    star: '创新星主场',
+                    cases: '优秀案例库',
+                    guide: '操作指南',
+                    search: '全局搜索',
+                    notification: '通知中心',
+                    review: '提案评审',
+                    proposal: '提案详情',
+                    'all-proposals': '全部提案'
+                };
+                showToast(`${labels[element.dataset.action] || '该功能'}将在正式版本中连接现有系统`, 'bi-info-circle');
+            });
+        });
+
+        document.getElementById('mobileMenu').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.add('open');
+            document.getElementById('sidebarOverlay').classList.add('open');
+        });
+        document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                closeModal();
+                closeSidebar();
+            }
+        });
+        window.addEventListener('resize', () => charts.forEach(chart => chart.resize()));
+
+        renderTrendChart();
+        renderCategoryChart();
+        renderDepartmentChart();
+    </script>
+</body>
+</html>

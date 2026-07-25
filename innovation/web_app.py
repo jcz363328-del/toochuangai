@@ -4270,7 +4270,7 @@ def get_dashboard_data():
 
         # 4. 创新类别分布
         category_sql = f"""
-            SELECT TOP 3
+            SELECT TOP 8
                 ISNULL(创新类别, '未分类') as 创新类别,
                 COUNT(*) as 数量
             FROM chuangxin_tibao1 t1

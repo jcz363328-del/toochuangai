@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import inspect
 import io
+import json
 import threading
 import time
 import unittest
@@ -90,6 +91,11 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("st.download_button", crop_source)
         self.assertIn("enable_a_plus_crop_downloads", history_source)
         self.assertIn("render_main_image_a_plus_crop_downloads", page_source)
+        self.assertIn("生成手机端适配版", page_source)
+        self.assertIn("submit_main_image_a_plus_mobile_adaptation", page_source)
+        self.assertIn("生成手机端适配版", history_source)
+        self.assertIn("is_main_image_a_plus_mobile_canvas", history_source)
+        self.assertIn("submit_main_image_a_plus_mobile_adaptation", history_source)
 
     def test_layout_keeps_primary_and_dynamic_actions_in_reserved_slots(self) -> None:
         render_source = inspect.getsource(site.render_openrouter_feature)
@@ -251,8 +257,9 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("统一场景", prompt)
         self.assertIn("主体跨区", prompt)
         self.assertIn("四个内容阶段只负责阅读节奏", prompt)
-        self.assertIn("不会从上、下、左、右任何一侧裁切", prompt)
-        self.assertIn("四边都不是可牺牲区域", prompt)
+        self.assertIn("保持比例、满版覆盖", prompt)
+        self.assertIn("禁止给画面增加白边、米色边、黑边", prompt)
+        self.assertIn("最外围的纯背景或连续场景做最少量居中裁切", prompt)
         self.assertIn("只挑选一位最清晰、最适合商业展示的模特", prompt)
         self.assertIn("禁止出现第二位模特", prompt)
         self.assertIn("禁止半个字、缺字、断行裁切", prompt)
@@ -278,6 +285,206 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("首屏不能成为独立硬边界模块", prompt)
         self.assertIn("不得在画面中显示网格、比例、层级说明", prompt)
         self.assertIn("突出自然轻盈感", prompt)
+
+    def test_mobile_adaptation_prompt_locks_content_and_allows_only_responsive_reflow(self) -> None:
+        prompt = site.build_main_image_a_plus_mobile_adaptation_prompt()
+
+        self.assertIn("600×1800px 手机端 A+ 长图", prompt)
+        self.assertIn("不得新增、删除、替换、改写", prompt)
+        self.assertIn("这不是一次新设计或内容重绘，而是对同一张电脑端成品做响应式重排", prompt)
+        self.assertIn("所有可读文字必须逐字保持原文", prompt)
+        self.assertIn("不得根据语义重新撰写相似文案", prompt)
+        self.assertIn("现有元素可以等比缩放、移动、调整间距", prompt)
+        self.assertIn("必须主动对原有完整元素做穿插式重排", prompt)
+        self.assertIn("左右交替与上下错位", prompt)
+        self.assertIn("将小型完整元素放入另一元素周围的纯背景留白", prompt)
+        self.assertIn("允许不同完整元素的矩形外接框在空间上穿插", prompt)
+        self.assertIn("不允许任何有效像素被另一元素覆盖", prompt)
+        self.assertIn("元素总数、元素种类、出现次数和内容一一对应", prompt)
+        self.assertIn("每一个元素都必须被视为不可拆分的完整整体", prompt)
+        self.assertIn("禁止把一个元素切成多块、只保留局部、裁掉边缘", prompt)
+        self.assertIn("禁止为了做穿插而给任何元素添加裁切窗口、蒙版、遮罩", prompt)
+        self.assertIn("每一个可见像素都必须保留", prompt)
+        self.assertIn("空间不足时必须缩小整个元素并另找位置", prompt)
+        self.assertIn("禁止对任何前景执行 cover 裁切、中心裁切", prompt)
+        self.assertIn("full-bleed background + all foreground elements fully visible", prompt)
+        self.assertIn("不能出现白边、黑边、透明条、纯色留白条", prompt)
+        self.assertIn("中间 75% 高度范围内", prompt)
+        self.assertIn("上方 12.5% 和下方 12.5%", prompt)
+        self.assertIn("[30,150,970,850]", prompt)
+        self.assertIn("安全区是前景元素外接框的硬边界", prompt)
+        self.assertIn("这两段上下背景是最终尺寸适配时唯一允许移除的区域", prompt)
+        self.assertIn("禁止把边缘像素、家具线条、人物轮廓", prompt)
+        self.assertIn("禁止任何拖影、条纹化延展或镜像复制痕迹", prompt)
+        self.assertIn("禁止对整张图或任何人物、商品、Logo、文字、图片窗口进行非等比压缩、拉伸", prompt)
+        self.assertIn("不重新设计", prompt)
+        self.assertIn("必须整体位于中间内容区内", prompt)
+
+    def test_mobile_adaptation_uses_desktop_result_as_sole_reference_and_returns_exact_size(self) -> None:
+        desktop_source = image_data_url(Image.new("RGB", (1464, 2400), "navy"))
+        generated = image_data_url(Image.new("RGB", (100, 400), "green"))
+        job_context = {
+            "model": site.NANO_BANANA_MODEL,
+            "main_image_a_plus_desktop_source": desktop_source,
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [generated], "text": ""},
+            ) as request_images,
+            patch.object(
+                site,
+                "analyze_main_image_a_plus_mobile_element_inventory",
+                return_value=[
+                    {
+                        "name": "品牌 Logo",
+                        "description": "中心 Logo",
+                        "count": 1,
+                        "regions": [[220, 120, 780, 260]],
+                    },
+                ],
+            ),
+        ):
+            result = site.run_main_image_a_plus_mobile_adaptation_job(job_context)
+
+        request_images.assert_called_once()
+        call_kwargs = request_images.call_args.kwargs
+        self.assertEqual(len(call_kwargs["uploaded_files"]), 1)
+        self.assertEqual(call_kwargs["aspect_ratio"], "1:4")
+        self.assertEqual(call_kwargs["resolution"], "4K")
+        self.assertEqual(call_kwargs["max_attempts"], 1)
+        self.assertIn("不得新增、删除、替换、改写", call_kwargs["prompt"])
+        self.assertIn("电脑端元素清单", call_kwargs["prompt"])
+        self.assertIn("品牌 Logo", call_kwargs["prompt"])
+        self.assertIn("手机端安全边距硬规则", call_kwargs["prompt"])
+        self.assertIn("动态规划安全边距", call_kwargs["prompt"])
+        self.assertNotIn("[60,40,940,960]", call_kwargs["prompt"])
+        self.assertEqual(result["mobile_adaptation_source"], desktop_source)
+        self.assertEqual(result["main_image_a_plus_mode"], site.MAIN_IMAGE_A_PLUS_MODE_MOBILE_ADAPT)
+        self.assertEqual(result["target_size"], (600, 1800))
+        self.assertEqual(result["mobile_generation_attempts"], 1)
+        self.assertEqual(result["mobile_element_inventory_count"], 1)
+        self.assertEqual(result["mobile_foreground_fit"], "reserved_background_trim")
+        self.assertEqual(result["mobile_background_fill"], "native_full_bleed")
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.size, (600, 1800))
+
+    def test_mobile_inventory_is_built_before_generation_and_keeps_small_elements(self) -> None:
+        source = image_uploaded_input(Image.new("RGB", (1464, 2400), "white"))
+        inventory_json = json.dumps(
+            {
+                "elements": [
+                    {
+                        "name": "Adapt to Your Skin Tone 卖点",
+                        "type": "text",
+                        "count": 1,
+                        "description": "完整英文卖点",
+                        "verbatim_text": "Adapt to Your Skin Tone",
+                        "reading_order": 1,
+                        "regions": [[80, 120, 420, 190]],
+                    },
+                    {
+                        "name": "模特手腕上的手链",
+                        "type": "accessory",
+                        "count": 1,
+                        "description": "人物配件",
+                        "reading_order": 2,
+                        "regions": [[610, 280, 720, 360]],
+                    },
+                    {
+                        "name": "右下角干花束",
+                        "type": "decoration",
+                        "count": 1,
+                        "description": "背景小装饰",
+                        "reading_order": 3,
+                        "regions": [[760, 760, 940, 930]],
+                    },
+                ]
+            },
+            ensure_ascii=False,
+        )
+
+        with patch.object(
+            site,
+            "call_openrouter",
+            return_value={"text": inventory_json},
+        ) as analyze:
+            elements = site.analyze_main_image_a_plus_mobile_element_inventory(source)
+
+        self.assertEqual(len(elements), 3)
+        self.assertEqual(elements[0]["name"], "Adapt to Your Skin Tone 卖点")
+        self.assertEqual(elements[1]["name"], "模特手腕上的手链")
+        self.assertEqual(elements[2]["name"], "右下角干花束")
+        self.assertEqual(elements[0]["regions"], [[80, 120, 420, 190]])
+        self.assertEqual(elements[0]["verbatim_text"], "Adapt to Your Skin Tone")
+        self.assertEqual(elements[0]["reading_order"], 1)
+        formatted_inventory = site.format_main_image_a_plus_mobile_element_inventory(elements)
+        self.assertIn("阅读顺序 1", formatted_inventory)
+        self.assertIn('逐字锁定原文="Adapt to Your Skin Tone"', formatted_inventory)
+        analysis_prompt = analyze.call_args.kwargs["prompt"]
+        self.assertIn("不得忽略画布四角、边缘、底部或背景中的小元素", analysis_prompt)
+        self.assertIn("完整外接框 regions", analysis_prompt)
+        self.assertIn("verbatim_text 中逐字转录原文", analysis_prompt)
+        self.assertIn("reading_order", analysis_prompt)
+
+    def test_feature_job_routes_mobile_adaptation_before_upload_validation(self) -> None:
+        job_context = {
+            "feature": {"key": site.MAIN_IMAGE_A_PLUS_FEATURE_KEY, "name": "主图生A+"},
+            "model": site.NANO_BANANA_MODEL,
+            "prompt": "",
+            "uploaded_files": [],
+            "main_image_a_plus_adapt_mobile": True,
+            "main_image_a_plus_desktop_source": "data:image/png;base64,source",
+            "account_name": "tester",
+        }
+        mobile_result = {"images": ["data:image/png;base64,result"]}
+
+        with (
+            patch.object(
+                site,
+                "run_main_image_a_plus_mobile_adaptation_job",
+                return_value=mobile_result,
+            ) as run_mobile,
+            patch.object(
+                site,
+                "finalize_feature_job_result",
+                side_effect=lambda _context, result, _job_id: result,
+            ),
+        ):
+            result = site.run_feature_job(job_context)
+
+        run_mobile.assert_called_once_with(job_context)
+        self.assertEqual(result, mobile_result)
+
+    def test_mobile_canvas_detection_skips_existing_mobile_history_results(self) -> None:
+        mobile = image_data_url(Image.new("RGB", (600, 1800), "green"))
+        mobile_thumbnail = image_data_url(Image.new("RGB", (120, 360), "green"))
+        desktop = image_data_url(Image.new("RGB", (1464, 2400), "green"))
+
+        self.assertTrue(site.is_main_image_a_plus_mobile_canvas(mobile))
+        self.assertTrue(site.is_main_image_a_plus_mobile_canvas(mobile_thumbnail))
+        self.assertFalse(site.is_main_image_a_plus_mobile_canvas(desktop))
+
+    def test_mobile_adaptation_submitter_accepts_a_history_image_source(self) -> None:
+        source = r"D:\history\desktop-a-plus.png"
+        queued = {"job_id": "mobile-job", "status": "queued"}
+
+        with (
+            patch.object(site, "st") as streamlit,
+            patch.object(site, "submit_feature_job", return_value=queued) as submit_job,
+        ):
+            streamlit.session_state.get.return_value = "history-user"
+            result = site.submit_main_image_a_plus_mobile_adaptation(source)
+
+        self.assertEqual(result, queued)
+        submit_job.assert_called_once()
+        feature_arg, context_arg = submit_job.call_args.args
+        self.assertEqual(feature_arg["key"], site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
+        self.assertTrue(context_arg["main_image_a_plus_adapt_mobile"])
+        self.assertEqual(context_arg["main_image_a_plus_desktop_source"], source)
+        self.assertEqual(context_arg["account_name"], "history-user")
 
     def test_hero_design_job_reuses_single_pass_free_creation_pipeline(self) -> None:
         source = Image.new("RGB", (200, 300), "white")
@@ -642,7 +849,8 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("只挑选一位最清晰、最适合商业展示的模特", call_kwargs["prompt"])
         self.assertIn("禁止出现第二位模特", call_kwargs["prompt"])
         self.assertIn("不能遮挡模特", call_kwargs["prompt"])
-        self.assertIn("不会从上、下、左、右任何一侧裁切", call_kwargs["prompt"])
+        self.assertIn("保持比例、满版覆盖", call_kwargs["prompt"])
+        self.assertIn("禁止给画面增加白边、米色边、黑边", call_kwargs["prompt"])
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.size, (1464, 2400))
         self.assertEqual(result["section_count"], 1)
@@ -710,7 +918,7 @@ class MainImageAPlusTests(unittest.TestCase):
         with Image.open(io.BytesIO(reference["data"])) as compressed:
             self.assertEqual(compressed.size, (600, 450))
 
-    def test_free_canvas_size_adapter_never_crops_left_or_right(self) -> None:
+    def test_free_canvas_size_adapter_fills_left_and_right_without_borders(self) -> None:
         source = Image.new("RGB", (300, 100), "green")
         source.paste("red", (0, 0, 100, 100))
         source.paste("blue", (200, 0, 300, 100))
@@ -719,10 +927,79 @@ class MainImageAPlusTests(unittest.TestCase):
 
         with open_data_url(fitted_url) as fitted:
             self.assertEqual(fitted.size, (100, 100))
-            self.assertEqual(fitted.getpixel((10, 50)), (255, 0, 0))
-            self.assertEqual(fitted.getpixel((90, 50)), (0, 0, 255))
+            self.assertEqual(fitted.getpixel((0, 50)), (0, 128, 0))
+            self.assertEqual(fitted.getpixel((99, 50)), (0, 128, 0))
 
-    def test_free_canvas_size_adapter_never_crops_top_or_bottom(self) -> None:
+    def test_mobile_reserved_background_trim_preserves_elements_without_edge_stretching(self) -> None:
+        source = Image.new("RGB", (120, 480), (20, 20, 20))
+        draw = ImageDraw.Draw(source)
+        for y in range(0, source.height, 4):
+            for x in range(0, source.width, 4):
+                shade = 18 + ((x // 4 + y // 4) % 7) * 4
+                draw.rectangle((x, y, x + 3, y + 3), fill=(shade, shade + 5, shade + 10))
+        draw.rectangle((4, 65, 24, 85), fill=(255, 0, 0))
+        draw.rectangle((95, 65, 115, 85), fill=(0, 255, 0))
+        draw.rectangle((4, 395, 24, 415), fill=(0, 0, 255))
+        draw.rectangle((95, 395, 115, 415), fill=(255, 255, 0))
+        draw.rectangle((50, 230, 69, 249), fill=(255, 0, 255))
+
+        result_url = site.fit_image_to_exact_size_by_trimming_reserved_background(
+            image_data_url(source),
+            600,
+            1800,
+        )
+
+        with open_data_url(result_url) as result:
+            self.assertEqual(result.size, (600, 1800))
+            color_checks = {
+                "red": lambda pixel: pixel[0] > 180 and pixel[1] < 80 and pixel[2] < 80,
+                "green": lambda pixel: pixel[0] < 80 and pixel[1] > 180 and pixel[2] < 80,
+                "blue": lambda pixel: pixel[0] < 80 and pixel[1] < 80 and pixel[2] > 180,
+                "yellow": lambda pixel: pixel[0] > 180 and pixel[1] > 180 and pixel[2] < 80,
+                "magenta": lambda pixel: pixel[0] > 180 and pixel[1] < 80 and pixel[2] > 180,
+            }
+            detected_boxes: dict[str, tuple[int, int, int, int]] = {}
+            for name, matcher in color_checks.items():
+                pixels = [
+                    (x, y)
+                    for y in range(result.height)
+                    for x in range(result.width)
+                    if matcher(result.getpixel((x, y)))
+                ]
+                self.assertTrue(pixels, f"missing contained element: {name}")
+                detected_boxes[name] = (
+                    min(x for x, _y in pixels),
+                    min(y for _x, y in pixels),
+                    max(x for x, _y in pixels),
+                    max(y for _x, y in pixels),
+                )
+            for left, top, right, bottom in detected_boxes.values():
+                self.assertGreater(left, 0)
+                self.assertGreater(top, 0)
+                self.assertLess(right, result.width - 1)
+                self.assertLess(bottom, result.height - 1)
+            magenta = detected_boxes["magenta"]
+            self.assertLessEqual(abs((magenta[2] - magenta[0]) - (magenta[3] - magenta[1])), 2)
+
+            self.assertEqual(result.mode, "RGB")
+            borders = (
+                [result.getpixel((x, 0)) for x in range(result.width)],
+                [result.getpixel((x, result.height - 1)) for x in range(result.width)],
+                [result.getpixel((0, y)) for y in range(result.height)],
+                [result.getpixel((result.width - 1, y)) for y in range(result.height)],
+            )
+            for border in borders:
+                self.assertGreater(len(set(border)), 1)
+                self.assertFalse(all(pixel in {(0, 0, 0), (255, 255, 255)} for pixel in border))
+
+        run_source = inspect.getsource(site.run_main_image_a_plus_mobile_adaptation_job)
+        self.assertIn("fit_image_to_exact_size_by_trimming_reserved_background", run_source)
+        self.assertNotIn("cover_image_to_exact_size", run_source)
+        adapter_source = inspect.getsource(site.fit_image_to_exact_size_by_trimming_reserved_background)
+        self.assertNotIn("FLIP_LEFT_RIGHT", adapter_source)
+        self.assertNotIn("FLIP_TOP_BOTTOM", adapter_source)
+
+    def test_free_canvas_size_adapter_fills_top_and_bottom_without_borders(self) -> None:
         source = Image.new("RGB", (100, 300), "green")
         source.paste("red", (0, 0, 100, 40))
         source.paste("blue", (0, 260, 100, 300))
@@ -731,8 +1008,8 @@ class MainImageAPlusTests(unittest.TestCase):
 
         with open_data_url(fitted_url) as fitted:
             self.assertEqual(fitted.size, (100, 200))
-            self.assertEqual(fitted.getpixel((50, 0)), (255, 0, 0))
-            self.assertEqual(fitted.getpixel((50, 199)), (0, 0, 255))
+            self.assertEqual(fitted.getpixel((50, 0)), (0, 128, 0))
+            self.assertEqual(fitted.getpixel((50, 199)), (0, 128, 0))
 
     def test_uploaded_references_are_prepared_once_for_fast_reuse(self) -> None:
         source = Image.new("RGB", (3200, 2400), "purple")
