@@ -59,7 +59,7 @@ PERMISSION_CONFIG = {
     },
     'review_analysis': {
         'name': '差评分析系统',
-        'allowed_departments': ['运营部', 'AI部', '总经办'],  # 运营部及其下各运营分部 + AI部和总经办
+        'allowed_departments': ['运营部', '技术部', 'AI部', '总经办'],  # 运营部及其下各运营分部 + 技术部、AI部和总经办
         'description': '产品差评分析工具'
     },
     'amazon_reply_agent': {
@@ -136,6 +136,11 @@ PERMISSION_CONFIG = {
         'name': '运营六部功能',
         'allowed_departments': ['运营六部', '新人组', 'AI部', '总经办'],
         'description': '运营六部专属功能模块'
+    },
+    'operation_dept_7': {
+        'name': '运营七部功能',
+        'allowed_departments': ['运营七部', '新人组', 'AI部', '总经办'],
+        'description': '运营七部专属功能模块'
     },
     'procurement_dept': {
         'name': '采购部功能',
@@ -227,7 +232,13 @@ OPERATION_CARD_OVERRIDE_FUNCTIONS = [
     'operation_dept_2',
     'operation_dept_3',
     'operation_dept_6',
+    'operation_dept_7',
 ]
+
+# 通讯录尚未同步到新部门时，保证指定人员可以进入对应部门卡片。
+USER_FUNCTION_OVERRIDES = {
+    '赵瑜': ['operation_dept_7'],
+}
 
 # ==========================
 # 开发者配置 - 用于调试模式
@@ -993,9 +1004,10 @@ class FeishuPermissionManager:
         if not user_name:
             raw_name = str(session.get('feishu_user_name') or '').strip()
             user_name = raw_name.split('（', 1)[0].strip() if raw_name else ''
+        extra_functions = list(USER_FUNCTION_OVERRIDES.get(user_name, []))
         if user_name in OPERATION_CARD_OVERRIDE_USERS:
-            return list(OPERATION_CARD_OVERRIDE_FUNCTIONS)
-        return []
+            extra_functions.extend(OPERATION_CARD_OVERRIDE_FUNCTIONS)
+        return list(dict.fromkeys(extra_functions))
 
     def _resolve_effective_departments(self, valid_departments, function_name):
         """
@@ -1328,6 +1340,9 @@ class FeishuPermissionManager:
             elif 'operation6' in user_id:
                 allowed_functions = ['innovation_proposals', 'review_analysis', 'operation_dept_6', 'tk_customer_service']
                 _safe_print(f"📋 运营六部权限: {allowed_functions}")
+            elif 'operation7' in user_id:
+                allowed_functions = ['innovation_proposals', 'review_analysis', 'operation_dept_7', 'tk_customer_service']
+                _safe_print(f"📋 运营七部权限: {allowed_functions}")
             elif 'ai' in user_id:
                 allowed_functions = list(PERMISSION_CONFIG.keys())  # AI部可访问所有功能
                 _safe_print(f"📋 AI部门权限: {allowed_functions}")

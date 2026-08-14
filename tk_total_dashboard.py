@@ -17,6 +17,30 @@ partial_admin_users = ['张莉','周俊成', '毕景春', '陶晓飞', '李昌�
 dashboard_82_users = ['张莉', '周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭', '朱晓禹', '侯梁']
 dashboard_88_users = ['张莉', '周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭', '朱晓禹', '侯梁', '刘俊霞', '李晓明']
 dashboard_90_users = ['张莉', '周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭', '朱晓禹', '侯梁', '孙洁']
+JOINT_SHOP_USER_MAP = {
+    '82': {'侯梁'},
+    '88': {'刘俊霞'},
+    '90': {'孙洁'},
+    '87': {'刘蓉蓉'},
+    '89': {'柳琳'},
+    '91': {'叶雨菲'},
+    '92': {'刘星辰'},
+    '93': {'赵璐华'},
+    '95': {'杨明月'},
+    '96': {'周雪'},
+    '106': {'李娜'},
+    '97': {'郭婷'},
+    '101': {'侯瑞昕'},
+    '84': {'大张雯'},
+    '107': {'郭鑫'},
+    '108': {'张彦微'},
+    '109': {'王钰媛'},
+}
+joint_dashboard_users = sorted({
+    user_name
+    for user_names in JOINT_SHOP_USER_MAP.values()
+    for user_name in user_names
+} | set(admin_users) | set(partial_admin_users))
 
 def is_admin_user():
     return session.get('feishu_user_name', '') in admin_users
@@ -33,6 +57,24 @@ def is_dashboard_88_user():
 def is_dashboard_90_user():
     return session.get('feishu_user_name', '') in dashboard_90_users
 
+
+def get_joint_dashboard_allowed_shops(user_name=None):
+    """Return only the joint shops the current user is allowed to query."""
+    normalized_name = str(
+        session.get('feishu_user_name', '') if user_name is None else user_name
+    ).strip()
+    if normalized_name in admin_users or normalized_name in partial_admin_users:
+        return list(JOINT_SHOP_USER_MAP.keys())
+    return [
+        shop
+        for shop, allowed_users in JOINT_SHOP_USER_MAP.items()
+        if normalized_name in allowed_users
+    ]
+
+
+def is_joint_dashboard_user(user_name=None):
+    return bool(get_joint_dashboard_allowed_shops(user_name))
+
 METRICS_CACHE_TTL = 24 * 60 * 60
 _metrics_cache = {}
 _metrics_cache_lock = threading.Lock()
@@ -45,6 +87,7 @@ _default_thread_started = False
 _precomputed_shop_payloads = {}
 _precomputed_week_shop_payloads = {}
 PARTIAL_DASHBOARD_SALES_SOURCE = 'bd_order_settlement_gmv'
+JOINT_SHARED_CACHE_TTL = 10 * 365 * 24 * 60 * 60
 PARTIAL_CACHE_REFRESH_HOUR = 9
 PARTIAL_CACHE_REFRESH_MINUTE = 30
 PARTIAL_CACHE_REFRESH_SEC = 24 * 60 * 60
@@ -54,6 +97,7 @@ _partial_precomputed_shop_payloads = {}
 _partial_precomputed_week_shop_payloads = {}
 _persistent_cache_table_ready = False
 _persistent_cache_table_lock = threading.Lock()
+_default_cache_refresh_lock = threading.Lock()
 
 
 def _seconds_until_next_partial_cache_refresh(now=None):
@@ -161,10 +205,69 @@ def _save_persistent_metrics_payload(cache_key, payload, ttl=METRICS_CACHE_TTL):
                 ),
             )
             connection.commit()
+            return True
         finally:
             connection.close()
     except Exception:
-        pass
+        return False
+
+
+def _joint_shared_metrics_cache_key(start_dt, end_dt, shops, target_net_profit=0.0):
+    """Build a user-independent key for a manually refreshed joint snapshot."""
+    shops_key = '|'.join(sorted({
+        str(shop).strip()
+        for shop in (shops or [])
+        if str(shop).strip()
+    }))
+    return 'joint-dashboard:shared:' + '|'.join([
+        start_dt.strftime('%Y-%m-%d'),
+        end_dt.strftime('%Y-%m-%d'),
+        shops_key,
+        str(float(target_net_profit or 0)),
+    ])
+
+
+def _load_joint_shared_metrics_payload(start_dt, end_dt, shops, target_net_profit=0.0):
+    cache_key = _joint_shared_metrics_cache_key(
+        start_dt,
+        end_dt,
+        shops,
+        target_net_profit,
+    )
+    payload, _ = _load_persistent_metrics_payload(cache_key)
+    if not isinstance(payload, dict) or payload.get('success') is False:
+        return None
+    return payload
+
+
+def _save_joint_shared_metrics_payload(payload, start_dt, end_dt, shops, target_net_profit=0.0):
+    if not isinstance(payload, dict) or payload.get('success') is False:
+        return None
+    normalized_shops = sorted({
+        str(shop).strip()
+        for shop in (shops or [])
+        if str(shop).strip()
+    })
+    shared_payload = dict(payload)
+    shared_payload['shared_cache'] = {
+        'scope': 'joint_dashboard',
+        'updated_at': datetime.now().replace(microsecond=0).isoformat(sep=' '),
+        'start_date': start_dt.strftime('%Y-%m-%d'),
+        'end_date': end_dt.strftime('%Y-%m-%d'),
+        'shops': normalized_shops,
+    }
+    cache_key = _joint_shared_metrics_cache_key(
+        start_dt,
+        end_dt,
+        normalized_shops,
+        target_net_profit,
+    )
+    saved = _save_persistent_metrics_payload(
+        cache_key,
+        shared_payload,
+        ttl=JOINT_SHARED_CACHE_TTL,
+    )
+    return shared_payload if saved else None
 
 
 def _get_bd_order_settlement_sales(start_dt, end_dt, prev_start, prev_end, shops):
@@ -231,6 +334,276 @@ def _get_bd_order_settlement_sales(start_dt, end_dt, prev_start, prev_end, shops
         'previous': float(row[0] or 0),
         'selected': float(row[1] or 0),
         'yesterday': float(row[2] or 0),
+    }
+
+
+def _fetch_dashboard_metrics_fast(start_str, end_str, in_clause, year, month):
+    """Return the 25 metric columns without the monolithic dashboard query.
+
+    The former stored procedure put every aggregate and complex view into one
+    SELECT. SQL Server flattened that statement into a plan that repeatedly
+    scanned the same tables tens of millions of times. Running the independent
+    aggregates sequentially on one connection keeps the existing metric order
+    while giving the optimizer a small, predictable plan for each query.
+    """
+    if not in_clause:
+        return [0.0] * 25
+
+    def fetch_row(cursor, sql, expected_len):
+        cursor.execute(sql)
+        row = cursor.fetchone()
+        values = list(row) if row else []
+        if len(values) < expected_len:
+            values.extend([0] * (expected_len - len(values)))
+        return values[:expected_len]
+
+    connection = pytds.connect(**sql_server_config())
+    try:
+        cursor = connection.cursor()
+        core = fetch_row(cursor, f"""
+            SELECT
+                ISNULL(SUM(平台佣金), 0),
+                ISNULL(SUM(-VAT税), 0),
+                ISNULL(SUM(调整费), 0),
+                ISNULL(SUM(平台其他费), 0),
+                ISNULL(SUM(考核销售额), 0),
+                ISNULL(SUM(
+                    -ISNULL(物流运费, 0)
+                    -ISNULL(平台实际运费, 0)
+                    -ISNULL(运费折扣, 0)
+                    -ISNULL(退货运费, 0)
+                ), 0),
+                ISNULL(SUM(达人佣金), 0),
+                ISNULL(SUM(活动服务费), 0),
+                ISNULL(SUM(ISNULL(销量, 0)) - SUM(ISNULL(退款量, 0)), 0)
+            FROM v_TK_JieSuan WITH (NOLOCK)
+            WHERE 结算日期 >= '{start_str}'
+              AND 结算日期 <= '{end_str}'
+              AND 店 IN ({in_clause})
+        """, 9)
+
+        fees = fetch_row(cursor, f"""
+            SELECT
+                ISNULL(SUM(CASE WHEN xiangmu = N'税金' THEN feiyonge ELSE 0 END), 0) / 6.5,
+                ISNULL(SUM(CASE WHEN xiangmu IN (N'入库费', N'仓储费', N'退货费') THEN feiyonge ELSE 0 END), 0),
+                ISNULL(SUM(CASE WHEN xiangmu IN (N'刷单费', N'售后', N'网红坑位费', N'给网红购买产品费') THEN feiyonge ELSE 0 END), 0),
+                ISNULL(SUM(CASE WHEN xiangmu = N'广告' THEN feiyonge ELSE 0 END), 0)
+            FROM TK_FeiYong WITH (NOLOCK)
+            WHERE riqi >= '{start_str}'
+              AND riqi <= '{end_str}'
+              AND dian IN ({in_clause})
+        """, 4)
+
+        shipping = fetch_row(cursor, f"""
+            SELECT
+                ISNULL((
+                    SELECT SUM(shijiyunfei)
+                    FROM TK_DingDan_ShouHou WITH (NOLOCK)
+                    WHERE baoguozhuangtai <> N'已作废'
+                      AND dian IN ({in_clause})
+                      AND fahuoshijian >= '{start_str}'
+                      AND fahuoshijian <= '{end_str}'
+                ), 0),
+                ISNULL((
+                    SELECT -SUM(yunfei * xiaoliang)
+                    FROM TK_DingDan WITH (NOLOCK)
+                    WHERE shifouyangpin = N'是'
+                      AND dian IN ({in_clause})
+                      AND fahuoshijian >= '{start_str}'
+                      AND fahuoshijian <= '{end_str}'
+                ), 0)
+        """, 2)
+
+        daily_costs = fetch_row(cursor, f"""
+            SELECT
+                ISNULL(SUM(青岛工资日均), 0),
+                ISNULL(SUM(深圳工资日均), 0),
+                ISNULL(SUM(青岛房租日均), 0),
+                ISNULL(SUM(深圳房租日均), 0),
+                ISNULL(SUM(青岛房租日均 + 深圳房租日均 + 青岛工资日均 + 深圳工资日均), 0)
+            FROM v_TK_RiJunFeiYong WITH (NOLOCK)
+            WHERE riqi >= '{start_str}' AND riqi <= '{end_str}'
+        """, 5)
+
+        ratios = fetch_row(cursor, f"""
+            SELECT
+                ISNULL(SUM(CASE WHEN 地区=N'青岛' AND 项目=N'工资' THEN CASE WHEN ISNUMERIC(比例)=1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END ELSE 0 END), 0),
+                ISNULL(SUM(CASE WHEN 地区=N'深圳' AND 项目=N'工资' THEN CASE WHEN ISNUMERIC(比例)=1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END ELSE 0 END), 0),
+                ISNULL(SUM(CASE WHEN 地区=N'青岛' AND 项目=N'房租' THEN CASE WHEN ISNUMERIC(比例)=1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END ELSE 0 END), 0),
+                ISNULL(SUM(CASE WHEN 地区=N'深圳' AND 项目=N'房租' THEN CASE WHEN ISNUMERIC(比例)=1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END ELSE 0 END), 0),
+                ISNULL(SUM(CASE WHEN 地区=N'青岛' AND 项目=N'经营管理费' THEN CASE WHEN ISNUMERIC(比例)=1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END ELSE 0 END), 0),
+                ISNULL(SUM(CASE WHEN 地区=N'深圳' AND 项目=N'经营管理费' THEN CASE WHEN ISNUMERIC(比例)=1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END ELSE 0 END), 0)
+            FROM tk_费用分摊比例 WITH (NOLOCK)
+            WHERE 年 = {int(year)} AND 月 = {int(month)} AND 店铺 IN ({in_clause})
+        """, 6)
+
+        platform_first_leg = fetch_row(cursor, f"""
+            WITH tc AS (
+                SELECT sku, SUM(TouCheng) AS TouCheng
+                FROM zidian_toucheng WITH (NOLOCK)
+                WHERE Guo = N'美国'
+                GROUP BY sku
+            )
+            SELECT ISNULL(SUM(d.xiaoliang * tc.TouCheng), 0) / 6.5
+            FROM v_TK_JieSuan AS j WITH (NOLOCK)
+            INNER JOIN TK_DingDan AS d WITH (NOLOCK) ON d.danhao = j.单号
+            INNER JOIN tc ON tc.sku = d.sku
+            WHERE j.结算日期 >= '{start_str}'
+              AND j.结算日期 <= '{end_str}'
+              AND j.店 IN ({in_clause})
+              AND j.销量 > 0
+              AND d.sku IS NOT NULL
+        """, 1)[0]
+        sample_first_leg = fetch_row(cursor, f"""
+            WITH tc AS (
+                SELECT sku, SUM(TouCheng) AS TouCheng
+                FROM zidian_toucheng WITH (NOLOCK)
+                WHERE Guo = N'美国'
+                GROUP BY sku
+            )
+            SELECT ISNULL(SUM(dd.xiaoliang * tc.TouCheng), 0) / 6.5
+            FROM TK_DingDan AS dd WITH (NOLOCK)
+            INNER JOIN tc ON tc.sku = dd.sku
+            WHERE dd.fahuoshijian >= '{start_str}'
+              AND dd.fahuoshijian <= '{end_str}'
+              AND dd.shifouyangpin = N'是'
+              AND EXISTS (
+                  SELECT 1
+                  FROM zidian AS zdd WITH (NOLOCK)
+                  WHERE zdd.sku = dd.sku AND zdd.dian IN ({in_clause})
+              )
+        """, 1)[0]
+        aftersales_first_leg = fetch_row(cursor, f"""
+            WITH tc AS (
+                SELECT sku, SUM(TouCheng) AS TouCheng
+                FROM zidian_toucheng WITH (NOLOCK)
+                WHERE Guo = N'美国'
+                GROUP BY sku
+            )
+            SELECT ISNULL(SUM(sh.shuliang * tc.TouCheng), 0) / 6.5
+            FROM TK_DingDan_ShouHou AS sh WITH (NOLOCK)
+            INNER JOIN tc ON tc.sku = sh.sku
+            WHERE sh.fahuoshijian >= '{start_str}'
+              AND sh.fahuoshijian <= '{end_str}'
+              AND sh.dian IN ({in_clause})
+        """, 1)[0]
+
+        audience = fetch_row(cursor, f"""
+            SELECT ISNULL(COUNT(DISTINCT 网红名), 0)
+            FROM v_tk_yibiaopan WITH (NOLOCK)
+            WHERE 最新发货日期 >= '{start_str}'
+              AND 最新发货日期 <= '{end_str}'
+              AND 店铺 IN ({in_clause})
+        """, 1)[0]
+        videos = fetch_row(cursor, f"""
+            SELECT ISNULL(COUNT(*), 0)
+            FROM v_TK_HeZuoShiPin WITH (NOLOCK)
+            WHERE faburiqi >= '{start_str}'
+              AND faburiqi <= '{end_str}'
+              AND dian IN ({in_clause})
+        """, 1)[0]
+
+        management = fetch_row(cursor, f"""
+            SELECT
+                ISNULL(SUM(CASE WHEN 项目=N'TK项目' THEN 贷方 ELSE 0 END), 0) / 6.5,
+                ISNULL(SUM(CASE WHEN 项目=N'深圳TK' THEN 贷方 ELSE 0 END), 0) / 6.5
+            FROM 财务_费用明细 WITH (NOLOCK)
+            WHERE 日期 >= '{start_str}' AND 日期 <= '{end_str}'
+        """, 2)
+        yesterday = (date.today() - timedelta(days=1)).strftime('%Y-%m-%d')
+        yesterday_sales = fetch_row(cursor, f"""
+            SELECT ISNULL(SUM(考核销售额), 0)
+            FROM v_TK_JieSuan WITH (NOLOCK)
+            WHERE 结算日期 = '{yesterday}' AND 店 IN ({in_clause})
+        """, 1)[0]
+
+        qd_wage = float(daily_costs[0] or 0) * float(ratios[0] or 0)
+        sz_wage = float(daily_costs[1] or 0) * float(ratios[1] or 0)
+        qd_rent = float(daily_costs[2] or 0) * float(ratios[2] or 0)
+        sz_rent = float(daily_costs[3] or 0) * float(ratios[3] or 0)
+        op_qd = float(management[0] or 0) * float(ratios[4] or 0)
+        op_sz = float(management[1] or 0) * float(ratios[5] or 0)
+        first_leg = (
+            float(platform_first_leg or 0)
+            + float(sample_first_leg or 0)
+            + float(aftersales_first_leg or 0)
+        )
+        logistics = float(core[5] or 0) + float(shipping[0] or 0) + float(shipping[1] or 0)
+
+        return [
+            core[0], core[1], core[2], core[3], core[4], logistics,
+            core[6], core[7], fees[0], fees[1], fees[2], fees[3],
+            qd_wage, sz_wage, qd_rent, sz_rent,
+            0.0, first_leg, core[8], audience, videos,
+            op_qd, op_sz, daily_costs[4], yesterday_sales,
+        ]
+    finally:
+        connection.close()
+
+
+def _build_dashboard_shell_payload(shops, start_dt=None, end_dt=None, sales_source=''):
+    """Build an instant first-paint payload while the full cache refreshes."""
+    today = date.today()
+    start_dt = start_dt or date(today.year, today.month, 1)
+    end_dt = end_dt or today
+    yesterday = today - timedelta(days=1)
+    safe_shops = [str(shop).replace("'", "''") for shop in (shops or [])]
+    in_clause = ','.join([f"'{shop}'" for shop in safe_shops])
+    yesterday_sales = 0.0
+    selected_sales = 0.0
+    # The joint dashboard's settlement source is comparatively expensive. Its
+    # cold response intentionally stays query-free while the full calculation
+    # runs in the background; returning default-source sales here would display
+    # incorrect figures during that refresh.
+    if in_clause and sales_source != PARTIAL_DASHBOARD_SALES_SOURCE:
+        sql = f"""
+            SELECT
+                ISNULL(SUM(CASE WHEN 结算日期 = '{yesterday:%Y-%m-%d}' THEN 考核销售额 ELSE 0 END), 0),
+                ISNULL(SUM(CASE
+                    WHEN 结算日期 >= '{start_dt:%Y-%m-%d}'
+                     AND 结算日期 <= '{end_dt:%Y-%m-%d}'
+                    THEN 考核销售额 ELSE 0 END), 0)
+            FROM v_TK_JieSuan WITH (NOLOCK)
+            WHERE 结算日期 >= '{min(start_dt, yesterday):%Y-%m-%d}'
+              AND 结算日期 <= '{max(end_dt, yesterday):%Y-%m-%d}'
+              AND 店 IN ({in_clause})
+        """
+        try:
+            rows = bjc.sf_db(sql, single=False) or []
+            row = rows[0] if rows else [0, 0]
+            yesterday_sales = float(row[0] or 0)
+            selected_sales = float(row[1] or 0)
+        except Exception:
+            pass
+
+    month_total_days = monthrange(end_dt.year, end_dt.month)[1]
+    progress_day = max(0, min(month_total_days, (today - start_dt).days))
+    progress_pct = round((progress_day / month_total_days) * 100, 2) if month_total_days else 0.0
+    prev_month = end_dt.month - 1 or 12
+    prev_year = end_dt.year - 1 if end_dt.month == 1 else end_dt.year
+    prev_period = {
+        'start': f'{prev_year:04d}-{prev_month:02d}-01',
+        'end': f'{prev_year:04d}-{prev_month:02d}-{monthrange(prev_year, prev_month)[1]:02d}',
+    }
+    return {
+        'success': True,
+        'total_sales': yesterday_sales,
+        'yesterday': yesterday.strftime('%Y-%m-%d'),
+        'progress_pct': progress_pct,
+        'period_days': (end_dt - start_dt).days + 1,
+        'progress_day': progress_day,
+        'month_total_days': month_total_days,
+        'total_days': month_total_days,
+        'today_day': progress_day,
+        'fixed_costs': {'period': prev_period},
+        'product_logistics_costs': {'period': prev_period},
+        'promotional_costs': {},
+        'variable_costs': {},
+        'business_results': {'period': prev_period},
+        'monthly_targets': {},
+        'actuals': {'monthly_sales': selected_sales},
+        'sales_source': sales_source or 'default',
+        'refreshing': True,
     }
 
 
@@ -390,12 +763,13 @@ def _compute_metrics_payload(
         }
 
     shop_list_literal = "N'" + in_clause.replace("'", "''") + "'"
-    sql_prev_sp = (
-        f"EXEC sp_TK_Dashboard_GetMetrics "
-        f"'{prev_start_str}','{prev_end_str}', {shop_list_literal}, {prev_year}, {prev_month}"
+    prev_raw = _fetch_dashboard_metrics_fast(
+        prev_start_str,
+        prev_end_str,
+        in_clause,
+        prev_year,
+        prev_month,
     )
-    prev_list = bjc.sf_db(sql_prev_sp, single=False)
-    prev_raw = prev_list[0] if prev_list else [0]*24
     if len(prev_raw) < 24:
         prev_vals = list(prev_raw) + [0]*(24 - len(prev_raw))
     else:
@@ -604,12 +978,13 @@ def _compute_metrics_payload(
     sel_year = end_dt.year
     sel_month = end_dt.month
 
-    sql_sel_sp = (
-        f"EXEC sp_TK_Dashboard_GetMetrics "
-        f"'{sel_start_str}','{sel_end_str}', {shop_list_literal}, {sel_year}, {sel_month}"
+    sel_raw = _fetch_dashboard_metrics_fast(
+        sel_start_str,
+        sel_end_str,
+        in_clause,
+        sel_year,
+        sel_month,
     )
-    sel_list = bjc.sf_db(sql_sel_sp, single=False)
-    sel_raw = sel_list[0] if sel_list else [0]*24
     if len(sel_raw) < 24:
         sel_vals = list(sel_raw) + [0]*(24 - len(sel_raw))
     else:
@@ -815,8 +1190,16 @@ def _get_cached_metrics_payload(
             refresh_in_background()
         return persistent_payload
 
-    payload = compute_and_store()
-    return payload
+    # A cold query should never hold the HTTP request open for the full financial
+    # calculation. Return a lightweight shell now, then let the client poll until
+    # the background result reaches the cache.
+    refresh_in_background()
+    return _build_dashboard_shell_payload(
+        shops,
+        start_dt,
+        end_dt,
+        sales_source=sales_source,
+    )
 
 
 def _merge_numeric_dicts(dicts):
@@ -876,37 +1259,62 @@ def _refresh_default_cache_once():
             if s:
                 shops.append(s)
     shops = sorted(list(set(shops)))
-    new_map = {}
+    new_map = {DEFAULT_SHOP_NAME: payload}
     new_week_map = {}
-    for s in shops:
+    try:
+        new_week_map[DEFAULT_SHOP_NAME] = _compute_metrics_payload(
+            week_start_dt,
+            week_end_dt,
+            [DEFAULT_SHOP_NAME],
+            0.0,
+        )
+    except Exception:
+        pass
+    # Precompute only the two shared views. Per-shop selections use the
+    # on-demand stale-while-revalidate cache instead of continuously scanning
+    # every shop in the background.
+    if shops:
         try:
-            p = _compute_metrics_payload(start_dt, end_dt, [s], 0.0)
-            new_map[s] = p
+            new_map['ALL'] = _compute_metrics_payload(start_dt, end_dt, shops, 0.0)
         except Exception:
             pass
         try:
-            p_week = _compute_metrics_payload(week_start_dt, week_end_dt, [s], 0.0)
-            new_week_map[s] = p_week
+            new_week_map['ALL'] = _compute_metrics_payload(
+                week_start_dt,
+                week_end_dt,
+                shops,
+                0.0,
+            )
         except Exception:
             pass
-    if new_map:
-        payloads = list(new_map.values())
-        try:
-            p_all = _compute_metrics_payload(start_dt, end_dt, shops, 0.0)
-        except Exception:
-            p_all = _merge_metrics_payloads(payloads)
-        if p_all:
-            new_map['ALL'] = p_all
-    if new_week_map:
-        payloads_week = list(new_week_map.values())
-        try:
-            p_week_all = _compute_metrics_payload(week_start_dt, week_end_dt, shops, 0.0)
-        except Exception:
-            p_week_all = _merge_metrics_payloads(payloads_week)
-        if p_week_all:
-            new_week_map['ALL'] = p_week_all
     _precomputed_shop_payloads = new_map
     _precomputed_week_shop_payloads = new_week_map
+
+
+def _run_default_cache_refresh(blocking=False):
+    """Refresh once, preventing concurrent page requests from stampeding SQL Server."""
+    acquired = _default_cache_refresh_lock.acquire(blocking=blocking)
+    if not acquired:
+        return False
+    try:
+        _refresh_default_cache_once()
+        return True
+    finally:
+        _default_cache_refresh_lock.release()
+
+
+def _schedule_default_cache_refresh():
+    if _default_cache_refresh_lock.locked():
+        return False
+
+    def worker():
+        try:
+            _run_default_cache_refresh(blocking=False)
+        except Exception:
+            pass
+
+    threading.Thread(target=worker, daemon=True).start()
+    return True
 
 
 def _load_partial_dashboard_cache_snapshot():
@@ -1021,7 +1429,7 @@ def _promote_manual_refresh_to_standard_cache(payload, start_dt, end_dt, shops, 
 def _default_cache_worker():
     while True:
         try:
-            _refresh_default_cache_once()
+            _run_default_cache_refresh(blocking=True)
         except Exception:
             pass
         time.sleep(DEFAULT_CACHE_REFRESH_SEC)
@@ -1071,10 +1479,8 @@ def tk_dashboard_page():
     if not is_admin_user():
         return redirect(url_for('dashboard'))
     if (_default_cached_payload is None) or (time.time() >= _default_cached_exp):
-        try:
-            _refresh_default_cache_once()
-        except Exception:
-            pass
+        _schedule_default_cache_refresh()
+    page_payload = _default_cached_payload or _build_dashboard_shell_payload([DEFAULT_SHOP_NAME])
     shop_options = []
     for key, payload in (_precomputed_shop_payloads or {}).items():
         if key == 'ALL':
@@ -1085,7 +1491,7 @@ def tk_dashboard_page():
     shop_options = sorted(shop_options, key=lambda x: (0 if x['key'] == 'ALL' else 1, x['label']))
     return render_template(
         'tk_total_dashboard.html',
-        default_payload=_default_cached_payload,
+        default_payload=page_payload,
         default_shop_name=DEFAULT_SHOP_NAME,
         precomputed_shops=shop_options,
         precomputed_shop_payloads=_precomputed_shop_payloads,
@@ -1097,31 +1503,25 @@ def tk_dashboard_page():
 
 
 @tk_dashboard_bp.route('/tk/dashboard_project')
-@require_permission('tk_total_dashboard')
 def tk_dashboard_project_page():
-    if not is_partial_admin_user():
+    if not session.get('feishu_user_id'):
+        return redirect(url_for('feishu_auth'))
+    allowed_shops = get_joint_dashboard_allowed_shops()
+    if not allowed_shops:
         return redirect(url_for('dashboard'))
-    if _partial_default_cached_payload is None:
-        _load_partial_dashboard_cache_snapshot()
-    shop_options = []
-    option_keys = set((_precomputed_shop_payloads or {}).keys())
-    option_keys.update((_partial_precomputed_shop_payloads or {}).keys())
-    for key in option_keys:
-        if key == 'ALL':
-            label = '全部店铺'
-        else:
-            label = f'店铺 {key}'
-        shop_options.append({'key': key, 'label': label})
-    shop_options = sorted(shop_options, key=lambda x: (0 if x['key'] == 'ALL' else 1, x['label']))
+    shop_options = [
+        {'key': shop, 'label': f'店铺 {shop}'}
+        for shop in allowed_shops
+    ]
     return render_template(
         'tk_total_dashboard.html',
-        default_payload=_partial_default_cached_payload,
-        default_shop_name=DEFAULT_SHOP_NAME,
+        default_payload=None,
+        default_shop_name=allowed_shops[0],
         precomputed_shops=shop_options,
-        precomputed_shop_payloads=_partial_precomputed_shop_payloads,
-        precomputed_week_shop_payloads=_partial_precomputed_week_shop_payloads,
-        page_title='内容生产工厂订单维度看板',
-        page_desc='和TK整体看板一样可查看所有店铺，销售额按订单应结算GMV统计',
+        precomputed_shop_payloads={},
+        precomputed_week_shop_payloads={},
+        page_title='联营店铺看板',
+        page_desc='仅显示当前账号有权限的联营店铺；手动刷新后的缓存由所有授权人员共享，直到下一次刷新',
         fixed_shop=None,
         restrict_like_82=True,
     )
@@ -1131,10 +1531,8 @@ def tk_dashboard_project_page():
 @require_permission('tk_total_dashboard')
 def tk_dashboard_sz_page():
     if (_default_cached_payload is None) or (time.time() >= _default_cached_exp):
-        try:
-            _refresh_default_cache_once()
-        except Exception:
-            pass
+        _schedule_default_cache_refresh()
+    page_payload = _default_cached_payload or _build_dashboard_shell_payload([DEFAULT_SHOP_NAME])
     shop_options = []
     for key, payload in (_precomputed_shop_payloads or {}).items():
         if key == 'ALL':
@@ -1145,7 +1543,7 @@ def tk_dashboard_sz_page():
     shop_options = sorted(shop_options, key=lambda x: (0 if x['key'] == 'ALL' else 1, x['label']))
     return render_template(
         'tk_total_dashboard.html',
-        default_payload=_default_cached_payload,
+        default_payload=page_payload,
         default_shop_name=DEFAULT_SHOP_NAME,
         precomputed_shops=shop_options,
         precomputed_shop_payloads=_precomputed_shop_payloads,
@@ -1164,10 +1562,7 @@ def tk_dashboard_82_page():
     if not is_dashboard_82_user():
         return redirect(url_for('dashboard'))
     if (_default_cached_payload is None) or (time.time() >= _default_cached_exp):
-        try:
-            _refresh_default_cache_once()
-        except Exception:
-            pass
+        _schedule_default_cache_refresh()
     payload_82 = None
     if isinstance(_precomputed_shop_payloads, dict):
         payload_82 = _precomputed_shop_payloads.get('82')
@@ -1178,10 +1573,10 @@ def tk_dashboard_82_page():
         today = date.today()
         start_dt = date(today.year, today.month, 1)
         end_dt = today
-        payload_82 = _compute_metrics_payload(start_dt, end_dt, ['82'], 0.0)
+        payload_82 = _build_dashboard_shell_payload(['82'], start_dt, end_dt)
     if not payload_82_week:
         today = date.today()
-        payload_82_week = _compute_metrics_payload(today - timedelta(days=6), today, ['82'], 0.0)
+        payload_82_week = _build_dashboard_shell_payload(['82'], today - timedelta(days=6), today)
     shop_options = [{'key': '82', 'label': '店铺 82'}]
     return render_template(
         'tk_total_dashboard.html',
@@ -1204,10 +1599,7 @@ def tk_dashboard_88_page():
     if not is_dashboard_88_user():
         return redirect(url_for('dashboard'))
     if (_default_cached_payload is None) or (time.time() >= _default_cached_exp):
-        try:
-            _refresh_default_cache_once()
-        except Exception:
-            pass
+        _schedule_default_cache_refresh()
     payload_88 = None
     if isinstance(_precomputed_shop_payloads, dict):
         payload_88 = _precomputed_shop_payloads.get('88')
@@ -1218,10 +1610,10 @@ def tk_dashboard_88_page():
         today = date.today()
         start_dt = date(today.year, today.month, 1)
         end_dt = today
-        payload_88 = _compute_metrics_payload(start_dt, end_dt, ['88'], 0.0)
+        payload_88 = _build_dashboard_shell_payload(['88'], start_dt, end_dt)
     if not payload_88_week:
         today = date.today()
-        payload_88_week = _compute_metrics_payload(today - timedelta(days=6), today, ['88'], 0.0)
+        payload_88_week = _build_dashboard_shell_payload(['88'], today - timedelta(days=6), today)
     shop_options = [{'key': '88', 'label': '店铺 88'}]
     return render_template(
         'tk_total_dashboard.html',
@@ -1244,10 +1636,7 @@ def tk_dashboard_90_page():
     if not is_dashboard_90_user():
         return redirect(url_for('dashboard'))
     if (_default_cached_payload is None) or (time.time() >= _default_cached_exp):
-        try:
-            _refresh_default_cache_once()
-        except Exception:
-            pass
+        _schedule_default_cache_refresh()
     payload_90 = None
     if isinstance(_precomputed_shop_payloads, dict):
         payload_90 = _precomputed_shop_payloads.get('90')
@@ -1258,10 +1647,10 @@ def tk_dashboard_90_page():
         today = date.today()
         start_dt = date(today.year, today.month, 1)
         end_dt = today
-        payload_90 = _compute_metrics_payload(start_dt, end_dt, ['90'], 0.0)
+        payload_90 = _build_dashboard_shell_payload(['90'], start_dt, end_dt)
     if not payload_90_week:
         today = date.today()
-        payload_90_week = _compute_metrics_payload(today - timedelta(days=6), today, ['90'], 0.0)
+        payload_90_week = _build_dashboard_shell_payload(['90'], today - timedelta(days=6), today)
     shop_options = [{'key': '90', 'label': '店铺 90'}]
     return render_template(
         'tk_total_dashboard.html',
@@ -1299,14 +1688,13 @@ def tk_metrics_82():
 
         target_net_profit_param = float((data.get('target_net_profit') or 0) or 0)
         force_refresh = data.get('force_refresh') is True
-        cache_key = (start_date_str, end_date_str, '82', target_net_profit_param)
-        now_ts = time.time()
-        cached = _metrics_cache.get(cache_key)
-        if not force_refresh and cached and cached[0] > now_ts:
-            return jsonify(cached[1])
-
-        payload = _compute_metrics_payload(start_dt, end_dt, ['82'], target_net_profit_param)
-        _metrics_cache[cache_key] = (now_ts + METRICS_CACHE_TTL, payload)
+        payload = _get_cached_metrics_payload(
+            start_dt,
+            end_dt,
+            ['82'],
+            target_net_profit_param,
+            force_refresh=force_refresh,
+        )
         if force_refresh:
             _promote_manual_refresh_to_standard_cache(payload, start_dt, end_dt, ['82'])
         return jsonify(payload)
@@ -1337,14 +1725,13 @@ def tk_metrics_88():
 
         target_net_profit_param = float((data.get('target_net_profit') or 0) or 0)
         force_refresh = data.get('force_refresh') is True
-        cache_key = (start_date_str, end_date_str, '88', target_net_profit_param)
-        now_ts = time.time()
-        cached = _metrics_cache.get(cache_key)
-        if not force_refresh and cached and cached[0] > now_ts:
-            return jsonify(cached[1])
-
-        payload = _compute_metrics_payload(start_dt, end_dt, ['88'], target_net_profit_param)
-        _metrics_cache[cache_key] = (now_ts + METRICS_CACHE_TTL, payload)
+        payload = _get_cached_metrics_payload(
+            start_dt,
+            end_dt,
+            ['88'],
+            target_net_profit_param,
+            force_refresh=force_refresh,
+        )
         if force_refresh:
             _promote_manual_refresh_to_standard_cache(payload, start_dt, end_dt, ['88'])
         return jsonify(payload)
@@ -1375,14 +1762,13 @@ def tk_metrics_90():
 
         target_net_profit_param = float((data.get('target_net_profit') or 0) or 0)
         force_refresh = data.get('force_refresh') is True
-        cache_key = (start_date_str, end_date_str, '90', target_net_profit_param)
-        now_ts = time.time()
-        cached = _metrics_cache.get(cache_key)
-        if not force_refresh and cached and cached[0] > now_ts:
-            return jsonify(cached[1])
-
-        payload = _compute_metrics_payload(start_dt, end_dt, ['90'], target_net_profit_param)
-        _metrics_cache[cache_key] = (now_ts + METRICS_CACHE_TTL, payload)
+        payload = _get_cached_metrics_payload(
+            start_dt,
+            end_dt,
+            ['90'],
+            target_net_profit_param,
+            force_refresh=force_refresh,
+        )
         if force_refresh:
             _promote_manual_refresh_to_standard_cache(payload, start_dt, end_dt, ['90'])
         return jsonify(payload)
@@ -1546,16 +1932,52 @@ def tk_shops():
         return jsonify({'success': False, 'message': str(e)})
 
 
+@tk_dashboard_bp.route('/tk/joint_shops', methods=['GET'])
+def tk_joint_shops():
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '未登录'}), 401
+    shops = get_joint_dashboard_allowed_shops()
+    if not shops:
+        return jsonify({'success': False, 'message': '权限不足'}), 403
+    return jsonify({'success': True, 'shops': shops})
+
+
 @tk_dashboard_bp.route('/tk/metrics', methods=['POST'])
-@require_permission('tk_total_dashboard')
 def tk_metrics():
-    if not (is_admin_user() or is_partial_admin_user()):
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '未登录'}), 401
+    is_elevated_user = is_admin_user() or is_partial_admin_user()
+    allowed_joint_shops = get_joint_dashboard_allowed_shops()
+    if not (is_elevated_user or allowed_joint_shops):
         return jsonify({'success': False, 'message': '权限不足'}), 403
     try:
         data = request.get_json() or {}
         start_date_str = (data.get('start_date') or '').strip()
         end_date_str = (data.get('end_date') or '').strip()
-        shops = data.get('shops') or []
+        requested_shops = data.get('shops') or []
+        if isinstance(requested_shops, str):
+            requested_shops = [requested_shops]
+        elif not isinstance(requested_shops, (list, tuple, set)):
+            requested_shops = []
+        shops = []
+        for shop in requested_shops:
+            normalized_shop = str(shop).strip()
+            if normalized_shop and normalized_shop not in shops:
+                shops.append(normalized_shop)
+
+        sales_source = str(data.get('sales_source') or '').strip()
+        if sales_source != PARTIAL_DASHBOARD_SALES_SOURCE:
+            sales_source = ''
+
+        if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE:
+            allowed_shop_set = set(allowed_joint_shops)
+            unauthorized_shops = [shop for shop in shops if shop not in allowed_shop_set]
+            if unauthorized_shops:
+                return jsonify({'success': False, 'message': '所选店铺不在当前账号权限范围内'}), 403
+            if not shops:
+                shops = list(allowed_joint_shops)
+        elif not is_elevated_user:
+            return jsonify({'success': False, 'message': '权限不足'}), 403
 
         if not start_date_str or not end_date_str:
             return jsonify({'success': False, 'message': '请选择开始日期和结束日期'})
@@ -1580,44 +2002,57 @@ def tk_metrics():
         yday_str = yday.strftime('%Y-%m-%d')
         total_val = 0.0
 
-        # 缓存命中检查（相同开始/结束/店铺/目标利润 在 TTL 内直接返回）
+        # 联营看板的手动刷新结果是跨用户共享快照。普通查询优先读取
+        # 该快照，并且不会因通用缓存 TTL 到期而自动覆盖它。
         target_net_profit_param = float((data.get('target_net_profit') or 0) or 0)
         force_refresh = data.get('force_refresh') is True
-        sales_source = str(data.get('sales_source') or '').strip()
-        if sales_source != PARTIAL_DASHBOARD_SALES_SOURCE:
-            sales_source = ''
-        shops_key = '|'.join(sorted([str(s) for s in shops]))
-        cache_key = (
-            start_date_str,
-            end_date_str,
-            shops_key,
-            target_net_profit_param,
-            sales_source or 'default',
-        )
-        now_ts = time.time()
-        cached = _metrics_cache.get(cache_key)
-        if not force_refresh and cached and cached[0] > now_ts:
-            return jsonify(cached[1])
-
-        if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE:
-            payload = _get_cached_metrics_payload(
+        if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE and not force_refresh:
+            shared_payload = _load_joint_shared_metrics_payload(
                 start_dt,
                 end_dt,
                 shops,
                 target_net_profit_param,
-                sales_source=sales_source,
-                force_refresh=force_refresh,
             )
-            if force_refresh:
-                _promote_manual_refresh_to_standard_cache(
+            if isinstance(shared_payload, dict):
+                return jsonify(shared_payload)
+
+        # Both dashboard variants use the same cache path and calculate the
+        # selected shop set once. The legacy branch below calculated every shop
+        # separately for both periods (2N expensive calls).
+        payload = _get_cached_metrics_payload(
+            start_dt,
+            end_dt,
+            shops,
+            target_net_profit_param,
+            sales_source=sales_source,
+            force_refresh=force_refresh,
+        )
+        if force_refresh:
+            _promote_manual_refresh_to_standard_cache(
+                payload,
+                start_dt,
+                end_dt,
+                shops,
+                sales_source=sales_source,
+            )
+            if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE:
+                shared_payload = _save_joint_shared_metrics_payload(
                     payload,
                     start_dt,
                     end_dt,
                     shops,
-                    sales_source=sales_source,
+                    target_net_profit_param,
                 )
-            return jsonify(payload)
+                if shared_payload is None:
+                    return jsonify({
+                        'success': False,
+                        'message': '数据已计算，但共享缓存保存失败，请重试',
+                    }), 500
+                payload = shared_payload
+        return jsonify(payload)
 
+        # Kept temporarily for source compatibility; unreachable after the
+        # unified cached calculation above.
         today = date.today()
         period_days = (end_dt - start_dt).days + 1
         month_total_days = monthrange(end_dt.year, end_dt.month)[1]

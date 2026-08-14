@@ -16,8 +16,9 @@ import mimetypes
 import requests
 import importlib.util
 from functools import partial
-from secret_settings import ai_runtime_config, env, relocate_storage_path, sql_server_config
+from secret_settings import TUCHUANGAI_STORAGE_ROOT, ai_runtime_config, env, relocate_storage_path, sql_server_config
 from tools import ai_chat_complete, is_mobile_user_agent, safe_print as _safe_debug_print
+from xiaotu_report_memory import render_report_memory_context, update_report_memory_file
 from html import escape as html_escape, unescape as html_unescape
 from html.parser import HTMLParser
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -30,19 +31,21 @@ from model_management import model_management_bp
 from innovation_proposals import innovation_proposals_bp
 from innovation_blueprint import innovation_bp
 from innovation.config import APP_CONFIG as INNOVATION_APP_CONFIG
-from tk_total_dashboard import tk_dashboard_bp, dashboard_82_users, dashboard_88_users, dashboard_90_users
+from tk_total_dashboard import tk_dashboard_bp, dashboard_82_users, dashboard_88_users, dashboard_90_users, joint_dashboard_users
 from TK_BD_ZhiBiao import bd_metrics_bp
 from department_permissions import permission_manager, require_permission, get_feishu_auth_url, FEISHU_CONFIG, \
     handle_feishu_event, PERMISSION_CONFIG
 from bjc import sf_db, dui_db
 from innovation.message_service import MessageService
 from innovation.pending_reminder import innovation_pending_reminder
+from tk_customer_service_reminder import tk_customer_service_tracking_reminder
 from shenzhen_total import compute_shenzhen_expenses
 from knowledge_base_service import knowledge_base_bp, kb_service
 from feishu_skill_bridge import bootstrap_lark_cli_skills_env, get_skill_root_candidates
 from seedance_web import seedance_web_bp
 from yangban_inventory import yangban_inventory_bp
 from tk_gmv_authorization import tk_gmv_authorization_bp
+from listing_agent import listing_agent_bp
 
 app = Flask(__name__)
 app.secret_key = env("FLASK_SECRET_KEY", "change-this-secret-key")  # 用于session加密
@@ -409,6 +412,9 @@ def _build_mobile_function_cards(accessible_functions):
             icon = 'fa-solid fa-chart-line'
         elif function_name == 'operation_dept_6':
             href = url_for('operation_dept_6')
+            icon = 'fa-solid fa-chart-line'
+        elif function_name == 'operation_dept_7':
+            href = url_for('operation_dept_7')
             icon = 'fa-solid fa-chart-line'
         elif function_name == 'photography_dept':
             href = url_for('photography_dept')
@@ -1179,6 +1185,94 @@ def _xiaotu_generate_org_perf_contribution(user_name, report_kind, report_materi
     except Exception as e:
         _safe_debug_print(f"组织绩效贡献分析失败: {user_name} -> {e}")
         return ""
+
+
+def _xiaotu_read_report_memory_context(user_name):
+    return render_report_memory_context(
+        storage_root=TUCHUANGAI_STORAGE_ROOT,
+        user_name=user_name,
+        max_chars=16000,
+    )
+
+
+def _xiaotu_generate_report_memory_json(prompt_text, doc_text, doc_name="", chat_id=None):
+    prompt = str(prompt_text or "").strip()
+    content = str(doc_text or "").strip()
+    if not content:
+        raise ValueError("日报长期记忆材料为空")
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "你是公司内部的日报长期记忆维护器。"
+                "只能依据提供的日报和旧快照生成严格合法的JSON，不得编造事实，不得输出JSON以外的内容。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"任务要求：\n{prompt}\n\n"
+                f"材料《{str(doc_name or '日报长期记忆材料').strip()}》：\n{content[:80000]}"
+            ),
+        },
+    ]
+    return _ai_chat_complete(
+        messages,
+        max_tokens=4000,
+        temperature=0.1,
+        model_candidates=_OPENAI_TEXT_MODEL_CANDIDATES,
+    )
+
+
+def _xiaotu_upsert_report_memory_path(user_name, file_path):
+    name = str(user_name or "").strip()
+    path = str(file_path or "").strip()
+    if not name or not path:
+        raise ValueError("日报整合用户名或文件路径为空")
+    name_esc = _xiaotu_sql_escape(name)
+    path_esc = _xiaotu_sql_escape(path)
+    dui_db(f"""
+        IF OBJECT_ID(N'dbo.baogao_zhenghe', N'U') IS NULL
+            THROW 50001, N'缺少数据表 dbo.baogao_zhenghe', 1;
+
+        IF EXISTS (
+            SELECT 1
+            FROM dbo.baogao_zhenghe WITH (UPDLOCK, HOLDLOCK)
+            WHERE yonghu = N'{name_esc}'
+        )
+        BEGIN
+            UPDATE dbo.baogao_zhenghe
+            SET zhenghe = N'{path_esc}'
+            WHERE yonghu = N'{name_esc}';
+        END
+        ELSE
+        BEGIN
+            INSERT INTO dbo.baogao_zhenghe (yonghu, zhenghe)
+            VALUES (N'{name_esc}', N'{path_esc}');
+        END
+    """)
+
+
+def _xiaotu_update_report_memory(
+    user_name,
+    user_open_id,
+    report_id,
+    report_date,
+    report_material,
+    is_edit=False,
+):
+    file_path, snapshot = update_report_memory_file(
+        storage_root=TUCHUANGAI_STORAGE_ROOT,
+        user_name=user_name,
+        user_open_id=user_open_id,
+        report_id=report_id,
+        report_date=report_date,
+        report_material=report_material,
+        is_edit=bool(is_edit),
+        ai_generate=_xiaotu_generate_report_memory_json,
+    )
+    _xiaotu_upsert_report_memory_path(user_name, file_path)
+    return file_path, snapshot
 
 
 def _xiaotu_guess_title(doc_name, doc_text, doc_token):
@@ -3874,6 +3968,7 @@ app.register_blueprint(model_management_bp)
 app.register_blueprint(innovation_proposals_bp)
 app.register_blueprint(innovation_bp)
 app.register_blueprint(tk_dashboard_bp)
+app.register_blueprint(listing_agent_bp)
 app.register_blueprint(bd_metrics_bp)
 app.register_blueprint(knowledge_base_bp)
 app.register_blueprint(seedance_web_bp, url_prefix="/seedance-web")
@@ -4215,6 +4310,10 @@ def check_feishu_user():
         pass
     try:
         innovation_pending_reminder.start()
+    except Exception:
+        pass
+    try:
+        tk_customer_service_tracking_reminder.start()
     except Exception:
         pass
     _safe_debug_print(f"\n=== 请求中间件检查 ===")
@@ -9739,6 +9838,7 @@ def dashboard_xiaotu_report_history():
 
 
 @app.route('/xiaotu/report_comment', methods=['GET', 'POST'])
+@require_permission('xiaotu_qa')
 def xiaotu_report_comment_page():
     user_id = session.get('feishu_user_id')
     if not user_id:
@@ -9746,6 +9846,11 @@ def xiaotu_report_comment_page():
     wendangid = str(request.values.get('wendangid') or '').strip()
     if not wendangid:
         return "缺少文档ID", 400
+    actor_name = str(session.get('feishu_user_name') or '').strip()
+    if not actor_name:
+        return "未获取到当前用户名", 403
+    if not _xiaotu_report_history_is_visible_to_user(wendangid, actor_name):
+        return "无权查看或评论该日报", 403
     esc_wid = _xiaotu_sql_escape(wendangid)
     row = sf_db(f"SELECT TOP 1 WenDangID, BiaoTi, XingMing, RiQi FROM baogao WHERE WenDangID='{esc_wid}'") or []
     if isinstance(row, list) and row:
@@ -9774,7 +9879,6 @@ def xiaotu_report_comment_page():
     success = bool(str(request.args.get('ok') or '').strip())
     if request.method == 'POST':
         action_name = str(request.form.get('action') or 'comment').strip().lower()
-        actor_name = str(session.get('feishu_user_name') or '匿名用户').strip()
         if action_name == 'reply':
             reply_text = str(request.form.get('reply') or '').strip()
             reply_target = str(request.form.get('reply_target') or '').strip()
@@ -10732,6 +10836,7 @@ def api_xiaotu_report_submit():
             "person_focus_text": person_focus_text,
             "report_kind": report_kind,
             "report_type": report_type,
+            "report_date_text": report_date_text,
             "rich_text_plain": rich_text_plain,
             "body_text": body_text,
             "image_ocr_text": image_ocr_text,
@@ -10760,21 +10865,32 @@ def api_xiaotu_report_submit():
                     rich_plain = str(payload.get("rich_text_plain") or "").strip()
                     body = str(payload.get("body_text") or "").strip()
                     img_ocr = str(payload.get("image_ocr_text") or "").strip()
+                    is_daily = (str(payload.get("report_type") or "").strip().lower() in {"day", "daily"}) or ("日报" in kind)
+                    history_context = _xiaotu_read_report_memory_context(uname) if is_daily else ""
                     prompt = (
                         f"请按{kind}要求对该日报进行简短评价，并结合人员类型侧重点输出。\n"
                         f"{focus}\n"
-                        "请把正文和图片识别内容作为同一份材料统一分析。输出要短、准、具体，控制在120字以内。"
+                        "请把正文和图片识别内容作为同一份材料统一分析。"
+                        "如果提供了历史长期记忆，可以用它判断本次工作的延续、变化和作用，但评价中的事实必须来自当前日报，"
+                        "不得把历史事项说成今天完成。输出要短、准、具体，控制在120字以内。"
                     )
                     source = f"正文：\n{rich_plain or _xiaotu_html_to_plain_text_preserve_blocks(body)}\n\n图片识别内容：\n{img_ocr or '（无）'}"
+                    analysis_source = source
+                    if history_context:
+                        analysis_source = (
+                            "【历史长期记忆，仅作背景】\n"
+                            f"{history_context}\n\n"
+                            "【当前日报，作为本次评价的事实来源】\n"
+                            f"{source}"
+                        )
                     ai_text = _generate_ai_answer_with_doc(
                         prompt_text=prompt,
-                        doc_text=source,
+                        doc_text=analysis_source,
                         doc_name=str(payload.get("guessed_title_text") or payload.get("title_text") or "日报内容"),
                         chat_id=f"xiaotu_report_bg:{uid}:{int(datetime.now().timestamp())}"
                     )
                     final_pingjia = str(ai_text or "").strip()
                     org_text = ""
-                    is_daily = (str(payload.get("report_type") or "").strip().lower() in {"day", "daily"}) or ("日报" in kind)
                     if is_daily:
                         org_ctx = _xiaotu_lookup_org_perf_context(uname)
                         if org_ctx:
@@ -10834,7 +10950,38 @@ def api_xiaotu_report_submit():
                 except Exception as bg_err:
                     _safe_debug_print(f"后台日报AI分析失败: {payload.get('report_wendangid_raw')} -> {bg_err}")
 
+        def _xiaotu_report_memory_background_worker(payload):
+            with app.app_context():
+                try:
+                    kind = str(payload.get("report_kind") or "").strip()
+                    is_daily = (
+                        str(payload.get("report_type") or "").strip().lower() in {"day", "daily"}
+                    ) or ("日报" in kind)
+                    if not is_daily:
+                        return
+                    rich_plain = str(payload.get("rich_text_plain") or "").strip()
+                    body = str(payload.get("body_text") or "").strip()
+                    img_ocr = str(payload.get("image_ocr_text") or "").strip()
+                    current_material = (
+                        f"正文：\n{rich_plain or _xiaotu_html_to_plain_text_preserve_blocks(body)}\n\n"
+                        f"图片识别内容：\n{img_ocr or '（无）'}"
+                    )
+                    _xiaotu_update_report_memory(
+                        user_name=str(payload.get("uploader_name") or "").strip(),
+                        user_open_id=str(payload.get("user_id") or "").strip(),
+                        report_id=str(payload.get("report_wendangid_raw") or "").strip(),
+                        report_date=str(payload.get("report_date_text") or "").strip(),
+                        report_material=current_material,
+                        is_edit=bool(payload.get("edit_wendangid")),
+                    )
+                except Exception as memory_err:
+                    _safe_debug_print(
+                        f"后台日报长期记忆更新失败: "
+                        f"{payload.get('report_wendangid_raw')} -> {memory_err}"
+                    )
+
         Thread(target=_xiaotu_report_ai_background_worker, args=(bg_payload,), daemon=True).start()
+        Thread(target=_xiaotu_report_memory_background_worker, args=(bg_payload,), daemon=True).start()
 
         cache_warning = ""
         try:
@@ -11657,6 +11804,27 @@ def _xiaotu_build_report_history_export_context(args, session_user_name):
     }
 
 
+def _xiaotu_report_history_is_visible_to_user(wendangid, user_name):
+    """Return whether the report is present in either history list for this user."""
+    wid = str(wendangid or "").strip()
+    name = str(user_name or "").strip()
+    if not wid or not name:
+        return False
+    ctx = _xiaotu_build_report_history_export_context({}, name)
+    esc_wid = _xiaotu_sql_escape(wid)
+    rows = sf_db(f"""
+        SELECT TOP 1 b.WenDangID
+        FROM baogao b
+        WHERE b.WenDangID = '{esc_wid}'
+          AND (
+            ({ctx['uploaded_where_sql']})
+            OR
+            ({ctx['received_where_sql']})
+          )
+    """) or []
+    return bool(rows)
+
+
 def _xiaotu_history_export_value(row, key, index):
     if isinstance(row, dict):
         if key in row:
@@ -11976,7 +12144,9 @@ def api_xiaotu_report_feedback():
         user_id = str(session.get('feishu_user_id') or '').strip()
         if not user_id:
             return jsonify({'success': False, 'message': '未登录'}), 401
-        actor_name = str(session.get('feishu_user_name') or '匿名用户').strip() or '匿名用户'
+        actor_name = str(session.get('feishu_user_name') or '').strip()
+        if not actor_name:
+            return jsonify({'success': False, 'message': '未获取到当前用户名'}), 403
         payload = request.get_json(silent=True) if request.is_json else request.form
         payload = payload if isinstance(payload, dict) else {}
         action_name = str(payload.get('action') or '').strip().lower()
@@ -12000,6 +12170,8 @@ def api_xiaotu_report_feedback():
             pass
         if not wendangid:
             return jsonify({'success': False, 'message': '缺少文档ID'}), 400
+        if not _xiaotu_report_history_is_visible_to_user(wendangid, actor_name):
+            return jsonify({'success': False, 'message': '无权查看或评论该日报'}), 403
         if action_name == 'like':
             ok, err, liked_now = _xiaotu_toggle_report_like(wendangid, actor_name)
             if not ok:
@@ -13349,7 +13521,8 @@ def tk_project():
     return render_template('tk_project.html',
                            user_name=user_name,
                            user_id=user_id,
-                           accessible_functions=accessible_functions)
+                           accessible_functions=accessible_functions,
+                           can_view_joint_dashboard=(user_name in (joint_dashboard_users or [])))
 
 
 @app.route('/tk_seedance')
@@ -14103,7 +14276,93 @@ def _tk_parse_order_nos_from_request():
     return result
 
 
-def _tk_customer_service_query_rows(start_date, end_date, shop_names=None, importer_names=None, order_nos=None):
+_TK_CUSTOMER_SERVICE_PAGE_SIZE = 100
+
+
+def _tk_customer_service_join_key(value):
+    return str(value or '').strip().upper()
+
+
+def _tk_customer_service_fill_complete_tracking_numbers(items, query_fn=sf_db):
+    """Replace aggregate placeholders with every distinct available tracking number.
+
+    Exact order + SKU matches take precedence. If Saihu uses a converted SKU and
+    there is no exact match, all tracking numbers for that order are shown instead.
+    """
+    if not items:
+        return items
+
+    order_values = {}
+    for item in items:
+        raw_order = str(item.get('FaYangDingDanHao') or '').strip()
+        order_key = _tk_customer_service_join_key(raw_order)
+        if raw_order and order_key not in order_values:
+            order_values[order_key] = raw_order
+    if not order_values:
+        return items
+
+    exact_tracks = {}
+    order_tracks = {}
+
+    def add_tracking(mapping, key, tracking_no):
+        values = mapping.setdefault(key, [])
+        normalized = _tk_customer_service_join_key(tracking_no)
+        if normalized and all(
+            _tk_customer_service_join_key(existing) != normalized
+            for existing in values
+        ):
+            values.append(tracking_no)
+
+    raw_orders = list(order_values.values())
+    batch_size = 400
+    for start in range(0, len(raw_orders), batch_size):
+        batch = raw_orders[start:start + batch_size]
+        in_clause = ', '.join(
+            "N'" + value.replace("'", "''") + "'"
+            for value in batch
+        )
+        rows = query_fn(f"""
+            SELECT DanHao, SKU, GenZongHao
+            FROM TK_DingDan_shouhou WITH (NOLOCK)
+            WHERE DanHao IN ({in_clause})
+              AND LTRIM(RTRIM(ISNULL(CAST(GenZongHao AS NVARCHAR(500)), ''))) <> ''
+            ORDER BY ID ASC
+        """) or []
+        for row in rows:
+            if isinstance(row, dict):
+                order_no = row.get('DanHao') if 'DanHao' in row else row.get('danhao')
+                sku = row.get('SKU') if 'SKU' in row else row.get('sku')
+                tracking_no = (
+                    row.get('GenZongHao')
+                    if 'GenZongHao' in row
+                    else row.get('genzonghao')
+                )
+            elif isinstance(row, (list, tuple)):
+                order_no = row[0] if len(row) > 0 else ''
+                sku = row[1] if len(row) > 1 else ''
+                tracking_no = row[2] if len(row) > 2 else ''
+            else:
+                continue
+            order_key = _tk_customer_service_join_key(order_no)
+            sku_key = _tk_customer_service_join_key(sku)
+            tracking_text = str(tracking_no or '').strip()
+            if not order_key or not tracking_text:
+                continue
+            add_tracking(order_tracks, order_key, tracking_text)
+            add_tracking(exact_tracks, (order_key, sku_key), tracking_text)
+
+    for item in items:
+        order_key = _tk_customer_service_join_key(item.get('FaYangDingDanHao'))
+        sku_key = _tk_customer_service_join_key(item.get('SKU'))
+        tracking_values = exact_tracks.get((order_key, sku_key))
+        if not tracking_values:
+            tracking_values = order_tracks.get(order_key)
+        if tracking_values:
+            item['GenZongHao'] = ' / '.join(tracking_values)
+    return items
+
+
+def _tk_customer_service_filter_sql(start_date, end_date, shop_names=None, importer_names=None, order_nos=None):
     start_safe = start_date.replace("'", "''")
     end_safe = end_date.replace("'", "''")
     shop_names = shop_names or []
@@ -14141,46 +14400,215 @@ def _tk_customer_service_query_rows(start_date, end_date, shop_names=None, impor
                 f"CHARINDEX('{s_safe}', ISNULL(CAST(hz.FaYangDingDanHao AS NVARCHAR(100)), '')) > 0"
             )
         order_filter = " AND (" + " OR ".join(conds) + ")"
-    sql = f"""
-        SELECT
-            hz.SKU,
-            zl.wanghongdizhi,
-            zd.dian,
-            hz.ID,
-            hz.DaoRuRen,
-            hz.DaoRuShiJian,
-            hz.FaYangDingDanHao,
-            dd.GenZongHao,
-            dd.kefubeizhu,
-            dd.fahuoshijian
+    return f"""
+        hz.DaoRuShiJian >= CONVERT(date, '{start_safe}', 23)
+        AND hz.DaoRuShiJian < DATEADD(day, 1, CONVERT(date, '{end_safe}', 23))
+        AND ISNULL(hz.FaYangDingDanHao, '') <> ''
+        AND CHARINDEX('57', ISNULL(CAST(hz.FaYangDingDanHao AS NVARCHAR(100)), '')) = 0
+        AND CHARINDEX('TKWS', UPPER(ISNULL(CAST(hz.SKU AS NVARCHAR(100)), ''))) = 0
+        {shop_filter}
+        {importer_filter}
+        {order_filter}
+    """
+
+
+def _tk_customer_service_query_total(start_date, end_date, shop_names=None, importer_names=None, order_nos=None):
+    where_sql = _tk_customer_service_filter_sql(
+        start_date,
+        end_date,
+        shop_names,
+        importer_names,
+        order_nos,
+    )
+    rows = sf_db(f"""
+        SELECT COUNT(1)
         FROM TK_WangHong_HeZuo hz
-        LEFT JOIN TK_WangHong_ZiLiao zl
-            ON hz.BianHao = zl.BianHao
         LEFT JOIN ZiDian zd
             ON hz.SKU = zd.SKU
-        LEFT JOIN (
+        WHERE {where_sql}
+    """) or []
+    if isinstance(rows, list):
+        first = rows[0] if rows else 0
+    else:
+        first = rows
+    if isinstance(first, dict):
+        first = next(iter(first.values()), 0)
+    elif isinstance(first, (list, tuple)):
+        first = first[0] if first else 0
+    try:
+        return int(first or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _tk_customer_service_query_shops(start_date, end_date):
+    where_sql = _tk_customer_service_filter_sql(start_date, end_date)
+    rows = sf_db(f"""
+        SELECT DISTINCT LTRIM(RTRIM(CAST(zd.dian AS NVARCHAR(100)))) AS dian
+        FROM TK_WangHong_HeZuo hz
+        INNER JOIN ZiDian zd
+            ON hz.SKU = zd.SKU
+        WHERE {where_sql}
+          AND LTRIM(RTRIM(ISNULL(CAST(zd.dian AS NVARCHAR(100)), ''))) <> ''
+        ORDER BY dian
+    """) or []
+    shops = []
+    for row in rows:
+        if isinstance(row, dict):
+            value = row.get('dian') if 'dian' in row else row.get('Dian')
+        elif isinstance(row, (list, tuple)):
+            value = row[0] if row else ''
+        else:
+            value = row
+        value = '' if value is None else str(value).strip()
+        if value:
+            shops.append(value)
+    return shops
+
+
+def _tk_customer_service_query_rows(
+    start_date,
+    end_date,
+    shop_names=None,
+    importer_names=None,
+    order_nos=None,
+    page=None,
+    page_size=_TK_CUSTOMER_SERVICE_PAGE_SIZE,
+):
+    where_sql = _tk_customer_service_filter_sql(
+        start_date,
+        end_date,
+        shop_names,
+        importer_names,
+        order_nos,
+    )
+    pagination_sql = ""
+    if page is not None:
+        safe_page = max(int(page), 1)
+        safe_page_size = max(int(page_size), 1)
+        offset = (safe_page - 1) * safe_page_size
+        pagination_sql = f"OFFSET {offset} ROWS FETCH NEXT {safe_page_size} ROWS ONLY"
+    after_sale_exact_page_filter = ""
+    after_sale_order_page_filter = ""
+    if page is not None:
+        after_sale_exact_page_filter = """
+            WHERE EXISTS (
+                SELECT 1
+                FROM page_rows
+                WHERE sh.DanHao = page_rows.FaYangDingDanHao
+                  AND sh.SKU = page_rows.SKU
+            )
+        """
+        after_sale_order_page_filter = """
+            AND EXISTS (
+                SELECT 1
+                FROM page_rows
+                WHERE sh.DanHao = page_rows.FaYangDingDanHao
+            )
+        """
+    after_sale_exact_sql = f"""
             SELECT
-                UPPER(LTRIM(RTRIM(ISNULL(CAST(DanHao AS NVARCHAR(100)), '')))) AS join_danhao,
-                UPPER(LTRIM(RTRIM(ISNULL(CAST(SKU AS NVARCHAR(100)), '')))) AS join_sku,
-                MAX(ISNULL(GenZongHao, '')) AS GenZongHao,
-                MAX(ISNULL(kefubeizhu, '')) AS kefubeizhu,
-                MAX(fahuoshijian) AS fahuoshijian
-            FROM TK_DingDan_shouhou
+                UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.DanHao AS NVARCHAR(100)), '')))) AS join_danhao,
+                UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.SKU AS NVARCHAR(100)), '')))) AS join_sku,
+                MAX(ISNULL(sh.GenZongHao, '')) AS GenZongHao,
+                MAX(ISNULL(sh.kefubeizhu, '')) AS kefubeizhu,
+                MAX(sh.fahuoshijian) AS fahuoshijian
+            FROM TK_DingDan_shouhou sh
+            {after_sale_exact_page_filter}
             GROUP BY
-                UPPER(LTRIM(RTRIM(ISNULL(CAST(DanHao AS NVARCHAR(100)), '')))),
-                UPPER(LTRIM(RTRIM(ISNULL(CAST(SKU AS NVARCHAR(100)), ''))))
-        ) dd
-            ON UPPER(LTRIM(RTRIM(ISNULL(CAST(hz.FaYangDingDanHao AS NVARCHAR(100)), '')))) = dd.join_danhao
-           AND UPPER(LTRIM(RTRIM(ISNULL(CAST(hz.SKU AS NVARCHAR(100)), '')))) = dd.join_sku
-        WHERE CAST(hz.DaoRuShiJian AS date) BETWEEN '{start_safe}' AND '{end_safe}'
-          AND ISNULL(hz.FaYangDingDanHao, '') <> ''
-          AND CHARINDEX('57', ISNULL(CAST(hz.FaYangDingDanHao AS NVARCHAR(100)), '')) = 0
-          AND CHARINDEX('TKWS', UPPER(ISNULL(CAST(hz.SKU AS NVARCHAR(100)), ''))) = 0
-          {shop_filter}
-          {importer_filter}
-          {order_filter}
-        ORDER BY hz.ID DESC
+                UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.DanHao AS NVARCHAR(100)), '')))),
+                UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.SKU AS NVARCHAR(100)), ''))))
     """
+    # Some Saihu sample/after-sale rows use a converted SKU while retaining the
+    # same order-level tracking number. Fall back by order only when that order
+    # has exactly one distinct non-empty tracking number, so multi-package orders
+    # cannot leak a tracking number from one SKU onto another.
+    after_sale_order_sql = f"""
+            SELECT
+                UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.DanHao AS NVARCHAR(100)), '')))) AS join_danhao,
+                MAX(LTRIM(RTRIM(ISNULL(CAST(sh.GenZongHao AS NVARCHAR(500)), '')))) AS GenZongHao,
+                MAX(sh.fahuoshijian) AS fahuoshijian
+            FROM TK_DingDan_shouhou sh
+            WHERE LTRIM(RTRIM(ISNULL(CAST(sh.GenZongHao AS NVARCHAR(500)), ''))) <> ''
+            {after_sale_order_page_filter}
+            GROUP BY
+                UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.DanHao AS NVARCHAR(100)), ''))))
+            HAVING COUNT(DISTINCT UPPER(LTRIM(RTRIM(CAST(sh.GenZongHao AS NVARCHAR(500)))))) = 1
+    """
+    if page is not None:
+        # Page the filtered cooperation rows before joining the aggregated after-sale
+        # table. This keeps the expensive join limited to the 100 visible rows.
+        sql = f"""
+            WITH page_rows AS (
+                SELECT
+                    hz.SKU,
+                    zl.wanghongdizhi,
+                    zd.dian,
+                    hz.ID,
+                    hz.DaoRuRen,
+                    hz.DaoRuShiJian,
+                    hz.FaYangDingDanHao
+                FROM TK_WangHong_HeZuo hz
+                LEFT JOIN TK_WangHong_ZiLiao zl
+                    ON hz.BianHao = zl.BianHao
+                LEFT JOIN ZiDian zd
+                    ON hz.SKU = zd.SKU
+                WHERE {where_sql}
+                ORDER BY hz.ID DESC, hz.SKU ASC, hz.FaYangDingDanHao ASC
+                {pagination_sql}
+            )
+            SELECT
+                page_rows.SKU,
+                page_rows.wanghongdizhi,
+                page_rows.dian,
+                page_rows.ID,
+                page_rows.DaoRuRen,
+                page_rows.DaoRuShiJian,
+                page_rows.FaYangDingDanHao,
+                COALESCE(NULLIF(dd_exact.GenZongHao, ''), dd_order.GenZongHao, '') AS GenZongHao,
+                dd_exact.kefubeizhu,
+                CASE
+                    WHEN NULLIF(dd_exact.GenZongHao, '') IS NOT NULL THEN dd_exact.fahuoshijian
+                    ELSE dd_order.fahuoshijian
+                END AS fahuoshijian
+            FROM page_rows
+            LEFT JOIN ({after_sale_exact_sql}) dd_exact
+                ON UPPER(LTRIM(RTRIM(ISNULL(CAST(page_rows.FaYangDingDanHao AS NVARCHAR(100)), '')))) = dd_exact.join_danhao
+               AND UPPER(LTRIM(RTRIM(ISNULL(CAST(page_rows.SKU AS NVARCHAR(100)), '')))) = dd_exact.join_sku
+            LEFT JOIN ({after_sale_order_sql}) dd_order
+                ON UPPER(LTRIM(RTRIM(ISNULL(CAST(page_rows.FaYangDingDanHao AS NVARCHAR(100)), '')))) = dd_order.join_danhao
+            ORDER BY page_rows.ID DESC, page_rows.SKU ASC, page_rows.FaYangDingDanHao ASC
+        """
+    else:
+        # Export intentionally remains unpaged so users still receive all matching rows.
+        sql = f"""
+            SELECT
+                hz.SKU,
+                zl.wanghongdizhi,
+                zd.dian,
+                hz.ID,
+                hz.DaoRuRen,
+                hz.DaoRuShiJian,
+                hz.FaYangDingDanHao,
+                COALESCE(NULLIF(dd_exact.GenZongHao, ''), dd_order.GenZongHao, '') AS GenZongHao,
+                dd_exact.kefubeizhu,
+                CASE
+                    WHEN NULLIF(dd_exact.GenZongHao, '') IS NOT NULL THEN dd_exact.fahuoshijian
+                    ELSE dd_order.fahuoshijian
+                END AS fahuoshijian
+            FROM TK_WangHong_HeZuo hz
+            LEFT JOIN TK_WangHong_ZiLiao zl
+                ON hz.BianHao = zl.BianHao
+            LEFT JOIN ZiDian zd
+                ON hz.SKU = zd.SKU
+            LEFT JOIN ({after_sale_exact_sql}) dd_exact
+                ON UPPER(LTRIM(RTRIM(ISNULL(CAST(hz.FaYangDingDanHao AS NVARCHAR(100)), '')))) = dd_exact.join_danhao
+               AND UPPER(LTRIM(RTRIM(ISNULL(CAST(hz.SKU AS NVARCHAR(100)), '')))) = dd_exact.join_sku
+            LEFT JOIN ({after_sale_order_sql}) dd_order
+                ON UPPER(LTRIM(RTRIM(ISNULL(CAST(hz.FaYangDingDanHao AS NVARCHAR(100)), '')))) = dd_order.join_danhao
+            WHERE {where_sql}
+            ORDER BY hz.ID DESC, hz.SKU ASC, hz.FaYangDingDanHao ASC
+        """
     rows = sf_db(sql) or []
     cols = ['SKU', 'wanghongdizhi', 'dian', 'ID', 'DaoRuRen', 'DaoRuShiJian', 'FaYangDingDanHao', 'GenZongHao', 'kefubeizhu', 'fahuoshijian']
     items = []
@@ -14221,7 +14649,7 @@ def _tk_customer_service_query_rows(start_date, end_date, shop_names=None, impor
         else:
             item['fahuoshijian'] = '' if t_ship is None else str(t_ship)
         items.append(item)
-    return items
+    return _tk_customer_service_fill_complete_tracking_numbers(items)
 
 
 @app.route('/api/tk_customer_service/list', methods=['GET'])
@@ -14231,6 +14659,11 @@ def api_tk_customer_service_list():
         default_day = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         start_date = (request.args.get('start_date') or default_day).strip()
         end_date = (request.args.get('end_date') or default_day).strip()
+        try:
+            page = max(int(request.args.get('page') or 1), 1)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': '页码必须为正整数'}), 400
+        page_size = _TK_CUSTOMER_SERVICE_PAGE_SIZE
         shop_names = _tk_parse_shop_names_from_request()
         importer_names = _tk_parse_importers_from_request()
         order_nos = _tk_parse_order_nos_from_request()
@@ -14239,8 +14672,34 @@ def api_tk_customer_service_list():
             datetime.strptime(end_date, '%Y-%m-%d')
         except Exception:
             return jsonify({'success': False, 'message': '日期格式错误，应为YYYY-MM-DD'}), 400
-        items = _tk_customer_service_query_rows(start_date, end_date, shop_names, importer_names, order_nos)
-        return jsonify({'success': True, 'items': items})
+        if start_date > end_date:
+            return jsonify({'success': False, 'message': '开始日期不能晚于结束日期'}), 400
+        total = _tk_customer_service_query_total(
+            start_date,
+            end_date,
+            shop_names,
+            importer_names,
+            order_nos,
+        )
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        page = min(page, total_pages)
+        items = _tk_customer_service_query_rows(
+            start_date,
+            end_date,
+            shop_names,
+            importer_names,
+            order_nos,
+            page=page,
+            page_size=page_size,
+        )
+        return jsonify({
+            'success': True,
+            'items': items,
+            'page': page,
+            'page_size': page_size,
+            'total': total,
+            'total_pages': total_pages,
+        })
     except Exception as e:
         return jsonify({'success': False, 'message': f'获取TK客服数据失败: {str(e)}'}), 500
 
@@ -14257,14 +14716,9 @@ def api_tk_customer_service_shops():
             datetime.strptime(end_date, '%Y-%m-%d')
         except Exception:
             return jsonify({'success': False, 'message': '日期格式错误，应为YYYY-MM-DD'}), 400
-        rows = _tk_customer_service_query_rows(start_date, end_date, [])
-        shops = []
-        for r in rows:
-            v = r.get('dian') if isinstance(r, dict) else ''
-            s = '' if v is None else str(v).strip()
-            if s:
-                shops.append(s)
-        shops = sorted(list(set(shops)), key=lambda x: str(x))
+        if start_date > end_date:
+            return jsonify({'success': False, 'message': '开始日期不能晚于结束日期'}), 400
+        shops = _tk_customer_service_query_shops(start_date, end_date)
         return jsonify({'success': True, 'shops': shops})
     except Exception as e:
         return jsonify({'success': False, 'message': f'获取店铺列表失败: {str(e)}'}), 500
@@ -16091,6 +16545,7 @@ _OPERATION_DEPT_FUNCTIONS = {
     'operation_dept_2',
     'operation_dept_3',
     'operation_dept_6',
+    'operation_dept_7',
 }
 _FBA_SHIPPING_ACCESS_FUNCTIONS = _OPERATION_DEPT_FUNCTIONS | {'newcomer_group'}
 _FBA_SHIPPING_TABLE = 'FBAHuoJian_YunShuFangShi'
@@ -16431,6 +16886,7 @@ def operation_fba_shipping_methods_page():
         'operation_dept_2': '运营二部',
         'operation_dept_3': '运营三部',
         'operation_dept_6': '运营六部',
+        'operation_dept_7': '运营七部',
         'newcomer_group': '新人组',
     }
     back_url = url_for(source) if source in _FBA_SHIPPING_ACCESS_FUNCTIONS else url_for('dashboard')
@@ -16503,6 +16959,21 @@ def operation_dept_6():
                            dept_id='operation_dept_6',
                            can_view_tk_82=(user_name in (dashboard_82_users or [])),
                            can_view_tk_88=(user_name in (dashboard_88_users or [])),
+                           **permission_flags)
+
+
+@app.route('/operation_dept_7')
+@require_permission('operation_dept_7')
+def operation_dept_7():
+    """运营七部功能页面"""
+    user_id = session.get('feishu_user_id')
+    user_name = session.get('feishu_user_name', '用户')
+    permission_flags = _operation_page_permission_flags(user_id)
+    return render_template('operation_dept.html',
+                           user_name=user_name,
+                           user_id=user_id,
+                           dept_name='运营七部',
+                           dept_id='operation_dept_7',
                            **permission_flags)
 
 @app.route('/tech_dept')
@@ -16859,6 +17330,7 @@ def amazon_reply_agent():
         'operation_dept_2': url_for('operation_dept_2'),
         'operation_dept_3': url_for('operation_dept_3'),
         'operation_dept_6': url_for('operation_dept_6'),
+        'operation_dept_7': url_for('operation_dept_7'),
     }
     return render_template(
         'amazon_reply_agent.html',
@@ -17202,26 +17674,26 @@ def _load_hr_innovation_data():
         SELECT
             FORMAT(发起时间, 'yyyy-MM') AS 月份,
             COUNT(*) AS 数量,
-            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END AS 部门
+            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END
+        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
         ORDER BY 月份, 部门
     """) or []
     valid_department_total = sf_db("""
         SELECT
             FORMAT(发起时间, 'yyyy-MM') AS 月份,
             COUNT(*) AS 有效提案数量,
-            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END AS 部门
+            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
         WHERE 最高分 > 0
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END
+        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
         ORDER BY 月份, 部门
     """) or []
     monthly_people = sf_db("""
         SELECT DISTINCT
             CONVERT(char(7), 发起时间, 120) AS 月份,
             发起人,
-            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END AS 部门
+            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
         ORDER BY 月份, 部门, 发起人
     """) or []
@@ -17230,9 +17702,9 @@ def _load_hr_innovation_data():
             FORMAT(发起时间, 'yyyy-MM') AS 月份,
             COUNT(*) AS 数量,
             最高分 AS 分数,
-            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END AS 部门
+            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END, 最高分
+        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END, 最高分
         ORDER BY 月份, 部门, 分数
     """) or []
     category_distribution = sf_db("""
@@ -17240,9 +17712,9 @@ def _load_hr_innovation_data():
             FORMAT(发起时间, 'yyyy-MM') AS 月份,
             COUNT(*) AS 数量,
             创新类别,
-            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END AS 部门
+            CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), 创新类别, CASE WHEN 部门 IN ('TK_离职','TK项目') THEN 'TK项目' ELSE 部门 END
+        GROUP BY FORMAT(发起时间, 'yyyy-MM'), 创新类别, CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
         ORDER BY 月份, 创新类别, 部门
     """) or []
     return {
@@ -18567,4 +19039,5 @@ if __name__ == '__main__':
     if (not debug_mode) or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         _start_xiaotu_report_reminder_thread_once()
         innovation_pending_reminder.start()
+        tk_customer_service_tracking_reminder.start()
     app.run(debug=debug_mode, host='0.0.0.0', port=8000, use_reloader=False)

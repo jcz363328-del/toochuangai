@@ -133,10 +133,10 @@ def create_stored_procedures():
             ) AS f,
             (
                 SELECT
-                    ISNULL(SUM(青岛工资日均),0) * ISNULL((SELECT 比例 FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''青岛'' AND 项目 = ''工资'' AND 店铺 IN (' + @ShopList + ')), 0) AS qd_wage,
-                    ISNULL(SUM(深圳工资日均),0) * ISNULL((SELECT 比例 FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''深圳'' AND 项目 = ''工资'' AND 店铺 IN (' + @ShopList + ')), 0) AS sz_wage,
-                    ISNULL(SUM(青岛房租日均),0) * ISNULL((SELECT 比例 FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''青岛'' AND 项目 = ''房租'' AND 店铺 IN (' + @ShopList + ')), 0) AS qd_rent,
-                    ISNULL(SUM(深圳房租日均),0) * ISNULL((SELECT 比例 FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''深圳'' AND 项目 = ''房租'' AND 店铺 IN (' + @ShopList + ')), 0) AS sz_rent,
+                    ISNULL(SUM(青岛工资日均),0) * ISNULL((SELECT SUM(CASE WHEN ISNUMERIC(比例) = 1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END) FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''青岛'' AND 项目 = ''工资'' AND 店铺 IN (' + @ShopList + ')), 0) AS qd_wage,
+                    ISNULL(SUM(深圳工资日均),0) * ISNULL((SELECT SUM(CASE WHEN ISNUMERIC(比例) = 1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END) FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''深圳'' AND 项目 = ''工资'' AND 店铺 IN (' + @ShopList + ')), 0) AS sz_wage,
+                    ISNULL(SUM(青岛房租日均),0) * ISNULL((SELECT SUM(CASE WHEN ISNUMERIC(比例) = 1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END) FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''青岛'' AND 项目 = ''房租'' AND 店铺 IN (' + @ShopList + ')), 0) AS qd_rent,
+                    ISNULL(SUM(深圳房租日均),0) * ISNULL((SELECT SUM(CASE WHEN ISNUMERIC(比例) = 1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END) FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''深圳'' AND 项目 = ''房租'' AND 店铺 IN (' + @ShopList + ')), 0) AS sz_rent,
                     ISNULL(SUM(青岛房租日均 + 深圳房租日均 + 青岛工资日均 + 深圳工资日均),0) AS rijun_total
                 FROM v_TK_RiJunFeiYong WITH (NOLOCK)
                 WHERE riqi >= ''' + @StartDate + ''' AND riqi <= ''' + @EndDate + '''
@@ -156,8 +156,8 @@ def create_stored_procedures():
             ) AS y,
             (
                 SELECT
-                    ISNULL(SUM(CASE WHEN 项目 = ''TK项目'' THEN 贷方 ELSE 0 END),0)/6.5 * ISNULL((SELECT 比例 FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''青岛'' AND 项目 = ''经营管理费'' AND 店铺 IN (' + @ShopList + ')), 0) AS op_qd,
-                    ISNULL(SUM(CASE WHEN 项目 = ''深圳TK'' THEN 贷方 ELSE 0 END),0)/6.5 * ISNULL((SELECT 比例 FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''深圳'' AND 项目 = ''经营管理费'' AND 店铺 IN (' + @ShopList + ')), 0) AS op_sz
+                    ISNULL(SUM(CASE WHEN 项目 = ''TK项目'' THEN 贷方 ELSE 0 END),0)/6.5 * ISNULL((SELECT SUM(CASE WHEN ISNUMERIC(比例) = 1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END) FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''青岛'' AND 项目 = ''经营管理费'' AND 店铺 IN (' + @ShopList + ')), 0) AS op_qd,
+                    ISNULL(SUM(CASE WHEN 项目 = ''深圳TK'' THEN 贷方 ELSE 0 END),0)/6.5 * ISNULL((SELECT SUM(CASE WHEN ISNUMERIC(比例) = 1 THEN CONVERT(DECIMAL(18,6), 比例) ELSE 0 END) FROM tk_费用分摊比例 WHERE 年 = ' + CAST(@Year AS NVARCHAR) + ' AND 月 = ' + CAST(@Month AS NVARCHAR) + ' AND 地区 = ''深圳'' AND 项目 = ''经营管理费'' AND 店铺 IN (' + @ShopList + ')), 0) AS op_sz
                 FROM 财务_费用明细 WITH (NOLOCK)
                 WHERE 日期 >= ''' + @StartDate + ''' AND 日期 <= ''' + @EndDate + '''
             ) AS o,

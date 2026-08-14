@@ -733,6 +733,26 @@ def local_analysis(reviews):
     
     return analysis
 
+def _build_review_query(sku_or_asin, start_date, max_rating):
+    """构建评价查询，避免 pytds 将 LIKE 通配符误当成格式化占位符。"""
+    identifier_safe = str(sku_or_asin or '').replace("'", "''")
+    rating_limit = int(max_rating)
+    rating_condition = (
+        ""
+        if rating_limit >= 5
+        else f"\n            AND XingJi <= {rating_limit}"
+    )
+    return f"""
+            SELECT * FROM PingJia
+            WHERE CHARINDEX(
+                N'{identifier_safe}',
+                COALESCE(ASIN, '') + COALESCE(SKU, '')
+            ) > 0{rating_condition}
+            AND RiQi >= '{start_date.strftime('%Y-%m-%d')}'
+            ORDER BY RiQi DESC
+            """
+
+
 def analyze_negative_reviews(sku_or_asin, months_limit=3, max_rating=5, use_local=False):
     """分析评价的主函数（支持所有星级）"""
     try:
@@ -740,26 +760,9 @@ def analyze_negative_reviews(sku_or_asin, months_limit=3, max_rating=5, use_loca
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months_limit * 30)
         
-        # 使用正确的列名进行查询，支持所有星级
-        if max_rating >= 5:
-            # 查询所有星级
-            sql = f"""
-            SELECT * FROM PingJia
-            WHERE ASIN + SKU like '%{sku_or_asin}%'
-            AND RiQi >= '{start_date.strftime('%Y-%m-%d')}'
-            ORDER BY RiQi DESC
-            """
-            rating_desc = "所有星级"
-        else:
-            # 查询指定星级及以下
-            sql = f"""
-            SELECT * FROM PingJia
-            WHERE ASIN + SKU like '%{sku_or_asin}%'
-            AND XingJi <= {max_rating}
-            AND RiQi >= '{start_date.strftime('%Y-%m-%d')}'
-            ORDER BY RiQi DESC
-            """
-            rating_desc = f"{max_rating}星及以下"
+        # 使用 CHARINDEX 做包含匹配，避免 pytds 把 LIKE 中的百分号解释为格式化符。
+        sql = _build_review_query(sku_or_asin, start_date, max_rating)
+        rating_desc = "所有星级" if max_rating >= 5 else f"{max_rating}星及以下"
         
         # 从数据库获取数据
         reviews = bjc.sf_db(sql)
@@ -1052,24 +1055,9 @@ def analyze_word_freq():
         if not product_identifier:
             return jsonify({'success': False, 'message': '请输入SKU或ASIN'})
 
-        sku_or_asin = product_identifier.replace("'", "''")
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months_limit * 30)
-        if max_rating >= 5:
-            sql = f"""
-            SELECT * FROM PingJia
-            WHERE ASIN + SKU like '%{sku_or_asin}%'
-            AND RiQi >= '{start_date.strftime('%Y-%m-%d')}'
-            ORDER BY RiQi DESC
-            """
-        else:
-            sql = f"""
-            SELECT * FROM PingJia
-            WHERE ASIN + SKU like '%{sku_or_asin}%'
-            AND XingJi <= {max_rating}
-            AND RiQi >= '{start_date.strftime('%Y-%m-%d')}'
-            ORDER BY RiQi DESC
-            """
+        sql = _build_review_query(product_identifier, start_date, max_rating)
         reviews = bjc.sf_db(sql) or []
 
         if not reviews:

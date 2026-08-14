@@ -35,6 +35,31 @@ INNOVATION_STAR_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 INNOVATION_STAR_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}
 OPERATION_DEPARTMENTS = {'运营一部', '运营二部', '运营三部', '运营六部', '运营七部'}
 OPERATION_WATCHER_NAMES = ['孙洁', '侯梁']
+CONTENT_FACTORY_DEPARTMENT = '内容生产工厂'
+CONTENT_FACTORY_DEPARTMENT_ALIASES = {'TK项目', 'TK_离职', 'Tk_离职', 'TK'}
+
+
+def _normalize_innovation_department(department_name):
+    """统一创新提案中的历史部门名称，对外只展示当前名称。"""
+    name = str(department_name or '').strip()
+    if name in CONTENT_FACTORY_DEPARTMENT_ALIASES:
+        return CONTENT_FACTORY_DEPARTMENT
+    return name
+
+
+def _innovation_department_filter_values(department_name):
+    """返回管理筛选应匹配的当前名称及历史存量名称。"""
+    normalized = _normalize_innovation_department(department_name)
+    if normalized == CONTENT_FACTORY_DEPARTMENT:
+        return [CONTENT_FACTORY_DEPARTMENT, 'TK项目', 'TK_离职', 'Tk_离职', 'TK']
+    return [normalized] if normalized else []
+
+
+def _innovation_department_sql_values(department_name):
+    return ', '.join(
+        f"N'{value.replace(chr(39), chr(39) * 2)}'"
+        for value in _innovation_department_filter_values(department_name)
+    )
 
 
 def _database_upload_path(filename):
@@ -111,7 +136,7 @@ def _innovation_get_user_departments_by_name(user_name):
             continue
         if str(row.get('status') or '').strip() in {'invalid', 'unmapped'}:
             continue
-        dept_name = str(row.get('name') or '').strip()
+        dept_name = _normalize_innovation_department(row.get('name'))
         if not dept_name or dept_name in seen:
             continue
         seen.add(dept_name)
@@ -1267,7 +1292,11 @@ def submit_innovation():
 
         dept_list = []
         if departments:
-            dept_list = [dept.strip() for dept in departments.split(',') if dept.strip()]
+            dept_list = list(dict.fromkeys(
+                _normalize_innovation_department(dept)
+                for dept in departments.split(',')
+                if str(dept or '').strip()
+            ))
             _safe_print(f"👥 承接部门列表: {dept_list}")
         else:
             _safe_print(f"⚠️ 未接收到承接部门数据，departments={departments}")
@@ -1411,8 +1440,8 @@ def get_innovations():
 
         # 获取筛选参数
         status_filter = request.args.get('status', '').strip()
-        department_filter = request.args.get('department', '').strip()
-        initiator_department_filter = request.args.get('initiator_department', '').strip()
+        department_filter = _normalize_innovation_department(request.args.get('department', ''))
+        initiator_department_filter = _normalize_innovation_department(request.args.get('initiator_department', ''))
         operation_type_filter = request.args.get('operation_type', '').strip()
         start_date_filter = request.args.get('start_date', '').strip()
         end_date_filter = request.args.get('end_date', '').strip()
@@ -1432,18 +1461,20 @@ def get_innovations():
 
         # 部门筛选：直接在SQL中进行
         if department_filter:
+            department_filter_values = _innovation_department_sql_values(department_filter)
             where_conditions.append(f"""编号 IN (
                 SELECT DISTINCT 项目编号 
                 FROM chuangxin_liuzhuan1 
-                WHERE 承接人 = '{department_filter.replace("'", "''")}'
+                WHERE 承接人 IN ({department_filter_values})
             )""")
 
         # 发起部门筛选：通过v_quanyuanchuangxin视图进行
         if initiator_department_filter:
+            initiator_department_filter_values = _innovation_department_sql_values(initiator_department_filter)
             where_conditions.append(f"""编号 IN (
                 SELECT DISTINCT 编号 
                 FROM v_quanyuanchuangxin 
-                WHERE 部门 = '{initiator_department_filter.replace("'", "''")}'
+                WHERE 部门 IN ({initiator_department_filter_values})
             )""")
 
         # 操作类型筛选：通过chuangxin_liuzhuan1表进行
@@ -1748,6 +1779,7 @@ def get_innovations():
 
                 for flow in flow_details:
                     flow_id, dept, status, score, notes, flow_time, handle_time = flow
+                    dept = _normalize_innovation_department(dept)
                     if dept not in assignees_list:
                         assignees_list.append(dept)
 
@@ -2127,8 +2159,8 @@ def transfer_innovation():
     try:
         data = request.get_json()
         project_id = data['project_id']
-        new_department = data['new_department']
-        current_handler = data['current_handler']
+        new_department = _normalize_innovation_department(data['new_department'])
+        current_handler = str(data['current_handler'] or '').strip()
         transfer_notes = data.get('transfer_notes', '')
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -2161,10 +2193,11 @@ def transfer_innovation():
         dui_db(flow_sql)
 
         # 4. 更新当前流转记录状态为已流转
+        current_handler_values = _innovation_department_sql_values(current_handler)
         update_current_sql = f"""
             UPDATE chuangxin_liuzhuan1 
             SET 状态 = '已流转', 处理时间 = '{current_time}', 处理备注 = '流转至{new_department}'
-            WHERE 项目编号 = {project_id} AND 承接人 = '{current_handler}' AND 状态 = '待承接'
+            WHERE 项目编号 = {project_id} AND 承接人 IN ({current_handler_values}) AND 状态 = '待承接'
         """
 
         dui_db(update_current_sql)
@@ -2246,7 +2279,7 @@ def get_flow_details(project_id):
             flows.append({
                 'flow_id': row[0],
                 'initiator': row[1],
-                'assignee': row[2],
+                'assignee': _normalize_innovation_department(row[2]),
                 'flow_number': row[3],
                 'flow_time': row[4],
                 'status': row[5],
@@ -2291,7 +2324,7 @@ def get_project_departments(project_id):
         for row in flow_data:
             departments.append({
                 'flow_id': row[0],
-                'department': row[1],
+                'department': _normalize_innovation_department(row[1]),
                 'status': row[2] or '待承接',
                 'score': row[3],
                 'notes': row[4],
@@ -3524,7 +3557,7 @@ def export_innovations():
             '宋亚倩 ': '运营二部',
             '王钰媛': '运营二部',
             '数据': 'AI部',
-            'TK': 'TK项目',
+            'TK': '内容生产工厂',
             '技术': '技术部',
             '采购': '采购部',
             '美工': '视觉设计部',
@@ -3618,12 +3651,22 @@ ORDER BY 序号;
         def map_department(dept_name):
             if not dept_name or dept_name == '未知部门':
                 return '仓储部'
+            normalized_name = _normalize_innovation_department(dept_name)
+            if normalized_name != str(dept_name).strip():
+                return normalized_name
             for key, value in department_mapping.items():
                 if key in dept_name:
                     return value
             return dept_name
 
         df['所在部门'] = df['所在部门'].apply(map_department)
+        df['承接部门'] = df['承接部门'].apply(
+            lambda value: ', '.join(dict.fromkeys(
+                _normalize_innovation_department(name)
+                for name in str(value or '').split(',')
+                if str(name or '').strip()
+            )) or '暂无承接部门'
+        )
 
         df['期望完成时间'] = df['期望完成时间'].apply(
             lambda x: x if x and x.strip() else '未设置'
@@ -4228,9 +4271,14 @@ def get_dashboard_data():
 
         # 2. 部门提案积分排名
         dept_sql = f"""
-            select top 20 部门 department, sum(最高分) total_score from v_QuanYuanChuangXin 
-            where 1=1 {view_date_filter} and 部门 <>'Tk_离职'
-            group by 部门 
+            select top 20
+                CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK')
+                     THEN '内容生产工厂' ELSE 部门 END department,
+                sum(最高分) total_score
+            from v_QuanYuanChuangXin
+            where 1=1 {view_date_filter}
+            group by CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK')
+                          THEN '内容生产工厂' ELSE 部门 END
             having sum(最高分)>0
             order by sum(最高分) desc
         """
@@ -4246,10 +4294,14 @@ def get_dashboard_data():
 
         # 3. 个人积分前三名
         person_sql = f"""
-            select top 3 发起人 name , 部门 department, sum(最高分) total_score 
+            select top 3 发起人 name,
+                CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK')
+                     THEN '内容生产工厂' ELSE 部门 END department,
+                sum(最高分) total_score
             from v_QuanYuanChuangXin
             where 1=1 {view_date_filter}
-            group by 发起人, 部门
+            group by 发起人, CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK')
+                                  THEN '内容生产工厂' ELSE 部门 END
             order by sum(最高分) desc
         """
         person_raw = sf_db(person_sql)
@@ -4313,10 +4365,12 @@ def get_dashboard_data():
         # 6.个人提案数量前三
         personal_stats_sql = f"""
                 select top 3 姓名,部门,提案数量,提案有效量,提案有效率
-                from(select 发起人 姓名,部门 部门,count(*) 提案数量, sum(case when 是否通过='Y'then 1 else 0 end ) 提案有效量,sum(case when 是否通过='Y'then 1 else 0 end )/(count(*)+0.0) 提案有效率 
+                from(select 发起人 姓名,
+                     CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
+                     count(*) 提案数量, sum(case when 是否通过='Y'then 1 else 0 end ) 提案有效量,sum(case when 是否通过='Y'then 1 else 0 end )/(count(*)+0.0) 提案有效率
                      from v_QuanYuanChuangXin v
                      WHERE 1=1 {date_filter.replace('t1.发起时间', 'v.发起时间')}
-                     group by 发起人,部门) t
+                     group by 发起人, CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END) t
                 order by 提案数量 desc
                                """
         personal_stats_raw = sf_db(personal_stats_sql)
@@ -4334,11 +4388,13 @@ def get_dashboard_data():
 
         # 7.个人提案最高分
         highest_score_sql = f"""
-                SELECT 发起人, 部门, 最高分 AS 分数, COUNT(*) AS 次数
+                SELECT 发起人,
+                    CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
+                    最高分 AS 分数, COUNT(*) AS 次数
                 FROM v_QuanYuanChuangXin v
                 WHERE 1=1
                   {date_filter.replace('t1.发起时间', 'v.发起时间')}
-                GROUP BY 发起人, 部门, 最高分
+                GROUP BY 发起人, CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END, 最高分
                 HAVING 最高分 = (
                     SELECT MAX(最高分) FROM v_QuanYuanChuangXin v2
                     WHERE 1=1 {date_filter.replace('t1.发起时间', 'v2.发起时间')}
@@ -4477,10 +4533,11 @@ def export_statistics():
 
         dept_stats_sql = f"""
                 SELECT top 3 部门,总提报数量,有效提案数量,round(有效提案数量/(总提报数量+0.0),3) 有效比例
-FROM (select 部门,count(*) 总提报数量,sum(case when 是否通过='Y' then 1 else 0 end) 有效提案数量
+FROM (select CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
+             count(*) 总提报数量,sum(case when 是否通过='Y' then 1 else 0 end) 有效提案数量
         from v_quanyuanchuangxin v
         WHERE 1=1 {date_filter.replace('t1.发起时间', 'v.发起时间')}
-       group by 部门) t
+       group by CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END) t
  ORDER BY 总提报数量 desc
 
                """
@@ -4494,10 +4551,11 @@ FROM (select 部门,count(*) 总提报数量,sum(case when 是否通过='Y' then
 
         # 3. 部门积分统计
         dept_points_sql = f"""
-                select top 1 部门,sum(最高分) 得分
+                select top 1 CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
+                       sum(最高分) 得分
 from v_quanyuanchuangxin v
 WHERE 1=1 {date_filter.replace('t1.发起时间', 'v.发起时间')}
-group by 部门
+group by CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END
 order by 得分 desc
                """
         dept_points_raw = sf_db(dept_points_sql)
@@ -4511,10 +4569,12 @@ order by 得分 desc
         # 4. 个人提案数量TOP3
         personal_stats_sql = f"""
 select top 3 姓名,部门,提案数量,提案有效量,提案有效率
-from(select 发起人 姓名,部门 部门,count(*) 提案数量, sum(case when 是否通过='Y'then 1 else 0 end ) 提案有效量,sum(case when 是否通过='Y'then 1 else 0 end )/(count(*)+0.0) 提案有效率 
+from(select 发起人 姓名,
+     CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
+     count(*) 提案数量, sum(case when 是否通过='Y'then 1 else 0 end ) 提案有效量,sum(case when 是否通过='Y'then 1 else 0 end )/(count(*)+0.0) 提案有效率
      from v_QuanYuanChuangXin v
      WHERE 1=1 {date_filter.replace('t1.发起时间', 'v.发起时间')}
-     group by 发起人,部门) t
+     group by 发起人, CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END) t
 order by 提案数量 desc
                """
         personal_stats_raw = sf_db(personal_stats_sql)
@@ -4528,10 +4588,12 @@ order by 提案数量 desc
         # 5. 个人积分总分TOP3
         personal_points_sql = f"""
 select top 3 姓名, 部门, 分数
-from (select 发起人 姓名,部门,sum(最高分) 分数 
+from (select 发起人 姓名,
+      CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
+      sum(最高分) 分数
 from v_QuanYuanChuangXin v
 WHERE 1=1 {date_filter.replace('t1.发起时间', 'v.发起时间')}
-group by 发起人,部门) t
+group by 发起人, CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END) t
 order by 分数 desc
                """
         personal_points_raw = sf_db(personal_points_sql)
@@ -4545,7 +4607,9 @@ order by 分数 desc
         # 6. 提案单项得分最高
         highest_score_sql = f"""
 
-select  top 3 发起人 姓名, 部门, 最高分 分数
+select  top 3 发起人 姓名,
+        CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
+        最高分 分数
 from v_QuanYuanChuangXin v
 WHERE 1=1 {date_filter.replace('t1.发起时间', 'v.发起时间')}
 order by 最高分 desc

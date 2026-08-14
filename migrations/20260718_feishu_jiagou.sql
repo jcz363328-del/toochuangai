@@ -14,6 +14,7 @@ BEGIN
         CengJi INT NOT NULL,
         PaiXu BIGINT NULL,
         FuZeRenYongHuId NVARCHAR(100) NULL,
+        FuZeRenMingCheng NVARCHAR(200) NULL,
         BuMenQunLiaoId NVARCHAR(100) NULL,
         ChengYuanShuLiang INT NULL,
         BuMenRenYuanMingCheng NVARCHAR(MAX) NULL,
@@ -34,6 +35,9 @@ IF COL_LENGTH(N'dbo.FeiShu_JiaGou', N'BuMenRenYuanMingCheng') IS NULL
 
 IF COL_LENGTH(N'dbo.FeiShu_JiaGou', N'BuMenRenYuanXinXi') IS NULL
     ALTER TABLE dbo.FeiShu_JiaGou ADD BuMenRenYuanXinXi NVARCHAR(MAX) NULL;
+
+IF COL_LENGTH(N'dbo.FeiShu_JiaGou', N'FuZeRenMingCheng') IS NULL
+    ALTER TABLE dbo.FeiShu_JiaGou ADD FuZeRenMingCheng NVARCHAR(200) NULL;
 
 IF NOT EXISTS (
     SELECT 1
@@ -91,6 +95,7 @@ VALUES
     (N'CengJi', N'部门在组织架构中的层级，顶级部门为1'),
     (N'PaiXu', N'飞书通讯录中的部门排序值'),
     (N'FuZeRenYongHuId', N'部门负责人飞书用户ID'),
+    (N'FuZeRenMingCheng', N'部门负责人名称'),
     (N'BuMenQunLiaoId', N'部门关联群聊ID'),
     (N'ChengYuanShuLiang', N'部门成员数量'),
     (N'BuMenRenYuanMingCheng', N'部门直属人员姓名，使用顿号分隔'),

@@ -84,6 +84,7 @@
 {%- elif fname == 'operation_dept_2' -%}{{ url_for('operation_dept_2') }}
 {%- elif fname == 'operation_dept_3' -%}{{ url_for('operation_dept_3') }}
 {%- elif fname == 'operation_dept_6' -%}{{ url_for('operation_dept_6') }}
+{%- elif fname == 'operation_dept_7' -%}{{ url_for('operation_dept_7') }}
 {%- elif fname == 'tech_dept' -%}{{ url_for('tech_dept') }}
 {%- elif fname == 'visual_design_dept' -%}{{ url_for('visual_design_dept') }}
 {%- elif fname == 'photography_dept' -%}{{ url_for('photography_dept') }}
@@ -193,6 +194,14 @@
                 <i class="fa-solid fa-film"></i>
                 <h3>Seedance 视频生成</h3>
             </div>
+            <div class="quick-card available" data-menu="Listing 生成智能体" data-href="{{ url_for('listing_agent.index') }}" data-search="Listing 生成智能体 Amazon 亚马逊 文案 关键词">
+                <i class="fa-solid fa-list-check"></i>
+                <h3>Listing 生成智能体</h3>
+            </div>
+            <div class="quick-card available" data-menu="ABA 排名看板" data-href="{{ url_for('listing_agent.aba_ranking_dashboard') }}" data-search="ABA 排名看板 Amazon 关键词 排名 点击 转化">
+                <i class="fa-solid fa-chart-column"></i>
+                <h3>ABA 排名看板</h3>
+            </div>
             <div class="quick-card available" data-menu="年会精彩瞬间" data-href="{{ url_for('annual_moments') }}" data-search="年会精彩瞬间 年会 图片 视频 相册">
                 <i class="fa-solid fa-images"></i>
                 <h3>年会精彩瞬间</h3>
@@ -240,7 +249,7 @@
         <div class="panel">
             <div class="panel-hd"><i class="fa-solid fa-list"></i>运营TK管理</div>
             {% if user_id %}
-                {% set ops_order = ['tk_project_group', 'operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'amazon_reply_agent'] %}
+                {% set ops_order = ['tk_project_group', 'operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'operation_dept_7', 'amazon_reply_agent'] %}
                 {% for key in ops_order %}
                     {% for func in accessible_functions %}
                         {% if func.function_name == key %}

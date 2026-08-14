@@ -1425,7 +1425,7 @@
     function renderFeedbackEditor(idx, sourceType, detailMode, actionName) {
         const source = safeText(sourceType).trim();
         const action = safeText(actionName).trim();
-        const canComment = source === 'received' && action === 'comment';
+        const canComment = (source === 'received' || source === 'uploaded') && action === 'comment';
         const canReply = source === 'uploaded' && action === 'reply';
         if (!canComment && !canReply) return '';
         const inputClass = action === 'reply' ? 'reply-input' : 'comment-input';
@@ -1525,6 +1525,8 @@
         }
         if (source === 'received') {
             actionParts.push(`<button type="button" class="feedback-btn ${liked ? 'like-on' : 'primary'} history-like-btn" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">${liked ? '取消点赞' : '点赞'}</button>`);
+        }
+        if (source === 'received' || source === 'uploaded') {
             actionParts.push(`<button type="button" class="feedback-btn history-comment-toggle" data-source="${escapeHtml(source)}" data-index="${idx}" data-detail="${detailMode ? '1' : '0'}">评论</button>`);
         }
         if (source === 'uploaded' && commentItems.length) {

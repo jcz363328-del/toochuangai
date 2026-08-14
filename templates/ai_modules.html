@@ -530,6 +530,50 @@
                 </div>
             </div>
 
+            <div class="module-card" id="aba-ranking-import-module">
+                <div class="module-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3>ABA 排名导入与分析</h3>
+                <p>导入自己的 ABA 看板，立即生成可用于 Listing 决策的完整排名详情</p>
+                <ul class="feature-list">
+                    <li>支持 HTML、JSON、CSV 看板文件</li>
+                    <li>生成当前/上期排名及环比、同比变化</li>
+                    <li>解析前三 ASIN 点击、转化、竞品与品牌</li>
+                    <li>导入结果自动进入 Listing 关键词策略</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('listing_agent.index') }}#abaRankingImport" style="display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #4338ca 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-file-import"></i> 导入 ABA 看板
+                    </a>
+                    <a href="{{ url_for('listing_agent.aba_ranking_dashboard') }}" style="display: inline-block; margin-left: 8px; background: #ffffff; color: #4338ca; border: 1px solid #6366f1; padding: 9px 24px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-table-list"></i> 查看排名详情
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-list-check"></i>
+                </div>
+                <h3>Listing 生成智能体</h3>
+                <p>结合产品图片事实、ABA 排名和合规规则，生成三版 Amazon Listing 方案</p>
+                <ul class="feature-list">
+                    <li>视觉模型提取图片可见事实并要求人工确认</li>
+                    <li>内置 4,571 条 ABA 关键词排名数据</li>
+                    <li>生成标题、五点、描述和 Search Terms</li>
+                    <li>检查字符数、违禁词与未确认声明</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('listing_agent.index') }}" style="display: inline-block; background: linear-gradient(135deg, #9d315f 0%, #702341 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-play"></i> 进入智能体
+                    </a>
+                    <a href="{{ url_for('listing_agent.aba_ranking_dashboard') }}" style="display: inline-block; margin-left: 8px; background: linear-gradient(135deg, #2563eb 0%, #4338ca 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-chart-column"></i> 查看 ABA 看板
+                    </a>
+                </div>
+            </div>
+
             <div class="module-card">
                 <div class="module-icon">
                     <i class="fas fa-user-shield"></i>

@@ -1,0 +1,419 @@
+{
+  "confirmedFacts": [
+    "Marketplace: US",
+    "Brand: ALICE",
+    "Product type: Lash Clusters",
+    "Style: Natural Wispy",
+    "Lengths: 10mm/11mm/12mm/13mm/14mm",
+    "Curl: D Curl",
+    "Band: clear band",
+    "Piece count: 120pcs",
+    "Contents: Lash Tray, Bond, Seal, Applicator"
+  ],
+  "needsConfirmation": [
+    "No safety, waterproof, wear-time or reusable claims are verified."
+  ],
+  "strategy": [
+    "T1 title zone: lash clusters plus natural wispy.",
+    "赛虎标题依据：lash clusters 的 ABA #69；上升 45。",
+    "T2 conversion angle: beginner friendly, easy to apply, anti lift, natural look.",
+    "T3 COSMO scenes: office, date, vacation.",
+    "ABA ranking signal: lash clusters, lashes, magnetic eyelashes applicator",
+    "Risk word priority: High risk - waterproof, 24-hour, hypoallergenic, latex-free",
+    "MCP signal to use: ABA ranking, growth, click share and conversion share are supplied by the bundled dashboard export.",
+    "Competitor/review signal: Review themes include lifting corners, poking, visible bands and difficult placement."
+  ],
+  "rationale": [
+    "lash clusters -> 赛虎排名和产品相关性筛选后的核心词。",
+    "lash clusters -> 赛虎产品相关性筛选后，ABA #69；上升 45。",
+    "lash clusters, lashes, magnetic eyelashes applicator -> ABA ranking / keyword-share priority.",
+    "natural wispy -> visual or product-positioning style angle.",
+    "10mm/11mm/12mm/13mm/14mm D Curl clear band -> user/image-confirmed product fact.",
+    "office, date, vacation -> COSMO scenario coverage.",
+    "lifting corners, poking feel, visible band -> review/competitor/MCP pain signal.",
+    "waterproof, 24-hour, hypoallergenic, latex-free -> compliance/risk-word exclusion priority."
+  ],
+  "decisionInfo": [
+    {
+      "label": "事实可信度",
+      "value": "高",
+      "detail": "已确认规格 5/5；图片确认已完成。"
+    },
+    {
+      "label": "推荐方案",
+      "value": "增长机会版",
+      "detail": "推荐原因：推荐分 96/100：用增长词与视觉风格做组合，优先争取正在上升的细分搜索入口。"
+    },
+    {
+      "label": "合规判断",
+      "value": "高风险词优先拦截",
+      "detail": "高风险词：waterproof, 24-hour, hypoallergenic, latex-free；生成时不主动写入。"
+    },
+    {
+      "label": "关键词判断",
+      "value": "赛虎数据驱动",
+      "detail": "赛虎同步 4571 个词组，筛出 19 个产品相关词；标题优先 lash clusters, lash clusters kit, lashes clusters。"
+    },
+    {
+      "label": "偏好影响",
+      "value": "暂无历史偏好",
+      "detail": "你选择方案后，系统会把该方向作为下次推荐排序的参考。"
+    }
+  ],
+  "rankingSummary": [
+    "赛虎 ABA 已同步：4571 个词组中筛出 19 个与 lash clusters 相关的词。排名优先：lash clusters (#69)；lash clusters kit (#1,501)；lashes clusters (#2,104)。",
+    "增长机会：bottom lash clusters (上升 9,580)；fluffy lash clusters (上升 4,662)；lash clusters natural (上升 3,502)。增长版标题会从这组词中选择。",
+    "转化承接：bottom lash clusters (点击 31% / 转化 23%)；eyelash extension kit (点击 27% / 转化 16%)；brown lash clusters (点击 25% / 转化 15%)。",
+    "跟随切入观察：brown lash clusters (点击-转化差 10.0pt)；lash clusters kit (点击-转化差 9.8pt)；cluster eyelash extensions (点击-转化差 9.3pt)。只作为测试假设，不等同于可直接宣称的卖点。",
+    "Search Terms 会优先使用未出现在前台文案中的相关 ABA 词，避免重复堆词。",
+    "高风险违规词：waterproof, 24-hour, hypoallergenic, latex-free。这些词默认不进入标题、五点和 Search Terms。",
+    "中风险词：reusable。只有在包装、资质或卖家文档确认后才建议使用。",
+    "低风险词未单独排序。"
+  ],
+  "variants": [
+    {
+      "id": "balanced",
+      "name": "排名优先版",
+      "badge": "高排名词",
+      "titleStrategy": "keywordFirst",
+      "bulletPattern": "painSolutionScene",
+      "tone": "beauty factual",
+      "bestFor": "适合用最相关、当前 ABA 排名最靠前的词建立标题首要搜索入口。",
+      "angle": "先使用产品相关性通过的高排名词，再由规格、痛点和场景承接转化。",
+      "score": 83,
+      "title": "Lash Clusters Natural Wispy 10mm/11mm/12mm/13mm/14mm D Curl Kit ALICE",
+      "highlights": [
+        "Natural Wispy look for office, date, vacation",
+        "10mm/11mm/12mm/13mm/14mm D Curl clear band with Lash Tray, Bond, Seal, Applicator",
+        "Built for office and date routines"
+      ],
+      "first50": "Lash Clusters Natural Wispy 10mm/11mm/12mm/13mm/14",
+      "tagMatrix": {
+        "Function": [
+          "add length",
+          "add definition",
+          "natural wispy"
+        ],
+        "Scene": [
+          "office",
+          "date",
+          "vacation",
+          "clean girl makeup",
+          "soft glam"
+        ],
+        "Audience": [
+          "beginners",
+          "daily makeup users",
+          "soft glam users"
+        ],
+        "Product": [
+          "lash clusters",
+          "false eyelashes",
+          "individual lashes"
+        ],
+        "Attribute": [
+          "clear band",
+          "D Curl",
+          "10mm/11mm/12mm/13mm/14mm"
+        ],
+        "Intent": [
+          "natural look",
+          "custom lash map",
+          "wearable beauty routine"
+        ]
+      },
+      "bullets": [
+        "Skip the lifting corners. ALICE Lash Clusters create a natural wispy effect for office, date, vacation, giving everyday makeup a cleaner, more intentional finish.",
+        "Beginner-friendly styling starts with small clusters you can place where your eyes need lift or softness. Use them to build a natural lash map without committing to a heavy full strip.",
+        "120pcs 10mm/11mm/12mm/13mm/14mm D Curl clear band gives you a clear routine for inner, middle and outer-corner placement. clear band helps the lash line blend more softly when applied with the right amount of bond and seal.",
+        "Scene-ready without sounding overdone: pair these cluster lashes with clean girl makeup, soft glam, workdays, dates or vacation photos when you want definition that still looks wearable.",
+        "Includes Lash Tray, Bond, Seal, Applicator. Best for shoppers who want customizable false eyelashes; choose a fuller or longer style if you prefer dramatic mega-volume makeup."
+      ],
+      "description": "Lash Clusters from ALICE are positioned for a natural wispy lash look that works with office, date, vacation. The copy focuses on verified product facts, buyer intent and clear style language.\n\nUse the clusters to customize lift, softness and density instead of relying on a one-piece strip lash effect. The listing should connect the look to real shopper needs such as easy placement, wearable definition and a more polished daily routine.\n\n10mm/11mm/12mm/13mm/14mm D Curl clear band and Lash Tray, Bond, Seal, Applicator should stay visible across the title, bullets, images and A+ content. Keep customer-facing copy grounded in confirmed packaging and seller documentation.",
+      "searchTerms": "cluster eyelash extensions bottom lash clusters lash clusters kit fluffy lash clusters brown lash clusters lashes clusters wispy lash clusters natural lash clusters eyelash clusters lash clusters wispy manga lash clusters eye lash clusters anti lift",
+      "selfCheck": [
+        {
+          "status": "ok",
+          "text": "标题 69/75 字符"
+        },
+        {
+          "status": "ok",
+          "text": "最长五点 223/500 字符"
+        },
+        {
+          "status": "ok",
+          "text": "产品描述 676/2000 字符"
+        },
+        {
+          "status": "ok",
+          "text": "Search Terms 249/249 bytes"
+        },
+        {
+          "status": "ok",
+          "text": "未检测到未确认的防水、24-hour、低敏或无乳胶声明"
+        },
+        {
+          "status": "ok",
+          "text": "后台 Search Terms 未发现 ASIN 格式"
+        },
+        {
+          "status": "ok",
+          "text": "未发现禁用促销词"
+        },
+        {
+          "status": "ok",
+          "text": "高风险词排名已检查：waterproof, 24-hour, hypoallergenic, latex-free"
+        }
+      ],
+      "reasons": [
+        "推荐分 83/100：先使用产品相关性通过的高排名词，再由规格、痛点和场景承接转化。",
+        "适合用最相关、当前 ABA 排名最靠前的词建立标题首要搜索入口。",
+        "赛虎依据：lash clusters，ABA #69，上升 45，前三商品点击 17% / 转化 8.3%。"
+      ]
+    },
+    {
+      "id": "style",
+      "name": "增长机会版",
+      "badge": "上升趋势词",
+      "titleStrategy": "styleFirst",
+      "bulletPattern": "benefitSpecScene",
+      "tone": "premium soft",
+      "bestFor": "适合测试排名上升更快、同时与产品风格相符的关键词切入机会。",
+      "angle": "用增长词与视觉风格做组合，优先争取正在上升的细分搜索入口。",
+      "score": 96,
+      "title": "Natural Wispy Bottom Lash Clusters 10mm/11mm/12mm/13mm/14mm D Curl Kit",
+      "highlights": [
+        "Bottom Lash Clusters paired with a natural wispy look",
+        "rank-up 9,580 positions trend signal with 10mm/11mm/12mm/13mm/14mm D Curl clear band",
+        "Growth-led coverage for office and date beauty routines"
+      ],
+      "first50": "Natural Wispy Bottom Lash Clusters 10mm/11mm/12mm/",
+      "tagMatrix": {
+        "Function": [
+          "add length",
+          "add definition",
+          "natural wispy"
+        ],
+        "Scene": [
+          "office",
+          "date",
+          "vacation",
+          "clean girl makeup",
+          "soft glam"
+        ],
+        "Audience": [
+          "beginners",
+          "daily makeup users",
+          "soft glam users"
+        ],
+        "Product": [
+          "lash clusters",
+          "false eyelashes",
+          "individual lashes"
+        ],
+        "Attribute": [
+          "clear band",
+          "D Curl",
+          "10mm/11mm/12mm/13mm/14mm"
+        ],
+        "Intent": [
+          "natural look",
+          "custom lash map",
+          "wearable beauty routine"
+        ]
+      },
+      "bullets": [
+        "Natural Wispy result first: these lash clusters add visible definition while keeping the lash map customizable for office, date, vacation.",
+        "10mm/11mm/12mm/13mm/14mm D Curl clear band supports soft placement from inner corner to outer corner, so beginners can test cat-eye, doll-eye or daily lash looks with more control.",
+        "120pcs Lash Tray, Bond, Seal, Applicator keeps the routine in one place. Use the included pieces only as confirmed by your package and product images.",
+        "Review-style language points to easy to apply; the copy stays factual by connecting that benefit to the product's visible style, length and band details.",
+        "Made for daily makeup users who want a polished result, with product details grounded in confirmed packaging and seller documentation."
+      ],
+      "description": "Lash Clusters from ALICE use bottom lash clusters as a growth-led keyword entrance, while the visible product facts keep the page grounded in a natural wispy finish.\n\nThis version pairs the rising search term with product images, length labels and confirmed package details instead of relying on keyword repetition alone.\n\nUse only product claims supported by packaging or seller documentation.",
+      "searchTerms": "cluster eyelash extensions lash clusters kit fluffy lash clusters brown lash clusters lashes clusters wispy lash clusters natural lash clusters eyelash clusters lash clusters natural lash clusters wispy manga lash clusters eye lash clusters lashes",
+      "selfCheck": [
+        {
+          "status": "ok",
+          "text": "标题 70/75 字符"
+        },
+        {
+          "status": "ok",
+          "text": "最长五点 180/500 字符"
+        },
+        {
+          "status": "ok",
+          "text": "产品描述 394/2000 字符"
+        },
+        {
+          "status": "ok",
+          "text": "Search Terms 247/249 bytes"
+        },
+        {
+          "status": "ok",
+          "text": "未检测到未确认的防水、24-hour、低敏或无乳胶声明"
+        },
+        {
+          "status": "ok",
+          "text": "后台 Search Terms 未发现 ASIN 格式"
+        },
+        {
+          "status": "ok",
+          "text": "未发现禁用促销词"
+        },
+        {
+          "status": "ok",
+          "text": "高风险词排名已检查：waterproof, 24-hour, hypoallergenic, latex-free"
+        }
+      ],
+      "reasons": [
+        "推荐分 96/100：用增长词与视觉风格做组合，优先争取正在上升的细分搜索入口。",
+        "适合测试排名上升更快、同时与产品风格相符的关键词切入机会。",
+        "赛虎依据：bottom lash clusters，ABA #23,060，上升 9,580，前三商品点击 31% / 转化 23%。"
+      ]
+    },
+    {
+      "id": "search",
+      "name": "转化承接版",
+      "badge": "点击转化信号",
+      "titleStrategy": "keywordFirst",
+      "bulletPattern": "routineFirst",
+      "tone": "direct conversion",
+      "bestFor": "适合优先承接前三商品点击和转化份额都较高的成熟需求。",
+      "angle": "用转化承接词建立标题和五点的购买意图，再将其他排名词分配到后台词。",
+      "score": 96,
+      "title": "Eyelash Extension Kit Natural Wispy Lash Clusters Kit ALICE 120pcs",
+      "highlights": [
+        "Eyelash Extension Kit for office, date, vacation",
+        "Click 27% and conversion 16% signal",
+        "Routine-led copy for comparison shoppers with clear purchase intent"
+      ],
+      "first50": "Eyelash Extension Kit Natural Wispy Lash Clusters ",
+      "tagMatrix": {
+        "Function": [
+          "add length",
+          "add definition",
+          "natural wispy"
+        ],
+        "Scene": [
+          "office",
+          "date",
+          "vacation",
+          "clean girl makeup",
+          "soft glam"
+        ],
+        "Audience": [
+          "beginners",
+          "daily makeup users",
+          "soft glam users"
+        ],
+        "Product": [
+          "lash clusters",
+          "false eyelashes",
+          "individual lashes"
+        ],
+        "Attribute": [
+          "clear band",
+          "D Curl",
+          "10mm/11mm/12mm/13mm/14mm"
+        ],
+        "Intent": [
+          "natural look",
+          "custom lash map",
+          "wearable beauty routine"
+        ]
+      },
+      "bullets": [
+        "Map the look, apply bond, place clusters and seal as needed. This lash clusters routine is built for shoppers who want control without a salon appointment.",
+        "Natural Wispy clusters help create a soft lash line for office, date, vacation, with a result that feels more customized than one-piece strip lashes.",
+        "10mm/11mm/12mm/13mm/14mm D Curl clear band and Lash Tray, Bond, Seal, Applicator give shoppers the practical details they need before buying, especially when comparing length range and included tools.",
+        "Pain points from reviews such as lifting corners are addressed through placement, band detail and clear application messaging instead of unsupported claims.",
+        "Best for beginners and daily makeup users; choose another style if the buyer wants bold stage, Russian volume or mega dramatic lashes."
+      ],
+      "description": "Lash Clusters from ALICE are written around eyelash extension kit, a term showing top-three click share of 27% and conversion share of 16%.\n\nThis version places mature purchase intent in the title and bullets, then moves other relevant ranking terms that are not already visible into backend Search Terms instead of repeating keywords for coverage.\n\nKeep uncertain package details and high-risk claims out of the listing until they are confirmed.",
+      "searchTerms": "cluster eyelash extensions bottom lash clusters fluffy lash clusters brown lash clusters lashes clusters natural lash clusters eyelash clusters lash clusters natural lash clusters wispy manga lash clusters eye lash clusters cluster lashes easy apply",
+      "selfCheck": [
+        {
+          "status": "ok",
+          "text": "标题 66/75 字符"
+        },
+        {
+          "status": "ok",
+          "text": "最长五点 200/500 字符"
+        },
+        {
+          "status": "ok",
+          "text": "产品描述 446/2000 字符"
+        },
+        {
+          "status": "ok",
+          "text": "Search Terms 249/249 bytes"
+        },
+        {
+          "status": "ok",
+          "text": "未检测到未确认的防水、24-hour、低敏或无乳胶声明"
+        },
+        {
+          "status": "ok",
+          "text": "后台 Search Terms 未发现 ASIN 格式"
+        },
+        {
+          "status": "ok",
+          "text": "未发现禁用促销词"
+        },
+        {
+          "status": "ok",
+          "text": "高风险词排名已检查：waterproof, 24-hour, hypoallergenic, latex-free"
+        }
+      ],
+      "reasons": [
+        "推荐分 96/100：用转化承接词建立标题和五点的购买意图，再将其他排名词分配到后台词。",
+        "适合优先承接前三商品点击和转化份额都较高的成熟需求。",
+        "赛虎依据：eyelash extension kit，ABA #25,559，上升 3,383，前三商品点击 27% / 转化 16%。"
+      ]
+    }
+  ],
+  "recommendedVariantId": "style",
+  "selectedVariantId": "style",
+  "imagePlan": [
+    "Main image: tray, packaging and confirmed tools clearly visible.",
+    "Image 2: kit contents callout with Lash Tray, Bond, Seal, Applicator.",
+    "Image 3: lash map using 10mm/11mm/12mm/13mm/14mm D Curl clear band.",
+    "Image 4: Natural Wispy on-eye result with a clean background.",
+    "Image 5: pain-point module for lifting corners and poking feel.",
+    "Image 6: scenarios such as office, date, vacation.",
+    "A+ modules: brand story, routine steps, detail close-up and generic style comparison."
+  ],
+  "qas": [
+    {
+      "q": "What look does it create?",
+      "a": "It is positioned for a natural wispy lash look, suitable for office, date, vacation."
+    },
+    {
+      "q": "What lengths and curl are included?",
+      "a": "10mm/11mm/12mm/13mm/14mm D Curl clear band"
+    },
+    {
+      "q": "What is included in the package?",
+      "a": "Lash Tray, Bond, Seal, Applicator"
+    },
+    {
+      "q": "Is it beginner-friendly?",
+      "a": "The listing can describe beginner-friendly placement only when the lash map, tools or review language support that positioning."
+    },
+    {
+      "q": "Does it include verified safety or wear-time claims?",
+      "a": "Only use those claims if packaging, lab documents or the seller confirms them."
+    }
+  ],
+  "reviewGuidance": [
+    "Encourage compliant photo themes through better product experience and packaging, not through review incentives.",
+    "Useful review-photo themes: on-eye natural wispy result, close-up band detail, package contents and office, date, vacation.",
+    "Never ask buyers to mention keywords or leave positive reviews."
+  ],
+  "abPlan": [
+    "A: Lash Clusters front-loaded with natural wispy.",
+    "B: Natural Wispy angle first for trend/style testing.",
+    "Image test: length map first versus on-eye result first.",
+    "Bullet test: pain-point opening versus beauty-result opening."
+  ]
+}

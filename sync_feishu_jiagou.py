@@ -200,6 +200,7 @@ def fetch_feishu_department_rows() -> tuple[list[dict[str, Any]], str, str]:
                 "CengJi": level,
                 "PaiXu": _to_int(item.get("order")),
                 "FuZeRenYongHuId": str(item.get("leader_user_id") or "").strip() or None,
+                "FuZeRenMingCheng": None,
                 "BuMenQunLiaoId": str(item.get("chat_id") or "").strip() or None,
                 "ChengYuanShuLiang": _to_int(item.get("member_count")),
                 "DanWeiIdLieBiao": json.dumps(unit_ids, ensure_ascii=False),
@@ -214,14 +215,25 @@ def fetch_feishu_department_rows() -> tuple[list[dict[str, Any]], str, str]:
 
     name_by_id = {row["FeiShuBuMenId"]: row["BuMenMingCheng"] for row in rows}
     parent_ids = {row["FuJiBuMenId"] for row in rows if row["FuJiBuMenId"] != "0"}
+    user_name_by_open_id: dict[str, str] = {}
     for row in rows:
         if row["FuJiBuMenId"] != "0":
             row["FuJiBuMenMingCheng"] = name_by_id.get(row["FuJiBuMenId"])
         row["ShiFouYouZiBuMen"] = row["FeiShuBuMenId"] in parent_ids
         users = _list_department_users(session, token, row["FeiShuBuMenId"])
+        user_name_by_open_id.update({
+            str(user["飞书用户OpenId"]): str(user["姓名"])
+            for user in users
+        })
         row["ChengYuanShuLiang"] = len(users)
         row["BuMenRenYuanMingCheng"] = "、".join(str(user["姓名"]) for user in users)
         row["BuMenRenYuanXinXi"] = json.dumps(users, ensure_ascii=False, separators=(",", ":"))
+
+    for row in rows:
+        leader_user_id = row["FuZeRenYongHuId"]
+        row["FuZeRenMingCheng"] = (
+            user_name_by_open_id.get(str(leader_user_id)) if leader_user_id else None
+        )
 
     return (
         sorted(rows, key=lambda row: (row["CengJi"], row["BuMenLuJing"], row["FeiShuBuMenId"])),
@@ -252,6 +264,7 @@ def save_department_rows(rows: list[dict[str, Any]], app_name: str, app_id: str)
                 CengJi,
                 PaiXu,
                 FuZeRenYongHuId,
+                FuZeRenMingCheng,
                 BuMenQunLiaoId,
                 ChengYuanShuLiang,
                 BuMenRenYuanMingCheng,
@@ -262,7 +275,7 @@ def save_department_rows(rows: list[dict[str, Any]], app_name: str, app_id: str)
                 TongBuShiJian,
                 YuanShiShuJu
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             [
                 (
@@ -275,6 +288,7 @@ def save_department_rows(rows: list[dict[str, Any]], app_name: str, app_id: str)
                     row["CengJi"],
                     row["PaiXu"],
                     row["FuZeRenYongHuId"],
+                    row["FuZeRenMingCheng"],
                     row["BuMenQunLiaoId"],
                     row["ChengYuanShuLiang"],
                     row["BuMenRenYuanMingCheng"],
@@ -310,10 +324,95 @@ def save_department_rows(rows: list[dict[str, Any]], app_name: str, app_id: str)
         connection.close()
 
 
+def apply_migration() -> dict[str, int]:
+    database_config = sql_server_config()
+    _required_config(database_config, ("server", "database", "user", "password"), "数据库")
+    migration_sql = MIGRATION_PATH.read_text(encoding="utf-8")
+    migration_connection = pytds.connect(**database_config, autocommit=True)
+    try:
+        migration_connection.cursor().execute(migration_sql)
+    finally:
+        migration_connection.close()
+
+    connection = pytds.connect(**database_config, autocommit=True)
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            f"""
+            SELECT JiLuId, FuZeRenYongHuId, BuMenRenYuanXinXi
+            FROM dbo.{TABLE_NAME}
+            """
+        )
+        records = cursor.fetchall()
+        user_name_by_open_id: dict[str, str] = {}
+        for _, _, member_details_json in records:
+            if not member_details_json:
+                continue
+            try:
+                members = json.loads(str(member_details_json))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if not isinstance(members, list):
+                continue
+            for member in members:
+                if not isinstance(member, dict):
+                    continue
+                open_id = str(member.get("飞书用户OpenId") or "").strip()
+                name = str(member.get("姓名") or "").strip()
+                if open_id and name:
+                    user_name_by_open_id[open_id] = name
+
+        updates = [
+            (user_name_by_open_id[str(leader_user_id).strip()], record_id)
+            for record_id, leader_user_id, _ in records
+            if leader_user_id
+            and str(leader_user_id).strip() in user_name_by_open_id
+        ]
+        if updates:
+            cursor.executemany(
+                f"UPDATE dbo.{TABLE_NAME} SET FuZeRenMingCheng = %s WHERE JiLuId = %s",
+                updates,
+            )
+        cursor.execute(
+            f"""
+            SELECT
+                COUNT(*),
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(FuZeRenYongHuId)), N'') IS NOT NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN NULLIF(LTRIM(RTRIM(FuZeRenMingCheng)), N'') IS NOT NULL THEN 1 ELSE 0 END)
+            FROM dbo.{TABLE_NAME}
+            """
+        )
+        record_count, leader_id_count, leader_name_count = cursor.fetchone()
+        return {
+            "record_count": int(record_count or 0),
+            "leader_id_count": int(leader_id_count or 0),
+            "leader_name_count": int(leader_name_count or 0),
+        }
+    finally:
+        connection.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="同步飞书通讯录部门组织架构")
     parser.add_argument("--apply", action="store_true", help="实际写入 SQL Server；默认仅拉取并检查")
+    parser.add_argument(
+        "--migrate-only",
+        action="store_true",
+        help="仅执行非破坏性表结构迁移，不拉取飞书数据或清空现有记录",
+    )
     args = parser.parse_args()
+
+    if args.apply and args.migrate_only:
+        parser.error("--apply 和 --migrate-only 不能同时使用")
+    if args.migrate_only:
+        migration_result = apply_migration()
+        print(json.dumps({
+            "success": True,
+            "mode": "migration-only",
+            "table": f"dbo.{TABLE_NAME}",
+            **migration_result,
+        }, ensure_ascii=False, indent=2))
+        return
 
     rows, app_name, app_id = fetch_feishu_department_rows()
     max_level = max(row["CengJi"] for row in rows)

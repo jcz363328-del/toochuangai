@@ -17,13 +17,21 @@ from .config import DEPARTMENT_FEISHU_MAPPING
 
 MANAGE_URL = "http://223.78.73.100:8000/innovation/manage"
 DEPARTMENT_ALIASES = {
-    "TK项目": "TK部门",
-    "TK": "TK部门",
+    "内容生产工厂": "内容生产工厂",
+    "TK项目": "内容生产工厂",
+    "TK_离职": "内容生产工厂",
+    "Tk_离职": "内容生产工厂",
+    "TK": "内容生产工厂",
     "数据": "AI部",
     "人力": "人力行政部",
     "美工": "视觉设计部",
     "摄影": "摄影部",
 }
+
+
+def normalize_department_name(value):
+    name = str(value or "").strip()
+    return DEPARTMENT_ALIASES.get(name) or name
 
 
 class FeishuReminderMessageService:
@@ -358,7 +366,7 @@ def load_overdue_pending_projects(now_dt=None, query_fn=sf_db):
     for row in rows:
         if not isinstance(row, (list, tuple)) or len(row) < 5:
             continue
-        assignee = str(row[1] or "").strip()
+        assignee = normalize_department_name(row[1])
         if not assignee:
             continue
         projects.append({
@@ -374,7 +382,7 @@ def load_overdue_pending_projects(now_dt=None, query_fn=sf_db):
 def group_projects_by_assignee(projects):
     grouped = defaultdict(list)
     for project in projects or []:
-        assignee = str(project.get("assignee") or "").strip()
+        assignee = normalize_department_name(project.get("assignee"))
         if assignee:
             grouped[assignee].append(project)
     return dict(grouped)

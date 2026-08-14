@@ -118,7 +118,7 @@
         .section.active { display: block; }
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
             margin-bottom: 12px;
         }
@@ -254,6 +254,7 @@
             margin-top: 6px;
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
             gap: 8px;
             color: #64748b;
             font-size: 12px;
@@ -274,6 +275,15 @@
             border: 1px solid #e2e8f0;
             background: #f8fafc;
             margin-bottom: 10px;
+        }
+        .detail-photo-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .detail-photo-list .detail-photo {
+            margin-bottom: 0;
         }
         .search-center-head {
             display: flex;
@@ -449,18 +459,48 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .sample-card-img {
-            width: 100%;
-            aspect-ratio: 16 / 6;
-            object-fit: cover;
+        .sample-card-photo-grid {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 4px;
+            aspect-ratio: 4 / 3;
             background: #f1f5f9;
             border: 1px solid #e5ebf3;
-            display: block;
             margin-bottom: 10px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .sample-card-photo-grid.single {
+            grid-template-columns: 1fr;
+        }
+        .sample-card-img {
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            object-fit: contain;
+            background: #f8fafc;
+            display: block;
+        }
+        .sample-card-photo-more {
+            position: absolute;
+            right: 7px;
+            bottom: 7px;
+            min-width: 30px;
+            height: 24px;
+            padding: 0 7px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, .82);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 900;
         }
         .sample-card-noimg {
             width: 100%;
-            aspect-ratio: 16 / 6;
+            aspect-ratio: 4 / 3;
             background: #f8fafc;
             border: 1px solid #e5ebf3;
             color: #94a3b8;
@@ -700,6 +740,17 @@
             font-weight: 800;
             text-align: right;
         }
+        .location-cabinet-block + .location-cabinet-block {
+            border-top: 3px solid #334155;
+        }
+        .location-cabinet-block-title {
+            padding: 7px 12px;
+            background: #475569;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .08em;
+        }
         .location-cabinet-scroll {
             max-width: 100%;
             overflow-x: auto;
@@ -908,17 +959,17 @@
             <div class="stats-grid">
                 <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-box"></i>样板总数</div><div class="stat-value" id="statSamples">0</div></div>
                 <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-cubes"></i>库存总量</div><div class="stat-value" id="statStock">0</div></div>
-                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-arrow-down"></i>今日入库</div><div class="stat-value" id="statIn">0</div></div>
-                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-flask"></i>研发累计入库</div><div class="stat-value" id="statResearchIn">0</div></div>
-                <div class="stat-card"><div class="stat-label"><i class="fa-solid fa-cart-shopping"></i>采购累计入库</div><div class="stat-value" id="statProcurementIn">0</div></div>
             </div>
 
-            <div class="panel">
-                <div class="panel-head">
-                    <h2 class="panel-title"><i class="fa-solid fa-chart-column"></i>累计入库量（按负责人和单位）</h2>
-                    <span class="muted">研发、采购分别统计，不同单位分开汇总</span>
-                </div>
-                <div class="table-wrap" id="inboundSummaryTable"></div>
+            <div class="board-result-head">
+                <div class="board-result-meta" id="dashboardResultMeta">样板图片 0 条</div>
+                <div class="active-filter-list" id="dashboardActiveFilters"></div>
+            </div>
+            <div class="sample-card-grid" id="dashboardSampleCards"></div>
+            <div class="pager" id="dashboardPager">
+                <button class="btn small" id="dashboardPrev"><i class="fa-solid fa-chevron-left"></i>上一页</button>
+                <span id="dashboardPageText">第 1 / 1 页</span>
+                <button class="btn small" id="dashboardNext">下一页<i class="fa-solid fa-chevron-right"></i></button>
             </div>
 
             <div class="panel">
@@ -962,19 +1013,6 @@
                 </div>
             </div>
 
-            <div class="board-result-head">
-                <div class="board-result-meta" id="dashboardResultMeta">检索结果 0 条</div>
-                <div class="active-filter-list" id="dashboardActiveFilters"></div>
-            </div>
-            <div class="sample-card-grid" id="dashboardSampleCards"></div>
-
-            <div class="panel" style="margin-top:12px;">
-                <div class="panel-head">
-                    <h2 class="panel-title"><i class="fa-solid fa-clock"></i>最近入库记录</h2>
-                    <button class="btn small" data-tab-jump="flows"><i class="fa-solid fa-list"></i>更多</button>
-                </div>
-                <div class="table-wrap" id="recentFlowTable"></div>
-            </div>
         </section>
 
         <section id="tab-samples" class="section">
@@ -1091,8 +1129,8 @@
                 <div class="field"><label>库位</label><input id="mKuWei" type="text" list="pdfLocationOptions" placeholder="例如 40-A3"><datalist id="pdfLocationOptions"></datalist></div>
                 <div class="field"><label>状态</label><select id="mZhuangTai"><option value="ZhengChang">正常</option><option value="TingYong">停用</option></select></div>
                 <div class="field wide">
-                    <label>样板照片</label>
-                    <input id="mTuPian" type="file" accept="image/*">
+                    <label>样板照片（可多选）</label>
+                    <input id="mTuPian" type="file" accept="image/*" multiple>
                     <div class="photo-preview" id="mPhotoPreview"><span>未上传照片</span></div>
                 </div>
                 <div class="field wide"><label>标签</label><div class="checkbox-tags" id="mTagChecks"></div><div class="tag-list" id="mLegacyTags" style="margin-top:6px;"></div></div>
@@ -1133,7 +1171,7 @@
             <div id="locationMapLayouts" class="location-map-layouts"></div>
         </div>
         <div class="modal-foot">
-            <span class="location-map-hint">每张图完整展示 PDF 一页；黄色闪烁格就是样品所在位置</span>
+            <span class="location-map-hint">每次完整展示对应的整号柜；黄色闪烁格就是样品所在位置</span>
             <button class="btn primary" data-close="locationMapModal">知道了</button>
         </div>
     </div>
@@ -1203,6 +1241,9 @@ const state = {
     flowTotalPages: 1,
     dashboardTag: "",
     dashboardResults: [],
+    dashboardPage: 1,
+    dashboardTotalPages: 1,
+    dashboardPageSize: 12,
     sampleModalLegacy: [],
     loading: false
 };
@@ -1439,11 +1480,11 @@ function renderDashboardActiveFilters() {
         ? chips.map(([k, v]) => `<span class="dash-chip active">${esc(k)}：${esc(v)}</span>`).join("")
         : '<span class="muted">未设置筛选条件</span>';
 }
-function dashboardParams() {
+function dashboardParams(page) {
     const criteria = getDashboardCriteria();
     const params = new URLSearchParams();
-    params.set("page", "1");
-    params.set("page_size", "200");
+    params.set("page", String(Math.max(1, Number(page) || 1)));
+    params.set("page_size", String(state.dashboardPageSize));
     if (criteria.q) params.set("q", criteria.q);
     if (criteria.fenlei) params.set("fenlei", criteria.fenlei);
     if (criteria.kuwei) params.set("kuwei", criteria.kuwei);
@@ -1453,13 +1494,22 @@ function dashboardParams() {
     if (criteria.end) params.set("updated_end", criteria.end);
     return params;
 }
-async function loadDashboardCards() {
+function renderDashboardPager() {
+    document.getElementById("dashboardPageText").textContent = `第 ${state.dashboardPage} / ${state.dashboardTotalPages} 页`;
+    document.getElementById("dashboardPrev").disabled = state.dashboardPage <= 1;
+    document.getElementById("dashboardNext").disabled = state.dashboardPage >= state.dashboardTotalPages;
+}
+async function loadDashboardCards(page) {
     try {
+        const requestedPage = Math.max(1, Number(page) || 1);
         renderDashboardActiveFilters();
-        const data = await apiJson(API + "/samples?" + dashboardParams().toString());
+        const data = await apiJson(API + "/samples?" + dashboardParams(requestedPage).toString());
         const items = data.items || [];
         state.dashboardResults = items;
+        state.dashboardPage = Number(data.page || requestedPage);
+        state.dashboardTotalPages = Math.max(1, Number(data.total_pages || 1));
         renderDashboardCards(items, data.total || items.length);
+        renderDashboardPager();
     } catch (e) {
         toast(e.message, "error");
     }
@@ -1467,7 +1517,7 @@ async function loadDashboardCards() {
 function renderDashboardCards(items, total) {
     const wrap = document.getElementById("dashboardSampleCards");
     const meta = document.getElementById("dashboardResultMeta");
-    if (meta) meta.textContent = `检索结果 ${items.length} / ${total || items.length} 条`;
+    if (meta) meta.textContent = `样板图片 ${items.length} / ${total || items.length} 条`;
     if (!wrap) return;
     if (!items.length) {
         wrap.innerHTML = emptyTable("暂无匹配样板");
@@ -1476,8 +1526,13 @@ function renderDashboardCards(items, total) {
     wrap.innerHTML = items.map(row => {
         const statusClass = row.ZhuangTai === "ZhengChang" ? "card-status-ok" : "card-status-off";
         const statusText = statusLabels[row.ZhuangTai] || row.ZhuangTai || "-";
-        const imageHtml = row.TuPianUrl
-            ? `<img class="sample-card-img" src="${esc(row.TuPianUrl)}" alt="样板照片">`
+        const photoUrls = row.TuPianThumbnailUrls || row.TuPianUrls || (row.TuPianUrl ? [row.TuPianUrl] : []);
+        const visiblePhotos = photoUrls.slice(0, 4);
+        const imageHtml = visiblePhotos.length
+            ? `<div class="sample-card-photo-grid ${visiblePhotos.length === 1 ? "single" : ""}" data-detail="${row.Id}" title="点击查看全部照片">
+                ${visiblePhotos.map(url => `<img class="sample-card-img" src="${esc(url)}" alt="样板照片" loading="lazy">`).join("")}
+                ${photoUrls.length > visiblePhotos.length ? `<span class="sample-card-photo-more">+${photoUrls.length - visiblePhotos.length}</span>` : ""}
+               </div>`
             : '<div class="sample-card-noimg">暂无照片</div>';
         return `<article class="sample-card">
             <div class="sample-card-top">
@@ -1509,52 +1564,10 @@ async function loadDashboard() {
         const data = await apiJson(API + "/dashboard");
         document.getElementById("statSamples").textContent = numberText(data.total_samples);
         document.getElementById("statStock").textContent = numberText(data.total_stock);
-        document.getElementById("statIn").textContent = numberText(data.today_in);
-        document.getElementById("statResearchIn").textContent = numberText(data.research_in);
-        document.getElementById("statProcurementIn").textContent = numberText(data.procurement_in);
-        renderInboundSummary(data.inbound_breakdown || []);
-        renderRecentFlows(data.recent_inbounds || []);
-        await loadDashboardCards();
+        await loadDashboardCards(state.dashboardPage);
     } catch (e) {
         toast(e.message, "error");
     }
-}
-function renderInboundSummary(items) {
-    const wrap = document.getElementById("inboundSummaryTable");
-    if (!items.length) {
-        wrap.innerHTML = emptyTable("暂无研发或采购入库记录");
-        return;
-    }
-    wrap.innerHTML = `<table><thead><tr>
-        <th>分类</th><th>负责人</th><th>单位</th><th>累计入库量</th>
-    </tr></thead><tbody>${items.map(row => `
-        <tr>
-            <td>${esc(row.FenLei)}</td>
-            <td>${esc(row.FuZeRen)}</td>
-            <td>${esc(row.DanWei)}</td>
-            <td class="stock-cell">${numberText(row.RuKuShuLiang)} ${esc(row.DanWei === "未填写" ? "" : row.DanWei)}</td>
-        </tr>`).join("")}</tbody></table>`;
-}
-function renderRecentFlows(items) {
-    const wrap = document.getElementById("recentFlowTable");
-    if (!items.length) {
-        wrap.innerHTML = emptyTable("暂无入库记录");
-        return;
-    }
-    wrap.innerHTML = `<table><thead><tr>
-        <th>照片</th><th>样板编号</th><th>样板名称</th><th>分类</th><th>工厂</th><th>负责人</th><th>入库量</th><th>操作人</th><th>操作时间</th>
-    </tr></thead><tbody>${items.map(row => `
-        <tr>
-            <td>${row.TuPianUrl ? `<img class="sample-thumb" src="${esc(row.TuPianUrl)}" alt="样板照片">` : '<span class="muted">-</span>'}</td>
-            <td>${esc(row.YangBanBianHao)}</td>
-            <td>${esc(row.YangBanMingCheng)}</td>
-            <td>${esc(row.FenLei)}</td>
-            <td>${esc(row.GongChang)}</td>
-            <td>${esc(row.FuZeRen)}</td>
-            <td class="flow-plus">${numberText(row.BianDongShuLiang)} ${esc(row.DanWei)}</td>
-            <td>${esc(row.CaoZuoRen)}</td>
-            <td>${esc(row.ChuangJianShiJian)}</td>
-        </tr>`).join("")}</tbody></table>`;
 }
 
 function sampleParams(page, pageSize) {
@@ -1651,56 +1664,65 @@ function renderLocationMap(data) {
     summary.classList.toggle("unmatched", isUnmatched);
     const heading = result.matched
         ? (result.ambiguous ? "找到多个同名位置" : "已找到样品位置")
-        : (result.status === "area" ? "已找到完整柜体" : "暂时无法定位");
+        : (["area", "cabinet"].includes(result.status) ? "已找到完整柜体" : "暂时无法定位");
     summary.innerHTML = `
         <i class="fa-solid ${isUnmatched ? "fa-triangle-exclamation" : "fa-location-crosshairs"}"></i>
         <div><strong>${esc(heading)}</strong><span>${esc(result.message || "")}</span></div>`;
 
     const items = result.layouts || [];
     if (!items.length) {
-        const areas = (result.available_areas || []).map(item =>
-            `<span>第${esc(item.page)}页 · ${esc(item.area)}区</span>`
+        const cabinets = (result.available_cabinets || []).map(item =>
+            `<span>${esc(item)}号柜</span>`
         ).join("");
         layouts.innerHTML = `<div class="location-map-empty">
             <i class="fa-solid fa-map-location-dot"></i><br>
-            请检查库位是否包含区域号和格位，例如 <b>40-A3</b>。
-            <div class="location-map-cabinet-list">${areas}</div>
+            请检查库位名称，例如 <b>40-A3</b>、<b>1-13A1</b> 或 <b>2-66A1</b>。
+            <div class="location-map-cabinet-list">${cabinets}</div>
         </div>`;
         return;
     }
 
     layouts.innerHTML = items.map(layout => {
-        const sections = layout.sections || [];
-        const sectionHeads = sections.map(section =>
-            `<div class="location-section-head" style="--section-columns:${Number(section.columns) || 1}">${esc(section.area)}</div>`
-        ).join("");
-        const rowCount = Number(layout.rows_count) || 0;
-        const orderedCells = Array.from({ length: rowCount }, (_, rowIndex) =>
-            sections.flatMap(section => (section.rows || [])[rowIndex] || [])
-        ).flat();
-        const cells = orderedCells.map(cell => {
-            const classes = ["location-slot"];
-            if (!cell.label) classes.push("empty");
-            if (cell.target) classes.push("target");
-            const title = cell.label
-                ? `PDF第${layout.page}页完整柜体，${cell.area}区域，第${cell.row}行第${cell.column}列，位置${cell.label}`
-                : `PDF第${layout.page}页完整柜体，${cell.area}区域，第${cell.row}行第${cell.column}列，空白格`;
-            return `<div class="${classes.join(" ")}" title="${esc(title)}">${cell.label ? esc(cell.label) : "&nbsp;"}</div>`;
+        const cabinetNumber = layout.cabinet_number || "";
+        const blocks = (layout.blocks || []).map(block => {
+            const sections = block.sections || [];
+            const sectionHeads = sections.map(section =>
+                `<div class="location-section-head" style="--section-columns:${Number(section.columns) || 1}">${esc(section.area)}</div>`
+            ).join("");
+            const rowCount = Number(block.rows_count) || 0;
+            const orderedCells = sections.length
+                ? Array.from({ length: rowCount }, (_, rowIndex) =>
+                    sections.flatMap(section => (section.rows || [])[rowIndex] || [])
+                ).flat()
+                : (block.rows || []).flat();
+            const cells = orderedCells.map(cell => {
+                const classes = ["location-slot"];
+                if (!cell.label) classes.push("empty");
+                if (cell.target) classes.push("target");
+                const positionText = cell.area ? `${cell.area}区域，` : "";
+                const title = cell.label
+                    ? `${cabinetNumber}号柜，${positionText}第${cell.row}行第${cell.column}列，位置${cell.label}`
+                    : `${cabinetNumber}号柜，${positionText}第${cell.row}行第${cell.column}列，空白格`;
+                const span = Math.max(1, Number(cell.span) || 1);
+                return `<div class="${classes.join(" ")}" style="grid-column:span ${span}" title="${esc(title)}">${cell.label ? esc(cell.label) : "&nbsp;"}</div>`;
+            }).join("");
+            return `<section class="location-cabinet-block">
+                <div class="location-cabinet-block-title">${esc(block.title || "柜体布局")}</div>
+                <div class="location-cabinet-scroll">
+                    <div class="location-cabinet-sheet" style="--slot-columns:${Number(block.columns) || 1}">
+                        ${sectionHeads ? `<div class="location-section-heads">${sectionHeads}</div>` : ""}
+                        <div class="location-slot-grid">${cells}</div>
+                    </div>
+                </div>
+            </section>`;
         }).join("");
-        const meta = layout.highlighted
-            ? `PDF第${layout.page}页 · 点亮${layout.highlighted}格`
-            : `PDF第${layout.page}页 · 未指定格位`;
+        const meta = layout.highlighted ? `点亮${layout.highlighted}格` : "未指定格位";
         return `<article class="location-cabinet">
             <div class="location-cabinet-head">
                 <div class="location-cabinet-title">${esc(layout.cabinet_label || "完整柜体")}</div>
                 <div class="location-cabinet-meta">${esc(meta)}</div>
             </div>
-            <div class="location-cabinet-scroll">
-                <div class="location-cabinet-sheet" style="--slot-columns:${Number(layout.columns) || 12}">
-                    <div class="location-section-heads">${sectionHeads}</div>
-                    <div class="location-slot-grid">${cells}</div>
-                </div>
-            </div>
+            ${blocks}
         </article>`;
     }).join("");
 
@@ -1739,11 +1761,12 @@ async function openLocationMap(value) {
     }
 }
 
-function setPhotoPreview(url, text) {
+function setPhotoPreview(urls, text) {
     const preview = document.getElementById("mPhotoPreview");
     if (!preview) return;
-    if (url) {
-        preview.innerHTML = `<img src="${esc(url)}" alt="样板照片"><span>${esc(text || "已选择照片")}</span>`;
+    const imageUrls = Array.isArray(urls) ? urls.filter(Boolean) : (urls ? [urls] : []);
+    if (imageUrls.length) {
+        preview.innerHTML = `${imageUrls.map(url => `<img src="${esc(url)}" alt="样板照片">`).join("")}<span>${esc(text || `共 ${imageUrls.length} 张照片`)}</span>`;
     } else {
         preview.innerHTML = `<span>${esc(text || "未上传照片")}</span>`;
     }
@@ -1783,7 +1806,8 @@ async function openSampleModal(id) {
         setValue("mKuWei", s.KuWei);
         setValue("mZhuangTai", s.ZhuangTai || "ZhengChang");
         setValue("mBeiZhu", s.BeiZhu);
-        setPhotoPreview(s.TuPianUrl || "", s.TuPianUrl ? "当前照片" : "未上传照片");
+        const photoUrls = s.TuPianUrls || (s.TuPianUrl ? [s.TuPianUrl] : []);
+        setPhotoPreview(photoUrls, photoUrls.length ? `当前 ${photoUrls.length} 张照片；新选择的照片会追加` : "未上传照片");
         renderSampleTagChecks(s.BiaoQianList || []);
     } else {
         document.getElementById("sampleModalTitle").textContent = "新建样板";
@@ -1805,8 +1829,7 @@ async function saveSample() {
     payload.append("ZhuangTai", document.getElementById("mZhuangTai").value);
     payload.append("BeiZhu", document.getElementById("mBeiZhu").value);
     payload.append("BiaoQianList", JSON.stringify([...activeSelected, ...state.sampleModalLegacy]));
-    const photo = document.getElementById("mTuPian").files[0];
-    if (photo) payload.append("TuPian", photo);
+    [...document.getElementById("mTuPian").files].forEach(photo => payload.append("TuPian", photo));
     try {
         await apiForm(API + "/samples" + (id ? "/" + id : ""), payload, id ? "PUT" : "POST");
         closeModal("sampleModal");
@@ -1841,7 +1864,8 @@ async function openDetail(id) {
             <td class="${Number(row.BianDongShuLiang) < 0 ? "flow-minus" : "flow-plus"}">${numberText(row.BianDongShuLiang)}</td>
             <td>${esc(row.CaoZuoRen)}</td><td>${esc(row.GuanLianDanHao)}</td><td>${esc(row.BeiZhu)}</td>
         </tr>`).join("");
-        const photoHtml = s.TuPianUrl ? `<img class="detail-photo" src="${esc(s.TuPianUrl)}" alt="样板照片">` : "";
+        const photoUrls = s.TuPianUrls || (s.TuPianUrl ? [s.TuPianUrl] : []);
+        const photoHtml = photoUrls.length ? `<div class="detail-photo-list">${photoUrls.map(url => `<img class="detail-photo" src="${esc(url)}" alt="样板照片">`).join("")}</div>` : "";
         document.getElementById("detailBody").innerHTML = `
             ${photoHtml}
             <div class="detail-grid">${fields.map(([k, v]) => `<div class="detail-item"><div class="detail-label">${esc(k)}</div><div class="detail-value">${k === "库位" ? locationLink(v, "detail-location-btn") : esc(v)}</div></div>`).join("")}</div>
@@ -2021,12 +2045,12 @@ function bindEvents() {
         openLocationMap(locationButton.dataset.locationMap);
     });
     document.getElementById("refreshAllBtn").addEventListener("click", initLoad);
-    document.getElementById("runDashboardSearch").addEventListener("click", loadDashboardCards);
-    document.getElementById("dashKeyword").addEventListener("keydown", e => { if (e.key === "Enter") loadDashboardCards(); });
+    document.getElementById("runDashboardSearch").addEventListener("click", () => loadDashboardCards(1));
+    document.getElementById("dashKeyword").addEventListener("keydown", e => { if (e.key === "Enter") loadDashboardCards(1); });
     document.getElementById("saveDashboardSearch").addEventListener("click", saveDashboardSearch);
     document.getElementById("resetDashboardSearch").addEventListener("click", () => {
         applyDashboardCriteria({});
-        loadDashboardCards();
+        loadDashboardCards(1);
     });
     document.getElementById("dashboardTagFilters").addEventListener("click", e => {
         const btn = e.target.closest("[data-dashboard-tag]");
@@ -2034,7 +2058,7 @@ function bindEvents() {
         const tag = btn.dataset.dashboardTag || "";
         state.dashboardTag = state.dashboardTag === tag ? "" : tag;
         renderDashboardTagFilters();
-        loadDashboardCards();
+        loadDashboardCards(1);
     });
     document.getElementById("dashboardSavedSearches").addEventListener("click", e => {
         const btn = e.target.closest("[data-saved-index]");
@@ -2042,8 +2066,10 @@ function bindEvents() {
         const item = getDashboardSavedSearches()[Number(btn.dataset.savedIndex)];
         if (!item) return;
         applyDashboardCriteria(item.criteria || {});
-        loadDashboardCards();
+        loadDashboardCards(1);
     });
+    document.getElementById("dashboardPrev").addEventListener("click", () => loadDashboardCards(Math.max(1, state.dashboardPage - 1)));
+    document.getElementById("dashboardNext").addEventListener("click", () => loadDashboardCards(Math.min(state.dashboardTotalPages, state.dashboardPage + 1)));
     document.getElementById("dashboardSampleCards").addEventListener("click", e => {
         const detail = e.target.closest("[data-detail]");
         const copy = e.target.closest("[data-copy-location]");
@@ -2065,9 +2091,9 @@ function bindEvents() {
     document.getElementById("newSampleBtn").addEventListener("click", () => openSampleModal());
     document.getElementById("saveSampleBtn").addEventListener("click", saveSample);
     document.getElementById("mTuPian").addEventListener("change", function () {
-        const file = this.files && this.files[0];
-        if (file) {
-            setPhotoPreview(URL.createObjectURL(file), file.name);
+        const files = [...(this.files || [])];
+        if (files.length) {
+            setPhotoPreview(files.map(file => URL.createObjectURL(file)), `已选择 ${files.length} 张照片`);
         } else {
             setPhotoPreview("", "未上传照片");
         }

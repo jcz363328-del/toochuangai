@@ -83,6 +83,22 @@
         {% endif %}
 
         <div class="actions">
+            {% if user_id %}
+            <a class="card" href="{{ url_for('listing_agent.index') }}">
+                <div class="ico"><i class="fa-solid fa-list-check"></i></div>
+                <div>
+                    <div class="name">Listing 生成智能体</div>
+                    <div class="desc">点击进入</div>
+                </div>
+            </a>
+            <a class="card" href="{{ url_for('listing_agent.aba_ranking_dashboard') }}">
+                <div class="ico"><i class="fa-solid fa-chart-column"></i></div>
+                <div>
+                    <div class="name">ABA 排名看板</div>
+                    <div class="desc">查看完整排名数据</div>
+                </div>
+            </a>
+            {% endif %}
             {% for c in mobile_cards %}
                 {% if c.href %}
                 <a class="card" href="{{ c.href }}">

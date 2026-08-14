@@ -12,6 +12,7 @@ cryptography
 python-tds
 openpyxl
 Pillow
+pillow-heif
 numpy>=1.26.4
 onnxruntime>=1.27.0
 opencv-python>=5.0.0.93

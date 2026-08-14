@@ -7,28 +7,49 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background:#f2f2f7; color:#1c1c1e; }
-        .page-container { width: calc(100vw - 24px); max-width: none; padding-left:12px; padding-right:12px; }
-        .header-card { background:rgba(255,255,255,0.92); border:1px solid #e5e7eb; border-radius:18px; padding:14px 16px; margin-top:16px; box-shadow:0 8px 24px rgba(16,24,40,0.06); }
-        .table-wrap { background:rgba(255,255,255,0.92); border:1px solid #e5e7eb; border-radius:18px; padding:10px; margin-top:12px; box-shadow:0 8px 24px rgba(16,24,40,0.06); }
+        :root { --ink:#18181b; --muted:#71717a; --line:#e4e4e7; --soft:#f7f7f8; --surface:#fff; }
+        body { background:var(--soft); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; }
+        .app-nav { min-height:54px; background:var(--surface); border-bottom:1px solid var(--line); }
+        .app-nav .navbar-brand { color:var(--ink); font-size:15px; font-weight:650; letter-spacing:-0.01em; }
+        .app-nav .nav-link { color:var(--muted); font-size:13px; }
+        .app-nav .nav-link:hover { color:var(--ink); }
+        .page-container { width:calc(100vw - 32px); max-width:none; padding:0; }
+        .header-card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-top:16px; }
+        .page-title { font-size:18px; font-weight:650; letter-spacing:-0.02em; }
+        .page-subtitle { margin-top:3px; color:var(--muted); font-size:12px; }
+        .table-wrap { background:var(--surface); border:1px solid var(--line); border-radius:12px; margin:12px 0 18px; overflow:hidden; }
+        .table-responsive { max-height:calc(100vh - 280px); min-height:260px; }
         .table { table-layout: fixed; margin-bottom: 0; }
-        .table thead th { white-space:nowrap; font-size:12px; font-weight:600; padding:8px 8px; }
-        .table tbody td { vertical-align:middle; font-size:12px; padding:8px 8px; color:#2c2c2e; }
-        .table td, .table th { border-color:#e9e9ee; }
-        .note-input { min-width:160px; border-radius:10px; border-color:#d1d1d6; }
-        .status-tip { font-size:12px; color:#6b7280; }
-        .ios-search-btn { border-radius:12px; padding:8px 18px; font-weight:600; min-width:100px; }
-        .ios-export-btn { border-radius:12px; padding:8px 14px; font-weight:600; min-width:96px; white-space:nowrap; line-height:1.2; display:inline-flex; align-items:center; justify-content:center; }
-        .ios-save-btn { border-radius:10px; padding:4px 10px; font-size:12px; font-weight:600; white-space:nowrap; }
+        .table thead { position:sticky; top:0; z-index:5; }
+        .table thead th { white-space:nowrap; background:#fafafa; color:#52525b; font-size:11px; font-weight:650; padding:9px 8px; border-top:0; }
+        .table tbody td { vertical-align:middle; font-size:12px; padding:8px; color:#27272a; }
+        .table td, .table th { border-color:#ededf0; }
+        .table tbody tr:hover { background:#fafafa; }
+        .form-label { margin-bottom:5px; color:#52525b; font-size:11px; font-weight:600; }
+        .form-control { min-height:36px; border-color:#d4d4d8; border-radius:8px; font-size:12px; box-shadow:none !important; }
+        .form-control:focus { border-color:#71717a; }
+        .note-input { min-width:160px; min-height:30px; border-radius:7px; }
+        .status-tip { color:var(--muted); font-size:12px; }
+        .action-btn { min-height:36px; border-radius:8px; padding:7px 14px; font-size:12px; font-weight:600; white-space:nowrap; }
+        .ios-save-btn { border:1px solid #d4d4d8; border-radius:7px; background:#fff; color:#27272a; padding:4px 9px; font-size:11px; font-weight:600; white-space:nowrap; }
+        .ios-save-btn:hover { border-color:#a1a1aa; background:#f4f4f5; color:#18181b; }
         .cell-wrap { word-break: break-word; line-height:1.35; }
         .multiselect { position: relative; }
-        .multiselect .dropdown-toggle-shop { width:100%; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #ced4da; border-radius:10px; background:#fff; cursor:pointer; height:38px; box-sizing:border-box; }
-        .multiselect .dropdown-panel { position:absolute; top:42px; left:0; right:0; background:#fff; border:1px solid #ced4da; border-radius:10px; box-shadow:0 10px 20px rgba(0,0,0,0.08); padding:8px; display:none; z-index:15; max-height:240px; overflow:auto; }
+        .multiselect .dropdown-toggle-shop { width:100%; display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid #d4d4d8; border-radius:8px; background:#fff; cursor:pointer; height:36px; box-sizing:border-box; color:#3f3f46; font-size:12px; }
+        .multiselect .dropdown-panel { position:absolute; top:40px; left:0; right:0; background:#fff; border:1px solid #d4d4d8; border-radius:8px; box-shadow:0 12px 24px rgba(0,0,0,0.08); padding:8px; display:none; z-index:15; max-height:240px; overflow:auto; }
         .multiselect .tags { display:none; }
-        .multiselect .shop-row { display:flex; align-items:center; gap:8px; padding:3px 2px; font-size:12px; }
+        .multiselect .shop-row { display:flex; align-items:center; gap:8px; padding:5px 3px; font-size:12px; }
         .multiselect .select-all { display:flex; align-items:center; justify-content:flex-start; gap:6px; margin-bottom:6px; font-size:12px; }
         .multiselect #selectAll { width:14px; height:14px; transform: scale(0.85); transform-origin: center; }
         .multiselect .shop-item { width:14px; height:14px; transform: scale(0.85); transform-origin: center; }
+        .pagination-bar { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:52px; padding:9px 12px; border-top:1px solid var(--line); background:#fff; }
+        .pagination-meta { color:var(--muted); font-size:12px; white-space:nowrap; }
+        .pagination-controls { display:flex; align-items:center; gap:4px; }
+        .page-btn { min-width:32px; height:32px; border:1px solid transparent; border-radius:7px; background:transparent; color:#52525b; font-size:12px; }
+        .page-btn:hover:not(:disabled) { background:#f4f4f5; color:#18181b; }
+        .page-btn.active { background:#18181b; color:#fff; }
+        .page-btn:disabled { color:#c4c4ca; cursor:not-allowed; }
+        .empty-state { height:180px; vertical-align:middle !important; color:#a1a1aa !important; }
         .col-sku { width:70px; }
         .col-address { width:300px; }
         .col-shop { width:46px; }
@@ -40,20 +61,25 @@
         .col-note { width:210px; }
         .col-ship-time { width:140px; }
         .col-action { width:68px; text-align:center; }
+        @media (max-width: 768px) {
+            .page-container { width:calc(100vw - 16px); }
+            .table-responsive { max-height:none; }
+            .pagination-bar { align-items:flex-start; flex-direction:column; gap:8px; }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <nav class="navbar navbar-expand app-nav">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="fas fa-cube"></i> 图创AI系统
+                图创AI
             </a>
             <div class="navbar-nav ms-auto">
                 <a class="nav-link" href="{{ url_for('tk_project') }}">
-                    <i class="fas fa-project-diagram"></i> 返回内容生产工厂
+                    内容生产工厂
                 </a>
                 <a class="nav-link" href="{{ url_for('dashboard') }}">
-                    <i class="fas fa-home"></i> 返回首页
+                    首页
                 </a>
             </div>
         </div>
@@ -62,7 +88,10 @@
     <div class="container-fluid page-container">
         <div class="header-card">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h4 class="mb-0"><i class="fas fa-headset"></i> TK客服</h4>
+                <div>
+                    <div class="page-title">客服订单</div>
+                    <div class="page-subtitle">每页展示 100 条，修改备注后单独保存</div>
+                </div>
                 <div class="status-tip" id="statusText">准备加载数据</div>
             </div>
             <div class="row g-2 mt-1">
@@ -100,10 +129,10 @@
                     <input id="orderNoFilter" type="text" class="form-control" placeholder="支持多个，逗号分隔">
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
-                    <button class="btn btn-primary ios-search-btn" onclick="loadData()"><i class="fas fa-search"></i> 查询</button>
+                    <button id="searchButton" class="btn btn-dark action-btn w-100" onclick="applyFilters()">查询</button>
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
-                    <button class="btn btn-success ios-export-btn" onclick="exportExcel()"><i class="fas fa-file-excel me-1"></i>导出</button>
+                    <button class="btn btn-outline-secondary action-btn w-100" onclick="exportExcel()">导出</button>
                 </div>
             </div>
         </div>
@@ -131,12 +160,27 @@
                     </tbody>
                 </table>
             </div>
+            <div class="pagination-bar">
+                <div class="pagination-meta" id="paginationMeta">每页 100 条</div>
+                <div class="pagination-controls">
+                    <button class="page-btn" id="firstPageButton" type="button" onclick="goToPage(1)" aria-label="第一页"><i class="fas fa-angles-left"></i></button>
+                    <button class="page-btn" id="prevPageButton" type="button" onclick="goToPage(currentPage - 1)" aria-label="上一页"><i class="fas fa-angle-left"></i></button>
+                    <div class="pagination-controls" id="pageNumbers"></div>
+                    <button class="page-btn" id="nextPageButton" type="button" onclick="goToPage(currentPage + 1)" aria-label="下一页"><i class="fas fa-angle-right"></i></button>
+                    <button class="page-btn" id="lastPageButton" type="button" onclick="goToPage(totalPages)" aria-label="最后一页"><i class="fas fa-angles-right"></i></button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        const PAGE_SIZE = 100;
         let rowData = [];
         let selectedShops = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let totalItems = 0;
+        let activeListRequest = null;
 
         function setStatus(text) {
             const el = document.getElementById('statusText');
@@ -154,7 +198,7 @@
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             if (!Array.isArray(items) || items.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">暂无数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center empty-state">没有符合条件的数据</td></tr>';
                 return;
             }
             items.forEach((row, idx) => {
@@ -181,8 +225,8 @@
 
                 const tdAction = document.createElement('td');
                 const btn = document.createElement('button');
-                btn.className = 'btn btn-sm btn-success ios-save-btn';
-                btn.innerHTML = '<i class="fas fa-save"></i> 保存';
+                btn.className = 'btn btn-sm ios-save-btn';
+                btn.textContent = '保存';
                 btn.onclick = async function () {
                     const val = document.getElementById('note_' + idx).value || '';
                     btn.disabled = true;
@@ -212,6 +256,51 @@
                 tdAction.appendChild(btn);
                 tr.appendChild(tdAction);
                 tbody.appendChild(tr);
+            });
+        }
+
+        function renderLoading() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center empty-state">正在加载...</td></tr>';
+        }
+
+        function renderPagination() {
+            const meta = document.getElementById('paginationMeta');
+            const start = totalItems ? ((currentPage - 1) * PAGE_SIZE + 1) : 0;
+            const end = totalItems ? Math.min(currentPage * PAGE_SIZE, totalItems) : 0;
+            meta.textContent = totalItems
+                ? `第 ${start}–${end} 条，共 ${totalItems} 条`
+                : `共 0 条 · 每页 ${PAGE_SIZE} 条`;
+
+            const atFirst = currentPage <= 1;
+            const atLast = currentPage >= totalPages;
+            document.getElementById('firstPageButton').disabled = atFirst;
+            document.getElementById('prevPageButton').disabled = atFirst;
+            document.getElementById('nextPageButton').disabled = atLast;
+            document.getElementById('lastPageButton').disabled = atLast;
+
+            const pageNumbers = document.getElementById('pageNumbers');
+            pageNumbers.innerHTML = '';
+            const visiblePages = new Set([1, totalPages]);
+            for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
+                if (page >= 1 && page <= totalPages) visiblePages.add(page);
+            }
+            let previous = 0;
+            Array.from(visiblePages).sort((a, b) => a - b).forEach(page => {
+                if (previous && page - previous > 1) {
+                    const dots = document.createElement('span');
+                    dots.className = 'page-btn d-inline-flex align-items-center justify-content-center';
+                    dots.textContent = '…';
+                    pageNumbers.appendChild(dots);
+                }
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'page-btn' + (page === currentPage ? ' active' : '');
+                button.textContent = page;
+                button.setAttribute('aria-label', `第 ${page} 页`);
+                button.onclick = () => goToPage(page);
+                pageNumbers.appendChild(button);
+                previous = page;
             });
         }
 
@@ -292,7 +381,7 @@
             }
         }
 
-        async function loadData() {
+        function getFilters() {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const shops = getSelectedShops();
@@ -300,20 +389,53 @@
             const importers = importerRaw ? importerRaw.replace(/，/g, ',').split(',').map(x => x.trim()).filter(Boolean) : [];
             const orderRaw = (document.getElementById('orderNoFilter')?.value || '').trim();
             const orderNos = orderRaw ? orderRaw.replace(/，/g, ',').split(',').map(x => x.trim()).filter(Boolean) : [];
+            return { startDate, endDate, shops, importers, orderNos };
+        }
+
+        function buildFilterParams(filters) {
+            const params = new URLSearchParams();
+            params.set('start_date', filters.startDate);
+            params.set('end_date', filters.endDate);
+            filters.shops.forEach(value => params.append('shops', value));
+            filters.importers.forEach(value => params.append('importers', value));
+            filters.orderNos.forEach(value => params.append('order_nos', value));
+            return params;
+        }
+
+        function applyFilters() {
+            closeShopPanel();
+            loadData(1);
+        }
+
+        function goToPage(page) {
+            const target = Math.min(Math.max(Number(page) || 1, 1), totalPages);
+            if (target === currentPage && rowData.length) return;
+            loadData(target);
+        }
+
+        async function loadData(page = 1) {
+            const filters = getFilters();
+            const { startDate, endDate } = filters;
             if (!startDate || !endDate) {
                 alert('请选择开始日期和结束日期');
                 return;
             }
+            if (startDate > endDate) {
+                alert('开始日期不能晚于结束日期');
+                return;
+            }
+            if (activeListRequest) activeListRequest.abort();
+            const requestController = new AbortController();
+            activeListRequest = requestController;
+            const searchButton = document.getElementById('searchButton');
+            searchButton.disabled = true;
             setStatus('正在加载数据...');
+            renderLoading();
             try {
-                const params = new URLSearchParams();
-                params.set('start_date', startDate);
-                params.set('end_date', endDate);
-                shops.forEach(s => params.append('shops', s));
-                importers.forEach(s => params.append('importers', s));
-                orderNos.forEach(s => params.append('order_nos', s));
+                const params = buildFilterParams(filters);
+                params.set('page', Math.max(Number(page) || 1, 1));
                 const url = `/api/tk_customer_service/list?${params.toString()}`;
-                const resp = await fetch(url);
+                const resp = await fetch(url, { signal: requestController.signal });
                 const data = await resp.json();
                 if (!data.success) {
                     alert(data.message || '加载失败');
@@ -321,43 +443,51 @@
                     return;
                 }
                 rowData = data.items || [];
+                currentPage = Number(data.page) || 1;
+                totalPages = Math.max(Number(data.total_pages) || 1, 1);
+                totalItems = Math.max(Number(data.total) || 0, 0);
                 renderTable(rowData);
-                const shopText = shops.length ? `，已选 ${shops.length} 个店铺` : '';
-                const importerText = importers.length ? `，已筛选 ${importers.length} 个导入人` : '';
-                const orderText = orderNos.length ? `，已筛选 ${orderNos.length} 个订单号` : '';
-                setStatus(`共 ${rowData.length} 条数据${shopText}${importerText}${orderText}`);
+                renderPagination();
+                setStatus(`第 ${currentPage} / ${totalPages} 页 · 共 ${totalItems} 条`);
             } catch (e) {
+                if (e && e.name === 'AbortError') return;
                 alert('网络错误，加载失败');
                 setStatus('加载失败');
+                renderTable([]);
+            } finally {
+                if (activeListRequest === requestController) {
+                    activeListRequest = null;
+                    searchButton.disabled = false;
+                }
             }
         }
 
         function exportExcel() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const shops = getSelectedShops();
-            const importerRaw = (document.getElementById('importerFilter')?.value || '').trim();
-            const importers = importerRaw ? importerRaw.replace(/，/g, ',').split(',').map(x => x.trim()).filter(Boolean) : [];
-            const orderRaw = (document.getElementById('orderNoFilter')?.value || '').trim();
-            const orderNos = orderRaw ? orderRaw.replace(/，/g, ',').split(',').map(x => x.trim()).filter(Boolean) : [];
+            const filters = getFilters();
+            const { startDate, endDate } = filters;
             if (!startDate || !endDate) {
                 alert('请选择开始日期和结束日期');
                 return;
             }
-            const params = new URLSearchParams();
-            params.set('start_date', startDate);
-            params.set('end_date', endDate);
-            shops.forEach(s => params.append('shops', s));
-            importers.forEach(s => params.append('importers', s));
-            orderNos.forEach(s => params.append('order_nos', s));
+            if (startDate > endDate) {
+                alert('开始日期不能晚于结束日期');
+                return;
+            }
+            const params = buildFilterParams(filters);
             const url = `/api/tk_customer_service/export?${params.toString()}`;
             window.location.href = url;
         }
 
         window.addEventListener('DOMContentLoaded', function () {
-            loadShops().then(loadData);
+            renderPagination();
+            loadShops().then(() => loadData(1));
             document.getElementById('startDate').addEventListener('change', loadShops);
             document.getElementById('endDate').addEventListener('change', loadShops);
+            ['importerFilter', 'orderNoFilter'].forEach(id => {
+                document.getElementById(id).addEventListener('keydown', event => {
+                    if (event.key === 'Enter') applyFilters();
+                });
+            });
             const ms = document.getElementById('shopMultiselect');
             if (ms) {
                 ms.addEventListener('click', function (e) {

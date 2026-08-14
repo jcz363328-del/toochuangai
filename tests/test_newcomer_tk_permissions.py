@@ -31,6 +31,7 @@ class NewcomerTkPermissionTests(unittest.TestCase):
             "operation_dept_2",
             "operation_dept_3",
             "operation_dept_6",
+            "operation_dept_7",
         ]
 
         for function_name in visible_sections:

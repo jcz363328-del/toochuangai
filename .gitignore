@@ -47,6 +47,8 @@ innovation/static/uploads/rewards/
 *.xlsx
 *.xls
 *.csv
+!listing_agent/data/aba-ranking-export.csv
+/listing_agent/data/active-aba-ranking.json
 
 # Binary media assets; this upload is intended for code files
 *.png

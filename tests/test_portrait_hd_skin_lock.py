@@ -313,7 +313,7 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         self.assertIn("像素宽度和像素高度必须分别与第1张原图完全一致", prompt)
         self.assertIn("完整保留原图上下左右四边", prompt)
 
-    def test_hd_result_is_restored_to_source_size_without_edge_crop(self) -> None:
+    def test_hd_result_is_restored_to_source_size_without_letterbox_borders(self) -> None:
         source = self.make_image_input((10, 10))
         generated = Image.new("RGB", (30, 10), (20, 180, 20))
         for y in range(generated.height):
@@ -329,8 +329,22 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         restored_bytes, _mime_type = site.load_image_bytes_from_url(restored_url)
         with Image.open(io.BytesIO(restored_bytes)) as restored:
             self.assertEqual(restored.size, (10, 10))
-            self.assertGreater(restored.getpixel((0, 5))[0], restored.getpixel((0, 5))[2])
-            self.assertGreater(restored.getpixel((9, 5))[2], restored.getpixel((9, 5))[0])
+            self.assertGreater(restored.getpixel((0, 5))[1], restored.getpixel((0, 5))[0])
+            self.assertGreater(restored.getpixel((9, 5))[1], restored.getpixel((9, 5))[2])
+
+    def test_hd_result_with_nearby_model_ratio_fills_every_output_edge(self) -> None:
+        source = self.make_image_input((12, 20))
+        generated = Image.new("RGB", (9, 16), (40, 170, 220))
+        generated_output = io.BytesIO()
+        generated.save(generated_output, format="PNG")
+        generated_url = site.image_bytes_to_data_url(generated_output.getvalue(), "image/png")
+
+        restored_url = site.restore_portrait_hd_source_size(generated_url, source)
+        restored_bytes, _mime_type = site.load_image_bytes_from_url(restored_url)
+        with Image.open(io.BytesIO(restored_bytes)) as restored:
+            self.assertEqual(restored.size, (12, 20))
+            for point in ((0, 0), (11, 0), (0, 19), (11, 19)):
+                self.assertEqual(restored.getpixel(point), (40, 170, 220))
 
     def test_openrouter_hd_uses_source_ratio_and_returns_exact_source_size(self) -> None:
         source = self.make_image_input((137, 91))

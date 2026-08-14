@@ -1262,7 +1262,8 @@
                 return;
             }
             try {
-                const resp = await fetch('/tk/shops');
+                const shopsUrl = RESTRICT_LIKE_82 ? '/tk/joint_shops' : '/tk/shops';
+                const resp = await fetch(shopsUrl);
                 const data = await resp.json();
                 if (!listBox) return;
                 listBox.innerHTML = '';
@@ -1324,11 +1325,37 @@
             updateShopTags();
         }
 
+        let metricsPollGeneration = 0;
+
+        async function pollMetricsUntilReady(apiUrl, requestBody, generation, attempt = 0) {
+            if (generation !== metricsPollGeneration || attempt >= 60) return;
+            await new Promise(resolve => window.setTimeout(resolve, 3000));
+            if (generation !== metricsPollGeneration) return;
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+                if (generation !== metricsPollGeneration || !data.success) return;
+                renderMetrics(data);
+                if (data.refreshing) {
+                    pollMetricsUntilReady(apiUrl, requestBody, generation, attempt + 1);
+                }
+            } catch (error) {
+                if (generation === metricsPollGeneration) {
+                    pollMetricsUntilReady(apiUrl, requestBody, generation, attempt + 1);
+                }
+            }
+        }
+
         async function queryMetrics(forceRefresh = false) {
             const start = document.getElementById('start_date').value;
             const end = document.getElementById('end_date').value;
             const shops = getSelectedShops();
             if (!start || !end) { alert('请选择开始日期和结束日期'); return; }
+            const pollGeneration = ++metricsPollGeneration;
             const refreshButton = document.getElementById('refreshCacheBtn');
             if (forceRefresh && refreshButton && refreshButton.disabled) return;
             if (forceRefresh && refreshButton) {
@@ -1342,20 +1369,24 @@
                     : (FIXED_SHOP === '88') ? '/tk/metrics_88'
                     : (FIXED_SHOP === '90') ? '/tk/metrics_90'
                     : '/tk/metrics';
+                const requestBody = {
+                    start_date: start,
+                    end_date: end,
+                    shops,
+                    sales_source: RESTRICT_LIKE_82 ? 'bd_order_settlement_gmv' : '',
+                    force_refresh: forceRefresh
+                };
                 const resp = await fetch(apiUrl, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        start_date: start,
-                        end_date: end,
-                        shops,
-                        sales_source: RESTRICT_LIKE_82 ? 'bd_order_settlement_gmv' : '',
-                        force_refresh: forceRefresh
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 const data = await resp.json();
                 if (data.success) {
                     renderMetrics(data);
-                    refreshSucceeded = forceRefresh;
+                    refreshSucceeded = forceRefresh && !data.refreshing;
+                    if (data.refreshing && !forceRefresh) {
+                        pollMetricsUntilReady(apiUrl, requestBody, pollGeneration);
+                    }
                 } else {
                     alert(data.message || '查询失败');
                 }

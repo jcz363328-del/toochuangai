@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Listing Agent Studio</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">LA</div>
+        <div>
+          <h1>Listing Agent Studio</h1>
+          <p>图片证据、关键词策略与 Amazon Listing 方案台</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="topbar-flow">ABA · 识别 · 判断 · 生成</span>
+        <a class="dashboard-link aba-dashboard-link" href="./aba-ranking/" target="_blank" rel="noopener noreferrer">
+          <i data-lucide="bar-chart-3"></i>
+          ABA 排名看板
+        </a>
+        <a class="dashboard-link" href="/dashboard">
+          <i data-lucide="house"></i>
+          返回主控制台
+        </a>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="sellfox-panel aba-import-hero" id="abaRankingImport" aria-labelledby="sellfoxTitle" data-step="01">
+        <div class="sellfox-panel-head">
+          <div>
+            <span class="eyebrow">Listing 生成第一步</span>
+            <h2 id="sellfoxTitle">先导入 ABA 看板，生成排名详情</h2>
+          </div>
+          <span id="sellfoxConnection" class="data-state" data-state="loading">读取中</span>
+        </div>
+        <p class="sellfox-panel-copy">导入 ABA 看板后，系统会自动生成当前排名、上期排名、排名环比/同比、前三 ASIN 点击与转化份额、竞品 ASIN 和品牌详情，并把真实排名信号用于三版 Listing 的关键词分配。</p>
+        <div class="aba-import-meta">
+          <span><i data-lucide="file-up"></i> 支持 HTML、JSON、CSV，单个文件不超过 26 MB</span>
+          <span id="abaImportSource"><i data-lucide="database"></i> 当前使用内置 ABA 排名数据</span>
+        </div>
+        <div class="mini-actions sellfox-actions aba-import-actions">
+          <input class="aba-file-input" id="abaRankingFileInput" type="file" accept=".html,.htm,.json,.csv,text/html,application/json,text/csv" />
+          <button class="primary-button aba-import-button" id="importAbaRankingBtn" type="button" title="导入 ABA HTML、JSON 或 CSV 看板">
+            <i data-lucide="upload"></i>
+            导入 ABA 看板
+          </button>
+          <a class="primary-button primary-button-link" href="./aba-ranking/" target="_blank" rel="noopener noreferrer" title="打开当前 ABA 完整排名详情">
+            <i data-lucide="bar-chart-3"></i>
+            查看排名详情
+          </a>
+          <button class="ghost-button" id="syncSellfoxBtn" type="button" title="重新读取当前 ABA 看板">
+            <i data-lucide="refresh-cw"></i>
+            重新读取
+          </button>
+        </div>
+        <div id="sellfoxSnapshot" class="sellfox-snapshot" aria-live="polite"></div>
+      </section>
+
+      <section class="panel input-panel" aria-labelledby="factsTitle" data-step="02">
+        <div class="panel-title">
+          <div>
+            <span class="eyebrow">第二步</span>
+            <h2 id="factsTitle">先识别产品图片</h2>
+          </div>
+          <div class="mini-actions">
+            <button class="ghost-button" id="sampleBtn" type="button" title="填入示例数据">
+              <i data-lucide="wand-sparkles"></i>
+              示例
+            </button>
+            <button class="ghost-button" id="clearBtn" type="button" title="清空表单">
+              <i data-lucide="rotate-ccw"></i>
+              清空
+            </button>
+          </div>
+        </div>
+
+        <form id="listingForm" class="form-stack">
+          <div class="field-grid product-fact-fields" data-recognition-dependent>
+            <label>
+              站点
+              <select id="marketplace">
+                <option value="US">US</option>
+                <option value="UK">UK</option>
+                <option value="DE">DE</option>
+                <option value="CA">CA</option>
+              </select>
+            </label>
+            <label>
+              品牌
+              <input id="brandName" type="text" placeholder="例如 ALICE" />
+            </label>
+            <label>
+              产品类型
+              <select id="productType">
+                <option value="lash clusters">Lash Clusters</option>
+                <option value="strip lashes">Strip Lashes</option>
+                <option value="pre-glued lashes">Pre-Glued Lashes</option>
+                <option value="magnetic lashes">Magnetic Lashes</option>
+                <option value="lash bond and seal">Lash Bond & Seal</option>
+              </select>
+            </label>
+            <label>
+              主风格
+              <select id="styleAngle">
+                <option value="natural wispy">Natural Wispy</option>
+                <option value="short natural">Short Natural</option>
+                <option value="soft glam">Soft Glam</option>
+                <option value="cat eye">Cat Eye</option>
+                <option value="doll eye">Doll Eye</option>
+                <option value="manga spiky">Manga Spiky</option>
+                <option value="bunny eye">Bunny Eye</option>
+              </select>
+            </label>
+            <label class="wide-field">
+              长度
+              <div id="lengths" class="check-grid length-grid" role="group" aria-label="长度">
+                <span><input type="checkbox" name="lengths" value="6mm" /> 6mm</span>
+                <span><input type="checkbox" name="lengths" value="7mm" /> 7mm</span>
+                <span><input type="checkbox" name="lengths" value="8mm" /> 8mm</span>
+                <span><input type="checkbox" name="lengths" value="9mm" /> 9mm</span>
+                <span><input type="checkbox" name="lengths" value="10mm" /> 10mm</span>
+                <span><input type="checkbox" name="lengths" value="11mm" /> 11mm</span>
+                <span><input type="checkbox" name="lengths" value="12mm" /> 12mm</span>
+                <span><input type="checkbox" name="lengths" value="13mm" /> 13mm</span>
+                <span><input type="checkbox" name="lengths" value="14mm" /> 14mm</span>
+                <span><input type="checkbox" name="lengths" value="15mm" /> 15mm</span>
+                <span><input type="checkbox" name="lengths" value="16mm" /> 16mm</span>
+                <span><input type="checkbox" name="lengths" value="18mm" /> 18mm</span>
+              </div>
+            </label>
+            <label>
+              卷度
+              <select id="curl">
+                <option value="">待确认</option>
+                <option value="J Curl">J Curl</option>
+                <option value="B Curl">B Curl</option>
+                <option value="C Curl">C Curl</option>
+                <option value="CC Curl">CC Curl</option>
+                <option value="D Curl">D Curl</option>
+                <option value="DD Curl">DD Curl</option>
+                <option value="L Curl">L Curl</option>
+                <option value="M Curl">M Curl</option>
+              </select>
+            </label>
+            <label>
+              带型
+              <select id="bandType">
+                <option value="">待确认</option>
+                <option value="clear band">Clear Band</option>
+                <option value="thin band">Thin Band</option>
+                <option value="invisible band">Invisible Band</option>
+                <option value="black band">Black Band</option>
+              </select>
+            </label>
+            <label>
+              根数
+              <input id="pieceCount" type="text" placeholder="例如 120pcs，未确认可留空" />
+            </label>
+          </div>
+
+          <label class="product-facts-field" data-recognition-dependent>
+            包含物
+            <div class="check-grid">
+              <span><input type="checkbox" name="contents" value="lash tray" checked /> Lash Tray</span>
+              <span><input type="checkbox" name="contents" value="bond" /> Bond</span>
+              <span><input type="checkbox" name="contents" value="seal" /> Seal</span>
+              <span><input type="checkbox" name="contents" value="applicator" /> Applicator</span>
+              <span><input type="checkbox" name="contents" value="remover" /> Remover</span>
+            </div>
+          </label>
+
+          <label class="product-facts-field" data-recognition-dependent>
+            已确认声明
+            <div class="check-grid">
+              <span><input type="checkbox" name="verifiedClaims" value="waterproof" /> Waterproof</span>
+              <span><input type="checkbox" name="verifiedClaims" value="24-hour" /> 24-Hour Hold</span>
+              <span><input type="checkbox" name="verifiedClaims" value="latex-free" /> Latex-Free</span>
+              <span><input type="checkbox" name="verifiedClaims" value="hypoallergenic" /> Hypoallergenic</span>
+              <span><input type="checkbox" name="verifiedClaims" value="reusable" /> Reusable</span>
+            </div>
+          </label>
+
+          <label class="image-evidence-field">
+            识别补充（可选）
+            <textarea id="imageFacts" rows="3" placeholder="可补充图片中清晰可见的包装文字或托盘标签，例如：10/12/14mm、D Curl、clear band"></textarea>
+          </label>
+
+          <label class="upload-zone recognition-upload" for="productImages">
+            <input id="productImages" type="file" accept="image/*" multiple />
+            <span><i data-lucide="image-plus"></i> 上传产品图</span>
+          </label>
+          <div id="imagePreview" class="image-preview recognition-preview" aria-live="polite"></div>
+
+          <div class="extraction-panel recognition-stage" id="recognitionStage">
+            <div class="extraction-head">
+              <div>
+                <h3>图片识别确认</h3>
+                <p id="extractionStatus">上传图片后，先提取图片事实，再确认进入下一步。</p>
+              </div>
+              <div class="mini-actions">
+                <button class="ghost-button" id="extractImageBtn" type="button" title="提取图片信息">
+                  <i data-lucide="scan-search"></i>
+                  提取
+                </button>
+              </div>
+            </div>
+            <div class="api-config">
+              <div class="api-config-head">
+                <h4>硅基流动配置</h4>
+                <span id="apiKeyStatus">检查中</span>
+              </div>
+              <div class="api-config-grid">
+                <label>
+                  API Key
+                  <input id="siliconFlowApiKey" type="password" autocomplete="off" placeholder="sk-..." />
+                </label>
+                <label>
+                  图片识别模型
+                  <input id="siliconFlowModel" type="text" placeholder="Qwen/Qwen2.5-VL-72B-Instruct" />
+                </label>
+                <label>
+                  Listing 文本模型
+                  <input id="siliconFlowTextModel" type="text" placeholder="留空则复用图片识别模型" />
+                </label>
+              </div>
+              <div class="mini-actions api-config-actions">
+                <button class="ghost-button" id="saveApiConfigBtn" type="button" title="保存硅基流动配置">
+                  <i data-lucide="key-round"></i>
+                  保存配置
+                </button>
+              </div>
+            </div>
+            <div id="imageExtractionReview" class="extraction-review" aria-live="polite"></div>
+            <div class="confirm-row">
+              <button class="primary-button" id="confirmImageFactsBtn" type="button" title="确认识别结果">
+                <i data-lucide="check"></i>
+                确认所选事实
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel strategy-panel flow-locked" id="strategyPanel" aria-labelledby="strategyTitle" data-step="03">
+        <div class="panel-title">
+          <div>
+            <span class="eyebrow">判断策略</span>
+            <h2 id="strategyTitle">关键词与个人 Skill</h2>
+          </div>
+          <button class="ghost-button" id="buildSkillBtn" type="button" title="生成 Skill 摘要">
+            <i data-lucide="braces"></i>
+            刷新 Skill
+          </button>
+        </div>
+
+        <div class="status-row" aria-label="生成流程">
+          <span class="status-chip active">图片识别</span>
+          <span class="status-chip">人工确认</span>
+          <span class="status-chip">数据策略</span>
+          <span class="status-chip">Listing</span>
+        </div>
+
+        <div class="flow-lock-notice" id="strategyLock" aria-live="polite">
+          <i data-lucide="scan-search"></i>
+          <div>
+            <strong>等待图片识别确认</strong>
+            <span>请先在第二步上传图片、提取并确认可写入的产品事实，再进行关键词判断。</span>
+          </div>
+        </div>
+
+        <div id="preferencePanel" class="preference-panel" aria-live="polite"></div>
+
+        <div class="form-stack">
+          <label>
+            T1 核心关键词
+            <input id="t1Keywords" type="text" placeholder="lash clusters, cluster lashes, eyelash clusters" />
+          </label>
+          <label>
+            T2 转化词 / 痛点词
+            <input id="t2Keywords" type="text" placeholder="beginner friendly, anti lift, no prick, easy to apply" />
+          </label>
+          <label>
+            T3 场景 / 风格补充（可选）
+            <input id="t3Keywords" type="text" placeholder="office, date, vacation, clean girl, soft glam" />
+          </label>
+          <details class="risk-notes">
+            <summary>其他特殊限制（可选）</summary>
+            <label>
+              <textarea id="forbiddenRankings" rows="4" placeholder="例如：品牌内部禁用词、平台近期提醒词，或已有资质但暂不希望使用的词"></textarea>
+            </label>
+          </details>
+          <section class="risk-library" aria-labelledby="riskLibraryTitle">
+            <div class="risk-library-head">
+              <div>
+                <span class="eyebrow">合规控制</span>
+                <h3 id="riskLibraryTitle">已启用的违禁词库</h3>
+              </div>
+              <span id="riskLibraryCount" class="data-state" data-state="warn"></span>
+            </div>
+            <div id="riskLibrary" class="risk-library-groups" aria-live="polite"></div>
+            <div class="risk-add-row">
+              <label class="sr-only" for="riskTermInput">新增风险词</label>
+              <input id="riskTermInput" type="text" placeholder="新增风险词，例如 waterproof" />
+              <label class="sr-only" for="riskLevel">风险等级</label>
+              <select id="riskLevel">
+                <option value="high">高风险</option>
+                <option value="medium">中风险</option>
+              </select>
+              <button class="icon-button" id="addRiskTermBtn" type="button" title="加入违禁词库" aria-label="加入违禁词库">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+          </section>
+          <label>
+            MCP 数据摘要
+            <textarea id="mcpSummary" rows="5" placeholder="粘贴 SellerSprite/ABA/竞品摘要：搜索量、购买率、标题密度、竞品流量词、评论痛点"></textarea>
+          </label>
+          <label>
+            竞品 ASIN / 评论洞察
+            <textarea id="competitorNotes" rows="4" placeholder="例如：竞品差评集中在翘边、扎眼、带子明显；好评常说 natural look、easy to apply"></textarea>
+          </label>
+
+          <div class="skill-box">
+            <div class="skill-head">
+              <div>
+                <span class="eyebrow">Skill 管理</span>
+                <h3>选择或新建 Listing Skill</h3>
+              </div>
+              <span id="skillState">本地未保存</span>
+            </div>
+            <div class="skill-picker">
+              <label>
+                当前 Skill
+                <select id="skillSelect"></select>
+              </label>
+              <div class="mini-actions skill-actions">
+                <button class="ghost-button" id="newSkillBtn" type="button" title="新建 Listing Skill">
+                  <i data-lucide="plus"></i>
+                  新建
+                </button>
+                <button class="primary-button" id="saveSkillBtn" type="button" title="保存当前 Skill">
+                  <i data-lucide="save"></i>
+                  保存
+                </button>
+                <button class="icon-button secondary" id="exportSkillBtn" type="button" title="导出 Skill" aria-label="导出 Skill">
+                  <i data-lucide="download"></i>
+                </button>
+              </div>
+            </div>
+            <div id="skillLearningSummary" class="skill-learning-summary" aria-live="polite"></div>
+            <div class="listing-reference">
+              <label for="listingReference">
+                历史 Listing 文案（可选）
+                <textarea id="listingReference" rows="6" placeholder="粘贴之前的标题、五点、描述或 Search Terms。系统会提炼标题顺序、语气、五点结构和风险词，生成一份新的 Skill。"></textarea>
+              </label>
+              <div class="mini-actions listing-reference-actions">
+                <button class="ghost-button" id="createSkillFromListingBtn" type="button" title="根据历史 Listing 新建 Skill">
+                  <i data-lucide="file-plus-2"></i>
+                  从文案生成 Skill
+                </button>
+              </div>
+            </div>
+            <div class="field-grid">
+              <label>
+                Skill 名称
+                <input id="skillName" type="text" placeholder="例如：自然款假睫毛转化 Skill" />
+              </label>
+              <label>
+                标题策略
+                <select id="titleStrategy">
+                  <option value="keywordFirst">核心词前置</option>
+                  <option value="brandFirst">品牌前置</option>
+                  <option value="styleFirst">风格前置</option>
+                </select>
+              </label>
+              <label>
+                语气
+                <select id="tone">
+                  <option value="beauty factual">Beauty + Factual</option>
+                  <option value="premium soft">Premium Soft</option>
+                  <option value="direct conversion">Direct Conversion</option>
+                  <option value="clean minimal">Clean Minimal</option>
+                </select>
+              </label>
+              <label>
+                五点结构
+                <select id="bulletPattern">
+                  <option value="painSolutionScene">痛点 + 方案 + 场景</option>
+                  <option value="benefitSpecScene">效果 + 规格 + 场景</option>
+                  <option value="routineFirst">使用流程优先</option>
+                </select>
+              </label>
+            </div>
+            <textarea id="forbiddenClaims" hidden></textarea>
+            <label>
+              自定义规则
+              <textarea id="customRules" rows="4">标题不超过 75 字符；Search Terms 不超过 249 bytes；未确认根数不进标题；五点避免模板化，必须结合场景和痛点。</textarea>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel output-panel flow-locked" id="outputPanel" aria-labelledby="outputTitle" data-step="04">
+        <div class="panel-title">
+          <div>
+            <span class="eyebrow">方案交付</span>
+            <h2 id="outputTitle">Listing 方案</h2>
+          </div>
+          <div class="mini-actions">
+            <button class="primary-button" id="generateBtn" type="button" title="生成 Listing">
+              <i data-lucide="sparkles"></i>
+              生成
+            </button>
+            <button class="ghost-button" id="copyAllBtn" type="button" title="复制全部结果">
+              <i data-lucide="copy"></i>
+              复制
+            </button>
+          </div>
+        </div>
+
+        <div class="flow-lock-notice output-lock-notice" id="outputLock" aria-live="polite">
+          <i data-lucide="file-check-2"></i>
+          <div>
+            <strong>等待图片事实确认</strong>
+            <span>确认识别结果后，系统才会根据产品事实、ABA 排名和合规词库生成方案。</span>
+          </div>
+        </div>
+
+        <div class="score-strip">
+          <div>
+            <span>标题</span>
+            <strong id="titleScore">0/75</strong>
+          </div>
+          <div>
+            <span>五点</span>
+            <strong id="bulletScore">0/500</strong>
+          </div>
+          <div>
+            <span>Search Terms</span>
+            <strong id="stScore">0/249 bytes</strong>
+          </div>
+        </div>
+
+        <div id="resultArea" class="result-area" aria-live="polite">
+          <article class="empty-state">
+            <i data-lucide="file-text"></i>
+            <h3>等待生成</h3>
+            <p>先确认产品事实和图片证据，再生成三版可选择的 Listing。</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

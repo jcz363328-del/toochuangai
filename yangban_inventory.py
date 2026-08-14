@@ -10,6 +10,7 @@ import uuid
 import pandas as pd
 import pytds as sql
 from flask import Blueprint, jsonify, render_template, request, send_file, send_from_directory, session
+from PIL import Image, ImageOps
 
 from department_permissions import require_permission
 from secret_settings import relocate_storage_path, sql_server_config
@@ -30,7 +31,12 @@ _TAG_STATUSES = {"ZhengChang", "TingYong"}
 _LOCATION_TYPES = {"Gui", "Ceng", "Ge"}
 _LOCATION_STATUSES = {"ZhengChang", "TingYong"}
 _SAMPLE_IMAGE_DIR = r"D:\tuchuangai\样板图"
+_SAMPLE_IMAGE_PREVIEW_DIR = os.path.join(_SAMPLE_IMAGE_DIR, "_previews")
 _SAMPLE_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+_SAMPLE_IMAGE_PREVIEW_SIZES = {
+    "thumb": (720, 720),
+    "detail": (1800, 1800),
+}
 
 # 根据《两个表格电子版.pdf》逐格录入：每一页是一个完整柜体，页内数字是区域号。
 # 空字符串代表 PDF 中的空白格。
@@ -137,6 +143,38 @@ _PDF_CABINET_AREAS = (
             ("", "", ""),
             ("", "", ""),
             ("", "", ""),
+        ),
+    },
+)
+
+# 两张截图和 PDF 两页分别对应四个独立柜体。
+# 图1＝1号柜，图2＝2号柜，PDF 第1页＝3号柜，PDF 第2页＝4号柜。
+_PDF_PAGE_CABINET_NUMBERS = {1: "3", 2: "4"}
+
+# 两张补充截图中的柜位。每个单元格为（显示文字，占用基础列数）。
+_CABINET_IMAGE_BLOCKS = (
+    {
+        "cabinet": "1",
+        "title": "柜体布局",
+        "columns": 8,
+        "rows": (
+            (("", 2), ("", 2), ("", 2), ("13 A1", 2)),
+            (("08", 1), ("02", 1), ("25", 2), ("36", 2), ("13 A2", 2)),
+            (("21", 1), ("15", 1), ("26", 2), ("54", 2), ("13 A3", 2)),
+            (("14", 2), ("22", 2), ("", 2), ("13 A4", 2)),
+            (("", 2), ("", 2), ("", 2), ("13 A5", 2)),
+            (("", 2), ("", 2), ("30", 2), ("13 老款", 2)),
+        ),
+    },
+    {
+        "cabinet": "2",
+        "title": "上层",
+        "columns": 7,
+        "rows": (
+            (("56 低价工", 3), ("66 A1", 2), ("71", 2)),
+            (("03", 3), ("66 A2", 2), ("", 2)),
+            (("", 3), ("66 A3", 2), ("82", 2)),
+            (("20", 1), ("35", 1), ("73", 1), ("66 A4", 2), ("78", 2)),
         ),
     },
 )
@@ -253,8 +291,30 @@ def _pdf_cell_aliases(area, label):
 def _pdf_location_options():
     options = []
     seen = set()
+
+    for block in _CABINET_IMAGE_BLOCKS:
+        cabinet = block["cabinet"]
+        for row in block["rows"]:
+            for label, _span in row:
+                if not label:
+                    continue
+                position = _normalize_pdf_location(label)
+                code = f"{cabinet}-{position}"
+                if code in seen:
+                    continue
+                seen.add(code)
+                options.append(
+                    {
+                        "code": code,
+                        "label": f"{cabinet}号柜 · {label}",
+                        "cabinet": cabinet,
+                        "position": label,
+                    }
+                )
+
     for layout in _PDF_CABINET_AREAS:
         area = layout["area"]
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[layout["page"]]
         for row in layout["rows"]:
             for label in row:
                 if not label:
@@ -271,7 +331,8 @@ def _pdf_location_options():
                 options.append(
                     {
                         "code": code,
-                        "label": f"PDF第{layout['page']}页完整柜体 · {area}区 · {label}",
+                        "label": f"{cabinet}号柜 · {area}区 · {label}",
+                        "cabinet": cabinet,
                         "page": layout["page"],
                         "area": area,
                         "position": label,
@@ -284,8 +345,10 @@ def _resolve_pdf_location(value):
     raw_value = _clean_text(value, 100)
     token = _normalize_pdf_location(raw_value)
     layouts_by_area = {layout["area"]: layout for layout in _PDF_CABINET_AREAS}
-    matched_cells = []
+    matched_pdf_cells = []
+    matched_image_cells = []
     area_only = ""
+    cabinet_only = ""
 
     coordinate_match = re.fullmatch(r"(\d{2})R(\d+)C(\d+)", token)
     if coordinate_match and coordinate_match.group(1) in layouts_by_area:
@@ -296,9 +359,9 @@ def _resolve_pdf_location(value):
         if 0 <= row_index < len(layout["rows"]) and 0 <= column_index < len(layout["rows"][row_index]):
             label = layout["rows"][row_index][column_index]
             if label:
-                matched_cells.append((area, row_index, column_index))
+                matched_pdf_cells.append((area, row_index, column_index))
 
-    if token and not matched_cells:
+    if token and not matched_pdf_cells:
         for area, layout in layouts_by_area.items():
             area_key = _normalize_pdf_location(area)
             if not token.startswith(area_key):
@@ -313,95 +376,188 @@ def _resolve_pdf_location(value):
                         continue
                     aliases = _pdf_cell_aliases(area, label)
                     if suffix in aliases:
-                        matched_cells.append((area, row_index, column_index))
+                        matched_pdf_cells.append((area, row_index, column_index))
             break
 
-    if token and not matched_cells and not area_only:
+    if token and not matched_pdf_cells and not area_only:
+        for block_index, block in enumerate(_CABINET_IMAGE_BLOCKS):
+            cabinet = block["cabinet"]
+            cabinet_key = _normalize_pdf_location(cabinet)
+            if token == cabinet_key:
+                cabinet_only = cabinet
+                break
+            if not token.startswith(cabinet_key):
+                continue
+            suffix = token[len(cabinet_key):]
+            for row_index, row in enumerate(block["rows"]):
+                for cell_index, (label, _span) in enumerate(row):
+                    if label and suffix == _normalize_pdf_location(label):
+                        matched_image_cells.append((cabinet, block_index, row_index, cell_index))
+            if matched_image_cells:
+                break
+
+    if token and not matched_pdf_cells and not matched_image_cells and not area_only and not cabinet_only:
         for area, layout in layouts_by_area.items():
             for row_index, row in enumerate(layout["rows"]):
                 for column_index, label in enumerate(row):
                     if label and token in _pdf_cell_aliases(area, label):
-                        matched_cells.append((area, row_index, column_index))
+                        matched_pdf_cells.append((area, row_index, column_index))
+        for block_index, block in enumerate(_CABINET_IMAGE_BLOCKS):
+            cabinet = block["cabinet"]
+            for row_index, row in enumerate(block["rows"]):
+                for cell_index, (label, _span) in enumerate(row):
+                    if label and token == _normalize_pdf_location(label):
+                        matched_image_cells.append((cabinet, block_index, row_index, cell_index))
 
-    target_set = set(matched_cells)
+    pdf_target_set = set(matched_pdf_cells)
+    image_target_set = set(matched_image_cells)
     matched_areas = []
-    for area, _, _ in matched_cells:
+    for area, _, _ in matched_pdf_cells:
         if area not in matched_areas:
             matched_areas.append(area)
-    if area_only and area_only not in matched_areas:
-        matched_areas.append(area_only)
 
-    matched_pages = []
+    matched_cabinets = []
     for area in matched_areas:
         page = layouts_by_area[area]["page"]
-        if page not in matched_pages:
-            matched_pages.append(page)
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[page]
+        if cabinet not in matched_cabinets:
+            matched_cabinets.append(cabinet)
+    for cabinet, _, _, _ in matched_image_cells:
+        if cabinet not in matched_cabinets:
+            matched_cabinets.append(cabinet)
+    if area_only:
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[layouts_by_area[area_only]["page"]]
+        if cabinet not in matched_cabinets:
+            matched_cabinets.append(cabinet)
+    if cabinet_only and cabinet_only not in matched_cabinets:
+        matched_cabinets.append(cabinet_only)
+    matched_cabinets.sort(key=int)
 
     rendered_layouts = []
-    for page in matched_pages:
-        page_areas = [layout for layout in _PDF_CABINET_AREAS if layout["page"] == page]
+    for cabinet in matched_cabinets:
         highlighted = 0
-        sections = []
-        for layout in page_areas:
-            area = layout["area"]
+        blocks = []
+
+        for block_index, block in enumerate(_CABINET_IMAGE_BLOCKS):
+            if block["cabinet"] != cabinet:
+                continue
             rows = []
-            for row_index, row in enumerate(layout["rows"]):
+            for row_index, row in enumerate(block["rows"]):
                 cells = []
-                for column_index, label in enumerate(row):
-                    is_target = (area, row_index, column_index) in target_set
+                start_column = 1
+                for cell_index, (label, span) in enumerate(row):
+                    is_target = (cabinet, block_index, row_index, cell_index) in image_target_set
                     if is_target:
                         highlighted += 1
                     cells.append(
                         {
                             "label": label,
                             "row": row_index + 1,
-                            "column": column_index + 1,
-                            "area": area,
+                            "column": start_column,
+                            "span": span,
+                            "area": "",
                             "target": is_target,
                         }
                     )
+                    start_column += span
                 rows.append(cells)
-            sections.append(
+            blocks.append(
                 {
-                    "area": area,
-                    "columns": max((len(row) for row in layout["rows"]), default=1),
+                    "kind": "image",
+                    "title": block["title"],
+                    "columns": block["columns"],
+                    "rows_count": len(rows),
                     "rows": rows,
                 }
             )
+
+        page = next(
+            (
+                page_number
+                for page_number, cabinet_number in _PDF_PAGE_CABINET_NUMBERS.items()
+                if cabinet_number == cabinet
+            ),
+            None,
+        )
+        if page:
+            page_areas = [layout for layout in _PDF_CABINET_AREAS if layout["page"] == page]
+            sections = []
+            for layout in page_areas:
+                area = layout["area"]
+                rows = []
+                for row_index, row in enumerate(layout["rows"]):
+                    cells = []
+                    for column_index, label in enumerate(row):
+                        is_target = (area, row_index, column_index) in pdf_target_set
+                        if is_target:
+                            highlighted += 1
+                        cells.append(
+                            {
+                                "label": label,
+                                "row": row_index + 1,
+                                "column": column_index + 1,
+                                "span": 1,
+                                "area": area,
+                                "target": is_target,
+                            }
+                        )
+                    rows.append(cells)
+                sections.append(
+                    {
+                        "area": area,
+                        "columns": max((len(row) for row in layout["rows"]), default=1),
+                        "rows": rows,
+                    }
+                )
+            blocks.append(
+                {
+                    "kind": "pdf",
+                    "title": "柜体布局",
+                    "page": page,
+                    "columns": sum(section["columns"] for section in sections),
+                    "rows_count": max((len(section["rows"]) for section in sections), default=0),
+                    "sections": sections,
+                }
+            )
+
         rendered_layouts.append(
             {
-                "page": page,
-                "cabinet_label": "完整柜体",
-                "columns": sum(section["columns"] for section in sections),
-                "rows_count": max((len(section["rows"]) for section in sections), default=0),
+                "cabinet_number": cabinet,
+                "cabinet_label": f"{cabinet}号柜",
                 "highlighted": highlighted,
-                "sections": sections,
+                "blocks": blocks,
             }
         )
 
-    if matched_cells:
-        ambiguous = len(matched_areas) > 1
+    highlight_count = len(matched_pdf_cells) + len(matched_image_cells)
+    if highlight_count:
+        ambiguous = len(matched_cabinets) > 1
         if ambiguous:
-            if len(matched_pages) > 1:
-                message = f"库位“{raw_value}”未包含区域号，在 {len(matched_pages)} 个完整柜体中找到同名位置。"
-            else:
-                message = (
-                    f"库位“{raw_value}”未包含区域号，在 PDF 第{matched_pages[0]}页完整柜体的 "
-                    f"{len(matched_areas)} 个区域中找到同名位置。"
-                )
-        else:
+            message = f"库位“{raw_value}”未包含柜号，在 {len(matched_cabinets)} 个柜体中找到同名位置。"
+        elif matched_pdf_cells and len(matched_areas) == 1:
+            cabinet = matched_cabinets[0]
             area = matched_areas[0]
-            page = layouts_by_area[area]["page"]
-            count_text = f"，共 {len(matched_cells)} 格" if len(matched_cells) > 1 else ""
-            message = f"已定位到 PDF 第{page}页完整柜体的 {area} 区域{count_text}。"
+            count_text = f"，共 {highlight_count} 格" if highlight_count > 1 else ""
+            message = f"已定位到 {cabinet}号柜的 {area} 区域{count_text}。"
+        else:
+            cabinet = matched_cabinets[0]
+            count_text = f"，共 {highlight_count} 格" if highlight_count > 1 else ""
+            message = f"已定位到 {cabinet}号柜{count_text}。"
         status = "matched"
     elif area_only:
-        page = layouts_by_area[area_only]["page"]
-        message = f"已找到 PDF 第{page}页完整柜体的 {area_only} 区域，但库位未包含具体格位。"
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[layouts_by_area[area_only]["page"]]
+        message = f"已找到 {cabinet}号柜的 {area_only} 区域，但库位未包含具体格位。"
         status = "area"
         ambiguous = False
+    elif cabinet_only:
+        message = f"已找到 {cabinet_only}号柜，但库位未包含具体格位。"
+        status = "cabinet"
+        ambiguous = False
     else:
-        message = f"库位“{raw_value or '未填写'}”未在 PDF 柜位图中找到，请使用“区域号-位置”，例如 40-A3。"
+        message = (
+            f"库位“{raw_value or '未填写'}”未在柜位图中找到，"
+            "例如可填写 40-A3、1-13A1 或 2-66A1。"
+        )
         status = "unmatched"
         ambiguous = False
 
@@ -409,12 +565,17 @@ def _resolve_pdf_location(value):
         "query": raw_value,
         "normalized": token,
         "status": status,
-        "matched": bool(matched_cells),
+        "matched": bool(highlight_count),
         "ambiguous": ambiguous,
         "message": message,
-        "highlight_count": len(matched_cells),
+        "highlight_count": highlight_count,
+        "available_cabinets": ["1", "2", "3", "4"],
         "available_areas": [
-            {"area": layout["area"], "page": layout["page"]}
+            {
+                "area": layout["area"],
+                "page": layout["page"],
+                "cabinet": _PDF_PAGE_CABINET_NUMBERS[layout["page"]],
+            }
             for layout in _PDF_CABINET_AREAS
         ],
         "layouts": rendered_layouts,
@@ -443,12 +604,18 @@ def _request_data():
     return request.get_json(silent=True) or {}
 
 
-def _sample_image_file():
+def _sample_image_files():
+    files = []
     for key in ("TuPian", "tupian", "photo", "image"):
-        file = request.files.get(key)
-        if file and file.filename:
-            return file
-    return None
+        for file in request.files.getlist(key):
+            if file and file.filename:
+                files.append(file)
+    return files
+
+
+def _sample_image_file():
+    files = _sample_image_files()
+    return files[0] if files else None
 
 
 def _save_sample_image(file_storage):
@@ -464,7 +631,11 @@ def _save_sample_image(file_storage):
     return full_path
 
 
-def _sample_image_filename(path_value):
+def _save_sample_images(file_storages):
+    return [_save_sample_image(file_storage) for file_storage in (file_storages or [])]
+
+
+def _sample_image_filename_one(path_value):
     text = relocate_storage_path(path_value)
     if not text:
         return ""
@@ -480,6 +651,91 @@ def _sample_image_filename(path_value):
     if common != normalized_root:
         return ""
     return os.path.basename(normalized_path)
+
+
+def _sample_image_filenames(path_value):
+    filenames = []
+    for one_path in str(path_value or "").split(";"):
+        filename = _sample_image_filename_one(one_path.strip())
+        if filename and filename not in filenames:
+            filenames.append(filename)
+    return filenames
+
+
+def _sample_image_filename(path_value):
+    filenames = _sample_image_filenames(path_value)
+    return filenames[0] if filenames else ""
+
+
+def _sample_image_url_sets(path_value):
+    image_names = _sample_image_filenames(path_value)
+    return {
+        "original": [
+            f"/procurement/yangban/image/{image_name}" for image_name in image_names
+        ],
+        "thumbnail": [
+            f"/procurement/yangban/image-preview/{image_name}?profile=thumb"
+            for image_name in image_names
+        ],
+        "display": [
+            f"/procurement/yangban/image-preview/{image_name}?profile=detail"
+            for image_name in image_names
+        ],
+    }
+
+
+def _sample_preview_path(filename, profile):
+    safe_name = os.path.basename(str(filename or ""))
+    selected_profile = profile if profile in _SAMPLE_IMAGE_PREVIEW_SIZES else "thumb"
+    if not safe_name:
+        raise FileNotFoundError("图片不存在")
+
+    source_path = os.path.abspath(os.path.join(_SAMPLE_IMAGE_DIR, safe_name))
+    root_path = os.path.abspath(_SAMPLE_IMAGE_DIR)
+    try:
+        if os.path.commonpath([root_path, source_path]) != root_path:
+            raise ValueError("图片路径无效")
+    except ValueError as exc:
+        raise ValueError("图片路径无效") from exc
+    if not os.path.exists(source_path):
+        raise FileNotFoundError("图片不存在")
+
+    os.makedirs(_SAMPLE_IMAGE_PREVIEW_DIR, exist_ok=True)
+    preview_name = f"{safe_name}.{selected_profile}.jpg"
+    preview_path = os.path.join(_SAMPLE_IMAGE_PREVIEW_DIR, preview_name)
+    if os.path.exists(preview_path) and os.path.getsize(preview_path) > 0:
+        return preview_name
+
+    temporary_path = f"{preview_path}.{uuid.uuid4().hex}.tmp"
+    try:
+        with Image.open(source_path) as source_image:
+            try:
+                source_image.seek(0)
+            except EOFError:
+                pass
+            image = ImageOps.exif_transpose(source_image)
+            if image.mode in {"RGBA", "LA"} or (
+                image.mode == "P" and "transparency" in image.info
+            ):
+                rgba = image.convert("RGBA")
+                rgb = Image.new("RGB", rgba.size, "white")
+                rgb.paste(rgba, mask=rgba.getchannel("A"))
+                image = rgb
+            else:
+                image = image.convert("RGB")
+            image.thumbnail(
+                _SAMPLE_IMAGE_PREVIEW_SIZES[selected_profile],
+                Image.Resampling.LANCZOS,
+            )
+            image.save(temporary_path, format="JPEG", quality=84, optimize=True)
+        os.replace(temporary_path, preview_path)
+    finally:
+        if os.path.exists(temporary_path):
+            try:
+                os.remove(temporary_path)
+            except OSError:
+                pass
+    return preview_name
 
 
 def _parse_tag_names(raw_value):
@@ -547,8 +803,13 @@ def _sample_to_payload(row, tag_lookup=None):
     tag_names = _parse_tag_names(item.get("BiaoQian"))
     item["BiaoQianList"] = tag_names
     item["BiaoQianItems"] = _decorate_tags(tag_names, tag_lookup)
-    image_name = _sample_image_filename(item.get("TuPian") or item.get("tupian"))
-    item["TuPianUrl"] = f"/procurement/yangban/image/{image_name}" if image_name else ""
+    image_urls = _sample_image_url_sets(item.get("TuPian") or item.get("tupian"))
+    item["TuPianOriginalUrls"] = image_urls["original"]
+    item["TuPianThumbnailUrls"] = image_urls["thumbnail"]
+    item["TuPianUrls"] = image_urls["display"]
+    item["TuPianUrl"] = (
+        item["TuPianThumbnailUrls"][0] if item["TuPianThumbnailUrls"] else ""
+    )
     return item
 
 
@@ -1024,7 +1285,7 @@ def _sample_payload_from_request(data, existing=None):
         "FuZeRen": _clean_text(payload.get("FuZeRen"), 80),
         "KuWei": _validate_sample_kuwei(payload.get("KuWei"), existing),
         "ZhuangTai": status,
-        "BeiZhu": _clean_text(payload.get("BeiZhu"), 500),
+        "BeiZhu": _clean_text(payload.get("BeiZhu"), 0),
     }
 
 
@@ -1079,6 +1340,25 @@ def sample_image(filename):
     if not os.path.exists(full_path):
         return jsonify({"success": False, "message": "图片不存在"}), 404
     return send_from_directory(_SAMPLE_IMAGE_DIR, safe_name)
+
+
+@yangban_inventory_bp.route("/procurement/yangban/image-preview/<path:filename>")
+@require_permission("procurement_dept")
+def sample_image_preview(filename):
+    try:
+        preview_name = _sample_preview_path(filename, request.args.get("profile"))
+        return send_from_directory(
+            _SAMPLE_IMAGE_PREVIEW_DIR,
+            preview_name,
+            mimetype="image/jpeg",
+            max_age=86400,
+        )
+    except FileNotFoundError:
+        return jsonify({"success": False, "message": "图片不存在"}), 404
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"图片预览生成失败：{exc}"}), 500
 
 
 @yangban_inventory_bp.route("/api/procurement/yangban/location-map")
@@ -1310,8 +1590,11 @@ def api_dashboard():
         )
         for row in recent:
             row["BianDongLeiXingText"] = _flow_type_label(row.get("BianDongLeiXing"))
-            image_name = _sample_image_filename(row.get("TuPian") or row.get("tupian"))
-            row["TuPianUrl"] = f"/procurement/yangban/image/{image_name}" if image_name else ""
+            image_names = _sample_image_filenames(row.get("TuPian") or row.get("tupian"))
+            row["TuPianUrls"] = [
+                f"/procurement/yangban/image/{image_name}" for image_name in image_names
+            ]
+            row["TuPianUrl"] = row["TuPianUrls"][0] if row["TuPianUrls"] else ""
         return jsonify(
             {
                 "success": True,
@@ -1388,7 +1671,7 @@ def api_samples():
     if request.method == "POST":
         try:
             payload = _sample_payload_from_request(_request_data())
-            image_path = _save_sample_image(_sample_image_file())
+            image_path = ";".join(_save_sample_images(_sample_image_files()))
             _execute(
                 f"""
                 INSERT INTO {_SAMPLE_TABLE}
@@ -1466,7 +1749,13 @@ def api_sample_detail(sample_id):
             if not existing:
                 return jsonify({"success": False, "message": "样板不存在"}), 404
             payload = _sample_payload_from_request(_request_data(), existing)
-            image_path = _save_sample_image(_sample_image_file()) or existing.get("TuPian") or existing.get("tupian") or ""
+            new_image_paths = _save_sample_images(_sample_image_files())
+            existing_image_paths = str(
+                existing.get("TuPian") or existing.get("tupian") or ""
+            ).strip()
+            image_path = ";".join(
+                [path for path in [existing_image_paths, *new_image_paths] if path]
+            )
             _execute(
                 f"""
                 UPDATE {_SAMPLE_TABLE}

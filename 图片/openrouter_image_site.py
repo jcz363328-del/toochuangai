@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import colorsys
 import html
 import hashlib
 import hmac
@@ -145,6 +146,7 @@ AUTH_QUERY_USER_KEY = "auth_user"
 AUTH_QUERY_TOKEN_KEY = "auth_token"
 FEATURE_QUERY_KEY = "feature"
 MAIN_IMAGE_A_PLUS_MANUAL_POINT_QUERY_KEY = "a_plus_manual_point"
+MAIN_IMAGE_A_PLUS_TEXT_POINT_QUERY_KEY = "a_plus_text_point"
 UPLOAD_DELETE_QUERY_KEY = "delete_upload"
 UPLOAD_REPLACE_WIDGET_QUERY_KEY = "replace_upload_widget"
 UPLOAD_REPLACE_INDEX_QUERY_KEY = "replace_upload_index"
@@ -222,13 +224,16 @@ OUTPAINT_FALLBACK_MAX_EXTENSION_PX = 300
 OUTPAINT_DEFAULT_EXTENSION_PX = 100
 OUTPAINT_MAX_CANVAS_MULTIPLIER = 3
 OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX = 30_000
-OUTPAINT_RESULTS_PER_SOURCE = 1
+OUTPAINT_RESULTS_PER_SOURCE = 3
 OUTPAINT_GUIDE_MAX_EDGE = 2048
 OUTPAINT_DRAG_STEP_PX = 1
 OUTPAINT_TRANSITION_CLEAR_RATIO = 0.06
 OUTPAINT_TRANSITION_FEATHER_RATIO = 0.12
+OUTPAINT_SCAFFOLD_BLUR_RATIO = 0.025
 OUTPAINT_SEAM_STRENGTH_THRESHOLD = 2.2
 OUTPAINT_SEAM_RATIO_THRESHOLD = 2.2
+OUTPAINT_MULTISCALE_SEAM_STRENGTH_THRESHOLD = 8.0
+OUTPAINT_MULTISCALE_SEAM_RATIO_THRESHOLD = 1.65
 MAX_BATCH_API_CONCURRENCY = 4
 DEFAULT_BATCH_API_CONCURRENCY = 4
 JIMENG_MAX_API_CONCURRENCY = 1
@@ -269,6 +274,8 @@ MAIN_IMAGE_A_PLUS_MAX_SECTION_CONCURRENCY = 4
 MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE = 2048
 MAIN_IMAGE_A_PLUS_REFERENCE_TARGET_BYTES = 3 * 1024 * 1024
 MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL = "google/gemini-2.5-flash"
+IMAGE_SMART_ANALYSIS_FEATURE_KEY = "image_smart_analysis"
+IMAGE_SMART_ANALYSIS_MODEL = "google/gemini-2.5-flash"
 MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS = 20
 MAIN_IMAGE_A_PLUS_MODE_FREE = "free_create"
 MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN = "hero_design"
@@ -276,6 +283,20 @@ MAIN_IMAGE_A_PLUS_MODE_TEMPLATE = "template_replace"
 MAIN_IMAGE_A_PLUS_MODE_SINGLE_TEST = "single_test"
 MAIN_IMAGE_A_PLUS_MODE_ELEMENT = "element_replace"
 MAIN_IMAGE_A_PLUS_MODE_MOBILE_ADAPT = "mobile_adapt"
+MAIN_IMAGE_A_PLUS_MODE_TEXT_EDIT = "text_edit"
+MAIN_IMAGE_A_PLUS_TEXT_FONT_OPTIONS = (
+    "保持原字体风格",
+    "思源黑体 / Noto Sans CJK",
+    "思源宋体 / Noto Serif CJK",
+    "Montserrat",
+    "Arial / Helvetica",
+    "Times New Roman",
+    "Didot / Bodoni 高级衬线",
+    "圆润无衬线",
+    "粗体展示字",
+    "手写签名字体",
+    "自定义字体",
+)
 MAIN_IMAGE_A_PLUS_MODE_LABELS = {
     MAIN_IMAGE_A_PLUS_MODE_FREE: "自由创作",
     MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN: "首屏设计感",
@@ -937,6 +958,36 @@ FEATURES = [
             "请结合我上传的图片和我的文字要求进行多模态理解，并生成 1 张高质量结果图。"
             "要优先理解用户上传图片中的主体、场景、构图、细节和视觉关系，再严格按照文字要求执行生成。"
             "仅输出 1 张结果图。"
+        ),
+    },
+    {
+        "key": IMAGE_SMART_ANALYSIS_FEATURE_KEY,
+        "name": "图片智能分析",
+        "summary": "拖入一张主图，全面分析配色、装饰元素、构图与内容风格",
+        "mode": "openrouter",
+        "model": IMAGE_SMART_ANALYSIS_MODEL,
+        "output_mode": "text",
+        "min_images": 1,
+        "max_input_images": 1,
+        "max_output_images": 0,
+        "description": "只分析图片，不修改图片；输出带区域标注、真实色卡、HEX 色号和简短说明的可视化拆解图。",
+        "default_prompt": (
+            "你是一名资深商业视觉设计师、摄影美术指导和电商图片分析师。"
+            "请只分析用户上传的第1张主图，不要生成、修改或重绘图片，也不要把任务理解成生图。"
+            "先观察全图，再把画面归纳为3至6个有明确意义的主要视觉区域，分析要简短、具体、便于制作视觉拆解图。"
+            "只陈述图片中确实可见的事实；推断内容必须明确标记为“推测”；看不清的文字、Logo、材质、商品型号或细节必须写“无法确认”，禁止臆造。"
+            "系统会在提示词末尾提供从原图像素直接提取的真实色号；你只能为这些色号填写用途和简短描述，禁止新增、修改或猜测色号。"
+            "最终只返回一个有效 JSON 对象，不要 Markdown、代码围栏或额外说明。JSON 格式必须为："
+            '{"summary":"全图视觉概述，60字以内",'
+            '"composition":"构图和视觉动线，50字以内",'
+            '"lighting":"光影与材质，40字以内",'
+            '"typography":"文字与字体，无文字则写未发现清晰文字，40字以内",'
+            '"decorations":["装饰元素及作用，最多5项"],'
+            '"style_tags":["风格标签，最多8项"],'
+            '"color_notes":[{"hex":"系统提供的色号","role":"主色/辅色/强调色/中性色","description":"颜色在画面中的位置与作用，25字以内"}],'
+            '"regions":[{"id":1,"name":"区域名称，10字以内","bbox":[左,上,右,下],'
+            '"content":"区域可见内容，35字以内","style":"区域的色彩、装饰或视觉作用，35字以内"}]}。'
+            "bbox 使用0至1000的归一化坐标，必须覆盖对应内容，左<右、上<下；区域不要重叠过多，也不要把无关内容合并。"
         ),
     },
     {
@@ -1677,6 +1728,139 @@ def render_main_image_a_plus_manual_element_picker(
     </html>
     """
     st.iframe(html_content, height=740, width="stretch")
+
+
+def get_main_image_a_plus_text_edit_signature(source_image: str) -> str:
+    normalized_source = str(source_image or "").strip()
+    return hashlib.sha1(normalized_source.encode("utf-8")).hexdigest()[:20]
+
+
+def consume_main_image_a_plus_text_edit_point(
+    source_signature: str,
+) -> tuple[int, int] | None:
+    raw_payload = str(
+        st.query_params.get(MAIN_IMAGE_A_PLUS_TEXT_POINT_QUERY_KEY, "")
+    ).strip()
+    if not raw_payload:
+        return None
+    try:
+        payload = json.loads(raw_payload)
+        if str(payload.get("source_signature") or "") != str(source_signature or ""):
+            return None
+        point_x = max(0, min(1000, int(round(float(payload.get("x") or 0)))))
+        point_y = max(0, min(1000, int(round(float(payload.get("y") or 0)))))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        clear_query_param(MAIN_IMAGE_A_PLUS_TEXT_POINT_QUERY_KEY)
+        return None
+    clear_query_param(MAIN_IMAGE_A_PLUS_TEXT_POINT_QUERY_KEY)
+    return point_x, point_y
+
+
+def render_main_image_a_plus_text_edit_picker(
+    source_image: str,
+    source_signature: str,
+    selected_point: tuple[int, int] | None,
+    component_key: str,
+) -> None:
+    safe_component_key = re.sub(r"[^A-Za-z0-9_-]+", "_", str(component_key or "text_picker"))
+    source_json = json.dumps(str(source_image or ""), ensure_ascii=False)
+    signature_json = json.dumps(str(source_signature or ""), ensure_ascii=False)
+    query_key_json = json.dumps(MAIN_IMAGE_A_PLUS_TEXT_POINT_QUERY_KEY)
+    selected_x = int(selected_point[0]) if selected_point is not None else -1
+    selected_y = int(selected_point[1]) if selected_point is not None else -1
+    html_content = f"""
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        html, body {{ margin: 0; padding: 0; background: transparent; color: #eef3ff; font-family: Arial, sans-serif; }}
+        .text-picker-shell {{ height: 640px; overflow: auto; border-radius: 14px; border: 1px solid rgba(139, 156, 255, .26); background: rgba(5, 12, 27, .72); }}
+        .text-picker-tip {{ position: sticky; top: 0; z-index: 4; padding: 10px 12px; background: rgba(9, 18, 39, .94); color: #dfe6ff; font-size: 13px; line-height: 1.5; border-bottom: 1px solid rgba(139, 156, 255, .18); }}
+        .text-picker-wrap {{ display: flex; justify-content: center; padding: 12px; }}
+        .text-picker-stage {{ position: relative; display: inline-block; line-height: 0; }}
+        .text-picker-image {{ display: block; width: min(100%, 760px); height: auto; cursor: crosshair; border-radius: 8px; user-select: none; -webkit-user-drag: none; }}
+        .text-picker-image:hover {{ box-shadow: 0 0 0 2px rgba(126, 96, 255, .85); }}
+        .text-picker-marker {{ position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 3px solid #fff; border-radius: 50%; background: #ff4d67; box-shadow: 0 0 0 3px rgba(255,77,103,.35); pointer-events: none; display: none; }}
+        .text-picker-loading {{ position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(3, 8, 22, .72); z-index: 6; font-weight: 700; }}
+      </style>
+    </head>
+    <body>
+      <div class="text-picker-shell">
+        <div class="text-picker-tip" id="text-picker-tip-{safe_component_key}">点击成品图中需要修改的文字笔画或文字块中心；红点表示当前选中的位置。</div>
+        <div class="text-picker-wrap">
+          <div class="text-picker-stage">
+            <img class="text-picker-image" id="text-picker-image-{safe_component_key}" alt="点击选择文字" />
+            <span class="text-picker-marker" id="text-picker-marker-{safe_component_key}"></span>
+          </div>
+        </div>
+      </div>
+      <div class="text-picker-loading" id="text-picker-loading-{safe_component_key}">正在记录文字位置…</div>
+      <script>
+        (() => {{
+          const image = document.getElementById("text-picker-image-{safe_component_key}");
+          const marker = document.getElementById("text-picker-marker-{safe_component_key}");
+          const loading = document.getElementById("text-picker-loading-{safe_component_key}");
+          const hostWindow = window.parent;
+          const selectedX = {selected_x};
+          const selectedY = {selected_y};
+          image.src = {source_json};
+          image.addEventListener("load", () => {{
+            if (selectedX >= 0 && selectedY >= 0) {{
+              marker.style.left = `${{selectedX / 10}}%`;
+              marker.style.top = `${{selectedY / 10}}%`;
+              marker.style.display = "block";
+            }}
+          }});
+          image.addEventListener("click", (event) => {{
+            const rect = image.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const x = Math.max(0, Math.min(1000, Math.round((event.clientX - rect.left) / rect.width * 1000)));
+            const y = Math.max(0, Math.min(1000, Math.round((event.clientY - rect.top) / rect.height * 1000)));
+            const payload = JSON.stringify({{
+              source_signature: {signature_json},
+              x,
+              y
+            }});
+            const nextUrl = new URL(hostWindow.location.href);
+            nextUrl.searchParams.set({query_key_json}, payload);
+            loading.style.display = "flex";
+            hostWindow.location.assign(nextUrl.toString());
+          }});
+        }})();
+      </script>
+    </body>
+    </html>
+    """
+    st.iframe(html_content, height=660, width="stretch")
+
+
+def build_main_image_a_plus_text_edit_prompt(
+    point: tuple[int, int],
+    replacement_text: str,
+    font_name: str,
+) -> str:
+    point_x = max(0, min(1000, int(point[0])))
+    point_y = max(0, min(1000, int(point[1])))
+    normalized_text = str(replacement_text or "").strip()
+    normalized_font = str(font_name or "").strip() or "保持原字体风格"
+    if not normalized_text:
+        raise RuntimeError("请输入修改后的文字内容。")
+    return (
+        "你是商业电商 A+ 成品图的精确文字局部编辑器。第 1 张图是唯一成品底图。"
+        f"用户点击的目标坐标为归一化坐标 ({point_x}, {point_y})，坐标范围 0 到 1000。"
+        "先定位包含该点击位置、或距离该点最近且明显属于同一语义的完整文字块，只允许编辑这一处文字块。"
+        f"将目标文字块的内容严格替换为：{json.dumps(normalized_text, ensure_ascii=False)}。"
+        f"目标字体为：{json.dumps(normalized_font, ensure_ascii=False)}。"
+        "如果目标字体是“保持原字体风格”，必须复刻原文字的字体气质、粗细、大小写规则、字距、行距、"
+        "颜色、描边、阴影、渐变和排版方向；否则只把字体改成指定字体或最接近的字体，同时尽量保留原文字的"
+        "颜色、字号层级、对齐、特效和视觉权重。必须清除旧文字的全部笔画和残影，并自然恢复文字下方背景后再排入新文字。"
+        "新文案必须逐字准确、清晰可读、不能乱码、不能缺字、不能多字。文字较长时允许在原文字区域内等比缩小字号、"
+        "调整字距或合理换行，但不得裁切、溢出、贴边或遮挡产品、人物、Logo。"
+        "绝对锁定目标文字块以外的全部画面：其他文字、Logo、品牌、产品、包装、人物、五官、肤色肤质、服装、"
+        "背景、装饰、光影、颜色、构图、尺寸和画幅均不得发生任何变化。禁止顺带润色、重排版、改写其他文案、"
+        "新增元素、删除元素、裁剪、扩图、拉伸或压缩。只输出 1 张完整编辑后的成品图。"
+    )
 
 
 def build_main_image_a_plus_element_replacement_notes(
@@ -4046,7 +4230,7 @@ def build_outpaint_source_canvas(
     left_px: int,
     right_px: int,
 ) -> dict[str, Any]:
-    """Place the source on the target canvas with a real rebuild corridor at expanded edges."""
+    """Build an opaque edge-color scaffold so the source is not perceived as an inset photo."""
     source_w, source_h = get_uploaded_input_dimensions(original_input)
     top_px, bottom_px, left_px, right_px = clamp_outpaint_extensions(
         original_input,
@@ -4146,9 +4330,62 @@ def build_outpaint_source_canvas(
                     for x in range(source_width)
                 ]
             )
-            source.putalpha(transition_alpha)
-            canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+            # Image-generation chat APIs do not reliably interpret PNG transparency as
+            # an edit mask. A transparent canvas can therefore make the opaque source
+            # look like a pasted picture, prompting the model to draw a second subject
+            # around it. Fill the whole target with edge colors first, blur that
+            # disposable scaffold, then blend the trusted source through a broad mask.
+            canvas = Image.new(
+                "RGBA",
+                (canvas_w, canvas_h),
+                source.getpixel((0, 0)),
+            )
             canvas.alpha_composite(source, (source_left, source_top))
+            if source_left > 0:
+                left_strip = source.crop((0, 0, 1, source_height)).resize(
+                    (source_left, source_height),
+                    Image.Resampling.BICUBIC,
+                )
+                canvas.alpha_composite(left_strip, (0, source_top))
+            if source_right < canvas_w:
+                right_strip = source.crop(
+                    (source_width - 1, 0, source_width, source_height)
+                ).resize(
+                    (canvas_w - source_right, source_height),
+                    Image.Resampling.BICUBIC,
+                )
+                canvas.alpha_composite(right_strip, (source_right, source_top))
+            if source_top > 0:
+                top_strip = canvas.crop((0, source_top, canvas_w, source_top + 1)).resize(
+                    (canvas_w, source_top),
+                    Image.Resampling.BICUBIC,
+                )
+                canvas.alpha_composite(top_strip, (0, 0))
+            if source_bottom < canvas_h:
+                bottom_strip = canvas.crop(
+                    (0, source_bottom - 1, canvas_w, source_bottom)
+                ).resize(
+                    (canvas_w, canvas_h - source_bottom),
+                    Image.Resampling.BICUBIC,
+                )
+                canvas.alpha_composite(bottom_strip, (0, source_bottom))
+
+            blur_radius = max(
+                4,
+                min(
+                    64,
+                    int(
+                        round(
+                            min(source_width, source_height)
+                            * OUTPAINT_SCAFFOLD_BLUR_RATIO
+                        )
+                    ),
+                ),
+            )
+            canvas = canvas.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+            source.putalpha(255)
+            canvas.paste(source, (source_left, source_top), transition_alpha)
+            canvas.putalpha(255)
             output = io.BytesIO()
             canvas.save(output, format="PNG", optimize=True)
     except Exception as exc:
@@ -4270,7 +4507,7 @@ def measure_outpaint_boundary_seams(
     left_px: int,
     right_px: int,
 ) -> list[dict[str, Any]]:
-    """Measure straight discontinuities at the former source rectangle boundaries."""
+    """Measure narrow and broad discontinuities at former source boundaries."""
     target_w, target_h = get_outpaint_target_canvas_size(
         original_input,
         top_px,
@@ -4304,77 +4541,189 @@ def measure_outpaint_boundary_seams(
             scale_x = width / float(max(target_w, 1))
             scale_y = height / float(max(target_h, 1))
             minimum_edge = min(width, height)
-            peak_radius = max(2, min(6, int(round(minimum_edge * 0.001))))
-            baseline_gap = max(4, min(16, int(round(minimum_edge * 0.002))))
-            baseline_span = max(16, min(80, int(round(minimum_edge * 0.015))))
-            baseline_step = max(2, baseline_gap // 2)
+            search_radius = max(2, min(24, int(round(minimum_edge * 0.004))))
+            maximum_gap = max(16, min(24, int(round(minimum_edge * 0.008))))
+            gap_candidates = sorted(
+                {
+                    gap
+                    for gap in (1, 2, 4, 8, 12, 16, 24, maximum_gap)
+                    if gap <= maximum_gap
+                }
+            )
+            baseline_span = max(32, min(128, int(round(minimum_edge * 0.05))))
 
-            def boundary_strength(axis: str, position: int) -> float:
+            def boundary_strength(
+                axis: str,
+                position: int,
+                sample_gap: int,
+                span_start: int,
+                span_end: int,
+            ) -> float:
                 if axis == "vertical":
-                    x = max(1, min(width - 1, int(position)))
-                    first = working.crop((x - 1, 0, x, height))
-                    second = working.crop((x, 0, x + 1, height))
+                    first_x = max(0, min(width - 1, int(position) - sample_gap))
+                    second_x = max(0, min(width - 1, int(position) + sample_gap - 1))
+                    first = working.crop((first_x, span_start, first_x + 1, span_end))
+                    second = working.crop((second_x, span_start, second_x + 1, span_end))
                 else:
-                    y = max(1, min(height - 1, int(position)))
-                    first = working.crop((0, y - 1, width, y))
-                    second = working.crop((0, y, width, y + 1))
+                    first_y = max(0, min(height - 1, int(position) - sample_gap))
+                    second_y = max(0, min(height - 1, int(position) + sample_gap - 1))
+                    first = working.crop((span_start, first_y, span_end, first_y + 1))
+                    second = working.crop((span_start, second_y, span_end, second_y + 1))
                 channel_means = ImageStat.Stat(ImageChops.difference(first, second)).mean
                 return sum(channel_means[:3]) / 3.0
 
-            candidates: list[tuple[str, str, int]] = []
+            vertical_span = (
+                int(round(top_px * scale_y)),
+                int(round((top_px + source_h) * scale_y)),
+            )
+            horizontal_span = (
+                int(round(left_px * scale_x)),
+                int(round((left_px + source_w) * scale_x)),
+            )
+            candidates: list[tuple[str, str, int, tuple[int, int]]] = []
             if left_px > 0:
-                candidates.append(("left", "vertical", int(round(left_px * scale_x))))
+                candidates.append(
+                    ("left", "vertical", int(round(left_px * scale_x)), vertical_span)
+                )
             if right_px > 0:
                 candidates.append(
-                    ("right", "vertical", int(round((left_px + source_w) * scale_x)))
+                    (
+                        "right",
+                        "vertical",
+                        int(round((left_px + source_w) * scale_x)),
+                        vertical_span,
+                    )
                 )
             if top_px > 0:
-                candidates.append(("top", "horizontal", int(round(top_px * scale_y))))
+                candidates.append(
+                    ("top", "horizontal", int(round(top_px * scale_y)), horizontal_span)
+                )
             if bottom_px > 0:
                 candidates.append(
-                    ("bottom", "horizontal", int(round((top_px + source_h) * scale_y)))
+                    (
+                        "bottom",
+                        "horizontal",
+                        int(round((top_px + source_h) * scale_y)),
+                        horizontal_span,
+                    )
                 )
 
             measurements: list[dict[str, Any]] = []
-            for side, axis, position in candidates:
+            for side, axis, position, raw_span in candidates:
                 axis_limit = width - 1 if axis == "vertical" else height - 1
-                nearby_strengths = [
-                    boundary_strength(axis, candidate_position)
-                    for candidate_position in range(
-                        max(1, position - peak_radius),
-                        min(axis_limit, position + peak_radius) + 1,
+                span_limit = height if axis == "vertical" else width
+                span_start = max(0, min(span_limit - 1, int(raw_span[0])))
+                span_end = max(span_start + 1, min(span_limit, int(raw_span[1])))
+                span_trim = min(
+                    max(0, int(round((span_end - span_start) * 0.025))),
+                    max((span_end - span_start - 2) // 2, 0),
+                )
+                span_start += span_trim
+                span_end -= span_trim
+
+                scale_measurements: list[dict[str, Any]] = []
+                for sample_gap in gap_candidates:
+                    search_start = max(sample_gap, position - search_radius)
+                    search_end = min(axis_limit - sample_gap + 1, position + search_radius)
+                    nearby = [
+                        (
+                            candidate_position,
+                            boundary_strength(
+                                axis,
+                                candidate_position,
+                                sample_gap,
+                                span_start,
+                                span_end,
+                            ),
+                        )
+                        for candidate_position in range(search_start, search_end + 1)
+                    ]
+                    peak_position, peak_strength = max(
+                        nearby or [(position, 0.0)],
+                        key=lambda item: item[1],
                     )
-                ]
-                baseline_positions = [
-                    position + offset
-                    for offset in range(-baseline_span, baseline_span + 1, baseline_step)
-                    if abs(offset) >= baseline_gap
-                    and 1 <= position + offset <= axis_limit
-                ]
-                baseline_strengths = [
-                    boundary_strength(axis, candidate_position)
-                    for candidate_position in baseline_positions
-                ]
-                peak_strength = max(nearby_strengths or [0.0])
-                baseline_strength = max(median(baseline_strengths), 0.1)
-                strength_ratio = peak_strength / baseline_strength
+                    baseline_step = max(2, sample_gap // 2)
+                    baseline_exclusion = search_radius + (sample_gap * 2) + 2
+                    baseline_positions = [
+                        position + offset
+                        for offset in range(
+                            -baseline_span,
+                            baseline_span + 1,
+                            baseline_step,
+                        )
+                        if abs(offset) >= baseline_exclusion
+                        and sample_gap <= position + offset <= axis_limit - sample_gap + 1
+                    ]
+                    baseline_strengths = [
+                        boundary_strength(
+                            axis,
+                            candidate_position,
+                            sample_gap,
+                            span_start,
+                            span_end,
+                        )
+                        for candidate_position in baseline_positions
+                    ]
+                    baseline_strength = max(median(baseline_strengths), 0.1)
+                    strength_ratio = peak_strength / baseline_strength
+                    if sample_gap <= 2:
+                        detected = (
+                            peak_strength >= OUTPAINT_SEAM_STRENGTH_THRESHOLD
+                            and strength_ratio >= OUTPAINT_SEAM_RATIO_THRESHOLD
+                        )
+                    else:
+                        detected = (
+                            peak_strength >= OUTPAINT_MULTISCALE_SEAM_STRENGTH_THRESHOLD
+                            and strength_ratio >= OUTPAINT_MULTISCALE_SEAM_RATIO_THRESHOLD
+                        )
+                    scale_measurements.append(
+                        {
+                            "position": peak_position,
+                            "gap": sample_gap,
+                            "strength": peak_strength,
+                            "baseline": baseline_strength,
+                            "ratio": strength_ratio,
+                            "detected": detected,
+                        }
+                    )
+                best_measurement = max(
+                    scale_measurements,
+                    key=lambda item: (
+                        bool(item.get("detected")),
+                        float(item.get("ratio") or 0.0),
+                        float(item.get("strength") or 0.0),
+                    ),
+                    default={
+                        "position": position,
+                        "gap": 1,
+                        "strength": 0.0,
+                        "baseline": 0.1,
+                        "ratio": 0.0,
+                        "detected": False,
+                    },
+                )
                 measurements.append(
                     {
                         "side": side,
                         "axis": axis,
-                        "position": position,
-                        "strength": peak_strength,
-                        "baseline": baseline_strength,
-                        "ratio": strength_ratio,
-                        "detected": (
-                            peak_strength >= OUTPAINT_SEAM_STRENGTH_THRESHOLD
-                            and strength_ratio >= OUTPAINT_SEAM_RATIO_THRESHOLD
-                        ),
+                        **best_measurement,
                     }
                 )
             return measurements
     except Exception:
         return []
+
+
+def has_outpaint_rectangular_join(measurements: list[dict[str, Any]]) -> bool:
+    """Require rectangle-like evidence so natural single scene edges are not over-rejected."""
+    detected = [item for item in measurements if bool(item.get("detected"))]
+    if len(detected) >= 2:
+        return True
+    return any(
+        float(item.get("strength") or 0.0) >= 16.0
+        and float(item.get("ratio") or 0.0) >= 3.25
+        for item in detected
+    )
 
 
 def build_outpaint_seam_repair_reference(image_url: str) -> dict[str, Any]:
@@ -5821,7 +6170,7 @@ def build_portrait_hd_size_instruction(source_input: Any) -> str:
 
 
 def restore_portrait_hd_source_size(image_url: str, source_input: Any) -> str:
-    """Return the complete HD frame at the source pixel dimensions without cropping."""
+    """Return an exact source-sized HD frame without stretching or letterbox borders."""
     target_width, target_height = get_uploaded_input_dimensions(source_input)
     image_bytes, _mime_type = load_image_bytes_from_url(image_url)
     try:
@@ -5829,7 +6178,7 @@ def restore_portrait_hd_source_size(image_url: str, source_input: Any) -> str:
             converted = ImageOps.exif_transpose(image).convert("RGB")
             if converted.size == (target_width, target_height):
                 return image_url
-            resized = fit_image_to_canvas_without_distortion(
+            resized = cover_image_to_canvas_without_distortion(
                 converted,
                 target_width,
                 target_height,
@@ -6342,6 +6691,8 @@ def get_model_display_name(model_name: str) -> str:
         return "即梦智能超清 8K"
     if is_jimeng_model(normalized_name):
         return "即梦 Seedream 4.6"
+    if normalized_name == IMAGE_SMART_ANALYSIS_MODEL:
+        return "Gemini 2.5 Flash 视觉分析"
     if normalized_name == NANO_BANANA_MODEL:
         return "Nano Banana 2 生图"
     return normalized_name
@@ -6383,6 +6734,23 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
             right_px,
         )
         source_width, source_height = get_uploaded_input_dimensions(uploaded_group[0])
+        locked_source_width = int(outpaint_settings.get("source_width", 0) or 0)
+        locked_source_height = int(outpaint_settings.get("source_height", 0) or 0)
+        if (
+            locked_source_width == source_width
+            and locked_source_height == source_height
+        ):
+            locked_target_width = int(outpaint_settings.get("target_width", 0) or 0)
+            locked_target_height = int(outpaint_settings.get("target_height", 0) or 0)
+            if (
+                locked_target_width > 0
+                and locked_target_height > 0
+                and (target_width, target_height)
+                != (locked_target_width, locked_target_height)
+            ):
+                raise RuntimeError(
+                    "扩图提交尺寸校验失败：界面锁定尺寸与后台计算尺寸不一致，请刷新页面后重新提交。"
+                )
         outpaint_alignment = {
             "source_width": source_width,
             "source_height": source_height,
@@ -6421,9 +6789,9 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                 left_px,
                 right_px,
             )
-            + "\n\nThere is exactly one input image: the authoritative outpaint working canvas at the requested final aspect ratio. The visible photograph is already placed at the exact X/Y position selected by the user. Every transparent outer area is mandatory new scene area and must be completely filled with a natural continuation of the photograph. "
-            + "The opaque interior away from the former boundary is the visual authority. Do not move, recenter, enlarge, shrink, crop, or duplicate it, but seamless full-frame continuity has higher priority than exact pixel locking near an old edge. The cleared and softly feathered boundary is a mandatory reconstruction corridor; it must be regenerated together with the outer area, must not remain transparent, and must never become a frame, inset, rectangle, tonal band, blur band, or pasted-photo edge. "
-            + "Generate the complete final photograph directly in one model pass. Around every former source edge that touches an expanded side, reconstruct the feathered transition corridor together with the transparent outer area, so geometry, long lines, texture, depth, illumination, color, sharpness, grain, and noise continue naturally across the former boundary. "
+            + "\n\nThere is exactly one input image: the authoritative outpaint working canvas at the requested final aspect ratio. The visible photograph is already placed at the exact X/Y position selected by the user. The soft edge-color fields outside it are disposable generation scaffolding, not real scene content, and every requested outer area must be replaced with a natural continuation of the photograph. "
+            + "The interior away from the former boundary is the visual authority. Do not move, recenter, enlarge, shrink, crop, or duplicate it, but seamless full-frame continuity has higher priority than exact pixel locking near an old edge. The softly blended former-edge corridor is a mandatory reconstruction area; regenerate it together with the outer scaffold so it never becomes a frame, inset, rectangle, tonal band, blur band, stretched edge, or pasted-photo boundary. "
+            + "Generate the complete final photograph directly in one model pass. Around every former source edge that touches an expanded side, reconstruct the blended transition corridor together with the disposable outer scaffold, so geometry, long lines, texture, depth, illumination, color, sharpness, grain, and noise continue naturally across the former boundary. "
             + "Globally harmonize exposure, white balance, contrast, saturation, focus falloff, texture scale, and image grain across the full final frame. There must be no sudden tonal step or detail-frequency change at any old edge. Preserve the interior away from each transition corridor as closely as possible, but never at the cost of exposing the old rectangular source boundary. "
             + "Never recenter, zoom, rescale, or redistribute the source field. A side with zero requested expansion must remain exactly on the final image edge. "
             + "If the person or any limb, garment, hair, furniture, or object crosses a former edge, continue exactly that same structure through the corridor with coherent anatomy, perspective, texture, light, and scale. Do not cut it at the former boundary, do not create a horizontal or vertical join, and do not restart a different body or object in the new area. "
@@ -6497,7 +6865,7 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                 variant_result = generate_once(
                     variant_prompt
                     + "\n\nThe previous attempt failed because it returned the original crop with no visible expansion. "
-                    + "This retry must visibly fill every transparent outer region of the working canvas and show the requested new surroundings. "
+                    + "This retry must replace every disposable outer scaffold region of the working canvas with real scene content and visibly show the requested new surroundings. "
                     + "Returning the old framing again is invalid."
                 )
             variant_images.extend(list(variant_result.get("images") or [])[:1])
@@ -6519,24 +6887,32 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
             ]
         elif feature_key == "outpaint" and outpaint_alignment:
             corrected_images: list[str] = []
+            rejected_join_count = 0
+
+            def normalize_and_measure_outpaint(candidate_url: str) -> tuple[str, list[dict[str, Any]]]:
+                normalized_candidate = crop_outpaint_result_to_selected_region(
+                    str(candidate_url),
+                    uploaded_group[0],
+                    int(outpaint_alignment["top"]),
+                    int(outpaint_alignment["bottom"]),
+                    int(outpaint_alignment["left"]),
+                    int(outpaint_alignment["right"]),
+                )
+                candidate_measurements = measure_outpaint_boundary_seams(
+                    normalized_candidate,
+                    uploaded_group[0],
+                    int(outpaint_alignment["top"]),
+                    int(outpaint_alignment["bottom"]),
+                    int(outpaint_alignment["left"]),
+                    int(outpaint_alignment["right"]),
+                )
+                return normalized_candidate, candidate_measurements
+
             for image_url in (batch_result.get("images") or []):
-                corrected_image = crop_outpaint_result_to_selected_region(
-                    str(image_url),
-                    uploaded_group[0],
-                    int(outpaint_alignment["top"]),
-                    int(outpaint_alignment["bottom"]),
-                    int(outpaint_alignment["left"]),
-                    int(outpaint_alignment["right"]),
+                corrected_image, seam_measurements = normalize_and_measure_outpaint(
+                    str(image_url)
                 )
-                seam_measurements = measure_outpaint_boundary_seams(
-                    corrected_image,
-                    uploaded_group[0],
-                    int(outpaint_alignment["top"]),
-                    int(outpaint_alignment["bottom"]),
-                    int(outpaint_alignment["left"]),
-                    int(outpaint_alignment["right"]),
-                )
-                if any(item.get("detected") for item in seam_measurements):
+                if has_outpaint_rectangular_join(seam_measurements):
                     repair_result: dict[str, Any] = {}
                     try:
                         repair_reference = build_outpaint_seam_repair_reference(corrected_image)
@@ -6552,49 +6928,60 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                             [repair_reference],
                         )
                     except Exception:
-                        # Keep the usable first-pass result if the optional repair request fails.
                         repair_result = {}
                     repaired_image = next(
                         iter(list(repair_result.get("images") or [])[:1]),
                         "",
                     )
                     if repaired_image:
-                        normalized_repaired_image = crop_outpaint_result_to_selected_region(
-                            str(repaired_image),
-                            uploaded_group[0],
-                            int(outpaint_alignment["top"]),
-                            int(outpaint_alignment["bottom"]),
-                            int(outpaint_alignment["left"]),
-                            int(outpaint_alignment["right"]),
+                        normalized_repaired_image, repaired_measurements = (
+                            normalize_and_measure_outpaint(str(repaired_image))
                         )
-                        repaired_measurements = measure_outpaint_boundary_seams(
-                            normalized_repaired_image,
-                            uploaded_group[0],
-                            int(outpaint_alignment["top"]),
-                            int(outpaint_alignment["bottom"]),
-                            int(outpaint_alignment["left"]),
-                            int(outpaint_alignment["right"]),
-                        )
-                        original_score = max(
-                            (
-                                float(item.get("ratio") or 0.0)
-                                for item in seam_measurements
-                                if item.get("detected")
-                            ),
-                            default=0.0,
-                        )
-                        repaired_score = max(
-                            (
-                                float(item.get("ratio") or 0.0)
-                                for item in repaired_measurements
-                                if item.get("detected")
-                            ),
-                            default=0.0,
-                        )
-                        if repaired_score <= (original_score * 0.9):
+                        if not has_outpaint_rectangular_join(repaired_measurements):
                             corrected_image = normalized_repaired_image
+                            seam_measurements = repaired_measurements
+                    if has_outpaint_rectangular_join(seam_measurements):
+                        retry_result: dict[str, Any] = {}
+                        try:
+                            retry_result = generate_once(
+                                request_prompt
+                                + "\n\nMANDATORY CLEAN REGENERATION AFTER RECTANGULAR-JOIN REJECTION. "
+                                + "A previous candidate was rejected because it rendered the old source as a visible inset rectangle and duplicated the person outside it. "
+                                + "Start again from the supplied edge-color working scaffold. Render exactly one continuous camera exposure with exactly one person. "
+                                + "Replace all outer scaffold bands with real scene content and remove all four conceptual source boundaries. "
+                                + "Do not paste the source back, do not draw an inner rectangle, and do not duplicate the head, face, torso, arms, hands, hair, or clothing."
+                            )
+                        except Exception:
+                            retry_result = {}
+                        retry_image = next(
+                            iter(list(retry_result.get("images") or [])[:1]),
+                            "",
+                        )
+                        if retry_image:
+                            normalized_retry_image, retry_measurements = (
+                                normalize_and_measure_outpaint(str(retry_image))
+                            )
+                            if not has_outpaint_rectangular_join(retry_measurements):
+                                corrected_image = normalized_retry_image
+                                seam_measurements = retry_measurements
+                if has_outpaint_rectangular_join(seam_measurements):
+                    rejected_join_count += 1
+                    continue
                 corrected_images.append(corrected_image)
             batch_result["images"] = corrected_images
+            if rejected_join_count:
+                rejection_notice = (
+                    f"已自动拦截 {rejected_join_count} 张仍存在矩形拼接或重复人物的扩图候选，"
+                    "这些坏图不会进入结果和下载。"
+                )
+                batch_result["text"] = "\n\n".join(
+                    part
+                    for part in (
+                        str(batch_result.get("text") or "").strip(),
+                        rejection_notice,
+                    )
+                    if part
+                )
         elif feature_key not in {"hd_batch", JIMENG_HD_FEATURE_KEY, "background_cutout", "outpaint"}:
             batch_result["images"] = [
                 upscale_image_to_min_edge(
@@ -6958,6 +7345,86 @@ def stitch_main_image_a_plus_sections(
     output = io.BytesIO()
     canvas.save(output, format="PNG")
     return image_bytes_to_data_url(output.getvalue(), "image/png")
+
+
+def run_main_image_a_plus_text_edit_job(job_context: dict[str, Any]) -> dict[str, Any]:
+    job_id = str(job_context.get("job_id") or "")
+    source_image = str(job_context.get("main_image_a_plus_text_edit_source") or "").strip()
+    replacement_text = str(job_context.get("main_image_a_plus_text_edit_content") or "").strip()
+    font_name = str(job_context.get("main_image_a_plus_text_edit_font") or "").strip()
+    raw_point = job_context.get("main_image_a_plus_text_edit_point")
+    if not source_image:
+        raise RuntimeError("没有可用于文字编辑的 A+ 成品图。")
+    if not replacement_text:
+        raise RuntimeError("请输入修改后的文字内容。")
+    if not isinstance(raw_point, (list, tuple)) or len(raw_point) < 2:
+        raise RuntimeError("请先在成品图上点击需要修改的文字。")
+    point = (
+        max(0, min(1000, int(raw_point[0]))),
+        max(0, min(1000, int(raw_point[1]))),
+    )
+    if job_id:
+        set_task_progress(job_id, 10, "正在读取 A+ 成品与目标文字位置")
+    source_bytes, source_mime_type = load_image_bytes_from_url(source_image)
+    source_reference = {
+        "data": source_bytes,
+        "name": "a_plus_text_edit_source.png",
+        "type": source_mime_type or "image/png",
+    }
+    try:
+        with Image.open(io.BytesIO(source_bytes)) as image:
+            source = ImageOps.exif_transpose(image)
+            target_width, target_height = source.size
+    except Exception as exc:
+        raise RuntimeError(f"A+ 成品图读取失败：{exc}") from exc
+    if target_width < 1 or target_height < 1:
+        raise RuntimeError("A+ 成品图尺寸无效。")
+    request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio(
+        (target_width, target_height)
+    )
+    edit_prompt = build_main_image_a_plus_text_edit_prompt(
+        point,
+        replacement_text,
+        font_name,
+    )
+    if job_id:
+        set_task_progress(job_id, 24, "正在锁定点击位置对应的完整文字块")
+    edit_result = call_openrouter_images_api(
+        model=str(job_context.get("model") or NANO_BANANA_MODEL),
+        prompt=edit_prompt,
+        uploaded_files=[source_reference],
+        aspect_ratio=request_aspect_ratio,
+        resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+        max_attempts=1,
+    )
+    generated_images = list(edit_result.get("images") or [])
+    if not generated_images:
+        raise RuntimeError("文字编辑没有返回成品图，请重新提交。")
+    if job_id:
+        set_task_progress(job_id, 78, "文字已替换，正在恢复原图尺寸")
+    final_image_url = cover_image_to_exact_size(
+        str(generated_images[0]),
+        target_width,
+        target_height,
+    )
+    return {
+        "images": [final_image_url],
+        "text": (
+            f"已将点击位置附近的目标文字替换为“{replacement_text}”，字体设置为“{font_name or '保持原字体风格'}”。"
+            "编辑结果保持原图尺寸，并要求锁定目标文字块以外的全部内容。"
+        ),
+        "channel": "Images API 原生 4K · A+ 文字局部编辑",
+        "target_size": (target_width, target_height),
+        "requested_aspect_ratios": (request_aspect_ratio,),
+        "section_count": 1,
+        "section_heights": (target_height,),
+        "section_height": target_height,
+        "main_image_a_plus_mode": MAIN_IMAGE_A_PLUS_MODE_TEXT_EDIT,
+        "main_image_a_plus_text_edit_source": source_image,
+        "main_image_a_plus_text_edit_point": point,
+        "main_image_a_plus_text_edit_content": replacement_text,
+        "main_image_a_plus_text_edit_font": font_name or "保持原字体风格",
+    }
 
 
 def run_main_image_a_plus_mobile_adaptation_job(job_context: dict[str, Any]) -> dict[str, Any]:
@@ -7442,6 +7909,9 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
     if feature_key == MAIN_IMAGE_A_PLUS_FEATURE_KEY:
+        if bool(job_context.get("main_image_a_plus_text_edit")):
+            result = run_main_image_a_plus_text_edit_job(job_context)
+            return finalize_feature_job_result(job_context, result, job_id)
         if bool(job_context.get("main_image_a_plus_adapt_mobile")):
             result = run_main_image_a_plus_mobile_adaptation_job(job_context)
             return finalize_feature_job_result(job_context, result, job_id)
@@ -7627,6 +8097,17 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     feature_key=feature_key,
                 )
         else:
+            analysis_palette: list[dict[str, Any]] = []
+            request_prompt = str(job_context["prompt"])
+            if feature_key == IMAGE_SMART_ANALYSIS_FEATURE_KEY:
+                analysis_inputs = list(job_context.get("uploaded_files") or [])
+                if not analysis_inputs:
+                    raise RuntimeError("图片智能分析需要先上传 1 张主图。")
+                analysis_palette = extract_image_smart_palette(analysis_inputs[0])
+                request_prompt = build_image_smart_analysis_model_prompt(
+                    request_prompt,
+                    analysis_palette,
+                )
             if feature_key in A_PLUS_IMAGES_API_FEATURE_KEYS and str(job_context.get("output_mode") or "") == "image":
                 target_size = job_context.get("target_size")
                 request_aspect_ratio = (
@@ -7665,13 +8146,29 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
             else:
                 result = call_openrouter(
                     model=str(job_context["model"]),
-                    prompt=str(job_context["prompt"]),
+                    prompt=request_prompt,
                     uploaded_files=list(job_context["uploaded_files"]),
                     output_mode=str(job_context["output_mode"]),
                     aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
                 )
+            if feature_key == IMAGE_SMART_ANALYSIS_FEATURE_KEY:
+                if job_id:
+                    set_task_progress(job_id, 80, "正在生成分区域视觉拆解图")
+                result = build_image_smart_analysis_result(
+                    result,
+                    list(job_context.get("uploaded_files") or [])[0],
+                    palette=analysis_palette,
+                )
         if job_id:
-            set_task_progress(job_id, 72, "正在整理返回图片")
+            set_task_progress(
+                job_id,
+                72,
+                (
+                    "正在整理分析报告"
+                    if str(job_context.get("output_mode") or "") == "text"
+                    else "正在整理返回图片"
+                ),
+            )
         if job_context["output_mode"] == "image":
             target_size = job_context.get("target_size")
             min_output_edge = get_feature_min_output_edge(feature_key)
@@ -7798,6 +8295,44 @@ def submit_main_image_a_plus_mobile_adaptation(source_image: str) -> dict[str, A
             "output_mode": "image",
             "main_image_a_plus_adapt_mobile": True,
             "main_image_a_plus_desktop_source": normalized_source,
+            "account_name": str(st.session_state.get("auth_username") or "admin"),
+        },
+    )
+
+
+def submit_main_image_a_plus_text_edit(
+    source_image: str,
+    point: tuple[int, int],
+    replacement_text: str,
+    font_name: str,
+) -> dict[str, Any]:
+    normalized_source = str(source_image or "").strip()
+    normalized_text = str(replacement_text or "").strip()
+    normalized_font = str(font_name or "").strip() or "保持原字体风格"
+    if not normalized_source:
+        raise RuntimeError("没有可用于文字编辑的 A+ 成品图。")
+    if not normalized_text:
+        raise RuntimeError("请输入修改后的文字内容。")
+    feature = get_feature_by_key(MAIN_IMAGE_A_PLUS_FEATURE_KEY)
+    if feature is None:
+        raise RuntimeError("主图生A+功能不存在。")
+    return submit_feature_job(
+        feature,
+        {
+            "feature": dict(feature),
+            "model": NANO_BANANA_MODEL,
+            "prompt": build_main_image_a_plus_text_edit_prompt(
+                point,
+                normalized_text,
+                normalized_font,
+            ),
+            "uploaded_files": [],
+            "output_mode": "image",
+            "main_image_a_plus_text_edit": True,
+            "main_image_a_plus_text_edit_source": normalized_source,
+            "main_image_a_plus_text_edit_point": tuple(int(value) for value in point[:2]),
+            "main_image_a_plus_text_edit_content": normalized_text,
+            "main_image_a_plus_text_edit_font": normalized_font,
             "account_name": str(st.session_state.get("auth_username") or "admin"),
         },
     )
@@ -8624,6 +9159,7 @@ def inject_app_styles() -> None:
         .a-plus-template-card-marker,
         .a-plus-analysis-card-marker,
         .a-plus-auto-fill-card-marker,
+        .image-smart-analysis-report-marker,
         .batch-left-column-marker,
         .batch-right-column-marker,
         .upload-add-marker,
@@ -8748,6 +9284,29 @@ def inject_app_styles() -> None:
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-auto-fill-card-marker) .stButton,
         div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-auto-fill-card-marker) .stButton {
             min-height: 34px;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.image-smart-analysis-report-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .image-smart-analysis-report-marker) {
+            min-height: 520px;
+            padding: 0.9rem 1rem 0.8rem !important;
+            border: 1px solid rgba(132, 111, 255, 0.2) !important;
+            border-radius: 15px !important;
+            background:
+                radial-gradient(circle at top right, rgba(132, 111, 255, 0.09), transparent 28%),
+                rgba(7, 15, 31, 0.64) !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.image-smart-analysis-report-marker) h1,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .image-smart-analysis-report-marker) h1 {
+            font-size: 1.32rem !important;
+            margin: 0 0 0.72rem !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.image-smart-analysis-report-marker) h2,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .image-smart-analysis-report-marker) h2 {
+            color: #f2efff !important;
+            font-size: 1rem !important;
+            margin: 1rem 0 0.38rem !important;
+            padding-bottom: 0.28rem;
+            border-bottom: 1px solid rgba(132, 111, 255, 0.16);
         }
         div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
             div[data-testid="stHorizontalBlock"]:has(.panel-subtitle) {
@@ -9505,6 +10064,16 @@ def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str,
         f"当前执行功能：{feature['name']}",
         feature.get("default_prompt", ""),
     ]
+    if feature.get("output_mode") == "text":
+        if custom_prompt.strip():
+            sections.append(f"补充关注点：{custom_prompt.strip()}")
+        if extra_notes.strip():
+            sections.append(f"附加说明：{extra_notes.strip()}")
+        if feature.get("key") == IMAGE_SMART_ANALYSIS_FEATURE_KEY:
+            sections.append("严格按照功能要求只输出一个有效 JSON 对象，不要输出图片、Markdown、代码围栏、系统提示词或额外说明。")
+        else:
+            sections.append("最终只输出结构化中文分析报告，不要输出图片、JSON、代码块、系统提示词或与分析无关的说明。")
+        return "\n\n".join(part for part in sections if part)
     if feature.get("key") in A_PLUS_IMAGES_API_FEATURE_KEYS:
         size_text = str(feature.get("target_size_text", "")).strip()
         if not size_text:
@@ -9588,8 +10157,8 @@ def build_outpaint_extra_notes(
         f"Extend the apparent camera canvas according to these framing instructions: {direction_text}. "
         "The four numeric directional expansion amounts define the final outer field of view: every requested side and every zero-expansion side must be followed literally, without automatic centering, balanced margins, or expansion redistribution. "
         "The pixel amounts describe how much additional visual space is needed on each side; they must never appear as blank bands, frames, overlays, or separate image regions. "
-        "The uploaded working canvas already places the source photograph at the selected target coordinates. Use its opaque interior as the visual authority, fully regenerate the cleared and feathered former-edge corridors, and synthesize every transparent outer pixel as coherent new scene content in one generation. "
-        "Do not return transparency, empty padding, or blank bands, do not paste the original back afterward, and do not reproduce the source as a visible smaller rectangle inside the generated image. "
+        "The uploaded working canvas already places the source photograph at the selected target coordinates. Use its clear interior as the visual authority, fully regenerate the softly blended former-edge corridors, and replace every blurred or stretched edge-color scaffold pixel with coherent new scene content in one generation. "
+        "The outer scaffold is only a temporary geometry cue and must not remain in the result. Do not return transparency, empty padding, blurred padding, stretched-edge bands, or blank bands, do not paste the original back afterward, and do not reproduce the source as a visible smaller rectangle inside the generated image. "
         "The working canvas is a geometry constraint, never a collage or inset-photo design. "
         "Do not create any visible rectangle around the former image bounds, including hard seams, straight tonal changes, borders, frames, inset-photo edges, picture-in-picture layouts, or abrupt texture boundaries. "
         "Keep the original subject at the proportional position implied by the requested directional expansion, while reducing its occupancy of the final frame enough to reveal the requested new surroundings. "
@@ -10503,6 +11072,111 @@ def render_main_image_a_plus_crop_downloads(
                 )
 
 
+def render_main_image_a_plus_text_editor(
+    source_image: str,
+    key_prefix: str,
+) -> None:
+    normalized_source = str(source_image or "").strip()
+    if not normalized_source:
+        return
+    source_signature = get_main_image_a_plus_text_edit_signature(normalized_source)
+    safe_key = sanitize_file_name(
+        f"{key_prefix or 'main_image_a_plus_text_edit'}_{source_signature}"
+    )
+    point_state_key = f"{safe_key}_selected_point"
+    clicked_point = consume_main_image_a_plus_text_edit_point(source_signature)
+    if clicked_point is not None:
+        st.session_state[point_state_key] = clicked_point
+    selected_point_raw = st.session_state.get(point_state_key)
+    selected_point = (
+        (
+            int(selected_point_raw[0]),
+            int(selected_point_raw[1]),
+        )
+        if isinstance(selected_point_raw, (list, tuple))
+        and len(selected_point_raw) >= 2
+        else None
+    )
+
+    with st.expander("编辑文字内容与字体", expanded=False):
+        st.caption(
+            "点击成品图中的目标文字，再输入新文案和字体；系统只重绘该文字块，结果会作为一张新的 A+ 成品保存。"
+        )
+        render_main_image_a_plus_text_edit_picker(
+            normalized_source,
+            source_signature,
+            selected_point,
+            component_key=safe_key,
+        )
+        point_columns = st.columns([3, 1], gap="small")
+        with point_columns[0]:
+            if selected_point is None:
+                st.info("尚未选择文字位置，请直接点击上方图片中的文字。")
+            else:
+                st.success(
+                    f"已选择文字位置：X {selected_point[0]} / 1000，Y {selected_point[1]} / 1000"
+                )
+        with point_columns[1]:
+            if st.button(
+                "重新选择",
+                key=f"{safe_key}_clear_point",
+                use_container_width=True,
+                disabled=selected_point is None,
+            ):
+                st.session_state.pop(point_state_key, None)
+                st.rerun()
+
+        replacement_text = st.text_area(
+            "修改后的文字内容",
+            key=f"{safe_key}_replacement_text",
+            placeholder="输入最终需要显示的准确文案",
+            height=100,
+            max_chars=500,
+        )
+        font_option = st.selectbox(
+            "字体",
+            MAIN_IMAGE_A_PLUS_TEXT_FONT_OPTIONS,
+            key=f"{safe_key}_font_option",
+        )
+        custom_font = ""
+        if font_option == "自定义字体":
+            custom_font = st.text_input(
+                "自定义字体名称或风格",
+                key=f"{safe_key}_custom_font",
+                placeholder="例如：DIN Condensed Bold、阿里巴巴普惠体",
+                max_chars=100,
+            )
+        selected_font = (
+            str(custom_font or "").strip()
+            if font_option == "自定义字体"
+            else str(font_option or "").strip()
+        )
+        can_submit = bool(
+            selected_point is not None
+            and str(replacement_text or "").strip()
+            and selected_font
+        )
+        if st.button(
+            "应用文字修改",
+            key=f"{safe_key}_submit",
+            type="primary",
+            use_container_width=True,
+            icon=":material/auto_fix_high:",
+            disabled=not can_submit,
+        ):
+            try:
+                submit_main_image_a_plus_text_edit(
+                    normalized_source,
+                    selected_point or (0, 0),
+                    str(replacement_text or "").strip(),
+                    selected_font,
+                )
+            except Exception as exc:
+                st.error(format_user_facing_error_message(exc))
+            else:
+                st.rerun()
+
+
 def upscale_image_to_min_edge(image_url: str, min_edge: int, enhance_detail: bool = False) -> str:
     image_bytes, _mime_type = load_image_bytes_from_url(image_url)
     try:
@@ -10888,9 +11562,9 @@ def render_outpaint_extension_preview_card(
         "mode": str(
             st.session_state.get(
                 str((drag_state_keys or {}).get("mode") or ""),
-                "position",
+                "resize",
             )
-            or "position"
+            or "resize"
         ),
         "query_key": OUTPAINT_DRAG_QUERY_KEY,
     }
@@ -10898,8 +11572,8 @@ def render_outpaint_extension_preview_card(
     html_content = f"""
     <div id="{component_key}" class="outpaint-drag-root">
       <div class="outpaint-drag-toolbar">
-        <button type="button" data-mode="position">拖动原图位置</button>
-        <button type="button" data-mode="resize">调整画布大小</button>
+        <button type="button" data-mode="resize">调整扩图范围（改变比例）</button>
+        <button type="button" data-mode="position">移动原图位置（不改变比例）</button>
         <span class="outpaint-mode-help"></span>
       </div>
       <div class="outpaint-drag-stage">
@@ -10923,7 +11597,7 @@ def render_outpaint_extension_preview_card(
         <span>右 <b data-value="right"></b></span>
       </div>
       <div class="outpaint-target-summary">
-        目标画布 <b data-value="target"></b> · 原图坐标 <b data-value="position"></b>
+        目标画布 <b data-value="target"></b> · 宽高比 <b data-value="ratio"></b> · 原图坐标 <b data-value="position"></b>
       </div>
     </div>
     <style>
@@ -11117,10 +11791,11 @@ def render_outpaint_extension_preview_card(
         right: root_{component_key}.querySelector('[data-value="right"]'),
       }};
       const targetNode_{component_key} = root_{component_key}.querySelector('[data-value="target"]');
+      const ratioNode_{component_key} = root_{component_key}.querySelector('[data-value="ratio"]');
       const positionNode_{component_key} = root_{component_key}.querySelector('[data-value="position"]');
       let mode_{component_key} = ["position", "resize"].includes(String(config_{component_key}.mode || ""))
         ? String(config_{component_key}.mode)
-        : "position";
+        : "resize";
       let values_{component_key} = {{
         top: Number(config_{component_key}.top || 0),
         bottom: Number(config_{component_key}.bottom || 0),
@@ -11186,14 +11861,17 @@ def render_outpaint_extension_preview_card(
         }});
         if (modeHelp_{component_key}) {{
           modeHelp_{component_key}.textContent = mode_{component_key} === "position"
-            ? "按住白色原图拖动；画布尺寸保持不变"
-            : "拖动紫色边线或四角；原图尺寸保持不变";
+            ? "只移动原图位置，目标画布尺寸和比例不变"
+            : "拖动紫色边线或四角，实时改变目标尺寸和比例";
         }}
         Object.entries(valueNodes_{component_key}).forEach(([key, node]) => {{
           if (node) node.textContent = `${{values_{component_key}[key]}}px`;
         }});
         if (targetNode_{component_key}) {{
           targetNode_{component_key}.textContent = `${{targetWidth}}×${{targetHeight}}px`;
+        }}
+        if (ratioNode_{component_key}) {{
+          ratioNode_{component_key}.textContent = (targetWidth / Math.max(targetHeight, 1)).toFixed(3);
         }}
         if (positionNode_{component_key}) {{
           positionNode_{component_key}.textContent = `X=${{values_{component_key}.left}}, Y=${{values_{component_key}.top}}`;
@@ -13471,6 +14149,10 @@ def render_history_gallery(
                         key_prefix=f"{key_prefix}_crop_{row_start + column_index}",
                         base_names=[str(item.get("download_name") or "")],
                     )
+                    render_main_image_a_plus_text_editor(
+                        download_source,
+                        key_prefix=f"{key_prefix}_text_edit_{row_start + column_index}",
+                    )
                     dimension_source = str(item.get("display_image") or download_source).strip()
                     if not is_main_image_a_plus_mobile_canvas(dimension_source):
                         mobile_adaptation_active = str(
@@ -15219,6 +15901,867 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
     render_history_records(feature)
 
 
+def _image_smart_text(value: Any, max_length: int = 180) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())[:max_length]
+
+
+def _image_smart_string_list(value: Any, max_items: int = 8, max_length: int = 48) -> list[str]:
+    if isinstance(value, str):
+        raw_items = re.split(r"[\n,，；;、]+", value)
+    elif isinstance(value, (list, tuple)):
+        raw_items = list(value)
+    else:
+        raw_items = []
+    items: list[str] = []
+    for raw_item in raw_items:
+        item = _image_smart_text(raw_item, max_length)
+        if item and item not in items:
+            items.append(item)
+        if len(items) >= max_items:
+            break
+    return items
+
+
+def describe_image_smart_color(rgb: tuple[int, int, int]) -> str:
+    red, green, blue = [max(0, min(255, int(value))) for value in rgb]
+    hue, saturation, value = colorsys.rgb_to_hsv(red / 255.0, green / 255.0, blue / 255.0)
+    if saturation < 0.08:
+        if value >= 0.92:
+            return "近白色"
+        if value <= 0.16:
+            return "近黑色"
+        if value >= 0.68:
+            return "浅灰色"
+        if value <= 0.36:
+            return "深灰色"
+        return "中灰色"
+    degrees = hue * 360.0
+    if degrees < 15 or degrees >= 345:
+        base_name = "红色"
+    elif degrees < 42:
+        base_name = "橙色"
+    elif degrees < 68:
+        base_name = "黄色"
+    elif degrees < 155:
+        base_name = "绿色"
+    elif degrees < 190:
+        base_name = "青色"
+    elif degrees < 255:
+        base_name = "蓝色"
+    elif degrees < 292:
+        base_name = "紫色"
+    elif degrees < 345:
+        base_name = "洋红色"
+    else:
+        base_name = "红色"
+    if value >= 0.86 and saturation <= 0.42:
+        prefix = "浅"
+    elif value <= 0.38:
+        prefix = "深"
+    elif saturation <= 0.28:
+        prefix = "灰"
+    else:
+        prefix = ""
+    return f"{prefix}{base_name}"
+
+
+def _extract_image_smart_palette_from_image(
+    source_image: Image.Image,
+    max_colors: int = 6,
+) -> list[dict[str, Any]]:
+    working = source_image.convert("RGBA")
+    working.thumbnail((240, 240), Image.Resampling.LANCZOS)
+    pixel_data = (
+        working.get_flattened_data()
+        if hasattr(working, "get_flattened_data")
+        else working.getdata()
+    )
+    pixels = [
+        (int(red), int(green), int(blue))
+        for red, green, blue, alpha in pixel_data
+        if int(alpha) >= 48
+    ]
+    if not pixels:
+        pixels = [(255, 255, 255)]
+    sample = Image.new("RGB", (len(pixels), 1))
+    sample.putdata(pixels)
+    quantized = sample.quantize(
+        colors=max(12, min(24, max(int(max_colors), 1) * 4)),
+        method=Image.Quantize.MEDIANCUT,
+        dither=Image.Dither.NONE,
+    )
+    raw_palette = quantized.getpalette() or []
+    color_counts = sorted(
+        list(quantized.getcolors(maxcolors=256) or []),
+        reverse=True,
+    )
+    clusters: list[dict[str, Any]] = []
+    merge_distance = 34.0
+    for count, palette_index in color_counts:
+        offset = int(palette_index) * 3
+        if offset + 2 >= len(raw_palette):
+            continue
+        color = tuple(int(value) for value in raw_palette[offset : offset + 3])
+        matching_cluster = next(
+            (
+                cluster
+                for cluster in clusters
+                if math.dist(tuple(cluster["center"]), color) <= merge_distance
+            ),
+            None,
+        )
+        if matching_cluster is None:
+            clusters.append(
+                {
+                    "count": int(count),
+                    "sum": [color[channel] * int(count) for channel in range(3)],
+                    "center": list(color),
+                }
+            )
+            continue
+        matching_cluster["count"] += int(count)
+        for channel in range(3):
+            matching_cluster["sum"][channel] += color[channel] * int(count)
+            matching_cluster["center"][channel] = (
+                matching_cluster["sum"][channel] / matching_cluster["count"]
+            )
+    clusters.sort(key=lambda item: int(item["count"]), reverse=True)
+    total_pixels = max(len(pixels), 1)
+    palette: list[dict[str, Any]] = []
+    for cluster in clusters[: max(int(max_colors), 1)]:
+        center = tuple(float(value) for value in cluster["center"])
+        representative = min(pixels, key=lambda pixel: math.dist(pixel, center))
+        hex_color = "#{:02X}{:02X}{:02X}".format(*representative)
+        palette.append(
+            {
+                "hex": hex_color,
+                "rgb": list(representative),
+                "ratio": round(int(cluster["count"]) / total_pixels * 100.0, 1),
+                "name": describe_image_smart_color(representative),
+            }
+        )
+    return palette
+
+
+def extract_image_smart_palette(
+    uploaded_input: Any,
+    max_colors: int = 6,
+) -> list[dict[str, Any]]:
+    image_bytes = get_uploaded_file_bytes(uploaded_input)
+    if not image_bytes:
+        raise RuntimeError("图片智能分析失败：上传图片为空。")
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            source = ImageOps.exif_transpose(image)
+            return _extract_image_smart_palette_from_image(source, max_colors=max_colors)
+    except Exception as exc:
+        raise RuntimeError(f"图片智能分析失败：无法读取原图颜色。{exc}") from exc
+
+
+def build_image_smart_analysis_model_prompt(
+    base_prompt: str,
+    palette: list[dict[str, Any]],
+) -> str:
+    palette_lines = [
+        f"- {str(item.get('hex') or '').upper()}：原图像素占比约 {float(item.get('ratio') or 0):.1f}%"
+        for item in list(palette or [])
+        if str(item.get("hex") or "").strip()
+    ]
+    return (
+        f"{str(base_prompt or '').strip()}\n\n"
+        "以下色号由系统直接从原图像素取样，是真实色卡数据，不是模型估算。"
+        "color_notes 只能逐项使用这些 HEX，不得改写或新增色号：\n"
+        + "\n".join(palette_lines)
+    ).strip()
+
+
+def parse_image_smart_analysis_payload(
+    response_text: str,
+    image_size: tuple[int, int],
+    palette: list[dict[str, Any]],
+) -> dict[str, Any]:
+    raw_text = str(response_text or "").strip()
+    payload: dict[str, Any] = {}
+    if raw_text:
+        candidates = [raw_text]
+        fenced_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_text, re.IGNORECASE)
+        if fenced_match:
+            candidates.insert(0, fenced_match.group(1).strip())
+        object_start, object_end = raw_text.find("{"), raw_text.rfind("}")
+        if object_start >= 0 and object_end > object_start:
+            candidates.append(raw_text[object_start : object_end + 1])
+        for candidate in candidates:
+            try:
+                parsed = json.loads(candidate)
+            except Exception:
+                continue
+            if isinstance(parsed, dict):
+                payload = parsed
+                break
+
+    summary = _image_smart_text(payload.get("summary"), 180)
+    if not summary:
+        summary = _image_smart_text(raw_text, 180) or "已完成主图视觉拆解。"
+    regions: list[dict[str, Any]] = []
+    for region_index, raw_region in enumerate(list(payload.get("regions") or []), start=1):
+        if not isinstance(raw_region, dict):
+            continue
+        bbox = normalize_main_image_a_plus_element_bbox(
+            raw_region.get("bbox") or raw_region.get("box") or raw_region.get("region"),
+            image_size,
+        )
+        if bbox is None:
+            continue
+        regions.append(
+            {
+                "id": len(regions) + 1,
+                "name": _image_smart_text(raw_region.get("name"), 18) or f"区域 {region_index}",
+                "bbox": bbox,
+                "content": _image_smart_text(raw_region.get("content"), 90) or "可见画面内容",
+                "style": _image_smart_text(raw_region.get("style"), 90) or "区域视觉关系",
+            }
+        )
+        if len(regions) >= 6:
+            break
+    if not regions:
+        regions = [
+            {
+                "id": 1,
+                "name": "整体画面",
+                "bbox": [0, 0, 1000, 1000],
+                "content": summary,
+                "style": "模型未返回可靠的局部坐标，当前按全图展示。",
+            }
+        ]
+
+    allowed_hex = {
+        str(item.get("hex") or "").strip().upper(): dict(item)
+        for item in list(palette or [])
+        if str(item.get("hex") or "").strip()
+    }
+    notes_by_hex: dict[str, dict[str, str]] = {}
+    for raw_note in list(payload.get("color_notes") or []):
+        if not isinstance(raw_note, dict):
+            continue
+        hex_color = str(raw_note.get("hex") or "").strip().upper()
+        if hex_color not in allowed_hex:
+            continue
+        notes_by_hex[hex_color] = {
+            "role": _image_smart_text(raw_note.get("role"), 16),
+            "description": _image_smart_text(raw_note.get("description"), 54),
+        }
+    enriched_palette: list[dict[str, Any]] = []
+    default_roles = ("主色", "辅色", "辅色", "中性色", "强调色", "点缀色")
+    for color_index, palette_item in enumerate(list(palette or [])):
+        color_item = dict(palette_item)
+        hex_color = str(color_item.get("hex") or "").strip().upper()
+        note = notes_by_hex.get(hex_color) or {}
+        color_item["role"] = note.get("role") or default_roles[min(color_index, len(default_roles) - 1)]
+        color_item["description"] = (
+            note.get("description")
+            or f"{str(color_item.get('name') or '取样色')}，约占画面 {float(color_item.get('ratio') or 0):.1f}%"
+        )
+        enriched_palette.append(color_item)
+
+    return {
+        "summary": summary,
+        "composition": _image_smart_text(payload.get("composition"), 120) or "以主视觉为中心组织画面层级。",
+        "lighting": _image_smart_text(payload.get("lighting"), 100) or "以原图可见光影和材质关系为准。",
+        "typography": _image_smart_text(payload.get("typography"), 100) or "未发现可确认的文字排版信息。",
+        "decorations": _image_smart_string_list(payload.get("decorations"), 5, 60),
+        "style_tags": _image_smart_string_list(payload.get("style_tags"), 8, 24),
+        "regions": regions,
+        "palette": enriched_palette,
+    }
+
+
+def _load_image_smart_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    file_names = (
+        ("msyhbd.ttc", "simhei.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf")
+        if bold
+        else ("msyh.ttc", "simsun.ttc", "arial.ttf", "DejaVuSans.ttf")
+    )
+    for file_name in file_names:
+        font_path = f"C:/Windows/Fonts/{file_name}" if ":" not in file_name else file_name
+        try:
+            return ImageFont.truetype(font_path, max(int(size), 8))
+        except (OSError, ValueError):
+            try:
+                return ImageFont.truetype(file_name, max(int(size), 8))
+            except (OSError, ValueError):
+                continue
+    return ImageFont.load_default()
+
+
+def _wrap_image_smart_text(
+    draw: ImageDraw.ImageDraw,
+    value: Any,
+    font: ImageFont.ImageFont,
+    max_width: int,
+    max_lines: int,
+) -> list[str]:
+    normalized = _image_smart_text(value, 500)
+    if not normalized:
+        return []
+    lines: list[str] = []
+    current = ""
+    for character in normalized:
+        candidate = f"{current}{character}"
+        text_box = draw.textbbox((0, 0), candidate, font=font)
+        if current and text_box[2] - text_box[0] > max_width:
+            lines.append(current)
+            current = character
+            if len(lines) >= max_lines:
+                break
+        else:
+            current = candidate
+    if len(lines) < max_lines and current:
+        lines.append(current)
+    if len(lines) >= max_lines and "".join(lines) != normalized:
+        last_line = lines[-1].rstrip("。；，,. ") + "…"
+        while last_line:
+            text_box = draw.textbbox((0, 0), last_line, font=font)
+            if text_box[2] - text_box[0] <= max_width:
+                break
+            last_line = last_line[:-2] + "…"
+        lines[-1] = last_line
+    return lines[:max_lines]
+
+
+def _draw_image_smart_text_block(
+    draw: ImageDraw.ImageDraw,
+    value: Any,
+    position: tuple[int, int],
+    font: ImageFont.ImageFont,
+    fill: tuple[int, int, int],
+    max_width: int,
+    max_lines: int,
+    line_gap: int = 8,
+) -> int:
+    lines = _wrap_image_smart_text(draw, value, font, max_width, max_lines)
+    x, y = position
+    text_box = draw.textbbox((0, 0), "国Ag", font=font)
+    line_height = max(text_box[3] - text_box[1], 1)
+    for line in lines:
+        draw.text((x, y), line, font=font, fill=fill)
+        y += line_height + line_gap
+    return y
+
+
+def build_image_smart_analysis_board(
+    uploaded_input: Any,
+    analysis: dict[str, Any],
+) -> bytes:
+    image_bytes = get_uploaded_file_bytes(uploaded_input)
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            source = ImageOps.exif_transpose(image).convert("RGB")
+    except Exception as exc:
+        raise RuntimeError(f"无法生成视觉拆解图：原图读取失败。{exc}") from exc
+
+    regions = list(analysis.get("regions") or [])[:6]
+    palette = list(analysis.get("palette") or [])[:6]
+    layout_comparison = build_image_smart_layout_comparison(uploaded_input, analysis)
+    region_rows = max(1, math.ceil(len(regions) / 2))
+    canvas_width = 1400
+    layout_title_top = 1050
+    layout_panel_top = 1102
+    layout_panel_padding = 24
+    layout_panel_bottom = (
+        layout_panel_top + layout_panel_padding * 2 + layout_comparison.height
+    )
+    region_top = layout_panel_bottom + 62
+    region_card_height = 188
+    region_gap = 18
+    canvas_height = region_top + region_rows * (region_card_height + region_gap) + 70
+    board = Image.new("RGB", (canvas_width, canvas_height), (244, 242, 237))
+    draw = ImageDraw.Draw(board)
+
+    ink = (29, 31, 37)
+    muted = (98, 101, 109)
+    line_color = (218, 214, 206)
+    card_color = (252, 251, 248)
+    accent_colors = (
+        (101, 83, 219),
+        (27, 156, 133),
+        (232, 133, 45),
+        (214, 72, 123),
+        (52, 125, 210),
+        (119, 145, 48),
+    )
+    title_font = _load_image_smart_font(42, bold=True)
+    subtitle_font = _load_image_smart_font(20)
+    section_font = _load_image_smart_font(27, bold=True)
+    heading_font = _load_image_smart_font(23, bold=True)
+    body_font = _load_image_smart_font(18)
+    small_font = _load_image_smart_font(16)
+    tiny_font = _load_image_smart_font(14)
+
+    draw.text((56, 44), "图片视觉拆解", font=title_font, fill=ink)
+    source_width, source_height = source.size
+    draw.text(
+        (56, 101),
+        f"分区域内容 · 真实取色 · HEX 色号    原图 {source_width}×{source_height}px",
+        font=subtitle_font,
+        fill=muted,
+    )
+
+    preview_panel = (56, 150, 646, 706)
+    summary_panel = (670, 150, 1344, 706)
+    draw.rounded_rectangle(preview_panel, radius=24, fill=card_color, outline=line_color, width=2)
+    draw.rounded_rectangle(summary_panel, radius=24, fill=card_color, outline=line_color, width=2)
+    draw.text((82, 174), "区域定位", font=section_font, fill=ink)
+
+    preview_box = (82, 224, 620, 680)
+    contained = ImageOps.contain(
+        source,
+        (preview_box[2] - preview_box[0], preview_box[3] - preview_box[1]),
+        Image.Resampling.LANCZOS,
+    )
+    source_left = preview_box[0] + (preview_box[2] - preview_box[0] - contained.width) // 2
+    source_top = preview_box[1] + (preview_box[3] - preview_box[1] - contained.height) // 2
+    board.paste(contained, (source_left, source_top))
+    overlay = Image.new("RGBA", board.size, (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    badge_font = _load_image_smart_font(18, bold=True)
+    for region_index, region in enumerate(regions):
+        bbox = list(region.get("bbox") or [])
+        if len(bbox) < 4:
+            continue
+        left = source_left + round(float(bbox[0]) / 1000 * contained.width)
+        top = source_top + round(float(bbox[1]) / 1000 * contained.height)
+        right = source_left + round(float(bbox[2]) / 1000 * contained.width)
+        bottom = source_top + round(float(bbox[3]) / 1000 * contained.height)
+        accent = accent_colors[region_index % len(accent_colors)]
+        overlay_draw.rectangle(
+            (left, top, right, bottom),
+            fill=(*accent, 30),
+            outline=(*accent, 255),
+            width=4,
+        )
+        badge_left = max(source_left, min(right - 34, left + 8))
+        badge_top = max(source_top, min(bottom - 34, top + 8))
+        overlay_draw.ellipse(
+            (badge_left, badge_top, badge_left + 34, badge_top + 34),
+            fill=(*accent, 255),
+        )
+        label = str(region_index + 1)
+        label_box = overlay_draw.textbbox((0, 0), label, font=badge_font)
+        overlay_draw.text(
+            (
+                badge_left + (34 - (label_box[2] - label_box[0])) / 2,
+                badge_top + (34 - (label_box[3] - label_box[1])) / 2 - label_box[1],
+            ),
+            label,
+            font=badge_font,
+            fill=(255, 255, 255, 255),
+        )
+    board = Image.alpha_composite(board.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(board)
+
+    draw.text((700, 174), "视觉摘要", font=section_font, fill=ink)
+    summary_y = _draw_image_smart_text_block(
+        draw,
+        analysis.get("summary"),
+        (700, 224),
+        body_font,
+        ink,
+        614,
+        4,
+        line_gap=9,
+    )
+    summary_y += 12
+    summary_lines = (
+        ("构图", analysis.get("composition")),
+        ("光影", analysis.get("lighting")),
+        ("文字", analysis.get("typography")),
+        ("装饰", "；".join(list(analysis.get("decorations") or [])) or "未发现明显独立装饰元素"),
+        ("风格", " · ".join(list(analysis.get("style_tags") or [])) or "根据原图内容判断"),
+    )
+    for label, value in summary_lines:
+        draw.text((700, summary_y), f"{label}：", font=heading_font, fill=ink)
+        summary_y = _draw_image_smart_text_block(
+            draw,
+            value,
+            (772, summary_y + 2),
+            small_font,
+            muted,
+            535,
+            2,
+            line_gap=6,
+        )
+        summary_y += 8
+
+    draw.text((56, 752), "真实配色", font=section_font, fill=ink)
+    draw.text(
+        (184, 758),
+        "色块和 HEX 均直接从原图像素取样，非 AI 猜色",
+        font=small_font,
+        fill=muted,
+    )
+    palette_y = 804
+    palette_gap = 14
+    palette_width = (1288 - palette_gap * 5) // 6
+    for color_index, color_item in enumerate(palette):
+        card_left = 56 + color_index * (palette_width + palette_gap)
+        card_right = card_left + palette_width
+        draw.rounded_rectangle(
+            (card_left, palette_y, card_right, 1006),
+            radius=18,
+            fill=card_color,
+            outline=line_color,
+            width=2,
+        )
+        rgb = tuple(int(value) for value in list(color_item.get("rgb") or (255, 255, 255))[:3])
+        draw.rounded_rectangle(
+            (card_left + 12, palette_y + 12, card_right - 12, palette_y + 82),
+            radius=12,
+            fill=rgb,
+        )
+        draw.text(
+            (card_left + 14, palette_y + 95),
+            str(color_item.get("hex") or ""),
+            font=heading_font,
+            fill=ink,
+        )
+        draw.text(
+            (card_left + 14, palette_y + 128),
+            f"{str(color_item.get('role') or '')} · {float(color_item.get('ratio') or 0):.1f}%",
+            font=tiny_font,
+            fill=muted,
+        )
+        _draw_image_smart_text_block(
+            draw,
+            color_item.get("description"),
+            (card_left + 14, palette_y + 154),
+            tiny_font,
+            ink,
+            palette_width - 28,
+            2,
+            line_gap=4,
+        )
+
+    draw.text((56, layout_title_top), "原图与纯排版对照", font=section_font, fill=ink)
+    draw.text(
+        (292, layout_title_top + 7),
+        "左右画幅、比例和区域坐标完全对应；右侧仅保留版式骨架",
+        font=small_font,
+        fill=muted,
+    )
+    draw.rounded_rectangle(
+        (56, layout_panel_top, 1344, layout_panel_bottom),
+        radius=24,
+        fill=card_color,
+        outline=line_color,
+        width=2,
+    )
+    layout_left = 56 + (1288 - layout_comparison.width) // 2
+    board.paste(
+        layout_comparison,
+        (layout_left, layout_panel_top + layout_panel_padding),
+    )
+
+    draw.text((56, region_top - 48), "分区域简析", font=section_font, fill=ink)
+    region_card_width = 635
+    for region_index, region in enumerate(regions):
+        row_index, column_index = divmod(region_index, 2)
+        card_left = 56 + column_index * (region_card_width + 18)
+        card_top = region_top + row_index * (region_card_height + region_gap)
+        card_right = card_left + region_card_width
+        card_bottom = card_top + region_card_height
+        accent = accent_colors[region_index % len(accent_colors)]
+        draw.rounded_rectangle(
+            (card_left, card_top, card_right, card_bottom),
+            radius=20,
+            fill=card_color,
+            outline=line_color,
+            width=2,
+        )
+        draw.rounded_rectangle(
+            (card_left, card_top, card_left + 10, card_bottom),
+            radius=5,
+            fill=accent,
+        )
+        draw.ellipse(
+            (card_left + 26, card_top + 24, card_left + 66, card_top + 64),
+            fill=accent,
+        )
+        number_text = str(region_index + 1)
+        number_box = draw.textbbox((0, 0), number_text, font=heading_font)
+        draw.text(
+            (
+                card_left + 46 - (number_box[2] - number_box[0]) / 2,
+                card_top + 44 - (number_box[3] - number_box[1]) / 2 - number_box[1],
+            ),
+            number_text,
+            font=heading_font,
+            fill=(255, 255, 255),
+        )
+        draw.text(
+            (card_left + 82, card_top + 26),
+            str(region.get("name") or f"区域 {region_index + 1}"),
+            font=heading_font,
+            fill=ink,
+        )
+        content_y = _draw_image_smart_text_block(
+            draw,
+            region.get("content"),
+            (card_left + 82, card_top + 66),
+            small_font,
+            ink,
+            region_card_width - 110,
+            2,
+            line_gap=5,
+        )
+        _draw_image_smart_text_block(
+            draw,
+            region.get("style"),
+            (card_left + 82, content_y + 6),
+            tiny_font,
+            muted,
+            region_card_width - 110,
+            2,
+            line_gap=4,
+        )
+        local_palette = list(region.get("palette") or [])[:3]
+        for local_index, local_color in enumerate(local_palette):
+            local_hex = str(local_color.get("hex") or "")
+            local_rgb = tuple(int(value) for value in list(local_color.get("rgb") or (255, 255, 255))[:3])
+            chip_left = card_right - 200 + local_index * 58
+            draw.rounded_rectangle(
+                (chip_left, card_bottom - 34, chip_left + 48, card_bottom - 18),
+                radius=8,
+                fill=local_rgb,
+                outline=(205, 201, 194),
+                width=1,
+            )
+            if local_index == 0:
+                draw.text(
+                    (card_left + 26, card_bottom - 39),
+                    f"区域取色 {local_hex}",
+                    font=tiny_font,
+                    fill=muted,
+                )
+
+    output = io.BytesIO()
+    board.save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+def build_image_smart_layout_comparison(
+    uploaded_input: Any,
+    analysis: dict[str, Any],
+) -> Image.Image:
+    image_bytes = get_uploaded_file_bytes(uploaded_input)
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            source = ImageOps.exif_transpose(image).convert("RGB")
+    except Exception as exc:
+        raise RuntimeError(f"无法生成纯排版对照：原图读取失败。{exc}") from exc
+
+    max_panel_width = 600
+    max_panel_height = 560
+    uniform_scale = min(
+        max_panel_width / float(max(source.width, 1)),
+        max_panel_height / float(max(source.height, 1)),
+    )
+    panel_width = max(1, int(round(source.width * uniform_scale)))
+    panel_height = max(1, int(round(source.height * uniform_scale)))
+    source_panel = source.resize(
+        (panel_width, panel_height),
+        Image.Resampling.LANCZOS,
+    )
+    wireframe = Image.new("RGB", (panel_width, panel_height), (247, 247, 247))
+    draw = ImageDraw.Draw(wireframe)
+
+    def region_area(region: dict[str, Any]) -> float:
+        bbox = list(region.get("bbox") or [])
+        if len(bbox) < 4:
+            return 0.0
+        try:
+            return max(0.0, float(bbox[2]) - float(bbox[0])) * max(
+                0.0,
+                float(bbox[3]) - float(bbox[1]),
+            )
+        except (TypeError, ValueError):
+            return 0.0
+
+    regions = list(analysis.get("regions") or [])[:6]
+    regions.sort(key=region_area, reverse=True)
+    region_shades = (214, 204, 194, 184, 174, 164)
+    for region_index, region in enumerate(regions):
+        bbox = list(region.get("bbox") or [])
+        if len(bbox) < 4:
+            continue
+        left = max(0, min(panel_width - 1, round(float(bbox[0]) / 1000 * panel_width)))
+        top = max(0, min(panel_height - 1, round(float(bbox[1]) / 1000 * panel_height)))
+        right = max(left + 1, min(panel_width, round(float(bbox[2]) / 1000 * panel_width)))
+        bottom = max(top + 1, min(panel_height, round(float(bbox[3]) / 1000 * panel_height)))
+        shade = region_shades[region_index % len(region_shades)]
+        radius = max(2, min(18, round(min(right - left, bottom - top) * 0.08)))
+        draw.rounded_rectangle(
+            (left, top, right - 1, bottom - 1),
+            radius=radius,
+            fill=(shade, shade, shade),
+            outline=(151, 151, 151),
+            width=max(1, round(min(panel_width, panel_height) * 0.003)),
+        )
+
+    border_width = max(2, round(min(panel_width, panel_height) * 0.008))
+    draw.rectangle(
+        (0, 0, panel_width - 1, panel_height - 1),
+        outline=(126, 126, 126),
+        width=border_width,
+    )
+
+    gap = 28
+    comparison = Image.new(
+        "RGB",
+        (panel_width * 2 + gap, panel_height),
+        (252, 252, 252),
+    )
+    comparison.paste(source_panel, (0, 0))
+    comparison.paste(wireframe, (panel_width + gap, 0))
+    comparison_draw = ImageDraw.Draw(comparison)
+    comparison_draw.rectangle(
+        (0, 0, panel_width - 1, panel_height - 1),
+        outline=(208, 208, 208),
+        width=max(1, border_width // 2),
+    )
+    return comparison
+
+
+def build_image_smart_analysis_result(
+    model_result: dict[str, Any],
+    uploaded_input: Any,
+    palette: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    source_size = get_uploaded_input_dimensions(uploaded_input)
+    extracted_palette = list(palette or extract_image_smart_palette(uploaded_input))
+    analysis = parse_image_smart_analysis_payload(
+        str(model_result.get("text") or ""),
+        source_size,
+        extracted_palette,
+    )
+    image_bytes = get_uploaded_file_bytes(uploaded_input)
+    with Image.open(io.BytesIO(image_bytes)) as image:
+        source = ImageOps.exif_transpose(image).convert("RGBA")
+        for region in list(analysis.get("regions") or []):
+            bbox = list(region.get("bbox") or [])
+            if len(bbox) < 4:
+                region["palette"] = []
+                continue
+            crop_box = (
+                max(0, min(source.width - 1, round(float(bbox[0]) / 1000 * source.width))),
+                max(0, min(source.height - 1, round(float(bbox[1]) / 1000 * source.height))),
+                max(1, min(source.width, round(float(bbox[2]) / 1000 * source.width))),
+                max(1, min(source.height, round(float(bbox[3]) / 1000 * source.height))),
+            )
+            if crop_box[2] <= crop_box[0] or crop_box[3] <= crop_box[1]:
+                region["palette"] = []
+                continue
+            region["palette"] = _extract_image_smart_palette_from_image(
+                source.crop(crop_box),
+                max_colors=3,
+            )
+    board_bytes = build_image_smart_analysis_board(uploaded_input, analysis)
+    source_stem = sanitize_file_name(
+        Path(get_uploaded_input_name(uploaded_input) or "image").stem
+    )
+    result = dict(model_result)
+    result["images"] = []
+    result["text"] = str(analysis.get("summary") or "").strip()
+    result["visual_analysis"] = {
+        **analysis,
+        "source_size": source_size,
+        "board_image": image_bytes_to_data_url(board_bytes, "image/png"),
+        "board_file_name": f"{source_stem}_视觉与排版拆解.png",
+    }
+    return result
+
+
+def render_image_smart_analysis_report(
+    result: dict[str, Any],
+    job_status: str = "",
+    result_key: str = "latest",
+) -> None:
+    normalized_report = str(result.get("text") or "").strip()
+    visual_analysis = (
+        dict(result.get("visual_analysis") or {})
+        if isinstance(result.get("visual_analysis"), dict)
+        else {}
+    )
+    normalized_status = str(job_status or "").strip().lower()
+    board_image = str(visual_analysis.get("board_image") or "").strip()
+    if not normalized_report and not board_image:
+        empty_title = "正在理解图片内容" if normalized_status in {"queued", "running"} else "等待分析主图"
+        empty_subtitle = (
+            "AI 正在识别画面区域，并从原图像素提取真实色卡"
+            if normalized_status in {"queued", "running"}
+            else "拖入 1 张主图并点击“开始智能分析”，这里会显示分区域视觉拆解图"
+        )
+        st.markdown(
+            '<div class="result-empty">'
+            '<div class="empty-icon">◫</div>'
+            f'<div class="empty-title">{html.escape(empty_title)}</div>'
+            f'<div class="empty-subtitle">{html.escape(empty_subtitle)}</div>'
+            "</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    safe_result_key = re.sub(r"[^0-9A-Za-z_-]+", "_", str(result_key or "latest"))
+    if board_image:
+        render_zoomable_image_gallery(
+            [board_image],
+            columns=1,
+            thumb_height=None,
+            component_key=f"image_smart_analysis_board_{safe_result_key}",
+            fit_mode="contain",
+            max_width_percent=100,
+            compress_preview=True,
+            include_full_src=True,
+            full_images=[board_image],
+            embed_full_src=True,
+        )
+        decoded_board = decode_data_url(board_image)
+        if decoded_board is not None:
+            board_bytes, _mime_type = decoded_board
+            st.download_button(
+                "下载完整视觉拆解图（PNG）",
+                data=board_bytes,
+                file_name=str(
+                    visual_analysis.get("board_file_name")
+                    or "图片视觉与排版拆解.png"
+                ),
+                mime="image/png",
+                key=f"download_image_smart_analysis_board_{safe_result_key}",
+                icon=":material/download:",
+                type="primary",
+                use_container_width=True,
+            )
+        st.caption(
+            "原图与灰度纯排版已按相同画幅并排合入拆解图；色卡与 HEX 色号由系统直接读取原图像素生成。"
+        )
+        return
+
+    with st.container(border=True):
+        st.markdown(
+            '<div class="image-smart-analysis-report-marker"></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(normalized_report)
+    st.download_button(
+        "下载分析报告（Markdown）",
+        data=normalized_report,
+        file_name=f"图片智能分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+        mime="text/markdown; charset=utf-8",
+        key=f"download_image_smart_analysis_{safe_result_key}",
+        icon=":material/download:",
+        use_container_width=True,
+    )
+
+
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
     if feature.get("key") == "infinite_canvas":
         render_replacement_infinite_canvas_feature(feature)
@@ -15236,6 +16779,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
         default_model_for_feature = JIMENG_HD_MODEL_NAME
         model_options_for_feature = [JIMENG_HD_MODEL_NAME]
+    elif feature.get("key") == IMAGE_SMART_ANALYSIS_FEATURE_KEY:
+        default_model_for_feature = IMAGE_SMART_ANALYSIS_MODEL
+        model_options_for_feature = [IMAGE_SMART_ANALYSIS_MODEL]
     elif feature.get("key") in A_PLUS_IMAGES_API_FEATURE_KEYS:
         default_model_for_feature = NANO_BANANA_MODEL
         model_options_for_feature = [NANO_BANANA_MODEL]
@@ -15250,6 +16796,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     supports_eye_shape_reference = feature["key"] == "eye_shape_change"
     supports_side_angle_reference = feature["key"] == "three_view"
     supports_ai_qa_image = feature["key"] == "ai_qa_image"
+    supports_image_smart_analysis = feature["key"] == IMAGE_SMART_ANALYSIS_FEATURE_KEY
     supports_amazon_a_plus = feature["key"] == AMAZON_A_PLUS_FEATURE_KEY
     supports_main_image_a_plus = feature["key"] == MAIN_IMAGE_A_PLUS_FEATURE_KEY
     supports_a_plus_images_api = supports_amazon_a_plus or supports_main_image_a_plus
@@ -15275,7 +16822,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     elif job_info.get("status") == "error":
         st.error(f"后台任务失败：{format_user_facing_error_message(job_info.get('error'))}")
     elif job_info.get("status") == "completed":
-        st.success("任务已完成，结果已更新到右侧预览区。")
+        st.success(
+            "图片分析已完成，报告已更新到右侧。"
+            if supports_image_smart_analysis
+            else "任务已完成，结果已更新到右侧预览区。"
+        )
 
     meta_items = ['<span class="meta-pill">JPG、PNG、WEBP · 单张≤50MB</span>']
     if supports_main_image_a_plus:
@@ -15283,6 +16834,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append('<span class="meta-pill">4 种模式 · 支持指定元素替换</span>')
         meta_items.append('<span class="meta-pill">3 种规格 · 套版跟随模板</span>')
         meta_items.append('<span class="meta-pill">原生 4K · 文字不截断</span>')
+        meta_items.append('<span class="meta-pill">成品文字可二次编辑</span>')
     elif supports_amazon_a_plus:
         meta_items.append(f'<span class="meta-pill">最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张参考图</span>')
         meta_items.append('<span class="meta-pill">3 种 A+ 规格</span>')
@@ -15292,14 +16844,18 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append('<span class="meta-pill">画布宽高最大可扩至原图 3 倍</span>')
         meta_items.append('<span class="meta-pill">自动匹配扩展画幅</span>')
         meta_items.append('<span class="meta-pill">整图一次生成 · 无矩形拼接</span>')
-        meta_items.append('<span class="meta-pill">每张原图返回 1 张结果</span>')
+        meta_items.append('<span class="meta-pill">每张原图一次提交返回 3 张结果</span>')
     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
         meta_items.append('<span class="meta-pill">即梦智能超清 · 原生 8K · scale 50</span>')
         meta_items.append(
             f'<span class="meta-pill">全局串行队列 · 最多 {JIMENG_HD_QUEUE_CAPACITY} 个任务</span>'
         )
     elif feature.get("key") == "hd_batch":
-        meta_items.append('<span class="meta-pill">输出尺寸与原图完全一致 · 不裁剪</span>')
+        meta_items.append('<span class="meta-pill">输出尺寸与原图完全一致 · 无补边 · 无拉伸</span>')
+    elif supports_image_smart_analysis:
+        meta_items.append('<span class="meta-pill">单图深度识别 · 只分析不改图</span>')
+        meta_items.append('<span class="meta-pill">分区域简析 · 原图真实取色</span>')
+        meta_items.append('<span class="meta-pill">原图与纯排版同图对照</span>')
     else:
         meta_items.append(f'<span class="meta-pill">等比例放大，宽高都不小于 {get_feature_min_output_edge(feature)}px</span>')
     if supports_batch_multi_upload:
@@ -15322,6 +16878,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         workflow_steps = ("上传原图", "提交 8K 超清", "查看结果")
     elif feature.get("key") == "hd_batch":
         workflow_steps = ("上传图片", "补充参考", "开始处理", "查看结果")
+    elif supports_image_smart_analysis:
+        workflow_steps = ("上传主图", "识别内容", "解析视觉", "生成报告", "查看与下载")
     else:
         workflow_steps = ("上传图片", "补充参考", "填写要求", "开始处理", "查看结果")
     workflow_html = "".join(
@@ -15340,7 +16898,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         left_panel_title = (
             "创作设置"
             if supports_main_image_a_plus or supports_amazon_a_plus
-            else ("文字要求" if supports_jimeng_generation else "上传与设置")
+            else (
+                "上传待分析主图"
+                if supports_image_smart_analysis
+                else ("文字要求" if supports_jimeng_generation else "上传与设置")
+            )
         )
         st.markdown(
             f'<div class="result-block-title">{left_panel_title}</div>',
@@ -15413,7 +16975,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             outpaint_bottom_key = f"outpaint_bottom_{feature['key']}"
             outpaint_left_key = f"outpaint_left_{feature['key']}"
             outpaint_right_key = f"outpaint_right_{feature['key']}"
-            outpaint_drag_mode_key = f"outpaint_drag_mode_{feature['key']}"
+            outpaint_drag_mode_key = f"outpaint_drag_mode_v2_{feature['key']}"
+            outpaint_target_width_key = f"outpaint_target_width_{feature['key']}"
+            outpaint_target_height_key = f"outpaint_target_height_{feature['key']}"
+            outpaint_target_sync_key = f"outpaint_target_sync_{feature['key']}"
             if supports_outpaint:
                 outpaint_defaults_key = f"outpaint_defaults_{OUTPAINT_MAX_CANVAS_MULTIPLIER}x_{OUTPAINT_DEFAULT_EXTENSION_PX}_{feature['key']}"
                 if not st.session_state.get(outpaint_defaults_key):
@@ -15434,7 +16999,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 outpaint_left_px = int(st.session_state.get(outpaint_left_key, OUTPAINT_DEFAULT_EXTENSION_PX))
                 outpaint_right_px = int(st.session_state.get(outpaint_right_key, OUTPAINT_DEFAULT_EXTENSION_PX))
                 if st.session_state.get(outpaint_drag_mode_key) not in {"position", "resize"}:
-                    st.session_state[outpaint_drag_mode_key] = "position"
+                    st.session_state[outpaint_drag_mode_key] = "resize"
 
                 def outpaint_preview_renderer(uploaded_input: Any, item_index: int, component_key: str) -> None:
                     render_outpaint_extension_preview_card(
@@ -15488,6 +17053,155 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         st.session_state[outpaint_bottom_key] = outpaint_bottom_px
                         st.session_state[outpaint_left_key] = outpaint_left_px
                         st.session_state[outpaint_right_key] = outpaint_right_px
+                        direction_limits = get_outpaint_extension_limits(batch_source_files[0])
+                        selected_source_width, selected_source_height = get_uploaded_input_dimensions(
+                            batch_source_files[0]
+                        )
+                        current_target_width, current_target_height = get_outpaint_target_canvas_size(
+                            batch_source_files[0],
+                            outpaint_top_px,
+                            outpaint_bottom_px,
+                            outpaint_left_px,
+                            outpaint_right_px,
+                        )
+                        target_sync_value = (
+                            f"{source_signature}:{current_target_width}x{current_target_height}"
+                        )
+                        if st.session_state.get(outpaint_target_sync_key) != target_sync_value:
+                            st.session_state[outpaint_target_width_key] = current_target_width
+                            st.session_state[outpaint_target_height_key] = current_target_height
+                            st.session_state[outpaint_target_sync_key] = target_sync_value
+
+                        st.markdown(
+                            '<div class="panel-subtitle">最终输出尺寸（可直接输入）</div>',
+                            unsafe_allow_html=True,
+                        )
+                        target_width_col, target_height_col, apply_target_col = st.columns(
+                            [1, 1, 0.72]
+                        )
+                        with target_width_col:
+                            requested_target_width = int(
+                                st.number_input(
+                                    "最终宽度（px）",
+                                    min_value=selected_source_width,
+                                    max_value=selected_source_width * OUTPAINT_MAX_CANVAS_MULTIPLIER,
+                                    step=1,
+                                    key=outpaint_target_width_key,
+                                )
+                            )
+                        with target_height_col:
+                            requested_target_height = int(
+                                st.number_input(
+                                    "最终高度（px）",
+                                    min_value=selected_source_height,
+                                    max_value=selected_source_height * OUTPAINT_MAX_CANVAS_MULTIPLIER,
+                                    step=1,
+                                    key=outpaint_target_height_key,
+                                )
+                            )
+                        with apply_target_col:
+                            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                            apply_exact_target = st.button(
+                                "应用目标尺寸",
+                                key=f"apply_outpaint_target_{feature['key']}",
+                                use_container_width=True,
+                            )
+                        if apply_exact_target:
+                            def split_extension(
+                                total_extension: int,
+                                first_current: int,
+                                second_current: int,
+                                side_limit: int,
+                            ) -> tuple[int, int]:
+                                current_total = first_current + second_current
+                                first_share = (
+                                    first_current / float(current_total)
+                                    if current_total > 0
+                                    else 0.5
+                                )
+                                first_value = int(round(total_extension * first_share))
+                                first_value = max(0, min(side_limit, first_value))
+                                second_value = total_extension - first_value
+                                if second_value > side_limit:
+                                    second_value = side_limit
+                                    first_value = total_extension - second_value
+                                return first_value, second_value
+
+                            horizontal_extension = requested_target_width - selected_source_width
+                            vertical_extension = requested_target_height - selected_source_height
+                            outpaint_left_px, outpaint_right_px = split_extension(
+                                horizontal_extension,
+                                outpaint_left_px,
+                                outpaint_right_px,
+                                int(direction_limits["left"]),
+                            )
+                            outpaint_top_px, outpaint_bottom_px = split_extension(
+                                vertical_extension,
+                                outpaint_top_px,
+                                outpaint_bottom_px,
+                                int(direction_limits["top"]),
+                            )
+                            st.session_state[outpaint_top_key] = outpaint_top_px
+                            st.session_state[outpaint_bottom_key] = outpaint_bottom_px
+                            st.session_state[outpaint_left_key] = outpaint_left_px
+                            st.session_state[outpaint_right_key] = outpaint_right_px
+                            st.session_state[outpaint_target_sync_key] = (
+                                f"{source_signature}:{requested_target_width}x{requested_target_height}"
+                            )
+                            st.rerun()
+
+                        st.markdown(
+                            '<div class="panel-subtitle">精确扩展像素（可直接输入）</div>',
+                            unsafe_allow_html=True,
+                        )
+                        top_input_col, bottom_input_col, left_input_col, right_input_col = st.columns(4)
+                        with top_input_col:
+                            outpaint_top_px = int(
+                                st.number_input(
+                                    "上扩展（px）",
+                                    min_value=0,
+                                    max_value=int(direction_limits["top"]),
+                                    step=1,
+                                    key=outpaint_top_key,
+                                )
+                            )
+                        with bottom_input_col:
+                            outpaint_bottom_px = int(
+                                st.number_input(
+                                    "下扩展（px）",
+                                    min_value=0,
+                                    max_value=int(direction_limits["bottom"]),
+                                    step=1,
+                                    key=outpaint_bottom_key,
+                                )
+                            )
+                        with left_input_col:
+                            outpaint_left_px = int(
+                                st.number_input(
+                                    "左扩展（px）",
+                                    min_value=0,
+                                    max_value=int(direction_limits["left"]),
+                                    step=1,
+                                    key=outpaint_left_key,
+                                )
+                            )
+                        with right_input_col:
+                            outpaint_right_px = int(
+                                st.number_input(
+                                    "右扩展（px）",
+                                    min_value=0,
+                                    max_value=int(direction_limits["right"]),
+                                    step=1,
+                                    key=outpaint_right_key,
+                                )
+                            )
+                        outpaint_top_px, outpaint_bottom_px, outpaint_left_px, outpaint_right_px = clamp_outpaint_extensions(
+                            batch_source_files[0],
+                            outpaint_top_px,
+                            outpaint_bottom_px,
+                            outpaint_left_px,
+                            outpaint_right_px,
+                        )
                         selected_target_width, selected_target_height = get_outpaint_target_canvas_size(
                             batch_source_files[0],
                             outpaint_top_px,
@@ -15496,16 +17210,18 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                             outpaint_right_px,
                         )
                         st.caption(
-                            "当前框选已锁定："
+                            "提交尺寸已锁定："
+                            f"原图 {selected_source_width}×{selected_source_height}px ＋ "
                             f"上 {outpaint_top_px}px、下 {outpaint_bottom_px}px、"
                             f"左 {outpaint_left_px}px、右 {outpaint_right_px}px；"
-                            f"最终范围比例按 {selected_target_width}×{selected_target_height} 执行。"
+                            f"最终文件严格输出 {selected_target_width}×{selected_target_height}px。"
                         )
                     except Exception:
                         pass
                 st.caption(
-                    "默认使用“拖动原图位置”：按住白色原图移动，目标画布尺寸保持不变，系统会实时换算 X/Y 坐标和四向扩展量；"
-                    "切换到“调整画布大小”后可拖动紫色边线或四角。提交精度为 1px，原图不缩放、不拉伸。"
+                    "默认使用“调整扩图范围”：拖动紫色边线或四角会实时改变目标画布尺寸和比例；"
+                    "切换到“移动原图位置”后只调整 X/Y 坐标，目标宽高和比例保持不变。"
+                    "提交精度为 1px，原图不缩放、不拉伸。"
                 )
             if supports_skin_reference:
                 st.markdown('<div class="skin-reference-grid-marker"></div>', unsafe_allow_html=True)
@@ -15546,6 +17262,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     else:
                         st.caption("未找到 `肌肤质感参考` 文件夹中的可用图片，将继续使用上传参考图或默认参考图。")
                 st.markdown('<div class="skin-reference-grid-end"></div>', unsafe_allow_html=True)
+        elif supports_image_smart_analysis:
+            st.markdown('<div class="panel-subtitle">待分析主图（1 张）</div>', unsafe_allow_html=True)
+            uploaded_file = render_single_image_uploader(
+                "拖入或上传待分析主图",
+                key=f"uploader_{feature['key']}",
+                help_text="支持 JPG / PNG / WEBP，仅分析当前这 1 张主图，不会修改或生成图片。",
+            )
+            st.caption(
+                "系统会生成分区域视觉拆解图；色块和 HEX 色号直接从原图像素提取，不由 AI 猜测。"
+            )
         elif supports_ai_qa_image:
             st.markdown('<div class="panel-subtitle">参考图片（最多 3 张）</div>', unsafe_allow_html=True)
             ai_qa_source_files = render_multi_image_uploader(
@@ -16206,12 +17932,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             "开始 8K 超清"
             if feature.get("key") == JIMENG_HD_FEATURE_KEY
             else (
-                "开始生成 A+"
-                if supports_main_image_a_plus
+                "开始智能分析"
+                if supports_image_smart_analysis
                 else (
-                    "开始生成 PSD"
-                    if supports_amazon_a_plus
-                    else ("开始扩图" if supports_outpaint else "开始处理")
+                    "开始生成 A+"
+                    if supports_main_image_a_plus
+                    else (
+                        "开始生成 PSD"
+                        if supports_amazon_a_plus
+                        else ("开始扩图" if supports_outpaint else "开始处理")
+                    )
                 )
             )
         )
@@ -16285,7 +18015,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             and main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT
             and main_image_a_plus_element_preview
         )
-        right_panel_title = "元素标注与生成结果" if shows_element_map else "结果图预览"
+        right_panel_title = (
+            "元素标注与生成结果"
+            if shows_element_map
+            else ("图片分析报告" if supports_image_smart_analysis else "结果图预览")
+        )
         st.markdown(
             f'<div class="result-block-title">{right_panel_title}</div>',
             unsafe_allow_html=True,
@@ -16343,7 +18077,13 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     ),
                 )
         with result_view_container:
-            if supports_amazon_a_plus and result_images:
+            if supports_image_smart_analysis:
+                render_image_smart_analysis_report(
+                    result,
+                    str(job_info.get("status") or ""),
+                    str(job_info.get("job_id") or result.get("created_at") or "latest"),
+                )
+            elif supports_amazon_a_plus and result_images:
                 psd_bytes = result.get("psd_bytes")
                 if isinstance(psd_bytes, (bytes, bytearray)) and psd_bytes:
                     layer_count = int(result.get("layer_count") or 0)
@@ -16414,6 +18154,41 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             elif (
                 supports_main_image_a_plus
                 and result_images
+                and str(result.get("main_image_a_plus_text_edit_source") or "").strip()
+            ):
+                before_tab, after_tab = st.tabs(["文字编辑前", "文字编辑后"])
+                text_edit_source = str(
+                    result.get("main_image_a_plus_text_edit_source") or ""
+                ).strip()
+                with before_tab:
+                    render_zoomable_image_gallery(
+                        [text_edit_source],
+                        columns=1,
+                        thumb_height=None,
+                        component_key="main_image_a_plus_text_edit_source",
+                        fit_mode="contain",
+                        max_width_percent=50,
+                        compress_preview=True,
+                        include_full_src=True,
+                        full_images=[text_edit_source],
+                        embed_full_src=False,
+                    )
+                with after_tab:
+                    render_zoomable_image_gallery(
+                        result_images,
+                        columns=1,
+                        thumb_height=None,
+                        component_key="main_image_a_plus_text_edit_result",
+                        fit_mode="contain",
+                        max_width_percent=50,
+                        compress_preview=True,
+                        include_full_src=True,
+                        full_images=result_download_images,
+                        embed_full_src=False,
+                    )
+            elif (
+                supports_main_image_a_plus
+                and result_images
                 and str(result.get("mobile_adaptation_source") or "").strip()
             ):
                 desktop_tab, mobile_tab = st.tabs(["电脑端原图", "手机端适配版"])
@@ -16477,6 +18252,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     result_download_images,
                     key_prefix=f"current_main_image_a_plus_{crop_result_id}",
                 )
+                render_main_image_a_plus_text_editor(
+                    str(result_download_images[0]),
+                    key_prefix=f"current_main_image_a_plus_text_edit_{crop_result_id}",
+                )
                 result_target_size = tuple(int(value) for value in (result.get("target_size") or ()))
                 mobile_target_size = tuple(
                     int(value) for value in MAIN_IMAGE_A_PLUS_LAYOUTS["mobile_equal"]["target_size"]
@@ -16501,7 +18280,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         if feature.get("output_mode") == "image" and not (result.get("images") or []):
             st.warning("本次任务已结束，但模型没有返回图片。建议重试一次，或切换其他模型。")
         result_text = str(result.get("text") or "").strip()
-        if result_text:
+        if result_text and not supports_image_smart_analysis:
             if "已自动回退为智能超清结果" in result_text:
                 st.warning(result_text)
             else:
@@ -16816,6 +18595,26 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 st.warning(f"当前这次 Agent 请求最多只能携带 {JIMENG_MAX_INPUT_IMAGES} 张图片。")
                 st.markdown("</div>", unsafe_allow_html=True)
                 return
+            locked_outpaint_settings: dict[str, int] = {}
+            if supports_outpaint and files:
+                locked_source_width, locked_source_height = get_uploaded_input_dimensions(files[0])
+                locked_target_width, locked_target_height = get_outpaint_target_canvas_size(
+                    files[0],
+                    outpaint_top_px,
+                    outpaint_bottom_px,
+                    outpaint_left_px,
+                    outpaint_right_px,
+                )
+                locked_outpaint_settings = {
+                    "source_width": locked_source_width,
+                    "source_height": locked_source_height,
+                    "target_width": locked_target_width,
+                    "target_height": locked_target_height,
+                    "top": outpaint_top_px,
+                    "bottom": outpaint_bottom_px,
+                    "left": outpaint_left_px,
+                    "right": outpaint_right_px,
+                }
             submit_feature_job(
                 feature,
                 {
@@ -16873,12 +18672,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         else None
                     ),
                     "outpaint_settings": (
-                        {
-                            "top": outpaint_top_px,
-                            "bottom": outpaint_bottom_px,
-                            "left": outpaint_left_px,
-                            "right": outpaint_right_px,
-                        }
+                        locked_outpaint_settings
                         if supports_outpaint
                         else {}
                     ),
@@ -16896,7 +18690,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 st.info("任务已提交到后台处理，你可以先切换到其他功能。")
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
-    render_history_records(feature)
+    if feature.get("output_mode") == "image":
+        render_history_records(feature)
 
 
 def render_login_page() -> None:

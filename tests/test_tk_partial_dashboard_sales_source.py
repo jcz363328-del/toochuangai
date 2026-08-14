@@ -19,12 +19,25 @@ class TkPartialDashboardSalesSourceTests(unittest.TestCase):
         self.assertIn("PARTIAL_CACHE_REFRESH_MINUTE = 30", self.backend)
         self.assertIn("time.sleep(_seconds_until_next_partial_cache_refresh())", self.backend)
 
-    def test_partial_dashboard_uses_its_own_persistent_precomputed_cache(self):
-        self.assertIn("precomputed_shop_payloads=_partial_precomputed_shop_payloads", self.backend)
-        self.assertIn("precomputed_week_shop_payloads=_partial_precomputed_week_shop_payloads", self.backend)
+    def test_joint_dashboard_does_not_embed_shared_precomputed_shop_data(self):
+        project_page = self.backend.split(
+            "def tk_dashboard_project_page():", 1
+        )[1].split("def tk_dashboard_sz_page():", 1)[0]
+        self.assertIn("precomputed_shop_payloads={}", project_page)
+        self.assertIn("precomputed_week_shop_payloads={}", project_page)
+        self.assertNotIn("_partial_precomputed_shop_payloads", project_page)
+        self.assertNotIn("_partial_precomputed_week_shop_payloads", project_page)
         self.assertIn("partial-dashboard:month:86", self.backend)
         self.assertIn("dbo.TK_KanBan_HuanCun", self.backend)
         self.assertIn("sales_source: RESTRICT_LIKE_82 ? 'bd_order_settlement_gmv' : ''", self.template)
+
+    def test_partial_dashboard_cold_query_refreshes_in_background(self):
+        cache_block = self.backend.split(
+            "def _get_cached_metrics_payload(", 1
+        )[1].split("def _merge_numeric_dicts(", 1)[0]
+        self.assertIn("refresh_in_background()", cache_block)
+        self.assertNotIn("payload = compute_and_store()\n    return payload", cache_block)
+        self.assertIn("sales_source=sales_source", cache_block)
 
     def test_every_tk_dashboard_metric_has_hover_calculation(self):
         metric_ids = {
