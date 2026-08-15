@@ -68,6 +68,17 @@
 {% set has_total = 'tk_total_dashboard' in ns.fnames %}
 {% set has_video_rt = 'tk_video_realtime' in ns.fnames %}
 {% set has_influencer = 'influencer_management' in ns.fnames %}
+{% set has_dashboard_full = 'tk_dashboard_full' in ns.fnames %}
+{% set has_dashboard_82 = 'tk_dashboard_82' in ns.fnames %}
+{% set has_gmv_ratio = 'tk_gmv_ratio' in ns.fnames %}
+{% set has_gmv_authorization = 'tk_gmv_authorization' in ns.fnames %}
+{% set has_bd_metrics = 'tk_bd_metrics' in ns.fnames %}
+{% set has_bd_metrics_import = 'tk_bd_metrics_import' in ns.fnames %}
+{% set has_monthly_target_import = 'tk_monthly_target_import' in ns.fnames %}
+{% set has_seedance = 'tk_project_seedance' in ns.fnames %}
+{% set has_invite_monitor = 'tk_invite_monitor' in ns.fnames %}
+{% set has_model_queue = 'model_queue' in ns.fnames %}
+{% set has_customer_service = 'tk_customer_service' in ns.fnames %}
 
 {% macro quick_card(name, desc, href, icon, cls='g1') -%}
 <div class="quick-card" data-href="{{ href }}" data-menu="{{ name }}">
@@ -102,10 +113,10 @@
         </div>
         <div class="quick-grid">
             {% if has_video_rt %}{{ quick_card('实时视频数据', '实时查看视频数据', url_for('tk_video_realtime'), 'fas fa-video', 'g1') }}{% endif %}
-            {% if has_total %}{{ quick_card('OKAYLOVE数据看板', '核心数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-column', 'g2') }}{% endif %}
+            {% if has_dashboard_82 %}{{ quick_card('OKAYLOVE数据看板', '核心数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-column', 'g2') }}{% endif %}
             {% if has_influencer %}{{ quick_card('TK达人管理', '达人管理与数据分析', url_for('influencer_management.influencer_management'), 'fas fa-users', 'g3') }}{% endif %}
-            {% if has_total %}{{ quick_card('数据看板汇总', '多维度数据汇总', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie', 'g4') }}{% endif %}
-            {{ quick_card('GMV未授权提醒', '多Excel批量通知负责人', url_for('tk_gmv_authorization.page'), 'fas fa-bell', 'g4') }}
+            {% if has_dashboard_full %}{{ quick_card('数据看板汇总', '多维度数据汇总', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie', 'g4') }}{% endif %}
+            {% if has_gmv_authorization %}{{ quick_card('GMV未授权提醒', '多Excel批量通知负责人', url_for('tk_gmv_authorization.page'), 'fas fa-bell', 'g4') }}{% endif %}
         </div>
     </div>
 
@@ -122,10 +133,10 @@
                 <h3 class="group-name"><i class="fas fa-chart-line"></i>数据分析</h3>
             </div>
             <div class="mini-grid">
-                {% if has_total %}{{ mini_card('82号店看板', '实时数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-line') }}{% endif %}
-                {% if has_total %}{{ mini_card('数据看板汇总', '汇总各类数据', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie') }}{% endif %}
-                {% if has_total %}{{ mini_card('视频、商品卡、达人GMV占比', 'GMV占比分析', url_for('tk_dashboard.tk_gmv_ratio_page'), 'fas fa-chart-pie') }}{% endif %}
-                {% if has_total %}{{ mini_card('BD指标', 'BD核心指标', url_for('bd_metrics.tk_bd_metrics_page'), 'fas fa-bullseye') }}{% endif %}
+                {% if has_dashboard_82 %}{{ mini_card('82号店看板', '实时数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-line') }}{% endif %}
+                {% if has_dashboard_full %}{{ mini_card('数据看板汇总', '汇总各类数据', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie') }}{% endif %}
+                {% if has_gmv_ratio %}{{ mini_card('视频、商品卡、达人GMV占比', 'GMV占比分析', url_for('tk_dashboard.tk_gmv_ratio_page'), 'fas fa-chart-pie') }}{% endif %}
+                {% if has_bd_metrics %}{{ mini_card('BD指标', 'BD核心指标', url_for('bd_metrics.tk_bd_metrics_page'), 'fas fa-bullseye') }}{% endif %}
             </div>
         </div>
 
@@ -134,8 +145,8 @@
                 <h3 class="group-name"><i class="fas fa-user-tie"></i>BD管理</h3>
             </div>
             <div class="mini-grid">
-                {% if has_total %}{{ mini_card('BD月度目标导入', '导入月度目标数据', url_for('bd_metrics.tk_bd_metrics_import_page'), 'fas fa-file-import') }}{% endif %}
-                {{ mini_card('月度目标导入', '导入月度目标数据', url_for('tk_monthly_target_import'), 'fas fa-file-excel') }}
+                {% if has_bd_metrics_import %}{{ mini_card('BD月度目标导入', '导入月度目标数据', url_for('bd_metrics.tk_bd_metrics_import_page'), 'fas fa-file-import') }}{% endif %}
+                {% if has_monthly_target_import %}{{ mini_card('月度目标导入', '导入月度目标数据', url_for('tk_monthly_target_import'), 'fas fa-file-excel') }}{% endif %}
             </div>
         </div>
 
@@ -144,7 +155,7 @@
                 <h3 class="group-name"><i class="fas fa-robot"></i>AI工具</h3>
             </div>
             <div class="mini-grid">
-                {{ mini_card('Seedance 视频生成', 'AI视频智能生成', url_for('tk_seedance'), 'fas fa-film') }}
+                {% if has_seedance %}{{ mini_card('Seedance 视频生成', 'AI视频智能生成', url_for('tk_seedance'), 'fas fa-film') }}{% endif %}
                 {% if 'script_generator' in ns.fnames %}{{ mini_card('脚本生成器', '智能脚本生成工具', url_for('script_generator'), 'fas fa-file-alt') }}{% endif %}
             </div>
         </div>
@@ -155,9 +166,9 @@
             </div>
             <div class="mini-grid">
                 {% if can_view_joint_dashboard %}{{ mini_card('联营店铺看板', '按店铺授权查看', url_for('tk_dashboard.tk_dashboard_project_page'), 'fas fa-chart-area') }}{% endif %}
-                {{ mini_card('邀请ID实时监控', '邀请码实时预警', url_for('tk_invite_monitor'), 'fas fa-id-badge') }}
-                {{ mini_card('12小时之内未检查的邀请码', '有待检查邀请码', url_for('tk_invite_monitor') ~ '#unchecked_12h', 'fas fa-triangle-exclamation') }}
-                {{ mini_card('模特排队', '模特排队与排队', url_for('model_management.queue'), 'fas fa-user-friends') }}
+                {% if has_invite_monitor %}{{ mini_card('邀请ID实时监控', '邀请码实时预警', url_for('tk_invite_monitor'), 'fas fa-id-badge') }}{% endif %}
+                {% if has_invite_monitor %}{{ mini_card('12小时之内未检查的邀请码', '有待检查邀请码', url_for('tk_invite_monitor') ~ '#unchecked_12h', 'fas fa-triangle-exclamation') }}{% endif %}
+                {% if has_model_queue %}{{ mini_card('模特排队', '模特排队与排队', url_for('model_management.queue'), 'fas fa-user-friends') }}{% endif %}
             </div>
         </div>
     </div>
@@ -171,7 +182,7 @@
         </div>
         <div class="mini-grid">
             {% if 'tk_email_register' in ns.fnames %}{{ mini_card('定时邮件', '邮件定时发送功能', url_for('influencer_management.tk_email_register'), 'fas fa-envelope') }}{% endif %}
-            {{ mini_card('客服', '客服跟单信息', url_for('tk_customer_service'), 'fas fa-headset') }}
+            {% if has_customer_service %}{{ mini_card('客服', '客服跟单信息', url_for('tk_customer_service'), 'fas fa-headset') }}{% endif %}
         </div>
     </div>
 

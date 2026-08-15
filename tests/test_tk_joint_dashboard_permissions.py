@@ -9,6 +9,7 @@ from flask import Flask
 os.environ.setdefault("TK_DASHBOARD_DISABLE_BACKGROUND_CACHE", "1")
 
 import tk_total_dashboard as dashboard_module
+from permission_seed_data import JOINT_SHOP_USERS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +49,7 @@ class TkJointDashboardPermissionTests(unittest.TestCase):
         }
         for shop, user_name in expected_bindings.items():
             with self.subTest(shop=shop, user_name=user_name):
-                self.assertIn(f"'{shop}': {{'{user_name}'}}", self.backend)
+                self.assertEqual(user_name, JOINT_SHOP_USERS[shop])
 
     def test_page_and_entry_use_joint_dashboard_name(self):
         self.assertIn("page_title='联营店铺看板'", self.backend)
@@ -62,8 +63,8 @@ class TkJointDashboardPermissionTests(unittest.TestCase):
         self.assertIn("unauthorized_shops = [shop for shop in shops if shop not in allowed_shop_set]", self.backend)
 
     def test_named_users_can_see_entry_without_total_dashboard_permission(self):
-        self.assertIn("joint_dashboard_users", self.app)
-        self.assertIn("can_view_joint_dashboard=(user_name in (joint_dashboard_users or []))", self.app)
+        self.assertIn("get_joint_dashboard_allowed_shops", self.app)
+        self.assertIn("can_view_joint_dashboard=bool(get_joint_dashboard_allowed_shops())", self.app)
         self.assertIn("{% if can_view_joint_dashboard %}", self.project_template)
 
     def test_manual_refresh_uses_user_independent_shared_cache(self):
@@ -88,6 +89,13 @@ class TkJointDashboardPermissionTests(unittest.TestCase):
         def fake_load(cache_key):
             payload = persistent_store.get(cache_key)
             return copy.deepcopy(payload), bool(payload)
+
+        def fake_permission(user_id, function_name):
+            if user_id == "ou_admin":
+                return function_name in {"tk_dashboard_full", "tk_joint_dashboard_all"}, "test"
+            if user_id == "ou_shop_82":
+                return function_name == "tk_joint_shop_82", "test"
+            return False, "test"
 
         request_body = {
             "start_date": "2026-08-01",
@@ -116,6 +124,10 @@ class TkJointDashboardPermissionTests(unittest.TestCase):
             dashboard_module,
             "_load_persistent_metrics_payload",
             side_effect=fake_load,
+        ), patch.object(
+            dashboard_module.permission_manager,
+            "check_user_permission",
+            side_effect=fake_permission,
         ):
             with client.session_transaction() as session_data:
                 session_data["feishu_user_id"] = "ou_admin"

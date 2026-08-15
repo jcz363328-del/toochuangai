@@ -65,7 +65,7 @@ class OperationDeptSevenTests(unittest.TestCase):
         )
 
         self.assertTrue(allowed, reason)
-        self.assertEqual("指定用户额外权限", reason)
+        self.assertIn("个人权限通过", reason)
 
     def test_desktop_mobile_and_route_are_wired(self):
         ast.parse(APP_SOURCE)

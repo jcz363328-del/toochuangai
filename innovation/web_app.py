@@ -30,7 +30,6 @@ LIKE_IMAGE_FOLDER = r"D:\tuchuangai\点赞图片"
 INNOVATION_STAR_MEDIA_FOLDER = os.path.abspath(
     os.environ.get('INNOVATION_STAR_MEDIA_FOLDER', r'D:\tuchuangai\创新星主场')
 )
-INNOVATION_STAR_EDITOR_NAMES = {'韩雅俊'}
 INNOVATION_STAR_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 INNOVATION_STAR_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}
 OPERATION_DEPARTMENTS = {'运营一部', '运营二部', '运营三部', '运营六部', '运营七部'}
@@ -94,6 +93,17 @@ def _get_current_feishu_user_name():
     raw_name = session.get('feishu_user_name', '')
     name_parts = str(raw_name).split('（', 1) if raw_name else []
     return name_parts[0].strip() if name_parts else str(raw_name).strip()
+
+
+def _innovation_has_permission(function_name):
+    user_id = str(session.get('feishu_user_id') or '').strip()
+    if not user_id:
+        return False
+    try:
+        return bool(permission_manager.check_user_permission(user_id, function_name)[0])
+    except Exception as exc:
+        _safe_print(f"⚠️ 创新模块权限表校验失败: {function_name} -> {exc}")
+        return False
 
 
 def _innovation_lookup_feishu_id_by_name(user_name):
@@ -262,11 +272,7 @@ def _innovation_star_editor_context():
     user_id = str(session.get('feishu_user_id') or '').strip()
     user_name = _get_current_feishu_user_name()
     department_names = []
-    if user_id.startswith('dev_'):
-        local_department = str(session.get('user_department') or '').strip()
-        if local_department:
-            department_names.append(local_department)
-    elif user_id and user_name not in INNOVATION_STAR_EDITOR_NAMES:
+    if user_id:
         try:
             department_rows = permission_manager.get_user_departments(user_id) or []
         except Exception as e:
@@ -280,7 +286,7 @@ def _innovation_star_editor_context():
             department_name = str(row.get('name') or '').strip()
             if department_name and department_name not in department_names:
                 department_names.append(department_name)
-    can_add = bool(user_id) and (user_name in INNOVATION_STAR_EDITOR_NAMES or 'AI部' in department_names)
+    can_add = _innovation_has_permission('innovation_star_manage')
     return {
         'can_add': can_add,
         'user_id': user_id,
@@ -778,11 +784,7 @@ def manage():
     feishu_user_name = name_parts[0].strip() if name_parts else str(raw_name).strip()
     feishu_user_id = session.get('feishu_user_id', '')
 
-    # 定义委员会成员名单
-    committee_members = ['周俊成', '陶晓飞', '孙军', '毕景春', '李昌瀚', '蔡晶', '韩雅俊','孙洁','陈子烨']
-
-    # 检查当前用户是否为委员会成员
-    is_committee_member = feishu_user_name in committee_members
+    is_committee_member = _innovation_has_permission('innovation_committee_score')
 
     _safe_print(f"🔍 创新管理页面访问 - 用户: {feishu_user_name}, 是否委员会成员: {is_committee_member}")
 
@@ -2663,9 +2665,7 @@ def update_committee_score():
         raw_name = session.get('feishu_user_name', '')
         name_parts = str(raw_name).split('（', 1) if raw_name else []
         feishu_user_name = name_parts[0].strip() if name_parts else str(raw_name).strip()
-        committee_members = ['周俊成', '陶晓飞', '孙军', '毕景春', '李昌瀚', '蔡晶', '韩雅俊','孙洁','陈子烨']
-
-        if feishu_user_name not in committee_members:
+        if not _innovation_has_permission('innovation_committee_score'):
             return jsonify({
                 'success': False,
                 'message': '无权限进行委员会打分'

@@ -460,7 +460,7 @@ def process_uploaded_workbooks(files, mapping_loader=None, message_service_facto
 
 
 @tk_gmv_authorization_bp.route("/tk_gmv_authorization_notify")
-@require_permission("tk_project_group")
+@require_permission("tk_gmv_authorization")
 def page():
     return render_template(
         "tk_gmv_authorization_notify.html",
@@ -470,7 +470,7 @@ def page():
 
 
 @tk_gmv_authorization_bp.route("/api/tk_gmv_authorization_notify/process", methods=["POST"])
-@require_permission("tk_project_group")
+@require_permission("tk_gmv_authorization")
 def process_files():
     files = request.files.getlist("files") or request.files.getlist("files[]")
     try:

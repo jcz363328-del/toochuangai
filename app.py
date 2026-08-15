@@ -31,10 +31,10 @@ from model_management import model_management_bp
 from innovation_proposals import innovation_proposals_bp
 from innovation_blueprint import innovation_bp
 from innovation.config import APP_CONFIG as INNOVATION_APP_CONFIG
-from tk_total_dashboard import tk_dashboard_bp, dashboard_82_users, dashboard_88_users, dashboard_90_users, joint_dashboard_users
+from tk_total_dashboard import tk_dashboard_bp, get_joint_dashboard_allowed_shops
 from TK_BD_ZhiBiao import bd_metrics_bp
 from department_permissions import permission_manager, require_permission, get_feishu_auth_url, FEISHU_CONFIG, \
-    handle_feishu_event, PERMISSION_CONFIG
+    handle_feishu_event
 from bjc import sf_db, dui_db
 from innovation.message_service import MessageService
 from innovation.pending_reminder import innovation_pending_reminder
@@ -92,19 +92,6 @@ _XIAOTU_REPORT_CENTER_PUBLIC_URL = (
     os.environ.get("XIAOTU_REPORT_CENTER_PUBLIC_URL")
     or "http://223.78.73.100:8000/dashboard/xiaotu-report-center"
 ).strip()
-_XIAOTU_REPORT_HISTORY_ALL_UPLOAD_USERS = {
-    "陶晓飞",
-    "周俊成",
-    "毕景春",
-}
-_XIAOTU_REPORT_HISTORY_OPERATION_ONLY_USERS = {
-    "刘蓉蓉",
-    "孙洁",
-    "侯梁",
-}
-_XIAOTU_REPORT_HISTORY_USER_DEPARTMENT_SCOPE = {
-    "大张雯": ("运营三部",),
-}
 _XIAOTU_REPORT_HISTORY_OPERATION_DEPARTMENT_NAMES = (
     "运营一部",
     "运营二部",
@@ -112,7 +99,6 @@ _XIAOTU_REPORT_HISTORY_OPERATION_DEPARTMENT_NAMES = (
     "运营六部",
     "运营七部",
 )
-_XIAOTU_REPORT_HISTORY_DEBUG_USER = "周俊成"
 _xiaotu_notify_department_users_cache = {}
 _xiaotu_notify_department_users_cache_ttl_seconds = 300
 _xiaotu_notify_department_users_cache_lock = Lock()
@@ -227,12 +213,22 @@ def _xiaotu_get_cached_open_id_by_name(user_name):
     return oid if oid.startswith("ou_") else ""
 
 
-def _xiaotu_report_history_can_view_all_uploads(user_name):
-    return str(user_name or "").strip() in _XIAOTU_REPORT_HISTORY_ALL_UPLOAD_USERS
+def _current_user_has_permission(function_name, user_id=None):
+    uid = str(user_id or session.get('feishu_user_id') or '').strip()
+    if not uid:
+        return False
+    try:
+        return bool(permission_manager.check_user_permission(uid, function_name)[0])
+    except Exception as exc:
+        _safe_debug_print(f"权限表校验失败: {function_name} -> {exc}")
+        return False
+
+
+def _xiaotu_report_history_can_view_all_uploads(user_name=None):
+    return _current_user_has_permission('xiaotu_report_history_all')
 
 
 def _xiaotu_get_report_history_scope(user_name, debug_mode=None):
-    name = str(user_name or "").strip()
     allowed_department_names = []
     normalized_debug_mode = str(debug_mode or "").strip().lower()
     if normalized_debug_mode == "all_uploads":
@@ -256,12 +252,12 @@ def _xiaotu_get_report_history_scope(user_name, debug_mode=None):
             "allowed_department_names": [],
             "debug_mode": "self_only",
         }
-    if name in _XIAOTU_REPORT_HISTORY_USER_DEPARTMENT_SCOPE:
-        allowed_department_names = list(_XIAOTU_REPORT_HISTORY_USER_DEPARTMENT_SCOPE.get(name) or [])
-    elif name in _XIAOTU_REPORT_HISTORY_OPERATION_ONLY_USERS:
+    if _current_user_has_permission('xiaotu_report_history_operation_3_scope'):
+        allowed_department_names = ["运营三部"]
+    elif _current_user_has_permission('xiaotu_report_history_operation_scope'):
         allowed_department_names = list(_XIAOTU_REPORT_HISTORY_OPERATION_DEPARTMENT_NAMES)
     return {
-        "can_view_all_uploads": bool(name in _XIAOTU_REPORT_HISTORY_ALL_UPLOAD_USERS),
+        "can_view_all_uploads": _xiaotu_report_history_can_view_all_uploads(),
         "restricted_to_allowed_departments": bool(allowed_department_names),
         "allowed_department_names": allowed_department_names,
         "debug_mode": "current",
@@ -269,8 +265,7 @@ def _xiaotu_get_report_history_scope(user_name, debug_mode=None):
 
 
 def _xiaotu_get_report_history_debug_options(user_name):
-    name = str(user_name or "").strip()
-    if name != _XIAOTU_REPORT_HISTORY_DEBUG_USER:
+    if not _current_user_has_permission('xiaotu_report_history_debug'):
         return []
     return [
         {"value": "current", "label": "当前真实权限"},
@@ -2333,11 +2328,15 @@ def _xiaotu_get_history_analysis_visible_user_names(user_id, user_name):
     leader_department_ids = []
     leader_department_names = []
     scoped_department_ids = []
-    scoped_department_names = [
-        str(name or "").strip()
-        for name in (_XIAOTU_REPORT_HISTORY_USER_DEPARTMENT_SCOPE.get(current_name) or [])
-        if str(name or "").strip()
-    ]
+    scoped_department_names = []
+    if _current_user_has_permission('xiaotu_report_history_operation_3_scope', uid):
+        scoped_department_names = ["运营三部"]
+    elif _current_user_has_permission('xiaotu_report_history_operation_scope', uid):
+        scoped_department_names = list(_XIAOTU_REPORT_HISTORY_OPERATION_DEPARTMENT_NAMES)
+    leader_scope_allowed = _current_user_has_permission(
+        'xiaotu_report_history_department_leader',
+        uid,
+    )
 
     def add_name(raw_name):
         name = str(raw_name or "").strip()
@@ -2357,7 +2356,7 @@ def _xiaotu_get_history_analysis_visible_user_names(user_id, user_name):
         for scoped_name in _xiaotu_collect_notify_user_names_by_department_names(scoped_department_names):
             add_name(scoped_name)
 
-    if uid:
+    if uid and leader_scope_allowed:
         try:
             departments = permission_manager.get_user_departments(uid) or []
         except Exception:
@@ -4425,7 +4424,7 @@ def check_feishu_user():
 
 
 def _seedance_access_allowed():
-    return bool(session.get('feishu_user_id'))
+    return _current_user_has_permission('seedance_video')
 
 
 # AI的API密钥和配置
@@ -11376,7 +11375,7 @@ def api_xiaotu_report_history():
 
         session_user_name = str(session.get('feishu_user_name') or '').strip()
         request_debug_mode = str(request.args.get('debug_scope_mode') or '').strip().lower()
-        history_debug_enabled = bool(session_user_name == _XIAOTU_REPORT_HISTORY_DEBUG_USER)
+        history_debug_enabled = _current_user_has_permission('xiaotu_report_history_debug', user_id)
         if request_debug_mode not in {"", "current", "self_only", "all_uploads", "operation_only"}:
             request_debug_mode = ""
         effective_debug_mode = request_debug_mode if history_debug_enabled else ""
@@ -11692,7 +11691,7 @@ def api_xiaotu_report_history():
 
 def _xiaotu_build_report_history_export_context(args, session_user_name):
     request_debug_mode = str(args.get('debug_scope_mode') or '').strip().lower()
-    history_debug_enabled = bool(session_user_name == _XIAOTU_REPORT_HISTORY_DEBUG_USER)
+    history_debug_enabled = _current_user_has_permission('xiaotu_report_history_debug')
     if request_debug_mode not in {"", "current", "self_only", "all_uploads", "operation_only"}:
         request_debug_mode = ""
     effective_debug_mode = request_debug_mode if history_debug_enabled else ""
@@ -13522,12 +13521,12 @@ def tk_project():
                            user_name=user_name,
                            user_id=user_id,
                            accessible_functions=accessible_functions,
-                           can_view_joint_dashboard=(user_name in (joint_dashboard_users or [])))
+                           can_view_joint_dashboard=bool(get_joint_dashboard_allowed_shops()))
 
 
 @app.route('/tk_seedance')
 def tk_seedance():
-    if not _seedance_access_allowed():
+    if not _current_user_has_permission('tk_project_seedance'):
         return redirect(url_for('tk_project'))
     return redirect(url_for('seedance_web.seedance_web_index'))
 
@@ -14868,7 +14867,7 @@ def api_tk_customer_service_update_note():
 
 
 @app.route('/tk_invite_monitor')
-@require_permission('tk_project_group')
+@require_permission('tk_invite_monitor')
 def tk_invite_monitor():
     """邀请ID实时监控上传页面"""
     user_id = session.get('feishu_user_id')
@@ -14877,7 +14876,7 @@ def tk_invite_monitor():
 
 
 @app.route('/tk_monthly_target_import')
-@require_permission('tk_project_group')
+@require_permission('tk_monthly_target_import')
 def tk_monthly_target_import():
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
@@ -15547,7 +15546,7 @@ def api_tk_video_realtime_videos():
 
 
 @app.route('/api/tk_invite_monitor/upload', methods=['POST'])
-@require_permission('tk_project_group')
+@require_permission('tk_invite_monitor')
 def upload_invite_ids():
     """上传Excel并批量写入 tk_yaoqingma(邀请码, 日期, BD, 店铺)"""
     try:
@@ -15687,7 +15686,7 @@ def upload_invite_ids():
 
 
 @app.route('/api/tk_invite_monitor/wanghong_register_upload', methods=['POST'])
-@require_permission('tk_project_group')
+@require_permission('tk_invite_monitor')
 def upload_wanghong_register():
     """上传Excel并写入 TK_wanghongming_dengji(BD, WangHongMing, Dian, DaoRuShiJian)"""
     try:
@@ -15792,7 +15791,7 @@ def upload_wanghong_register():
 
 
 @app.route('/api/tk_invite_monitor/list', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_invite_monitor')
 def list_invite_codes():
     try:
         user_name = session.get('feishu_user_name', '')
@@ -15841,7 +15840,7 @@ def list_invite_codes():
 
 
 @app.route('/api/tk_invite_monitor/unchecked_12h', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_invite_monitor')
 def list_unchecked_invite_codes_12h():
     """
     查询“12小时之内还未检查的邀请码”：
@@ -15898,7 +15897,7 @@ def list_unchecked_invite_codes_12h():
 
 
 @app.route('/api/tk_invite_monitor/wanghong_register_overview', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_invite_monitor')
 def tk_invite_monitor_wanghong_register_overview():
     """达人资料/合作记录登记展示"""
     try:
@@ -16015,7 +16014,7 @@ def tk_invite_monitor_wanghong_register_overview():
 
 
 @app.route('/api/tk_monthly_target_import/upload', methods=['POST'])
-@require_permission('tk_project_group')
+@require_permission('tk_monthly_target_import')
 def upload_monthly_target():
     try:
         if 'file' not in request.files:
@@ -16261,7 +16260,7 @@ def upload_monthly_target():
 
 
 @app.route('/api/tk_monthly_target_import/template', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_monthly_target_import')
 def download_monthly_target_template():
     try:
         import pandas as pd
@@ -16340,7 +16339,7 @@ def download_monthly_target_template():
         return jsonify({'success': False, 'message': f'生成模板失败: {str(e)}'})
 
 @app.route('/tk_dashboard')
-@require_permission('tk_project_group')
+@require_permission('tk_dashboard_legacy')
 def tk_dashboard():
     """内容生产工厂数据看板页面"""
     user_id = session.get('feishu_user_id')
@@ -16352,7 +16351,7 @@ def tk_dashboard():
 
 
 @app.route('/api/tk_dashboard_data', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_dashboard_legacy')
 def get_tk_dashboard_data():
     """获取TK数据看板数据API"""
     try:
@@ -16360,9 +16359,7 @@ def get_tk_dashboard_data():
         user_name = session.get('feishu_user_name', '')
         user_id = session.get('feishu_user_id', '')
 
-        # 定义管理单（可以查看所有组的详细信息）
-        admin_users = ['周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭']
-        is_admin = user_name in admin_users
+        is_admin = _current_user_has_permission('tk_dashboard_legacy_all', user_id)
 
         _safe_debug_print(f"🔍 TK数据看板访问 - 用户: {user_name}, 是否管理员: {is_admin}")
 
@@ -16553,17 +16550,7 @@ _FBA_SHIPPING_PAGE_SIZE = 200
 
 
 def _operation_dept_has_access():
-    user_id = session.get('feishu_user_id')
-    if not user_id:
-        return False
-    for function_name in _FBA_SHIPPING_ACCESS_FUNCTIONS:
-        try:
-            ok, _ = permission_manager.check_user_permission(user_id, function_name)
-            if ok:
-                return True
-        except Exception as e:
-            _safe_debug_print(f"运营部门权限检查失败: {function_name} -> {e}")
-    return False
+    return _current_user_has_permission('operation_fba_shipping')
 
 
 def _operation_page_permission_flags(user_id):
@@ -16744,6 +16731,7 @@ def _fba_shipping_sort_columns(columns):
 
 
 @app.route('/api/operation/fba_shipping_methods')
+@require_permission('operation_fba_shipping')
 def api_operation_fba_shipping_methods():
     if not _operation_dept_has_access():
         return jsonify({'success': False, 'message': '无权限访问运营部门数据'}), 403
@@ -16842,6 +16830,7 @@ def api_operation_fba_shipping_methods():
 
 
 @app.route('/api/operation/fba_shipping_methods/shops')
+@require_permission('operation_fba_shipping')
 def api_operation_fba_shipping_method_shops():
     if not _operation_dept_has_access():
         return jsonify({'success': False, 'message': '无权限访问运营部门数据'}), 403
@@ -16876,6 +16865,7 @@ def api_operation_fba_shipping_method_shops():
 
 
 @app.route('/operation/fba_shipping_methods')
+@require_permission('operation_fba_shipping')
 def operation_fba_shipping_methods_page():
     if not _operation_dept_has_access():
         flash('无权限访问FBA货件运输方式')
@@ -16911,7 +16901,7 @@ def operation_dept_1():
                            user_id=user_id,
                            dept_name='运营一部',
                            dept_id='operation_dept_1',
-                           can_view_tk_90=(user_name in (dashboard_90_users or [])),
+                           can_view_tk_90=_current_user_has_permission('tk_dashboard_90', user_id),
                            **permission_flags)
 
 
@@ -16957,8 +16947,8 @@ def operation_dept_6():
                            user_id=user_id,
                            dept_name='运营六部',
                            dept_id='operation_dept_6',
-                           can_view_tk_82=(user_name in (dashboard_82_users or [])),
-                           can_view_tk_88=(user_name in (dashboard_88_users or [])),
+                           can_view_tk_82=_current_user_has_permission('tk_dashboard_82', user_id),
+                           can_view_tk_88=_current_user_has_permission('tk_dashboard_88', user_id),
                            **permission_flags)
 
 
@@ -17097,7 +17087,7 @@ def newcomer_group():
                            user_id=user_id,
                            dept_name='新人组',
                            dept_id='newcomer_group',
-                           can_view_tk_88=(user_name in (dashboard_88_users or [])),
+                           can_view_tk_88=_current_user_has_permission('tk_dashboard_88', user_id),
                            **permission_flags)
 
 
@@ -17449,18 +17439,7 @@ def api_ai_amazon_reply_delete_scenario(scenario_id):
 
 
 def _permission_debug_available_departments():
-    names = set()
-    for v in PERMISSION_CONFIG.values():
-        if not isinstance(v, dict):
-            continue
-        allowed = v.get('allowed_departments')
-        if allowed == 'all':
-            continue
-        if isinstance(allowed, list):
-            for one in allowed:
-                name = str(one or '').strip()
-                if name:
-                    names.add(name)
+    names = set(permission_manager.get_available_permission_departments())
     for mapped in getattr(permission_manager, 'get_department_mapping_stats', lambda: {})().get('department_list', []) or []:
         name = str(mapped or '').strip()
         if name:
@@ -18360,7 +18339,7 @@ def import_allocation_ratio():
         except Exception as e:
             return jsonify({'success': False, 'message': f'读取Excel失败: {str(e)}'}), 400
         cols = {str(c).strip(): c for c in df.columns}
-        required = ['年','月','地区','项目','店铺','比例']
+        required = ['年','月','国','地区','项目','店铺','比例']
         missing = [c for c in required if c not in cols]
         if missing:
             return jsonify({'success': False, 'message': f'缺少列: {"、".join(missing)}'}), 400
@@ -18394,6 +18373,7 @@ def import_allocation_ratio():
         for idx, row in df.iterrows():
             nian = parse_int(row.get(cols['年']))
             yue = parse_int(row.get(cols['月']))
+            guo = esc(row.get(cols['国']))
             diqu = esc(row.get(cols['地区']))
             xiangmu = esc(row.get(cols['项目']))
             dianpu = esc(row.get(cols['店铺']))
@@ -18402,6 +18382,9 @@ def import_allocation_ratio():
                 errors.append(f'第{idx+1}行年份无效')
                 continue
             # 月份允许为空（NULL）
+            if not guo:
+                errors.append(f'第{idx+1}行国为空')
+                continue
             if not diqu:
                 errors.append(f'第{idx+1}行地区为空')
                 continue
@@ -18415,13 +18398,14 @@ def import_allocation_ratio():
                 errors.append(f'第{idx+1}行比例无效')
                 continue
             yue_val = 'NULL' if yue is None else str(yue)
-            conds = [
+            base_conds = [
                 f"年 = {nian}",
                 (f"月 IS NULL" if yue is None else f"月 = {yue}"),
                 f"地区 = '{diqu}'",
                 f"项目 = '{xiangmu}'",
                 f"店铺 = '{dianpu}'"
             ]
+            conds = [*base_conds, f"国 = '{guo}'"]
             where_clause = " AND ".join(conds)
             dup_sql = f"SELECT COUNT(*) FROM tk_费用分摊比例 WHERE {where_clause}"
             try:
@@ -18441,9 +18425,35 @@ def import_allocation_ratio():
                 except Exception as e:
                     errors.append(f"第{idx+1}行更新失败: {str(e)}")
                 continue
+            # 旧数据没有国家。首次按国家重新导入同一条分摊记录时，
+            # 直接为旧记录补上国家，避免新旧记录同时参与看板汇总。
+            legacy_where_clause = " AND ".join([
+                *base_conds,
+                "(国 IS NULL OR LTRIM(RTRIM(国)) = '')"
+            ])
+            legacy_sql = (
+                "SELECT COUNT(*) FROM tk_费用分摊比例 "
+                f"WHERE {legacy_where_clause}"
+            )
+            try:
+                legacy_count = int(sf_db(legacy_sql, single=True) or 0)
+            except Exception:
+                legacy_count = 0
+            if legacy_count > 0:
+                sql = (
+                    "UPDATE tk_费用分摊比例 "
+                    f"SET 国 = '{guo}', 比例 = {bili} "
+                    f"WHERE {legacy_where_clause}"
+                )
+                try:
+                    dui_db(sql)
+                    updated += 1
+                except Exception as e:
+                    errors.append(f"第{idx+1}行更新旧数据失败: {str(e)}")
+                continue
             sql = (
-                "INSERT INTO tk_费用分摊比例 (年, 月, 地区, 项目, 店铺, 比例) VALUES "
-                f"({nian}, {yue_val}, '{diqu}', '{xiangmu}', '{dianpu}', {bili})"
+                "INSERT INTO tk_费用分摊比例 (年, 月, 国, 地区, 项目, 店铺, 比例) VALUES "
+                f"({nian}, {yue_val}, '{guo}', '{diqu}', '{xiangmu}', '{dianpu}', {bili})"
             )
             try:
                 dui_db(sql)

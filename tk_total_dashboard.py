@@ -6,69 +6,44 @@ import time
 import threading
 from calendar import monthrange
 import pytds
-from department_permissions import require_permission
+from department_permissions import permission_manager, require_permission
 from secret_settings import sql_server_config
 import bjc
 
 tk_dashboard_bp = Blueprint('tk_dashboard', __name__)
 
-admin_users = ['周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭']
-partial_admin_users = ['张莉','周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭']
-dashboard_82_users = ['张莉', '周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭', '朱晓禹', '侯梁']
-dashboard_88_users = ['张莉', '周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭', '朱晓禹', '侯梁', '刘俊霞', '李晓明']
-dashboard_90_users = ['张莉', '周俊成', '毕景春', '陶晓飞', '李昌翰', '孙军', '李春', '宋亚倩', '王丰慧', '陈梦昭', '朱晓禹', '侯梁', '孙洁']
-JOINT_SHOP_USER_MAP = {
-    '82': {'侯梁'},
-    '88': {'刘俊霞'},
-    '90': {'孙洁'},
-    '87': {'刘蓉蓉'},
-    '89': {'柳琳'},
-    '91': {'叶雨菲'},
-    '92': {'刘星辰'},
-    '93': {'赵璐华'},
-    '95': {'杨明月'},
-    '96': {'周雪'},
-    '106': {'李娜'},
-    '97': {'郭婷'},
-    '101': {'侯瑞昕'},
-    '84': {'大张雯'},
-    '107': {'郭鑫'},
-    '108': {'张彦微'},
-    '109': {'王钰媛'},
-}
-joint_dashboard_users = sorted({
-    user_name
-    for user_names in JOINT_SHOP_USER_MAP.values()
-    for user_name in user_names
-} | set(admin_users) | set(partial_admin_users))
+JOINT_SHOPS = ('82', '88', '90', '87', '89', '91', '92', '93', '95', '96',
+               '106', '97', '101', '84', '107', '108', '109')
+
+
+def _current_user_has_permission(function_name):
+    user_id = session.get('feishu_user_id')
+    return bool(user_id and permission_manager.check_user_permission(user_id, function_name)[0])
 
 def is_admin_user():
-    return session.get('feishu_user_name', '') in admin_users
+    return _current_user_has_permission('tk_dashboard_full')
 
 def is_partial_admin_user():
-    return session.get('feishu_user_name', '') in partial_admin_users
+    return _current_user_has_permission('tk_joint_dashboard_all')
 
 def is_dashboard_82_user():
-    return session.get('feishu_user_name', '') in dashboard_82_users
+    return _current_user_has_permission('tk_dashboard_82')
 
 def is_dashboard_88_user():
-    return session.get('feishu_user_name', '') in dashboard_88_users
+    return _current_user_has_permission('tk_dashboard_88')
 
 def is_dashboard_90_user():
-    return session.get('feishu_user_name', '') in dashboard_90_users
+    return _current_user_has_permission('tk_dashboard_90')
 
 
 def get_joint_dashboard_allowed_shops(user_name=None):
     """Return only the joint shops the current user is allowed to query."""
-    normalized_name = str(
-        session.get('feishu_user_name', '') if user_name is None else user_name
-    ).strip()
-    if normalized_name in admin_users or normalized_name in partial_admin_users:
-        return list(JOINT_SHOP_USER_MAP.keys())
+    if is_admin_user() or is_partial_admin_user():
+        return list(JOINT_SHOPS)
     return [
         shop
-        for shop, allowed_users in JOINT_SHOP_USER_MAP.items()
-        if normalized_name in allowed_users
+        for shop in JOINT_SHOPS
+        if _current_user_has_permission(f'tk_joint_shop_{shop}')
     ]
 
 
@@ -1474,10 +1449,8 @@ if os.getenv('TK_DASHBOARD_DISABLE_BACKGROUND_CACHE', '').strip() != '1':
 
 
 @tk_dashboard_bp.route('/tk/dashboard')
-@require_permission('tk_total_dashboard')
+@require_permission('tk_dashboard_full')
 def tk_dashboard_page():
-    if not is_admin_user():
-        return redirect(url_for('dashboard'))
     if (_default_cached_payload is None) or (time.time() >= _default_cached_exp):
         _schedule_default_cache_refresh()
     page_payload = _default_cached_payload or _build_dashboard_shell_payload([DEFAULT_SHOP_NAME])
@@ -1555,6 +1528,7 @@ def tk_dashboard_sz_page():
 
 
 @tk_dashboard_bp.route('/tk/dashboard_82')
+@require_permission('tk_dashboard_82')
 def tk_dashboard_82_page():
     user_id = session.get('feishu_user_id')
     if not user_id:
@@ -1592,6 +1566,7 @@ def tk_dashboard_82_page():
 
 
 @tk_dashboard_bp.route('/tk/dashboard_88')
+@require_permission('tk_dashboard_88')
 def tk_dashboard_88_page():
     user_id = session.get('feishu_user_id')
     if not user_id:
@@ -1629,6 +1604,7 @@ def tk_dashboard_88_page():
 
 
 @tk_dashboard_bp.route('/tk/dashboard_90')
+@require_permission('tk_dashboard_90')
 def tk_dashboard_90_page():
     user_id = session.get('feishu_user_id')
     if not user_id:
@@ -1666,6 +1642,7 @@ def tk_dashboard_90_page():
 
 
 @tk_dashboard_bp.route('/tk/metrics_82', methods=['POST'])
+@require_permission('tk_dashboard_82')
 def tk_metrics_82():
     user_id = session.get('feishu_user_id')
     if not user_id:
@@ -1703,6 +1680,7 @@ def tk_metrics_82():
 
 
 @tk_dashboard_bp.route('/tk/metrics_88', methods=['POST'])
+@require_permission('tk_dashboard_88')
 def tk_metrics_88():
     user_id = session.get('feishu_user_id')
     if not user_id:
@@ -1740,6 +1718,7 @@ def tk_metrics_88():
 
 
 @tk_dashboard_bp.route('/tk/metrics_90', methods=['POST'])
+@require_permission('tk_dashboard_90')
 def tk_metrics_90():
     user_id = session.get('feishu_user_id')
     if not user_id:
@@ -1789,7 +1768,7 @@ def _normalize_ratio_month(month_text):
 
 
 @tk_dashboard_bp.route('/tk/gmv_ratio_card')
-@require_permission('tk_project_group')
+@require_permission('tk_gmv_ratio')
 def tk_gmv_ratio_page():
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
@@ -1804,7 +1783,7 @@ def tk_gmv_ratio_page():
 
 
 @tk_dashboard_bp.route('/api/tk/gmv_ratio/shops', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_gmv_ratio')
 def tk_gmv_ratio_shops():
     try:
         rows = bjc.sf_db("SELECT DISTINCT CAST(dian AS NVARCHAR(50)) AS dian FROM v_tk_dingdan WHERE dian IS NOT NULL") or []
@@ -1824,7 +1803,7 @@ def tk_gmv_ratio_shops():
 
 
 @tk_dashboard_bp.route('/api/tk/gmv_ratio', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_gmv_ratio')
 def tk_gmv_ratio_data():
     try:
         month_text = (request.args.get('month') or '').strip()

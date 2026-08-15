@@ -138,7 +138,6 @@ DB_HISTORY_THUMB_DIR_NAME = "_thumbs"
 DB_HISTORY_THUMB_MAX_EDGE = 640
 DB_HISTORY_THUMB_TARGET_BYTES = 140 * 1024
 DB_HISTORY_PATH_MAX_LENGTH = 50
-DB_HISTORY_ALL_ACCESS_USERS = {"周俊成"}
 GALLERY_PREVIEW_MAX_EDGE = 1600
 GALLERY_PREVIEW_TARGET_BYTES = 220 * 1024
 UPLOAD_CACHE_DIR = Path(r"D:\tuchuangai\图片上传缓存")
@@ -6446,6 +6445,32 @@ def persist_generated_images_in_background(
     Thread(target=worker, daemon=True).start()
 
 
+def _db_history_can_view_all(account_name: str) -> bool:
+    normalized_account = str(account_name or "").strip()
+    if not normalized_account:
+        return False
+    try:
+        rows = execute_db_query(
+            """
+            SELECT TOP 1 YongHu
+            FROM dbo.quanxian
+            WHERE LTRIM(RTRIM(GongNeng))=%s
+              AND (QiYong=1 OR QiYong IS NULL)
+            ORDER BY ID
+            """,
+            ("image_history_all",),
+        )
+    except Exception:
+        return False
+    raw_users = str(rows[0][0] or "") if rows and rows[0] else ""
+    allowed_users = {
+        value.strip()
+        for value in re.split(r"[；;,，、\r\n]+", raw_users)
+        if value.strip()
+    }
+    return normalized_account in allowed_users
+
+
 def load_db_history_records(
     feature_key: str,
     account_name: str,
@@ -6454,7 +6479,7 @@ def load_db_history_records(
     safe_limit = max(int(limit), 1)
     normalized_account = str(account_name or "admin").strip() or "admin"
     feature_name = get_feature_name_by_key(feature_key)
-    if normalized_account in DB_HISTORY_ALL_ACCESS_USERS:
+    if _db_history_can_view_all(normalized_account):
         query = (
             f"SELECT TOP {safe_limit} ZhangHao, GongNeng, MoXing, TuPian, RiQi "
             f"FROM {DB_HISTORY_TABLE} "
@@ -6638,7 +6663,7 @@ def get_feature_history_records(
         db_records = []
     if db_records:
         return db_records[: max(int(limit), 1)]
-    if normalized_account in DB_HISTORY_ALL_ACCESS_USERS:
+    if _db_history_can_view_all(normalized_account):
         merged_records = []
         for user_store in (st.session_state.local_history_records or {}).values():
             merged_records.extend(list(dict(user_store or {}).get(normalized_feature) or []))

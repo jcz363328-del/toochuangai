@@ -9,7 +9,7 @@ bd_metrics_bp = Blueprint('bd_metrics', __name__)
 
 
 @bd_metrics_bp.route('/tk_bd_metrics')
-@require_permission('tk_project_group')
+@require_permission('tk_bd_metrics')
 def tk_bd_metrics_page():
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
@@ -28,7 +28,7 @@ def tk_bd_metrics_page():
 
 
 @bd_metrics_bp.route('/api/tk_bd_metrics', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_bd_metrics')
 def get_tk_bd_metrics():
     try:
         year = request.args.get('year', type=int)
@@ -148,7 +148,7 @@ ORDER BY t.Dian, t.BD
 
 
 @bd_metrics_bp.route('/tk_bd_metrics_import')
-@require_permission('tk_project_group')
+@require_permission('tk_bd_metrics_import')
 def tk_bd_metrics_import_page():
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
@@ -156,7 +156,7 @@ def tk_bd_metrics_import_page():
 
 
 @bd_metrics_bp.route('/api/tk_bd_metrics_import/template', methods=['GET'])
-@require_permission('tk_project_group')
+@require_permission('tk_bd_metrics_import')
 def download_bd_metrics_template():
     try:
         import pandas as pd
@@ -179,7 +179,7 @@ def download_bd_metrics_template():
 
 
 @bd_metrics_bp.route('/api/tk_bd_metrics_import/upload', methods=['POST'])
-@require_permission('tk_project_group')
+@require_permission('tk_bd_metrics_import')
 def upload_bd_metrics():
     try:
         if 'file' not in request.files:

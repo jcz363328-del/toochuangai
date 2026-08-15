@@ -1,7 +1,11 @@
 import requests
 import json
+import re
+import threading
+import time
+import pytds
 from functools import wraps
-from flask import request, jsonify, session, redirect, url_for
+from flask import request, jsonify, session, redirect, url_for, has_request_context
 from datetime import datetime, timedelta
 import os
 import hashlib
@@ -11,7 +15,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import binascii
 
-from secret_settings import FEISHU_CONFIG as SECRET_FEISHU_CONFIG
+from secret_settings import FEISHU_CONFIG as SECRET_FEISHU_CONFIG, sql_server_config
 from tools import safe_print as _safe_print
 
 
@@ -281,6 +285,10 @@ class FeishuPermissionManager:
         self._department_info_cache = {}   # 部门详情缓存，key=部门ID，value=部门信息
         self._user_info_cache = {}         # 用户基本信息缓存，key=用户ID，value=用户信息
         self._cache_expire_time = 300      # 缓存过期时间，单位秒（这里设置为5分钟）
+        self._permission_rows_cache = None
+        self._permission_rows_cached_at = 0.0
+        self._permission_rows_cache_ttl = 30
+        self._permission_rows_lock = threading.Lock()
         self._direct_http = requests.Session()
         self._direct_http.trust_env = False
 
@@ -293,6 +301,10 @@ class FeishuPermissionManager:
 
     def clear_cache(self, user_id=None):
         """清理缓存"""
+        # 权限表可能被管理页随时更新，无论清理单个用户还是全部缓存，
+        # 都要让下一次校验重新读取 dbo.quanxian。
+        self._permission_rows_cache = None
+        self._permission_rows_cached_at = 0.0
         if user_id:
             # 如果传入 user_id，则只清理该用户的缓存
             if user_id in self._user_departments_cache:
@@ -732,6 +744,17 @@ class FeishuPermissionManager:
         """获取用户所属部门信息（带缓存）"""
         from datetime import datetime, timedelta
 
+        # 本地调试账号仍按 session 中模拟部门走同一张 quanxian 表，不再走硬编码权限分支。
+        if str(user_id or "").startswith("dev_") and has_request_context():
+            department_name = str(session.get("user_department") or "").strip()
+            if department_name:
+                return [{
+                    "department_id": f"local:{department_name}",
+                    "name": department_name,
+                    "status": "active",
+                    "source": "local_dev_session",
+                }]
+
         # 检查缓存
         cache_key = user_id  # 使用用户ID作为缓存的键
         if cache_key in self._user_departments_cache:
@@ -970,6 +993,8 @@ class FeishuPermissionManager:
 
     def _get_debug_departments_from_session(self):
         """读取会话里的权限调试部门（仅用于AI部权限联调）"""
+        if not has_request_context():
+            return []
         raw = session.get('permission_debug_departments')
         if isinstance(raw, str):
             raw = [raw]
@@ -987,6 +1012,8 @@ class FeishuPermissionManager:
 
     def _get_debug_user_from_session(self):
         """读取会话里的权限调试用户信息（仅用于AI部权限联调）"""
+        if not has_request_context():
+            return {'name': '', 'open_id': ''}
         return {
             'name': str(session.get('permission_debug_user_name') or '').strip(),
             'open_id': str(session.get('permission_debug_user_open_id') or '').strip()
@@ -1197,117 +1224,306 @@ class FeishuPermissionManager:
                 inherited.append(f'{root_name}(子部门继承)')
         return inherited
 
-    def check_user_permission(self, user_id, function_name):
-        """检查用户是否有访问指定功能的权限
+    @staticmethod
+    def _split_permission_values(value):
+        """把权限表中的中文分号/英文分号等分隔值标准化为去重列表。"""
+        values = []
+        seen = set()
+        for item in re.split(r"[；;,，、\r\n]+", str(value or "")):
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            values.append(normalized)
+        return values
 
-        多部门权限策略：
-        - 如果用户属于多个部门，权限取并集
-        - 只要有一个部门有权限，用户就有权限
-        """
-        # 检查是否为开发者
-        if self.is_developer(user_id):
-            return True, "开发者权限"  # 如果是开发者，直接返回开发者权限
+    def _fetch_permission_records_from_db(self):
+        """从 dbo.quanxian 读取有效权限；数据库是运行时唯一授权来源。"""
+        connection = pytds.connect(**sql_server_config())
+        try:
+            cursor = connection.cursor()
+            try:
+                cursor.execute(
+                    """
+                    SELECT ID, GongNeng, YongHu, BuMen, FuJiGongNeng,
+                           MingCheng, MiaoShu, QiYong
+                    FROM dbo.quanxian
+                    WHERE QiYong=1 OR QiYong IS NULL
+                    ORDER BY ID
+                    """
+                )
+                raw_rows = cursor.fetchall() or []
+            except Exception:
+                # 兼容迁移脚本尚未执行的旧四列表结构；授权仍来自表，不回退到代码白名单。
+                cursor.execute(
+                    "SELECT ID, GongNeng, YongHu, BuMen FROM dbo.quanxian ORDER BY ID"
+                )
+                raw_rows = [tuple(row) + ("", "", "", 1) for row in (cursor.fetchall() or [])]
+        finally:
+            connection.close()
 
-        # 获取功能权限配置
-        if function_name not in PERMISSION_CONFIG:
-            return False, "功能不存在"  # 如果功能不存在，返回失败
+        records = {}
+        for raw in raw_rows:
+            function_name = str(raw[1] or "").strip()
+            if not function_name:
+                continue
+            fallback = PERMISSION_CONFIG.get(function_name, {})
+            records[function_name] = {
+                "id": raw[0],
+                "function_name": function_name,
+                "gongneng": function_name,
+                "yonghu": str(raw[2] or "").strip(),
+                "bumen": str(raw[3] or "").strip(),
+                "fujigongneng": str(raw[4] or "").strip(),
+                "name": str(raw[5] or fallback.get("name") or function_name).strip(),
+                "description": str(raw[6] or fallback.get("description") or "").strip(),
+                "enabled": raw[7] is None or bool(raw[7]),
+            }
+        return records
 
-        extra_allowed_functions = self._get_extra_allowed_functions(user_id)
-        if function_name in extra_allowed_functions:
-            return True, "指定用户额外权限"
+    def get_permission_records(self, force_refresh=False):
+        now = time.time()
+        cached = self._permission_rows_cache
+        if (
+            not force_refresh
+            and isinstance(cached, dict)
+            and now - self._permission_rows_cached_at < self._permission_rows_cache_ttl
+        ):
+            return cached
+        with self._permission_rows_lock:
+            now = time.time()
+            cached = self._permission_rows_cache
+            if (
+                not force_refresh
+                and isinstance(cached, dict)
+                and now - self._permission_rows_cached_at < self._permission_rows_cache_ttl
+            ):
+                return cached
+            try:
+                records = self._fetch_permission_records_from_db()
+            except Exception as exc:
+                _safe_print(f"❌ 读取 dbo.quanxian 失败: {exc}")
+                records = {}
+            self._permission_rows_cache = records
+            self._permission_rows_cached_at = now
+            return records
 
-        permission_config = PERMISSION_CONFIG[function_name]  # 获取功能的权限配置
-        allowed_departments = permission_config['allowed_departments']  # 获取允许访问该功能的部门
-
-        # 如果是全员可见
-        if allowed_departments == 'all':
-            return True, "全员可见"  # 如果功能对所有人开放，返回权限通过
-
-        # 获取用户部门信息
-        user_departments = self.get_user_departments(user_id)  # 获取用户所属部门信息
-
-        # 分离有效部门、无效部门和未映射部门
-        valid_departments = []  # 有效部门列表
-        invalid_departments = []  # 无效部门列表
-        unmapped_departments = []  # 未映射部门列表
-
-        for dept in user_departments:  # 遍历用户的部门
-            dept_status = dept.get('status')  # 获取部门状态
-            dept_name = dept.get('name', '未知部门')  # 获取部门名称
-
-            if dept_status == 'invalid':
-                invalid_departments.append(dept_name)  # 如果部门无效，加入无效部门列表
-            elif dept_status == 'unmapped':
-                unmapped_departments.append(dept_name)  # 如果部门未映射，加入未映射部门列表
-            else:
-                valid_departments.append(dept_name)  # 否则，加入有效部门列表
-
-        user_dept_names, using_debug_departments = self._resolve_effective_departments(valid_departments, function_name)
-        effective_user_departments = self._resolve_effective_department_rows(
-            user_departments,
-            user_dept_names,
-            using_debug_departments,
+    def get_permission_record(self, function_name, force_refresh=False):
+        return self.get_permission_records(force_refresh=force_refresh).get(
+            str(function_name or "").strip()
         )
 
-        _safe_print(f"\n🔍 多部门权限检查:")  # 打印权限检查的调试信息
-        _safe_print(f"  用户ID: {user_id}")
-        _safe_print(f"  功能: {function_name}")
-        _safe_print(f"  用户有效部门: {valid_departments}")
-        if using_debug_departments:
-            _safe_print(f"  权限调试部门(会话模拟): {user_dept_names}")
-        if invalid_departments:
-            _safe_print(f"  用户无效部门: {invalid_departments} (已失效，不参与权限计算)")
-        if unmapped_departments:
-            _safe_print(f"  用户未映射部门: {unmapped_departments} (未在映射表中，不参与权限计算)")
-        _safe_print(f"  功能允许部门: {allowed_departments}")
+    def is_permission_enabled(self, function_name):
+        return bool(self.get_permission_record(function_name))
 
-        # 多部门权限取并集：检查用户的每个有效部门是否在允许列表中
-        authorized_departments = []  # 存储有权限的部门
-        for dept_name in user_dept_names:
-            if dept_name in allowed_departments:  # 如果用户的部门在允许访问的部门列表中
-                authorized_departments.append(dept_name)  # 将该部门添加到授权部门列表
-        for inherited_name in self._get_tree_inherited_departments(effective_user_departments, allowed_departments):
-            if inherited_name not in authorized_departments:
-                authorized_departments.append(inherited_name)
+    def get_available_permission_departments(self):
+        names = set()
+        all_tokens = {"all", "*", "全部", "登录用户", "全体已登录用户"}
+        for row in self.get_permission_records().values():
+            for name in self._split_permission_values(row.get("bumen")):
+                if name.lower() not in all_tokens and name not in all_tokens:
+                    names.add(name)
+        return sorted(names)
 
-        if authorized_departments:
-            result_msg = f"多部门权限通过: {', '.join(authorized_departments)}"  # 权限通过，返回通过的部门列表
-            _safe_print(f"  ✅ 权限结果: {result_msg}")
-            return True, result_msg  # 返回 True，表示权限通过
-        else:
-            # 构建详细的权限拒绝消息
-            msg_parts = []  # 用于存储拒绝信息
-            base_label = "当前模拟部门" if using_debug_departments else "当前有效部门"
-            msg_parts.append(f"{base_label}: {', '.join(user_dept_names) if user_dept_names else '无'}")
+    def _permission_user_identities(self, user_id):
+        identities = {str(user_id or "").strip()}
+        if has_request_context():
+            session_user_id = str(session.get("feishu_user_id") or "").strip()
+            if not session_user_id or session_user_id == str(user_id or "").strip():
+                identities.update(
+                    {
+                        str(session.get("feishu_user_name") or "").split("（", 1)[0].strip(),
+                        str(session.get("feishu_user_email") or "").strip(),
+                    }
+                )
+        if len([value for value in identities if value]) <= 1 and user_id and not str(user_id).startswith("dev_"):
+            try:
+                info = self.get_user_info_by_user_id(user_id) or {}
+            except Exception:
+                info = {}
+            identities.update(
+                {
+                    str(info.get("name") or "").split("（", 1)[0].strip(),
+                    str(info.get("email") or "").strip(),
+                }
+            )
+        return {value for value in identities if value}
 
-            if invalid_departments:
-                msg_parts.append(f"无效部门: {', '.join(invalid_departments)}")  # 如果有无效部门，显示
-            if unmapped_departments:
-                msg_parts.append(f"未映射部门: {', '.join(unmapped_departments)}")  # 如果有未映射部门，显示
-            msg_parts.append(f"需要部门: {', '.join(allowed_departments)}")  # 显示该功能需要的部门
-
-            result_msg = f"无权限访问，{', '.join(msg_parts)}"  # 组合权限拒绝信息
-            _safe_print(f"  ❌ 权限结果: {result_msg}")
-            return False, result_msg  # 返回 False，表示权限不通过
-
-    def is_developer(self, user_id=None, email=None):
-        """检查是否为开发者"""
-        # 如果开发者模式未启用，则直接返回 False
-        if not DEVELOPER_CONFIG['enabled']:
+    @staticmethod
+    def _department_name_matches(actual_name, allowed_name):
+        actual = str(actual_name or "").strip()
+        allowed = str(allowed_name or "").strip()
+        if not actual or not allowed:
             return False
-
-        # 如果传入了 user_id 且该用户在开发者ID列表中，则返回 True
-        if user_id and user_id in DEVELOPER_CONFIG['developer_user_ids']:
+        if actual == allowed:
             return True
-
-        # 如果传入了 email 且该邮箱在开发者邮箱列表中，则返回 True
-        if email and email in DEVELOPER_CONFIG['developer_emails']:
+        if allowed in {"运营", "运营部"}:
+            return actual.startswith("运营") and actual != "新人组"
+        if allowed.endswith("部") and actual == allowed[:-1]:
             return True
-
-        # 如果没有找到，返回 False
+        if actual.endswith("部") and actual[:-1] == allowed:
+            return True
         return False
 
-    def get_user_accessible_functions(self, user_id):
+    def _permission_context(self, user_id):
+        try:
+            user_departments = self.get_user_departments(user_id) or []
+        except Exception:
+            user_departments = []
+        valid_names = []
+        invalid_names = []
+        unmapped_names = []
+        for row in user_departments:
+            if not isinstance(row, dict):
+                continue
+            status = str(row.get("status") or "").strip().lower()
+            name = str(row.get("name") or "").strip()
+            if status == "invalid":
+                invalid_names.append(name)
+            elif status == "unmapped":
+                unmapped_names.append(name)
+            elif name:
+                valid_names.append(name)
+        return {
+            "user_id": str(user_id or "").strip(),
+            # 个人身份可能需要调用飞书用户接口，仅在部门未命中且
+            # YongHu 有配置时再延迟获取，保证“部门先判断”。
+            "identities": None,
+            "user_departments": user_departments,
+            "valid_departments": valid_names,
+            "invalid_departments": invalid_names,
+            "unmapped_departments": unmapped_names,
+        }
+
+    def _is_dynamic_department_leader(self, context, effective_department_rows):
+        user_id = str(context.get("user_id") or "").strip()
+        if not user_id:
+            return False
+        for row in effective_department_rows or []:
+            if not isinstance(row, dict):
+                continue
+            leader_user_id = str(row.get("leader_user_id") or "").strip()
+            if not leader_user_id:
+                department_id = str(
+                    row.get("department_id") or row.get("open_department_id") or ""
+                ).strip()
+                if department_id:
+                    try:
+                        detail = self.get_department_info(department_id) or {}
+                    except Exception:
+                        detail = {}
+                    leader_user_id = str(detail.get("leader_user_id") or "").strip()
+            if leader_user_id and leader_user_id == user_id:
+                return True
+        return False
+
+    def _check_direct_permission_row(self, row, context):
+        function_name = str(row.get("function_name") or "").strip()
+        real_department_names = list(context.get("valid_departments") or [])
+        effective_names, using_debug = self._resolve_effective_departments(
+            real_department_names,
+            function_name,
+        )
+        effective_rows = self._resolve_effective_department_rows(
+            context.get("user_departments") or [],
+            effective_names,
+            using_debug,
+        )
+
+        allowed_departments = self._split_permission_values(row.get("bumen"))
+        public_tokens = {"all", "*", "全部", "登录用户", "全体已登录用户"}
+        if any(value.lower() in public_tokens or value in public_tokens for value in allowed_departments):
+            return True, "权限表：全体已登录用户"
+
+        matched_departments = []
+        for actual_name in effective_names:
+            for allowed_name in allowed_departments:
+                if self._department_name_matches(actual_name, allowed_name):
+                    matched_departments.append(actual_name)
+                    break
+        for inherited_name in self._get_tree_inherited_departments(
+            effective_rows,
+            allowed_departments,
+        ):
+            if inherited_name not in matched_departments:
+                matched_departments.append(inherited_name)
+        if matched_departments:
+            return True, f"权限表：部门权限通过（{'、'.join(matched_departments)}）"
+
+        allowed_users = set(self._split_permission_values(row.get("yonghu")))
+        if "@department_leader" in allowed_users and self._is_dynamic_department_leader(
+            context,
+            effective_rows,
+        ):
+            return True, "权限表：部门负责人动态权限"
+        identities = context.get("identities")
+        if identities is None and allowed_users:
+            identities = self._permission_user_identities(context.get("user_id"))
+            context["identities"] = identities
+        matched_users = sorted(allowed_users & set(identities or set()))
+        if matched_users:
+            return True, f"权限表：个人权限通过（{'、'.join(matched_users)}）"
+        return False, ""
+
+    def _permission_ancestors(self, function_name, records):
+        ancestors = []
+        seen = set()
+        pending = list(
+            self._split_permission_values(
+                (records.get(str(function_name or "").strip()) or {}).get("fujigongneng")
+            )
+        )
+        while pending:
+            parent = pending.pop(0)
+            if not parent or parent in seen:
+                continue
+            seen.add(parent)
+            ancestors.append(parent)
+            parent_row = records.get(parent) or {}
+            pending.extend(self._split_permission_values(parent_row.get("fujigongneng")))
+        return ancestors
+
+    def check_user_permission(self, user_id, function_name):
+        """按“部门优先、个人补充、子功能只向上点亮父级”检查权限。"""
+        function_name = str(function_name or "").strip()
+        records = self.get_permission_records()
+        if not records:
+            return False, "权限表不可用或无有效权限数据"
+        if function_name not in records:
+            return False, f"权限表中不存在功能: {function_name}"
+
+        context = self._permission_context(user_id)
+        allowed, reason = self._check_direct_permission_row(records[function_name], context)
+        if allowed:
+            return True, reason
+
+        wildcard = records.get("*")
+        if wildcard:
+            allowed, reason = self._check_direct_permission_row(wildcard, context)
+            if allowed:
+                return True, reason
+
+        # 只有直接拥有子功能才反向点亮父级；父级不会向下放开任何兄弟功能。
+        for child_name, child_row in records.items():
+            if child_name in {"*", function_name}:
+                continue
+            if function_name not in self._permission_ancestors(child_name, records):
+                continue
+            child_allowed, _ = self._check_direct_permission_row(child_row, context)
+            if child_allowed:
+                return True, f"权限表：由子功能 {child_name} 反向获得父级可见权限"
+
+        department_text = "、".join(context.get("valid_departments") or []) or "无"
+        return False, f"无权限访问 {function_name}；当前部门：{department_text}，个人权限未命中"
+
+    def is_developer(self, user_id=None, email=None):
+        """开发者也由 quanxian 表中的 `*` 记录识别。"""
+        row = self.get_permission_record("*") or {}
+        allowed_users = set(self._split_permission_values(row.get("yonghu")))
+        candidates = {str(user_id or "").strip(), str(email or "").strip()}
+        return bool(allowed_users & {value for value in candidates if value})
+
+    def _legacy_get_user_accessible_functions(self, user_id):
         """获取用户可访问的功能列表（优化版）"""
         _safe_print(f"\n=== 用户权限检查开始 ===")
         _safe_print(f"检查用户: {user_id}")
@@ -1475,6 +1691,62 @@ class FeishuPermissionManager:
 
         return accessible_functions  # 返回用户可访问的功能列表
 
+    def get_user_accessible_functions(self, user_id):
+        """返回用户可见功能，仅使用 dbo.quanxian 判定。
+
+        直接命中的子功能会向上补齐父级导航，但不会向下放开兄弟节点。
+        """
+        records = self.get_permission_records()
+        if not records:
+            return []
+
+        context = self._permission_context(user_id)
+        direct_allowed = set()
+        direct_reasons = {}
+
+        wildcard = records.get("*")
+        if wildcard:
+            allowed, reason = self._check_direct_permission_row(wildcard, context)
+            if allowed:
+                direct_allowed = {name for name in records if name != "*"}
+                direct_reasons = {name: reason for name in direct_allowed}
+
+        if not direct_allowed:
+            for function_name, row in records.items():
+                if function_name == "*":
+                    continue
+                allowed, reason = self._check_direct_permission_row(row, context)
+                if allowed:
+                    direct_allowed.add(function_name)
+                    direct_reasons[function_name] = reason
+
+        visible = set(direct_allowed)
+        inherited_from = {}
+        for child_name in direct_allowed:
+            for parent_name in self._permission_ancestors(child_name, records):
+                if parent_name in records:
+                    visible.add(parent_name)
+                    inherited_from.setdefault(parent_name, child_name)
+
+        accessible_functions = []
+        for function_name, row in records.items():
+            if function_name == "*" or function_name not in visible:
+                continue
+            inherited_child = inherited_from.get(function_name, "")
+            reason = direct_reasons.get(function_name)
+            if not reason:
+                reason = f"由子功能 {inherited_child} 反向获得父级可见权限"
+            accessible_functions.append(
+                {
+                    "function_name": function_name,
+                    "name": row.get("name") or function_name,
+                    "description": row.get("description") or "",
+                    "reason": reason,
+                    "is_parent_visibility": function_name not in direct_allowed,
+                }
+            )
+        return accessible_functions
+
     def search_user_by_id_or_email(self, search_value):
         """根据用户ID或邮箱搜索用户信息"""
         try:
@@ -1590,7 +1862,7 @@ class FeishuPermissionManager:
             _safe_print(f"获取用户信息失败: {e}")
             return None
 
-    def get_all_permissions_for_user(self, user_id):
+    def _legacy_get_all_permissions_for_user(self, user_id):
         """获取用户的所有权限信息"""
         try:
             permissions = []
@@ -1611,7 +1883,7 @@ class FeishuPermissionManager:
             _safe_print(f"获取用户权限信息失败: {e}")
             return []
 
-    def grant_user_permission(self, user_id, function_name):
+    def _legacy_grant_user_permission(self, user_id, function_name):
         """授予用户权限"""
         try:
             # 检查功能是否存在
@@ -1651,7 +1923,7 @@ class FeishuPermissionManager:
                 'message': f'授予权限失败: {str(e)}'
             }
 
-    def revoke_user_permission(self, user_id, function_name):
+    def _legacy_revoke_user_permission(self, user_id, function_name):
         """撤销用户权限"""
         try:
             # 检查功能是否存在
@@ -1691,6 +1963,130 @@ class FeishuPermissionManager:
                 'message': f'撤销权限失败: {str(e)}'
             }
 
+    def get_all_permissions_for_user(self, user_id):
+        """返回权限表中的全部功能及该用户的实时授权状态。"""
+        permissions = []
+        for function_name, row in self.get_permission_records().items():
+            if function_name == "*":
+                continue
+            has_permission, reason = self.check_user_permission(user_id, function_name)
+            permissions.append(
+                {
+                    "function_name": function_name,
+                    "name": row.get("name") or function_name,
+                    "description": row.get("description") or "",
+                    "has_permission": has_permission,
+                    "reason": reason,
+                }
+            )
+        return permissions
+
+    def _target_permission_identities(self, user_id):
+        identities = {str(user_id or "").strip()}
+        try:
+            info = self.get_user_info_by_user_id(user_id) or {}
+        except Exception:
+            info = {}
+        identities.update(
+            {
+                str(info.get("name") or "").split("（", 1)[0].strip(),
+                str(info.get("email") or "").strip(),
+            }
+        )
+        return {value for value in identities if value}, info
+
+    def _update_permission_users(self, function_name, users):
+        normalized_users = []
+        seen = set()
+        for user in users:
+            value = str(user or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            normalized_users.append(value)
+        connection = pytds.connect(**sql_server_config())
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                UPDATE dbo.quanxian
+                SET YongHu=%s, GengXinShiJian=SYSDATETIME()
+                WHERE LTRIM(RTRIM(GongNeng))=%s
+                """,
+                ("；".join(normalized_users), str(function_name or "").strip()),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(f"权限表中不存在功能: {function_name}")
+            if not connection.autocommit:
+                connection.commit()
+        finally:
+            connection.close()
+        self.clear_cache()
+
+    def grant_user_permission(self, user_id, function_name):
+        """将单人特殊权限持久化到 dbo.quanxian.YongHu。"""
+        function_name = str(function_name or "").strip()
+        row = self.get_permission_record(function_name)
+        if not row or function_name == "*":
+            return {"success": False, "message": f"功能 {function_name} 不存在"}
+
+        identities, info = self._target_permission_identities(user_id)
+        existing_users = self._split_permission_values(row.get("yonghu"))
+        if identities & set(existing_users):
+            return {
+                "success": False,
+                "message": f'用户已拥有 {row.get("name") or function_name} 个人权限',
+            }
+
+        has_permission, reason = self.check_user_permission(user_id, function_name)
+        if has_permission and "部门权限通过" in reason:
+            return {
+                "success": False,
+                "message": f'用户已通过部门拥有 {row.get("name") or function_name} 权限',
+            }
+
+        display_name = str(info.get("name") or "").split("（", 1)[0].strip()
+        stored_identity = display_name or str(user_id or "").strip()
+        if not stored_identity:
+            return {"success": False, "message": "用户标识不能为空"}
+        try:
+            self._update_permission_users(function_name, [*existing_users, stored_identity])
+        except Exception as exc:
+            return {"success": False, "message": f"授予权限失败: {exc}"}
+        return {
+            "success": True,
+            "message": f'成功授予 {row.get("name") or function_name} 权限',
+            "function_display_name": row.get("name") or function_name,
+        }
+
+    def revoke_user_permission(self, user_id, function_name):
+        """仅撤销 YongHu 中的个人特殊权限，不改动部门权限。"""
+        function_name = str(function_name or "").strip()
+        row = self.get_permission_record(function_name)
+        if not row or function_name == "*":
+            return {"success": False, "message": f"功能 {function_name} 不存在"}
+
+        identities, _ = self._target_permission_identities(user_id)
+        existing_users = self._split_permission_values(row.get("yonghu"))
+        remaining_users = [user for user in existing_users if user not in identities]
+        if len(remaining_users) == len(existing_users):
+            has_permission, reason = self.check_user_permission(user_id, function_name)
+            if has_permission:
+                return {
+                    "success": False,
+                    "message": "该权限来自部门或子功能，不能作为个人权限撤销",
+                }
+            return {"success": False, "message": "用户没有该个人权限"}
+        try:
+            self._update_permission_users(function_name, remaining_users)
+        except Exception as exc:
+            return {"success": False, "message": f"撤销权限失败: {exc}"}
+        return {
+            "success": True,
+            "message": f'成功撤销 {row.get("name") or function_name} 权限',
+            "function_display_name": row.get("name") or function_name,
+        }
+
 
 # 全局权限管理器实例
 permission_manager = FeishuPermissionManager()
@@ -1726,34 +2122,6 @@ def require_permission(function_name):
                         }), 401
                     # 非API请求重定向到飞书授权
                     return redirect(url_for('feishu_auth'))
-
-            # 开发者模式用户权限检查
-            if user_id.startswith('dev_'):
-                # 根据开发者用户类型检查权限
-                if 'bd' in user_id and function_name in ['review_analysis', 'innovation_proposals', 'script_generator',
-                                                         'influencer_management']:
-                    return f(*args, **kwargs)
-                elif 'video' in user_id and function_name in ['review_analysis', 'innovation_proposals',
-                                                              'script_generator']:
-                    return f(*args, **kwargs)
-                elif 'ai' in user_id and function_name in ['review_analysis', 'innovation_proposals',
-                                                           'admin_functions']:
-                    return f(*args, **kwargs)
-                elif 'admin' in user_id:  # 总经办可访问所有功能
-                    return f(*args, **kwargs)
-                else:
-                    # 检查请求类型，如果是API请求返回JSON，否则重定向到dashboard
-                    if request.path.startswith('/api/') or request.headers.get('Content-Type') == 'application/json':
-                        return jsonify({
-                            'error': '权限不足',
-                            'message': f'开发者模式用户无权访问 {function_name} 功能',
-                            'required_function': function_name
-                        }), 403
-                    else:
-                        # 对于页面请求，重定向到dashboard并显示错误信息
-                        from flask import flash
-                        flash(f'权限不足：开发者模式用户无权访问 {function_name} 功能', 'error')
-                        return redirect(url_for('dashboard'))
 
             # 检查权限
             try:
