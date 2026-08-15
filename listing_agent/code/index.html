@@ -37,14 +37,14 @@
           </div>
           <span id="sellfoxConnection" class="data-state" data-state="loading">读取中</span>
         </div>
-        <p class="sellfox-panel-copy">导入 ABA 看板后，系统会自动生成当前排名、上期排名、排名环比/同比、前三 ASIN 点击与转化份额、竞品 ASIN 和品牌详情，并把真实排名信号用于三版 Listing 的关键词分配。</p>
+        <p class="sellfox-panel-copy">一次选择四份 ABA Excel 导出表，系统会自动合并去重并生成最终看板，同时保留每个核心词的来源和交叉覆盖关系。</p>
         <div class="aba-import-meta">
-          <span><i data-lucide="file-up"></i> 支持 HTML、JSON、CSV，单个文件不超过 26 MB</span>
+          <span><i data-lucide="file-up"></i> 支持 HTML、JSON、CSV、XLSX；一次可选 1–4 份，合计不超过 26 MB</span>
           <span id="abaImportSource"><i data-lucide="database"></i> 当前使用内置 ABA 排名数据</span>
         </div>
         <div class="mini-actions sellfox-actions aba-import-actions">
-          <input class="aba-file-input" id="abaRankingFileInput" type="file" accept=".html,.htm,.json,.csv,text/html,application/json,text/csv" />
-          <button class="primary-button aba-import-button" id="importAbaRankingBtn" type="button" title="导入 ABA HTML、JSON 或 CSV 看板">
+          <input class="aba-file-input" id="abaRankingFileInput" type="file" multiple accept=".html,.htm,.json,.csv,.xlsx,text/html,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+          <button class="primary-button aba-import-button" id="importAbaRankingBtn" type="button" title="一次导入最多四份 ABA 文件并合并生成看板">
             <i data-lucide="upload"></i>
             导入 ABA 看板
           </button>

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
 from flask import Flask
+from openpyxl import Workbook
 
 from listing_agent import listing_agent_bp
 from listing_agent import blueprint as listing_module
@@ -186,6 +189,135 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(parsed["rows"][0]["searchFrequencyRank"], 2345)
         self.assertEqual(parsed["rows"][0]["previousSearchFrequencyRank"], 2931)
         self.assertAlmostEqual(parsed["rows"][0]["top3AsinConversionShare"], 0.28)
+
+    def test_xlsx_aba_import_supports_title_row_and_chinese_columns(self) -> None:
+        self.login()
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "ABA 数据"
+        worksheet.append(["ABA 搜索词排名导出"])
+        worksheet.append(
+            [
+                "站点名称",
+                "搜索词",
+                "搜索词频率排名",
+                "排名环比",
+                "排名同比",
+                "前3ASIN点击量占比",
+                "前3ASIN转化占比",
+            ]
+        )
+        worksheet.append(["美国", "lash xlsx keyword", "2,345", 0.2, 0.1, 0.35, 0.28])
+        xlsx_file = io.BytesIO()
+        workbook.save(xlsx_file)
+        workbook.close()
+        xlsx_file.seek(0)
+        malformed_dimension_file = io.BytesIO()
+        with zipfile.ZipFile(xlsx_file, "r") as source_zip, zipfile.ZipFile(
+            malformed_dimension_file, "w"
+        ) as target_zip:
+            for item in source_zip.infolist():
+                content = source_zip.read(item.filename)
+                if item.filename == "xl/worksheets/sheet1.xml":
+                    content = re.sub(
+                        br'<dimension ref="[^"]+"\s*/>',
+                        b'<dimension ref="A1"/>',
+                        content,
+                        count=1,
+                    )
+                target_zip.writestr(item, content)
+        malformed_dimension_file.seek(0)
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            active_file = Path(temporary_directory) / "active-aba-ranking.json"
+            with patch.object(listing_module, "ACTIVE_RANKING_FILE", active_file):
+                response = self.client.post(
+                    "/listing-agent/api/sellfox/import-ranking",
+                    data={"file": (malformed_dimension_file, "aba-export.xlsx")},
+                    content_type="multipart/form-data",
+                )
+                self.addCleanup(response.close)
+                saved = json.loads(active_file.read_text(encoding="utf-8"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["summary"]["uniqueTerms"], 1)
+        self.assertEqual(saved["meta"]["importedSource"], "aba-export.xlsx")
+        self.assertEqual(saved["rows"][0]["searchTerm"], "lash xlsx keyword")
+        self.assertEqual(saved["rows"][0]["searchFrequencyRank"], 2345)
+        self.assertEqual(saved["rows"][0]["previousSearchFrequencyRank"], 2931)
+        self.assertAlmostEqual(saved["rows"][0]["top3AsinConversionShare"], 0.28)
+
+    def test_four_xlsx_files_merge_into_one_dashboard_with_source_masks(self) -> None:
+        self.login()
+
+        def build_xlsx(core_term: str, rank: int) -> io.BytesIO:
+            headers = [
+                "站点名称", "搜索词", "搜索词频率排名", "排名环比", "排名同比",
+                "前3ASIN点击量占比", "前3ASIN转化占比",
+                "#1已点击的ASIN", "#1商品名称", "#1点击份额", "#1转化份额",
+                "#1品牌", "#1品类", "#1月销量",
+                "#2已点击的ASIN", "#2商品名称", "#2点击份额", "#2转化份额",
+                "#2品牌", "#2品类", "#2月销量",
+                "#3已点击的ASIN", "#3商品名称", "#3点击份额", "#3转化份额",
+                "#3品牌", "#3品类", "#3月销量", "商品数",
+            ]
+
+            def ranking_row(term: str, current_rank: int) -> list[object]:
+                values: list[object] = [None] * 29
+                values[:7] = ["美国", term, current_rank, 0.2, 0.1, 0.35, 0.28]
+                values[7:14] = [
+                    f"ASIN-{core_term}", f"{core_term} product", 0.2, 0.15,
+                    f"{core_term} brand", "Beauty & Personal Care", 1000,
+                ]
+                values[28] = 500
+                return values
+
+            workbook = Workbook()
+            worksheet = workbook.active
+            worksheet.append(headers)
+            worksheet.append(ranking_row(core_term, rank))
+            worksheet.append(ranking_row("shared keyword", 100))
+            stream = io.BytesIO()
+            workbook.save(stream)
+            workbook.close()
+            stream.seek(0)
+            return stream
+
+        uploads = [
+            (
+                build_xlsx(core_term, 1000 + index),
+                f"search_terms_analysis_2026-08-02~2026-08-08-{index}.xlsx",
+            )
+            for index, core_term in enumerate(("lash", "lashes", "eyelash", "eyelashes"), 1)
+        ]
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            active_file = Path(temporary_directory) / "active-aba-ranking.json"
+            with patch.object(listing_module, "ACTIVE_RANKING_FILE", active_file):
+                response = self.client.post(
+                    "/listing-agent/api/sellfox/import-ranking",
+                    data={"file": uploads[0], "files": uploads[1:]},
+                    content_type="multipart/form-data",
+                )
+                dashboard_response = self.client.get("/listing-agent/aba-ranking/")
+                self.addCleanup(response.close)
+                self.addCleanup(dashboard_response.close)
+                saved = json.loads(active_file.read_text(encoding="utf-8"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["summary"]["rawRows"], 8)
+        self.assertEqual(response.get_json()["summary"]["uniqueTerms"], 5)
+        self.assertEqual(saved["meta"]["dateRange"], "2026-08-02 至 2026-08-08")
+        self.assertEqual(len(saved["meta"]["sourceSummary"]), 4)
+        rows = {row["searchTerm"]: row for row in saved["rows"]}
+        self.assertEqual(rows["shared keyword"]["sourceMask"], 15)
+        self.assertEqual(rows["shared keyword"]["sourceCount"], 4)
+        self.assertEqual(rows["lash"]["sourceMask"], 1)
+        self.assertEqual(rows["lashes"]["sourceMask"], 2)
+        self.assertEqual(rows["eyelash"]["sourceMask"], 4)
+        self.assertEqual(rows["eyelashes"]["sourceMask"], 8)
+        self.assertEqual(rows["lash"]["top3ProductNames"][0], "lash product")
+        self.assertIn("lash product", dashboard_response.get_data(as_text=True))
 
     def test_listing_generation_returns_exactly_three_variants(self) -> None:
         self.login()

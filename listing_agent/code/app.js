@@ -245,8 +245,8 @@ function bindEvents() {
   $("#syncSellfoxBtn").addEventListener("click", syncSellfoxRankings);
   $("#importAbaRankingBtn").addEventListener("click", () => $("#abaRankingFileInput").click());
   $("#abaRankingFileInput").addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (file) await importAbaRankingFile(file);
+    const files = Array.from(event.target.files || []);
+    if (files.length) await importAbaRankingFiles(files);
     event.target.value = "";
   });
   $("#addRiskTermBtn").addEventListener("click", addRiskTerm);
@@ -795,7 +795,13 @@ async function syncSellfoxRankings() {
   await loadSellfoxRankingFile();
 }
 
-async function importAbaRankingFile(file) {
+async function importAbaRankingFiles(files) {
+  const selectedFiles = Array.from(files || []);
+  if (!selectedFiles.length) return;
+  if (selectedFiles.length > 4) {
+    showToast("一次最多选择 4 份 ABA 文件");
+    return;
+  }
   const button = $("#importAbaRankingBtn");
   const originalHtml = button.innerHTML;
   button.disabled = true;
@@ -806,7 +812,10 @@ async function importAbaRankingFile(file) {
 
   try {
     const body = new FormData();
-    body.append("file", file, file.name);
+    // 第一份沿用旧接口字段，其余文件使用多文件字段；新后端会合并读取，
+    // 旧后端在服务尚未重启时至少也能正确收到第一份文件。
+    body.append("file", selectedFiles[0], selectedFiles[0].name);
+    selectedFiles.slice(1).forEach((file) => body.append("files", file, file.name));
     const response = await fetch(`${LISTING_API_BASE}/sellfox/import-ranking`, {
       method: "POST",
       body
@@ -815,8 +824,8 @@ async function importAbaRankingFile(file) {
     if (!response.ok || !payload.ok) throw new Error(payload.message || `导入失败（${response.status}）`);
     await loadSellfoxRankingFile({ silent: true });
     const count = Number(payload.summary?.uniqueTerms || sellfoxSnapshot.rows.length || 0);
-    setSellfoxConnection("ok", `已生成 ${count.toLocaleString("zh-CN")} 条排名详情`);
-    showToast(`ABA 看板导入成功，已生成 ${count.toLocaleString("zh-CN")} 条排名详情`);
+    setSellfoxConnection("ok", `${selectedFiles.length} 份已合并 · ${count.toLocaleString("zh-CN")} 条排名详情`);
+    showToast(`${selectedFiles.length} 份 ABA 数据已合并，生成 ${count.toLocaleString("zh-CN")} 条排名详情`);
   } catch (error) {
     setSellfoxConnection("error", "导入失败");
     showToast(error.message || "ABA 看板导入失败");

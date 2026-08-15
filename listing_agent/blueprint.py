@@ -13,6 +13,7 @@ from typing import Any
 
 import requests
 from flask import Blueprint, Response, jsonify, redirect, request, send_from_directory, session, url_for
+from openpyxl import load_workbook
 
 from secret_settings import env
 
@@ -29,6 +30,8 @@ DEFAULT_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_SILICONFLOW_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
 DEFAULT_SELLFOX_DASHBOARD_URL = "http://127.0.0.1:8765"
 MAX_BODY_BYTES = 26 * 1024 * 1024
+MAX_RANKING_IMPORT_FILES = 4
+DEFAULT_RANKING_CORE_ORDER = ("lash", "lashes", "eyelash", "eyelashes")
 VISION_MODEL_FALLBACKS = (
     DEFAULT_SILICONFLOW_MODEL,
     "Qwen/Qwen3-VL-32B-Instruct",
@@ -433,23 +436,42 @@ def api_sellfox_ranking_file():
 
 @listing_agent_bp.post("/api/sellfox/import-ranking")
 def api_sellfox_import_ranking():
-    upload = request.files.get("file")
-    filename = Path(upload.filename or "").name if upload else ""
-    if not upload or not filename:
+    # 同时接收旧前端的 file 和新前端的 files，避免服务/静态资源
+    # 热更新先后不一致时出现“请选择文件”的误报。
+    uploads = request.files.getlist("file") + request.files.getlist("files")
+    uploads = [upload for upload in uploads if upload and Path(upload.filename or "").name]
+    if not uploads:
         return jsonify({"ok": False, "message": "请选择要导入的 ABA 看板文件。"}), 400
+    if len(uploads) > MAX_RANKING_IMPORT_FILES:
+        return jsonify({"ok": False, "message": "一次最多导入 4 个 ABA 看板文件。"}), 400
 
-    suffix = Path(filename).suffix.lower()
-    if suffix not in {".html", ".htm", ".json", ".csv"}:
-        return jsonify({"ok": False, "message": "仅支持 HTML、JSON 或 CSV 格式的 ABA 看板。"}), 400
-
-    content = upload.stream.read(MAX_BODY_BYTES + 1)
-    if not content:
-        return jsonify({"ok": False, "message": "上传的 ABA 看板为空。"}), 400
-    if len(content) > MAX_BODY_BYTES:
-        return jsonify({"ok": False, "message": "ABA 看板文件不能超过 26 MB。"}), 413
+    upload_sources: list[tuple[str, str, bytes]] = []
+    total_bytes = 0
+    for upload in uploads:
+        filename = Path(upload.filename or "").name
+        suffix = Path(filename).suffix.lower()
+        if suffix not in {".html", ".htm", ".json", ".csv", ".xlsx"}:
+            return jsonify({"ok": False, "message": f"{filename} 格式不支持，仅支持 HTML、JSON、CSV 或 XLSX。"}), 400
+        content = upload.stream.read(MAX_BODY_BYTES + 1)
+        if not content:
+            return jsonify({"ok": False, "message": f"{filename} 是空文件。"}), 400
+        total_bytes += len(content)
+        if total_bytes > MAX_BODY_BYTES:
+            return jsonify({"ok": False, "message": "ABA 看板文件合计不能超过 26 MB。"}), 413
+        upload_sources.append((filename, suffix, content))
 
     try:
-        dashboard_data = _parse_uploaded_ranking_data(content, suffix, filename)
+        parsed_sources = []
+        for filename, suffix, content in upload_sources:
+            parsed = _parse_uploaded_ranking_data(content, suffix, filename)
+            if not parsed.get("rows"):
+                raise ValueError(f"{filename} 中未找到可用的 ABA 搜索词排名记录。")
+            parsed_sources.append((filename, parsed))
+        dashboard_data = (
+            _merge_uploaded_ranking_datasets(parsed_sources)
+            if len(parsed_sources) > 1 or upload_sources[0][1] in {".csv", ".xlsx"}
+            else parsed_sources[0][1]
+        )
         rows = dashboard_data.get("rows") if isinstance(dashboard_data.get("rows"), list) else []
         if not rows:
             raise ValueError("未找到可用的 ABA 搜索词排名记录。")
@@ -464,7 +486,7 @@ def api_sellfox_import_ranking():
         return jsonify(
             {
                 "ok": True,
-                "source": filename,
+                "source": meta.get("importedSource") or upload_sources[0][0],
                 "importedAt": meta.get("importedAt"),
                 "summary": {
                     "rawRows": meta.get("rawRowCount") or len(rows),
@@ -680,6 +702,10 @@ def _load_ranking_data(source_path: Path) -> dict[str, Any]:
 
 
 def _parse_uploaded_ranking_data(content: bytes, suffix: str, filename: str) -> dict[str, Any]:
+    if suffix == ".xlsx":
+        parsed: Any = {"rows": _parse_xlsx_ranking_rows(content)}
+        return _normalize_ranking_dataset(parsed, filename, imported=True)
+
     try:
         source = content.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -692,6 +718,208 @@ def _parse_uploaded_ranking_data(content: bytes, suffix: str, filename: str) -> 
     else:
         parsed = {"rows": list(csv.DictReader(io.StringIO(source)))}
     return _normalize_ranking_dataset(parsed, filename, imported=True)
+
+
+def _parse_xlsx_ranking_rows(content: bytes) -> list[dict[str, Any]]:
+    try:
+        workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception as exc:
+        raise ValueError(f"无法读取 XLSX 文件：{_safe_detail(exc)}") from exc
+
+    term_headers = {"searchterm", "搜索词", "关键词", "keyword"}
+    rank_headers = {
+        "searchfrequencyrank",
+        "搜索词频率排名",
+        "aba排名",
+        "排名",
+    }
+    try:
+        for worksheet in workbook.worksheets:
+            # 部分 ABA 导出文件的 XML 明明包含完整数据，却把 dimension 错写为 A1。
+            # read_only 模式会相信这个范围，因此必须重置后再逐行扫描。
+            worksheet.reset_dimensions()
+            worksheet_rows = worksheet.iter_rows(values_only=True)
+            for candidate in worksheet_rows:
+                headers = [_clean(value) for value in candidate]
+                normalized_headers = {
+                    re.sub(r"[\s_\-]+", "", header).casefold()
+                    for header in headers
+                    if header
+                }
+                if not (normalized_headers & term_headers and normalized_headers & rank_headers):
+                    continue
+
+                rows = []
+                for values in worksheet_rows:
+                    if not any(value not in (None, "") for value in values):
+                        continue
+                    rows.append(
+                        {
+                            header: values[index] if index < len(values) else None
+                            for index, header in enumerate(headers)
+                            if header
+                        }
+                    )
+                if rows:
+                    return rows
+    finally:
+        workbook.close()
+
+    raise ValueError("XLSX 中未找到包含“搜索词”和“搜索词频率排名”的数据表。")
+
+
+def _merge_uploaded_ranking_datasets(
+    sources: list[tuple[str, dict[str, Any]]],
+) -> dict[str, Any]:
+    core_order = list(DEFAULT_RANKING_CORE_ORDER)
+    assigned_cores = _assign_uploaded_core_terms(sources, core_order)
+    merged: dict[tuple[str, str], dict[str, Any]] = {}
+    source_keys: list[set[tuple[str, str]]] = []
+    conflicting_keys: set[tuple[str, str]] = set()
+
+    for source_index, (_filename, dataset) in enumerate(sources):
+        source_bit = 1 << core_order.index(assigned_cores[source_index])
+        keys: set[tuple[str, str]] = set()
+        for raw_row in dataset.get("rows", []):
+            if not isinstance(raw_row, dict):
+                continue
+            row = dict(raw_row)
+            key = (
+                _clean(row.get("marketplace")).casefold(),
+                _clean(row.get("searchTerm")).casefold(),
+            )
+            if not key[1]:
+                continue
+            keys.add(key)
+            current = merged.get(key)
+            if current is None:
+                row["sourceMask"] = source_bit
+                merged[key] = row
+                continue
+            if row.get("searchFrequencyRank") != current.get("searchFrequencyRank"):
+                conflicting_keys.add(key)
+            current_mask = int(current.get("sourceMask") or 0)
+            if row["searchFrequencyRank"] < current["searchFrequencyRank"]:
+                row["sourceMask"] = current_mask | source_bit
+                merged[key] = row
+            else:
+                current["sourceMask"] = current_mask | source_bit
+        source_keys.append(keys)
+
+    rows = sorted(merged.values(), key=lambda item: item["searchFrequencyRank"])
+    for row in rows:
+        row["sourceCount"] = int(row.get("sourceMask") or 0).bit_count()
+
+    source_summary = []
+    for source_index, (filename, _dataset) in enumerate(sources):
+        core_term = assigned_cores[source_index]
+        source_bit = 1 << core_order.index(core_term)
+        keys = source_keys[source_index]
+        source_rows = [merged[key] for key in keys]
+        exact = next(
+            (
+                row
+                for row in source_rows
+                if _clean(row.get("searchTerm")).casefold() == core_term.casefold()
+            ),
+            None,
+        )
+        best = min(source_rows, key=lambda row: row["searchFrequencyRank"], default=None)
+        source_summary.append(
+            {
+                "coreTerm": core_term,
+                "sourceBit": source_bit,
+                "sourceFile": filename,
+                "rowCount": len(source_rows),
+                "exclusiveCount": sum(1 for row in source_rows if row["sourceCount"] == 1),
+                "overlapCount": sum(1 for row in source_rows if row["sourceCount"] > 1),
+                "top30000Count": sum(
+                    1 for row in source_rows if row["searchFrequencyRank"] <= 30000
+                ),
+                "exactRank": exact.get("searchFrequencyRank") if exact else None,
+                "bestRank": best.get("searchFrequencyRank") if best else None,
+                "bestTerm": best.get("searchTerm") if best else "",
+            }
+        )
+    source_summary.sort(key=lambda item: core_order.index(item["coreTerm"]))
+
+    imported_at = datetime.now(timezone.utc)
+    raw_row_count = sum(
+        int(dataset.get("meta", {}).get("rawRowCount") or len(dataset.get("rows", [])))
+        for _filename, dataset in sources
+    )
+    marketplaces = _unique_strings([row.get("marketplace") for row in rows])
+    source_names = [filename for filename, _dataset in sources]
+    return {
+        "meta": {
+            "title": "ABA 四核心词综合排名",
+            "marketplace": " / ".join(marketplaces),
+            "dateRange": _ranking_import_date_range(source_names, imported_at),
+            "generatedAt": imported_at.isoformat(),
+            "importedAt": imported_at.isoformat(),
+            "importedSource": source_names[0] if len(sources) == 1 else f"{len(sources)}份文件合并",
+            "rawRowCount": raw_row_count,
+            "uniqueTermCount": len(rows),
+            "duplicateTermCount": sum(1 for row in rows if row["sourceCount"] > 1),
+            "duplicateRowsRemoved": max(0, raw_row_count - len(rows)),
+            "conflictingRankCount": len(conflicting_keys),
+            "top30000Count": sum(1 for row in rows if row["searchFrequencyRank"] <= 30000),
+            "coreOrder": core_order,
+            "sourceSummary": source_summary,
+        },
+        "rows": rows,
+    }
+
+
+def _assign_uploaded_core_terms(
+    sources: list[tuple[str, dict[str, Any]]],
+    core_order: list[str],
+) -> list[str]:
+    candidate_sets = []
+    for _filename, dataset in sources:
+        terms = {
+            _clean(row.get("searchTerm")).casefold()
+            for row in dataset.get("rows", [])
+            if isinstance(row, dict)
+        }
+        candidate_sets.append({term for term in core_order if term.casefold() in terms})
+
+    assignments: dict[int, str] = {}
+    used: set[str] = set()
+    for core_term in core_order:
+        matching_sources = [
+            index
+            for index, candidates in enumerate(candidate_sets)
+            if index not in assignments and core_term in candidates
+        ]
+        if len(matching_sources) == 1:
+            assignments[matching_sources[0]] = core_term
+            used.add(core_term)
+
+    for index, candidates in enumerate(candidate_sets):
+        if index in assignments:
+            continue
+        available = [term for term in core_order if term in candidates and term not in used]
+        if len(available) == 1:
+            assignments[index] = available[0]
+            used.add(available[0])
+
+    remaining = [term for term in core_order if term not in used]
+    for index in range(len(sources)):
+        if index not in assignments:
+            assignments[index] = remaining.pop(0)
+    return [assignments[index] for index in range(len(sources))]
+
+
+def _ranking_import_date_range(source_names: list[str], imported_at: datetime) -> str:
+    ranges = []
+    for source_name in source_names:
+        match = re.search(r"(\d{4}-\d{2}-\d{2})\s*[~至]\s*(\d{4}-\d{2}-\d{2})", source_name)
+        if match:
+            ranges.append((match.group(1), match.group(2)))
+    if ranges and len(set(ranges)) == 1:
+        return f"{ranges[0][0]} 至 {ranges[0][1]}"
+    return f"导入于 {imported_at.date().isoformat()}"
 
 
 def _extract_dashboard_json(source: str) -> str:
@@ -744,7 +972,7 @@ def _normalize_ranking_dataset(data: Any, source_name: str, *, imported: bool) -
             _clean(rows[0].get("marketplace")) if rows else ""
         )
         core_order = meta.get("coreOrder") if isinstance(meta.get("coreOrder"), list) else []
-        meta["coreOrder"] = core_order or ["lash", "lashes", "eyelash", "eyelashes"]
+        meta["coreOrder"] = core_order or list(DEFAULT_RANKING_CORE_ORDER)
         meta["sourceSummary"] = _build_imported_source_summary(rows, meta["coreOrder"], source_name)
     return {"meta": meta, "rows": rows}
 
@@ -798,24 +1026,48 @@ def _normalize_ranking_row(row: Any) -> dict[str, Any] | None:
     )
     if previous_rank is None and mom is not None and mom < 1:
         previous_rank = max(1, round(rank / (1 - mom)))
-    asin_list = _ranking_list(_ranking_value(row, "top3AsinList", "top3_asin_list", "前三ASIN"))
-    brand_list = _ranking_list(_ranking_value(row, "topBrands", "top_brands", "前三品牌"))
-    if not asin_list:
-        asin_list = _unique_strings(
-            [
-                _ranking_value(row, "#1已点击的ASIN", "asin1", "top1Asin"),
-                _ranking_value(row, "#2已点击的ASIN", "asin2", "top2Asin"),
-                _ranking_value(row, "#3已点击的ASIN", "asin3", "top3Asin"),
-            ]
-        )
-    if not brand_list:
-        brand_list = _unique_strings(
-            [
-                _ranking_value(row, "#1品牌", "brand1", "top1Brand"),
-                _ranking_value(row, "#2品牌", "brand2", "top2Brand"),
-                _ranking_value(row, "#3品牌", "brand3", "top3Brand"),
-            ]
-        )
+    asin_list = _ranking_position_values(
+        row,
+        ("top3AsinList", "top3_asin_list", "前三ASIN"),
+        (
+            ("#1已点击的ASIN", "asin1", "top1Asin"),
+            ("#2已点击的ASIN", "asin2", "top2Asin"),
+            ("#3已点击的ASIN", "asin3", "top3Asin"),
+        ),
+    )
+    brand_list = _ranking_position_values(
+        row,
+        ("topBrands", "top_brands", "前三品牌"),
+        (("#1品牌", "brand1", "top1Brand"), ("#2品牌", "brand2", "top2Brand"), ("#3品牌", "brand3", "top3Brand")),
+    )
+    product_names = _ranking_position_values(
+        row,
+        ("top3ProductNames", "top3_product_names"),
+        (("#1商品名称", "product1"), ("#2商品名称", "product2"), ("#3商品名称", "product3")),
+    )
+    click_shares = _ranking_position_values(
+        row,
+        ("top3ClickShares", "top3_click_shares"),
+        (("#1点击份额", "clickShare1"), ("#2点击份额", "clickShare2"), ("#3点击份额", "clickShare3")),
+        percent=True,
+    )
+    conversion_shares = _ranking_position_values(
+        row,
+        ("top3ConversionShares", "top3_conversion_shares"),
+        (("#1转化份额", "conversionShare1"), ("#2转化份额", "conversionShare2"), ("#3转化份额", "conversionShare3")),
+        percent=True,
+    )
+    categories = _ranking_position_values(
+        row,
+        ("top3Categories", "top3_categories"),
+        (("#1品类", "category1"), ("#2品类", "category2"), ("#3品类", "category3")),
+    )
+    monthly_sales = _ranking_position_values(
+        row,
+        ("top3MonthlySales", "top3_monthly_sales"),
+        (("#1月销量", "monthlySales1"), ("#2月销量", "monthlySales2"), ("#3月销量", "monthlySales3")),
+        numeric=True,
+    )
     return {
         "marketplace": _clean(_ranking_value(row, "marketplace", "站点名称", "站点")) or "美国",
         "searchTerm": _clean(term),
@@ -833,9 +1085,38 @@ def _normalize_ranking_row(row: Any) -> dict[str, Any] | None:
         ) or 0,
         "top3AsinList": asin_list[:3],
         "topBrands": brand_list[:3],
+        "top3ProductNames": product_names,
+        "top3ClickShares": click_shares,
+        "top3ConversionShares": conversion_shares,
+        "top3Categories": categories,
+        "top3MonthlySales": monthly_sales,
+        "productCount": _ranking_number(_ranking_value(row, "productCount", "product_count", "商品数")),
         "sourceMask": _ranking_number(_ranking_value(row, "sourceMask", "source_mask")) or 0,
         "sourceCount": _ranking_number(_ranking_value(row, "sourceCount", "source_count")) or 0,
     }
+
+
+def _ranking_position_values(
+    row: dict[str, Any],
+    collection_aliases: tuple[str, ...],
+    position_aliases: tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]],
+    *,
+    percent: bool = False,
+    numeric: bool = False,
+) -> list[Any]:
+    collection = _ranking_value(row, *collection_aliases)
+    if isinstance(collection, list):
+        raw_values = list(collection[:3])
+    elif collection not in (None, ""):
+        raw_values = _ranking_list(collection)[:3]
+    else:
+        raw_values = [_ranking_value(row, *aliases) for aliases in position_aliases]
+    raw_values.extend([None] * (3 - len(raw_values)))
+    if percent:
+        return [_ranking_number(value, percent=True) for value in raw_values[:3]]
+    if numeric:
+        return [_ranking_number(value) for value in raw_values[:3]]
+    return [_clean(value) for value in raw_values[:3]]
 
 
 def _ranking_value(row: dict[str, Any], *aliases: str) -> Any:
@@ -893,10 +1174,22 @@ def _ranking_row_to_dashboard_array(row: dict[str, Any]) -> list[Any]:
     values[4] = row.get("rankYoY")
     values[5] = row.get("top3AsinClickShare")
     values[6] = row.get("top3AsinConversionShare")
-    for index, asin in zip((7, 14, 21), row.get("top3AsinList") or []):
-        values[index] = asin
-    for index, brand in zip((11, 18, 25), row.get("topBrands") or []):
-        values[index] = brand
+    asins = list(row.get("top3AsinList") or [])
+    product_names = list(row.get("top3ProductNames") or [])
+    click_shares = list(row.get("top3ClickShares") or [])
+    conversion_shares = list(row.get("top3ConversionShares") or [])
+    brands = list(row.get("topBrands") or [])
+    categories = list(row.get("top3Categories") or [])
+    monthly_sales = list(row.get("top3MonthlySales") or [])
+    for position, index in enumerate((7, 14, 21)):
+        values[index] = asins[position] if position < len(asins) else None
+        values[index + 1] = product_names[position] if position < len(product_names) else None
+        values[index + 2] = click_shares[position] if position < len(click_shares) else None
+        values[index + 3] = conversion_shares[position] if position < len(conversion_shares) else None
+        values[index + 4] = brands[position] if position < len(brands) else None
+        values[index + 5] = categories[position] if position < len(categories) else None
+        values[index + 6] = monthly_sales[position] if position < len(monthly_sales) else None
+    values[28] = row.get("productCount")
     values[29] = row.get("sourceMask") or 0
     values[30] = row.get("sourceCount") or 0
     return values
@@ -944,8 +1237,14 @@ def _map_dashboard_row(row: Any) -> dict[str, Any] | None:
         "rankYoY": _finite_number(row[4]),
         "top3AsinClickShare": _finite_number(row[5]) or 0,
         "top3AsinConversionShare": _finite_number(row[6]) or 0,
-        "top3AsinList": [_clean(row[index]) for index in (7, 14, 21) if row[index]],
-        "topBrands": [_clean(row[index]) for index in (11, 18, 25) if _clean(row[index])],
+        "top3AsinList": [_clean(row[index]) for index in (7, 14, 21)],
+        "topBrands": [_clean(row[index]) for index in (11, 18, 25)],
+        "top3ProductNames": [_clean(row[index]) for index in (8, 15, 22)],
+        "top3ClickShares": [_finite_number(row[index]) for index in (9, 16, 23)],
+        "top3ConversionShares": [_finite_number(row[index]) for index in (10, 17, 24)],
+        "top3Categories": [_clean(row[index]) for index in (12, 19, 26)],
+        "top3MonthlySales": [_finite_number(row[index]) for index in (13, 20, 27)],
+        "productCount": _finite_number(row[28]),
         "sourceMask": _finite_number(row[29]) or 0,
         "sourceCount": _finite_number(row[30]) or 0,
     }
