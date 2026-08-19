@@ -1048,22 +1048,6 @@ FEATURES = [
             + A_PLUS_PRODUCT_LOCK_RULES
         ),
     },
-    {
-        "key": "jimeng_v40",
-        "name": "Agent文生图",
-        "summary": "输入文字直接生成高质量图片",
-        "mode": "jimeng",
-        "model": JIMENG_MODEL_NAME,
-        "output_mode": "image",
-        "min_images": 0,
-        "max_output_images": 1,
-        "description": "基于 Agent 4.6 图片生成能力的文生图功能，支持单张高质量出图。",
-        "default_prompt": (
-                "请根据文字要求生成 1 张高质量图片。"
-            "画面需要细节丰富、构图完整、质感自然，适合商业展示。"
-            "除非用户明确要求，否则不要输出多张，不要拼图，不要多联画。"
-        ),
-    },
 ]
 
 FEATURE_DISPLAY_ORDER = {
@@ -16796,7 +16780,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         return
     default_model_for_feature = str(feature.get("model") or model)
     feature_mode = str(feature.get("mode") or "openrouter")
-    supports_jimeng_generation = feature_mode == "jimeng"
     model_options_for_feature = MODEL_OPTIONS
     if feature.get("key") == "hd_batch":
         default_model_for_feature = NANO_BANANA_MODEL
@@ -16810,7 +16793,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     elif feature.get("key") in A_PLUS_IMAGES_API_FEATURE_KEYS:
         default_model_for_feature = NANO_BANANA_MODEL
         model_options_for_feature = [NANO_BANANA_MODEL]
-    if not supports_jimeng_generation and default_model_for_feature not in model_options_for_feature:
+    if default_model_for_feature not in model_options_for_feature:
         default_model_for_feature = model_options_for_feature[0] if model_options_for_feature else DEFAULT_MODEL
     min_images = int(feature.get("min_images", 0))
     max_output_images = int(feature.get("max_output_images", 0))
@@ -16923,11 +16906,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         left_panel_title = (
             "创作设置"
             if supports_main_image_a_plus or supports_amazon_a_plus
-            else (
-                "上传待分析主图"
-                if supports_image_smart_analysis
-                else ("文字要求" if supports_jimeng_generation else "上传与设置")
-            )
+            else "上传待分析主图"
+            if supports_image_smart_analysis
+            else "上传与设置"
         )
         st.markdown(
             f'<div class="result-block-title">{left_panel_title}</div>',
@@ -16942,8 +16923,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         side_angle_reference_file = None
         ai_qa_source_files: list[Any] = []
         ai_qa_prompt = ""
-        jimeng_source_files: list[Any] = []
-        jimeng_prompt = ""
         amazon_source_files: list[Any] = []
         amazon_size_text = "1464*600"
         amazon_a_plus_prompt = ""
@@ -16974,24 +16953,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             or supports_side_angle_reference
         )
 
-        if supports_jimeng_generation:
-            st.markdown(f'<div class="panel-subtitle">参考图片（最多 {JIMENG_MAX_INPUT_IMAGES} 张，可不传）</div>', unsafe_allow_html=True)
-            jimeng_source_files = render_multi_image_uploader(
-                "上传 Agent 参考图",
-                key=f"jimeng_uploader_{feature['key']}",
-                help_text=f"会先保存到服务器，再按 {get_jimeng_public_upload_base_url() or '/jimeng_uploads'} 生成公网地址后传给 Agent。最多 {JIMENG_MAX_INPUT_IMAGES} 张。",
-                max_files=JIMENG_MAX_INPUT_IMAGES,
-            )
-            st.markdown('<div class="panel-subtitle">生成要求</div>', unsafe_allow_html=True)
-            jimeng_prompt = st.text_area(
-                "输入 Agent 的生图要求",
-                key=f"jimeng_prompt_{feature['key']}",
-                placeholder="例如：生成一张高级商业人像海报，肤质细腻，白色极简背景，灯光柔和，整体质感高级。",
-                height=180,
-                label_visibility="collapsed",
-            )
-            st.caption("支持纯文字生成，也支持先上传图片，再由服务器生成 `jimeng_uploads` 公网地址后传给 Agent。")
-        elif supports_batch_multi_upload:
+        if supports_batch_multi_upload:
             st.markdown(
                 f'<div class="panel-subtitle">原图（最多 {BATCH_MULTI_IMAGE_MAX_FILES} 张）</div>',
                 unsafe_allow_html=True,
@@ -17990,16 +17952,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 '<div class="inline-action-row"></div>',
                 unsafe_allow_html=True,
             )
-            if supports_jimeng_generation:
-                st.caption("当前模型：Agent")
-                submitted = st.button(
-                    process_button_label,
-                    key=f"process_{feature['key']}",
-                    type="primary",
-                    use_container_width=True,
-                    disabled=process_button_disabled,
-                )
-            elif len(model_options_for_feature) == 1:
+            if len(model_options_for_feature) == 1:
                 active_model = model_options_for_feature[0]
                 st.markdown(
                     '<div class="fixed-model-card"><span>当前模型</span>'
@@ -18324,14 +18277,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             files = list(ai_qa_source_files)
         elif supports_a_plus_images_api:
             files = list(amazon_source_files)
-        elif supports_jimeng_generation:
-            files = list(jimeng_source_files)
         else:
             files = [uploaded_file] if uploaded_file is not None else []
         custom_prompt = (
-            jimeng_prompt
-            if supports_jimeng_generation
-            else ai_qa_prompt
+            ai_qa_prompt
             if supports_ai_qa_image
             else main_image_a_plus_prompt
             if supports_main_image_a_plus
@@ -18362,13 +18311,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             else None
         )
         using_jimeng_for_request = (
-            supports_jimeng_generation
-            or feature_mode == "jimeng_upscale"
+            feature_mode == "jimeng_upscale"
             or is_jimeng_model(active_model)
         )
-        if supports_jimeng_generation and not jimeng_prompt.strip():
-            st.warning("请输入 Agent 的生图要求。")
-        elif using_jimeng_for_request and len(files) > JIMENG_MAX_INPUT_IMAGES and not supports_batch_multi_upload:
+        if using_jimeng_for_request and len(files) > JIMENG_MAX_INPUT_IMAGES and not supports_batch_multi_upload:
             st.warning(f"Agent 最多只能上传 {JIMENG_MAX_INPUT_IMAGES} 张图片。")
         elif (
             supports_main_image_a_plus

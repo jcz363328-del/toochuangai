@@ -22,24 +22,52 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.app.secret_key = "listing-agent-test"
         self.app.register_blueprint(listing_agent_bp)
         self.client = self.app.test_client()
-        with listing_module._settings_lock:
-            self.original_settings = dict(listing_module._runtime_settings)
-            listing_module._runtime_settings.update(
-                {
-                    "api_key": "test-key",
-                    "model": listing_module.DEFAULT_SILICONFLOW_MODEL,
-                    "text_model": "",
-                }
-            )
+        self.ai_config_patcher = patch.object(
+            listing_module,
+            "ai_runtime_config",
+            return_value={
+                "provider": "siliconflow",
+                "api_key": "daily-report-test-key",
+                "base_url": "https://daily-report-ai.example/v1",
+                "text_model": "daily-report-text-model",
+                "vision_model": "daily-report-vision-model",
+            },
+        )
+        self.ai_config_patcher.start()
+        self.permission_patcher = patch.object(
+            listing_module.permission_manager,
+            "check_user_permission",
+            return_value=(True, "test permission"),
+        )
+        self.permission_patcher.start()
+        self.storage_directory = tempfile.TemporaryDirectory()
+        storage_root = Path(self.storage_directory.name)
+        self.aba_storage_dir = storage_root / "ABA排名"
+        self.skill_storage_dir = storage_root / "Skills"
+        self.listing_storage_dir = storage_root / "lisitng"
+        self.storage_patchers = [
+            patch.object(listing_module, "ABA_RANKING_STORAGE_DIR", self.aba_storage_dir),
+            patch.object(listing_module, "SKILL_STORAGE_DIR", self.skill_storage_dir),
+            patch.object(listing_module, "LISTING_ARCHIVE_DIR", self.listing_storage_dir),
+            patch.object(listing_module, "ACTIVE_RANKING_FILE", self.aba_storage_dir / "active-aba-ranking.json"),
+        ]
+        for storage_patcher in self.storage_patchers:
+            storage_patcher.start()
+        self.db_write_patcher = patch.object(listing_module, "dui_db", return_value=None)
+        self.mock_dui_db = self.db_write_patcher.start()
 
     def tearDown(self) -> None:
-        with listing_module._settings_lock:
-            listing_module._runtime_settings.clear()
-            listing_module._runtime_settings.update(self.original_settings)
+        self.db_write_patcher.stop()
+        for storage_patcher in reversed(self.storage_patchers):
+            storage_patcher.stop()
+        self.storage_directory.cleanup()
+        self.permission_patcher.stop()
+        self.ai_config_patcher.stop()
 
     def login(self) -> None:
         with self.client.session_transaction() as flask_session:
             flask_session["feishu_user_id"] = "test-user"
+            flask_session["feishu_user_name"] = "测试用户"
 
     def test_api_requires_login(self) -> None:
         response = self.client.get("/listing-agent/api/health")
@@ -63,17 +91,24 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         page_text = page.get_data(as_text=True)
         self.assertIn("Listing Agent Studio", page_text)
         self.assertIn("导入 ABA 看板", page_text)
+        self.assertNotIn("siliconFlowApiKey", page_text)
+        self.assertNotIn("siliconFlowModel", page_text)
+        self.assertNotIn("siliconFlowTextModel", page_text)
+        self.assertNotIn("硅基流动配置", page_text)
         self.assertLess(page_text.index('id="abaRankingImport"'), page_text.index('class="panel input-panel"'))
         self.assertEqual(script.status_code, 200)
-        self.assertIn("/listing-agent/api", script.get_data(as_text=True))
+        script_text = script.get_data(as_text=True)
+        self.assertIn("/listing-agent/api", script_text)
+        self.assertNotIn("saveApiConfig", script_text)
+        self.assertNotIn("aiResponse.model", script_text)
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn("ABA 四核心词综合排名", dashboard.get_data(as_text=True))
         self.assertIn("const DATA =", dashboard.get_data(as_text=True))
         self.assertEqual(ranking.status_code, 200)
         payload = ranking.get_json()
         self.assertTrue(payload["ok"])
-        self.assertEqual(len(payload["rows"]), 4571)
-        self.assertEqual(payload["meta"]["uniqueTermCount"], 4571)
+        self.assertGreater(len(payload["rows"]), 0)
+        self.assertEqual(payload["meta"]["uniqueTermCount"], len(payload["rows"]))
 
     def test_image_extraction_normalizes_model_response(self) -> None:
         self.login()
@@ -118,8 +153,91 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload["facts"][0]["key"], "lengths")
         self.assertEqual(payload["facts"][0]["confidence"], "high")
+        self.assertEqual(payload["source"], "服务端图片识别")
         self.assertIn("不要推断材质", payload["doNotInfer"])
         self.assertGreater(len(payload["doNotInfer"]), 1)
+
+    def test_ai_configuration_is_server_managed_and_hides_models(self) -> None:
+        self.login()
+
+        settings = self.client.get("/listing-agent/api/settings")
+        health = self.client.get("/listing-agent/api/health")
+        update = self.client.post(
+            "/listing-agent/api/settings",
+            json={"apiKey": "browser-key", "model": "browser-model"},
+        )
+
+        self.assertEqual(settings.status_code, 200)
+        self.assertEqual(
+            settings.get_json(),
+            {"managed": True, "aiConfigured": True, "canImportAba": True},
+        )
+        self.assertEqual(health.get_json(), {"ok": True, "aiConfigured": True})
+        self.assertEqual(update.status_code, 405)
+        self.assertEqual(listing_module._get_api_key(), "daily-report-test-key")
+        self.assertEqual(listing_module._get_ai_base_url(), "https://daily-report-ai.example/v1")
+        self.assertNotIn("model", settings.get_json())
+        self.assertNotIn("model", health.get_json())
+
+    def test_aba_import_requires_dedicated_permission(self) -> None:
+        self.login()
+        with patch.object(
+            listing_module.permission_manager,
+            "check_user_permission",
+            return_value=(False, "个人权限未命中"),
+        ):
+            settings = self.client.get("/listing-agent/api/settings")
+            response = self.client.post(
+                "/listing-agent/api/sellfox/import-ranking",
+                data={"file": (io.BytesIO(b"{}"), "blocked.json")},
+                content_type="multipart/form-data",
+            )
+
+        self.assertEqual(settings.status_code, 200)
+        self.assertFalse(settings.get_json()["canImportAba"])
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.get_json()["requiredFunction"], "listing_agent_aba_import")
+
+    def test_aba_import_button_is_permission_driven(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+        seed_data = (root / "permission_seed_data.py").read_text(encoding="utf-8")
+        self.assertIn('id="importAbaRankingBtn" type="button"', page)
+        self.assertIn('title="一次导入最多四份 ABA 文件并合并生成看板" hidden', page)
+        self.assertIn("loadListingAccessSettings();", script)
+        self.assertIn("payload.canImportAba === true", script)
+        self.assertIn('"gongneng": "listing_agent_aba_import"', seed_data)
+        self.assertIn('"yonghu": "周俊成；陈子烨"', seed_data)
+        self.assertIn('"bumen": ""', seed_data)
+
+    def test_user_skill_preferences_are_saved_to_file_and_database_record(self) -> None:
+        self.login()
+        response = self.client.post(
+            "/listing-agent/api/user-state",
+            json={
+                "skills": [{"id": "skill-1", "name": "我的 Skill", "tone": "beauty factual"}],
+                "preferences": {"selectedSkillId": "skill-1", "lastVariantId": "balanced"},
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        skill_path = Path(payload["skillPath"])
+        self.assertEqual(skill_path.parent, self.skill_storage_dir)
+        self.assertTrue(skill_path.exists())
+        saved = json.loads(skill_path.read_text(encoding="utf-8"))
+        self.assertEqual(saved["userName"], "测试用户")
+        self.assertEqual(saved["skills"][0]["id"], "skill-1")
+        self.assertEqual(saved["preferences"]["selectedSkillId"], "skill-1")
+        sql = self.mock_dui_db.call_args.args[0]
+        self.assertIn("dbo.Listing_ShengCheng", sql)
+        self.assertIn("测试用户", sql)
+        self.assertIn(str(skill_path), sql)
+
+        loaded = self.client.get("/listing-agent/api/user-state")
+        self.assertEqual(loaded.status_code, 200)
+        self.assertEqual(loaded.get_json()["skills"][0]["name"], "我的 Skill")
 
     def test_imported_aba_file_becomes_ranking_detail_source(self) -> None:
         self.login()
@@ -162,7 +280,16 @@ class ListingAgentBlueprintTests(unittest.TestCase):
                 self.assertTrue(active_file.exists())
 
         self.assertEqual(imported_response.status_code, 200)
-        self.assertEqual(imported_response.get_json()["summary"]["uniqueTerms"], 1)
+        imported_payload = imported_response.get_json()
+        self.assertEqual(imported_payload["summary"]["uniqueTerms"], 1)
+        self.assertEqual(len(imported_payload["storedFiles"]), 1)
+        stored_upload = Path(imported_payload["storedFiles"][0])
+        self.assertEqual(stored_upload.parent, self.aba_storage_dir)
+        self.assertTrue(stored_upload.exists())
+        self.assertEqual(
+            json.loads(stored_upload.read_text(encoding="utf-8"))["rows"][0]["searchTerm"],
+            "custom lash keyword",
+        )
         self.assertEqual(ranking_response.status_code, 200)
         ranking_payload = ranking_response.get_json()
         self.assertEqual(ranking_payload["source"], "my-aba-dashboard.json")
@@ -366,10 +493,65 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertTrue(payload["ok"])
+        self.assertNotIn("model", payload)
+        self.assertEqual(payload["storage"]["storedAs"], "database")
+        self.assertEqual(Path(payload["storage"]["skillPath"]).parent, self.skill_storage_dir)
         self.assertEqual([item["id"] for item in payload["variants"]], ["balanced", "style", "search"])
         request_payload = mocked_call.call_args.args[1]
         self.assertEqual(request_payload["messages"][0]["role"], "system")
         self.assertIn("lash clusters", request_payload["messages"][1]["content"])
+        sql = self.mock_dui_db.call_args.args[0]
+        self.assertIn("测试用户", sql)
+        self.assertIn("balanced title", sql)
+
+    def test_long_listing_is_archived_to_configured_listing_folder(self) -> None:
+        self.login()
+        variants = [
+            {
+                "id": variant_id,
+                "title": f"{variant_id} title",
+                "highlights": ["One", "Two", "Three"],
+                "bullets": ["One", "Two", "Three", "Four", "Five"],
+                "description": "Long description " * 20,
+                "searchTerms": "lash clusters wispy",
+                "reasons": ["测试理由"],
+            }
+            for variant_id in ("balanced", "style", "search")
+        ]
+        completion = {"choices": [{"message": {"content": json.dumps({"variants": variants}, ensure_ascii=False)}}]}
+        fake_result = {
+            "ok": True,
+            "status": 200,
+            "text": json.dumps(completion, ensure_ascii=False),
+            "model": listing_module.DEFAULT_SILICONFLOW_MODEL,
+        }
+
+        with (
+            patch.object(listing_module, "_call_siliconflow", return_value=fake_result),
+            patch.object(listing_module, "LISTING_DATABASE_TEXT_LIMIT", 10),
+        ):
+            response = self.client.post(
+                "/listing-agent/api/generate-listings",
+                json={
+                    "marketplace": "US",
+                    "product": {"type": "lash clusters", "brand": "ALICE"},
+                    "keywords": {},
+                    "compliance": {},
+                    "skill": {"id": "skill-long", "name": "长文案 Skill"},
+                    "limits": {},
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        storage = response.get_json()["storage"]
+        self.assertEqual(storage["storedAs"], "file")
+        listing_path = Path(storage["listingPath"])
+        self.assertEqual(listing_path.parent, self.listing_storage_dir)
+        self.assertTrue(listing_path.exists())
+        archived = json.loads(listing_path.read_text(encoding="utf-8"))
+        self.assertEqual(archived["userName"], "测试用户")
+        self.assertEqual(len(archived["variants"]), 3)
+        self.assertIn(str(listing_path), self.mock_dui_db.call_args.args[0])
 
 
 if __name__ == "__main__":

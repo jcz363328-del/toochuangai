@@ -8,23 +8,36 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import RLock
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import requests
 from flask import Blueprint, Response, jsonify, redirect, request, send_from_directory, session, url_for
 from openpyxl import load_workbook
 
-from secret_settings import env
+from bjc import dui_db
+from department_permissions import permission_manager
+from secret_settings import ai_runtime_config, env
 
 
 ROOT = Path(__file__).resolve().parent
 CODE_DIR = ROOT / "code"
 DATA_DIR = ROOT / "data"
-LOCAL_SETTINGS_PATH = CODE_DIR / ".env.local"
 DEFAULT_RANKING_FILE = DATA_DIR / "aba-ranking-export.json"
 DEFAULT_RANKING_DASHBOARD_FILE = DATA_DIR / "ABA四核心词综合排名看板_2026-06-28~2026-07-04.html"
-ACTIVE_RANKING_FILE = DATA_DIR / "active-aba-ranking.json"
+LEGACY_ACTIVE_RANKING_FILE = DATA_DIR / "active-aba-ranking.json"
+LISTING_STORAGE_ROOT = Path(env("LISTING_STORAGE_ROOT") or r"D:\tuchuangai\Listing生成")
+ABA_RANKING_STORAGE_DIR = Path(
+    env("LISTING_ABA_RANKING_DIR") or LISTING_STORAGE_ROOT / "ABA排名"
+)
+SKILL_STORAGE_DIR = Path(env("LISTING_SKILL_STORAGE_DIR") or LISTING_STORAGE_ROOT / "Skills")
+LISTING_ARCHIVE_DIR = Path(
+    env("LISTING_ARCHIVE_DIR") or LISTING_STORAGE_ROOT / "lisitng"
+)
+ACTIVE_RANKING_FILE = ABA_RANKING_STORAGE_DIR / "active-aba-ranking.json"
+LISTING_RECORD_TABLE = "dbo.Listing_ShengCheng"
+LISTING_DATABASE_TEXT_LIMIT = 60_000
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 DEFAULT_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_SILICONFLOW_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
@@ -32,6 +45,7 @@ DEFAULT_SELLFOX_DASHBOARD_URL = "http://127.0.0.1:8765"
 MAX_BODY_BYTES = 26 * 1024 * 1024
 MAX_RANKING_IMPORT_FILES = 4
 DEFAULT_RANKING_CORE_ORDER = ("lash", "lashes", "eyelash", "eyelashes")
+ABA_IMPORT_PERMISSION = "listing_agent_aba_import"
 VISION_MODEL_FALLBACKS = (
     DEFAULT_SILICONFLOW_MODEL,
     "Qwen/Qwen3-VL-32B-Instruct",
@@ -92,37 +106,8 @@ Return exactly three variants: balanced, style, search. The copy fields must be 
 
 
 listing_agent_bp = Blueprint("listing_agent", __name__, url_prefix="/listing-agent")
-_settings_lock = RLock()
 _http = requests.Session()
 _http.trust_env = False
-
-
-def _load_local_settings() -> dict[str, str]:
-    if not LOCAL_SETTINGS_PATH.exists():
-        return {}
-    result: dict[str, str] = {}
-    try:
-        lines = LOCAL_SETTINGS_PATH.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return result
-    for raw_line in lines:
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip("'\"")
-        if key:
-            result[key] = value
-    return result
-
-
-_local_settings = _load_local_settings()
-_runtime_settings = {
-    "api_key": env("SILICONFLOW_API_KEY") or _local_settings.get("SILICONFLOW_API_KEY", ""),
-    "model": env("SILICONFLOW_MODEL") or _local_settings.get("SILICONFLOW_MODEL", "") or DEFAULT_SILICONFLOW_MODEL,
-    "text_model": env("SILICONFLOW_TEXT_MODEL") or _local_settings.get("SILICONFLOW_TEXT_MODEL", ""),
-}
 
 
 @listing_agent_bp.before_request
@@ -218,47 +203,120 @@ def _send_code_file(filename: str):
     return response
 
 
+def _aba_import_permission() -> tuple[bool, str]:
+    user_id = str(session.get("feishu_user_id") or "").strip()
+    if not user_id:
+        return False, "未登录"
+    try:
+        return permission_manager.check_user_permission(user_id, ABA_IMPORT_PERMISSION)
+    except Exception as exc:
+        return False, f"权限校验失败：{_safe_detail(exc)}"
+
+
 @listing_agent_bp.route("/api/health", methods=["GET", "HEAD"])
 def api_health():
     return jsonify(
         {
             "ok": True,
-            "model": _get_model(),
-            "hasApiKey": bool(_get_api_key()),
+            "aiConfigured": bool(_get_api_key()),
         }
     )
 
 
-@listing_agent_bp.route("/api/settings", methods=["GET", "HEAD", "POST"])
+@listing_agent_bp.route("/api/settings", methods=["GET", "HEAD"])
 def api_settings():
+    can_import_aba, _ = _aba_import_permission()
+    return jsonify(
+        {
+            "managed": True,
+            "aiConfigured": bool(_get_api_key()),
+            "canImportAba": can_import_aba,
+        }
+    )
+
+
+@listing_agent_bp.route("/api/user-state", methods=["GET", "HEAD", "POST"])
+def api_user_state():
+    user_name = _current_listing_user_name()
+    skill_path = _skill_file_path(user_name)
     if request.method in {"GET", "HEAD"}:
-        return jsonify(_public_settings())
+        if not skill_path.exists():
+            return jsonify(
+                {
+                    "ok": True,
+                    "skills": [],
+                    "preferences": {},
+                    "skillPath": str(skill_path),
+                }
+            )
+        try:
+            saved = json.loads(skill_path.read_text(encoding="utf-8"))
+            return jsonify(
+                {
+                    "ok": True,
+                    "skills": saved.get("skills") if isinstance(saved.get("skills"), list) else [],
+                    "preferences": (
+                        saved.get("preferences")
+                        if isinstance(saved.get("preferences"), dict)
+                        else {}
+                    ),
+                    "skillPath": str(skill_path),
+                    "updatedAt": _clean(saved.get("updatedAt")),
+                }
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "message": f"偏好 Skill 读取失败：{_safe_detail(exc)}",
+                    }
+                ),
+                500,
+            )
 
     payload = _json_body()
     if payload is None:
-        return jsonify({"error": "Invalid JSON request body."}), 400
-    api_key = _clean(payload.get("apiKey"))
-    model = _clean(payload.get("model")) or DEFAULT_SILICONFLOW_MODEL
-    text_model = _clean(payload.get("textModel"))
-    with _settings_lock:
-        if api_key:
-            _runtime_settings["api_key"] = api_key
-        _runtime_settings["model"] = model
-        _runtime_settings["text_model"] = text_model
-        if not _runtime_settings["api_key"]:
-            return jsonify({"error": "SILICONFLOW_API_KEY is required before image extraction can run."}), 400
-        try:
-            _save_local_settings()
-        except OSError as exc:
-            return jsonify({"error": f"配置保存失败：{_safe_detail(exc)}"}), 500
-    return jsonify(_public_settings())
+        return jsonify({"ok": False, "message": "Invalid JSON request body."}), 400
+    skills = payload.get("skills") if isinstance(payload.get("skills"), list) else []
+    preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
+    if len(skills) > 100:
+        return jsonify({"ok": False, "message": "最多保存 100 个 Listing Skill。"}), 400
+    try:
+        saved_at = _now_shanghai()
+        _atomic_write_json(
+            skill_path,
+            {
+                "version": 1,
+                "userName": user_name,
+                "updatedAt": saved_at.isoformat(),
+                "skills": skills,
+                "preferences": preferences,
+            },
+        )
+        _upsert_listing_record(
+            user_name=user_name,
+            saved_at=saved_at,
+            skill_path=skill_path,
+        )
+        return jsonify(
+            {
+                "ok": True,
+                "skillPath": str(skill_path),
+                "updatedAt": saved_at.isoformat(),
+            }
+        )
+    except OSError as exc:
+        return jsonify({"ok": False, "message": f"偏好 Skill 保存失败：{_safe_detail(exc)}"}), 500
+    except Exception as exc:
+        return jsonify({"ok": False, "message": f"偏好 Skill 记录失败：{_safe_detail(exc)}"}), 500
 
 
 @listing_agent_bp.post("/api/extract-image")
 def api_extract_image():
     api_key = _get_api_key()
     if not api_key:
-        return jsonify({"error": "SILICONFLOW_API_KEY is not set. Configure it before image extraction."}), 500
+        return jsonify({"error": "服务端日报 AI 配置不可用，请联系管理员。"}), 500
 
     payload = _json_body()
     if payload is None:
@@ -312,7 +370,6 @@ def api_extract_image():
                     "siliconFlowStatus": result.get("status", 0),
                     "siliconFlowCode": reason.get("code", ""),
                     "siliconFlowMessage": reason.get("message") or _safe_detail(result.get("text")),
-                    "model": result.get("model") or _get_model(),
                 }
             ),
             502,
@@ -325,9 +382,9 @@ def api_extract_image():
         return jsonify(
             {
                 "facts": [],
-                "needsConfirmation": ["视觉模型已返回内容，但无法解析为 JSON。请手动填写图片可见事实。"],
+                "needsConfirmation": ["图片识别服务已返回内容，但无法解析为 JSON。请手动填写图片可见事实。"],
                 "doNotInfer": DO_NOT_INFER,
-                "source": f"SiliconFlow {result.get('model')} returned unparsed text.",
+                "source": "服务端图片识别返回了无法解析的内容。",
             }
         )
 
@@ -338,7 +395,7 @@ def api_extract_image():
             "doNotInfer": _unique_strings(
                 _normalize_strings(parsed.get("doNotInfer") or parsed.get("blocked")) + DO_NOT_INFER
             ),
-            "source": f"SiliconFlow {result.get('model')}",
+            "source": "服务端图片识别",
         }
     )
 
@@ -347,7 +404,7 @@ def api_extract_image():
 def api_generate_listings():
     api_key = _get_api_key()
     if not api_key:
-        return jsonify({"error": "SILICONFLOW_API_KEY is not set. Configure it before generating AI listings."}), 500
+        return jsonify({"error": "服务端日报 AI 配置不可用，请联系管理员。"}), 500
     payload = _json_body()
     if payload is None:
         return jsonify({"error": "Invalid JSON request body."}), 400
@@ -374,7 +431,6 @@ def api_generate_listings():
                     "siliconFlowStatus": result.get("status", 0),
                     "siliconFlowCode": reason.get("code", ""),
                     "siliconFlowMessage": reason.get("message") or _safe_detail(result.get("text")),
-                    "model": result.get("model"),
                 }
             ),
             502,
@@ -388,13 +444,28 @@ def api_generate_listings():
             jsonify(
                 {
                     "error": "SiliconFlow returned an incomplete listing payload.",
-                    "model": result.get("model"),
                     "detail": _safe_detail(_completion_content(completion)),
                 }
             ),
             502,
         )
-    return jsonify({"ok": True, "model": result.get("model"), "variants": variants})
+    try:
+        storage = _persist_generated_listing(
+            source_payload=payload,
+            prompt_payload=prompt_payload,
+            variants=variants,
+        )
+    except Exception as exc:
+        return (
+            jsonify(
+                {
+                    "error": "Listing generated but persistence failed",
+                    "message": f"Listing 已生成，但文件或数据库保存失败：{_safe_detail(exc)}",
+                }
+            ),
+            500,
+        )
+    return jsonify({"ok": True, "variants": variants, "storage": storage})
 
 
 @listing_agent_bp.route("/api/sellfox/ranking-file", methods=["GET", "HEAD"])
@@ -436,6 +507,20 @@ def api_sellfox_ranking_file():
 
 @listing_agent_bp.post("/api/sellfox/import-ranking")
 def api_sellfox_import_ranking():
+    can_import_aba, permission_reason = _aba_import_permission()
+    if not can_import_aba:
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "error": "权限不足",
+                    "message": "当前账号没有 ABA 看板导入权限。",
+                    "detail": permission_reason,
+                    "requiredFunction": ABA_IMPORT_PERMISSION,
+                }
+            ),
+            403,
+        )
     # 同时接收旧前端的 file 和新前端的 files，避免服务/静态资源
     # 热更新先后不一致时出现“请选择文件”的误报。
     uploads = request.files.getlist("file") + request.files.getlist("files")
@@ -475,6 +560,10 @@ def api_sellfox_import_ranking():
         rows = dashboard_data.get("rows") if isinstance(dashboard_data.get("rows"), list) else []
         if not rows:
             raise ValueError("未找到可用的 ABA 搜索词排名记录。")
+        stored_files = _store_aba_uploads(upload_sources)
+        meta = dashboard_data.setdefault("meta", {})
+        meta["importedBy"] = _current_listing_user_name()
+        meta["storedFiles"] = [str(path) for path in stored_files]
         ACTIVE_RANKING_FILE.parent.mkdir(parents=True, exist_ok=True)
         temporary_path = ACTIVE_RANKING_FILE.with_suffix(".json.tmp")
         temporary_path.write_text(
@@ -482,7 +571,6 @@ def api_sellfox_import_ranking():
             encoding="utf-8",
         )
         temporary_path.replace(ACTIVE_RANKING_FILE)
-        meta = dashboard_data.get("meta", {})
         return jsonify(
             {
                 "ok": True,
@@ -493,6 +581,7 @@ def api_sellfox_import_ranking():
                     "uniqueTerms": meta.get("uniqueTermCount") or len(rows),
                     "top30000Count": meta.get("top30000Count") or 0,
                 },
+                "storedFiles": [str(path) for path in stored_files],
             }
         )
     except (UnicodeError, ValueError, json.JSONDecodeError, csv.Error) as exc:
@@ -546,7 +635,7 @@ def _call_siliconflow_with_fallbacks(api_key: str, payload: dict[str, Any]) -> d
 
 
 def _call_siliconflow(api_key: str, payload: dict[str, Any]) -> dict[str, Any]:
-    url = f"{(env('SILICONFLOW_BASE_URL') or DEFAULT_SILICONFLOW_BASE_URL).rstrip('/')}/chat/completions"
+    url = f"{_get_ai_base_url().rstrip('/')}/chat/completions"
     try:
         response = _http.post(
             url,
@@ -688,8 +777,163 @@ def _normalize_generated_listing_variants(variants: Any) -> list[dict[str, Any]]
 def _get_active_ranking_file() -> Path:
     if ACTIVE_RANKING_FILE.exists():
         return ACTIVE_RANKING_FILE
+    if LEGACY_ACTIVE_RANKING_FILE.exists():
+        return LEGACY_ACTIVE_RANKING_FILE
     configured = env("SELLFOX_RANKING_FILE")
     return Path(configured) if configured else DEFAULT_RANKING_FILE
+
+
+def _now_shanghai() -> datetime:
+    return datetime.now(SHANGHAI_TZ)
+
+
+def _current_listing_user_name() -> str:
+    return (
+        _clean(session.get("feishu_user_name"))
+        or _clean(session.get("feishu_user_id"))
+        or "未知用户"
+    )
+
+
+def _safe_file_component(value: Any, fallback: str = "file") -> str:
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', "_", str(value or "").strip())
+    cleaned = re.sub(r"\s+", "_", cleaned).strip(" ._")
+    return (cleaned or fallback)[:160]
+
+
+def _skill_file_path(user_name: str) -> Path:
+    return SKILL_STORAGE_DIR / f"{_safe_file_component(user_name, '用户')}_偏好Skill.json"
+
+
+def _atomic_write_bytes(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stamp = _now_shanghai().strftime("%Y%m%d%H%M%S%f")
+    temporary_path = path.with_name(f".{path.name}.{os.getpid()}.{stamp}.tmp")
+    temporary_path.write_bytes(content)
+    temporary_path.replace(path)
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    _atomic_write_bytes(
+        path,
+        json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"),
+    )
+
+
+def _store_aba_uploads(upload_sources: list[tuple[str, str, bytes]]) -> list[Path]:
+    saved_at = _now_shanghai()
+    stamp = saved_at.strftime("%Y%m%d_%H%M%S_%f")
+    user_name = _safe_file_component(_current_listing_user_name(), "用户")
+    stored_paths: list[Path] = []
+    for index, (filename, suffix, content) in enumerate(upload_sources, start=1):
+        original_stem = _safe_file_component(Path(filename).stem, "ABA排名")
+        target_path = ABA_RANKING_STORAGE_DIR / (
+            f"{stamp}_{user_name}_{index:02d}_{original_stem}{suffix}"
+        )
+        _atomic_write_bytes(target_path, content)
+        stored_paths.append(target_path)
+    return stored_paths
+
+
+def _sql_escape(value: Any) -> str:
+    return str(value or "").replace("'", "''")
+
+
+def _upsert_listing_record(
+    *,
+    user_name: str,
+    saved_at: datetime,
+    skill_path: Path,
+    listing_value: str | None = None,
+) -> None:
+    user_sql = _sql_escape(user_name)[:50]
+    time_sql = saved_at.strftime("%Y-%m-%d %H:%M:%S")
+    skill_sql = _sql_escape(str(skill_path))
+    listing_update = ""
+    listing_insert = "NULL"
+    if listing_value is not None:
+        listing_sql = _sql_escape(listing_value)
+        listing_update = f", [Listing] = N'{listing_sql}'"
+        listing_insert = f"N'{listing_sql}'"
+    dui_db(
+        f"""
+        DECLARE @LatestID INT = (
+            SELECT TOP 1 ID
+            FROM {LISTING_RECORD_TABLE}
+            WHERE YongHu = N'{user_sql}'
+            ORDER BY ID DESC
+        );
+        IF @LatestID IS NULL
+        BEGIN
+            INSERT INTO {LISTING_RECORD_TABLE} (YongHu, RiQi, [Listing], WeiZhi)
+            VALUES (N'{user_sql}', '{time_sql}', {listing_insert}, N'{skill_sql}');
+        END
+        ELSE
+        BEGIN
+            UPDATE {LISTING_RECORD_TABLE}
+            SET RiQi = '{time_sql}', WeiZhi = N'{skill_sql}'{listing_update}
+            WHERE ID = @LatestID;
+        END
+        """
+    )
+
+
+def _ensure_skill_file(source_payload: dict[str, Any], user_name: str, saved_at: datetime) -> Path:
+    skill_path = _skill_file_path(user_name)
+    if skill_path.exists():
+        return skill_path
+    raw_skill = source_payload.get("skill") if isinstance(source_payload.get("skill"), dict) else {}
+    _atomic_write_json(
+        skill_path,
+        {
+            "version": 1,
+            "userName": user_name,
+            "updatedAt": saved_at.isoformat(),
+            "skills": [raw_skill] if raw_skill else [],
+            "preferences": {},
+        },
+    )
+    return skill_path
+
+
+def _persist_generated_listing(
+    *,
+    source_payload: dict[str, Any],
+    prompt_payload: dict[str, Any],
+    variants: list[dict[str, Any]],
+) -> dict[str, Any]:
+    saved_at = _now_shanghai()
+    user_name = _current_listing_user_name()
+    skill_path = _ensure_skill_file(source_payload, user_name, saved_at)
+    archive_payload = {
+        "version": 1,
+        "userName": user_name,
+        "generatedAt": saved_at.isoformat(),
+        "input": prompt_payload,
+        "variants": variants,
+    }
+    serialized = json.dumps(archive_payload, ensure_ascii=False, indent=2)
+    listing_value = serialized
+    archive_path: Path | None = None
+    if len(serialized) > LISTING_DATABASE_TEXT_LIMIT:
+        stamp = saved_at.strftime("%Y%m%d_%H%M%S_%f")
+        archive_path = LISTING_ARCHIVE_DIR / (
+            f"{stamp}_{_safe_file_component(user_name, '用户')}_Listing.json"
+        )
+        _atomic_write_json(archive_path, archive_payload)
+        listing_value = str(archive_path)
+    _upsert_listing_record(
+        user_name=user_name,
+        saved_at=saved_at,
+        skill_path=skill_path,
+        listing_value=listing_value,
+    )
+    return {
+        "storedAs": "file" if archive_path else "database",
+        "listingPath": str(archive_path) if archive_path else "",
+        "skillPath": str(skill_path),
+        "savedAt": saved_at.isoformat(),
+    }
 
 
 def _load_ranking_data(source_path: Path) -> dict[str, Any]:
@@ -1325,40 +1569,32 @@ def _json_body() -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _public_settings() -> dict[str, Any]:
-    return {
-        "hasApiKey": bool(_get_api_key()),
-        "model": _get_model(),
-        "textModel": _get_text_model(),
-    }
-
-
 def _get_api_key() -> str:
-    with _settings_lock:
-        return _runtime_settings["api_key"]
+    return _clean(ai_runtime_config().get("api_key"))
+
+
+def _get_ai_base_url() -> str:
+    return (
+        _clean(ai_runtime_config().get("base_url"))
+        or env("SILICONFLOW_BASE_URL")
+        or DEFAULT_SILICONFLOW_BASE_URL
+    )
 
 
 def _get_model() -> str:
-    with _settings_lock:
-        return _runtime_settings["model"] or DEFAULT_SILICONFLOW_MODEL
+    return (
+        _clean(ai_runtime_config().get("vision_model"))
+        or env("SILICONFLOW_MODEL")
+        or DEFAULT_SILICONFLOW_MODEL
+    )
 
 
 def _get_text_model() -> str:
-    with _settings_lock:
-        return _runtime_settings["text_model"] or _runtime_settings["model"] or DEFAULT_SILICONFLOW_MODEL
-
-
-def _save_local_settings() -> None:
-    lines = [
-        f"SILICONFLOW_API_KEY={_env_value(_runtime_settings['api_key'])}",
-        f"SILICONFLOW_MODEL={_env_value(_runtime_settings['model'])}",
-        f"SILICONFLOW_TEXT_MODEL={_env_value(_runtime_settings['text_model'])}",
-    ]
-    LOCAL_SETTINGS_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _env_value(value: Any) -> str:
-    return str(value or "").replace("\r", "").replace("\n", "").strip()
+    return (
+        _clean(ai_runtime_config().get("text_model"))
+        or env("SILICONFLOW_TEXT_MODEL")
+        or _get_model()
+    )
 
 
 def _normalize_confidence(value: Any) -> str:

@@ -1,4 +1,5 @@
 import copy
+from datetime import date, timedelta
 import os
 from pathlib import Path
 import unittest
@@ -69,7 +70,7 @@ class TkJointDashboardPermissionTests(unittest.TestCase):
 
     def test_manual_refresh_uses_user_independent_shared_cache(self):
         self.assertIn("def _joint_shared_metrics_cache_key", self.backend)
-        self.assertIn("'joint-dashboard:shared:'", self.backend)
+        self.assertIn("'joint-dashboard:shared:' + PARTIAL_DASHBOARD_SALES_SOURCE", self.backend)
         self.assertIn("def _load_joint_shared_metrics_payload", self.backend)
         self.assertIn("def _save_joint_shared_metrics_payload", self.backend)
         self.assertIn("if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE and not force_refresh", self.backend)
@@ -153,6 +154,53 @@ class TkJointDashboardPermissionTests(unittest.TestCase):
         self.assertEqual(reuse_response.status_code, 200)
         self.assertEqual(reuse_response.get_json()["total_sales"], 321.0)
         self.assertEqual(compute_mock.call_count, 1)
+
+    def test_overall_yesterday_order_sales_endpoint_uses_tk_order_gmv(self):
+        flask_app = Flask(__name__, template_folder=str(ROOT / "templates"))
+        flask_app.secret_key = "overall-order-sales-test"
+        flask_app.register_blueprint(dashboard_module.tk_dashboard_bp)
+        client = flask_app.test_client()
+
+        def fake_permission(user_id, function_name):
+            return function_name == "tk_dashboard_full", "test"
+
+        with patch.object(
+            dashboard_module,
+            "_get_tk_order_gmv_sales",
+            return_value={"previous": 456.78, "selected": 456.78, "yesterday": 456.78},
+        ) as order_sales_mock, patch.object(
+            dashboard_module.permission_manager,
+            "check_user_permission",
+            side_effect=fake_permission,
+        ):
+            with client.session_transaction() as session_data:
+                session_data["feishu_user_id"] = "ou_admin"
+            response = client.post(
+                "/tk/yesterday_order_sales",
+                json={"shops": ["86"]},
+            )
+
+        today = date.today()
+        start_dt = date(today.year, today.month, 1)
+        prev_month = today.month - 1 or 12
+        prev_year = today.year - 1 if today.month == 1 else today.year
+        prev_start = date(prev_year, prev_month, 1)
+        if prev_month == 12:
+            next_month = date(prev_year + 1, 1, 1)
+        else:
+            next_month = date(prev_year, prev_month + 1, 1)
+        prev_end = next_month - timedelta(days=1)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["total_order_sales"], 456.78)
+        self.assertEqual(response.get_json()["previous_order_sales"], 456.78)
+        self.assertEqual(response.get_json()["selected_order_sales"], 456.78)
+        order_sales_mock.assert_called_once_with(
+            start_dt,
+            today,
+            prev_start,
+            prev_end,
+            ["86"],
+        )
 
 
 if __name__ == "__main__":

@@ -53,6 +53,14 @@ PARTIAL_ADMIN_USERS = "张莉；周俊成；毕景春；陶晓飞；李昌翰；
 
 EXTRA_PERMISSION_ROWS = [
     {
+        "gongneng": "listing_agent_aba_import",
+        "mingcheng": "ABA 看板导入",
+        "yonghu": "周俊成；陈子烨",
+        "bumen": "",
+        "fujigongneng": "",
+        "miaoshu": "仅允许指定人员导入或覆盖 Listing 生成智能体使用的 ABA 排名看板。",
+    },
+    {
         "gongneng": "seedance_video",
         "mingcheng": "Seedance 视频生成",
         "yonghu": "",

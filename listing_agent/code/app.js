@@ -111,35 +111,117 @@ let uploadedImages = [];
 let imageExtraction = createEmptyExtraction();
 let preferences = createDefaultPreferences();
 let latestResult = null;
-let apiSettings = {
-  hasApiKey: false,
-  model: "Qwen/Qwen3-VL-8B-Instruct",
-  textModel: ""
-};
 let sellfoxSnapshot = createEmptySellfoxSnapshot();
 let riskLibrary = createDefaultRiskLibrary();
+let remoteSkillSaveTimer = null;
+let remoteSkillSaveInFlight = Promise.resolve();
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 document.addEventListener("DOMContentLoaded", () => {
+  loadListingAccessSettings();
   loadSkills();
   loadPreferences();
   loadRiskLibrary();
   bindEvents();
-  syncSkillForm(skills[0]);
-  refreshSkillSelect();
+  const initialSkill = skills.find((item) => item.id === preferences.selectedSkillId) || skills[0];
+  syncSkillForm(initialSkill);
+  refreshSkillSelect(initialSkill.id);
   renderRiskLibrary();
   renderExtractionReview();
   syncRecognitionGate();
   renderPreferences();
-  loadApiSettings();
   loadSellfoxSnapshot();
   renderSellfoxSnapshot();
   loadSellfoxRankingFile({ silent: true });
+  loadRemoteUserState();
   drawTrayPreview();
   renderIcons();
 });
+
+async function loadListingAccessSettings() {
+  const importButton = $("#importAbaRankingBtn");
+  const fileInput = $("#abaRankingFileInput");
+  if (importButton) importButton.hidden = true;
+  if (fileInput) fileInput.disabled = true;
+  try {
+    const response = await fetch(`${LISTING_API_BASE}/settings`, { cache: "no-store" });
+    const payload = await response.json();
+    const canImportAba = response.ok && payload.canImportAba === true;
+    if (importButton) importButton.hidden = !canImportAba;
+    if (fileInput) fileInput.disabled = !canImportAba;
+  } catch {
+    // 权限状态读取失败时保持导入入口关闭，后端接口仍会做强制校验。
+  }
+}
+
+async function loadRemoteUserState() {
+  try {
+    const response = await fetch(`${LISTING_API_BASE}/user-state`, { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || `读取失败：${response.status}`);
+
+    const savedSkills = Array.isArray(payload.skills)
+      ? payload.skills.filter((item) => item && typeof item === "object" && item.id !== DEFAULT_SKILL.id)
+      : [];
+    if (savedSkills.length) {
+      skills = [DEFAULT_SKILL, ...savedSkills];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkills));
+    }
+    if (payload.preferences && typeof payload.preferences === "object" && Object.keys(payload.preferences).length) {
+      preferences = { ...createDefaultPreferences(), ...payload.preferences };
+      preferences.counts = preferences.counts || {};
+      localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
+    }
+
+    const selectedSkill = skills.find((item) => item.id === preferences.selectedSkillId)
+      || skills.find((item) => item.id !== DEFAULT_SKILL.id)
+      || skills[0];
+    refreshSkillSelect(selectedSkill.id);
+    syncSkillForm(selectedSkill);
+    renderPreferences();
+    $("#skillState").textContent = payload.updatedAt ? "已从 Skills 文件读取" : "等待保存到 Skills 文件";
+    $("#skillState").title = payload.skillPath || "";
+    if (!payload.updatedAt) await persistRemoteUserState({ quiet: true });
+  } catch (error) {
+    $("#skillState").textContent = "服务器偏好读取失败，当前使用本地缓存";
+    $("#skillState").title = error.message || "";
+  }
+}
+
+function scheduleRemoteUserStateSave() {
+  window.clearTimeout(remoteSkillSaveTimer);
+  remoteSkillSaveTimer = window.setTimeout(() => {
+    persistRemoteUserState({ quiet: true }).catch(() => {});
+  }, 250);
+}
+
+async function persistRemoteUserState({ quiet = false } = {}) {
+  window.clearTimeout(remoteSkillSaveTimer);
+  const userSkills = skills.filter((item) => item.id !== DEFAULT_SKILL.id);
+  const task = async () => {
+    const response = await fetch(`${LISTING_API_BASE}/user-state`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skills: userSkills, preferences })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(payload.message || `保存失败：${response.status}`);
+    $("#skillState").textContent = "已保存到 Skills 文件";
+    $("#skillState").title = payload.skillPath || "";
+    if (!quiet) showToast("偏好 Skill 已保存到服务器文件");
+    return payload;
+  };
+  remoteSkillSaveInFlight = remoteSkillSaveInFlight.then(task, task);
+  try {
+    return await remoteSkillSaveInFlight;
+  } catch (error) {
+    $("#skillState").textContent = "服务器保存失败";
+    $("#skillState").title = error.message || "";
+    throw error;
+  }
+}
 
 function bindEvents() {
   $("#generateBtn").addEventListener("click", async () => {
@@ -156,6 +238,7 @@ function bindEvents() {
     setListingGenerationState(true);
 
     try {
+      await persistRemoteUserState({ quiet: true });
       const baseResult = generateListing(data, skill);
       const aiPayload = buildAiListingPayload(data, skill);
       const aiResponse = await requestAiListings(aiPayload);
@@ -163,7 +246,11 @@ function bindEvents() {
       latestResult = result;
       renderResult(result);
       setFlowState("done");
-      showToast(`AI 已生成 3 个 Listing 方案 · ${aiResponse.model || "硅基流动"}`);
+      showToast(
+        aiResponse.storage?.storedAs === "file"
+          ? "AI 已生成 3 个 Listing 方案，长文案已存档并记录"
+          : "AI 已生成 3 个 Listing 方案并写入数据库"
+      );
     } catch (error) {
       showToast(formatListingGenerationError(error.message));
     } finally {
@@ -220,6 +307,9 @@ function bindEvents() {
     if (skill) {
       syncSkillForm(skill);
       $("#skillState").textContent = skill.id === DEFAULT_SKILL.id ? "默认模板" : "已加载";
+      preferences.selectedSkillId = skill.id;
+      preferences.updatedAt = new Date().toISOString();
+      savePreferences();
     }
   });
 
@@ -241,7 +331,6 @@ function bindEvents() {
   $("#productImages").addEventListener("change", previewImages);
   $("#extractImageBtn").addEventListener("click", extractImageFacts);
   $("#confirmImageFactsBtn").addEventListener("click", confirmImageFacts);
-  $("#saveApiConfigBtn").addEventListener("click", saveApiConfig);
   $("#syncSellfoxBtn").addEventListener("click", syncSellfoxRankings);
   $("#importAbaRankingBtn").addEventListener("click", () => $("#abaRankingFileInput").click());
   $("#abaRankingFileInput").addEventListener("change", async (event) => {
@@ -283,6 +372,7 @@ function loadSkills() {
 function saveSkills() {
   const userSkills = skills.filter((item) => item.id !== DEFAULT_SKILL.id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(userSkills));
+  scheduleRemoteUserStateSave();
 }
 
 function saveCurrentSkill({ forceNew = false, silent = false } = {}) {
@@ -301,8 +391,10 @@ function saveCurrentSkill({ forceNew = false, silent = false } = {}) {
 
   saveSkills();
   refreshSkillSelect(savedSkill.id);
-  $("#skillState").textContent = "已保存到本地";
-  if (!silent) showToast("Skill 已保存");
+  preferences.selectedSkillId = savedSkill.id;
+  savePreferences();
+  $("#skillState").textContent = "正在保存到 Skills 文件";
+  if (!silent) showToast("Skill 正在保存到服务器文件");
   return savedSkill;
 }
 
@@ -388,6 +480,7 @@ function createDefaultPreferences() {
   return {
     counts: {},
     totalChoices: 0,
+    selectedSkillId: "",
     lastVariantId: "",
     lastVariantName: "",
     lastTone: "",
@@ -431,6 +524,7 @@ function loadPreferences() {
 
 function savePreferences() {
   localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
+  scheduleRemoteUserStateSave();
 }
 
 function createDefaultRiskLibrary() {
@@ -693,74 +787,6 @@ function getFavoriteVariant() {
   return VARIANT_PROFILES.find((profile) => profile.id === favoriteId);
 }
 
-async function loadApiSettings() {
-  if (typeof window === "undefined" || !window.location.protocol.startsWith("http")) return;
-
-  try {
-    const response = await fetch(`${LISTING_API_BASE}/settings`);
-    if (!response.ok) throw new Error(`Settings returned ${response.status}`);
-    apiSettings = await response.json();
-    renderApiSettings();
-  } catch {
-    apiSettings = {
-      ...apiSettings,
-      hasApiKey: false
-    };
-    renderApiSettings("服务未连接");
-  }
-}
-
-async function saveApiConfig() {
-  const apiKeyInput = $("#siliconFlowApiKey");
-  const modelInput = $("#siliconFlowModel");
-  const textModelInput = $("#siliconFlowTextModel");
-  const apiKey = cleanText(apiKeyInput.value);
-  const model = cleanText(modelInput.value) || apiSettings.model;
-  const textModel = cleanText(textModelInput?.value);
-
-  if (!apiKey && !apiSettings.hasApiKey) {
-    showToast("请先粘贴硅基流动 API Key");
-    apiKeyInput.focus();
-    return;
-  }
-
-  try {
-    const response = await fetch(`${LISTING_API_BASE}/settings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey, model, textModel })
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || `Settings returned ${response.status}`);
-
-    apiSettings = payload;
-    apiKeyInput.value = "";
-    renderApiSettings();
-    showToast("硅基流动配置已保存");
-  } catch (error) {
-    renderApiSettings("保存失败");
-    showToast(error.message || "配置保存失败");
-  }
-}
-
-function renderApiSettings(statusOverride) {
-  const status = $("#apiKeyStatus");
-  const modelInput = $("#siliconFlowModel");
-  const textModelInput = $("#siliconFlowTextModel");
-  if (!status || !modelInput) return;
-
-  modelInput.value = apiSettings.model || "Qwen/Qwen3-VL-8B-Instruct";
-  if (textModelInput) textModelInput.value = apiSettings.textModel || "";
-  if (statusOverride) {
-    status.textContent = statusOverride;
-    status.dataset.state = "warn";
-    return;
-  }
-
-  status.textContent = apiSettings.hasApiKey ? "已配置" : "未配置";
-  status.dataset.state = apiSettings.hasApiKey ? "ok" : "warn";
-}
-
 function createEmptySellfoxSnapshot() {
   return {
     rows: [],
@@ -781,7 +807,14 @@ function loadSellfoxSnapshot() {
 }
 
 function saveSellfoxSnapshot() {
-  localStorage.setItem(SELLFOX_STORAGE_KEY, JSON.stringify(sellfoxSnapshot));
+  try {
+    localStorage.setItem(
+      SELLFOX_STORAGE_KEY,
+      JSON.stringify({ ...sellfoxSnapshot, rows: [] })
+    );
+  } catch {
+    localStorage.removeItem(SELLFOX_STORAGE_KEY);
+  }
 }
 
 function setSellfoxConnection(state, text) {
@@ -824,8 +857,10 @@ async function importAbaRankingFiles(files) {
     if (!response.ok || !payload.ok) throw new Error(payload.message || `导入失败（${response.status}）`);
     await loadSellfoxRankingFile({ silent: true });
     const count = Number(payload.summary?.uniqueTerms || sellfoxSnapshot.rows.length || 0);
+    const storedFiles = Array.isArray(payload.storedFiles) ? payload.storedFiles : [];
     setSellfoxConnection("ok", `${selectedFiles.length} 份已合并 · ${count.toLocaleString("zh-CN")} 条排名详情`);
-    showToast(`${selectedFiles.length} 份 ABA 数据已合并，生成 ${count.toLocaleString("zh-CN")} 条排名详情`);
+    $("#sellfoxConnection").title = storedFiles.join("\n");
+    showToast(`${selectedFiles.length} 份 ABA 数据已合并并保存到 ABA排名 文件夹，生成 ${count.toLocaleString("zh-CN")} 条排名详情`);
   } catch (error) {
     setSellfoxConnection("error", "导入失败");
     showToast(error.message || "ABA 看板导入失败");
@@ -1334,7 +1369,7 @@ function mergeAiListingResult(baseResult, aiResponse, data, skill) {
       searchTerms,
       selfCheck: buildSelfCheck(data, variantSkill, title, highlights, bullets, description, searchTerms),
       reasons: unique([...(aiVariant.reasons || []), ...templateVariant.reasons]),
-      generatedBy: aiResponse.model || "SiliconFlow"
+      generatedBy: "AI"
     };
   });
   baseResult.recommendedVariantId = chooseRecommendedVariant(
@@ -1355,19 +1390,22 @@ function normalizeAiCopyItems(items, count, fallback) {
 function formatListingGenerationError(message) {
   const text = String(message || "");
   const lower = text.toLowerCase();
+  if (text.includes("偏好 Skill") || text.includes("保存失败") || lower.includes("persistence failed")) {
+    return text;
+  }
   if (lower.includes("siliconflow_api_key") || lower.includes("api key")) {
-    return "尚未配置硅基流动密钥，请先在图片识别区域保存配置。";
+    return "服务端 AI 配置不可用，请联系管理员。";
   }
   if (text.includes("401") || text.includes("403") || lower.includes("unauthorized")) {
-    return "硅基流动鉴权失败，请检查密钥、模型权限和账户余额。";
+    return "服务端 AI 鉴权失败，请联系管理员。";
   }
   if (text.includes("30003") || lower.includes("model disabled")) {
-    return "当前硅基流动模型不可用，请在配置中切换到已启用的文本模型后重试。";
+    return "服务端 AI 暂不可用，请联系管理员。";
   }
   if (lower.includes("incomplete listing")) {
     return "AI 返回的三版内容不完整，请重试生成。";
   }
-  return "AI Listing 生成失败，请检查硅基流动配置后重试。";
+  return "AI Listing 生成失败，请稍后重试或联系管理员。";
 }
 
 function generateListing(data, skill) {
@@ -2456,8 +2494,7 @@ async function readErrorPayload(response) {
     ].filter(Boolean).join(" · ");
     return [
       `Image extractor returned ${response.status}`,
-      payload.model && `model ${payload.model}`,
-      siliconFlowPart || payload.error || text
+      siliconFlowPart || payload.message || payload.error || text
     ].filter(Boolean).join(": ");
   } catch {
     return `Image extractor returned ${response.status}: ${text.slice(0, 240)}`;
@@ -2469,26 +2506,25 @@ function formatExtractorError(message) {
   const lower = text.toLowerCase();
 
   if (lower.includes("siliconflow_api_key") || lower.includes("api key")) {
-    loadApiSettings();
-    return "本地服务未配置硅基流动密钥。请设置 SILICONFLOW_API_KEY 后重启服务。";
+    return "服务端 AI 配置不可用，请联系管理员。";
   }
   if (lower.includes("model disabled")) {
-    return "当前硅基流动模型被禁用。已建议改用 Qwen/Qwen3-VL-8B-Instruct 这类可用的视觉模型。";
+    return "服务端图片识别暂不可用，请联系管理员。";
   }
   if (lower.includes("code 30003")) {
-    return "硅基流动返回 code 30003：当前模型被禁用。请换成页面里的 Qwen/Qwen3-VL-8B-Instruct 或其他已启用视觉模型。";
+    return "服务端图片识别暂不可用，请联系管理员。";
   }
   if (text.includes("401") || text.includes("403") || lower.includes("unauthorized") || lower.includes("forbidden")) {
-    return "硅基流动鉴权失败，请检查密钥是否正确、是否已启用，以及账户余额/权限。";
+    return "服务端 AI 鉴权失败，请联系管理员。";
   }
   if (text.includes("400") && (lower.includes("image") || lower.includes("vision") || lower.includes("multimodal"))) {
-    return "当前模型可能不支持图片输入。请切换到硅基流动支持视觉/多模态的模型后重试。";
+    return "服务端暂时无法识别该图片，请更换图片后重试。";
   }
   if (lower.includes("model")) {
-    return "模型调用失败，请检查 SILICONFLOW_MODEL 的模型名是否准确，以及该模型是否支持图片。";
+    return "服务端图片识别暂不可用，请联系管理员。";
   }
 
-  return "图片识别接口返回错误，请检查本地服务是否已启动、网络是否可访问硅基流动。";
+  return "图片识别接口返回错误，请稍后重试或联系管理员。";
 }
 
 function localImageExtraction(files, currentData) {
@@ -2539,7 +2575,7 @@ function localImageExtraction(files, currentData) {
     facts,
     needs,
     blocked,
-    source: "本地原型识别。接入 LISTING_IMAGE_EXTRACTOR_ENDPOINT 后可使用真实视觉模型。"
+    source: "本地图片识别结果。"
   };
 }
 
@@ -2579,7 +2615,7 @@ function normalizeExtractionPayload(payload) {
       key: cleanText(fact.key),
       label: translateExtractionText(cleanText(fact.label || fact.key)),
       value: cleanText(fact.value),
-      source: translateExtractionText(cleanText(fact.source || "vision model")),
+      source: translateExtractionText(cleanText(fact.source || "服务端图片识别")),
       confidence: translateConfidence(cleanText(fact.confidence || "medium"))
     })).filter((fact) => fact.key && fact.value),
     needs: needs.map((item) => translateExtractionText(cleanText(item))).filter(Boolean),
@@ -2612,7 +2648,7 @@ function translateExtractionText(text) {
     "tray label": "托盘标签",
     "visible item": "可见内容物",
     "visual inference": "视觉推断",
-    "vision model": "视觉模型",
+    "vision model": "图片识别",
     "vision endpoint": "视觉接口",
     "image text or filename": "图片文字或文件名",
     "current form": "当前表单",

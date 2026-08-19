@@ -44,7 +44,7 @@
         </div>
         <div class="mini-actions sellfox-actions aba-import-actions">
           <input class="aba-file-input" id="abaRankingFileInput" type="file" multiple accept=".html,.htm,.json,.csv,.xlsx,text/html,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-          <button class="primary-button aba-import-button" id="importAbaRankingBtn" type="button" title="一次导入最多四份 ABA 文件并合并生成看板">
+          <button class="primary-button aba-import-button" id="importAbaRankingBtn" type="button" title="一次导入最多四份 ABA 文件并合并生成看板" hidden>
             <i data-lucide="upload"></i>
             导入 ABA 看板
           </button>
@@ -205,32 +205,6 @@
                 <button class="ghost-button" id="extractImageBtn" type="button" title="提取图片信息">
                   <i data-lucide="scan-search"></i>
                   提取
-                </button>
-              </div>
-            </div>
-            <div class="api-config">
-              <div class="api-config-head">
-                <h4>硅基流动配置</h4>
-                <span id="apiKeyStatus">检查中</span>
-              </div>
-              <div class="api-config-grid">
-                <label>
-                  API Key
-                  <input id="siliconFlowApiKey" type="password" autocomplete="off" placeholder="sk-..." />
-                </label>
-                <label>
-                  图片识别模型
-                  <input id="siliconFlowModel" type="text" placeholder="Qwen/Qwen2.5-VL-72B-Instruct" />
-                </label>
-                <label>
-                  Listing 文本模型
-                  <input id="siliconFlowTextModel" type="text" placeholder="留空则复用图片识别模型" />
-                </label>
-              </div>
-              <div class="mini-actions api-config-actions">
-                <button class="ghost-button" id="saveApiConfigBtn" type="button" title="保存硅基流动配置">
-                  <i data-lucide="key-round"></i>
-                  保存配置
                 </button>
               </div>
             </div>

@@ -102,6 +102,14 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         self.assertEqual(jimeng_feature["model"], site.JIMENG_HD_MODEL_NAME)
         self.assertIn("8K", jimeng_feature["summary"])
 
+    def test_agent_text_to_image_feature_is_removed(self) -> None:
+        self.assertIsNone(site.get_feature_by_key("jimeng_v40"))
+        self.assertNotIn("Agent文生图", {feature["name"] for feature in site.get_visible_features()})
+
+        render_source = inspect.getsource(site.render_openrouter_feature)
+        self.assertNotIn("supports_jimeng_generation", render_source)
+        self.assertNotIn("输入 Agent 的生图要求", render_source)
+
     def test_jimeng_upscale_submits_official_8k_scale_fifty_request_and_polls_result(self) -> None:
         source = self.make_image_input((640, 960))
 

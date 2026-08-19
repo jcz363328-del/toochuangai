@@ -50,6 +50,35 @@ def get_joint_dashboard_allowed_shops(user_name=None):
 def is_joint_dashboard_user(user_name=None):
     return bool(get_joint_dashboard_allowed_shops(user_name))
 
+
+def _shop_sort_key(shop):
+    normalized = str(shop).strip()
+    if normalized.isdigit():
+        return (0, int(normalized), normalized)
+    return (1, normalized.casefold(), normalized)
+
+
+def _get_overall_dashboard_shops():
+    """Return every shop present in either settlement or order data."""
+    rows = bjc.sf_db("""
+        SELECT shop
+        FROM (
+            SELECT LTRIM(RTRIM(CAST([店] AS NVARCHAR(100)))) AS shop
+            FROM v_TK_JieSuan WITH (NOLOCK)
+            WHERE NULLIF(LTRIM(RTRIM(CAST([店] AS NVARCHAR(100)))), '') IS NOT NULL
+            UNION
+            SELECT LTRIM(RTRIM(CAST([Dian] AS NVARCHAR(100)))) AS shop
+            FROM TK_DingDan WITH (NOLOCK)
+            WHERE NULLIF(LTRIM(RTRIM(CAST([Dian] AS NVARCHAR(100)))), '') IS NOT NULL
+        ) AS source_shops
+    """) or []
+    shops = {
+        str(row).strip()
+        for row in rows
+        if str(row).strip()
+    }
+    return sorted(shops, key=_shop_sort_key)
+
 METRICS_CACHE_TTL = 24 * 60 * 60
 _metrics_cache = {}
 _metrics_cache_lock = threading.Lock()
@@ -61,7 +90,7 @@ _default_cached_exp = 0
 _default_thread_started = False
 _precomputed_shop_payloads = {}
 _precomputed_week_shop_payloads = {}
-PARTIAL_DASHBOARD_SALES_SOURCE = 'bd_order_settlement_gmv'
+PARTIAL_DASHBOARD_SALES_SOURCE = 'tk_dingdan_gmv'
 JOINT_SHARED_CACHE_TTL = 10 * 365 * 24 * 60 * 60
 PARTIAL_CACHE_REFRESH_HOUR = 9
 PARTIAL_CACHE_REFRESH_MINUTE = 30
@@ -194,7 +223,7 @@ def _joint_shared_metrics_cache_key(start_dt, end_dt, shops, target_net_profit=0
         for shop in (shops or [])
         if str(shop).strip()
     }))
-    return 'joint-dashboard:shared:' + '|'.join([
+    return 'joint-dashboard:shared:' + PARTIAL_DASHBOARD_SALES_SOURCE + ':' + '|'.join([
         start_dt.strftime('%Y-%m-%d'),
         end_dt.strftime('%Y-%m-%d'),
         shops_key,
@@ -245,13 +274,8 @@ def _save_joint_shared_metrics_payload(payload, start_dt, end_dt, shops, target_
     return shared_payload if saved else None
 
 
-def _get_bd_order_settlement_sales(start_dt, end_dt, prev_start, prev_end, shops):
-    """按店铺和日期汇总 DingDanYingJieSuanGMV。
-
-    直接从底表按日期和店铺过滤，避免 v_tk_bddingdan 中的字符串拼接
-    IN/NOT IN 导致数十万行全表扫描。金额公式与该视图的
-    DingDanYingJieSuanGMV 字段保持一致。
-    """
+def _get_tk_order_gmv_sales(start_dt, end_dt, prev_start, prev_end, shops):
+    """直接从 TK_DingDan 按订购日期和 Dian 汇总联营看板 GMV。"""
     safe_shops = [str(shop).replace("'", "''") for shop in shops]
     if not safe_shops:
         return {'previous': 0.0, 'selected': 0.0, 'yesterday': 0.0}
@@ -261,14 +285,9 @@ def _get_bd_order_settlement_sales(start_dt, end_dt, prev_start, prev_end, shops
     overall_end = max(end_dt, prev_end, yesterday)
     gmv_expression = """
         CASE
-            WHEN dd.ZhuangTai = N'已取消' THEN 0
-            WHEN dd.TuiKuan < 0 AND dd.ZhuangTai IN (N'已发货', N'已完成')
-                THEN (dd.ChanPinJinE + dd.MaiJiaShangPinZheKou + dd.TuiKuan)
-                     * (CASE WHEN dd.Guo = N'英国' THEN 1.14 ELSE 1 END)
-            WHEN dd.ZhuangTai IN (N'已发货', N'已完成')
-                THEN (dd.XiaoShouShouYi - dd.ShuiFei - dd.PingTaiShangPinZheKou)
-                     * (CASE WHEN dd.Guo = N'英国' THEN 1.14 ELSE 1 END)
-            ELSE 0
+            WHEN dd.TuiKuan < 0
+                THEN dd.ChanPinJinE + dd.MaiJiaShangPinZheKou + dd.TuiKuan
+            ELSE dd.XiaoShouShouYi - dd.ShuiFei - dd.PingTaiShangPinZheKou
         END
     """
     sql = f"""
@@ -289,18 +308,7 @@ def _get_bd_order_settlement_sales(start_dt, end_dt, prev_start, prev_end, shops
         WHERE dd.DingGouShiJian >= '{overall_start:%Y-%m-%d}'
           AND dd.DingGouShiJian < DATEADD(DAY, 1, CONVERT(date, '{overall_end:%Y-%m-%d}'))
           AND dd.Dian IN ({in_clause})
-          AND EXISTS (
-              SELECT 1
-              FROM TK_BDDingDan AS bd WITH (NOLOCK)
-              WHERE bd.DanHao = dd.DanHao
-                AND bd.SKU = dd.MSKU
-                AND bd.ZhuangTai <> N'已取消'
-          )
-          AND NOT EXISTS (
-              SELECT 1
-              FROM TK_TuiHuo AS th WITH (NOLOCK)
-              WHERE th.DanHao_ShangPinID = dd.DanHao + N'@' + dd.ChanPinID
-          )
+          AND dd.ZhuangTai <> N'已取消'
         OPTION (RECOMPILE)
     """
     rows = bjc.sf_db(sql, single=False) or []
@@ -522,15 +530,30 @@ def _build_dashboard_shell_payload(shops, start_dt=None, end_dt=None, sales_sour
     start_dt = start_dt or date(today.year, today.month, 1)
     end_dt = end_dt or today
     yesterday = today - timedelta(days=1)
+    prev_month = end_dt.month - 1 or 12
+    prev_year = end_dt.year - 1 if end_dt.month == 1 else end_dt.year
+    prev_start = date(prev_year, prev_month, 1)
+    prev_end = date(prev_year, prev_month, monthrange(prev_year, prev_month)[1])
     safe_shops = [str(shop).replace("'", "''") for shop in (shops or [])]
     in_clause = ','.join([f"'{shop}'" for shop in safe_shops])
     yesterday_sales = 0.0
     selected_sales = 0.0
-    # The joint dashboard's settlement source is comparatively expensive. Its
-    # cold response intentionally stays query-free while the full calculation
-    # runs in the background; returning default-source sales here would display
-    # incorrect figures during that refresh.
-    if in_clause and sales_source != PARTIAL_DASHBOARD_SALES_SOURCE:
+    # 联营看板的昨日和区间销售额只依赖 TK_DingDan。即使完整财务指标仍在
+    # 后台刷新，也立即返回真实销售额，避免冷缓存期间显示为 0。
+    if in_clause and sales_source == PARTIAL_DASHBOARD_SALES_SOURCE:
+        try:
+            tk_order_sales = _get_tk_order_gmv_sales(
+                start_dt,
+                end_dt,
+                prev_start,
+                prev_end,
+                shops,
+            )
+            yesterday_sales = tk_order_sales['yesterday']
+            selected_sales = tk_order_sales['selected']
+        except Exception:
+            pass
+    elif in_clause:
         sql = f"""
             SELECT
                 ISNULL(SUM(CASE WHEN 结算日期 = '{yesterday:%Y-%m-%d}' THEN 考核销售额 ELSE 0 END), 0),
@@ -554,11 +577,9 @@ def _build_dashboard_shell_payload(shops, start_dt=None, end_dt=None, sales_sour
     month_total_days = monthrange(end_dt.year, end_dt.month)[1]
     progress_day = max(0, min(month_total_days, (today - start_dt).days))
     progress_pct = round((progress_day / month_total_days) * 100, 2) if month_total_days else 0.0
-    prev_month = end_dt.month - 1 or 12
-    prev_year = end_dt.year - 1 if end_dt.month == 1 else end_dt.year
     prev_period = {
         'start': f'{prev_year:04d}-{prev_month:02d}-01',
-        'end': f'{prev_year:04d}-{prev_month:02d}-{monthrange(prev_year, prev_month)[1]:02d}',
+        'end': prev_end.strftime('%Y-%m-%d'),
     }
     return {
         'success': True,
@@ -615,9 +636,9 @@ def _compute_metrics_payload(
 
     prev_start_str = prev_start.strftime('%Y-%m-%d')
     prev_end_str = prev_end.strftime('%Y-%m-%d')
-    bd_order_sales = None
+    tk_order_sales = None
     if sales_source == PARTIAL_DASHBOARD_SALES_SOURCE:
-        bd_order_sales = _get_bd_order_settlement_sales(
+        tk_order_sales = _get_tk_order_gmv_sales(
             start_dt,
             end_dt,
             prev_start,
@@ -764,8 +785,8 @@ def _compute_metrics_payload(
         int(prev_vals[18] or 0), int(prev_vals[19] or 0), int(prev_vals[20] or 0),
         float(prev_vals[21] or 0), float(prev_vals[22] or 0), float(prev_vals[23] or 0)
     )
-    if bd_order_sales is not None:
-        monthly_sales_prev = bd_order_sales['previous']
+    if tk_order_sales is not None:
+        monthly_sales_prev = tk_order_sales['previous']
     vat_fee = (vat_tax or 0) + (tax_fee_prev or 0)
 
     fixed_costs = {
@@ -981,9 +1002,9 @@ def _compute_metrics_payload(
         int(sel_vals[18] or 0), int(sel_vals[19] or 0), int(sel_vals[20] or 0),
         float(sel_vals[21] or 0), float(sel_vals[22] or 0), float(sel_vals[23] or 0)
     )
-    if bd_order_sales is not None:
-        monthly_sales_sel = bd_order_sales['selected']
-        yesterday_total = bd_order_sales['yesterday']
+    if tk_order_sales is not None:
+        monthly_sales_sel = tk_order_sales['selected']
+        yesterday_total = tk_order_sales['yesterday']
     vat_sel_total = (vat_tax_sel or 0) + (tax_sel or 0)
 
     sel_comm_detail = _get_influencer_commission_detail(sel_start_str, sel_end_str)
@@ -1226,14 +1247,7 @@ def _refresh_default_cache_once():
     global _default_cached_payload, _default_cached_exp, _precomputed_shop_payloads, _precomputed_week_shop_payloads
     _default_cached_payload = payload
     _default_cached_exp = time.time() + DEFAULT_CACHE_REFRESH_SEC
-    shops_rows = bjc.sf_db("SELECT DISTINCT 店 FROM v_TK_JieSuan") or []
-    shops = []
-    if isinstance(shops_rows, list):
-        for r in shops_rows:
-            s = str(r).strip()
-            if s:
-                shops.append(s)
-    shops = sorted(list(set(shops)))
+    shops = _get_overall_dashboard_shops()
     new_map = {DEFAULT_SHOP_NAME: payload}
     new_week_map = {}
     try:
@@ -1453,7 +1467,9 @@ if os.getenv('TK_DASHBOARD_DISABLE_BACKGROUND_CACHE', '').strip() != '1':
 def tk_dashboard_page():
     if (_default_cached_payload is None) or (time.time() >= _default_cached_exp):
         _schedule_default_cache_refresh()
-    page_payload = _default_cached_payload or _build_dashboard_shell_payload([DEFAULT_SHOP_NAME])
+    # TK整体看板默认选择全部店铺，首屏也只能使用全部店铺口径的缓存，
+    # 避免筛选器显示全选但表格短暂展示默认单店数据。
+    page_payload = (_precomputed_shop_payloads or {}).get('ALL')
     shop_options = []
     for key, payload in (_precomputed_shop_payloads or {}).items():
         if key == 'ALL':
@@ -1465,13 +1481,16 @@ def tk_dashboard_page():
     return render_template(
         'tk_total_dashboard.html',
         default_payload=page_payload,
-        default_shop_name=DEFAULT_SHOP_NAME,
+        default_shop_name=None,
+        default_select_all=True,
         precomputed_shops=shop_options,
         precomputed_shop_payloads=_precomputed_shop_payloads,
         precomputed_week_shop_payloads=_precomputed_week_shop_payloads,
         page_title='TK整体看板',
-        page_desc='选择日期范围和店铺，查看昨日实时结算销售额（USD）与时间进度',
+        page_desc='选择日期范围和店铺，查看昨日实时结算销售额与昨日订单实时销售额（USD）',
+        primary_sales_title='昨日实时结算销售额（USD）',
         fixed_shop=None,
+        show_order_sales_card=True,
     )
 
 
@@ -1489,12 +1508,14 @@ def tk_dashboard_project_page():
     return render_template(
         'tk_total_dashboard.html',
         default_payload=None,
-        default_shop_name=allowed_shops[0],
+        default_shop_name=None,
+        default_select_all=True,
         precomputed_shops=shop_options,
         precomputed_shop_payloads={},
         precomputed_week_shop_payloads={},
         page_title='联营店铺看板',
         page_desc='仅显示当前账号有权限的联营店铺；手动刷新后的缓存由所有授权人员共享，直到下一次刷新',
+        primary_sales_title='昨日订单实时销售额（USD）',
         fixed_shop=None,
         restrict_like_82=True,
     )
@@ -1560,7 +1581,7 @@ def tk_dashboard_82_page():
         precomputed_shop_payloads={'82': payload_82},
         precomputed_week_shop_payloads={'82': payload_82_week},
         page_title='82号店看板',
-        page_desc='选择日期范围，查看 82 号店昨日实时结算销售额（USD）与时间进度',
+        page_desc='选择日期范围，查看 82 号店昨日订单实时结算销售额（USD）与时间进度',
         fixed_shop='82',
     )
 
@@ -1598,7 +1619,7 @@ def tk_dashboard_88_page():
         precomputed_shop_payloads={'88': payload_88},
         precomputed_week_shop_payloads={'88': payload_88_week},
         page_title='88号店看板',
-        page_desc='选择日期范围，查看 88 号店昨日实时结算销售额（USD）与时间进度',
+        page_desc='选择日期范围，查看 88 号店昨日订单实时结算销售额（USD）与时间进度',
         fixed_shop='88',
     )
 
@@ -1636,7 +1657,7 @@ def tk_dashboard_90_page():
         precomputed_shop_payloads={'90': payload_90},
         precomputed_week_shop_payloads={'90': payload_90_week},
         page_title='90号店看板',
-        page_desc='选择日期范围，查看 90 号店昨日实时结算销售额（USD）与时间进度',
+        page_desc='选择日期范围，查看 90 号店昨日订单实时结算销售额（USD）与时间进度',
         fixed_shop='90',
     )
 
@@ -1898,14 +1919,7 @@ ORDER BY 项目
 @require_permission('tk_total_dashboard')
 def tk_shops():
     try:
-        rows = bjc.sf_db("SELECT DISTINCT 店 FROM v_TK_JieSuan") or []
-        shops = []
-        if isinstance(rows, list):
-            for r in rows:
-                s = str(r).strip()
-                if s:
-                    shops.append(s)
-        shops = sorted(list(set(shops)))
+        shops = _get_overall_dashboard_shops()
         return jsonify({'success': True, 'shops': shops})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
@@ -1919,6 +1933,65 @@ def tk_joint_shops():
     if not shops:
         return jsonify({'success': False, 'message': '权限不足'}), 403
     return jsonify({'success': True, 'shops': shops})
+
+
+@tk_dashboard_bp.route('/tk/yesterday_order_sales', methods=['POST'])
+@require_permission('tk_dashboard_full')
+def tk_yesterday_order_sales():
+    """Return independent TK_DingDan order GMV displays for TK整体看板。"""
+    data = request.get_json() or {}
+    requested_shops = data.get('shops') or []
+    if isinstance(requested_shops, str):
+        requested_shops = [requested_shops]
+    elif not isinstance(requested_shops, (list, tuple, set)):
+        requested_shops = []
+    shops = []
+    for shop in requested_shops:
+        normalized_shop = str(shop).strip()
+        if normalized_shop and normalized_shop not in shops:
+            shops.append(normalized_shop)
+    if not shops:
+        return jsonify({'success': False, 'message': '请选择店铺'})
+
+    today = date.today()
+    yesterday = date.today() - timedelta(days=1)
+    start_date_str = str(data.get('start_date') or '').strip()
+    end_date_str = str(data.get('end_date') or '').strip()
+    try:
+        start_dt = (
+            datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            if start_date_str else date(today.year, today.month, 1)
+        )
+        end_dt = (
+            datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            if end_date_str else today
+        )
+    except ValueError:
+        return jsonify({'success': False, 'message': '日期格式错误，应为YYYY-MM-DD'})
+    if start_dt > end_dt:
+        return jsonify({'success': False, 'message': '开始日期不能晚于结束日期'})
+
+    prev_month = end_dt.month - 1
+    prev_year = end_dt.year
+    if prev_month == 0:
+        prev_month = 12
+        prev_year -= 1
+    prev_start = date(prev_year, prev_month, 1)
+    prev_end = date(prev_year, prev_month, monthrange(prev_year, prev_month)[1])
+    order_sales = _get_tk_order_gmv_sales(
+        start_dt,
+        end_dt,
+        prev_start,
+        prev_end,
+        shops,
+    )
+    return jsonify({
+        'success': True,
+        'total_order_sales': order_sales['yesterday'],
+        'previous_order_sales': order_sales['previous'],
+        'selected_order_sales': order_sales['selected'],
+        'yesterday': yesterday.strftime('%Y-%m-%d'),
+    })
 
 
 @tk_dashboard_bp.route('/tk/metrics', methods=['POST'])
@@ -1961,13 +2034,7 @@ def tk_metrics():
         if not start_date_str or not end_date_str:
             return jsonify({'success': False, 'message': '请选择开始日期和结束日期'})
         if not shops:
-            rows = bjc.sf_db("SELECT DISTINCT 店 FROM v_TK_JieSuan") or []
-            shops = []
-            if isinstance(rows, list):
-                for r in rows:
-                    s = str(r).strip()
-                    if s:
-                        shops.append(s)
+            shops = _get_overall_dashboard_shops()
 
         try:
             start_dt = datetime.strptime(start_date_str, '%Y-%m-%d').date()

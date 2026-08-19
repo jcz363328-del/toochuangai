@@ -32,6 +32,7 @@
         .btn.cache-refresh { background:linear-gradient(135deg, #f59e0b 0%, #f97316 100%); }
         .btn:disabled { cursor:not-allowed; opacity:.65; }
         .metrics { display:grid; grid-template-columns:minmax(250px, .8fr) minmax(0, 2fr); gap:16px; }
+        .metrics.with-order-sales { grid-template-columns:minmax(220px, .8fr) minmax(220px, .8fr) minmax(0, 2fr); }
         .metric { flex:1; min-width:280px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:14px; padding:12px; }
         .metric-center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
         .metric h3 { margin:0 0 10px 0; font-size:16px; color:#374151; }
@@ -166,18 +167,24 @@
         const PRECOMPUTED_WEEK_SHOP_PAYLOADS = {{ precomputed_week_shop_payloads|default({})|tojson }};
         const FIXED_SHOP = {{ fixed_shop|tojson }};
         const RESTRICT_LIKE_82 = {{ restrict_like_82|default(false)|tojson }};
+        const SHOW_ORDER_SALES_CARD = {{ show_order_sales_card|default(false)|tojson }};
+        const DEFAULT_SELECT_ALL = {{ default_select_all|default(false)|tojson }};
 
+        const ORDER_SALES_CALCULATION = '订单销售额直接从 TK_DingDan 汇总，按 DingGouShiJian 筛选日期、按 Dian 划分店铺，并排除 ZhuangTai = 已取消的数据。TuiKuan < 0 时，GMV = ChanPinJinE + MaiJiaShangPinZheKou + TuiKuan；否则，GMV = XiaoShouShouYi - ShuiFei - PingTaiShangPinZheKou。';
+        const SETTLEMENT_SALES_CALCULATION = '实时结算销售额 = SUM(v_TK_JieSuan.考核销售额)，按结算日期和所选店铺汇总。';
         const SALES_CALCULATION = RESTRICT_LIKE_82
-            ? '销售额采用 v_tk_bddingdan.DingDanYingJieSuanGMV 的同口径结果。实际查询从 TK_DingDan 取数，关联 TK_BDDingDan 排除已取消订单，并排除 TK_TuiHuo 已退货商品；按 DingGouShiJian 和 Dian 筛选。'
-            : '销售额 = SUM(v_TK_JieSuan.考核销售额)，由 sp_TK_Dashboard_GetMetrics 按结算日期和所选店铺汇总。';
+            ? ORDER_SALES_CALCULATION
+            : SETTLEMENT_SALES_CALCULATION;
         const YESTERDAY_SALES_CALCULATION = RESTRICT_LIKE_82
             ? `${SALES_CALCULATION}\n\n统计日期固定为昨天。`
-            : '昨日销售额 = SUM(v_TK_JieSuan.考核销售额)，筛选结算日期为昨天及当前所选店铺。';
+            : '昨日实时结算销售额 = SUM(v_TK_JieSuan.考核销售额)，筛选结算日期为昨天及当前所选店铺。';
+        const YESTERDAY_ORDER_SALES_CALCULATION = `${ORDER_SALES_CALCULATION}\n\n统计日期固定为昨天。`;
 
         const FIELD_CALCULATIONS = {
             'breakEvenRevenue': '固定成本合计 ÷ 毛利率。固定成本合计包含经营管理费、工资和房租。',
             'orderCount': '销售量 = SUM(v_TK_JieSuan.销量) - SUM(v_TK_JieSuan.退款量)，由 sp_TK_Dashboard_GetMetrics 按结算日期和店铺汇总。',
             'profitTargetRevenue': '（固定成本合计 + 本月目标净利润）÷ 毛利率。',
+            'orderDimensionSales': ORDER_SALES_CALCULATION,
             'monthlySalesPrev': SALES_CALCULATION,
             'netProfit': '净利润 = 毛利润 - 经营管理费 - 工资 - 房租。',
             'grossProfit': '毛利润 = 销售额 - 达人佣金 - 渠道推广及维护费用 - 广告费 - 活动服务费 - 平台佣金 - 税金 - 调整费 - 产品成本 - 头程费用 - 尾程费用 - 海外仓费用 - 其他平台费用。',
@@ -259,6 +266,17 @@
             };
 
             const cellExplanation = (baseId, columnIndex, logic) => {
+                if (baseId === 'orderDimensionSales') {
+                    if (columnIndex === 1) {
+                        return `上月订单维度销售额按所选结束日期的上一个自然月及所选店铺计算。\n\n取数/计算逻辑：${logic}`;
+                    }
+                    if (columnIndex === 4) {
+                        return `实际订单维度销售额按当前选择的开始日期、结束日期和店铺计算。\n\n取数/计算逻辑：${logic}`;
+                    }
+                    if (columnIndex > 1) {
+                        return '订单维度销售额仅作独立展示，不参与占比、目标、毛利润、净利润或其他指标计算，页面显示“—”。';
+                    }
+                }
                 if (columnIndex === 1) {
                     return `上月实际值按所选结束日期的上一个自然月及所选店铺计算。\n\n取数/计算逻辑：${logic}`;
                 }
@@ -296,6 +314,8 @@
             const headerCalculations = [
                 ['salesHeader', YESTERDAY_SALES_CALCULATION],
                 ['salesValue', YESTERDAY_SALES_CALCULATION],
+                ['orderSalesHeader', YESTERDAY_ORDER_SALES_CALCULATION],
+                ['orderSalesValue', YESTERDAY_ORDER_SALES_CALCULATION],
                 ['progressHeader', '时间进度 = 从所选开始日期到今天的已过天数 ÷ 所选结束日期所在月的总天数 × 100%，结果限制在 0%～100%。'],
                 ['progressBar', '进度条宽度 = 时间进度，最大显示 100%。'],
                 ['progressText', '时间进度 = 从所选开始日期到今天的已过天数 ÷ 所选结束日期所在月的总天数 × 100%。'],
@@ -874,7 +894,7 @@
                     start_date: startStr,
                     end_date: endStr,
                     shops: shops,
-                    sales_source: RESTRICT_LIKE_82 ? 'bd_order_settlement_gmv' : ''
+                    sales_source: RESTRICT_LIKE_82 ? 'tk_dingdan_gmv' : ''
                 };
                 const resp = await fetch('/tk/metrics', {
                     method: 'POST',
@@ -883,6 +903,9 @@
                 });
                 const data = await resp.json();
                 renderMetrics(data);
+            }
+            if (SHOW_ORDER_SALES_CARD) {
+                queryYesterdayOrderSales(shops);
             }
         }
 
@@ -1268,7 +1291,8 @@
                 if (!listBox) return;
                 listBox.innerHTML = '';
                 if (data.success) {
-                    (data.shops || []).forEach(s => {
+                    const availableShops = data.shops || [];
+                    availableShops.forEach(s => {
                         const label = document.createElement('label');
                         label.className = 'shop-row';
                         const cb = document.createElement('input');
@@ -1281,10 +1305,14 @@
                         label.appendChild(cb);
                         label.appendChild(span);
                         listBox.appendChild(label);
-                        if (typeof DEFAULT_SHOP_NAME === 'string' && s === DEFAULT_SHOP_NAME) {
+                        if (DEFAULT_SELECT_ALL || (typeof DEFAULT_SHOP_NAME === 'string' && s === DEFAULT_SHOP_NAME)) {
                             cb.checked = true;
                         }
                     });
+                    if (selectAll) {
+                        selectAll.checked = DEFAULT_SELECT_ALL && availableShops.length > 0;
+                        selectAll.indeterminate = false;
+                    }
                     updateShopTags();
                 } else {
                     document.getElementById('shopsError').textContent = data.message || '店铺列表加载失败';
@@ -1299,6 +1327,53 @@
                 return [FIXED_SHOP];
             }
             return Array.from(document.querySelectorAll('.shop-item:checked')).map(cb => cb.value);
+        }
+
+        async function queryYesterdayOrderSales(shops = getSelectedShops()) {
+            if (!SHOW_ORDER_SALES_CARD || !Array.isArray(shops) || shops.length === 0) return;
+            try {
+                const startDate = document.getElementById('start_date').value;
+                const endDate = document.getElementById('end_date').value;
+                const response = await fetch('/tk/yesterday_order_sales', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shops,
+                        start_date: startDate,
+                        end_date: endDate
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) return;
+                const valueElement = document.getElementById('orderSalesValue');
+                const headerElement = document.getElementById('orderSalesHeader');
+                if (valueElement) {
+                    valueElement.textContent = new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD'
+                    }).format(data.total_order_sales || 0);
+                }
+                const formatTableAmount = value => new Intl.NumberFormat('zh-CN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(Math.abs(Number(value || 0)));
+                const previousElement = document.getElementById('orderDimensionSales');
+                const actualElement = document.getElementById('orderDimensionSalesActual');
+                if (previousElement) {
+                    previousElement.textContent = formatTableAmount(data.previous_order_sales);
+                }
+                if (actualElement) {
+                    actualElement.textContent = formatTableAmount(data.selected_order_sales);
+                }
+                const dateExplanation = data.yesterday
+                    ? `统计日期：${data.yesterday}。`
+                    : '统计日期：昨天。';
+                const calculation = `取数/计算逻辑：${YESTERDAY_ORDER_SALES_CALCULATION}\n\n${dateExplanation}`;
+                if (headerElement) headerElement.dataset.calculation = calculation;
+                if (valueElement) valueElement.dataset.calculation = calculation;
+            } catch (error) {
+                // 保留最近一次成功展示的数据，避免短暂网络波动将金额重置为 0。
+            }
         }
 
         function openShopPanel() { document.getElementById('shopPanel').style.display = 'block'; }
@@ -1317,6 +1392,12 @@
             });
             const titleEl = document.querySelector('#shopMultiselect .dropdown-toggle span');
             if (titleEl) titleEl.textContent = shops.length ? ('已选' + shops.length + '个') : '选择店铺';
+            const allItems = Array.from(document.querySelectorAll('.shop-item'));
+            const selectAll = document.getElementById('selectAll');
+            if (selectAll && !selectAll.disabled) {
+                selectAll.checked = allItems.length > 0 && shops.length === allItems.length;
+                selectAll.indeterminate = shops.length > 0 && shops.length < allItems.length;
+            }
         }
 
         function toggleSelectAll(ele) {
@@ -1355,6 +1436,9 @@
             const end = document.getElementById('end_date').value;
             const shops = getSelectedShops();
             if (!start || !end) { alert('请选择开始日期和结束日期'); return; }
+            if (SHOW_ORDER_SALES_CARD) {
+                queryYesterdayOrderSales(shops);
+            }
             const pollGeneration = ++metricsPollGeneration;
             const refreshButton = document.getElementById('refreshCacheBtn');
             if (forceRefresh && refreshButton && refreshButton.disabled) return;
@@ -1373,7 +1457,7 @@
                     start_date: start,
                     end_date: end,
                     shops,
-                    sales_source: RESTRICT_LIKE_82 ? 'bd_order_settlement_gmv' : '',
+                    sales_source: RESTRICT_LIKE_82 ? 'tk_dingdan_gmv' : '',
                     force_refresh: forceRefresh
                 };
                 const resp = await fetch(apiUrl, {
@@ -1413,7 +1497,7 @@
             queryMetrics(true);
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -1422,10 +1506,26 @@
             document.getElementById('end_date').value = `${yyyy}-${mm}-${dd}`;
             attachCalculationTooltips();
             if (!FIXED_SHOP) {
-                loadShops();
+                await loadShops();
             }
-            if (DEFAULT_SHOP_DATA && DEFAULT_SHOP_DATA.success) {
+            let orderSalesRequestedByInitialQuery = false;
+            if (DEFAULT_SELECT_ALL && getSelectedShops().length > 0) {
+                const allShopsPayload = (DEFAULT_SHOP_DATA && DEFAULT_SHOP_DATA.success)
+                    ? DEFAULT_SHOP_DATA
+                    : PRECOMPUTED_SHOP_PAYLOADS.ALL;
+                if (allShopsPayload && allShopsPayload.success) {
+                    renderMetrics(allShopsPayload);
+                } else {
+                    await queryMetrics();
+                    orderSalesRequestedByInitialQuery = SHOW_ORDER_SALES_CARD;
+                }
+            } else if (DEFAULT_SHOP_DATA && DEFAULT_SHOP_DATA.success) {
                 renderMetrics(DEFAULT_SHOP_DATA);
+            } else if (RESTRICT_LIKE_82 && getSelectedShops().length > 0) {
+                await queryMetrics();
+            }
+            if (SHOW_ORDER_SALES_CARD && !orderSalesRequestedByInitialQuery) {
+                queryYesterdayOrderSales();
             }
             initCacheSelect();
             if (!FIXED_SHOP) {
@@ -1490,7 +1590,7 @@
     <div class="container">
         <div class="card">
             <h1>{{ page_title or 'TK整体看板' }}</h1>
-            <div class="desc">{{ page_desc or '选择日期范围和店铺，查看昨日实时结算销售额（USD）与时间进度' }}</div>
+            <div class="desc">{{ page_desc or '选择日期范围和店铺，查看昨日订单实时结算销售额（USD）与时间进度' }}</div>
 
             <div class="form-row">
                 <div class="form-group compact">
@@ -1542,11 +1642,18 @@
         </div>
 
         <div class="card">
-            <div class="metrics">
+            <div class="metrics{% if show_order_sales_card|default(false) %} with-order-sales{% endif %}">
                 <div class="metric metric-center">
-                    <h3 id="salesHeader" title="昨日实时结算销售额（USD）"><i class="fas fa-dollar-sign"></i> 昨日实时结算销售额（USD）</h3>
+                    <h3 id="salesHeader" title="{{ primary_sales_title|default('昨日订单实时结算销售额（USD）', true) }}"><i class="fas fa-dollar-sign"></i> {{ primary_sales_title|default('昨日订单实时结算销售额（USD）', true) }}</h3>
                     <div class="value" id="salesValue">$0.00</div>
                 </div>
+
+                {% if show_order_sales_card|default(false) %}
+                <div class="metric metric-center">
+                    <h3 id="orderSalesHeader" title="昨日订单实时销售额（USD）"><i class="fas fa-cart-shopping"></i> 昨日订单实时销售额（USD）</h3>
+                    <div class="value" id="orderSalesValue">$0.00</div>
+                </div>
+                {% endif %}
                 
                 <div class="metric" style="flex:2;">
                     <h3 id="progressHeader" title="当前日期前一天占当前月的进度占比"><i class="fas fa-hourglass-half"></i> 时间进度</h3>
@@ -1640,7 +1747,7 @@
                             <col class="col-achratio">
                         </colgroup>
                         <tbody>
-                            <tr {% if fixed_shop == '82' or fixed_shop == '88' or fixed_shop == '90' or restrict_like_82 %}style="display:none;"{% endif %}>
+                            <tr>
                                 <td>结束日期的上个月</td>
                                 <td class="value col-value" id="periodMonth"></td>
                                 <td class="col-ratio ratio-header">上个月占比</td>
@@ -1692,6 +1799,16 @@
                                 <td class="col-achieved" id="profitTargetRevenueActual">—</td>
                                 <td class="col-achratio" id="profitTargetRevenueAchRatio">—</td>
                             </tr>
+                            {% if show_order_sales_card|default(false) %}
+                            <tr>
+                                <td>订单维度销售额</td>
+                                <td class="value col-value" id="orderDimensionSales">0.00</td>
+                                <td class="col-ratio" id="orderDimensionSalesRatio">—</td>
+                                <td class="col-target" id="orderDimensionSalesTarget">—</td>
+                                <td class="col-achieved" id="orderDimensionSalesActual">0.00</td>
+                                <td class="col-achratio" id="orderDimensionSalesAchRatio">—</td>
+                            </tr>
+                            {% endif %}
                             <tr>
                                 <td>销售额</td>
                                 <td class="value col-value" id="monthlySalesPrev">0.00</td>
