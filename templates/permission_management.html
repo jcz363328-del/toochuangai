@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -81,6 +81,127 @@
             padding: 30px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             margin-bottom: 30px;
+        }
+
+        .overview-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .overview-head .panel-title {
+            margin-bottom: 0;
+        }
+
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(120px, 1fr));
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .overview-stat {
+            border: 1px solid #e4e8f0;
+            border-radius: 14px;
+            padding: 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8faff 100%);
+        }
+
+        .overview-stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #4f46e5;
+            line-height: 1.1;
+        }
+
+        .overview-stat-label {
+            color: #667085;
+            margin-top: 7px;
+            font-size: 0.88rem;
+        }
+
+        .overview-columns {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+            gap: 18px;
+        }
+
+        .overview-box {
+            border: 1px solid #e4e8f0;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .overview-box-title {
+            padding: 13px 15px;
+            background: #f7f8fc;
+            border-bottom: 1px solid #e4e8f0;
+            font-weight: 700;
+            color: #344054;
+        }
+
+        .overview-scroll {
+            max-height: 360px;
+            overflow: auto;
+        }
+
+        .catalog-row {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eef1f6;
+        }
+
+        .catalog-row:last-child {
+            border-bottom: 0;
+        }
+
+        .catalog-name {
+            font-weight: 700;
+            color: #344054;
+            margin-bottom: 5px;
+        }
+
+        .catalog-departments {
+            color: #667085;
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }
+
+        .overview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+        }
+
+        .overview-table th,
+        .overview-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eef1f6;
+            vertical-align: top;
+        }
+
+        .overview-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f7f8fc;
+            color: #475467;
+        }
+
+        .overview-empty {
+            padding: 34px 16px;
+            text-align: center;
+            color: #98a2b3;
+        }
+
+        .refresh-btn,
+        .default-btn {
+            border: 1px solid #cfd4dc;
+            background: #fff;
+            color: #475467;
         }
 
         .panel-title {
@@ -244,6 +365,15 @@
             line-height: 1.4;
         }
 
+        .permission-reason {
+            color: #667085;
+            font-size: 0.82rem;
+            margin-bottom: 14px;
+            padding: 8px 10px;
+            background: #f7f8fc;
+            border-radius: 8px;
+        }
+
         .permission-actions {
             display: flex;
             gap: 10px;
@@ -319,6 +449,18 @@
         }
 
         @media (max-width: 768px) {
+            .overview-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .overview-columns {
+                grid-template-columns: 1fr;
+            }
+
+            .overview-head {
+                align-items: flex-start;
+            }
+
             .search-row {
                 flex-direction: column;
             }
@@ -346,8 +488,8 @@
                 <h1>权限管理</h1>
             </div>
             <nav class="nav-links">
-                <a href="{{ url_for('admin_dashboard') }}">
-                    <i class="fas fa-arrow-left"></i> 返回管理员功能
+                <a href="{{ return_url or url_for('admin_dashboard') }}">
+                    <i class="fas fa-arrow-left"></i> {{ return_label or '返回管理员功能' }}
                 </a>
                 <a href="{{ url_for('dashboard') }}">
                     <i class="fas fa-home"></i> 返回主页
@@ -358,16 +500,66 @@
 
     <div class="container">
         <div class="permission-panel">
+            <div class="overview-head">
+                <div class="panel-title">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>权限概览</span>
+                </div>
+                <button class="action-btn refresh-btn" type="button" onclick="loadPermissionOverview()">
+                    <i class="fas fa-sync-alt"></i> 刷新概览
+                </button>
+            </div>
+
+            <div class="overview-grid">
+                <div class="overview-stat">
+                    <div class="overview-stat-value" id="overviewFunctionCount">-</div>
+                    <div class="overview-stat-label">系统功能权限</div>
+                </div>
+                <div class="overview-stat">
+                    <div class="overview-stat-value" id="overviewUserCount">-</div>
+                    <div class="overview-stat-label">单独调整用户</div>
+                </div>
+                <div class="overview-stat">
+                    <div class="overview-stat-value" id="overviewOverrideCount">-</div>
+                    <div class="overview-stat-label">单独设置总数</div>
+                </div>
+                <div class="overview-stat">
+                    <div class="overview-stat-value" id="overviewGrantCount">-</div>
+                    <div class="overview-stat-label">单独授权</div>
+                </div>
+                <div class="overview-stat">
+                    <div class="overview-stat-value" id="overviewDenyCount">-</div>
+                    <div class="overview-stat-label">单独禁用</div>
+                </div>
+            </div>
+
+            <div class="overview-columns">
+                <div class="overview-box">
+                    <div class="overview-box-title"><i class="fas fa-list me-2"></i>权限目录与默认部门</div>
+                    <div class="overview-scroll" id="permissionCatalog">
+                        <div class="overview-empty">正在加载...</div>
+                    </div>
+                </div>
+                <div class="overview-box">
+                    <div class="overview-box-title"><i class="fas fa-history me-2"></i>当前用户级权限调整</div>
+                    <div class="overview-scroll" id="permissionRecent">
+                        <div class="overview-empty">正在加载...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="permission-panel">
             <div class="panel-title">
                 <i class="fas fa-shield-alt"></i>
                 <span>用户权限管理</span>
             </div>
-            <p style="color: #666; margin-bottom: 20px;">在这里您可以为特定用户添加或移除功能权限，支持按用户ID或邮箱搜索。</p>
+            <p style="color: #666; margin-bottom: 20px;">可为特定用户单独授权或禁用任一功能，也可恢复为部门默认权限；支持按姓名、用户ID或邮箱搜索。</p>
             
             <!-- 搜索区域 -->
             <div class="search-section">
                 <div class="search-row">
-                    <input type="text" id="userSearch" class="search-input" placeholder="请输入用户ID或邮箱地址...">
+                    <input type="text" id="userSearch" class="search-input" placeholder="请输入飞书姓名、用户ID或邮箱地址...">
                     <button class="search-btn" onclick="searchUser()">
                         <i class="fas fa-search"></i> 搜索用户
                     </button>
@@ -424,6 +616,61 @@
 
     <script>
         let currentUser = null;
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        async function loadPermissionOverview() {
+            const catalogBox = document.getElementById('permissionCatalog');
+            const recentBox = document.getElementById('permissionRecent');
+            try {
+                const response = await fetch('/api/admin/permission_overview');
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.message || '概览加载失败');
+                }
+                const data = result.data || {};
+                const summary = data.summary || {};
+                document.getElementById('overviewFunctionCount').textContent = summary.function_count || 0;
+                document.getElementById('overviewUserCount').textContent = summary.user_count || 0;
+                document.getElementById('overviewOverrideCount').textContent = summary.override_count || 0;
+                document.getElementById('overviewGrantCount').textContent = summary.grant_count || 0;
+                document.getElementById('overviewDenyCount').textContent = summary.deny_count || 0;
+
+                const catalog = data.catalog || [];
+                catalogBox.innerHTML = catalog.length ? catalog.map(item => `
+                    <div class="catalog-row">
+                        <div class="catalog-name">${escapeHtml(item.name)} <small>(${escapeHtml(item.function_name)})</small></div>
+                        <div class="catalog-departments">默认部门：${escapeHtml((item.allowed_departments || []).join('、') || '未配置')}</div>
+                    </div>
+                `).join('') : '<div class="overview-empty">暂无权限目录</div>';
+
+                const recent = data.recent || [];
+                recentBox.innerHTML = recent.length ? `
+                    <table class="overview-table">
+                        <thead><tr><th>用户</th><th>权限</th><th>状态</th><th>操作信息</th></tr></thead>
+                        <tbody>${recent.map(item => `
+                            <tr>
+                                <td><strong>${escapeHtml(item.user_name || '未知')}</strong><br><small>${escapeHtml(item.user_id)}</small></td>
+                                <td>${escapeHtml(item.function_display_name)}</td>
+                                <td style="color:${item.is_allowed ? '#16804b' : '#b42318'};font-weight:700;">${item.is_allowed ? '单独授权' : '单独禁用'}</td>
+                                <td>${escapeHtml(item.updated_by || '未知')}<br><small>${escapeHtml(item.updated_at || '')}</small></td>
+                            </tr>
+                        `).join('')}</tbody>
+                    </table>
+                ` : '<div class="overview-empty">暂无用户级权限调整</div>';
+            } catch (error) {
+                const message = escapeHtml(error && error.message ? error.message : '加载失败');
+                catalogBox.innerHTML = `<div class="overview-empty">${message}</div>`;
+                recentBox.innerHTML = `<div class="overview-empty">${message}</div>`;
+            }
+        }
 
         function showAlert(message, type = 'success') {
             const alertDiv = document.getElementById('alertMessage');
@@ -504,29 +751,41 @@
         function createPermissionCard(permission) {
             const card = document.createElement('div');
             card.className = `permission-card ${permission.has_permission ? 'has-permission' : 'no-permission'}`;
-            
+            const hasOverride = permission.override_state === 'allow' || permission.override_state === 'deny';
+            const overrideLabel = permission.override_state === 'allow'
+                ? '单独授权'
+                : (permission.override_state === 'deny' ? '单独禁用' : '部门默认');
+
             card.innerHTML = `
                 <div class="permission-header">
                     <div class="permission-name">
                         <i class="fas fa-${getPermissionIcon(permission.function_name)}"></i>
-                        ${permission.name}
+                        ${escapeHtml(permission.name)}
                     </div>
                     <span class="permission-status ${permission.has_permission ? 'status-granted' : 'status-denied'}">
                         ${permission.has_permission ? '已授权' : '未授权'}
                     </span>
                 </div>
                 <div class="permission-description">
-                    ${permission.description}
+                    ${escapeHtml(permission.description)}
+                </div>
+                <div class="permission-reason">
+                    当前来源：${escapeHtml(overrideLabel)} · ${escapeHtml(permission.reason || '未说明')}
                 </div>
                 <div class="permission-actions">
                     ${permission.has_permission ? 
                         `<button class="action-btn revoke-btn" onclick="revokePermission('${permission.function_name}')">
-                            <i class="fas fa-times"></i> 撤销权限
+                            <i class="fas fa-ban"></i> 禁用权限
                         </button>` :
                         `<button class="action-btn grant-btn" onclick="grantPermission('${permission.function_name}')">
                             <i class="fas fa-check"></i> 授予权限
                         </button>`
                     }
+                    ${hasOverride ? `
+                        <button class="action-btn default-btn" onclick="resetPermission('${permission.function_name}')">
+                            <i class="fas fa-undo"></i> 恢复部门默认
+                        </button>
+                    ` : ''}
                 </div>
             `;
             
@@ -558,6 +817,7 @@
                     },
                     body: JSON.stringify({
                         user_id: currentUser.user_id,
+                        user_name: currentUser.name || '',
                         function_name: functionName
                     })
                 });
@@ -568,6 +828,7 @@
                     showAlert(`成功为用户授予 ${result.function_display_name} 权限`, 'success');
                     // 重新加载用户信息
                     searchUser();
+                    loadPermissionOverview();
                 } else {
                     showAlert(result.message || '授予权限失败', 'error');
                 }
@@ -592,6 +853,7 @@
                     },
                     body: JSON.stringify({
                         user_id: currentUser.user_id,
+                        user_name: currentUser.name || '',
                         function_name: functionName
                     })
                 });
@@ -602,6 +864,7 @@
                     showAlert(`成功撤销用户的 ${result.function_display_name} 权限`, 'success');
                     // 重新加载用户信息
                     searchUser();
+                    loadPermissionOverview();
                 } else {
                     showAlert(result.message || '撤销权限失败', 'error');
                 }
@@ -611,12 +874,38 @@
             }
         }
 
+        async function resetPermission(functionName) {
+            if (!currentUser) return;
+            if (!confirm('确定恢复该功能的部门默认权限吗？')) return;
+            try {
+                const response = await fetch('/api/admin/reset_permission', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUser.user_id,
+                        function_name: functionName
+                    })
+                });
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.message || '恢复失败');
+                }
+                showAlert(`已将 ${result.function_display_name} 恢复为部门默认权限`, 'success');
+                searchUser();
+                loadPermissionOverview();
+            } catch (error) {
+                showAlert(error && error.message ? error.message : '恢复失败', 'error');
+            }
+        }
+
         // 回车键搜索
         document.getElementById('userSearch').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 searchUser();
             }
         });
+
+        loadPermissionOverview();
     </script>
 </body>
 </html>

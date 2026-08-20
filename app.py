@@ -18891,7 +18891,34 @@ def clear_cache():
 @app.route('/permission_management')
 @require_permission('admin_functions')
 def permission_management():
-    return render_template('permission_management.html')
+    source = str(request.args.get('source') or '').strip().lower()
+    if source == 'ai':
+        return_url = url_for('ai_modules')
+        return_label = '返回AI部功能'
+    else:
+        return_url = url_for('admin_dashboard')
+        return_label = '返回管理员功能'
+    return render_template(
+        'permission_management.html',
+        return_url=return_url,
+        return_label=return_label,
+    )
+
+
+@app.route('/api/admin/permission_overview', methods=['GET'])
+@require_permission('admin_functions')
+def permission_overview():
+    """权限目录、用户级调整和统计概览。"""
+    try:
+        return jsonify({
+            'success': True,
+            'data': permission_manager.get_permission_management_overview(),
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'加载权限概览失败: {str(e)}',
+        }), 500
 
 
 @app.route('/api/admin/search_user', methods=['POST'])
@@ -18954,7 +18981,12 @@ def grant_permission():
             })
 
         # 授予权限
-        result = permission_manager.grant_user_permission(user_id, function_name)
+        result = permission_manager.grant_user_permission(
+            user_id,
+            function_name,
+            user_name=str(data.get('user_name') or '').strip(),
+            updated_by=str(session.get('feishu_user_name') or '').strip(),
+        )
 
         if result['success']:
             return jsonify({
@@ -18990,8 +19022,21 @@ def revoke_permission():
                 'message': '缺少必要参数'
             })
 
-        # 撤销权限
-        result = permission_manager.revoke_user_permission(user_id, function_name)
+        if (
+            str(user_id).strip() == str(session.get('feishu_user_id') or '').strip()
+            and function_name == 'admin_functions'
+        ):
+            return jsonify({
+                'success': False,
+                'message': '不能撤销自己当前使用的权限管理后台权限',
+            }), 400
+
+        result = permission_manager.revoke_user_permission(
+            user_id,
+            function_name,
+            user_name=str(data.get('user_name') or '').strip(),
+            updated_by=str(session.get('feishu_user_name') or '').strip(),
+        )
 
         if result['success']:
             return jsonify({
@@ -19010,6 +19055,25 @@ def revoke_permission():
             'success': False,
             'message': f'撤销权限失败: {str(e)}'
         })
+
+
+@app.route('/api/admin/reset_permission', methods=['POST'])
+@require_permission('admin_functions')
+def reset_permission():
+    """删除用户单独设置，恢复部门默认权限。"""
+    try:
+        data = request.get_json() or {}
+        user_id = str(data.get('user_id') or '').strip()
+        function_name = str(data.get('function_name') or '').strip()
+        if not user_id or not function_name:
+            return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+        result = permission_manager.reset_user_permission_override(user_id, function_name)
+        return jsonify(result), (200 if result.get('success') else 400)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'恢复默认权限失败: {str(e)}',
+        }), 500
 
 
 @app.route('/logout')

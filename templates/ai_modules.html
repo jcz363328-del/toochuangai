@@ -439,6 +439,26 @@
                 </div>
             </div>
 
+            <!-- 全局权限管理 -->
+            <div class="module-card">
+                <div class="module-icon">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h3>全局权限管理</h3>
+                <p>查看全部权限与默认部门，并为指定飞书用户单独授权、禁用或恢复默认</p>
+                <ul class="feature-list">
+                    <li>全部系统权限和默认部门概览</li>
+                    <li>按飞书姓名、用户 ID 或邮箱搜索</li>
+                    <li>单独授权、禁用及恢复部门默认</li>
+                    <li>记录操作人、状态和修改时间</li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('permission_management', source='ai') }}" style="display: inline-block; background: linear-gradient(135deg, #0ea5e9 0%, #4f46e5 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+                        <i class="fas fa-user-shield"></i> 进入管理后台
+                    </a>
+                </div>
+            </div>
+
             <div class="module-card">
                 <div class="module-icon">
                     <i class="fas fa-bell"></i>

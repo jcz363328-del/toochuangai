@@ -20,6 +20,16 @@
     line-height: 1.5;
     padding: .25rem .5rem;
 }
+.supplemental-rules-list > li {
+    margin-bottom: .85rem;
+    line-height: 1.7;
+}
+.supplemental-rules-list > li:last-child {
+    margin-bottom: 0;
+}
+.supplemental-rules-list ol {
+    margin-top: .45rem;
+}
 </style>
 <div class="row">
     <div class="col-12">
@@ -52,7 +62,7 @@
                         <div class="mt-3">
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h5>创新提案管理</h5>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap justify-content-end">
         <!-- 快捷导出区域 -->
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <label class="form-label mb-0 text-muted small">快捷导出:</label>
@@ -77,6 +87,9 @@
         <!-- 原有按钮 -->
         <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#scoreGuideModal">
             <i class="bi bi-info-circle"></i> 评分标准说明
+        </button>
+        <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#supplementalRulesModal">
+            <i class="bi bi-journal-text"></i> 补充条例
         </button>
     </div>
 </div>
@@ -467,6 +480,77 @@
         </div>
     </div>
 </div>
+<!-- 创新提案补充条例模态框 -->
+<div class="modal fade" id="supplementalRulesModal" tabindex="-1" aria-labelledby="supplementalRulesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="supplementalRulesModalLabel">
+                    <i class="bi bi-journal-text"></i> 创新提案补充条例
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-primary py-2">
+                    <i class="bi bi-info-circle"></i>
+                    以下条例作为现行创新提案评审标准的补充说明。
+                </div>
+                <ol class="supplemental-rules-list ps-3 mb-0">
+                    <li data-rule-number="1">
+                        <strong>补提提案：</strong>尚在使用过程中，或非个人控制结束的创新提案，可提交。
+                    </li>
+                    <li data-rule-number="2">
+                        <strong>对 TK 视频内容类的提案：</strong>24 小时内 5000+ 浏览量可以提创新，TK 内容类统一评 10 分，给亚马逊运营发 TK 视频做一个参考，评审会上 TK 部门也想使用，可以提升档。（随着大家的水平提高，后续再提高门槛）
+                    </li>
+                    <li data-rule-number="3">
+                        <strong>部分人知道、部分人不知道的提案：</strong>统一按 10 分处理。各部门负责人对于好的点子可以在部门内宣贯和嫁接，让我们的提案发挥最大价值，应用在每个小伙伴的工作中。
+                    </li>
+                    <li data-rule-number="4">
+                        <strong>针对部门内部，老员工已知但新员工不知的点：</strong>统一暂不作为创新提案，无需发起。需部门内部进行新员工培训时，及时宣贯和经验分享。
+                    </li>
+                    <li data-rule-number="5">
+                        <strong>模特排队程序、创新程序：</strong>目前已实现最基础的功能，其他功能需要参考 AI 部时间安排去改善。关于这两类程序的优化可以直接跟连倩倩、周俊成沟通，暂不需要发起提案。
+                    </li>
+                    <li data-rule-number="6">
+                        <strong>对于 AI 工具（含美工/摄影工单系统）的提案：</strong>统一按照 10 分处理。
+                    </li>
+                    <li data-rule-number="7">
+                        <strong>已提出问题的新解决方案：</strong>对之前已经提出过的问题再次提出新的解决方案，解决方案被采纳给 10 分，不采纳按 0 分处理。
+                    </li>
+                    <li data-rule-number="8">
+                        <strong>对于新产品的提案：</strong>在提案中写明产品反映的需求点，并且承接至运营，由运营打分。对于近期不上架的按 0 分处理；如果有上架需求，按照实际价值进行评分处理。
+                    </li>
+                    <li data-rule-number="9">
+                        <strong>提案通过票数：</strong>鉴于部分人员未明确表态，本次会议确定新规：提案需获得 11 票及以上方可通过。
+                    </li>
+                    <li data-rule-number="10">
+                        <strong>尚未落地的提案：</strong>先按 10 分处理，日后实现了再提出上会。
+                    </li>
+                    <li data-rule-number="11">
+                        <strong>公式类提案：</strong>算作重复提案。
+                    </li>
+                    <li data-rule-number="12">
+                        <strong>公开的平台层面的功能实现：</strong>比如 AR、TK 滤镜等，具体可实行实施后再提出提案。
+                    </li>
+                    <li data-rule-number="13">
+                        <strong>新毛型创新评分规则：</strong>
+                        <ol class="mb-0 ps-3">
+                            <li>原创毛型，或市场已有但公司尚未开发且成功上大货，计 10 分。</li>
+                            <li>市场已有、公司尚未开发，且上大货后产生明显效益，计 20 分。</li>
+                            <li>自主原创毛型，上大货后产生明显效益，计 30 分。</li>
+                        </ol>
+                    </li>
+                    <li data-rule-number="14">
+                        <strong>关于 SOP 类的提案：</strong>对于工作流程性/新人带教类的 SOP（属于业务原本就已执行，后续才梳理补落地的情况）统一按 0 分处理。
+                    </li>
+                </ol>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- 处理创新提案模态框 -->
 <div class="modal fade" id="handleModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -528,12 +612,17 @@
 
                                             </div>
                         <div class="mb-3" id="scoreGroup">
-                            <label for="handleScore" class="form-label">
-                                部门评分 <span class="text-danger">*</span>
-                                <button type="button" class="btn btn-outline-info btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#scoreGuideModal">
-                                    <i class="bi bi-question-circle"></i> 评分标准
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                <label for="handleScore" class="form-label mb-0">
+                                    <span id="handleScoreLabelText">部门评分</span> <span class="text-danger" id="handleScoreRequiredMark">*</span>
+                                </label>
+                                <button type="button" class="btn btn-outline-info btn-sm" data-stacked-modal-target="#scoreGuideModal" onclick="openStackedModal('scoreGuideModal')">
+                                    <i class="bi bi-info-circle"></i> 评分标准说明
                                 </button>
-                            </label>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-stacked-modal-target="#supplementalRulesModal" onclick="openStackedModal('supplementalRulesModal')">
+                                    <i class="bi bi-journal-text"></i> 补充条例
+                                </button>
+                            </div>
                            <select class="form-select" id="handleScore" name="score" required>
                                 <option value="">请选择评分等级</option>
                                 <option value="A+">A+ - 产品突破性创新（大奖）</option>
@@ -731,32 +820,92 @@ let itemsPerPage = 10;
 let totalPages = 1;
 let totalCount = 0;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // 确保页面完全加载后再初始化
-    setTimeout(() => {
-        console.log('开始初始化管理页面...');
-        console.log('检查必要的DOM元素:');
-        console.log('innovationsList:', document.getElementById('innovationsList'));
-        console.log('paginationContainer:', document.getElementById('paginationContainer'));
+// 在当前弹窗之上叠加打开评分说明，不关闭底层的处理/打分弹窗。
+function openStackedModal(modalId) {
+    const targetModal = document.getElementById(modalId);
+    if (!targetModal) {
+        return;
+    }
+    if (targetModal.classList.contains('show')) {
+        targetModal.focus();
+        return;
+    }
 
-        if (!document.getElementById('innovationsList')) {
-            console.error('innovationsList元素未找到！');
-            return;
+    const openModals = Array.from(document.querySelectorAll('.modal.show'))
+        .filter(modal => modal !== targetModal);
+    const getModalZIndex = modal => {
+        const parsed = Number.parseInt(window.getComputedStyle(modal).zIndex, 10);
+        return Number.isFinite(parsed) ? parsed : 1055;
+    };
+    const parentModal = openModals
+        .slice()
+        .sort((left, right) => getModalZIndex(left) - getModalZIndex(right))
+        .pop() || null;
+    const parentZIndex = parentModal ? getModalZIndex(parentModal) : 1055;
+    const targetZIndex = parentZIndex + 20;
+
+    targetModal.style.zIndex = String(targetZIndex);
+    targetModal.dataset.stackedParentModalId = parentModal?.id || '';
+    targetModal.dataset.stackedBodyPaddingRight = document.body.style.paddingRight || '';
+
+    targetModal.addEventListener('shown.bs.modal', function handleStackedModalShown() {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        const topBackdrop = backdrops[backdrops.length - 1];
+        if (topBackdrop) {
+            topBackdrop.style.zIndex = String(targetZIndex - 5);
+            topBackdrop.dataset.stackedModalBackdrop = modalId;
         }
+        targetModal.focus();
+    }, { once: true });
 
-        document.querySelectorAll('input[name="maxScoreFilter"]').forEach(cb => {
-            cb.addEventListener('change', function () {
-                updateScoreFilterBtnText();
-                filterInnovations();
-            });
+    targetModal.addEventListener('hidden.bs.modal', function handleStackedModalHidden() {
+        targetModal.style.removeProperty('z-index');
+        const remainingOpenModals = document.querySelectorAll('.modal.show');
+        if (remainingOpenModals.length > 0) {
+            document.body.classList.add('modal-open');
+            document.body.style.paddingRight = targetModal.dataset.stackedBodyPaddingRight || '';
+
+            const parentId = targetModal.dataset.stackedParentModalId;
+            const stackedParent = parentId ? document.getElementById(parentId) : null;
+            if (stackedParent && stackedParent.classList.contains('show')) {
+                const parentInstance = bootstrap.Modal.getInstance(stackedParent);
+                if (parentInstance && parentInstance._focustrap) {
+                    parentInstance._focustrap.activate();
+                }
+                stackedParent.focus();
+            }
+        }
+        delete targetModal.dataset.stackedParentModalId;
+        delete targetModal.dataset.stackedBodyPaddingRight;
+    }, { once: true });
+
+    const modalInstance = bootstrap.Modal.getInstance(targetModal) || new bootstrap.Modal(targetModal);
+    modalInstance.show();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('开始初始化管理页面...');
+    console.log('检查必要的DOM元素:');
+    console.log('innovationsList:', document.getElementById('innovationsList'));
+    console.log('paginationContainer:', document.getElementById('paginationContainer'));
+
+    if (!document.getElementById('innovationsList')) {
+        console.error('innovationsList元素未找到！');
+        return;
+    }
+
+    document.querySelectorAll('input[name="maxScoreFilter"]').forEach(cb => {
+        cb.addEventListener('change', function () {
+            updateScoreFilterBtnText();
+            filterInnovations();
         });
-        updateScoreFilterBtnText();
+    });
+    updateScoreFilterBtnText();
 
-        // 初始化委员会权限控制
-        initCommitteePermissions();
+    // 初始化委员会权限控制
+    initCommitteePermissions();
 
-        loadInnovations(1);
-    }, 100);
+    loadInnovations(1);
 
     // 监听选项卡切换事件
     const rewardsTab = document.getElementById('rewards-tab');
@@ -893,7 +1042,8 @@ function updateHandleConditionalFields() {
     const expectedCompletionDate = document.getElementById('handleExpectedCompletionDate');
     const scoreGroup = document.getElementById('scoreGroup');
     const scoreSelect = document.getElementById('handleScore');
-    const label = document.querySelector('label[for="handleScore"]');
+    const labelText = document.getElementById('handleScoreLabelText');
+    const requiredMark = document.getElementById('handleScoreRequiredMark');
     const scoreDescription = document.getElementById('scoreDescription');
 
     deferredFields.classList.toggle('d-none', !isDeferred);
@@ -907,7 +1057,8 @@ function updateHandleConditionalFields() {
     if (['采纳，立即执行', '采纳，暂缓执行', '重复提案', '不采纳，不执行'].includes(operationType)) {
         scoreGroup.style.display = 'block';
         scoreSelect.required = true;
-        label.innerHTML = '提案评分 <span class="text-danger">*</span>';
+        labelText.textContent = '提案评分';
+        requiredMark.classList.remove('d-none');
 
         if (operationType === '采纳，立即执行') {
             scoreDescription.textContent = '立即执行评分：基于提案创新性、可行性和预期效果进行评估';
@@ -921,7 +1072,8 @@ function updateHandleConditionalFields() {
     } else {
         scoreGroup.style.display = 'block';
         scoreSelect.required = false;
-        label.innerHTML = '提案评分';
+        labelText.textContent = '提案评分';
+        requiredMark.classList.add('d-none');
         scoreDescription.textContent = '可选：如需要可以填写评分等级';
     }
 }
@@ -1916,7 +2068,15 @@ function openCommitteeScoreModal(innovationId) {
                             })()}
 
                             <div class="committee-block mb-3" style="break-inside: avoid-column; -webkit-column-break-inside: avoid; page-break-inside: avoid;">
-                                <label for="committeeScoreSelect" class="form-label">委员会评分</label>
+                                <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                    <label for="committeeScoreSelect" class="form-label mb-0">委员会评分</label>
+                                    <button type="button" class="btn btn-outline-info btn-sm" data-stacked-modal-target="#scoreGuideModal" onclick="openStackedModal('scoreGuideModal')">
+                                        <i class="bi bi-info-circle"></i> 评分标准说明
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" data-stacked-modal-target="#supplementalRulesModal" onclick="openStackedModal('supplementalRulesModal')">
+                                        <i class="bi bi-journal-text"></i> 补充条例
+                                    </button>
+                                </div>
                                 <select class="form-select" id="committeeScoreSelect" required>
                                     <option value="">请选择评分等级</option>
                                     <option value="A+">A+ - 大奖（发明专利）</option>

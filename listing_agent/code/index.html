@@ -29,28 +29,23 @@
     </header>
 
     <main class="workspace">
-      <section class="sellfox-panel aba-import-hero" id="abaRankingImport" aria-labelledby="sellfoxTitle" data-step="01">
+      <section class="sellfox-panel aba-import-hero" id="abaRankingContext" aria-labelledby="sellfoxTitle" data-step="ABA">
         <div class="sellfox-panel-head">
           <div>
-            <span class="eyebrow">Listing 生成第一步</span>
-            <h2 id="sellfoxTitle">先导入 ABA 看板，生成排名详情</h2>
+            <span class="eyebrow">Listing 生成参考数据</span>
+            <h2 id="sellfoxTitle">当前 ABA 排名数据（只读）</h2>
           </div>
           <span id="sellfoxConnection" class="data-state" data-state="loading">读取中</span>
         </div>
-        <p class="sellfox-panel-copy">一次选择四份 ABA Excel 导出表，系统会自动合并去重并生成最终看板，同时保留每个核心词的来源和交叉覆盖关系。</p>
+        <p class="sellfox-panel-copy">Listing 页面只读取已发布的 ABA 排名作为关键词参考；数据导入和覆盖请在 ABA 排名看板中完成。</p>
         <div class="aba-import-meta">
-          <span><i data-lucide="file-up"></i> 支持 HTML、JSON、CSV、XLSX；一次可选 1–4 份，合计不超过 26 MB</span>
+          <span><i data-lucide="shield-check"></i> 此处不会上传或改动 ABA 数据</span>
           <span id="abaImportSource"><i data-lucide="database"></i> 当前使用内置 ABA 排名数据</span>
         </div>
         <div class="mini-actions sellfox-actions aba-import-actions">
-          <input class="aba-file-input" id="abaRankingFileInput" type="file" multiple accept=".html,.htm,.json,.csv,.xlsx,text/html,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-          <button class="primary-button aba-import-button" id="importAbaRankingBtn" type="button" title="一次导入最多四份 ABA 文件并合并生成看板" hidden>
-            <i data-lucide="upload"></i>
-            导入 ABA 看板
-          </button>
           <a class="primary-button primary-button-link" href="./aba-ranking/" target="_blank" rel="noopener noreferrer" title="打开当前 ABA 完整排名详情">
             <i data-lucide="bar-chart-3"></i>
-            查看排名详情
+            打开 ABA 排名看板
           </a>
           <button class="ghost-button" id="syncSellfoxBtn" type="button" title="重新读取当前 ABA 看板">
             <i data-lucide="refresh-cw"></i>

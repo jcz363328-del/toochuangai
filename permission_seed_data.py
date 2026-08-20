@@ -55,10 +55,10 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "listing_agent_aba_import",
         "mingcheng": "ABA 看板导入",
-        "yonghu": "周俊成；陈子烨",
-        "bumen": "",
+        "yonghu": "",
+        "bumen": "AI部",
         "fujigongneng": "",
-        "miaoshu": "仅允许指定人员导入或覆盖 Listing 生成智能体使用的 ABA 排名看板。",
+        "miaoshu": "仅允许 AI 部在 ABA 排名看板内导入或覆盖排名数据。",
     },
     {
         "gongneng": "seedance_video",

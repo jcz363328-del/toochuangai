@@ -158,9 +158,9 @@ def aba_ranking_redirect():
 @listing_agent_bp.get("/aba-ranking/")
 def aba_ranking_dashboard():
     source_path = _get_active_ranking_file()
-    if source_path != DEFAULT_RANKING_FILE:
-        try:
-            template = DEFAULT_RANKING_DASHBOARD_FILE.read_text(encoding="utf-8-sig")
+    try:
+        template = DEFAULT_RANKING_DASHBOARD_FILE.read_text(encoding="utf-8-sig")
+        if source_path != DEFAULT_RANKING_FILE:
             dashboard_data = _load_ranking_data(source_path)
             default_meta = _load_ranking_data(DEFAULT_RANKING_FILE).get("meta", {})
             meta = {
@@ -183,11 +183,14 @@ def aba_ranking_dashboard():
                 .replace(">", "\\u003e")
             )
             template = template.replace(original_json, serialized_payload, 1)
-            response = Response(template, mimetype="text/html")
-            response.headers["Cache-Control"] = "no-store"
-            return response
-        except (OSError, ValueError, json.JSONDecodeError):
-            pass
+        import_controls = _aba_ranking_import_controls()
+        if import_controls:
+            template = template.replace("<body>", f"<body>{import_controls}", 1)
+        response = Response(template, mimetype="text/html")
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
     response = send_from_directory(
         DEFAULT_RANKING_DASHBOARD_FILE.parent,
         DEFAULT_RANKING_DASHBOARD_FILE.name,
@@ -211,6 +214,83 @@ def _aba_import_permission() -> tuple[bool, str]:
         return permission_manager.check_user_permission(user_id, ABA_IMPORT_PERMISSION)
     except Exception as exc:
         return False, f"权限校验失败：{_safe_detail(exc)}"
+
+
+def _aba_ranking_import_controls() -> str:
+    """只为有权限的 AI 部用户把导入入口渲染到 ABA 排名看板。"""
+    can_import, _ = _aba_import_permission()
+    if not can_import:
+        return ""
+    import_url = url_for("listing_agent.api_sellfox_import_ranking")
+    return f"""
+<style>
+  .tc-aba-import-panel {{
+    position: relative; z-index: 1000; display: flex; align-items: center;
+    justify-content: space-between; gap: 18px; padding: 14px 22px;
+    margin: 0; color: #eef6ff; background: linear-gradient(135deg, #123a69, #225f9e);
+    border-bottom: 1px solid rgba(255,255,255,.2); box-shadow: 0 10px 24px rgba(8,33,64,.2);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }}
+  .tc-aba-import-copy strong {{ display: block; margin-bottom: 4px; font-size: 16px; }}
+  .tc-aba-import-copy span {{ color: #cfe5ff; font-size: 13px; }}
+  .tc-aba-import-actions {{ display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }}
+  .tc-aba-import-button {{
+    border: 0; border-radius: 999px; padding: 10px 20px; cursor: pointer;
+    color: #153a64; background: #fff; font-weight: 800; white-space: nowrap;
+  }}
+  .tc-aba-import-button:disabled {{ cursor: wait; opacity: .7; }}
+  .tc-aba-import-status {{ min-width: 120px; font-size: 13px; color: #dcecff; }}
+  @media (max-width: 760px) {{
+    .tc-aba-import-panel {{ align-items: flex-start; flex-direction: column; padding: 14px 16px; }}
+    .tc-aba-import-actions {{ width: 100%; flex-wrap: wrap; }}
+  }}
+</style>
+<section class="tc-aba-import-panel" id="tcAbaImportPanel" aria-label="ABA 排名导入">
+  <div class="tc-aba-import-copy">
+    <strong>导入 ABA 排名</strong>
+    <span>仅 AI 部可见；支持一次选择 1–4 份 HTML、JSON、CSV 或 XLSX 文件，合计不超过 26 MB。</span>
+  </div>
+  <div class="tc-aba-import-actions">
+    <input id="tcAbaImportFiles" type="file" multiple hidden
+           accept=".html,.htm,.json,.csv,.xlsx,text/html,application/json,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+    <button class="tc-aba-import-button" id="tcAbaImportButton" type="button">选择文件并导入</button>
+    <span class="tc-aba-import-status" id="tcAbaImportStatus" aria-live="polite"></span>
+  </div>
+</section>
+<script>
+(() => {{
+  const input = document.getElementById('tcAbaImportFiles');
+  const button = document.getElementById('tcAbaImportButton');
+  const status = document.getElementById('tcAbaImportStatus');
+  if (!input || !button || !status) return;
+  button.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {{
+    const files = Array.from(input.files || []);
+    input.value = '';
+    if (!files.length) return;
+    if (files.length > 4) {{ status.textContent = '一次最多选择 4 份文件'; return; }}
+    const body = new FormData();
+    body.append('file', files[0], files[0].name);
+    files.slice(1).forEach((file) => body.append('files', file, file.name));
+    button.disabled = true;
+    button.textContent = '正在解析并生成看板…';
+    status.textContent = '';
+    try {{
+      const response = await fetch({json.dumps(import_url)}, {{ method: 'POST', body }});
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.message || `导入失败（${{response.status}}）`);
+      const count = Number(payload.summary?.uniqueTerms || 0).toLocaleString('zh-CN');
+      status.textContent = `导入成功，共 ${{count}} 个搜索词，正在刷新…`;
+      window.setTimeout(() => window.location.reload(), 700);
+    }} catch (error) {{
+      status.textContent = error?.message || '导入失败';
+      button.disabled = false;
+      button.textContent = '选择文件并导入';
+    }}
+  }});
+}})();
+</script>
+"""
 
 
 @listing_agent_bp.route("/api/health", methods=["GET", "HEAD"])

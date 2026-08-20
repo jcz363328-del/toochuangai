@@ -21,7 +21,7 @@ from innovation.web_app import (
     get_dashboard_data, get_innovation_compare, export_statistics, toggle_favorite,
     add_favorite_category, innovation_react, innovation_update_comment, innovation_get_react_stats, like_image_file,
     add_innovation_star_content, delete_innovation_star_content, edit_innovation_star_content,
-    innovation_star_media_file
+    innovation_star_media_file, save_chuangxinxing_proposal_note
 )
 
 # 创建创新系统蓝图，指定模板和静态文件路径
@@ -107,6 +107,12 @@ def innovation_delete_star_content(item_id):
 def innovation_edit_star_content(item_id):
     """编辑创新星享/创新星说文字。"""
     return edit_innovation_star_content(item_id)
+
+
+@innovation_bp.route('/api/chuangxinxing/proposal-note', methods=['POST'])
+def innovation_save_chuangxinxing_proposal_note():
+    """添加、编辑或清空创新星鉴提案描述。"""
+    return save_chuangxinxing_proposal_note()
 
 
 @innovation_bp.route('/api/get_innovations', methods=['GET'])

@@ -120,7 +120,6 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 document.addEventListener("DOMContentLoaded", () => {
-  loadListingAccessSettings();
   loadSkills();
   loadPreferences();
   loadRiskLibrary();
@@ -139,22 +138,6 @@ document.addEventListener("DOMContentLoaded", () => {
   drawTrayPreview();
   renderIcons();
 });
-
-async function loadListingAccessSettings() {
-  const importButton = $("#importAbaRankingBtn");
-  const fileInput = $("#abaRankingFileInput");
-  if (importButton) importButton.hidden = true;
-  if (fileInput) fileInput.disabled = true;
-  try {
-    const response = await fetch(`${LISTING_API_BASE}/settings`, { cache: "no-store" });
-    const payload = await response.json();
-    const canImportAba = response.ok && payload.canImportAba === true;
-    if (importButton) importButton.hidden = !canImportAba;
-    if (fileInput) fileInput.disabled = !canImportAba;
-  } catch {
-    // 权限状态读取失败时保持导入入口关闭，后端接口仍会做强制校验。
-  }
-}
 
 async function loadRemoteUserState() {
   try {
@@ -332,12 +315,6 @@ function bindEvents() {
   $("#extractImageBtn").addEventListener("click", extractImageFacts);
   $("#confirmImageFactsBtn").addEventListener("click", confirmImageFacts);
   $("#syncSellfoxBtn").addEventListener("click", syncSellfoxRankings);
-  $("#importAbaRankingBtn").addEventListener("click", () => $("#abaRankingFileInput").click());
-  $("#abaRankingFileInput").addEventListener("change", async (event) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length) await importAbaRankingFiles(files);
-    event.target.value = "";
-  });
   $("#addRiskTermBtn").addEventListener("click", addRiskTerm);
   $("#riskLibrary").addEventListener("click", handleRiskLibraryClick);
   $("#riskTermInput").addEventListener("keydown", (event) => {
@@ -826,50 +803,6 @@ function setSellfoxConnection(state, text) {
 
 async function syncSellfoxRankings() {
   await loadSellfoxRankingFile();
-}
-
-async function importAbaRankingFiles(files) {
-  const selectedFiles = Array.from(files || []);
-  if (!selectedFiles.length) return;
-  if (selectedFiles.length > 4) {
-    showToast("一次最多选择 4 份 ABA 文件");
-    return;
-  }
-  const button = $("#importAbaRankingBtn");
-  const originalHtml = button.innerHTML;
-  button.disabled = true;
-  button.classList.add("is-loading");
-  button.innerHTML = '<i data-lucide="loader-circle"></i> 正在生成排名详情';
-  setSellfoxConnection("loading", "导入解析中");
-  renderIcons();
-
-  try {
-    const body = new FormData();
-    // 第一份沿用旧接口字段，其余文件使用多文件字段；新后端会合并读取，
-    // 旧后端在服务尚未重启时至少也能正确收到第一份文件。
-    body.append("file", selectedFiles[0], selectedFiles[0].name);
-    selectedFiles.slice(1).forEach((file) => body.append("files", file, file.name));
-    const response = await fetch(`${LISTING_API_BASE}/sellfox/import-ranking`, {
-      method: "POST",
-      body
-    });
-    const payload = await response.json();
-    if (!response.ok || !payload.ok) throw new Error(payload.message || `导入失败（${response.status}）`);
-    await loadSellfoxRankingFile({ silent: true });
-    const count = Number(payload.summary?.uniqueTerms || sellfoxSnapshot.rows.length || 0);
-    const storedFiles = Array.isArray(payload.storedFiles) ? payload.storedFiles : [];
-    setSellfoxConnection("ok", `${selectedFiles.length} 份已合并 · ${count.toLocaleString("zh-CN")} 条排名详情`);
-    $("#sellfoxConnection").title = storedFiles.join("\n");
-    showToast(`${selectedFiles.length} 份 ABA 数据已合并并保存到 ABA排名 文件夹，生成 ${count.toLocaleString("zh-CN")} 条排名详情`);
-  } catch (error) {
-    setSellfoxConnection("error", "导入失败");
-    showToast(error.message || "ABA 看板导入失败");
-  } finally {
-    button.disabled = false;
-    button.classList.remove("is-loading");
-    button.innerHTML = originalHtml;
-    renderIcons();
-  }
 }
 
 async function loadSellfoxRankingFile(options = {}) {

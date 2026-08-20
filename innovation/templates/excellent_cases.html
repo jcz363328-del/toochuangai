@@ -83,6 +83,47 @@
 .case-bullets li {
     margin: 0;
 }
+.case-summary-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 32px;
+}
+.case-summary-copy {
+    flex: 1;
+    margin: 0;
+    color: #1f2937;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+}
+.case-summary-copy.empty {
+    color: #718096;
+}
+.case-summary-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    gap: 10px;
+}
+.case-summary-feedback {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.case-summary-feedback.success { color: #16804b; }
+.case-summary-feedback.error { color: #b42318; white-space: normal; }
+.case-summary-modal textarea {
+    min-height: 160px;
+    resize: vertical;
+}
+.case-summary-help {
+    margin-top: 6px;
+    color: #718096;
+    font-size: 12px;
+}
 .innovation-tabs {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -343,6 +384,11 @@
     .case-label {
         width: 72px;
     }
+    .case-summary-line { align-items: flex-start; }
+    .case-summary-side {
+        flex-direction: column-reverse;
+        align-items: flex-end;
+    }
     .case-top-decor {
         grid-template-columns: 1fr;
         gap: 8px;
@@ -438,6 +484,7 @@
         {% set case_content = c.get('_display_content', '未填写') %}
         {% set case_detail = c.get('_display_detail', '') %}
         {% set case_time = c.get('_display_time', '') %}
+        {% set case_summary = c.get('_star_summary', '') %}
         <div class="case-wrap">
             <table class="case-table">
                 <tr class="case-head">
@@ -470,8 +517,58 @@
                         {% endif %}
                     </td>
                 </tr>
+                <tr>
+                    <td class="case-label">鉴要</td>
+                    <td colspan="3" class="case-content">
+                        <div class="case-summary-line">
+                            <p class="case-summary-copy{% if not case_summary %} empty{% endif %}">{{ case_summary or '暂无描述' }}</p>
+                            <div class="case-summary-side">
+                                {% if proposal_note_saved == case_no %}
+                                <span class="case-summary-feedback success"><i class="bi bi-check-circle me-1"></i>已保存</span>
+                                {% endif %}
+                                {% if proposal_note_target == case_no and proposal_note_error %}
+                                <span class="case-summary-feedback error"><i class="bi bi-exclamation-circle me-1"></i>{{ proposal_note_error }}</span>
+                                {% endif %}
+                                {% if can_manage_proposal_notes %}
+                                <button class="btn btn-outline-primary btn-sm text-nowrap" type="button"
+                                        data-bs-toggle="modal" data-bs-target="#proposal-note-modal-{{ loop.index }}">
+                                    <i class="bi bi-pencil-square me-1"></i>{% if case_summary %}编辑{% else %}添加{% endif %}
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
             </table>
         </div>
+        {% if can_manage_proposal_notes %}
+        <div class="modal fade case-summary-modal" id="proposal-note-modal-{{ loop.index }}" tabindex="-1"
+             aria-labelledby="proposal-note-modal-title-{{ loop.index }}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post"
+                      action="{{ url_for('innovation.innovation_save_chuangxinxing_proposal_note') }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="proposal-note-modal-title-{{ loop.index }}">
+                            {% if case_summary %}编辑{% else %}添加{% endif %}鉴要描述
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="proposal_id" value="{{ case_no }}">
+                        <label class="form-label fw-bold" for="proposal-note-{{ loop.index }}">描述内容</label>
+                        <textarea id="proposal-note-{{ loop.index }}" name="note" class="form-control"
+                                  maxlength="{{ proposal_note_max_length }}"
+                                  placeholder="补充该提案的亮点、价值、落地成果等内容">{{ case_summary }}</textarea>
+                        <div class="case-summary-help">最多 {{ proposal_note_max_length }} 个字符；留空保存可清空现有描述。</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i>保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
         {% endfor %}
     </div>
     {% endif %}

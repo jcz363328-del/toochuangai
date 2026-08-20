@@ -289,6 +289,9 @@ class FeishuPermissionManager:
         self._permission_rows_cached_at = 0.0
         self._permission_rows_cache_ttl = 30
         self._permission_rows_lock = threading.Lock()
+        self._user_permission_overrides_cache = {}
+        self._permission_override_storage_ready = False
+        self._permission_override_storage_lock = threading.Lock()
         self._direct_http = requests.Session()
         self._direct_http.trust_env = False
 
@@ -310,11 +313,13 @@ class FeishuPermissionManager:
             if user_id in self._user_departments_cache:
                 del self._user_departments_cache[user_id]  # 删除该用户的部门缓存
                 _safe_print(f"🧹 已清理用户 {user_id} 的部门缓存")
+            self._user_permission_overrides_cache.pop(str(user_id), None)
         else:
             # 如果没有传入 user_id，则清理所有缓存（全局清空）
             self._user_departments_cache.clear()
             self._department_info_cache.clear()
             self._user_info_cache.clear()
+            self._user_permission_overrides_cache.clear()
             self.access_token = None  # 同时清空 access_token
             self.token_expires_at = None  # 清空 token 过期时间
             _safe_print("🧹 已清理所有缓存")
@@ -1019,6 +1024,208 @@ class FeishuPermissionManager:
             'open_id': str(session.get('permission_debug_user_open_id') or '').strip()
         }
 
+    def _ensure_permission_override_storage(self):
+        """确保用户级单独授权/禁用表存在。"""
+        if self._permission_override_storage_ready:
+            return
+        with self._permission_override_storage_lock:
+            if self._permission_override_storage_ready:
+                return
+            connection = pytds.connect(**sql_server_config())
+            try:
+                cursor = connection.cursor()
+                cursor.execute("""
+                    IF OBJECT_ID(N'dbo.UserPermissionOverrides', N'U') IS NULL
+                    BEGIN
+                        CREATE TABLE dbo.UserPermissionOverrides (
+                            ID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                            UserID NVARCHAR(100) NOT NULL,
+                            UserName NVARCHAR(200) NULL,
+                            FunctionName NVARCHAR(200) NOT NULL,
+                            IsAllowed BIT NOT NULL,
+                            UpdatedBy NVARCHAR(200) NULL,
+                            UpdatedAt DATETIME2 NOT NULL
+                                CONSTRAINT DF_UserPermissionOverrides_UpdatedAt DEFAULT GETDATE(),
+                            CONSTRAINT UQ_UserPermissionOverrides_User_Function
+                                UNIQUE (UserID, FunctionName)
+                        )
+                    END
+                """)
+                if not connection.autocommit:
+                    connection.commit()
+            finally:
+                connection.close()
+            self._permission_override_storage_ready = True
+
+    def get_user_permission_overrides(self, user_id, force_refresh=False):
+        """返回用户级权限覆盖；True=单独授权，False=单独禁用。"""
+        normalized_user_id = str(user_id or '').strip()
+        if not normalized_user_id:
+            return {}
+        if not force_refresh:
+            cached = self._user_permission_overrides_cache.get(normalized_user_id)
+            if cached and datetime.now() < cached['expire_time']:
+                return {key: dict(value) for key, value in cached['data'].items()}
+
+        self._ensure_permission_override_storage()
+        connection = pytds.connect(**sql_server_config())
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                SELECT FunctionName, IsAllowed, UserName, UpdatedBy, UpdatedAt
+                FROM dbo.UserPermissionOverrides
+                WHERE UserID=%s
+                """,
+                (normalized_user_id,),
+            )
+            rows = cursor.fetchall() or []
+        finally:
+            connection.close()
+        overrides = {}
+        for row in rows:
+            function_name = str(row[0] or '').strip()
+            if not function_name:
+                continue
+            updated_value = row[4] if len(row) > 4 else None
+            overrides[function_name] = {
+                'is_allowed': bool(row[1]),
+                'user_name': str(row[2] or '').strip(),
+                'updated_by': str(row[3] or '').strip(),
+                'updated_at': updated_value.strftime('%Y-%m-%d %H:%M:%S') if isinstance(updated_value, datetime) else str(updated_value or '').strip(),
+            }
+        self._user_permission_overrides_cache[normalized_user_id] = {
+            'data': {key: dict(value) for key, value in overrides.items()},
+            'expire_time': datetime.now() + timedelta(seconds=self._cache_expire_time),
+        }
+        return overrides
+
+    def set_user_permission_override(self, user_id, function_name, is_allowed, user_name='', updated_by=''):
+        normalized_user_id = str(user_id or '').strip()
+        normalized_function = str(function_name or '').strip()
+        record = self.get_permission_record(normalized_function)
+        if not normalized_user_id:
+            return {'success': False, 'message': '用户ID不能为空'}
+        if not record or normalized_function == '*':
+            return {'success': False, 'message': f'功能 {normalized_function} 不存在'}
+        self._ensure_permission_override_storage()
+        connection = pytds.connect(**sql_server_config())
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                MERGE dbo.UserPermissionOverrides AS target
+                USING (SELECT %s AS UserID, %s AS FunctionName) AS source
+                ON target.UserID=source.UserID AND target.FunctionName=source.FunctionName
+                WHEN MATCHED THEN UPDATE SET
+                    UserName=%s, IsAllowed=%s, UpdatedBy=%s, UpdatedAt=GETDATE()
+                WHEN NOT MATCHED THEN
+                    INSERT (UserID, UserName, FunctionName, IsAllowed, UpdatedBy, UpdatedAt)
+                    VALUES (source.UserID, %s, source.FunctionName, %s, %s, GETDATE());
+                """,
+                (
+                    normalized_user_id,
+                    normalized_function,
+                    str(user_name or '').strip(),
+                    bool(is_allowed),
+                    str(updated_by or '').strip(),
+                    str(user_name or '').strip(),
+                    bool(is_allowed),
+                    str(updated_by or '').strip(),
+                ),
+            )
+            if not connection.autocommit:
+                connection.commit()
+        finally:
+            connection.close()
+        self.clear_cache(normalized_user_id)
+        return {
+            'success': True,
+            'message': '权限已更新',
+            'function_display_name': record.get('name') or normalized_function,
+            'is_allowed': bool(is_allowed),
+        }
+
+    def reset_user_permission_override(self, user_id, function_name):
+        normalized_user_id = str(user_id or '').strip()
+        normalized_function = str(function_name or '').strip()
+        record = self.get_permission_record(normalized_function)
+        if not normalized_user_id or not record or normalized_function == '*':
+            return {'success': False, 'message': '用户或功能参数无效'}
+        self._ensure_permission_override_storage()
+        connection = pytds.connect(**sql_server_config())
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                "DELETE FROM dbo.UserPermissionOverrides WHERE UserID=%s AND FunctionName=%s",
+                (normalized_user_id, normalized_function),
+            )
+            if not connection.autocommit:
+                connection.commit()
+        finally:
+            connection.close()
+        self.clear_cache(normalized_user_id)
+        return {
+            'success': True,
+            'message': '已恢复部门默认权限',
+            'function_display_name': record.get('name') or normalized_function,
+        }
+
+    def get_permission_management_overview(self):
+        """返回权限目录、用户级调整及统计概览。"""
+        self._ensure_permission_override_storage()
+        connection = pytds.connect(**sql_server_config())
+        try:
+            cursor = connection.cursor()
+            cursor.execute("""
+                SELECT COUNT(*), COUNT(DISTINCT UserID),
+                       SUM(CASE WHEN IsAllowed=1 THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN IsAllowed=0 THEN 1 ELSE 0 END)
+                FROM dbo.UserPermissionOverrides
+            """)
+            summary_row = cursor.fetchone() or (0, 0, 0, 0)
+            cursor.execute("""
+                SELECT TOP 100 UserID, UserName, FunctionName, IsAllowed, UpdatedBy, UpdatedAt
+                FROM dbo.UserPermissionOverrides
+                ORDER BY UpdatedAt DESC, ID DESC
+            """)
+            recent_rows = cursor.fetchall() or []
+        finally:
+            connection.close()
+        records = self.get_permission_records()
+        summary = {
+            'function_count': len([key for key in records if key != '*']),
+            'override_count': int(summary_row[0] or 0),
+            'user_count': int(summary_row[1] or 0),
+            'grant_count': int(summary_row[2] or 0),
+            'deny_count': int(summary_row[3] or 0),
+        }
+        recent = []
+        for row in recent_rows:
+            function_name = str(row[2] or '').strip()
+            updated_value = row[5] if len(row) > 5 else None
+            recent.append({
+                'user_id': str(row[0] or '').strip(),
+                'user_name': str(row[1] or '').strip(),
+                'function_name': function_name,
+                'function_display_name': (records.get(function_name) or {}).get('name') or function_name,
+                'is_allowed': bool(row[3]),
+                'updated_by': str(row[4] or '').strip(),
+                'updated_at': updated_value.strftime('%Y-%m-%d %H:%M:%S') if isinstance(updated_value, datetime) else str(updated_value or '').strip(),
+            })
+        catalog = []
+        for function_name, record in records.items():
+            if function_name == '*':
+                continue
+            departments = self._split_permission_values(record.get('bumen'))
+            catalog.append({
+                'function_name': function_name,
+                'name': record.get('name') or function_name,
+                'description': record.get('description') or '',
+                'allowed_departments': ['全员'] if 'all' in departments else departments,
+            })
+        return {'summary': summary, 'catalog': catalog, 'recent': recent}
+
     def _get_extra_allowed_functions(self, user_id):
         """按指定用户追加额外权限，不依赖部门配置"""
         if not user_id:
@@ -1492,6 +1699,18 @@ class FeishuPermissionManager:
         if function_name not in records:
             return False, f"权限表中不存在功能: {function_name}"
 
+        try:
+            permission_overrides = self.get_user_permission_overrides(user_id)
+            permission_override = permission_overrides.get(function_name)
+        except Exception as exc:
+            _safe_print(f"⚠️ 读取用户单独权限失败，继续使用部门权限: {exc}")
+            permission_overrides = {}
+            permission_override = None
+        if permission_override is not None:
+            if permission_override.get('is_allowed'):
+                return True, "用户单独授权"
+            return False, "用户单独禁用"
+
         context = self._permission_context(user_id)
         allowed, reason = self._check_direct_permission_row(records[function_name], context)
         if allowed:
@@ -1508,6 +1727,11 @@ class FeishuPermissionManager:
             if child_name in {"*", function_name}:
                 continue
             if function_name not in self._permission_ancestors(child_name, records):
+                continue
+            child_override = permission_overrides.get(child_name)
+            if child_override is not None:
+                if child_override.get('is_allowed'):
+                    return True, f"由单独授权的子功能 {child_name} 反向获得父级可见权限"
                 continue
             child_allowed, _ = self._check_direct_permission_row(child_row, context)
             if child_allowed:
@@ -1703,18 +1927,38 @@ class FeishuPermissionManager:
         context = self._permission_context(user_id)
         direct_allowed = set()
         direct_reasons = {}
+        try:
+            permission_overrides = self.get_user_permission_overrides(user_id)
+        except Exception as exc:
+            _safe_print(f"⚠️ 读取用户单独权限失败，继续使用权限表规则: {exc}")
+            permission_overrides = {}
 
         wildcard = records.get("*")
         if wildcard:
             allowed, reason = self._check_direct_permission_row(wildcard, context)
             if allowed:
-                direct_allowed = {name for name in records if name != "*"}
+                direct_allowed = {
+                    name for name in records
+                    if name != "*" and not (
+                        permission_overrides.get(name) is not None
+                        and not permission_overrides[name].get('is_allowed')
+                    )
+                }
                 direct_reasons = {name: reason for name in direct_allowed}
 
-        if not direct_allowed:
-            for function_name, row in records.items():
-                if function_name == "*":
-                    continue
+        for function_name, row in records.items():
+            if function_name == "*":
+                continue
+            permission_override = permission_overrides.get(function_name)
+            if permission_override is not None:
+                if permission_override.get('is_allowed'):
+                    direct_allowed.add(function_name)
+                    direct_reasons[function_name] = '用户单独授权'
+                else:
+                    direct_allowed.discard(function_name)
+                    direct_reasons.pop(function_name, None)
+                continue
+            if function_name not in direct_allowed:
                 allowed, reason = self._check_direct_permission_row(row, context)
                 if allowed:
                     direct_allowed.add(function_name)
@@ -1724,7 +1968,10 @@ class FeishuPermissionManager:
         inherited_from = {}
         for child_name in direct_allowed:
             for parent_name in self._permission_ancestors(child_name, records):
-                if parent_name in records:
+                parent_override = permission_overrides.get(parent_name)
+                if parent_name in records and not (
+                    parent_override is not None and not parent_override.get('is_allowed')
+                ):
                     visible.add(parent_name)
                     inherited_from.setdefault(parent_name, child_name)
 
@@ -1748,7 +1995,7 @@ class FeishuPermissionManager:
         return accessible_functions
 
     def search_user_by_id_or_email(self, search_value):
-        """根据用户ID或邮箱搜索用户信息"""
+        """根据用户ID、邮箱或飞书姓名搜索用户信息。"""
         try:
             # 首先尝试作为用户ID搜索
             user_info = self.get_user_info_by_user_id(search_value)
@@ -1774,6 +2021,35 @@ class FeishuPermissionManager:
                             'email': user_info.get('email', '未知'),
                             'departments': [dept.get('name', '') for dept in departments]
                         }
+
+            # 最后按飞书姓名从本地映射表定位 open_id。
+            connection = pytds.connect(**sql_server_config())
+            try:
+                cursor = connection.cursor()
+                cursor.execute(
+                    """
+                    SELECT TOP 1 FeiShu_ID, YONGHU
+                    FROM dbo.feishu_id
+                    WHERE LTRIM(RTRIM(YONGHU))=%s
+                      AND (LEFT(FeiShu_ID, 3)=N'ou_' OR LEFT(FeiShu_ID, 3)=N'ou-')
+                    ORDER BY FeiShu_ID
+                    """,
+                    (str(search_value or '').strip(),),
+                )
+                matched = cursor.fetchone()
+            finally:
+                connection.close()
+            if matched:
+                matched_user_id = str(matched[0] or '').strip()
+                matched_name = str(matched[1] or search_value).strip()
+                user_info = self.get_user_info_by_user_id(matched_user_id) or {}
+                departments = self.get_user_departments(matched_user_id) or []
+                return {
+                    'user_id': matched_user_id,
+                    'name': user_info.get('name') or matched_name or '未知',
+                    'email': user_info.get('email') or '未知',
+                    'departments': [dept.get('name', '') for dept in departments],
+                }
 
             return None
 
@@ -1965,11 +2241,16 @@ class FeishuPermissionManager:
 
     def get_all_permissions_for_user(self, user_id):
         """返回权限表中的全部功能及该用户的实时授权状态。"""
+        try:
+            overrides = self.get_user_permission_overrides(user_id)
+        except Exception:
+            overrides = {}
         permissions = []
         for function_name, row in self.get_permission_records().items():
             if function_name == "*":
                 continue
             has_permission, reason = self.check_user_permission(user_id, function_name)
+            override = overrides.get(function_name)
             permissions.append(
                 {
                     "function_name": function_name,
@@ -1977,6 +2258,10 @@ class FeishuPermissionManager:
                     "description": row.get("description") or "",
                     "has_permission": has_permission,
                     "reason": reason,
+                    "override_state": (
+                        'allow' if override and override.get('is_allowed')
+                        else ('deny' if override is not None else None)
+                    ),
                 }
             )
         return permissions
@@ -2023,69 +2308,31 @@ class FeishuPermissionManager:
             connection.close()
         self.clear_cache()
 
-    def grant_user_permission(self, user_id, function_name):
-        """将单人特殊权限持久化到 dbo.quanxian.YongHu。"""
-        function_name = str(function_name or "").strip()
-        row = self.get_permission_record(function_name)
-        if not row or function_name == "*":
-            return {"success": False, "message": f"功能 {function_name} 不存在"}
-
-        identities, info = self._target_permission_identities(user_id)
-        existing_users = self._split_permission_values(row.get("yonghu"))
-        if identities & set(existing_users):
-            return {
-                "success": False,
-                "message": f'用户已拥有 {row.get("name") or function_name} 个人权限',
-            }
-
-        has_permission, reason = self.check_user_permission(user_id, function_name)
-        if has_permission and "部门权限通过" in reason:
-            return {
-                "success": False,
-                "message": f'用户已通过部门拥有 {row.get("name") or function_name} 权限',
-            }
-
-        display_name = str(info.get("name") or "").split("（", 1)[0].strip()
-        stored_identity = display_name or str(user_id or "").strip()
-        if not stored_identity:
-            return {"success": False, "message": "用户标识不能为空"}
+    def grant_user_permission(self, user_id, function_name, user_name='', updated_by=''):
+        """写入用户级单独授权，优先于部门默认规则。"""
         try:
-            self._update_permission_users(function_name, [*existing_users, stored_identity])
+            return self.set_user_permission_override(
+                user_id,
+                function_name,
+                True,
+                user_name=user_name,
+                updated_by=updated_by,
+            )
         except Exception as exc:
-            return {"success": False, "message": f"授予权限失败: {exc}"}
-        return {
-            "success": True,
-            "message": f'成功授予 {row.get("name") or function_name} 权限',
-            "function_display_name": row.get("name") or function_name,
-        }
+            return {'success': False, 'message': f'授予权限失败: {exc}'}
 
-    def revoke_user_permission(self, user_id, function_name):
-        """仅撤销 YongHu 中的个人特殊权限，不改动部门权限。"""
-        function_name = str(function_name or "").strip()
-        row = self.get_permission_record(function_name)
-        if not row or function_name == "*":
-            return {"success": False, "message": f"功能 {function_name} 不存在"}
-
-        identities, _ = self._target_permission_identities(user_id)
-        existing_users = self._split_permission_values(row.get("yonghu"))
-        remaining_users = [user for user in existing_users if user not in identities]
-        if len(remaining_users) == len(existing_users):
-            has_permission, reason = self.check_user_permission(user_id, function_name)
-            if has_permission:
-                return {
-                    "success": False,
-                    "message": "该权限来自部门或子功能，不能作为个人权限撤销",
-                }
-            return {"success": False, "message": "用户没有该个人权限"}
+    def revoke_user_permission(self, user_id, function_name, user_name='', updated_by=''):
+        """写入用户级单独禁用，优先于部门默认规则。"""
         try:
-            self._update_permission_users(function_name, remaining_users)
+            return self.set_user_permission_override(
+                user_id,
+                function_name,
+                False,
+                user_name=user_name,
+                updated_by=updated_by,
+            )
         except Exception as exc:
-            return {"success": False, "message": f"撤销权限失败: {exc}"}
-        return {
-            "success": True,
-            "message": f'成功撤销 {row.get("name") or function_name} 权限',
-            "function_display_name": row.get("name") or function_name,
-        }
+            return {'success': False, 'message': f'撤销权限失败: {exc}'}
 
 
 # 全局权限管理器实例

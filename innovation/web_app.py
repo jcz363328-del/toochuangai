@@ -32,10 +32,17 @@ INNOVATION_STAR_MEDIA_FOLDER = os.path.abspath(
 )
 INNOVATION_STAR_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 INNOVATION_STAR_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}
+CHUANGXINXING_PROPOSAL_SECTION = '创新星鉴'
+CHUANGXINXING_PROPOSAL_COLUMN = 'TiAnBianHao'
+CHUANGXINXING_PROPOSAL_NOTE_MAX_LENGTH = 10000
+CHUANGXINXING_PROPOSAL_EDITORS = {'韩雅俊'}
+CHUANGXINXING_PROPOSAL_DEPARTMENTS = {'AI部'}
 OPERATION_DEPARTMENTS = {'运营一部', '运营二部', '运营三部', '运营六部', '运营七部'}
 OPERATION_WATCHER_NAMES = ['孙洁', '侯梁']
 CONTENT_FACTORY_DEPARTMENT = '内容生产工厂'
 CONTENT_FACTORY_DEPARTMENT_ALIASES = {'TK项目', 'TK_离职', 'Tk_离职', 'TK'}
+_INNOVATION_PROJECT_COLUMNS_CACHE = None
+_INNOVATION_PROJECT_COLUMNS_LOCK = threading.Lock()
 
 
 def _normalize_innovation_department(department_name):
@@ -59,6 +66,29 @@ def _innovation_department_sql_values(department_name):
         f"N'{value.replace(chr(39), chr(39) * 2)}'"
         for value in _innovation_department_filter_values(department_name)
     )
+
+
+def _get_innovation_project_columns():
+    """缓存提案主表的可选列，避免每次加载列表都查询数据库元数据。"""
+    global _INNOVATION_PROJECT_COLUMNS_CACHE
+    if _INNOVATION_PROJECT_COLUMNS_CACHE is not None:
+        return _INNOVATION_PROJECT_COLUMNS_CACHE
+    with _INNOVATION_PROJECT_COLUMNS_LOCK:
+        if _INNOVATION_PROJECT_COLUMNS_CACHE is not None:
+            return _INNOVATION_PROJECT_COLUMNS_CACHE
+        columns_rows = sf_db("""
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME='chuangxin_tibao1'
+              AND COLUMN_NAME IN (N'状态', N'图片详情', N'视频详情', N'创新类别', N'解决方案')
+        """) or []
+        existing_columns = set()
+        for row in columns_rows:
+            value = row[0] if isinstance(row, (list, tuple)) else row
+            if value:
+                existing_columns.add(str(value))
+        _INNOVATION_PROJECT_COLUMNS_CACHE = frozenset(existing_columns)
+        return _INNOVATION_PROJECT_COLUMNS_CACHE
 
 
 def _database_upload_path(filename):
@@ -93,6 +123,103 @@ def _get_current_feishu_user_name():
     raw_name = session.get('feishu_user_name', '')
     name_parts = str(raw_name).split('（', 1) if raw_name else []
     return name_parts[0].strip() if name_parts else str(raw_name).strip()
+
+
+def _sql_nvarchar(value):
+    return f"N'{_escape_sql_literal_for_pytds(str(value or '').strip())}'"
+
+
+def _can_manage_chuangxinxing_proposal_notes():
+    """创新星鉴描述只允许 AI 部和韩雅俊编辑。"""
+    user_name = _get_current_feishu_user_name()
+    if user_name in CHUANGXINXING_PROPOSAL_EDITORS:
+        return True
+    user_id = str(session.get('feishu_user_id') or '').strip()
+    if not user_id:
+        return False
+    department_names = set()
+    session_department = session.get('user_department')
+    if isinstance(session_department, (list, tuple, set)):
+        department_names.update(str(item or '').strip() for item in session_department)
+    elif session_department:
+        department_names.add(str(session_department).strip())
+    try:
+        for department in permission_manager.get_user_departments(user_id) or []:
+            if isinstance(department, dict):
+                department_names.add(str(department.get('name') or '').strip())
+            elif department:
+                department_names.add(str(department).strip())
+    except Exception as exc:
+        _safe_print(f'读取创新星鉴编辑部门失败: {exc}')
+    return bool(CHUANGXINXING_PROPOSAL_DEPARTMENTS & department_names)
+
+
+def _database_column_exists(table_name, column_name):
+    table_sql = str(table_name or '').replace("'", "''")
+    column_sql = str(column_name or '').replace("'", "''")
+    try:
+        return int(sf_db(f"""
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'dbo'
+              AND TABLE_NAME = '{table_sql}'
+              AND COLUMN_NAME = N'{column_sql}'
+        """, single=True) or 0) > 0
+    except Exception:
+        return False
+
+
+def _ensure_chuangxinxing_proposal_storage():
+    """为创新星鉴描述补齐提案关联字段和唯一索引。"""
+    if not _database_column_exists('ChuangXinXing', CHUANGXINXING_PROPOSAL_COLUMN):
+        dui_db(f"""
+            IF COL_LENGTH(N'dbo.ChuangXinXing', N'{CHUANGXINXING_PROPOSAL_COLUMN}') IS NULL
+                ALTER TABLE dbo.ChuangXinXing
+                ADD [{CHUANGXINXING_PROPOSAL_COLUMN}] NVARCHAR(100) NULL
+        """)
+    if not _database_column_exists('ChuangXinXing', CHUANGXINXING_PROPOSAL_COLUMN):
+        raise RuntimeError('ChuangXinXing 表缺少提案关联字段')
+    index_exists = int(sf_db("""
+        SELECT COUNT(*)
+        FROM sys.indexes
+        WHERE object_id = OBJECT_ID(N'dbo.ChuangXinXing')
+          AND name = N'UX_ChuangXinXing_LeiXing_TiAnBianHao'
+    """, single=True) or 0) > 0
+    if not index_exists:
+        dui_db(f"""
+            IF NOT EXISTS (
+                SELECT 1 FROM sys.indexes
+                WHERE object_id = OBJECT_ID(N'dbo.ChuangXinXing')
+                  AND name = N'UX_ChuangXinXing_LeiXing_TiAnBianHao'
+            )
+                CREATE UNIQUE INDEX UX_ChuangXinXing_LeiXing_TiAnBianHao
+                ON dbo.ChuangXinXing (LeiXing, [{CHUANGXINXING_PROPOSAL_COLUMN}])
+                WHERE [{CHUANGXINXING_PROPOSAL_COLUMN}] IS NOT NULL
+        """)
+
+
+def _load_chuangxinxing_proposal_notes():
+    _ensure_chuangxinxing_proposal_storage()
+    rows = sf_db(f"""
+        SELECT [{CHUANGXINXING_PROPOSAL_COLUMN}], WenAn, RIQI, TiJiaoRen
+        FROM dbo.ChuangXinXing
+        WHERE LeiXing = {_sql_nvarchar(CHUANGXINXING_PROPOSAL_SECTION)}
+          AND [{CHUANGXINXING_PROPOSAL_COLUMN}] IS NOT NULL
+        ORDER BY CASE WHEN RIQI IS NULL THEN 1 ELSE 0 END, RIQI DESC, ID DESC
+    """) or []
+    notes = {}
+    for row in rows:
+        values = list(row) if isinstance(row, (list, tuple)) else []
+        proposal_id = str(values[0] if values and values[0] is not None else '').strip()
+        if not proposal_id or proposal_id in notes:
+            continue
+        updated_value = values[2] if len(values) > 2 else None
+        notes[proposal_id] = {
+            'copy': str(values[1] if len(values) > 1 and values[1] is not None else '').strip(),
+            'updated_at': updated_value.strftime('%Y-%m-%d %H:%M') if isinstance(updated_value, datetime) else str(updated_value or '').strip(),
+            'updated_by': str(values[3] if len(values) > 3 and values[3] is not None else '').strip(),
+        }
+    return notes
 
 
 def _innovation_has_permission(function_name):
@@ -313,6 +440,7 @@ def _innovation_star_items():
         """
         SELECT ID, TuPian, ShiPin, RIQI, LeiXing, WenAn, TiJiaoRen
         FROM chuangxinxing
+        WHERE ISNULL(LeiXing, N'') <> N'创新星鉴'
         ORDER BY CASE WHEN RIQI IS NULL THEN 1 ELSE 0 END, RIQI DESC, ID DESC
         """
     ) or []
@@ -558,6 +686,17 @@ def excellent_cases():
         item['_display_time'] = item.get('发起时间') or ''
         cases.append(item)
 
+    try:
+        proposal_notes = _load_chuangxinxing_proposal_notes()
+    except Exception as exc:
+        _safe_print(f'读取创新星鉴描述失败: {exc}')
+        proposal_notes = {}
+    for item in cases:
+        note = proposal_notes.get(str(item.get('编号') or '').strip(), {})
+        item['_star_summary'] = note.get('copy', '')
+        item['_star_summary_updated_at'] = note.get('updated_at', '')
+        item['_star_summary_updated_by'] = note.get('updated_by', '')
+
     leaderboard_sql = """
         SELECT TOP 11
             SUM(CASE WHEN ISNUMERIC(ISNULL([最高分], 0)) = 1 THEN CAST(ISNULL([最高分], 0) AS INT) ELSE 0 END) AS 总分,
@@ -601,7 +740,76 @@ def excellent_cases():
         star_talk_items=star_items['talk'],
         can_add_star_content=editor_context['can_add'],
         star_editor_name=editor_context['user_name'],
+        can_manage_proposal_notes=_can_manage_chuangxinxing_proposal_notes(),
+        proposal_note_saved=str(request.args.get('note_saved') or '').strip(),
+        proposal_note_target=str(request.args.get('note_target') or '').strip(),
+        proposal_note_error=str(request.args.get('note_error') or '').strip(),
+        proposal_note_max_length=CHUANGXINXING_PROPOSAL_NOTE_MAX_LENGTH,
     )
+
+
+@app.route('/api/chuangxinxing/proposal-note', methods=['POST'])
+def save_chuangxinxing_proposal_note():
+    """添加、编辑或清空单个创新星鉴提案的描述。"""
+    if not session.get('feishu_user_id'):
+        return redirect(url_for('feishu_auth'))
+    proposal_id = str(request.form.get('proposal_id') or '').strip()
+
+    def _redirect_with_error(message):
+        return redirect(url_for(
+            'innovation.innovation_excellent_cases',
+            note_target=proposal_id,
+            note_error=str(message or '保存失败，请稍后重试')[:180],
+        ))
+
+    if not _can_manage_chuangxinxing_proposal_notes():
+        return _redirect_with_error('当前账号没有编辑权限')
+    if not proposal_id.isdigit():
+        return _redirect_with_error('提案编号无效')
+    note_text = str(request.form.get('note') or '').strip()
+    if len(note_text) > CHUANGXINXING_PROPOSAL_NOTE_MAX_LENGTH:
+        return _redirect_with_error(f'描述不能超过 {CHUANGXINXING_PROPOSAL_NOTE_MAX_LENGTH} 个字符')
+
+    try:
+        proposal_count = int(sf_db(f"""
+            SELECT COUNT(*)
+            FROM v_quanyuanchuangxin
+            WHERE ISNULL(CAST([编号] AS NVARCHAR(100)), '') = N'{proposal_id}'
+              AND ISNUMERIC(ISNULL([最高分], 0)) = 1
+              AND CAST(ISNULL([最高分], 0) AS INT) = 50
+        """, single=True) or 0)
+        if proposal_count < 1:
+            return _redirect_with_error('未找到对应的创新星鉴提案')
+
+        _ensure_chuangxinxing_proposal_storage()
+        note_sql = _sql_nvarchar(note_text) if note_text else 'NULL'
+        proposal_sql = _sql_nvarchar(proposal_id)
+        section_sql = _sql_nvarchar(CHUANGXINXING_PROPOSAL_SECTION)
+        submitter_sql = _sql_nvarchar(_get_current_feishu_user_name())
+        dui_db(f"""
+            IF EXISTS (
+                SELECT 1 FROM dbo.ChuangXinXing
+                WHERE LeiXing = {section_sql}
+                  AND [{CHUANGXINXING_PROPOSAL_COLUMN}] = {proposal_sql}
+            )
+                UPDATE dbo.ChuangXinXing
+                SET WenAn = {note_sql}, RIQI = GETDATE(), TiJiaoRen = {submitter_sql}
+                WHERE LeiXing = {section_sql}
+                  AND [{CHUANGXINXING_PROPOSAL_COLUMN}] = {proposal_sql}
+            ELSE
+                INSERT INTO dbo.ChuangXinXing
+                    (TuPian, ShiPin, RIQI, LeiXing, WenAn, TiJiaoRen, [{CHUANGXINXING_PROPOSAL_COLUMN}])
+                VALUES
+                    (NULL, NULL, GETDATE(), {section_sql}, {note_sql}, {submitter_sql}, {proposal_sql})
+        """)
+        return redirect(url_for(
+            'innovation.innovation_excellent_cases',
+            note_target=proposal_id,
+            note_saved=proposal_id,
+        ))
+    except Exception as exc:
+        _safe_print(f'保存创新星鉴描述失败: {proposal_id} -> {exc}')
+        return _redirect_with_error(str(exc).strip() or '保存失败，请稍后重试')
 
 
 @app.route('/api/innovation_star_content', methods=['POST'])
@@ -1610,19 +1818,7 @@ def get_innovations():
         count_result = sf_db(count_sql)
         total_count = count_result[0] if count_result else 0
 
-        columns_sql = """
-            SELECT COLUMN_NAME
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME='chuangxin_tibao1'
-              AND COLUMN_NAME IN (N'状态', N'图片详情', N'视频详情', N'创新类别', N'解决方案')
-        """
-        columns_rows = sf_db(columns_sql) or []
-        existing_columns = set()
-        for r in columns_rows:
-            try:
-                existing_columns.add((r[0] if isinstance(r, (list, tuple)) else r) or '')
-            except Exception:
-                pass
+        existing_columns = _get_innovation_project_columns()
 
         status_expr = "状态" if "状态" in existing_columns else "''"
         image_expr = "图片详情" if "图片详情" in existing_columns else "''"
@@ -1761,26 +1957,71 @@ def get_innovations():
         except Exception as responsible_err:
             _safe_print(f"⚠️ 查询项目负责人失败: {responsible_err}")
 
+        # 一次批量读取当前页的全部流转记录。原实现每个提案分别查询
+        # 流转详情和委员会打分，10 条数据会产生 20 次额外数据库往返。
+        flow_rows_by_project = {}
+        latest_committee_row_by_project = {}
+        project_ids = []
+        for project in projects_data:
+            try:
+                project_ids.append(int(project[0]))
+            except (TypeError, ValueError):
+                continue
+
+        def _flow_latest_key(flow_row):
+            timestamp = flow_row[7] or flow_row[6]
+            if isinstance(timestamp, datetime):
+                parsed_timestamp = timestamp
+            else:
+                try:
+                    parsed_timestamp = datetime.fromisoformat(str(timestamp or ''))
+                except (TypeError, ValueError):
+                    parsed_timestamp = datetime.min
+            try:
+                flow_id = int(flow_row[1] or 0)
+            except (TypeError, ValueError):
+                flow_id = 0
+            return parsed_timestamp, flow_id
+
+        if project_ids:
+            try:
+                project_id_clause = ','.join(str(project_id) for project_id in sorted(set(project_ids)))
+                flow_rows = sf_db(f"""
+                    SELECT
+                        项目编号, 流转ID, 承接人, 状态, 分数, 处理备注,
+                        流转时间, 处理时间, 委员会打分, 操作类型, 流转次数
+                    FROM chuangxin_liuzhuan1
+                    WHERE 项目编号 IN ({project_id_clause})
+                    ORDER BY 项目编号, 流转次数 DESC, 流转时间 DESC
+                """) or []
+                for flow_row in flow_rows:
+                    project_key = str(flow_row[0]).strip()
+                    flow_rows_by_project.setdefault(project_key, []).append(flow_row)
+
+                    committee_score_text = str(flow_row[8] or '').strip()
+                    operation_type_text = str(flow_row[9] or '').strip()
+                    if committee_score_text in {'', '-1'} and not operation_type_text:
+                        continue
+                    current_latest = latest_committee_row_by_project.get(project_key)
+                    if current_latest is None or _flow_latest_key(flow_row) > _flow_latest_key(current_latest):
+                        latest_committee_row_by_project[project_key] = flow_row
+            except Exception as flow_batch_error:
+                _safe_print(f"⚠️ 批量查询提案流转记录失败: {flow_batch_error}")
+
         for i, project in enumerate(projects_data):
             project_id = project[0]
 
             # ... 现有的流转记录查询代码保持不变 ...
             # 查询该项目的所有流转记录（按部门组长）
             try:
-                flow_details_sql = f"""
-                    SELECT 流转ID, 承接人, 状态, 分数, 处理备注, 流转时间, 处理时间
-                    FROM chuangxin_liuzhuan1
-                    WHERE 项目编号 = {project_id}
-                    ORDER BY 流转次数 DESC, 流转时间 DESC
-                """
-                flow_details = sf_db(flow_details_sql)
+                flow_details = flow_rows_by_project.get(str(project_id).strip(), [])
 
                 # 构建部门状态映射
                 department_status = {}
                 assignees_list = []
 
                 for flow in flow_details:
-                    flow_id, dept, status, score, notes, flow_time, handle_time = flow
+                    _, flow_id, dept, status, score, notes, flow_time, handle_time, _, _, _ = flow
                     dept = _normalize_innovation_department(dept)
                     if dept not in assignees_list:
                         assignees_list.append(dept)
@@ -1944,21 +2185,11 @@ def get_innovations():
             operation_type = ''
             committee_notes = ''
             try:
-                committee_sql = f"""
-                    SELECT TOP 1 委员会打分, 操作类型, 处理备注
-                    FROM chuangxin_liuzhuan1
-                    WHERE 项目编号 = {project_id}
-                    AND (
-                        (委员会打分 IS NOT NULL AND 委员会打分 != '' AND 委员会打分 != '-1')
-                        OR (操作类型 IS NOT NULL AND 操作类型 != '')
-                    )
-                    ORDER BY ISNULL(处理时间, 流转时间) DESC, 流转ID DESC
-                """
-                committee_result = sf_db(committee_sql)
+                committee_result = latest_committee_row_by_project.get(str(project_id).strip())
                 if committee_result:
-                    committee_score = str(committee_result[0][0]).strip() if committee_result[0][0] is not None else ''
-                    operation_type = committee_result[0][1] if committee_result[0][1] else ''
-                    remarks_raw = committee_result[0][2] if len(committee_result[0]) > 2 else ''
+                    committee_score = str(committee_result[8]).strip() if committee_result[8] is not None else ''
+                    operation_type = committee_result[9] if committee_result[9] else ''
+                    remarks_raw = committee_result[5] if committee_result[5] else ''
                     if remarks_raw and committee_score in {'', '-1', '0'}:
                         score_matches = re.findall(r'委员会打分[：:]\s*([0-9]+)', str(remarks_raw))
                         if score_matches:

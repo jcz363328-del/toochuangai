@@ -90,12 +90,13 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         page_text = page.get_data(as_text=True)
         self.assertIn("Listing Agent Studio", page_text)
-        self.assertIn("导入 ABA 看板", page_text)
+        self.assertIn("当前 ABA 排名数据（只读）", page_text)
+        self.assertNotIn("导入 ABA 看板", page_text)
         self.assertNotIn("siliconFlowApiKey", page_text)
         self.assertNotIn("siliconFlowModel", page_text)
         self.assertNotIn("siliconFlowTextModel", page_text)
         self.assertNotIn("硅基流动配置", page_text)
-        self.assertLess(page_text.index('id="abaRankingImport"'), page_text.index('class="panel input-panel"'))
+        self.assertLess(page_text.index('id="abaRankingContext"'), page_text.index('class="panel input-panel"'))
         self.assertEqual(script.status_code, 200)
         script_text = script.get_data(as_text=True)
         self.assertIn("/listing-agent/api", script_text)
@@ -104,6 +105,7 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(dashboard.status_code, 200)
         self.assertIn("ABA 四核心词综合排名", dashboard.get_data(as_text=True))
         self.assertIn("const DATA =", dashboard.get_data(as_text=True))
+        self.assertIn('id="tcAbaImportPanel"', dashboard.get_data(as_text=True))
         self.assertEqual(ranking.status_code, 200)
         payload = ranking.get_json()
         self.assertTrue(payload["ok"])
@@ -192,24 +194,25 @@ class ListingAgentBlueprintTests(unittest.TestCase):
                 data={"file": (io.BytesIO(b"{}"), "blocked.json")},
                 content_type="multipart/form-data",
             )
+            dashboard = self.client.get("/listing-agent/aba-ranking/")
 
         self.assertEqual(settings.status_code, 200)
         self.assertFalse(settings.get_json()["canImportAba"])
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.get_json()["requiredFunction"], "listing_agent_aba_import")
+        self.assertNotIn("tcAbaImportPanel", dashboard.get_data(as_text=True))
 
     def test_aba_import_button_is_permission_driven(self) -> None:
         root = Path(__file__).resolve().parents[1]
         page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
         script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
         seed_data = (root / "permission_seed_data.py").read_text(encoding="utf-8")
-        self.assertIn('id="importAbaRankingBtn" type="button"', page)
-        self.assertIn('title="一次导入最多四份 ABA 文件并合并生成看板" hidden', page)
-        self.assertIn("loadListingAccessSettings();", script)
-        self.assertIn("payload.canImportAba === true", script)
+        self.assertNotIn('id="importAbaRankingBtn"', page)
+        self.assertNotIn('id="abaRankingFileInput"', page)
+        self.assertNotIn("importAbaRankingFiles", script)
         self.assertIn('"gongneng": "listing_agent_aba_import"', seed_data)
-        self.assertIn('"yonghu": "周俊成；陈子烨"', seed_data)
-        self.assertIn('"bumen": ""', seed_data)
+        self.assertIn('"yonghu": ""', seed_data)
+        self.assertIn('"bumen": "AI部"', seed_data)
 
     def test_user_skill_preferences_are_saved_to_file_and_database_record(self) -> None:
         self.login()
