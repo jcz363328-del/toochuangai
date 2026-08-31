@@ -170,7 +170,7 @@
         const SHOW_ORDER_SALES_CARD = {{ show_order_sales_card|default(false)|tojson }};
         const DEFAULT_SELECT_ALL = {{ default_select_all|default(false)|tojson }};
 
-        const ORDER_SALES_CALCULATION = '订单销售额直接从 TK_DingDan 汇总，按 DingGouShiJian 筛选日期、按 Dian 划分店铺，并排除 ZhuangTai = 已取消的数据。TuiKuan < 0 时，GMV = ChanPinJinE + MaiJiaShangPinZheKou + TuiKuan；否则，GMV = XiaoShouShouYi - ShuiFei - PingTaiShangPinZheKou。';
+        const ORDER_SALES_CALCULATION = '订单销售额直接从 TK_DingDan 汇总，按 DingGouShiJian 筛选日期、按 Dian 划分店铺。订单状态只认已发货、已完成、已取消，其中已取消不计入 GMV，因此实际仅汇总 ZhuangTai = 已发货或已完成的数据。TuiKuan < 0 时，GMV = ChanPinJinE + MaiJiaShangPinZheKou + TuiKuan；否则，GMV = XiaoShouShouYi - ShuiFei - PingTaiShangPinZheKou。';
         const SETTLEMENT_SALES_CALCULATION = '实时结算销售额 = SUM(v_TK_JieSuan.考核销售额)，按结算日期和所选店铺汇总。';
         const SALES_CALCULATION = RESTRICT_LIKE_82
             ? ORDER_SALES_CALCULATION

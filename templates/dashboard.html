@@ -35,6 +35,65 @@
             background: #e0e7ff;
             color: #3730a3;
         }
+        .identity-switch-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border: 1px solid #5b7cff;
+            border-radius: 8px;
+            background: #5b7cff;
+            color: #fff;
+            font-family: inherit;
+            font-size: 12px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .identity-switch-trigger:hover { background: #4f6ee8; border-color: #4f6ee8; }
+        .identity-switch-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.46);
+        }
+        .identity-switch-modal.open { display: flex; }
+        .identity-switch-dialog {
+            width: min(440px, 100%);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+        }
+        .identity-switch-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 20px 14px; }
+        .identity-switch-title { margin: 0; font-size: 19px; color: #111827; }
+        .identity-switch-subtitle { margin: 6px 0 0; color: #64748b; font-size: 12px; line-height: 1.55; }
+        .identity-switch-close { width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 8px; background: #f3f4f6; color: #64748b; font-size: 18px; cursor: pointer; }
+        .identity-switch-body { padding: 0 20px 18px; }
+        .identity-current { margin-bottom: 12px; padding: 9px 11px; border-radius: 9px; background: #f8fafc; color: #475569; font-size: 12px; }
+        .identity-search { position: relative; }
+        .identity-search > i { position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 13px; }
+        .identity-search input { width: 100%; height: 40px; padding: 0 12px 0 36px; border: 1px solid #dbe2ea; border-radius: 9px; outline: none; font-family: inherit; font-size: 14px; }
+        .identity-search input:focus { border-color: #7690ff; box-shadow: 0 0 0 3px rgba(91, 124, 255, 0.12); }
+        .identity-search-results { min-height: 88px; max-height: 260px; margin-top: 10px; overflow-y: auto; border: 1px solid #edf1f7; border-radius: 10px; }
+        .identity-result-empty { padding: 28px 14px; color: #94a3b8; font-size: 13px; text-align: center; line-height: 1.5; }
+        .identity-result { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-bottom: 1px solid #f1f5f9; background: #fff; font-family: inherit; text-align: left; cursor: pointer; }
+        .identity-result:last-child { border-bottom: 0; }
+        .identity-result:hover, .identity-result.selected { background: #eef2ff; }
+        .identity-avatar { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #dfe6ff; color: #405dd8; font-size: 13px; font-weight: 700; }
+        .identity-result-name { color: #172033; font-size: 14px; font-weight: 600; }
+        .identity-result-meta { margin-top: 2px; color: #94a3b8; font-size: 11px; }
+        .identity-switch-status { min-height: 18px; margin-top: 9px; color: #64748b; font-size: 12px; }
+        .identity-switch-status.error { color: #b91c1c; }
+        .identity-switch-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid #eef2f7; background: #fbfcfe; }
+        .identity-switch-footer .restore { margin-right: auto; color: #c2410c; }
+        .identity-dialog-btn { padding: 8px 14px; border: 1px solid #dbe2ea; border-radius: 8px; background: #fff; color: #475569; font-family: inherit; font-size: 13px; cursor: pointer; }
+        .identity-dialog-btn.primary { border-color: #5b7cff; background: #5b7cff; color: #fff; }
+        .identity-dialog-btn:disabled { opacity: 0.55; cursor: not-allowed; }
         .page { width: min(96vw, 1320px); margin: 0 auto; padding: 18px 0 24px; }
         .section-title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; color: #111827; margin: 8px 0 14px; }
         .section-title i { color: #5b7cff; font-size: 15px; }
@@ -86,6 +145,7 @@
 {%- elif fname == 'operation_dept_6' -%}{{ url_for('operation_dept_6') }}
 {%- elif fname == 'operation_dept_7' -%}{{ url_for('operation_dept_7') }}
 {%- elif fname == 'tech_dept' -%}{{ url_for('tech_dept') }}
+{%- elif fname == 'rd_dept' -%}{{ url_for('rd_dept') }}
 {%- elif fname == 'visual_design_dept' -%}{{ url_for('visual_design_dept') }}
 {%- elif fname == 'photography_dept' -%}{{ url_for('photography_dept') }}
 {%- elif fname == 'ai_dept' -%}{{ url_for('ai_modules') }}
@@ -138,6 +198,12 @@
                 <i class="fas fa-rotate-right"></i>
                 <span>重新绑定身份</span>
             </a>
+            {% if can_switch_identity %}
+            <button class="identity-switch-trigger" id="identitySwitchTrigger" type="button">
+                <i class="fas fa-right-left"></i>
+                <span>切换身份</span>
+            </button>
+            {% endif %}
             {% else %}
             <a class="user-tag" style="text-decoration:none;" href="{{ url_for('feishu_auth') }}">飞书登录</a>
             {% endif %}
@@ -322,6 +388,41 @@
     <footer class="footer">© 2025 图创AI系统</footer>
 </div>
 
+{% if can_switch_identity %}
+<div class="identity-switch-modal" id="identitySwitchModal" role="dialog" aria-modal="true" aria-labelledby="identitySwitchTitle">
+    <div class="identity-switch-dialog">
+        <div class="identity-switch-header">
+            <div>
+                <h2 class="identity-switch-title" id="identitySwitchTitle">切换成员身份</h2>
+                <p class="identity-switch-subtitle">搜索并选择任意飞书成员，首页与功能权限将按该成员的身份显示。此操作只影响当前会话。</p>
+            </div>
+            <button class="identity-switch-close" id="identitySwitchClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="identity-switch-body">
+            <div class="identity-current">
+                真实身份：{{ user_name }}
+                {% if permission_debug_user_name %} · 当前模拟：{{ permission_debug_user_name }}{% endif %}
+            </div>
+            <div class="identity-search">
+                <i class="fas fa-search"></i>
+                <input id="identityMemberSearch" type="text" placeholder="输入成员姓名搜索" autocomplete="off">
+            </div>
+            <div class="identity-search-results" id="identitySearchResults">
+                <div class="identity-result-empty">输入姓名后开始搜索飞书成员</div>
+            </div>
+            <div class="identity-switch-status" id="identitySwitchStatus" aria-live="polite"></div>
+        </div>
+        <div class="identity-switch-footer">
+            {% if permission_debug_user_name %}
+            <button class="identity-dialog-btn restore" id="identityRestoreBtn" type="button">恢复真实身份</button>
+            {% endif %}
+            <button class="identity-dialog-btn" id="identitySwitchCancel" type="button">取消</button>
+            <button class="identity-dialog-btn primary" id="identitySwitchConfirm" type="button" disabled>确认切换</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div id="dev-panel" style="position: fixed; bottom: 20px; right: 20px; background: #f0f0f0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 12px; z-index: 1000; display: none;">
     <h4 style="margin: 0 0 10px 0; color: #333;">开发者调试面板</h4>
     <div style="display: flex; flex-direction: column; gap: 5px;">
@@ -382,6 +483,180 @@
         });
     }
 
+    function bindIdentitySwitcher() {
+        const trigger = document.getElementById('identitySwitchTrigger');
+        const modal = document.getElementById('identitySwitchModal');
+        if (!trigger || !modal) return;
+
+        const closeBtn = document.getElementById('identitySwitchClose');
+        const cancelBtn = document.getElementById('identitySwitchCancel');
+        const confirmBtn = document.getElementById('identitySwitchConfirm');
+        const restoreBtn = document.getElementById('identityRestoreBtn');
+        const input = document.getElementById('identityMemberSearch');
+        const results = document.getElementById('identitySearchResults');
+        const status = document.getElementById('identitySwitchStatus');
+        let selectedMember = null;
+        let searchTimer = null;
+        let searchRequestId = 0;
+
+        function setStatus(message, isError) {
+            status.textContent = message || '';
+            status.classList.toggle('error', !!isError);
+        }
+
+        function setEmpty(message) {
+            results.innerHTML = '';
+            const empty = document.createElement('div');
+            empty.className = 'identity-result-empty';
+            empty.textContent = message;
+            results.appendChild(empty);
+        }
+
+        function selectMember(member, row) {
+            selectedMember = member;
+            results.querySelectorAll('.identity-result').forEach(function(item) {
+                item.classList.toggle('selected', item === row);
+            });
+            input.value = member.name || '';
+            confirmBtn.disabled = false;
+            setStatus('已选择：' + (member.name || '飞书成员'), false);
+        }
+
+        function renderMembers(members) {
+            results.innerHTML = '';
+            if (!members.length) {
+                setEmpty('未找到匹配成员，请输入更完整的姓名');
+                return;
+            }
+            members.forEach(function(member) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'identity-result';
+
+                const avatar = document.createElement('span');
+                avatar.className = 'identity-avatar';
+                avatar.textContent = String(member.name || '成').slice(0, 1);
+
+                const textWrap = document.createElement('span');
+                const name = document.createElement('div');
+                name.className = 'identity-result-name';
+                name.textContent = member.name || '未命名成员';
+                const meta = document.createElement('div');
+                meta.className = 'identity-result-meta';
+                const memberId = String(member.open_id || '');
+                meta.textContent = '飞书成员' + (memberId ? ' · ' + memberId.slice(-6) : '');
+                textWrap.appendChild(name);
+                textWrap.appendChild(meta);
+                row.appendChild(avatar);
+                row.appendChild(textWrap);
+                row.addEventListener('click', function() { selectMember(member, row); });
+                results.appendChild(row);
+            });
+        }
+
+        function searchMembers() {
+            const keyword = String(input.value || '').trim();
+            selectedMember = null;
+            confirmBtn.disabled = true;
+            setStatus('', false);
+            if (!keyword) {
+                setEmpty('输入姓名后开始搜索飞书成员');
+                return;
+            }
+            const requestId = ++searchRequestId;
+            setEmpty('正在搜索…');
+            fetch('/api/dashboard/identity-switch/members?q=' + encodeURIComponent(keyword), {
+                headers: {'Accept': 'application/json'}
+            })
+                .then(function(response) {
+                    return response.json().then(function(body) {
+                        return {ok: response.ok, body: body};
+                    });
+                })
+                .then(function(result) {
+                    if (requestId !== searchRequestId) return;
+                    if (!result.ok || !result.body || !result.body.success) {
+                        throw new Error((result.body && result.body.message) || '搜索失败');
+                    }
+                    renderMembers(Array.isArray(result.body.data) ? result.body.data : []);
+                })
+                .catch(function(error) {
+                    if (requestId !== searchRequestId) return;
+                    setEmpty('成员搜索失败');
+                    setStatus(error && error.message ? error.message : '搜索失败，请稍后重试', true);
+                });
+        }
+
+        function closeModal() {
+            modal.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        trigger.addEventListener('click', function() {
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            setTimeout(function() { input.focus(); }, 0);
+        });
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) closeModal();
+        });
+        input.addEventListener('input', function() {
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(searchMembers, 260);
+        });
+        input.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && selectedMember && !confirmBtn.disabled) {
+                event.preventDefault();
+                confirmBtn.click();
+            }
+        });
+        confirmBtn.addEventListener('click', function() {
+            if (!selectedMember) return;
+            const originalText = confirmBtn.textContent;
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '切换中…';
+            setStatus('正在读取成员权限…', false);
+            fetch('/api/dashboard/identity-switch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                body: JSON.stringify({
+                    user_name: selectedMember.name || '',
+                    open_id: selectedMember.open_id || '',
+                    selection_token: selectedMember.selection_token || ''
+                })
+            })
+                .then(function(response) {
+                    return response.json().then(function(body) {
+                        return {ok: response.ok, body: body};
+                    });
+                })
+                .then(function(result) {
+                    if (!result.ok || !result.body || !result.body.success) {
+                        throw new Error((result.body && result.body.message) || '身份切换失败');
+                    }
+                    setStatus(result.body.message || '切换成功，正在刷新…', false);
+                    window.location.reload();
+                })
+                .catch(function(error) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = originalText;
+                    setStatus(error && error.message ? error.message : '身份切换失败，请稍后重试', true);
+                });
+        });
+        if (restoreBtn) {
+            restoreBtn.addEventListener('click', function() {
+                restoreBtn.disabled = true;
+                restoreBtn.textContent = '恢复中…';
+                window.location.href = '{{ url_for("permission_debug_clear") }}';
+            });
+        }
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal.classList.contains('open')) closeModal();
+        });
+    }
+
     document.addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.shiftKey && e.key === 'D') {
             const panel = document.getElementById('dev-panel');
@@ -391,6 +666,7 @@
 
     bindClickableElements();
     bindSearch();
+    bindIdentitySwitcher();
 </script>
 </body>
 </html>

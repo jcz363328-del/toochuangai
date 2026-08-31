@@ -14,7 +14,11 @@ class TkPartialDashboardSalesSourceTests(unittest.TestCase):
         )[1].split("def _fetch_dashboard_metrics_fast(", 1)[0]
         self.assertIn("FROM TK_DingDan AS dd WITH (NOLOCK)", sales_query)
         self.assertIn("AND dd.Dian IN ({in_clause})", sales_query)
-        self.assertIn("AND dd.ZhuangTai <> N'已取消'", sales_query)
+        self.assertIn(
+            "AND dd.ZhuangTai IN (N'已发货', N'已完成')",
+            sales_query,
+        )
+        self.assertNotIn("AND dd.ZhuangTai <> N'已取消'", sales_query)
         self.assertIn(
             "THEN dd.ChanPinJinE + dd.MaiJiaShangPinZheKou + dd.TuiKuan",
             sales_query,

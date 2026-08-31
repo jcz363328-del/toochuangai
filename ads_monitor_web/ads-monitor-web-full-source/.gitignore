@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.log
+node_modules/
+.codex-temp/
+data/
+logs/
+outputs/

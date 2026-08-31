@@ -15,7 +15,9 @@ def sf_db(SQL, single=False):
     #  single：默认或者False时，返回列表，每个元素为元组，为True时返回单个值
     con = sql.connect(**sql_server_config())
     cursor = con.cursor()
-    cursor.execute(SQL)
+    # python-tds 的 execute 默认参数是空元组，会把 SQL 中的普通百分号
+    # 当作 pyformat 占位符解析。显式传 None，表示这是无参数的原始 SQL。
+    cursor.execute(SQL, None)
     rs = cursor.fetchall()
 
     if not rs or len(rs) == 0:                      # 修复：检查结果集是否为空
@@ -38,7 +40,7 @@ def sf_db(SQL, single=False):
 
 
 #########################################################################
-def dui_db(SQL,show_result=False):
+def dui_db(SQL,show_result=False,params=None):
     # 开发日期：2025-05-05
     # 功能：实现对数据库的update、delete、insert操作。dui=delete、update、insert
     # 参数说明：
@@ -47,7 +49,9 @@ def dui_db(SQL,show_result=False):
 
     conn = sql.connect(**sql_server_config())
     cursor = conn.cursor()                      # 创建游标
-    cursor.execute(SQL)
+    # params=None 时按原始 SQL 执行；传入参数时使用 python-tds 的
+    # pyformat 参数化机制，避免内容里的引号或百分号破坏 SQL。
+    cursor.execute(SQL, params)
 
     if show_result==True:
         print(f"更新了 {cursor.rowcount} 条记录")

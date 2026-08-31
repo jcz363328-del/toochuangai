@@ -1,0 +1,5093 @@
+{
+  "meta": {
+    "sourceFile": "销售分析的代码-4.xlsm",
+    "extractedAt": "2026-08-10T13:16:25.903Z",
+    "valueSource": "OOXML cached values from the source workbook; artifact-tool used for structure and render verification",
+    "sheetCount": 14,
+    "nonEmptySheetCount": 13,
+    "detectedTableRegions": 13,
+    "drawingCount": 5,
+    "dateRanges": {
+      "shipping": {
+        "start": "2026-07-01",
+        "end": "2026-07-31"
+      },
+      "unshipped": {
+        "start": "2026-07-01",
+        "end": "2026-07-31"
+      },
+      "newProductOrders": {
+        "start": "2026-07-01",
+        "end": "2026-07-31"
+      },
+      "magnetDaily": {
+        "start": "2025-07-01",
+        "end": "2025-07-31"
+      }
+    },
+    "rowCounts": {
+      "departments": 6,
+      "stores": 39,
+      "periodRows": 117,
+      "slowMoving": 42,
+      "shipping": 40,
+      "newProductOrders": 251,
+      "unshipped": 15,
+      "magnetDaily": 31
+    },
+    "sourceTotals": {
+      "departmentCurrentSales": 13633572,
+      "departmentCurrentGrossProfit": 2840644,
+      "storeFooterCurrentSales": 13938731,
+      "storeFooterPreviousSales": 13418961,
+      "storeFooterYearAgoSales": 11963366,
+      "slowMovingInventory": 37636075,
+      "slowMovingAmount": 440740,
+      "shippingTotalUnits": 1495084,
+      "shippingOceanUnits": 704044,
+      "shippingAirUnits": 25057
+    },
+    "curatedTotals": {
+      "storeTableCurrentSales": 13948141,
+      "storeTablePreviousSales": 13431349,
+      "storeTableYearAgoSales": 11963366,
+      "periodRowsCurrentSales": 13948141,
+      "periodRowsPreviousSales": 13431349,
+      "periodRowsYearAgoSales": 11963366,
+      "rawSourceRowsCurrentSales": 13948362,
+      "rawSourceRowsPreviousSales": 13431884,
+      "rawSourceRowsYearAgoSales": 12192677
+    },
+    "auditNotes": [
+      "Store subtotal formulas start at row 22 and omit row 21 (store 58): 9,410 current-period sales and 12,388 previous-period sales.",
+      "performance.periodRows is the complete 39-store comparison table flattened across three periods; current and previous totals are 13,948,141 and 13,431,349.",
+      "The right-side raw source rows contain additional unmapped stores (for example 19 and 59); their totals are kept only in audit metrics, not the primary curated dataset."
+    ],
+    "reconciliation": {
+      "departmentCurrentSales": {
+        "source": 13633572,
+        "calculated": 13633572,
+        "match": true
+      },
+      "departmentCurrentGrossProfit": {
+        "source": 2840644,
+        "calculated": 2840644,
+        "match": true
+      },
+      "storeFooterCurrentSales": {
+        "source": 13938731,
+        "calculated": 13938731,
+        "match": true
+      },
+      "storeFooterPreviousSales": {
+        "source": 13418961,
+        "calculated": 13418961,
+        "match": true
+      },
+      "storeFooterYearAgoSales": {
+        "source": 11963366,
+        "calculated": 11963366,
+        "match": true
+      },
+      "slowMovingInventory": {
+        "source": 37636075,
+        "calculated": 37636075,
+        "match": true
+      },
+      "slowMovingAmount": {
+        "source": 440740,
+        "calculated": 440740,
+        "match": true
+      },
+      "shippingTotalUnits": {
+        "source": 1495084,
+        "calculated": 1495084,
+        "match": true
+      },
+      "shippingOceanUnits": {
+        "source": 704044,
+        "calculated": 704044,
+        "match": true
+      },
+      "shippingAirUnits": {
+        "source": 25057,
+        "calculated": 25057,
+        "match": true
+      }
+    }
+  },
+  "performance": {
+    "periods": [
+      {
+        "key": "current",
+        "year": 2026,
+        "month": 7,
+        "label": "2026-07"
+      },
+      {
+        "key": "previous",
+        "year": 2026,
+        "month": 6,
+        "label": "2026-06"
+      },
+      {
+        "key": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "label": "2025-07"
+      }
+    ],
+    "departments": [
+      {
+        "name": "周雪",
+        "isTotal": false,
+        "current": {
+          "sales": 3689125,
+          "grossProfit": 908058,
+          "grossMargin": 0.23914595583403803
+        },
+        "previous": {
+          "sales": 3471248,
+          "grossMargin": 0.2574134261470204
+        },
+        "yearAgo": {
+          "sales": 1990908,
+          "grossMargin": 0.222518085598539
+        },
+        "momSalesGrowth": 0.028483406469931083,
+        "yoySalesGrowth": 0.8529861751522421
+      },
+      {
+        "name": "王钰媛",
+        "isTotal": false,
+        "current": {
+          "sales": 1905119,
+          "grossProfit": 320976,
+          "grossMargin": 0.16417185219132105
+        },
+        "previous": {
+          "sales": 1773060,
+          "grossMargin": 0.18083577325255373
+        },
+        "yearAgo": {
+          "sales": 1477349,
+          "grossMargin": 0.2089125443539971
+        },
+        "momSalesGrowth": 0.039820168740537065,
+        "yoySalesGrowth": 0.28955243480044324
+      },
+      {
+        "name": "大张雯",
+        "isTotal": false,
+        "current": {
+          "sales": 3365237,
+          "grossProfit": 640117,
+          "grossMargin": 0.18525275578223005
+        },
+        "previous": {
+          "sales": 3235377,
+          "grossMargin": 0.21682715742367606
+        },
+        "yearAgo": {
+          "sales": 3244180,
+          "grossMargin": 0.21263913179323307
+        },
+        "momSalesGrowth": 0.00658469406870843,
+        "yoySalesGrowth": 0.03731513047981316
+      },
+      {
+        "name": "郭鑫",
+        "isTotal": false,
+        "current": {
+          "sales": 1900761,
+          "grossProfit": 348375,
+          "grossMargin": 0.17799790106816624
+        },
+        "previous": {
+          "sales": 1902976,
+          "grossMargin": 0.2070221072952289
+        },
+        "yearAgo": {
+          "sales": 2358838,
+          "grossMargin": 0.21279834759757457
+        },
+        "momSalesGrowth": -0.033384483549840915,
+        "yoySalesGrowth": -0.1941960405928682
+      },
+      {
+        "name": "侯瑞昕",
+        "isTotal": false,
+        "current": {
+          "sales": 2773330,
+          "grossProfit": 623118,
+          "grossMargin": 0.2189204942098941
+        },
+        "previous": {
+          "sales": 2787626,
+          "grossMargin": 0.23919762028260888
+        },
+        "yearAgo": {
+          "sales": 2889644,
+          "grossMargin": 0.24193736519506556
+        },
+        "momSalesGrowth": -0.037221011019597294,
+        "yoySalesGrowth": -0.04025201720350324
+      },
+      {
+        "name": "合计",
+        "isTotal": true,
+        "current": {
+          "sales": 13633572,
+          "grossProfit": 2840644,
+          "grossMargin": 0.1982440950959528
+        },
+        "previous": {
+          "sales": 13170287,
+          "grossMargin": 0.22892900553208254
+        },
+        "yearAgo": {
+          "sales": 11960919,
+          "grossMargin": 0.22065154049891741
+        },
+        "momSalesGrowth": 0.0017837390209272108,
+        "yoySalesGrowth": 0.13984318429043774
+      }
+    ],
+    "stores": [
+      {
+        "leader": "TT",
+        "operator": "宋亚倩",
+        "store": 58,
+        "current": {
+          "sales": 9410,
+          "grossProfit": 4081,
+          "grossMargin": 0.5171714611582816
+        },
+        "previous": {
+          "sales": 12388,
+          "grossMargin": 0.4699619029012406
+        },
+        "yearAgo": {
+          "sales": 0,
+          "grossMargin": null
+        },
+        "momSalesGrowth": -0.26489735123480573,
+        "yoySalesGrowth": 0,
+        "openedOn": null,
+        "ageYears": null
+      },
+      {
+        "leader": "TT",
+        "operator": "刘源",
+        "store": 55,
+        "current": {
+          "sales": 305159,
+          "grossProfit": 100252,
+          "grossMargin": 0.32357934555970846
+        },
+        "previous": {
+          "sales": 248674,
+          "grossMargin": 0.37621088335405256
+        },
+        "yearAgo": {
+          "sales": 2447,
+          "grossMargin": 0.007361487795428129
+        },
+        "momSalesGrowth": 0.1875594605399944,
+        "yoySalesGrowth": 123.70739681242337,
+        "openedOn": "2025-02-15",
+        "ageYears": 1.473972602739726
+      },
+      {
+        "leader": "大张雯",
+        "operator": "陈梓琪",
+        "store": 37,
+        "current": {
+          "sales": 189294,
+          "grossProfit": 23720,
+          "grossMargin": 0.12238790568082142
+        },
+        "previous": {
+          "sales": 138817,
+          "grossMargin": 0.12215733183225443
+        },
+        "yearAgo": {
+          "sales": 29051,
+          "grossMargin": 0.09274085037674919
+        },
+        "momSalesGrowth": 0.31963478490014796,
+        "yoySalesGrowth": 5.515920278131562,
+        "openedOn": "2021-02-15",
+        "ageYears": 5.476712328767123
+      },
+      {
+        "leader": "大张雯",
+        "operator": "大张雯",
+        "store": 7,
+        "current": {
+          "sales": 365101,
+          "grossProfit": 72785,
+          "grossMargin": 0.19519108801231458
+        },
+        "previous": {
+          "sales": 366779,
+          "grossMargin": 0.21578058598970798
+        },
+        "yearAgo": {
+          "sales": 528400,
+          "grossMargin": 0.24054104125127712
+        },
+        "momSalesGrowth": -0.03668544713002453,
+        "yoySalesGrowth": -0.3090442846328538,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "大张雯",
+        "operator": "管淑慧",
+        "store": 50,
+        "current": {
+          "sales": 161189,
+          "grossProfit": 22036,
+          "grossMargin": 0.13185419209688615
+        },
+        "previous": {
+          "sales": 147984,
+          "grossMargin": 0.17360975291740008
+        },
+        "yearAgo": {
+          "sales": 54713,
+          "grossMargin": 0.202023452023452
+        },
+        "momSalesGrowth": 0.054096083621943514,
+        "yoySalesGrowth": 1.946082283917899,
+        "openedOn": "2024-12-04",
+        "ageYears": 1.673972602739726
+      },
+      {
+        "leader": "大张雯",
+        "operator": "林佳怡",
+        "store": 42,
+        "current": {
+          "sales": 93877,
+          "grossProfit": 13957,
+          "grossMargin": 0.14402022495098546
+        },
+        "previous": {
+          "sales": 82990,
+          "grossMargin": 0.1627686583753554
+        },
+        "yearAgo": {
+          "sales": 89739,
+          "grossMargin": 0.12685841322773378
+        },
+        "momSalesGrowth": 0.0946946581204886,
+        "yoySalesGrowth": 0.046111501131057775,
+        "openedOn": "2022-08-05",
+        "ageYears": 4.008219178082192
+      },
+      {
+        "leader": "大张雯",
+        "operator": "刘蓉蓉",
+        "store": 4,
+        "current": {
+          "sales": 660684,
+          "grossProfit": 165713,
+          "grossMargin": 0.24451002235386987
+        },
+        "previous": {
+          "sales": 653944,
+          "grossMargin": 0.28962234683404975
+        },
+        "yearAgo": {
+          "sales": 897786,
+          "grossMargin": 0.22677604749407992
+        },
+        "momSalesGrowth": -0.022283845553708326,
+        "yoySalesGrowth": -0.2640963436721001,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "大张雯",
+        "operator": "柳琳",
+        "store": 39,
+        "current": {
+          "sales": 1085070,
+          "grossProfit": 208505,
+          "grossMargin": 0.18781171718845846
+        },
+        "previous": {
+          "sales": 1068415,
+          "grossMargin": 0.20810430897860774
+        },
+        "yearAgo": {
+          "sales": 757457,
+          "grossMargin": 0.21354943514197816
+        },
+        "momSalesGrowth": -0.0171724077858475,
+        "yoySalesGrowth": 0.43251696135886264,
+        "openedOn": "2021-02-09",
+        "ageYears": 5.493150684931507
+      },
+      {
+        "leader": "大张雯",
+        "operator": "小张雯",
+        "store": 41,
+        "current": {
+          "sales": 93861,
+          "grossProfit": 12987,
+          "grossMargin": 0.13269101089155444
+        },
+        "previous": {
+          "sales": 103833,
+          "grossMargin": 0.18001455966236327
+        },
+        "yearAgo": {
+          "sales": 61472,
+          "grossMargin": 0.11980181050466648
+        },
+        "momSalesGrowth": -0.12519886927612978,
+        "yoySalesGrowth": 0.5268902915148361,
+        "openedOn": "2021-03-20",
+        "ageYears": 5.3863013698630136
+      },
+      {
+        "leader": "大张雯",
+        "operator": "赵璐华",
+        "store": 11,
+        "current": {
+          "sales": 555229,
+          "grossProfit": 103803,
+          "grossMargin": 0.18128836766593606
+        },
+        "previous": {
+          "sales": 545069,
+          "grossMargin": 0.2300037821684077
+        },
+        "yearAgo": {
+          "sales": 771052,
+          "grossMargin": 0.20569574746613245
+        },
+        "momSalesGrowth": -0.01421950781135195,
+        "yoySalesGrowth": -0.2799071917328533,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "大张雯",
+        "operator": "赵羽姝",
+        "store": 33,
+        "current": {
+          "sales": 160932,
+          "grossProfit": 16611,
+          "grossMargin": 0.09990917894154372
+        },
+        "previous": {
+          "sales": 127546,
+          "grossMargin": 0.08208994930185538
+        },
+        "yearAgo": {
+          "sales": 54510,
+          "grossMargin": 0.12035813630041725
+        },
+        "momSalesGrowth": 0.221054718778247,
+        "yoySalesGrowth": 1.9523390203632358,
+        "openedOn": "2021-01-25",
+        "ageYears": 5.534246575342466
+      },
+      {
+        "leader": "郭鑫",
+        "operator": "郭鑫",
+        "store": 32,
+        "current": {
+          "sales": 291657,
+          "grossProfit": 58117,
+          "grossMargin": 0.19053192361281862
+        },
+        "previous": {
+          "sales": 296665,
+          "grossMargin": 0.23448853388301985
+        },
+        "yearAgo": {
+          "sales": 296764,
+          "grossMargin": 0.2659664518256205
+        },
+        "momSalesGrowth": -0.048594510045272044,
+        "yoySalesGrowth": -0.017208960655605177,
+        "openedOn": "2021-08-28",
+        "ageYears": 4.945205479452055
+      },
+      {
+        "leader": "郭鑫",
+        "operator": "侯梁",
+        "store": 23,
+        "current": {
+          "sales": 753715,
+          "grossProfit": 161473,
+          "grossMargin": 0.2082079900765534
+        },
+        "previous": {
+          "sales": 767009,
+          "grossMargin": 0.22771608102207794
+        },
+        "yearAgo": {
+          "sales": 1347006,
+          "grossMargin": 0.22297115183351157
+        },
+        "momSalesGrowth": -0.049031220098817885,
+        "yoySalesGrowth": -0.4404516386712457,
+        "openedOn": "2020-09-24",
+        "ageYears": 5.8712328767123285
+      },
+      {
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 61,
+        "current": {
+          "sales": 2664,
+          "grossProfit": -2883,
+          "grossMargin": -1.059147685525349
+        },
+        "previous": {
+          "sales": 0,
+          "grossMargin": null
+        },
+        "yearAgo": {
+          "sales": 0,
+          "grossMargin": null
+        },
+        "momSalesGrowth": null,
+        "yoySalesGrowth": 0,
+        "openedOn": null,
+        "ageYears": null
+      },
+      {
+        "leader": "郭鑫",
+        "operator": "李双雨",
+        "store": 35,
+        "current": {
+          "sales": 177172,
+          "grossProfit": 20573,
+          "grossMargin": 0.11282582824676571
+        },
+        "previous": {
+          "sales": 197160,
+          "grossMargin": 0.1271972160758748
+        },
+        "yearAgo": {
+          "sales": 166716,
+          "grossMargin": 0.13084873270134406
+        },
+        "momSalesGrowth": -0.13036734533602967,
+        "yoySalesGrowth": 0.06271743563905074,
+        "openedOn": "2021-02-09",
+        "ageYears": 5.493150684931507
+      },
+      {
+        "leader": "郭鑫",
+        "operator": "刘星辰",
+        "store": 31,
+        "current": {
+          "sales": 187399,
+          "grossProfit": 33329,
+          "grossMargin": 0.17353521574099626
+        },
+        "previous": {
+          "sales": 176394,
+          "grossMargin": 0.17980053455854741
+        },
+        "yearAgo": {
+          "sales": 99013,
+          "grossMargin": 0.13770048233402613
+        },
+        "momSalesGrowth": 0.02811813875609115,
+        "yoySalesGrowth": 0.8926706594083604,
+        "openedOn": "2021-02-21",
+        "ageYears": 5.46027397260274
+      },
+      {
+        "leader": "郭鑫",
+        "operator": "彭莉芸",
+        "store": 17,
+        "current": {
+          "sales": 102070,
+          "grossProfit": 11179,
+          "grossMargin": 0.1068819795013003
+        },
+        "previous": {
+          "sales": 81419,
+          "grossMargin": 0.1504750083544183
+        },
+        "yearAgo": {
+          "sales": 150155,
+          "grossMargin": 0.21168530089842472
+        },
+        "momSalesGrowth": 0.21319863121431992,
+        "yoySalesGrowth": -0.32023575638506885,
+        "openedOn": "2020-08-13",
+        "ageYears": 5.986301369863014
+      },
+      {
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 43,
+        "current": {
+          "sales": 386084,
+          "grossProfit": 66587,
+          "grossMargin": 0.16861395565549445
+        },
+        "previous": {
+          "sales": 384329,
+          "grossMargin": 0.20947446336047373
+        },
+        "yearAgo": {
+          "sales": 299184,
+          "grossMargin": 0.18293141133919907
+        },
+        "momSalesGrowth": -0.027838967604956077,
+        "yoySalesGrowth": 0.29045670891491504,
+        "openedOn": "2021-02-15",
+        "ageYears": 5.476712328767123
+      },
+      {
+        "leader": "侯瑞昕",
+        "operator": "陈清雅",
+        "store": 6,
+        "current": {
+          "sales": 198365,
+          "grossProfit": 47184,
+          "grossMargin": 0.23156427596902268
+        },
+        "previous": {
+          "sales": 209260,
+          "grossMargin": 0.2112908535369693
+        },
+        "yearAgo": {
+          "sales": 158490,
+          "grossMargin": 0.20121074999235639
+        },
+        "momSalesGrowth": -0.08264298464944053,
+        "yoySalesGrowth": 0.2515931604517634,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "侯瑞昕",
+        "operator": "陈莹",
+        "store": 5,
+        "current": {
+          "sales": 670152,
+          "grossProfit": 146490,
+          "grossMargin": 0.2144422437606222
+        },
+        "previous": {
+          "sales": 693097,
+          "grossMargin": 0.22140173799634255
+        },
+        "yearAgo": {
+          "sales": 528770,
+          "grossMargin": 0.23696698289967238
+        },
+        "momSalesGrowth": -0.06429519454219679,
+        "yoySalesGrowth": 0.26737901166858924,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "侯瑞昕",
+        "operator": "侯瑞昕",
+        "store": 13,
+        "current": {
+          "sales": 268334,
+          "grossProfit": 51368,
+          "grossMargin": 0.1857357221629635
+        },
+        "previous": {
+          "sales": 269211,
+          "grossMargin": 0.18381888926151504
+        },
+        "yearAgo": {
+          "sales": 306584,
+          "grossMargin": 0.23723040225793962
+        },
+        "momSalesGrowth": -0.035410646236115895,
+        "yoySalesGrowth": -0.12476189233619495,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "侯瑞昕",
+        "operator": "孙洁",
+        "store": 20,
+        "current": {
+          "sales": 718262,
+          "grossProfit": 185542,
+          "grossMargin": 0.2501671898089722
+        },
+        "previous": {
+          "sales": 747663,
+          "grossMargin": 0.2659189067233933
+        },
+        "yearAgo": {
+          "sales": 909371,
+          "grossMargin": 0.2506656543392671
+        },
+        "momSalesGrowth": -0.07031341919485623,
+        "yoySalesGrowth": -0.21015515119791583,
+        "openedOn": "2021-05-28",
+        "ageYears": 5.197260273972603
+      },
+      {
+        "leader": "侯瑞昕",
+        "operator": "杨明月",
+        "store": 18,
+        "current": {
+          "sales": 483770,
+          "grossProfit": 116439,
+          "grossMargin": 0.23381560055823852
+        },
+        "previous": {
+          "sales": 470411,
+          "grossMargin": 0.26298653706796704
+        },
+        "yearAgo": {
+          "sales": 639723,
+          "grossMargin": 0.2537275774292518
+        },
+        "momSalesGrowth": -0.004775576827429018,
+        "yoySalesGrowth": -0.24378207442908884,
+        "openedOn": "2021-04-19",
+        "ageYears": 5.304109589041096
+      },
+      {
+        "leader": "侯瑞昕",
+        "operator": "王恩蒙",
+        "store": 51,
+        "current": {
+          "sales": 23763,
+          "grossProfit": -576,
+          "grossMargin": -0.023739850801632115
+        },
+        "previous": {
+          "sales": 21730,
+          "grossMargin": 0.1300747141956972
+        },
+        "yearAgo": {
+          "sales": 11511,
+          "grossMargin": 0.08524839472794864
+        },
+        "momSalesGrowth": 0.058281252319522414,
+        "yoySalesGrowth": 1.0643732082356006,
+        "openedOn": "2025-02-11",
+        "ageYears": 1.484931506849315
+      },
+      {
+        "leader": "侯瑞昕",
+        "operator": "张彦微",
+        "store": 25,
+        "current": {
+          "sales": 410684,
+          "grossProfit": 76671,
+          "grossMargin": 0.18301057661782152
+        },
+        "previous": {
+          "sales": 376254,
+          "grossMargin": 0.24988093472099687
+        },
+        "yearAgo": {
+          "sales": 335195,
+          "grossMargin": 0.23181020146827902
+        },
+        "momSalesGrowth": 0.05629741885071815,
+        "yoySalesGrowth": 0.22520920658124366,
+        "openedOn": "2020-09-18",
+        "ageYears": 5.887671232876713
+      },
+      {
+        "leader": "王钰媛",
+        "operator": "李娜",
+        "store": 21,
+        "current": {
+          "sales": 575159,
+          "grossProfit": 91862,
+          "grossMargin": 0.1552234266354627
+        },
+        "previous": {
+          "sales": 566188,
+          "grossMargin": 0.17093669722568056
+        },
+        "yearAgo": {
+          "sales": 625573,
+          "grossMargin": 0.20632306073684178
+        },
+        "momSalesGrowth": -0.016924618905791555,
+        "yoySalesGrowth": -0.08058851644812037,
+        "openedOn": "2020-09-24",
+        "ageYears": 5.8712328767123285
+      },
+      {
+        "leader": "王钰媛",
+        "operator": "任建荣",
+        "store": 15,
+        "current": {
+          "sales": 75898,
+          "grossProfit": 11270,
+          "grossMargin": 0.1462610636696343
+        },
+        "previous": {
+          "sales": 70259,
+          "grossMargin": 0.19841836377633143
+        },
+        "yearAgo": {
+          "sales": 150585,
+          "grossMargin": 0.19424432765030125
+        },
+        "momSalesGrowth": 0.045413077603649876,
+        "yoySalesGrowth": -0.4959790151741541,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "王钰媛",
+        "operator": "万佳琦",
+        "store": 22,
+        "current": {
+          "sales": 116091,
+          "grossProfit": 20464,
+          "grossMargin": 0.1714922608921553
+        },
+        "previous": {
+          "sales": 113791,
+          "grossMargin": 0.1751028101439342
+        },
+        "yearAgo": {
+          "sales": 31301,
+          "grossMargin": 0.09546846295162278
+        },
+        "momSalesGrowth": -0.01269758564158796,
+        "yoySalesGrowth": 2.7088591418804513,
+        "openedOn": "2021-08-28",
+        "ageYears": 4.945205479452055
+      },
+      {
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 26,
+        "current": {
+          "sales": 240419,
+          "grossProfit": 4483,
+          "grossMargin": 0.018185727266826768
+        },
+        "previous": {
+          "sales": 141070,
+          "grossMargin": -0.04716622026590259
+        },
+        "yearAgo": {
+          "sales": 419,
+          "grossMargin": 0.11883408071748879
+        },
+        "momSalesGrowth": 0.6492772977039538,
+        "yoySalesGrowth": 572.7923627684964,
+        "openedOn": "2021-08-30",
+        "ageYears": 4.93972602739726
+      },
+      {
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 2,
+        "current": {
+          "sales": 104204,
+          "grossProfit": 19270,
+          "grossMargin": 0.18058288820166807
+        },
+        "previous": {
+          "sales": 115350,
+          "grossMargin": 0.17399966090200067
+        },
+        "yearAgo": {
+          "sales": 145958,
+          "grossMargin": 0.13784907113548542
+        },
+        "momSalesGrowth": -0.1257686983514409,
+        "yoySalesGrowth": -0.2860685950752956,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "王钰媛",
+        "operator": "王淑雯",
+        "store": 36,
+        "current": {
+          "sales": 440780,
+          "grossProfit": 101508,
+          "grossMargin": 0.22521449157675438
+        },
+        "previous": {
+          "sales": 424159,
+          "grossMargin": 0.2467354015271681
+        },
+        "yearAgo": {
+          "sales": 257076,
+          "grossMargin": 0.2465101498838608
+        },
+        "momSalesGrowth": 0.005663655191993078,
+        "yoySalesGrowth": 0.7145902379063,
+        "openedOn": "2021-10-15",
+        "ageYears": 4.813698630136987
+      },
+      {
+        "leader": "王钰媛",
+        "operator": "王钰媛",
+        "store": 28,
+        "current": {
+          "sales": 352568,
+          "grossProfit": 72159,
+          "grossMargin": 0.19878786209176436
+        },
+        "previous": {
+          "sales": 342243,
+          "grossMargin": 0.21013969682816017
+        },
+        "yearAgo": {
+          "sales": 266437,
+          "grossMargin": 0.23954934011031853
+        },
+        "momSalesGrowth": -0.0030626230202591698,
+        "yoySalesGrowth": 0.3232696659998424,
+        "openedOn": "2021-09-04",
+        "ageYears": 4.926027397260274
+      },
+      {
+        "leader": "周雪",
+        "operator": "郭婷",
+        "store": 40,
+        "current": {
+          "sales": 416294,
+          "grossProfit": 72667,
+          "grossMargin": 0.1695296041657432
+        },
+        "previous": {
+          "sales": 397307,
+          "grossMargin": 0.2063483926404929
+        },
+        "yearAgo": {
+          "sales": 452836,
+          "grossMargin": 0.21667524115755626
+        },
+        "momSalesGrowth": 0.013989588127877317,
+        "yoySalesGrowth": -0.0806958810695263,
+        "openedOn": "2022-06-01",
+        "ageYears": 4.186301369863013
+      },
+      {
+        "leader": "周雪",
+        "operator": "黄双",
+        "store": 8,
+        "current": {
+          "sales": 123120,
+          "grossProfit": 13126,
+          "grossMargin": 0.10405733221290292
+        },
+        "previous": {
+          "sales": 117093,
+          "grossMargin": 0.12171452351227632
+        },
+        "yearAgo": {
+          "sales": 70995,
+          "grossMargin": 0.18942005095159598
+        },
+        "momSalesGrowth": 0.01755345833460753,
+        "yoySalesGrowth": 0.7342066342700191,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "周雪",
+        "operator": "刘俊霞",
+        "store": 16,
+        "current": {
+          "sales": 2300959,
+          "grossProfit": 669219,
+          "grossMargin": 0.2824670679003357
+        },
+        "previous": {
+          "sales": 2116252,
+          "grossMargin": 0.30109178122569025
+        },
+        "yearAgo": {
+          "sales": 760319,
+          "grossMargin": 0.23538571991950896
+        },
+        "momSalesGrowth": 0.052206691891623525,
+        "yoySalesGrowth": 2.0263073788764983,
+        "openedOn": "2021-04-13",
+        "ageYears": 5.32054794520548
+      },
+      {
+        "leader": "周雪",
+        "operator": "孟珂",
+        "store": 3,
+        "current": {
+          "sales": 215230,
+          "grossProfit": 41518,
+          "grossMargin": 0.18865043916048327
+        },
+        "previous": {
+          "sales": 225414,
+          "grossMargin": 0.1780050995891757
+        },
+        "yearAgo": {
+          "sales": 217064,
+          "grossMargin": 0.22323977638398923
+        },
+        "momSalesGrowth": -0.07597976712097054,
+        "yoySalesGrowth": -0.008449120996572468,
+        "openedOn": "2020-08-01",
+        "ageYears": 6.019178082191781
+      },
+      {
+        "leader": "周雪",
+        "operator": "李筱",
+        "store": 52,
+        "current": {
+          "sales": 28958,
+          "grossProfit": -989,
+          "grossMargin": -0.03286041798185866
+        },
+        "previous": {
+          "sales": 25665,
+          "grossMargin": 0.022469795626481992
+        },
+        "yearAgo": {
+          "sales": 623,
+          "grossMargin": -0.1800878477306003
+        },
+        "momSalesGrowth": 0.09191003186214441,
+        "yoySalesGrowth": 45.48154093097913,
+        "openedOn": "2025-03-21",
+        "ageYears": 1.3808219178082193
+      },
+      {
+        "leader": "周雪",
+        "operator": "孙钰航",
+        "store": 12,
+        "current": {
+          "sales": 164048,
+          "grossProfit": 22004,
+          "grossMargin": 0.13030141528986794
+        },
+        "previous": {
+          "sales": 159261,
+          "grossMargin": 0.1495605832813856
+        },
+        "yearAgo": {
+          "sales": 100315,
+          "grossMargin": 0.1811203865148401
+        },
+        "momSalesGrowth": -0.0031700853802369977,
+        "yoySalesGrowth": 0.6353287145491702,
+        "openedOn": "2021-02-27",
+        "ageYears": 5.443835616438356
+      },
+      {
+        "leader": "周雪",
+        "operator": "周雪",
+        "store": 38,
+        "current": {
+          "sales": 440516,
+          "grossProfit": 90513,
+          "grossMargin": 0.19933842362470736
+        },
+        "previous": {
+          "sales": 430256,
+          "grossMargin": 0.22176652883255407
+        },
+        "yearAgo": {
+          "sales": 388756,
+          "grossMargin": 0.22086784263757267
+        },
+        "momSalesGrowth": -0.009181030708199533,
+        "yoySalesGrowth": 0.13314263959913153,
+        "openedOn": "2022-08-23",
+        "ageYears": 3.958904109589041
+      }
+    ],
+    "periodRows": [
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "TT",
+        "operator": "宋亚倩",
+        "store": 58,
+        "sales": 9410,
+        "grossProfit": 4081,
+        "grossMargin": 0.5171714611582816
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "TT",
+        "operator": "宋亚倩",
+        "store": 58,
+        "sales": 12388,
+        "grossProfit": null,
+        "grossMargin": 0.4699619029012406
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "TT",
+        "operator": "宋亚倩",
+        "store": 58,
+        "sales": 0,
+        "grossProfit": null,
+        "grossMargin": null
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "TT",
+        "operator": "刘源",
+        "store": 55,
+        "sales": 305159,
+        "grossProfit": 100252,
+        "grossMargin": 0.32357934555970846
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "TT",
+        "operator": "刘源",
+        "store": 55,
+        "sales": 248674,
+        "grossProfit": null,
+        "grossMargin": 0.37621088335405256
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "TT",
+        "operator": "刘源",
+        "store": 55,
+        "sales": 2447,
+        "grossProfit": null,
+        "grossMargin": 0.007361487795428129
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "陈梓琪",
+        "store": 37,
+        "sales": 189294,
+        "grossProfit": 23720,
+        "grossMargin": 0.12238790568082142
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "陈梓琪",
+        "store": 37,
+        "sales": 138817,
+        "grossProfit": null,
+        "grossMargin": 0.12215733183225443
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "陈梓琪",
+        "store": 37,
+        "sales": 29051,
+        "grossProfit": null,
+        "grossMargin": 0.09274085037674919
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "大张雯",
+        "store": 7,
+        "sales": 365101,
+        "grossProfit": 72785,
+        "grossMargin": 0.19519108801231458
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "大张雯",
+        "store": 7,
+        "sales": 366779,
+        "grossProfit": null,
+        "grossMargin": 0.21578058598970798
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "大张雯",
+        "store": 7,
+        "sales": 528400,
+        "grossProfit": null,
+        "grossMargin": 0.24054104125127712
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "管淑慧",
+        "store": 50,
+        "sales": 161189,
+        "grossProfit": 22036,
+        "grossMargin": 0.13185419209688615
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "管淑慧",
+        "store": 50,
+        "sales": 147984,
+        "grossProfit": null,
+        "grossMargin": 0.17360975291740008
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "管淑慧",
+        "store": 50,
+        "sales": 54713,
+        "grossProfit": null,
+        "grossMargin": 0.202023452023452
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "林佳怡",
+        "store": 42,
+        "sales": 93877,
+        "grossProfit": 13957,
+        "grossMargin": 0.14402022495098546
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "林佳怡",
+        "store": 42,
+        "sales": 82990,
+        "grossProfit": null,
+        "grossMargin": 0.1627686583753554
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "林佳怡",
+        "store": 42,
+        "sales": 89739,
+        "grossProfit": null,
+        "grossMargin": 0.12685841322773378
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "刘蓉蓉",
+        "store": 4,
+        "sales": 660684,
+        "grossProfit": 165713,
+        "grossMargin": 0.24451002235386987
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "刘蓉蓉",
+        "store": 4,
+        "sales": 653944,
+        "grossProfit": null,
+        "grossMargin": 0.28962234683404975
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "刘蓉蓉",
+        "store": 4,
+        "sales": 897786,
+        "grossProfit": null,
+        "grossMargin": 0.22677604749407992
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "柳琳",
+        "store": 39,
+        "sales": 1085070,
+        "grossProfit": 208505,
+        "grossMargin": 0.18781171718845846
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "柳琳",
+        "store": 39,
+        "sales": 1068415,
+        "grossProfit": null,
+        "grossMargin": 0.20810430897860774
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "柳琳",
+        "store": 39,
+        "sales": 757457,
+        "grossProfit": null,
+        "grossMargin": 0.21354943514197816
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "小张雯",
+        "store": 41,
+        "sales": 93861,
+        "grossProfit": 12987,
+        "grossMargin": 0.13269101089155444
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "小张雯",
+        "store": 41,
+        "sales": 103833,
+        "grossProfit": null,
+        "grossMargin": 0.18001455966236327
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "小张雯",
+        "store": 41,
+        "sales": 61472,
+        "grossProfit": null,
+        "grossMargin": 0.11980181050466648
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "赵璐华",
+        "store": 11,
+        "sales": 555229,
+        "grossProfit": 103803,
+        "grossMargin": 0.18128836766593606
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "赵璐华",
+        "store": 11,
+        "sales": 545069,
+        "grossProfit": null,
+        "grossMargin": 0.2300037821684077
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "赵璐华",
+        "store": 11,
+        "sales": 771052,
+        "grossProfit": null,
+        "grossMargin": 0.20569574746613245
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "赵羽姝",
+        "store": 33,
+        "sales": 160932,
+        "grossProfit": 16611,
+        "grossMargin": 0.09990917894154372
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "大张雯",
+        "operator": "赵羽姝",
+        "store": 33,
+        "sales": 127546,
+        "grossProfit": null,
+        "grossMargin": 0.08208994930185538
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "大张雯",
+        "operator": "赵羽姝",
+        "store": 33,
+        "sales": 54510,
+        "grossProfit": null,
+        "grossMargin": 0.12035813630041725
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "郭鑫",
+        "store": 32,
+        "sales": 291657,
+        "grossProfit": 58117,
+        "grossMargin": 0.19053192361281862
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "郭鑫",
+        "operator": "郭鑫",
+        "store": 32,
+        "sales": 296665,
+        "grossProfit": null,
+        "grossMargin": 0.23448853388301985
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "郭鑫",
+        "store": 32,
+        "sales": 296764,
+        "grossProfit": null,
+        "grossMargin": 0.2659664518256205
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "侯梁",
+        "store": 23,
+        "sales": 753715,
+        "grossProfit": 161473,
+        "grossMargin": 0.2082079900765534
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "郭鑫",
+        "operator": "侯梁",
+        "store": 23,
+        "sales": 767009,
+        "grossProfit": null,
+        "grossMargin": 0.22771608102207794
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "侯梁",
+        "store": 23,
+        "sales": 1347006,
+        "grossProfit": null,
+        "grossMargin": 0.22297115183351157
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 61,
+        "sales": 2664,
+        "grossProfit": -2883,
+        "grossMargin": -1.059147685525349
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 61,
+        "sales": 0,
+        "grossProfit": null,
+        "grossMargin": null
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 61,
+        "sales": 0,
+        "grossProfit": null,
+        "grossMargin": null
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "李双雨",
+        "store": 35,
+        "sales": 177172,
+        "grossProfit": 20573,
+        "grossMargin": 0.11282582824676571
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "郭鑫",
+        "operator": "李双雨",
+        "store": 35,
+        "sales": 197160,
+        "grossProfit": null,
+        "grossMargin": 0.1271972160758748
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "李双雨",
+        "store": 35,
+        "sales": 166716,
+        "grossProfit": null,
+        "grossMargin": 0.13084873270134406
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "刘星辰",
+        "store": 31,
+        "sales": 187399,
+        "grossProfit": 33329,
+        "grossMargin": 0.17353521574099626
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "郭鑫",
+        "operator": "刘星辰",
+        "store": 31,
+        "sales": 176394,
+        "grossProfit": null,
+        "grossMargin": 0.17980053455854741
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "刘星辰",
+        "store": 31,
+        "sales": 99013,
+        "grossProfit": null,
+        "grossMargin": 0.13770048233402613
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "彭莉芸",
+        "store": 17,
+        "sales": 102070,
+        "grossProfit": 11179,
+        "grossMargin": 0.1068819795013003
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "郭鑫",
+        "operator": "彭莉芸",
+        "store": 17,
+        "sales": 81419,
+        "grossProfit": null,
+        "grossMargin": 0.1504750083544183
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "彭莉芸",
+        "store": 17,
+        "sales": 150155,
+        "grossProfit": null,
+        "grossMargin": 0.21168530089842472
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 43,
+        "sales": 386084,
+        "grossProfit": 66587,
+        "grossMargin": 0.16861395565549445
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 43,
+        "sales": 384329,
+        "grossProfit": null,
+        "grossMargin": 0.20947446336047373
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "郭鑫",
+        "operator": "叶雨菲",
+        "store": 43,
+        "sales": 299184,
+        "grossProfit": null,
+        "grossMargin": 0.18293141133919907
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "陈清雅",
+        "store": 6,
+        "sales": 198365,
+        "grossProfit": 47184,
+        "grossMargin": 0.23156427596902268
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "侯瑞昕",
+        "operator": "陈清雅",
+        "store": 6,
+        "sales": 209260,
+        "grossProfit": null,
+        "grossMargin": 0.2112908535369693
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "陈清雅",
+        "store": 6,
+        "sales": 158490,
+        "grossProfit": null,
+        "grossMargin": 0.20121074999235639
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "陈莹",
+        "store": 5,
+        "sales": 670152,
+        "grossProfit": 146490,
+        "grossMargin": 0.2144422437606222
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "侯瑞昕",
+        "operator": "陈莹",
+        "store": 5,
+        "sales": 693097,
+        "grossProfit": null,
+        "grossMargin": 0.22140173799634255
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "陈莹",
+        "store": 5,
+        "sales": 528770,
+        "grossProfit": null,
+        "grossMargin": 0.23696698289967238
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "侯瑞昕",
+        "store": 13,
+        "sales": 268334,
+        "grossProfit": 51368,
+        "grossMargin": 0.1857357221629635
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "侯瑞昕",
+        "operator": "侯瑞昕",
+        "store": 13,
+        "sales": 269211,
+        "grossProfit": null,
+        "grossMargin": 0.18381888926151504
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "侯瑞昕",
+        "store": 13,
+        "sales": 306584,
+        "grossProfit": null,
+        "grossMargin": 0.23723040225793962
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "孙洁",
+        "store": 20,
+        "sales": 718262,
+        "grossProfit": 185542,
+        "grossMargin": 0.2501671898089722
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "侯瑞昕",
+        "operator": "孙洁",
+        "store": 20,
+        "sales": 747663,
+        "grossProfit": null,
+        "grossMargin": 0.2659189067233933
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "孙洁",
+        "store": 20,
+        "sales": 909371,
+        "grossProfit": null,
+        "grossMargin": 0.2506656543392671
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "杨明月",
+        "store": 18,
+        "sales": 483770,
+        "grossProfit": 116439,
+        "grossMargin": 0.23381560055823852
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "侯瑞昕",
+        "operator": "杨明月",
+        "store": 18,
+        "sales": 470411,
+        "grossProfit": null,
+        "grossMargin": 0.26298653706796704
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "杨明月",
+        "store": 18,
+        "sales": 639723,
+        "grossProfit": null,
+        "grossMargin": 0.2537275774292518
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "王恩蒙",
+        "store": 51,
+        "sales": 23763,
+        "grossProfit": -576,
+        "grossMargin": -0.023739850801632115
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "侯瑞昕",
+        "operator": "王恩蒙",
+        "store": 51,
+        "sales": 21730,
+        "grossProfit": null,
+        "grossMargin": 0.1300747141956972
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "王恩蒙",
+        "store": 51,
+        "sales": 11511,
+        "grossProfit": null,
+        "grossMargin": 0.08524839472794864
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "张彦微",
+        "store": 25,
+        "sales": 410684,
+        "grossProfit": 76671,
+        "grossMargin": 0.18301057661782152
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "侯瑞昕",
+        "operator": "张彦微",
+        "store": 25,
+        "sales": 376254,
+        "grossProfit": null,
+        "grossMargin": 0.24988093472099687
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "侯瑞昕",
+        "operator": "张彦微",
+        "store": 25,
+        "sales": 335195,
+        "grossProfit": null,
+        "grossMargin": 0.23181020146827902
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "李娜",
+        "store": 21,
+        "sales": 575159,
+        "grossProfit": 91862,
+        "grossMargin": 0.1552234266354627
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "王钰媛",
+        "operator": "李娜",
+        "store": 21,
+        "sales": 566188,
+        "grossProfit": null,
+        "grossMargin": 0.17093669722568056
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "李娜",
+        "store": 21,
+        "sales": 625573,
+        "grossProfit": null,
+        "grossMargin": 0.20632306073684178
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "任建荣",
+        "store": 15,
+        "sales": 75898,
+        "grossProfit": 11270,
+        "grossMargin": 0.1462610636696343
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "王钰媛",
+        "operator": "任建荣",
+        "store": 15,
+        "sales": 70259,
+        "grossProfit": null,
+        "grossMargin": 0.19841836377633143
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "任建荣",
+        "store": 15,
+        "sales": 150585,
+        "grossProfit": null,
+        "grossMargin": 0.19424432765030125
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "万佳琦",
+        "store": 22,
+        "sales": 116091,
+        "grossProfit": 20464,
+        "grossMargin": 0.1714922608921553
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "王钰媛",
+        "operator": "万佳琦",
+        "store": 22,
+        "sales": 113791,
+        "grossProfit": null,
+        "grossMargin": 0.1751028101439342
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "万佳琦",
+        "store": 22,
+        "sales": 31301,
+        "grossProfit": null,
+        "grossMargin": 0.09546846295162278
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 26,
+        "sales": 240419,
+        "grossProfit": 4483,
+        "grossMargin": 0.018185727266826768
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 26,
+        "sales": 141070,
+        "grossProfit": null,
+        "grossMargin": -0.04716622026590259
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 26,
+        "sales": 419,
+        "grossProfit": null,
+        "grossMargin": 0.11883408071748879
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 2,
+        "sales": 104204,
+        "grossProfit": 19270,
+        "grossMargin": 0.18058288820166807
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 2,
+        "sales": 115350,
+        "grossProfit": null,
+        "grossMargin": 0.17399966090200067
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王丽爽",
+        "store": 2,
+        "sales": 145958,
+        "grossProfit": null,
+        "grossMargin": 0.13784907113548542
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王淑雯",
+        "store": 36,
+        "sales": 440780,
+        "grossProfit": 101508,
+        "grossMargin": 0.22521449157675438
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "王钰媛",
+        "operator": "王淑雯",
+        "store": 36,
+        "sales": 424159,
+        "grossProfit": null,
+        "grossMargin": 0.2467354015271681
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王淑雯",
+        "store": 36,
+        "sales": 257076,
+        "grossProfit": null,
+        "grossMargin": 0.2465101498838608
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王钰媛",
+        "store": 28,
+        "sales": 352568,
+        "grossProfit": 72159,
+        "grossMargin": 0.19878786209176436
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "王钰媛",
+        "operator": "王钰媛",
+        "store": 28,
+        "sales": 342243,
+        "grossProfit": null,
+        "grossMargin": 0.21013969682816017
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "王钰媛",
+        "operator": "王钰媛",
+        "store": 28,
+        "sales": 266437,
+        "grossProfit": null,
+        "grossMargin": 0.23954934011031853
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "郭婷",
+        "store": 40,
+        "sales": 416294,
+        "grossProfit": 72667,
+        "grossMargin": 0.1695296041657432
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "周雪",
+        "operator": "郭婷",
+        "store": 40,
+        "sales": 397307,
+        "grossProfit": null,
+        "grossMargin": 0.2063483926404929
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "郭婷",
+        "store": 40,
+        "sales": 452836,
+        "grossProfit": null,
+        "grossMargin": 0.21667524115755626
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "黄双",
+        "store": 8,
+        "sales": 123120,
+        "grossProfit": 13126,
+        "grossMargin": 0.10405733221290292
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "周雪",
+        "operator": "黄双",
+        "store": 8,
+        "sales": 117093,
+        "grossProfit": null,
+        "grossMargin": 0.12171452351227632
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "黄双",
+        "store": 8,
+        "sales": 70995,
+        "grossProfit": null,
+        "grossMargin": 0.18942005095159598
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "刘俊霞",
+        "store": 16,
+        "sales": 2300959,
+        "grossProfit": 669219,
+        "grossMargin": 0.2824670679003357
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "周雪",
+        "operator": "刘俊霞",
+        "store": 16,
+        "sales": 2116252,
+        "grossProfit": null,
+        "grossMargin": 0.30109178122569025
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "刘俊霞",
+        "store": 16,
+        "sales": 760319,
+        "grossProfit": null,
+        "grossMargin": 0.23538571991950896
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "孟珂",
+        "store": 3,
+        "sales": 215230,
+        "grossProfit": 41518,
+        "grossMargin": 0.18865043916048327
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "周雪",
+        "operator": "孟珂",
+        "store": 3,
+        "sales": 225414,
+        "grossProfit": null,
+        "grossMargin": 0.1780050995891757
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "孟珂",
+        "store": 3,
+        "sales": 217064,
+        "grossProfit": null,
+        "grossMargin": 0.22323977638398923
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "李筱",
+        "store": 52,
+        "sales": 28958,
+        "grossProfit": -989,
+        "grossMargin": -0.03286041798185866
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "周雪",
+        "operator": "李筱",
+        "store": 52,
+        "sales": 25665,
+        "grossProfit": null,
+        "grossMargin": 0.022469795626481992
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "李筱",
+        "store": 52,
+        "sales": 623,
+        "grossProfit": null,
+        "grossMargin": -0.1800878477306003
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "孙钰航",
+        "store": 12,
+        "sales": 164048,
+        "grossProfit": 22004,
+        "grossMargin": 0.13030141528986794
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "周雪",
+        "operator": "孙钰航",
+        "store": 12,
+        "sales": 159261,
+        "grossProfit": null,
+        "grossMargin": 0.1495605832813856
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "孙钰航",
+        "store": 12,
+        "sales": 100315,
+        "grossProfit": null,
+        "grossMargin": 0.1811203865148401
+      },
+      {
+        "period": "2026-07",
+        "periodKey": "current",
+        "year": 2026,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "周雪",
+        "store": 38,
+        "sales": 440516,
+        "grossProfit": 90513,
+        "grossMargin": 0.19933842362470736
+      },
+      {
+        "period": "2026-06",
+        "periodKey": "previous",
+        "year": 2026,
+        "month": 6,
+        "leader": "周雪",
+        "operator": "周雪",
+        "store": 38,
+        "sales": 430256,
+        "grossProfit": null,
+        "grossMargin": 0.22176652883255407
+      },
+      {
+        "period": "2025-07",
+        "periodKey": "yearAgo",
+        "year": 2025,
+        "month": 7,
+        "leader": "周雪",
+        "operator": "周雪",
+        "store": 38,
+        "sales": 388756,
+        "grossProfit": null,
+        "grossMargin": 0.22086784263757267
+      }
+    ]
+  },
+  "slowMoving": [
+    {
+      "department": null,
+      "operator": null,
+      "store": 19,
+      "inventoryAmount": 329,
+      "slowMovingAmount": 109,
+      "slowMovingShare": 0.3329,
+      "negativeRevenue": 3
+    },
+    {
+      "department": "TT",
+      "operator": "宋亚倩",
+      "store": 58,
+      "inventoryAmount": 107916,
+      "slowMovingAmount": 21647,
+      "slowMovingShare": 0.2006,
+      "negativeRevenue": 611
+    },
+    {
+      "department": "郭鑫",
+      "operator": "李双雨",
+      "store": 35,
+      "inventoryAmount": 463738,
+      "slowMovingAmount": 59132,
+      "slowMovingShare": 0.1275,
+      "negativeRevenue": 1611
+    },
+    {
+      "department": "周雪",
+      "operator": "李筱",
+      "store": 52,
+      "inventoryAmount": 121040,
+      "slowMovingAmount": 11099,
+      "slowMovingShare": 0.0917,
+      "negativeRevenue": 290
+    },
+    {
+      "department": "周雪",
+      "operator": "孟珂",
+      "store": 3,
+      "inventoryAmount": 632804,
+      "slowMovingAmount": 51167,
+      "slowMovingShare": 0.0809,
+      "negativeRevenue": 1313
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "陈莹",
+      "store": 5,
+      "inventoryAmount": 1579681,
+      "slowMovingAmount": 81165,
+      "slowMovingShare": 0.0514,
+      "negativeRevenue": 1880
+    },
+    {
+      "department": "郭鑫",
+      "operator": "彭莉芸",
+      "store": 17,
+      "inventoryAmount": 302155,
+      "slowMovingAmount": 12303,
+      "slowMovingShare": 0.0407,
+      "negativeRevenue": 263
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "王恩蒙",
+      "store": 51,
+      "inventoryAmount": 108000,
+      "slowMovingAmount": 4133,
+      "slowMovingShare": 0.0383,
+      "negativeRevenue": 86
+    },
+    {
+      "department": "王钰媛",
+      "operator": "任建荣",
+      "store": 15,
+      "inventoryAmount": 250968,
+      "slowMovingAmount": 8693,
+      "slowMovingShare": 0.0346,
+      "negativeRevenue": 173
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王钰媛",
+      "store": 28,
+      "inventoryAmount": 874600,
+      "slowMovingAmount": 25857,
+      "slowMovingShare": 0.0296,
+      "negativeRevenue": 468
+    },
+    {
+      "department": "大张雯",
+      "operator": "赵璐华",
+      "store": 11,
+      "inventoryAmount": 1555759,
+      "slowMovingAmount": 37518,
+      "slowMovingShare": 0.0241,
+      "negativeRevenue": 579
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "陈清雅",
+      "store": 6,
+      "inventoryAmount": 536300,
+      "slowMovingAmount": 9173,
+      "slowMovingShare": 0.0171,
+      "negativeRevenue": 87
+    },
+    {
+      "department": "大张雯",
+      "operator": "林佳怡",
+      "store": 42,
+      "inventoryAmount": 207360,
+      "slowMovingAmount": 3555,
+      "slowMovingShare": 0.0171,
+      "negativeRevenue": 34
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王丽爽",
+      "store": 2,
+      "inventoryAmount": 204700,
+      "slowMovingAmount": 3429,
+      "slowMovingShare": 0.0168,
+      "negativeRevenue": 31
+    },
+    {
+      "department": "大张雯",
+      "operator": "赵羽姝",
+      "store": 33,
+      "inventoryAmount": 522859,
+      "slowMovingAmount": 5261,
+      "slowMovingShare": 0.0101,
+      "negativeRevenue": -26
+    },
+    {
+      "department": "王钰媛",
+      "operator": "万佳琦",
+      "store": 22,
+      "inventoryAmount": 328269,
+      "slowMovingAmount": 3104,
+      "slowMovingShare": 0.0095,
+      "negativeRevenue": -22
+    },
+    {
+      "department": "王钰媛",
+      "operator": "李娜",
+      "store": 21,
+      "inventoryAmount": 1461544,
+      "slowMovingAmount": 13308,
+      "slowMovingShare": 0.0091,
+      "negativeRevenue": -114
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "张彦微",
+      "store": 25,
+      "inventoryAmount": 848597,
+      "slowMovingAmount": 7354,
+      "slowMovingShare": 0.0087,
+      "negativeRevenue": -78
+    },
+    {
+      "department": "大张雯",
+      "operator": "小张雯",
+      "store": 41,
+      "inventoryAmount": 311652,
+      "slowMovingAmount": 2594,
+      "slowMovingShare": 0.0083,
+      "negativeRevenue": -32
+    },
+    {
+      "department": "大张雯",
+      "operator": "柳琳",
+      "store": 39,
+      "inventoryAmount": 2704163,
+      "slowMovingAmount": 21371,
+      "slowMovingShare": 0.0079,
+      "negativeRevenue": -309
+    },
+    {
+      "department": "大张雯",
+      "operator": "刘蓉蓉",
+      "store": 4,
+      "inventoryAmount": 1746391,
+      "slowMovingAmount": 13334,
+      "slowMovingShare": 0.0076,
+      "negativeRevenue": -214
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王丽爽",
+      "store": 26,
+      "inventoryAmount": 698836,
+      "slowMovingAmount": 4725,
+      "slowMovingShare": 0.0068,
+      "negativeRevenue": -104
+    },
+    {
+      "department": "周雪",
+      "operator": "郭婷",
+      "store": 40,
+      "inventoryAmount": 1205823,
+      "slowMovingAmount": 8068,
+      "slowMovingShare": 0.0067,
+      "negativeRevenue": -182
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "杨明月",
+      "store": 18,
+      "inventoryAmount": 1187432,
+      "slowMovingAmount": 6901,
+      "slowMovingShare": 0.0058,
+      "negativeRevenue": -210
+    },
+    {
+      "department": "TT",
+      "operator": "刘源",
+      "store": 55,
+      "inventoryAmount": 602818,
+      "slowMovingAmount": 2563,
+      "slowMovingShare": 0.0043,
+      "negativeRevenue": -135
+    },
+    {
+      "department": "周雪",
+      "operator": "周雪",
+      "store": 38,
+      "inventoryAmount": 1051859,
+      "slowMovingAmount": 4158,
+      "slowMovingShare": 0.004,
+      "negativeRevenue": -245
+    },
+    {
+      "department": "郭鑫",
+      "operator": "刘星辰",
+      "store": 31,
+      "inventoryAmount": 595561,
+      "slowMovingAmount": 2376,
+      "slowMovingShare": 0.004,
+      "negativeRevenue": -138
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "侯瑞昕",
+      "store": 13,
+      "inventoryAmount": 702459,
+      "slowMovingAmount": 2208,
+      "slowMovingShare": 0.0031,
+      "negativeRevenue": -181
+    },
+    {
+      "department": "郭鑫",
+      "operator": "郭鑫",
+      "store": 32,
+      "inventoryAmount": 857128,
+      "slowMovingAmount": 2700,
+      "slowMovingShare": 0.0031,
+      "negativeRevenue": -220
+    },
+    {
+      "department": "大张雯",
+      "operator": "大张雯",
+      "store": 7,
+      "inventoryAmount": 966286,
+      "slowMovingAmount": 2584,
+      "slowMovingShare": 0.0027,
+      "negativeRevenue": -262
+    },
+    {
+      "department": "大张雯",
+      "operator": "管淑慧",
+      "store": 50,
+      "inventoryAmount": 427596,
+      "slowMovingAmount": 981,
+      "slowMovingShare": 0.0023,
+      "negativeRevenue": -121
+    },
+    {
+      "department": "郭鑫",
+      "operator": "叶雨菲",
+      "store": 43,
+      "inventoryAmount": 904760,
+      "slowMovingAmount": 1818,
+      "slowMovingShare": 0.002,
+      "negativeRevenue": -263
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "孙洁",
+      "store": 20,
+      "inventoryAmount": 1918009,
+      "slowMovingAmount": 1521,
+      "slowMovingShare": 0.0008,
+      "negativeRevenue": -628
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王淑雯",
+      "store": 36,
+      "inventoryAmount": 1203894,
+      "slowMovingAmount": 914,
+      "slowMovingShare": 0.0008,
+      "negativeRevenue": -396
+    },
+    {
+      "department": "周雪",
+      "operator": "刘俊霞",
+      "store": 16,
+      "inventoryAmount": 6928227,
+      "slowMovingAmount": 3096,
+      "slowMovingShare": 0.0004,
+      "negativeRevenue": -2341
+    },
+    {
+      "department": "周雪",
+      "operator": "孙钰航",
+      "store": 12,
+      "inventoryAmount": 420843,
+      "slowMovingAmount": 133,
+      "slowMovingShare": 0.0003,
+      "negativeRevenue": -144
+    },
+    {
+      "department": "郭鑫",
+      "operator": "侯梁",
+      "store": 23,
+      "inventoryAmount": 2181342,
+      "slowMovingAmount": 569,
+      "slowMovingShare": 0.0003,
+      "negativeRevenue": -749
+    },
+    {
+      "department": "大张雯",
+      "operator": "陈梓琪",
+      "store": 37,
+      "inventoryAmount": 510769,
+      "slowMovingAmount": 91,
+      "slowMovingShare": 0.0002,
+      "negativeRevenue": -177
+    },
+    {
+      "department": "周雪",
+      "operator": "黄双",
+      "store": 8,
+      "inventoryAmount": 328242,
+      "slowMovingAmount": 28,
+      "slowMovingShare": 0.0001,
+      "negativeRevenue": -114
+    },
+    {
+      "department": "郭鑫",
+      "operator": "叶雨菲",
+      "store": 61,
+      "inventoryAmount": 44329,
+      "slowMovingAmount": 0,
+      "slowMovingShare": 0,
+      "negativeRevenue": -16
+    },
+    {
+      "department": "周雪",
+      "operator": "李华扬",
+      "store": 60,
+      "inventoryAmount": 10548,
+      "slowMovingAmount": 0,
+      "slowMovingShare": 0,
+      "negativeRevenue": -4
+    },
+    {
+      "department": "王钰媛",
+      "operator": "殷琬宁",
+      "store": 59,
+      "inventoryAmount": 20489,
+      "slowMovingAmount": 0,
+      "slowMovingShare": 0,
+      "negativeRevenue": -7
+    }
+  ],
+  "shipping": [
+    {
+      "department": "TT",
+      "operator": "刘源",
+      "store": 55,
+      "totalUnits": 16951,
+      "oceanUnits": 3564,
+      "airUnits": 0,
+      "oceanShare": 0.21025308241401688,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "陈梓琪",
+      "store": 37,
+      "totalUnits": 25314,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "大张雯",
+      "store": 7,
+      "totalUnits": 36483,
+      "oceanUnits": 17967,
+      "airUnits": 0,
+      "oceanShare": 0.49247594770166925,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "管淑慧",
+      "store": 50,
+      "totalUnits": 20190,
+      "oceanUnits": 6845,
+      "airUnits": 0,
+      "oceanShare": 0.3390292223873205,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "林佳怡",
+      "store": 42,
+      "totalUnits": 8521,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "刘蓉蓉",
+      "store": 4,
+      "totalUnits": 64742,
+      "oceanUnits": 29450,
+      "airUnits": 0,
+      "oceanShare": 0.4548824565197244,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "柳琳",
+      "store": 39,
+      "totalUnits": 138358,
+      "oceanUnits": 85140,
+      "airUnits": 0,
+      "oceanShare": 0.6153601526474797,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "小张雯",
+      "store": 41,
+      "totalUnits": 6745,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "赵璐华",
+      "store": 11,
+      "totalUnits": 40870,
+      "oceanUnits": 24880,
+      "airUnits": 0,
+      "oceanShare": 0.608759481282114,
+      "airShare": 0
+    },
+    {
+      "department": "大张雯",
+      "operator": "赵羽姝",
+      "store": 33,
+      "totalUnits": 27633,
+      "oceanUnits": 0,
+      "airUnits": 20848,
+      "oceanShare": 0,
+      "airShare": 0.7544602468063547
+    },
+    {
+      "department": "郭鑫",
+      "operator": "郭鑫",
+      "store": 32,
+      "totalUnits": 29780,
+      "oceanUnits": 13225,
+      "airUnits": 0,
+      "oceanShare": 0.4440899932840833,
+      "airShare": 0
+    },
+    {
+      "department": "郭鑫",
+      "operator": "侯梁",
+      "store": 23,
+      "totalUnits": 56552,
+      "oceanUnits": 43535,
+      "airUnits": 0,
+      "oceanShare": 0.769822464280662,
+      "airShare": 0
+    },
+    {
+      "department": "郭鑫",
+      "operator": "李双雨",
+      "store": 35,
+      "totalUnits": 18183,
+      "oceanUnits": 5550,
+      "airUnits": 0,
+      "oceanShare": 0.3052301600395974,
+      "airShare": 0
+    },
+    {
+      "department": "郭鑫",
+      "operator": "刘星辰",
+      "store": 31,
+      "totalUnits": 27023,
+      "oceanUnits": 12200,
+      "airUnits": 0,
+      "oceanShare": 0.45146726862302483,
+      "airShare": 0
+    },
+    {
+      "department": "郭鑫",
+      "operator": "彭莉芸",
+      "store": 17,
+      "totalUnits": 15105,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "郭鑫",
+      "operator": "叶雨菲",
+      "store": 43,
+      "totalUnits": 41682,
+      "oceanUnits": 22155,
+      "airUnits": 0,
+      "oceanShare": 0.5315243990211602,
+      "airShare": 0
+    },
+    {
+      "department": "郭鑫",
+      "operator": "叶雨菲",
+      "store": 61,
+      "totalUnits": 700,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "陈清雅",
+      "store": 6,
+      "totalUnits": 22860,
+      "oceanUnits": 4210,
+      "airUnits": 0,
+      "oceanShare": 0.18416447944007,
+      "airShare": 0
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "陈莹",
+      "store": 5,
+      "totalUnits": 68353,
+      "oceanUnits": 34213,
+      "airUnits": 0,
+      "oceanShare": 0.5005339926557723,
+      "airShare": 0
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "侯瑞昕",
+      "store": 13,
+      "totalUnits": 26217,
+      "oceanUnits": 13910,
+      "airUnits": 0,
+      "oceanShare": 0.5305717664111073,
+      "airShare": 0
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "孙洁",
+      "store": 20,
+      "totalUnits": 53004,
+      "oceanUnits": 31184,
+      "airUnits": 0,
+      "oceanShare": 0.5883329560033205,
+      "airShare": 0
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "王恩蒙",
+      "store": 51,
+      "totalUnits": 3651,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "杨明月",
+      "store": 18,
+      "totalUnits": 47940,
+      "oceanUnits": 27545,
+      "airUnits": 0,
+      "oceanShare": 0.5745723821443471,
+      "airShare": 0
+    },
+    {
+      "department": "侯瑞昕",
+      "operator": "张彦微",
+      "store": 25,
+      "totalUnits": 38458,
+      "oceanUnits": 14030,
+      "airUnits": 0,
+      "oceanShare": 0.364813562847782,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "李娜",
+      "store": 21,
+      "totalUnits": 59942,
+      "oceanUnits": 34185,
+      "airUnits": 0,
+      "oceanShare": 0.5703012912482066,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "任建荣",
+      "store": 15,
+      "totalUnits": 11072,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "万佳琦",
+      "store": 22,
+      "totalUnits": 7425,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王丽爽",
+      "store": 2,
+      "totalUnits": 6180,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王丽爽",
+      "store": 26,
+      "totalUnits": 57740,
+      "oceanUnits": 2430,
+      "airUnits": 0,
+      "oceanShare": 0.04208520956009699,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王淑雯",
+      "store": 36,
+      "totalUnits": 46312,
+      "oceanUnits": 30331,
+      "airUnits": 0,
+      "oceanShare": 0.6549274486094316,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "王钰媛",
+      "store": 28,
+      "totalUnits": 49227,
+      "oceanUnits": 26680,
+      "airUnits": 0,
+      "oceanShare": 0.5419789952668251,
+      "airShare": 0
+    },
+    {
+      "department": "王钰媛",
+      "operator": "殷琬宁",
+      "store": 59,
+      "totalUnits": 598,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "周雪",
+      "operator": "郭婷",
+      "store": 40,
+      "totalUnits": 46183,
+      "oceanUnits": 20805,
+      "airUnits": 4209,
+      "oceanShare": 0.45049044020527035,
+      "airShare": 0.09113743152242167
+    },
+    {
+      "department": "周雪",
+      "operator": "黄双",
+      "store": 8,
+      "totalUnits": 14785,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "周雪",
+      "operator": "李华扬",
+      "store": 60,
+      "totalUnits": 942,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "周雪",
+      "operator": "李筱",
+      "store": 52,
+      "totalUnits": 3606,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "周雪",
+      "operator": "刘俊霞",
+      "store": 16,
+      "totalUnits": 270893,
+      "oceanUnits": 159725,
+      "airUnits": 0,
+      "oceanShare": 0.5896239474626513,
+      "airShare": 0
+    },
+    {
+      "department": "周雪",
+      "operator": "孟珂",
+      "store": 3,
+      "totalUnits": 23844,
+      "oceanUnits": 9725,
+      "airUnits": 0,
+      "oceanShare": 0.40785941956047644,
+      "airShare": 0
+    },
+    {
+      "department": "周雪",
+      "operator": "孙钰航",
+      "store": 12,
+      "totalUnits": 14561,
+      "oceanUnits": 0,
+      "airUnits": 0,
+      "oceanShare": 0,
+      "airShare": 0
+    },
+    {
+      "department": "周雪",
+      "operator": "周雪",
+      "store": 38,
+      "totalUnits": 46459,
+      "oceanUnits": 30560,
+      "airUnits": 0,
+      "oceanShare": 0.6577842829161196,
+      "airShare": 0
+    }
+  ],
+  "newProductOrders": [
+    {
+      "orderedOn": "2026-07-01",
+      "store": 8,
+      "sku": "8-220A",
+      "mainSku": "8-220A"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 11,
+      "sku": "11-104Q",
+      "mainSku": "11-104Q"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 21,
+      "sku": "21-211Fpack",
+      "mainSku": "21-211Fpack"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 21,
+      "sku": "21-222K",
+      "mainSku": "21-222K"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 31,
+      "sku": "31-100E",
+      "mainSku": "31-100E"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 31,
+      "sku": "31-100F",
+      "mainSku": "31-100F"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 35,
+      "sku": "35-58T",
+      "mainSku": "35-58T"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 35,
+      "sku": "35-82D",
+      "mainSku": "35-82D"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 35,
+      "sku": "35-84A",
+      "mainSku": "35-84A"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 35,
+      "sku": "35-84B",
+      "mainSku": "35-84B"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 35,
+      "sku": "35-85A",
+      "mainSku": "35-85A"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 35,
+      "sku": "35-85B",
+      "mainSku": "35-85B"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 55,
+      "sku": "55-01M",
+      "mainSku": "55-01M"
+    },
+    {
+      "orderedOn": "2026-07-01",
+      "store": 92,
+      "sku": "92-4B-BZH",
+      "mainSku": "92-4B-BZH"
+    },
+    {
+      "orderedOn": "2026-07-02",
+      "store": 16,
+      "sku": "16-68H",
+      "mainSku": "16-68H"
+    },
+    {
+      "orderedOn": "2026-07-02",
+      "store": 35,
+      "sku": "35-58S",
+      "mainSku": "35-58S"
+    },
+    {
+      "orderedOn": "2026-07-02",
+      "store": 36,
+      "sku": "36-61Q",
+      "mainSku": "36-61Q"
+    },
+    {
+      "orderedOn": "2026-07-02",
+      "store": 88,
+      "sku": "88-2D",
+      "mainSku": "88-2D"
+    },
+    {
+      "orderedOn": "2026-07-03",
+      "store": 3,
+      "sku": "3-313A",
+      "mainSku": "3-313A"
+    },
+    {
+      "orderedOn": "2026-07-03",
+      "store": 6,
+      "sku": "JISHU-6-111Y",
+      "mainSku": "JISHU-6-111Y"
+    },
+    {
+      "orderedOn": "2026-07-03",
+      "store": 11,
+      "sku": "11-101E",
+      "mainSku": "11-101E"
+    },
+    {
+      "orderedOn": "2026-07-03",
+      "store": 11,
+      "sku": "11-101F",
+      "mainSku": "11-101F"
+    },
+    {
+      "orderedOn": "2026-07-03",
+      "store": 39,
+      "sku": "39-140M",
+      "mainSku": "39-140M"
+    },
+    {
+      "orderedOn": "2026-07-04",
+      "store": 21,
+      "sku": "21-212K",
+      "mainSku": "21-212K"
+    },
+    {
+      "orderedOn": "2026-07-04",
+      "store": 26,
+      "sku": "26-146A",
+      "mainSku": "26-146A"
+    },
+    {
+      "orderedOn": "2026-07-05",
+      "store": 25,
+      "sku": "25-37B",
+      "mainSku": "25-37B"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 3,
+      "sku": "3-317B",
+      "mainSku": "3-317B"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 8,
+      "sku": "8-220B",
+      "mainSku": "8-220B"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 15,
+      "sku": "JISHU-15-44E",
+      "mainSku": "JISHU-15-44E"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 26,
+      "sku": "26-131K",
+      "mainSku": "26-131K"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 26,
+      "sku": "26-137J",
+      "mainSku": "26-137J"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 26,
+      "sku": "26-137K",
+      "mainSku": "26-137K"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 31,
+      "sku": "31-131E",
+      "mainSku": "31-131E"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 33,
+      "sku": "JISHU-33-88E",
+      "mainSku": "JISHU-33-88E"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 36,
+      "sku": "36-72C",
+      "mainSku": "36-72C"
+    },
+    {
+      "orderedOn": "2026-07-06",
+      "store": 43,
+      "sku": "43-131D",
+      "mainSku": "43-131D"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 8,
+      "sku": "8-ykl-PACK",
+      "mainSku": "8-ykl-PACK"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 21,
+      "sku": "21-229G",
+      "mainSku": "21-229G"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 26,
+      "sku": "26-135C-PACK",
+      "mainSku": "26-135C-PACK"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 26,
+      "sku": "26-135D-PACK",
+      "mainSku": "26-135D-PACK"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 31,
+      "sku": "31-130T",
+      "mainSku": "31-130T"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 31,
+      "sku": "31-130X",
+      "mainSku": "31-130X"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 35,
+      "sku": "35-83B",
+      "mainSku": "35-83B"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 82,
+      "sku": "82-86B",
+      "mainSku": "82-86B"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 86,
+      "sku": "86-PACK-LIP001",
+      "mainSku": "86-PACK-LIP001"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 86,
+      "sku": "86-PACK-LIP002",
+      "mainSku": "86-PACK-LIP002"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 86,
+      "sku": "86-PACK-LIP003",
+      "mainSku": "86-PACK-LIP003"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 89,
+      "sku": "89-shouhouka-1",
+      "mainSku": "89-shouhouka-1"
+    },
+    {
+      "orderedOn": "2026-07-07",
+      "store": 89,
+      "sku": "89-shouhouka-2",
+      "mainSku": "89-shouhouka-2"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 3,
+      "sku": "3-317A",
+      "mainSku": "3-317A"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 6,
+      "sku": "6-142C",
+      "mainSku": "6-142C"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 12,
+      "sku": "12-93R",
+      "mainSku": "12-93R"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 15,
+      "sku": "15-77A",
+      "mainSku": "15-77A"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 23,
+      "sku": "23-85B",
+      "mainSku": "23-85B"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 23,
+      "sku": "23-85C",
+      "mainSku": "23-85C"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 26,
+      "sku": "26-137P",
+      "mainSku": "26-137P"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 40,
+      "sku": "40-76A",
+      "mainSku": "40-76A"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 40,
+      "sku": "40-76B",
+      "mainSku": "40-76B"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 40,
+      "sku": "40-76D",
+      "mainSku": "40-76D"
+    },
+    {
+      "orderedOn": "2026-07-08",
+      "store": 43,
+      "sku": "43-131H",
+      "mainSku": "43-131H"
+    },
+    {
+      "orderedOn": "2026-07-09",
+      "store": 8,
+      "sku": "8-213A",
+      "mainSku": "8-213A"
+    },
+    {
+      "orderedOn": "2026-07-09",
+      "store": 8,
+      "sku": "8-213B",
+      "mainSku": "8-213B"
+    },
+    {
+      "orderedOn": "2026-07-09",
+      "store": 12,
+      "sku": "12-933F",
+      "mainSku": "12-933F"
+    },
+    {
+      "orderedOn": "2026-07-09",
+      "store": 28,
+      "sku": "28-81B",
+      "mainSku": "28-81B"
+    },
+    {
+      "orderedOn": "2026-07-09",
+      "store": 28,
+      "sku": "28-83A",
+      "mainSku": "28-83A"
+    },
+    {
+      "orderedOn": "2026-07-09",
+      "store": 28,
+      "sku": "28-83B",
+      "mainSku": "28-83B"
+    },
+    {
+      "orderedOn": "2026-07-09",
+      "store": 39,
+      "sku": "39-140T",
+      "mainSku": "39-140T"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 12,
+      "sku": "12-93S",
+      "mainSku": "12-93S"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 15,
+      "sku": "15-76D",
+      "mainSku": "15-76D"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 16,
+      "sku": "16-106C",
+      "mainSku": "16-106C"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 16,
+      "sku": "16-106D",
+      "mainSku": "16-106D"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 39,
+      "sku": "39-166A",
+      "mainSku": "39-166A"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 39,
+      "sku": "39-166B",
+      "mainSku": "39-166B"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 39,
+      "sku": "39-166C",
+      "mainSku": "39-166C"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 39,
+      "sku": "39-166D",
+      "mainSku": "39-166D"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 40,
+      "sku": "40-78A",
+      "mainSku": "40-78A"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 40,
+      "sku": "40-80A",
+      "mainSku": "40-80A"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 40,
+      "sku": "40-80B",
+      "mainSku": "40-80B"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 43,
+      "sku": "43-133B",
+      "mainSku": "43-133B"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 60,
+      "sku": "60-1A",
+      "mainSku": "60-1A"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 60,
+      "sku": "60-1B",
+      "mainSku": "60-1B"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 82,
+      "sku": "82-86C",
+      "mainSku": "82-86C"
+    },
+    {
+      "orderedOn": "2026-07-10",
+      "store": 83,
+      "sku": "83-17B",
+      "mainSku": "83-17B"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 5,
+      "sku": "5-221A",
+      "mainSku": "5-221A"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 7,
+      "sku": "7-80A",
+      "mainSku": "7-80A"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 7,
+      "sku": "7-80B",
+      "mainSku": "7-80B"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 11,
+      "sku": "11-100C",
+      "mainSku": "11-100C"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 11,
+      "sku": "11-101H",
+      "mainSku": "11-101H"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 15,
+      "sku": "15-75C",
+      "mainSku": "15-75C"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 15,
+      "sku": "15-76C",
+      "mainSku": "15-76C"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 25,
+      "sku": "25-07P",
+      "mainSku": "25-07P"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 31,
+      "sku": "31-130U",
+      "mainSku": "31-130U"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 31,
+      "sku": "31-130V",
+      "mainSku": "31-130V"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 83,
+      "sku": "83-14C",
+      "mainSku": "83-14C"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 87,
+      "sku": "87-2B",
+      "mainSku": "87-2B"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 90,
+      "sku": "90-901C",
+      "mainSku": "90-901C"
+    },
+    {
+      "orderedOn": "2026-07-11",
+      "store": 90,
+      "sku": "90-901D",
+      "mainSku": "90-901D"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 6,
+      "sku": "6-169C",
+      "mainSku": "6-169C"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 7,
+      "sku": "7-74A",
+      "mainSku": "7-74A"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 15,
+      "sku": "15-1",
+      "mainSku": "15-1"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 15,
+      "sku": "15-2",
+      "mainSku": "15-2"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 23,
+      "sku": "23-86C",
+      "mainSku": "23-86C"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 28,
+      "sku": "28-XIAOKAPIAN",
+      "mainSku": "28-XIAOKAPIAN"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 39,
+      "sku": "39-140U",
+      "mainSku": "39-140U"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 55,
+      "sku": "55-03C",
+      "mainSku": "55-03C"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 55,
+      "sku": "55-18E",
+      "mainSku": "55-18E"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 55,
+      "sku": "55-18F",
+      "mainSku": "55-18F"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 86,
+      "sku": "86-18G",
+      "mainSku": "86-18G"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 86,
+      "sku": "86-18H",
+      "mainSku": "86-18H"
+    },
+    {
+      "orderedOn": "2026-07-13",
+      "store": 92,
+      "sku": "92-6A-BZH",
+      "mainSku": "92-6A-BZH"
+    },
+    {
+      "orderedOn": "2026-07-14",
+      "store": 12,
+      "sku": "12-98E",
+      "mainSku": "12-98E"
+    },
+    {
+      "orderedOn": "2026-07-14",
+      "store": 25,
+      "sku": "25-07R",
+      "mainSku": "25-07R"
+    },
+    {
+      "orderedOn": "2026-07-14",
+      "store": 26,
+      "sku": "26-146B",
+      "mainSku": "26-146B"
+    },
+    {
+      "orderedOn": "2026-07-14",
+      "store": 32,
+      "sku": "32-54B",
+      "mainSku": "32-54B"
+    },
+    {
+      "orderedOn": "2026-07-14",
+      "store": 42,
+      "sku": "42-96B",
+      "mainSku": "42-96B"
+    },
+    {
+      "orderedOn": "2026-07-14",
+      "store": 55,
+      "sku": "55-01E",
+      "mainSku": "55-01E"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 6,
+      "sku": "6-169A",
+      "mainSku": "6-169A"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 26,
+      "sku": "26-137Q",
+      "mainSku": "26-137Q"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 32,
+      "sku": "32-54Y",
+      "mainSku": "32-54Y"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 40,
+      "sku": "40-79A",
+      "mainSku": "40-79A"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 40,
+      "sku": "40-79B",
+      "mainSku": "40-79B"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 42,
+      "sku": "42-96A",
+      "mainSku": "42-96A"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 92,
+      "sku": "92-6B-BZH",
+      "mainSku": "92-6B-BZH"
+    },
+    {
+      "orderedOn": "2026-07-15",
+      "store": 92,
+      "sku": "92-SHK",
+      "mainSku": "92-SHK"
+    },
+    {
+      "orderedOn": "2026-07-16",
+      "store": 32,
+      "sku": "32-54A",
+      "mainSku": "32-54A"
+    },
+    {
+      "orderedOn": "2026-07-16",
+      "store": 33,
+      "sku": "33-108C",
+      "mainSku": "33-108C"
+    },
+    {
+      "orderedOn": "2026-07-16",
+      "store": 98,
+      "sku": "JS-bond-seal-035",
+      "mainSku": "JS-bond-seal-035"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 3,
+      "sku": "3-302B",
+      "mainSku": "3-302B"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 3,
+      "sku": "3-304G",
+      "mainSku": "3-304G"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 5,
+      "sku": "5-219B",
+      "mainSku": "5-219B"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 6,
+      "sku": "6-169B",
+      "mainSku": "6-169B"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 7,
+      "sku": "7-74B",
+      "mainSku": "7-74B"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 11,
+      "sku": "11-101D",
+      "mainSku": "11-101D"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 31,
+      "sku": "31-130W",
+      "mainSku": "31-130W"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 31,
+      "sku": "31-131F",
+      "mainSku": "31-131F"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 32,
+      "sku": "32-54J",
+      "mainSku": "32-54J"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 40,
+      "sku": "40-06F",
+      "mainSku": "40-06F"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 43,
+      "sku": "43-133D",
+      "mainSku": "43-133D"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 59,
+      "sku": "59-1-US/CA",
+      "mainSku": "59-1-US/CA"
+    },
+    {
+      "orderedOn": "2026-07-17",
+      "store": 88,
+      "sku": "88-4B",
+      "mainSku": "88-4B"
+    },
+    {
+      "orderedOn": "2026-07-18",
+      "store": 5,
+      "sku": "5-211H",
+      "mainSku": "5-211H"
+    },
+    {
+      "orderedOn": "2026-07-18",
+      "store": 16,
+      "sku": "16-90Y",
+      "mainSku": "16-90Y"
+    },
+    {
+      "orderedOn": "2026-07-18",
+      "store": 16,
+      "sku": "16-90Z",
+      "mainSku": "16-90Z"
+    },
+    {
+      "orderedOn": "2026-07-18",
+      "store": 33,
+      "sku": "33-108D",
+      "mainSku": "33-108D"
+    },
+    {
+      "orderedOn": "2026-07-18",
+      "store": 40,
+      "sku": "40-78B",
+      "mainSku": "40-78B"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 5,
+      "sku": "5-198J",
+      "mainSku": "5-198J"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 15,
+      "sku": "15-77B",
+      "mainSku": "15-77B"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 31,
+      "sku": "31-130Y",
+      "mainSku": "31-130Y"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 50,
+      "sku": "50-36A",
+      "mainSku": "50-36A"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 50,
+      "sku": "50-36B",
+      "mainSku": "50-36B"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 60,
+      "sku": "60-2A",
+      "mainSku": "60-2A"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 60,
+      "sku": "60-2C",
+      "mainSku": "60-2C"
+    },
+    {
+      "orderedOn": "2026-07-20",
+      "store": 86,
+      "sku": "86-15J",
+      "mainSku": "86-15J"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 5,
+      "sku": "5-224pack",
+      "mainSku": "5-224pack"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 11,
+      "sku": "93-toumingjihuaka",
+      "mainSku": "93-toumingjihuaka"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 13,
+      "sku": "13-130A",
+      "mainSku": "13-130A"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 13,
+      "sku": "13-130B",
+      "mainSku": "13-130B"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 13,
+      "sku": "13-YIN-XWT-pack",
+      "mainSku": "13-YIN-XWT-pack"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 25,
+      "sku": "25-toumingjihuaka",
+      "mainSku": "25-toumingjihuaka"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 28,
+      "sku": "28-87B",
+      "mainSku": "28-87B"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 28,
+      "sku": "28-87C",
+      "mainSku": "28-87C"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 31,
+      "sku": "31-100G",
+      "mainSku": "31-100G"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 32,
+      "sku": "32-54C",
+      "mainSku": "32-54C"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 35,
+      "sku": "35-87B",
+      "mainSku": "35-87B"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 35,
+      "sku": "35-88A",
+      "mainSku": "35-88A"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 35,
+      "sku": "35-88B",
+      "mainSku": "35-88B"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 36,
+      "sku": "36-69E",
+      "mainSku": "36-69E"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 36,
+      "sku": "36-69F",
+      "mainSku": "36-69F"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 36,
+      "sku": "36-toumingjihuaka",
+      "mainSku": "36-toumingjihuaka"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 39,
+      "sku": "39-140P",
+      "mainSku": "39-140P"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 43,
+      "sku": "43-136B",
+      "mainSku": "43-136B"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 52,
+      "sku": "52-15A",
+      "mainSku": "52-15A"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 86,
+      "sku": "86-18A-UK",
+      "mainSku": "86-18A-UK"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 86,
+      "sku": "86-18B-UK",
+      "mainSku": "86-18B-UK"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 86,
+      "sku": "86-20A-UK",
+      "mainSku": "86-20A-UK"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 92,
+      "sku": "92-8A",
+      "mainSku": "92-8A"
+    },
+    {
+      "orderedOn": "2026-07-21",
+      "store": 93,
+      "sku": "93-shouhouka",
+      "mainSku": "93-shouhouka"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 5,
+      "sku": "5-222-pack",
+      "mainSku": "5-222-pack"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 25,
+      "sku": "25-38A",
+      "mainSku": "25-38A"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 25,
+      "sku": "25-38B",
+      "mainSku": "25-38B"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 26,
+      "sku": "26-131L",
+      "mainSku": "26-131L"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 33,
+      "sku": "33-105F",
+      "mainSku": "33-105F"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 33,
+      "sku": "33-105G",
+      "mainSku": "33-105G"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 86,
+      "sku": "86-18D-UK",
+      "mainSku": "86-18D-UK"
+    },
+    {
+      "orderedOn": "2026-07-22",
+      "store": 88,
+      "sku": "88-5B",
+      "mainSku": "88-5B"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 5,
+      "sku": "5-198N",
+      "mainSku": "5-198N"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 7,
+      "sku": "7-82A",
+      "mainSku": "7-82A"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 7,
+      "sku": "7-82B",
+      "mainSku": "7-82B"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 21,
+      "sku": "21-227Q",
+      "mainSku": "21-227Q"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 35,
+      "sku": "35-87C",
+      "mainSku": "35-87C"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 39,
+      "sku": "39-140N",
+      "mainSku": "39-140N"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 39,
+      "sku": "39-140Q",
+      "mainSku": "39-140Q"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 39,
+      "sku": "39-140R",
+      "mainSku": "39-140R"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 50,
+      "sku": "50-38A",
+      "mainSku": "50-38A"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 86,
+      "sku": "86-05E",
+      "mainSku": "86-05E"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 86,
+      "sku": "86-05F",
+      "mainSku": "86-05F"
+    },
+    {
+      "orderedOn": "2026-07-23",
+      "store": 86,
+      "sku": "86-24A-Pack",
+      "mainSku": "86-24A-Pack"
+    },
+    {
+      "orderedOn": "2026-07-24",
+      "store": 16,
+      "sku": "16-99E",
+      "mainSku": "16-99E"
+    },
+    {
+      "orderedOn": "2026-07-24",
+      "store": 26,
+      "sku": "26-147A",
+      "mainSku": "26-147A"
+    },
+    {
+      "orderedOn": "2026-07-24",
+      "store": 32,
+      "sku": "32-54K",
+      "mainSku": "32-54K"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 13,
+      "sku": "13-132A",
+      "mainSku": "13-132A"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 13,
+      "sku": "13-132B",
+      "mainSku": "13-132B"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 33,
+      "sku": "33-105H",
+      "mainSku": "33-105H"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 42,
+      "sku": "42-100A",
+      "mainSku": "42-100A"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 42,
+      "sku": "42-49T",
+      "mainSku": "42-49T"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 42,
+      "sku": "42-49U",
+      "mainSku": "42-49U"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 42,
+      "sku": "42-49W",
+      "mainSku": "42-49W"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 43,
+      "sku": "43-136C",
+      "mainSku": "43-136C"
+    },
+    {
+      "orderedOn": "2026-07-25",
+      "store": 86,
+      "sku": "86-15C",
+      "mainSku": "86-15C"
+    },
+    {
+      "orderedOn": "2026-07-27",
+      "store": 4,
+      "sku": "4-55B",
+      "mainSku": "4-55B"
+    },
+    {
+      "orderedOn": "2026-07-27",
+      "store": 5,
+      "sku": "5-198P",
+      "mainSku": "5-198P"
+    },
+    {
+      "orderedOn": "2026-07-27",
+      "store": 23,
+      "sku": "23-86B",
+      "mainSku": "23-86B"
+    },
+    {
+      "orderedOn": "2026-07-27",
+      "store": 35,
+      "sku": "35-87A",
+      "mainSku": "35-87A"
+    },
+    {
+      "orderedOn": "2026-07-27",
+      "store": 43,
+      "sku": "43-133C",
+      "mainSku": "43-133C"
+    },
+    {
+      "orderedOn": "2026-07-27",
+      "store": 90,
+      "sku": "90-903A",
+      "mainSku": "90-903A"
+    },
+    {
+      "orderedOn": "2026-07-27",
+      "store": 90,
+      "sku": "90-903B",
+      "mainSku": "90-903B"
+    },
+    {
+      "orderedOn": "2026-07-28",
+      "store": 5,
+      "sku": "5-198M",
+      "mainSku": "5-198M"
+    },
+    {
+      "orderedOn": "2026-07-28",
+      "store": 5,
+      "sku": "5-221B",
+      "mainSku": "5-221B"
+    },
+    {
+      "orderedOn": "2026-07-28",
+      "store": 13,
+      "sku": "13-128C",
+      "mainSku": "13-128C"
+    },
+    {
+      "orderedOn": "2026-07-28",
+      "store": 16,
+      "sku": "16-99D",
+      "mainSku": "16-99D"
+    },
+    {
+      "orderedOn": "2026-07-28",
+      "store": 37,
+      "sku": "37-63A",
+      "mainSku": "37-63A"
+    },
+    {
+      "orderedOn": "2026-07-28",
+      "store": 86,
+      "sku": "86-05J",
+      "mainSku": "86-05J"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 11,
+      "sku": "11-107A",
+      "mainSku": "11-107A"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 13,
+      "sku": "13-131B",
+      "mainSku": "13-131B"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 17,
+      "sku": "17-103A",
+      "mainSku": "17-103A"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 21,
+      "sku": "21-230A",
+      "mainSku": "21-230A"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 31,
+      "sku": "31-105D",
+      "mainSku": "31-105D"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 31,
+      "sku": "31-130Z",
+      "mainSku": "31-130Z"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 36,
+      "sku": "36-74A",
+      "mainSku": "36-74A"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 37,
+      "sku": "37-63B",
+      "mainSku": "37-63B"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 39,
+      "sku": "39-146D",
+      "mainSku": "39-146D"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 41,
+      "sku": "41-74A",
+      "mainSku": "41-74A"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 86,
+      "sku": "86-18J-UK",
+      "mainSku": "86-18J-UK"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 86,
+      "sku": "86-BROW-01",
+      "mainSku": "86-BROW-01"
+    },
+    {
+      "orderedOn": "2026-07-29",
+      "store": 86,
+      "sku": "86-LIP-04",
+      "mainSku": "86-LIP-04"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 22,
+      "sku": "22-75A",
+      "mainSku": "22-75A"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 26,
+      "sku": "26-148A",
+      "mainSku": "26-148A"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 32,
+      "sku": "32-54M",
+      "mainSku": "32-54M"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 32,
+      "sku": "32-54N",
+      "mainSku": "32-54N"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 32,
+      "sku": "32-54U",
+      "mainSku": "32-54U"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 41,
+      "sku": "41-73A",
+      "mainSku": "41-73A"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 41,
+      "sku": "41-73B",
+      "mainSku": "41-73B"
+    },
+    {
+      "orderedOn": "2026-07-30",
+      "store": 41,
+      "sku": "41-73C",
+      "mainSku": "41-73C"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 21,
+      "sku": "21-213N",
+      "mainSku": "21-213N"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 21,
+      "sku": "21-230C",
+      "mainSku": "21-230C"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 26,
+      "sku": "26-147B",
+      "mainSku": "26-147B"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 31,
+      "sku": "31-117C",
+      "mainSku": "31-117C"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 32,
+      "sku": "32-54D",
+      "mainSku": "32-54D"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 33,
+      "sku": "33-105J",
+      "mainSku": "33-105J"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 43,
+      "sku": "43-136A",
+      "mainSku": "43-136A"
+    },
+    {
+      "orderedOn": "2026-07-31",
+      "store": 86,
+      "sku": "86-meijiao-logo",
+      "mainSku": "86-meijiao-logo"
+    }
+  ],
+  "unshipped": [
+    {
+      "operator": "王丽爽",
+      "store": 2,
+      "skuCount": 6,
+      "amount": 8812.8
+    },
+    {
+      "operator": "孟珂",
+      "store": 3,
+      "skuCount": 6,
+      "amount": 20488.5
+    },
+    {
+      "operator": "赵璐华",
+      "store": 11,
+      "skuCount": 1,
+      "amount": 2762.1
+    },
+    {
+      "operator": "刘俊霞",
+      "store": 16,
+      "skuCount": 3,
+      "amount": 6120
+    },
+    {
+      "operator": "刘晓琪",
+      "store": 17,
+      "skuCount": 1,
+      "amount": 2009.4
+    },
+    {
+      "operator": "宋亚倩",
+      "store": 18,
+      "skuCount": 1,
+      "amount": 1174.2
+    },
+    {
+      "operator": "孙洁",
+      "store": 20,
+      "skuCount": 2,
+      "amount": 2101.6
+    },
+    {
+      "operator": "侯瑞昕",
+      "store": 26,
+      "skuCount": 2,
+      "amount": 4404.5
+    },
+    {
+      "operator": "王海娇",
+      "store": 26,
+      "skuCount": 1,
+      "amount": 1989.7
+    },
+    {
+      "operator": "郭鑫",
+      "store": 32,
+      "skuCount": 1,
+      "amount": 1500
+    },
+    {
+      "operator": "李双雨",
+      "store": 35,
+      "skuCount": 3,
+      "amount": 11088
+    },
+    {
+      "operator": "柳琳",
+      "store": 39,
+      "skuCount": 4,
+      "amount": 8867.7
+    },
+    {
+      "operator": "郭婷",
+      "store": 40,
+      "skuCount": 2,
+      "amount": 4664.8
+    },
+    {
+      "operator": "小张雯",
+      "store": 41,
+      "skuCount": 8,
+      "amount": 18662.4
+    },
+    {
+      "operator": "杨明月",
+      "store": 51,
+      "skuCount": 1,
+      "amount": 2296.8
+    }
+  ],
+  "magnetDaily": [
+    {
+      "date": "2025-07-01",
+      "sales": 2778,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-02",
+      "sales": 2751,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-03",
+      "sales": 2567,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-04",
+      "sales": 1746,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-05",
+      "sales": 3280,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-06",
+      "sales": 2781,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-07",
+      "sales": 2774,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-08",
+      "sales": 3108,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-09",
+      "sales": 3481,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-10",
+      "sales": 3709,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-11",
+      "sales": 2627,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-12",
+      "sales": 2171,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-13",
+      "sales": 3571,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-14",
+      "sales": 3435,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-15",
+      "sales": 3393,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-16",
+      "sales": 3184,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-17",
+      "sales": 2877,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-18",
+      "sales": 3011,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-19",
+      "sales": 2967,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-20",
+      "sales": 2656,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-21",
+      "sales": 2475,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-22",
+      "sales": 3396,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-23",
+      "sales": 2807,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-24",
+      "sales": 2900,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-25",
+      "sales": 3153,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-26",
+      "sales": 3200,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-27",
+      "sales": 2705,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-28",
+      "sales": 2409,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-29",
+      "sales": 2711,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-30",
+      "sales": 2413,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    },
+    {
+      "date": "2025-07-31",
+      "sales": 2481,
+      "series": "图创磁铁销售额",
+      "comparison": "yearAgo"
+    }
+  ]
+}

@@ -58,6 +58,21 @@ def _load_list_endpoint(namespace):
     return namespace["api_tk_customer_service_list"]
 
 
+def _load_export_row_builder(namespace):
+    source = APP_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    helper_node = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_tk_customer_service_build_export_rows"
+    )
+    module = ast.Module(body=[helper_node], type_ignores=[])
+    ast.fix_missing_locations(module)
+    exec(compile(module, str(APP_PATH), "exec"), namespace)
+    return namespace["_tk_customer_service_build_export_rows"]
+
+
 class TkCustomerServicePaginationTests(unittest.TestCase):
     def test_complete_tracking_numbers_prefer_exact_sku_and_list_all_fallbacks(self):
         source_rows = [
@@ -128,6 +143,41 @@ class TkCustomerServicePaginationTests(unittest.TestCase):
         self.assertNotIn("OFFSET", sql)
         self.assertNotIn("FETCH NEXT", sql)
         self.assertIn("FROM TK_WangHong_HeZuo hz", sql)
+
+    def test_export_keeps_invalid_address_rows_in_primary_sheet(self):
+        def fake_parse(raw_address):
+            return {"receiver": "" if raw_address == "bad" else "Alice"}
+
+        def fake_prepare(raw_address, _parsed):
+            return {
+                "receiver": "" if raw_address == "bad" else "Alice",
+                "address1": "" if raw_address == "bad" else "1 Main St",
+                "city": "" if raw_address == "bad" else "Boston",
+                "state": "MA",
+                "country": "US",
+                "zipcode": "" if raw_address == "bad" else "02108",
+                "phone": "0000000000",
+            }
+
+        def fake_validate(raw_address, _parsed, _order_no):
+            return ["未识别地址"] if raw_address == "bad" else []
+
+        build_rows = _load_export_row_builder({
+            "_tk_parse_wanghong_address": fake_parse,
+            "_tk_prepare_export_contact_fields": fake_prepare,
+            "_tk_validate_export_address": fake_validate,
+        })
+        items = [
+            {"FaYangDingDanHao": "ORDER-1", "SKU": "SKU-1", "wanghongdizhi": "good"},
+            {"FaYangDingDanHao": "ORDER-2", "SKU": "SKU-2", "wanghongdizhi": "bad"},
+        ]
+
+        export_rows, error_rows = build_rows(items)
+
+        self.assertEqual(len(export_rows), 2)
+        self.assertEqual([row["*订单号"] for row in export_rows], ["ORDER-1", "ORDER-2"])
+        self.assertEqual(len(error_rows), 1)
+        self.assertEqual(error_rows[0]["订单号"], "ORDER-2")
 
     def test_tracking_fallback_requires_one_unique_order_tracking_number(self):
         captured = []

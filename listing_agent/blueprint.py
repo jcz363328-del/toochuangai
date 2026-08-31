@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import csv
+import gzip
+import hashlib
 import io
 import json
 import math
 import os
 import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -41,16 +44,24 @@ SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 DEFAULT_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_SILICONFLOW_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
+DEFAULT_SILICONFLOW_TEXT_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507"
 DEFAULT_SELLFOX_DASHBOARD_URL = "http://127.0.0.1:8765"
 MAX_BODY_BYTES = 26 * 1024 * 1024
 MAX_RANKING_IMPORT_FILES = 4
 DEFAULT_RANKING_CORE_ORDER = ("lash", "lashes", "eyelash", "eyelashes")
 ABA_IMPORT_PERMISSION = "listing_agent_aba_import"
+ABA_ECHARTS_ASSET_PATH = "/listing-agent/aba-ranking/echarts.min.js"
+ABA_DASHBOARD_CACHE_LIMIT = 4
 VISION_MODEL_FALLBACKS = (
     DEFAULT_SILICONFLOW_MODEL,
     "Qwen/Qwen3-VL-32B-Instruct",
     "Qwen/Qwen3-VL-30B-A3B-Instruct",
     "zai-org/GLM-4.5V",
+)
+TEXT_MODEL_FALLBACKS = (
+    DEFAULT_SILICONFLOW_TEXT_MODEL,
+    "Qwen/Qwen3-32B",
+    "deepseek-ai/DeepSeek-V3.2",
 )
 
 DO_NOT_INFER = [
@@ -88,12 +99,13 @@ EXTRACTION_PROMPT = """你是 Amazon 假睫毛产品图片事实提取助手。
 - 每个可见内容物单独输出一个 fact，key 使用 "contents"。
 - 不要输出代码块、Markdown 或 JSON 之外的内容。"""
 
-LISTING_SYSTEM_PROMPT = """You are an Amazon listing copywriter for beauty products. Write compliant, specific English listing copy from confirmed product facts only. Never invent materials, certifications, safety claims, wear time, waterproof performance, reusable count, package contents, or medical claims. Never use any forbidden term supplied by the user. Respect title, bullet, description and backend-search-term limits. Return strict JSON only, with this shape:
+LISTING_SYSTEM_PROMPT = """You are an Amazon listing copywriter for beauty products. Write compliant, specific English listing copy from confirmed product facts only. Never invent materials, certifications, safety claims, wear time, waterproof performance, reusable count, package contents, or medical claims. Never use any forbidden term supplied by the user. Follow Amazon's requirements effective July 27, 2026: non-media titles must be 75 characters or fewer, and Item Highlights must be 125 characters or fewer. Continue to follow the title quality rules: do not use !, $, ?, _, {, }, ^, ¬, or ¦ unless part of the brand name, and do not repeat the same substantive word more than twice. Item Highlights is a separate searchable customer-facing field for confirmed materials, specifications, or recommended use cases; it is not a bullet point. Respect bullet, description and backend-search-term limits. Return strict JSON only, with this shape:
 {
   "variants": [
     {
       "id": "balanced | style | search",
       "title": "string",
+      "itemHighlight": "string",
       "highlights": ["string", "string", "string"],
       "bullets": ["string", "string", "string", "string", "string"],
       "description": "string",
@@ -108,6 +120,9 @@ Return exactly three variants: balanced, style, search. The copy fields must be 
 listing_agent_bp = Blueprint("listing_agent", __name__, url_prefix="/listing-agent")
 _http = requests.Session()
 _http.trust_env = False
+_aba_dashboard_cache_lock = threading.RLock()
+_aba_dashboard_template_cache: dict[str, Any] = {}
+_aba_dashboard_render_cache: dict[tuple[Any, ...], dict[str, Any]] = {}
 
 
 @listing_agent_bp.before_request
@@ -159,36 +174,16 @@ def aba_ranking_redirect():
 def aba_ranking_dashboard():
     source_path = _get_active_ranking_file()
     try:
-        template = DEFAULT_RANKING_DASHBOARD_FILE.read_text(encoding="utf-8-sig")
-        if source_path != DEFAULT_RANKING_FILE:
-            dashboard_data = _load_ranking_data(source_path)
-            default_meta = _load_ranking_data(DEFAULT_RANKING_FILE).get("meta", {})
-            meta = {
-                **(default_meta if isinstance(default_meta, dict) else {}),
-                **(dashboard_data.get("meta") if isinstance(dashboard_data.get("meta"), dict) else {}),
-            }
-            payload = {
-                "meta": meta,
-                "rows": [
-                    _ranking_row_to_dashboard_array(row)
-                    for row in dashboard_data.get("rows", [])
-                    if isinstance(row, dict)
-                ],
-            }
-            original_json = _extract_dashboard_json(template)
-            serialized_payload = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-            serialized_payload = (
-                serialized_payload.replace("&", "\\u0026")
-                .replace("<", "\\u003c")
-                .replace(">", "\\u003e")
-            )
-            template = template.replace(original_json, serialized_payload, 1)
-        import_controls = _aba_ranking_import_controls()
-        if import_controls:
-            template = template.replace("<body>", f"<body>{import_controls}", 1)
-        response = Response(template, mimetype="text/html")
-        response.headers["Cache-Control"] = "no-store"
-        return response
+        can_import, _ = _aba_import_permission()
+        rendered = _get_cached_aba_dashboard(source_path, can_import=can_import)
+        return _cached_content_response(
+            raw_content=rendered["raw"],
+            gzip_content=rendered["gzip"],
+            raw_etag=rendered["raw_etag"],
+            gzip_etag=rendered["gzip_etag"],
+            content_type="text/html; charset=utf-8",
+            cache_control="private, no-cache",
+        )
     except (OSError, ValueError, json.JSONDecodeError):
         pass
     response = send_from_directory(
@@ -198,6 +193,19 @@ def aba_ranking_dashboard():
     )
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@listing_agent_bp.get("/aba-ranking/echarts.min.js")
+def aba_ranking_echarts():
+    bundle = _load_aba_dashboard_template_bundle()
+    return _cached_content_response(
+        raw_content=bundle["echarts_raw"],
+        gzip_content=bundle["echarts_gzip"],
+        raw_etag=bundle["echarts_raw_etag"],
+        gzip_etag=bundle["echarts_gzip_etag"],
+        content_type="application/javascript; charset=utf-8",
+        cache_control="public, max-age=31536000, immutable",
+    )
 
 
 def _send_code_file(filename: str):
@@ -216,9 +224,10 @@ def _aba_import_permission() -> tuple[bool, str]:
         return False, f"权限校验失败：{_safe_detail(exc)}"
 
 
-def _aba_ranking_import_controls() -> str:
+def _aba_ranking_import_controls(can_import: bool | None = None) -> str:
     """只为有权限的 AI 部用户把导入入口渲染到 ABA 排名看板。"""
-    can_import, _ = _aba_import_permission()
+    if can_import is None:
+        can_import, _ = _aba_import_permission()
     if not can_import:
         return ""
     import_url = url_for("listing_agent.api_sellfox_import_ranking")
@@ -293,6 +302,159 @@ def _aba_ranking_import_controls() -> str:
 """
 
 
+def _file_signature(path: Path) -> tuple[str, int, int]:
+    stat = path.stat()
+    return str(path.resolve()), int(stat.st_mtime_ns), int(stat.st_size)
+
+
+def _content_etag(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _load_aba_dashboard_template_bundle() -> dict[str, Any]:
+    """读取一次看板模板，并把 ECharts 拆成可长期缓存的静态资源。"""
+    signature = _file_signature(DEFAULT_RANKING_DASHBOARD_FILE)
+    with _aba_dashboard_cache_lock:
+        if _aba_dashboard_template_cache.get("signature") == signature:
+            return _aba_dashboard_template_cache
+
+        template = DEFAULT_RANKING_DASHBOARD_FILE.read_text(encoding="utf-8-sig")
+        license_index = template.find("Licensed to the Apache Software Foundation")
+        if license_index < 0:
+            raise ValueError("ABA 看板模板中未找到 ECharts 资源。")
+        script_start = template.rfind("<script", 0, license_index)
+        script_open_end = template.find(">", script_start)
+        script_end = template.find("</script>", license_index)
+        if min(script_start, script_open_end, script_end) < 0:
+            raise ValueError("ABA 看板模板中的 ECharts 脚本不完整。")
+
+        echarts_source = template[script_open_end + 1 : script_end]
+        if len(echarts_source) < 500_000 or "echarts" not in echarts_source:
+            raise ValueError("ABA 看板模板中的 ECharts 资源无法识别。")
+        echarts_raw = echarts_source.encode("utf-8")
+        echarts_gzip = gzip.compress(echarts_raw, compresslevel=6, mtime=0)
+        echarts_raw_etag = _content_etag(echarts_raw)
+        echarts_gzip_etag = _content_etag(echarts_gzip)
+        asset_tag = (
+            f'<script src="{ABA_ECHARTS_ASSET_PATH}?v={echarts_raw_etag[:16]}"></script>'
+        )
+        template = template[:script_start] + asset_tag + template[script_end + len("</script>") :]
+
+        original_json = _extract_dashboard_json(template)
+        default_payload = json.loads(original_json)
+        default_meta = (
+            dict(default_payload.get("meta") or {})
+            if isinstance(default_payload, dict)
+            else {}
+        )
+        _aba_dashboard_template_cache.clear()
+        _aba_dashboard_template_cache.update(
+            {
+                "signature": signature,
+                "template": template,
+                "original_json": original_json,
+                "default_meta": default_meta,
+                "echarts_raw": echarts_raw,
+                "echarts_gzip": echarts_gzip,
+                "echarts_raw_etag": echarts_raw_etag,
+                "echarts_gzip_etag": echarts_gzip_etag,
+            }
+        )
+        _aba_dashboard_render_cache.clear()
+        return _aba_dashboard_template_cache
+
+
+def _render_aba_dashboard(source_path: Path, *, can_import: bool) -> dict[str, Any]:
+    bundle = _load_aba_dashboard_template_bundle()
+    template = bundle["template"]
+    if source_path != DEFAULT_RANKING_FILE:
+        dashboard_data = _load_ranking_data(source_path)
+        dashboard_meta = (
+            dashboard_data.get("meta")
+            if isinstance(dashboard_data.get("meta"), dict)
+            else {}
+        )
+        payload = {
+            "meta": {**bundle["default_meta"], **dashboard_meta},
+            "rows": [
+                _ranking_row_to_dashboard_array(row)
+                for row in dashboard_data.get("rows", [])
+                if isinstance(row, dict)
+            ],
+        }
+        serialized_payload = json.dumps(
+            payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        serialized_payload = (
+            serialized_payload.replace("&", "\\u0026")
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+        )
+        template = template.replace(bundle["original_json"], serialized_payload, 1)
+
+    import_controls = _aba_ranking_import_controls(can_import=can_import)
+    if import_controls:
+        template = template.replace("<body>", f"<body>{import_controls}", 1)
+    raw_content = template.encode("utf-8")
+    gzip_content = gzip.compress(raw_content, compresslevel=6, mtime=0)
+    return {
+        "raw": raw_content,
+        "gzip": gzip_content,
+        "raw_etag": _content_etag(raw_content),
+        "gzip_etag": _content_etag(gzip_content),
+    }
+
+
+def _get_cached_aba_dashboard(source_path: Path, *, can_import: bool) -> dict[str, Any]:
+    bundle = _load_aba_dashboard_template_bundle()
+    cache_key = (
+        bundle["signature"],
+        _file_signature(source_path),
+        bool(can_import),
+    )
+    with _aba_dashboard_cache_lock:
+        cached = _aba_dashboard_render_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        rendered = _render_aba_dashboard(source_path, can_import=can_import)
+        while len(_aba_dashboard_render_cache) >= ABA_DASHBOARD_CACHE_LIMIT:
+            oldest_key = next(iter(_aba_dashboard_render_cache))
+            _aba_dashboard_render_cache.pop(oldest_key, None)
+        _aba_dashboard_render_cache[cache_key] = rendered
+        return rendered
+
+
+def _clear_aba_dashboard_render_cache() -> None:
+    with _aba_dashboard_cache_lock:
+        _aba_dashboard_render_cache.clear()
+
+
+def _cached_content_response(
+    *,
+    raw_content: bytes,
+    gzip_content: bytes,
+    raw_etag: str,
+    gzip_etag: str,
+    content_type: str,
+    cache_control: str,
+) -> Response:
+    use_gzip = request.accept_encodings["gzip"] > 0
+    response = Response(
+        gzip_content if use_gzip else raw_content,
+        content_type=content_type,
+    )
+    if use_gzip:
+        response.headers["Content-Encoding"] = "gzip"
+    response.headers["Cache-Control"] = cache_control
+    response.vary.add("Accept-Encoding")
+    response.vary.add("Cookie")
+    response.set_etag(gzip_etag if use_gzip else raw_etag)
+    response.make_conditional(request)
+    return response
+
+
 @listing_agent_bp.route("/api/health", methods=["GET", "HEAD"])
 def api_health():
     return jsonify(
@@ -326,6 +488,7 @@ def api_user_state():
                     "ok": True,
                     "skills": [],
                     "preferences": {},
+                    "riskLibrary": [],
                     "skillPath": str(skill_path),
                 }
             )
@@ -339,6 +502,11 @@ def api_user_state():
                         saved.get("preferences")
                         if isinstance(saved.get("preferences"), dict)
                         else {}
+                    ),
+                    "riskLibrary": (
+                        saved.get("riskLibrary")
+                        if isinstance(saved.get("riskLibrary"), list)
+                        else []
                     ),
                     "skillPath": str(skill_path),
                     "updatedAt": _clean(saved.get("updatedAt")),
@@ -360,6 +528,19 @@ def api_user_state():
         return jsonify({"ok": False, "message": "Invalid JSON request body."}), 400
     skills = payload.get("skills") if isinstance(payload.get("skills"), list) else []
     preferences = payload.get("preferences") if isinstance(payload.get("preferences"), dict) else {}
+    risk_library = []
+    seen_risk_terms: set[str] = set()
+    for item in _object_list(payload.get("riskLibrary"), 200):
+        term = _clean(item.get("term")).lower()
+        if not term or term in seen_risk_terms:
+            continue
+        seen_risk_terms.add(term)
+        risk_library.append(
+            {
+                "term": term,
+                "level": "medium" if _clean(item.get("level")).lower() == "medium" else "high",
+            }
+        )
     if len(skills) > 100:
         return jsonify({"ok": False, "message": "最多保存 100 个 Listing Skill。"}), 400
     try:
@@ -372,6 +553,7 @@ def api_user_state():
                 "updatedAt": saved_at.isoformat(),
                 "skills": skills,
                 "preferences": preferences,
+                "riskLibrary": risk_library,
             },
         )
         _upsert_listing_record(
@@ -501,7 +683,7 @@ def api_generate_listings():
             {"role": "user", "content": json.dumps(prompt_payload, ensure_ascii=False)},
         ],
     }
-    result = _call_siliconflow(api_key, model_payload)
+    result = _call_siliconflow_with_text_fallbacks(api_key, model_payload)
     if not result.get("ok"):
         reason = result.get("error") if isinstance(result.get("error"), dict) else {}
         return (
@@ -536,14 +718,18 @@ def api_generate_listings():
             variants=variants,
         )
     except Exception as exc:
-        return (
-            jsonify(
-                {
-                    "error": "Listing generated but persistence failed",
-                    "message": f"Listing 已生成，但文件或数据库保存失败：{_safe_detail(exc)}",
-                }
-            ),
-            500,
+        detail = _safe_detail(exc)
+        return jsonify(
+            {
+                "ok": True,
+                "variants": variants,
+                "warning": "Listing generated but persistence failed",
+                "storage": {
+                    "storedAs": "unsaved",
+                    "persistenceFailed": True,
+                    "message": detail,
+                },
+            }
         )
     return jsonify({"ok": True, "variants": variants, "storage": storage})
 
@@ -651,6 +837,7 @@ def api_sellfox_import_ranking():
             encoding="utf-8",
         )
         temporary_path.replace(ACTIVE_RANKING_FILE)
+        _clear_aba_dashboard_render_cache()
         return jsonify(
             {
                 "ok": True,
@@ -714,14 +901,33 @@ def _call_siliconflow_with_fallbacks(api_key: str, payload: dict[str, Any]) -> d
     return last_result
 
 
-def _call_siliconflow(api_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _call_siliconflow_with_text_fallbacks(api_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+    last_result: dict[str, Any] = {}
+    for model in _unique_strings([_get_text_model(), *TEXT_MODEL_FALLBACKS]):
+        result = _call_siliconflow(
+            api_key,
+            {**payload, "model": model},
+            read_timeout=60,
+        )
+        last_result = result
+        if result.get("ok") or not _text_model_retryable(result):
+            return result
+    return last_result
+
+
+def _call_siliconflow(
+    api_key: str,
+    payload: dict[str, Any],
+    *,
+    read_timeout: int = 180,
+) -> dict[str, Any]:
     url = f"{_get_ai_base_url().rstrip('/')}/chat/completions"
     try:
         response = _http.post(
             url,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json=payload,
-            timeout=(10, 180),
+            timeout=(10, read_timeout),
         )
         text = response.text
         parsed = _parse_json_from_text(text)
@@ -747,7 +953,23 @@ def _model_unavailable(result: dict[str, Any]) -> bool:
     error = result.get("error") if isinstance(result.get("error"), dict) else {}
     code = _finite_number(error.get("code"))
     message = _clean(error.get("message")).lower()
-    return code == 30003 or "model disabled" in message or "model not" in message
+    unavailable_messages = (
+        "model disabled",
+        "model does not exist",
+        "model not found",
+        "model is unavailable",
+        "unknown model",
+    )
+    return code in {20012, 30003} or any(text in message for text in unavailable_messages)
+
+
+def _text_model_retryable(result: dict[str, Any]) -> bool:
+    if _model_unavailable(result):
+        return True
+    status = int(_finite_number(result.get("status")) or 0)
+    error = result.get("error") if isinstance(result.get("error"), dict) else {}
+    message = f"{_clean(error.get('message'))} {_clean(result.get('text'))}".lower()
+    return status == 0 or status in {408, 409, 425, 429} or status >= 500 or "timed out" in message
 
 
 def _normalize_listing_generation_input(data: dict[str, Any]) -> dict[str, Any]:
@@ -811,7 +1033,8 @@ def _normalize_listing_generation_input(data: dict[str, Any]) -> dict[str, Any]:
             "historicalReference": _clean(skill.get("historicalReference"))[:5000],
         },
         "limits": {
-            "title": _clamp(limits.get("title"), 75, 30, 200),
+            "title": _clamp(limits.get("title"), 75, 30, 75),
+            "itemHighlight": _clamp(limits.get("itemHighlight"), 125, 40, 125),
             "bullet": _clamp(limits.get("bullet"), 500, 100, 1000),
             "description": _clamp(limits.get("description"), 2000, 300, 4000),
             "searchTermsBytes": _clamp(limits.get("searchTermsBytes"), 249, 80, 500),
@@ -834,10 +1057,18 @@ def _normalize_generated_listing_variants(variants: Any) -> list[dict[str, Any]]
     for index, value in enumerate(_object_list(variants, 3)):
         candidate_id = _clean(value.get("id"))
         variant_id = candidate_id if candidate_id in expected_ids else expected_ids[index]
+        highlights = [_fit_copy_limit(item, 125) for item in _string_list(value.get("highlights"), 3)]
+        item_highlight = _fit_copy_limit(
+            value.get("itemHighlight") or value.get("itemHighlights") or value.get("subtitle"),
+            125,
+        )
+        if not item_highlight and highlights:
+            item_highlight = highlights[0]
         variant = {
             "id": variant_id,
-            "title": _clean(value.get("title")),
-            "highlights": _string_list(value.get("highlights"), 3),
+            "title": _fit_copy_limit(value.get("title"), 75),
+            "itemHighlight": item_highlight,
+            "highlights": highlights,
             "bullets": _string_list(value.get("bullets"), 5),
             "description": _clean(value.get("description")),
             "searchTerms": _clean(value.get("searchTerms")),
@@ -845,6 +1076,7 @@ def _normalize_generated_listing_variants(variants: Any) -> list[dict[str, Any]]
         }
         if (
             variant["title"]
+            and variant["itemHighlight"]
             and variant["highlights"]
             and variant["bullets"]
             and variant["description"]
@@ -926,35 +1158,43 @@ def _upsert_listing_record(
     skill_path: Path,
     listing_value: str | None = None,
 ) -> None:
-    user_sql = _sql_escape(user_name)[:50]
-    time_sql = saved_at.strftime("%Y-%m-%d %H:%M:%S")
-    skill_sql = _sql_escape(str(skill_path))
-    listing_update = ""
-    listing_insert = "NULL"
-    if listing_value is not None:
-        listing_sql = _sql_escape(listing_value)
-        listing_update = f", [Listing] = N'{listing_sql}'"
-        listing_insert = f"N'{listing_sql}'"
+    normalized_user = str(user_name or "")[:50]
+    saved_at_value = saved_at.strftime("%Y-%m-%d %H:%M:%S")
+    skill_path_value = str(skill_path)
     dui_db(
         f"""
+        DECLARE @YongHu NVARCHAR(50) = %s;
+        DECLARE @RiQi DATETIME2 = %s;
+        DECLARE @Listing NVARCHAR(MAX) = %s;
+        DECLARE @WeiZhi NVARCHAR(MAX) = %s;
+        DECLARE @HasListing BIT = %s;
         DECLARE @LatestID INT = (
             SELECT TOP 1 ID
             FROM {LISTING_RECORD_TABLE}
-            WHERE YongHu = N'{user_sql}'
+            WHERE YongHu = @YongHu
             ORDER BY ID DESC
         );
         IF @LatestID IS NULL
         BEGIN
             INSERT INTO {LISTING_RECORD_TABLE} (YongHu, RiQi, [Listing], WeiZhi)
-            VALUES (N'{user_sql}', '{time_sql}', {listing_insert}, N'{skill_sql}');
+            VALUES (@YongHu, @RiQi, @Listing, @WeiZhi);
         END
         ELSE
         BEGIN
             UPDATE {LISTING_RECORD_TABLE}
-            SET RiQi = '{time_sql}', WeiZhi = N'{skill_sql}'{listing_update}
+            SET RiQi = @RiQi,
+                WeiZhi = @WeiZhi,
+                [Listing] = CASE WHEN @HasListing = 1 THEN @Listing ELSE [Listing] END
             WHERE ID = @LatestID;
         END
-        """
+        """,
+        params=(
+            normalized_user,
+            saved_at_value,
+            listing_value,
+            skill_path_value,
+            1 if listing_value is not None else 0,
+        ),
     )
 
 
@@ -1721,6 +1961,17 @@ def _clean(value: Any) -> str:
     if value is None:
         return ""
     return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def _fit_copy_limit(value: Any, limit: int) -> str:
+    cleaned = _clean(value)
+    if len(cleaned) <= limit:
+        return cleaned
+    clipped = cleaned[:limit].rstrip()
+    word_break = clipped.rfind(" ")
+    if word_break >= int(limit * 0.6):
+        clipped = clipped[:word_break]
+    return clipped.rstrip(" ,.;:-")
 
 
 def _safe_detail(value: Any) -> str:

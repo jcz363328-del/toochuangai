@@ -4,7 +4,7 @@ import base64
 import io
 import inspect
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PIL import Image
 
@@ -24,6 +24,86 @@ def uploaded_image(image: Image.Image, name: str = "source.png") -> dict[str, ob
 
 
 class NaturalOutpaintTests(unittest.TestCase):
+    def test_outpaint_exposes_ark_seedream_5_pro_as_an_alternate_channel(self) -> None:
+        self.assertEqual(
+            site.OUTPAINT_MODEL_OPTIONS,
+            [site.NANO_BANANA_MODEL, site.ARK_SEEDREAM_5_PRO_MODEL],
+        )
+        self.assertEqual(
+            site.get_model_display_name(site.ARK_SEEDREAM_5_PRO_MODEL),
+            "即梦 5 Pro（火山方舟）",
+        )
+
+    def test_ark_seedream_request_uses_reference_image_and_2k_output(self) -> None:
+        source = uploaded_image(Image.new("RGB", (100, 50), "white"))
+        response = Mock(status_code=200)
+        response.json.return_value = {"data": [{"url": "https://example.com/seedream.png"}]}
+
+        with (
+            patch.dict("os.environ", {"ARK_API_KEY": "test-ark-key"}),
+            patch.object(site.requests, "post", return_value=response) as post_image,
+        ):
+            result = site.call_ark_seedream_images_api(
+                prompt="自然扩展背景",
+                uploaded_files=[source],
+            )
+
+        request = post_image.call_args
+        self.assertEqual(request.args[0], site.ARK_IMAGES_URL)
+        self.assertEqual(request.kwargs["headers"]["Authorization"], "Bearer test-ark-key")
+        self.assertNotIn("proxies", request.kwargs)
+        payload = request.kwargs["json"]
+        self.assertEqual(payload["model"], "doubao-seedream-5-0-pro-260628")
+        self.assertEqual(payload["size"], "2K")
+        self.assertEqual(payload["response_format"], "url")
+        self.assertTrue(payload["watermark"])
+        self.assertTrue(payload["image"].startswith("data:image/png;base64,"))
+        self.assertEqual(result["images"], ["https://example.com/seedream.png"])
+        self.assertEqual(result["channel"], "即梦 5 Pro · 火山方舟")
+
+    def test_outpaint_routes_ark_model_through_seedream_api(self) -> None:
+        source = uploaded_image(Image.new("RGB", (100, 100), "white"))
+        generated = image_data_url(Image.new("RGB", (300, 100), "blue"))
+        feature = site.get_feature_by_key("outpaint")
+        assert feature is not None
+        job_context = {
+            "feature": feature,
+            "model": site.ARK_SEEDREAM_5_PRO_MODEL,
+            "prompt": "自然扩展背景",
+            "output_mode": "image",
+            "aspect_ratio": site.DEFAULT_ASPECT_RATIO,
+            "max_output_images": 1,
+            "outpaint_settings": {
+                "top": 0,
+                "bottom": 0,
+                "left": 100,
+                "right": 100,
+            },
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_ark_seedream_images_api",
+                return_value={"images": [generated], "text": ""},
+            ) as request_image,
+            patch.object(
+                site,
+                "call_openrouter",
+                side_effect=AssertionError("OpenRouter must not handle the Ark model"),
+            ),
+        ):
+            result = site.process_batch_group(job_context, [source], 1)
+
+        self.assertEqual(request_image.call_count, 1)
+        self.assertEqual(len(request_image.call_args.kwargs["uploaded_files"]), 1)
+        self.assertEqual(
+            request_image.call_args.kwargs["uploaded_files"][0]["name"],
+            "outpaint_transition_canvas.png",
+        )
+        self.assertIn("Generate candidate 1 of 1", request_image.call_args.kwargs["prompt"])
+        self.assertEqual(result["images"], [generated])
+
     def test_expanded_canvas_drives_model_aspect_ratio(self) -> None:
         source = uploaded_image(Image.new("RGB", (100, 100), "white"))
         generated = image_data_url(Image.new("RGB", (300, 100), "blue"))

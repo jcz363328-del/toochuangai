@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>更新 - 图创AI系统</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: #172033;
+            background: #f3f6fb;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+        header {
+            background: linear-gradient(135deg, #0a8f72 0%, #08735a 100%);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(8, 115, 90, .16);
+        }
+        .header-inner, main {
+            width: min(1600px, calc(100% - 28px));
+            margin: 0 auto;
+        }
+        .header-inner {
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        h1 { margin: 0; font-size: 19px; letter-spacing: .02em; }
+        .back-link, .refresh-link {
+            display: inline-block;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .42);
+            border-radius: 8px;
+            padding: 6px 11px;
+            font-size: 13px;
+            line-height: 18px;
+            text-decoration: none;
+            background: rgba(255, 255, 255, .1);
+            transition: background .15s ease;
+        }
+        .back-link:hover, .refresh-link:hover { background: rgba(255, 255, 255, .2); }
+        .actions { display: flex; gap: 8px; }
+        main { padding: 12px 0 20px; }
+        .summary {
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+        .summary h2 { display: inline; margin: 0; font-size: 20px; line-height: 28px; }
+        .summary p { display: inline; margin: 0 0 0 12px; color: #718096; font-size: 12px; }
+        .count {
+            min-width: 86px;
+            padding: 6px 12px;
+            border: 1px solid #bfe9dc;
+            border-radius: 8px;
+            color: #08735a;
+            background: #e6f7f2;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .panel {
+            overflow: hidden;
+            border: 1px solid #d7dfe9;
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 0 5px 18px rgba(40, 55, 80, .07);
+        }
+        .table-wrap { overflow-x: auto; overflow-y: visible; }
+        table {
+            width: 100%;
+            min-width: 1180px;
+            table-layout: fixed;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+        th, td {
+            height: 29px;
+            padding: 4px 9px;
+            border-bottom: 1px solid #e8edf3;
+            text-align: left;
+            vertical-align: middle;
+            line-height: 20px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            height: 32px;
+            color: #f8fafc;
+            background: #24354d;
+            border-bottom-color: #24354d;
+            font-size: 12px;
+            font-weight: 650;
+            letter-spacing: .02em;
+        }
+        tbody tr:nth-child(even) { background: #fbfcfe; }
+        tbody tr:hover { background: #edf9f5; }
+        th:first-child, td:first-child { text-align: center; }
+        .col-id { width: 58px; }
+        .col-project { width: 170px; }
+        .col-reason { width: 36%; }
+        .col-status { width: 78px; }
+        .col-date { width: 104px; }
+        .col-time { width: 156px; }
+        .col-notify { width: 24%; }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            height: 21px;
+            padding: 0 7px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 650;
+        }
+        .status::before {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            content: "";
+        }
+        .status-success { color: #08735a; background: #e2f6ef; }
+        .status-failure { color: #b4232f; background: #fff0f1; }
+        .status-default { color: #475569; background: #eef2f6; }
+        .empty, .error {
+            padding: 48px 20px;
+            text-align: center;
+            color: #68758a;
+        }
+        .error { color: #a3313b; background: #fff5f5; }
+        @media (max-width: 720px) {
+            .header-inner, main { width: calc(100% - 20px); }
+            .header-inner { min-height: 46px; }
+            .summary { align-items: flex-start; }
+            .summary h2, .summary p { display: block; margin: 0; }
+            .summary h2 { font-size: 18px; }
+            .count { min-width: 72px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <h1>更新</h1>
+            <div class="actions">
+                <a class="back-link" href="{{ url_for('ai_modules') }}">返回 AI 功能</a>
+                <a class="refresh-link" href="{{ url_for('ai_update') }}">刷新数据</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="summary">
+            <div>
+                <h2>今日更新记录</h2>
+                <p>查询时间：{{ loaded_at }}</p>
+            </div>
+            <div class="count">共 {{ rows|length }} 条</div>
+        </section>
+
+        <section class="panel">
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% elif rows and columns %}
+                <div class="table-wrap">
+                    {% set column_labels = {
+                        'ID': 'ID',
+                        'XiangMu': '项目',
+                        'ShiBaiYuanYin': '失败原因',
+                        'ZhuangTai': '状态',
+                        'RiQi': '日期',
+                        'GengXinShiJian': '更新时间',
+                        'ListingTongZhiRen': '通知人'
+                    } %}
+                    {% set column_classes = {
+                        'ID': 'col-id',
+                        'XiangMu': 'col-project',
+                        'ShiBaiYuanYin': 'col-reason',
+                        'ZhuangTai': 'col-status',
+                        'RiQi': 'col-date',
+                        'GengXinShiJian': 'col-time',
+                        'ListingTongZhiRen': 'col-notify'
+                    } %}
+                    <table>
+                        <colgroup>
+                            {% for column in columns %}<col class="{{ column_classes.get(column, '') }}">{% endfor %}
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                {% for column in columns %}<th title="{{ column }}">{{ column_labels.get(column, column) }}</th>{% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                                <tr>
+                                    {% for value in row %}
+                                        {% set column = columns[loop.index0] %}
+                                        {% set display_value = value|trim %}
+                                        <td title="{{ display_value }}">
+                                            {% if column == 'ZhuangTai' %}
+                                                <span class="status {% if display_value == '成功' %}status-success{% elif display_value == '失败' %}status-failure{% else %}status-default{% endif %}">{{ display_value }}</span>
+                                            {% else %}
+                                                {{ display_value }}
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty">当前查询没有返回记录。</div>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>

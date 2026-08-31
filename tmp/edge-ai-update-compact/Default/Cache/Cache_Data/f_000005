@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>更新 - 图创AI系统</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: #172033;
+            background: #f3f6fb;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+        header {
+            background: linear-gradient(135deg, #0a8f72 0%, #08735a 100%);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(8, 115, 90, .16);
+        }
+        .header-inner, main {
+            width: min(1600px, calc(100% - 28px));
+            margin: 0 auto;
+        }
+        .header-inner {
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        h1 { margin: 0; font-size: 19px; letter-spacing: .02em; }
+        .back-link, .refresh-link {
+            display: inline-block;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .42);
+            border-radius: 8px;
+            padding: 6px 11px;
+            font-size: 13px;
+            line-height: 18px;
+            text-decoration: none;
+            background: rgba(255, 255, 255, .1);
+            transition: background .15s ease;
+        }
+        .back-link:hover, .refresh-link:hover { background: rgba(255, 255, 255, .2); }
+        .actions { display: flex; gap: 8px; }
+        main { padding: 12px 0 20px; }
+        .summary {
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+        .summary h2 { display: inline; margin: 0; font-size: 20px; line-height: 28px; }
+        .summary p { display: inline; margin: 0 0 0 12px; color: #718096; font-size: 12px; }
+        .count {
+            min-width: 86px;
+            padding: 6px 12px;
+            border: 1px solid #bfe9dc;
+            border-radius: 8px;
+            color: #08735a;
+            background: #e6f7f2;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .panel {
+            overflow: hidden;
+            border: 1px solid #d7dfe9;
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 0 5px 18px rgba(40, 55, 80, .07);
+        }
+        .table-wrap { overflow-x: auto; overflow-y: visible; }
+        table {
+            width: 100%;
+            min-width: 1180px;
+            table-layout: fixed;
+            border-collapse: collapse;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+        }
+        th, td {
+            height: 29px;
+            padding: 4px 9px;
+            border-bottom: 1px solid #e8edf3;
+            text-align: left;
+            vertical-align: middle;
+            line-height: 20px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            height: 32px;
+            color: #f8fafc;
+            background: #24354d;
+            border-bottom-color: #24354d;
+            font-size: 12px;
+            font-weight: 650;
+            letter-spacing: .02em;
+        }
+        tbody tr:nth-child(even) { background: #fbfcfe; }
+        tbody tr:hover { background: #edf9f5; }
+        th:first-child, td:first-child { text-align: center; }
+        .col-id { width: 58px; }
+        .col-project { width: 170px; }
+        .col-reason { width: 36%; }
+        .col-status { width: 78px; }
+        .col-date { width: 104px; }
+        .col-time { width: 156px; }
+        .col-notify { width: 24%; }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            height: 21px;
+            padding: 0 7px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 650;
+        }
+        .status::before {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            content: "";
+        }
+        .status-success { color: #08735a; background: #e2f6ef; }
+        .status-failure { color: #b4232f; background: #fff0f1; }
+        .status-default { color: #475569; background: #eef2f6; }
+        .empty, .error {
+            padding: 48px 20px;
+            text-align: center;
+            color: #68758a;
+        }
+        .error { color: #a3313b; background: #fff5f5; }
+        @media (max-width: 720px) {
+            .header-inner, main { width: calc(100% - 20px); }
+            .header-inner { min-height: 46px; }
+            .summary { align-items: flex-start; }
+            .summary h2, .summary p { display: block; margin: 0; }
+            .summary h2 { font-size: 18px; }
+            .count { min-width: 72px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <h1>更新</h1>
+            <div class="actions">
+                <a class="back-link" href="/ai_modules">返回 AI 功能</a>
+                <a class="refresh-link" href="/ai/update">刷新数据</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="summary">
+            <div>
+                <h2>今日更新记录</h2>
+                <p>查询时间：2026-08-28 15:38:36</p>
+            </div>
+            <div class="count">共 26 条</div>
+        </section>
+
+        <section class="panel">
+            
+                <div class="table-wrap">
+                    
+                    
+                    <table>
+                        <colgroup>
+                            <col class="col-id"><col class="col-project"><col class="col-reason"><col class="col-status"><col class="col-date"><col class="col-time"><col class="col-notify">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th title="ID">ID</th><th title="XiangMu">项目</th><th title="ShiBaiYuanYin">失败原因</th><th title="ZhuangTai">状态</th><th title="RiQi">日期</th><th title="GengXinShiJian">更新时间</th><th title="ListingTongZhiRen">通知人</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="295">
+                                            
+                                                295
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="本地库存明细">
+                                            
+                                                本地库存明细
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:47:47">
+                                            
+                                                2026-08-28 07:47:47
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="297">
+                                            
+                                                297
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="FBA 货件">
+                                            
+                                                FBA 货件
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:53:28">
+                                            
+                                                2026-08-28 07:53:28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="305">
+                                            
+                                                305
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="Amazon Review">
+                                            
+                                                Amazon Review
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:07:37">
+                                            
+                                                2026-08-28 08:07:37
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="293">
+                                            
+                                                293
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="商品列表">
+                                            
+                                                商品列表
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="商品列表入库：部分成功：可识别商品已入库，但仍有 1 个商品待补店铺或主 SKU，头程尚未刷新。">
+                                            
+                                                商品列表入库：部分成功：可识别商品已入库，但仍有 1 个商品待补店铺或主 SKU，头程尚未刷新。
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="失败        ">
+                                            
+                                                <span class="status status-default">失败        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:43:03">
+                                            
+                                                2026-08-28 07:43:03
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="294">
+                                            
+                                                294
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="产品分析">
+                                            
+                                                产品分析
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="产品分析入库：dbo.GuangGao 已存在重复业务键：(datetime.date(2026, 8, 24), &#39;加拿大&#39;, &#39;b0fk57m72h&#39;, &#39;35-49w&#39;)">
+                                            
+                                                产品分析入库：dbo.GuangGao 已存在重复业务键：(datetime.date(2026, 8, 24), &#39;加拿大&#39;, &#39;b0fk57m72h&#39;, &#39;35-49w&#39;)
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="失败        ">
+                                            
+                                                <span class="status status-default">失败        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:46:42">
+                                            
+                                                2026-08-28 07:46:42
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="296">
+                                            
+                                                296
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="发货单（FBA出库）">
+                                            
+                                                发货单（FBA出库）
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:49:11">
+                                            
+                                                2026-08-28 07:49:11
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="298">
+                                            
+                                                298
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="FBA 库存">
+                                            
+                                                FBA 库存
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:54:44">
+                                            
+                                                2026-08-28 07:54:44
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="299">
+                                            
+                                                299
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="TK FBT 库存">
+                                            
+                                                TK FBT 库存
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:54:58">
+                                            
+                                                2026-08-28 07:54:58
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="300">
+                                            
+                                                300
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="采购计划">
+                                            
+                                                采购计划
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 07:55:30">
+                                            
+                                                2026-08-28 07:55:30
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="301">
+                                            
+                                                301
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="采购单">
+                                            
+                                                采购单
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:04:40">
+                                            
+                                                2026-08-28 08:04:40
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="302">
+                                            
+                                                302
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="采购入库单">
+                                            
+                                                采购入库单
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:05:04">
+                                            
+                                                2026-08-28 08:05:04
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="303">
+                                            
+                                                303
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="采购退货单">
+                                            
+                                                采购退货单
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:05:25">
+                                            
+                                                2026-08-28 08:05:25
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="304">
+                                            
+                                                304
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="在线产品">
+                                            
+                                                在线产品
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:06:40">
+                                            
+                                                2026-08-28 08:06:40
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="侯梁、孟珂、孙钰航、王丽爽、陈清雅、侯瑞昕、杨明月、李娜、张彦微、郭鑫、赵羽姝、李双雨、周雪、柳琳、叶雨菲">
+                                            
+                                                侯梁、孟珂、孙钰航、王丽爽、陈清雅、侯瑞昕、杨明月、李娜、张彦微、郭鑫、赵羽姝、李双雨、周雪、柳琳、叶雨菲
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="306">
+                                            
+                                                306
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="其他入库">
+                                            
+                                                其他入库
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:07:56">
+                                            
+                                                2026-08-28 08:07:56
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="308">
+                                            
+                                                308
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="加工单">
+                                            
+                                                加工单
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:09:13">
+                                            
+                                                2026-08-28 08:09:13
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="310">
+                                            
+                                                310
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="订单处理">
+                                            
+                                                订单处理
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:17:01">
+                                            
+                                                2026-08-28 08:17:01
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="312">
+                                            
+                                                312
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="结算利润">
+                                            
+                                                结算利润
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:22:43">
+                                            
+                                                2026-08-28 08:22:43
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="313">
+                                            
+                                                313
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="起量">
+                                            
+                                                起量
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:24:21">
+                                            
+                                                2026-08-28 08:24:21
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="314">
+                                            
+                                                314
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="普通 K">
+                                            
+                                                普通 K
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:28:15">
+                                            
+                                                2026-08-28 08:28:15
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="315">
+                                            
+                                                315
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="TK 利润报表">
+                                            
+                                                TK 利润报表
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:31:05">
+                                            
+                                                2026-08-28 08:31:05
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="317">
+                                            
+                                                317
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="TK K">
+                                            
+                                                TK K
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:38:05">
+                                            
+                                                2026-08-28 08:38:05
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="318">
+                                            
+                                                318
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="赛狐全部订单">
+                                            
+                                                赛狐全部订单
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:59:39">
+                                            
+                                                2026-08-28 08:59:39
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="307">
+                                            
+                                                307
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="其他出库">
+                                            
+                                                其他出库
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:08:20">
+                                            
+                                                2026-08-28 08:08:20
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="309">
+                                            
+                                                309
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="发货计划">
+                                            
+                                                发货计划
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:16:47">
+                                            
+                                                2026-08-28 08:16:47
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="311">
+                                            
+                                                311
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="海外仓备货单">
+                                            
+                                                海外仓备货单
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:17:14">
+                                            
+                                                2026-08-28 08:17:14
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                                <tr>
+                                    
+                                        
+                                        <td title="316">
+                                            
+                                                316
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="TK 全部订单">
+                                            
+                                                TK 全部订单
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="成功        ">
+                                            
+                                                <span class="status status-default">成功        </span>
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28">
+                                            
+                                                2026-08-28
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="2026-08-28 08:37:30">
+                                            
+                                                2026-08-28 08:37:30
+                                            
+                                        </td>
+                                    
+                                        
+                                        <td title="—">
+                                            
+                                                —
+                                            
+                                        </td>
+                                    
+                                </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            
+        </section>
+    </main>
+</body>
+</html>

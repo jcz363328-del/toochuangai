@@ -62,6 +62,7 @@ const DEFAULT_SKILL = {
   tone: "beauty factual",
   bulletPattern: "painSolutionScene",
   titleLimit: 75,
+  itemHighlightLimit: 125,
   bulletLimit: 500,
   descriptionLimit: 2000,
   searchTermLimit: 249,
@@ -73,11 +74,42 @@ const DEFAULT_SKILL = {
     learnedRules: [],
     updatedAt: ""
   },
-  forbiddenClaims:
-    "best seller, hot sale, free delivery, waterproof, 24-hour, hypoallergenic, latex-free, irritation-free, residue-free, safe for sensitive eyes",
+  forbiddenClaims: "",
   customRules:
-    "标题不超过 75 字符；Search Terms 不超过 249 bytes；未确认根数不进标题；五点避免模板化，必须结合场景和痛点。"
+    "标题不超过 75 字符，避免禁用符号且实义词不重复超过 2 次；Item Highlights 不超过 125 字符；Search Terms 不超过 249 bytes；未确认根数不进标题；五点避免模板化，必须结合场景和痛点。"
 };
+
+const BUILTIN_SKILLS = [
+  DEFAULT_SKILL,
+  {
+    ...DEFAULT_SKILL,
+    id: "builtin-ranking-first",
+    name: "ABA 排名优先 Skill",
+    titleStrategy: "keywordFirst",
+    tone: "direct conversion",
+    bulletPattern: "painSolutionScene"
+  },
+  {
+    ...DEFAULT_SKILL,
+    id: "builtin-natural-premium",
+    name: "自然风格转化 Skill",
+    titleStrategy: "styleFirst",
+    tone: "premium soft",
+    bulletPattern: "benefitSpecScene"
+  }
+];
+
+function getBuiltinSkills() {
+  return BUILTIN_SKILLS.map((skill) => ({
+    ...skill,
+    learning: createDefaultSkillLearning()
+  }));
+}
+
+function isBuiltinSkill(skillOrId) {
+  const id = typeof skillOrId === "string" ? skillOrId : skillOrId?.id;
+  return BUILTIN_SKILLS.some((skill) => skill.id === id);
+}
 
 const SAMPLE_DATA = {
   marketplace: "US",
@@ -115,21 +147,25 @@ let sellfoxSnapshot = createEmptySellfoxSnapshot();
 let riskLibrary = createDefaultRiskLibrary();
 let remoteSkillSaveTimer = null;
 let remoteSkillSaveInFlight = Promise.resolve();
+let activeWorkflowStep = 1;
+let listingGenerationInProgress = false;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 document.addEventListener("DOMContentLoaded", () => {
+  organizeWorkflowLayout();
   loadSkills();
   loadPreferences();
   loadRiskLibrary();
   bindEvents();
+  bindWorkflowEvents();
   const initialSkill = skills.find((item) => item.id === preferences.selectedSkillId) || skills[0];
   syncSkillForm(initialSkill);
   refreshSkillSelect(initialSkill.id);
   renderRiskLibrary();
   renderExtractionReview();
-  syncRecognitionGate();
+  setFlowState("idle");
   renderPreferences();
   loadSellfoxSnapshot();
   renderSellfoxSnapshot();
@@ -139,6 +175,228 @@ document.addEventListener("DOMContentLoaded", () => {
   renderIcons();
 });
 
+function organizeWorkflowLayout() {
+  const stageBody = $("#workflowStageBody");
+  const abaMount = $("#abaPanelMount");
+  const root = $("#workflowRoot");
+  [$(".input-panel"), $("#strategyPanel"), $("#outputPanel")]
+    .filter(Boolean)
+    .forEach((panel) => stageBody?.appendChild(panel));
+  const abaPanel = $("#abaRankingContext");
+  if (abaPanel && abaMount) abaMount.appendChild(abaPanel);
+  root?.classList.add("is-ready");
+}
+
+function bindWorkflowEvents() {
+  $$('[data-workflow-step]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const step = Number(button.dataset.workflowStep);
+      if (step === 4 && !imageExtraction.confirmed) {
+        showToast("先确认图片事实，再生成 Listing");
+        setActiveWorkflowStep(1, { scroll: true });
+        return;
+      }
+      setActiveWorkflowStep(step, { scroll: true });
+    });
+  });
+
+  $$('[data-proxy-action]').forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = document.getElementById(button.dataset.proxyAction);
+      target?.click();
+      const menu = button.closest("details");
+      if (menu) menu.open = false;
+    });
+  });
+
+  $("#workflowPrimaryBtn")?.addEventListener("click", handleWorkflowPrimaryAction);
+  $("[data-context-action='aba']")?.addEventListener("click", () => {
+    const detail = $("#abaContextDetail");
+    if (detail) detail.open = true;
+  });
+
+  $("#toggleRiskLibraryBtn")?.addEventListener("click", () => {
+    const content = $("#riskLibraryContent");
+    if (!content) return;
+    content.hidden = !content.hidden;
+    $("#toggleRiskLibraryBtn").textContent = content.hidden ? "管理" : "收起";
+    renderIcons();
+  });
+
+  $("#toggleSkillDetailsBtn")?.addEventListener("click", () => {
+    const content = $("#skillDetailContent");
+    const box = $(".skill-box");
+    if (!content) return;
+    content.hidden = !content.hidden;
+    box?.classList.toggle("is-expanded", !content.hidden);
+    $("#toggleSkillDetailsBtn").textContent = content.hidden ? "编辑" : "收起";
+    renderIcons();
+  });
+
+  ["t1Keywords", "t2Keywords", "t3Keywords", "skillSelect"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", updateWorkflowContext);
+    document.getElementById(id)?.addEventListener("input", updateWorkflowContext);
+  });
+}
+
+function setActiveWorkflowStep(step, { scroll = false } = {}) {
+  const nextStep = Math.min(4, Math.max(1, Number(step) || 1));
+  activeWorkflowStep = nextStep;
+  const root = $("#workflowRoot");
+  if (root) root.dataset.activeStep = String(nextStep);
+
+  $$('.workflow-step').forEach((button) => {
+    const buttonStep = Number(button.dataset.workflowStep);
+    const active = buttonStep === nextStep;
+    button.classList.toggle("is-active", active);
+    button.classList.toggle("is-complete", buttonStep < nextStep || (buttonStep === 1 && imageExtraction.confirmed));
+    if (active) button.setAttribute("aria-current", "step");
+    else button.removeAttribute("aria-current");
+  });
+
+  updateWorkflowChrome();
+  if (scroll) {
+    $("#workflowStageTitle")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function handleWorkflowPrimaryAction() {
+  if (listingGenerationInProgress) return;
+
+  if (activeWorkflowStep === 1) {
+    if (imageExtraction.status === "uploaded") {
+      $("#extractImageBtn")?.click();
+      return;
+    }
+    if (["extracted", "review"].includes(imageExtraction.status)) {
+      $("#confirmImageFactsBtn")?.click();
+      return;
+    }
+    if (imageExtraction.confirmed) setActiveWorkflowStep(2, { scroll: true });
+    else $("#productImages")?.click();
+    return;
+  }
+
+  if (activeWorkflowStep === 2) {
+    setActiveWorkflowStep(3, { scroll: true });
+    return;
+  }
+
+  if (activeWorkflowStep === 3) {
+    if (!imageExtraction.confirmed) {
+      showToast("先完成图片事实确认");
+      setActiveWorkflowStep(1, { scroll: true });
+      return;
+    }
+    $("#generateBtn")?.click();
+    return;
+  }
+
+  if (currentOutputText) $("#copyAllBtn")?.click();
+  else if (imageExtraction.confirmed) $("#generateBtn")?.click();
+}
+
+function updateWorkflowChrome() {
+  const title = $("#workflowStageTitle");
+  const description = $("#workflowStageDescription");
+  const footerTitle = $("#workflowFooterTitle");
+  const footerHint = $("#workflowFooterHint");
+  const primary = $("#workflowPrimaryBtn");
+  const primaryLabel = $("#workflowPrimaryLabel");
+  if (!title || !description || !footerTitle || !footerHint || !primary || !primaryLabel) return;
+
+  let content;
+  if (activeWorkflowStep === 1) {
+    content = {
+      title: "下一步：上传产品图并提取事实",
+      description: "上传产品图，系统将识别可见信息并填充为可编辑的产品事实。"
+    };
+    if (imageExtraction.status === "extracting") {
+      content.footer = "正在提取图片事实";
+      content.hint = "请稍候，识别完成后可以人工修正。";
+      content.action = "正在识别…";
+      content.disabled = true;
+    } else if (["extracted", "review"].includes(imageExtraction.status)) {
+      content.footer = "确认识别出的产品事实";
+      content.hint = "可先修正内容，确认后再进入关键词策略。";
+      content.action = "确认产品事实";
+    } else if (imageExtraction.confirmed) {
+      content.footer = "图片事实已确认";
+      content.hint = "下一步选择个人 Skill。";
+      content.action = "进入关键词与 Skill";
+    } else if (!uploadedImages.length) {
+      content.footer = "选择并上传产品图片";
+      content.hint = "支持 JPG、PNG 和 WEBP，可一次上传多张。";
+      content.action = "选择产品图片";
+    } else {
+      content.footer = "提取图片事实";
+      content.hint = "系统将识别包装文字、规格与产品类型。";
+      content.action = "提取图片事实";
+    }
+  } else if (activeWorkflowStep === 2) {
+    content = {
+      title: "下一步：选择个人 Skill",
+      description: "选择最符合当前产品的文案策略，低频编辑功能已收起到“编辑”中。",
+      footer: "确认当前 Skill",
+      hint: "选择结果会自动按飞书用户保存。",
+      action: "进入 ABA 数据策略"
+    };
+  } else if (activeWorkflowStep === 3) {
+    content = {
+      title: "下一步：确认关键词与合规策略",
+      description: "核对核心词、转化词和场景词，违禁词库详情可按需展开。",
+      footer: imageExtraction.confirmed ? "策略已就绪" : "还需确认图片事实",
+      hint: imageExtraction.confirmed ? "生成后将返回三版可选 Listing。" : "返回第一步确认产品信息。",
+      action: imageExtraction.confirmed ? "生成 Listing 方案" : "返回确认图片事实"
+    };
+  } else {
+    content = {
+      title: latestResult ? "Listing 方案已生成" : "下一步：生成 Listing 方案",
+      description: "比较三个方向，选择后可复制标题、五点、描述和 Search Terms。",
+      footer: latestResult ? "选择并使用 Listing 方案" : "等待生成 Listing",
+      hint: latestResult ? "选中方案后可直接复制全部内容。" : "请先完成前面的产品与策略确认。",
+      action: latestResult ? "复制当前方案" : "生成 Listing 方案",
+      disabled: !imageExtraction.confirmed
+    };
+  }
+
+  title.textContent = content.title;
+  description.textContent = content.description;
+  footerTitle.textContent = content.footer;
+  footerHint.textContent = content.hint;
+  primaryLabel.textContent = content.action;
+  primary.disabled = Boolean(content.disabled);
+  primary.classList.toggle("is-loading", listingGenerationInProgress);
+  if (listingGenerationInProgress) {
+    footerTitle.textContent = "正在生成三版 Listing";
+    footerHint.textContent = "通常需要十几秒，请保持页面打开。";
+    primaryLabel.textContent = "AI 正在生成…";
+    primary.disabled = true;
+  }
+  updateWorkflowContext();
+  renderIcons();
+}
+
+function updateWorkflowContext() {
+  const abaMeta = $("#contextAbaMeta");
+  const keywordMeta = $("#contextKeywordMeta");
+  const skillMeta = $("#contextSkillMeta");
+  if (abaMeta) {
+    const count = Number(sellfoxSnapshot.summary?.uniqueTerms || sellfoxSnapshot.rows?.length || 0);
+    abaMeta.textContent = count ? `已读取 ${formatNumber(count)} 个词组` : "等待 ABA 排名数据";
+  }
+  if (keywordMeta) {
+    const groups = ["t1Keywords", "t2Keywords", "t3Keywords"]
+      .map((id) => parseTerms($("#" + id)?.value || "").length)
+      .filter(Boolean).length;
+    keywordMeta.textContent = groups ? `已配置 ${groups} 组关键词` : "核心词、扩展词、场景词";
+  }
+  if (skillMeta) {
+    const selected = $("#skillSelect")?.selectedOptions?.[0]?.textContent || "未选择 Skill";
+    skillMeta.textContent = `${selected} · ${riskLibrary.length} 个违禁词`;
+  }
+}
+
 async function loadRemoteUserState() {
   try {
     const response = await fetch(`${LISTING_API_BASE}/user-state`, { cache: "no-store" });
@@ -146,29 +404,30 @@ async function loadRemoteUserState() {
     if (!response.ok || !payload.ok) throw new Error(payload.message || `读取失败：${response.status}`);
 
     const savedSkills = Array.isArray(payload.skills)
-      ? payload.skills.filter((item) => item && typeof item === "object" && item.id !== DEFAULT_SKILL.id)
+      ? payload.skills.filter((item) => item && typeof item === "object" && !isBuiltinSkill(item))
       : [];
-    if (savedSkills.length) {
-      skills = [DEFAULT_SKILL, ...savedSkills];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkills));
-    }
-    if (payload.preferences && typeof payload.preferences === "object" && Object.keys(payload.preferences).length) {
-      preferences = { ...createDefaultPreferences(), ...payload.preferences };
-      preferences.counts = preferences.counts || {};
-      localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
-    }
+    skills = [...getBuiltinSkills(), ...savedSkills];
+    preferences = {
+      ...createDefaultPreferences(),
+      ...(payload.preferences && typeof payload.preferences === "object" ? payload.preferences : {})
+    };
+    preferences.counts = preferences.counts || {};
+    riskLibrary = normalizeRiskLibrary(payload.riskLibrary);
+    if (!riskLibrary.length) riskLibrary = createDefaultRiskLibrary();
 
     const selectedSkill = skills.find((item) => item.id === preferences.selectedSkillId)
-      || skills.find((item) => item.id !== DEFAULT_SKILL.id)
+      || skills.find((item) => !isBuiltinSkill(item))
       || skills[0];
     refreshSkillSelect(selectedSkill.id);
     syncSkillForm(selectedSkill);
+    renderRiskLibrary();
     renderPreferences();
     $("#skillState").textContent = payload.updatedAt ? "已从 Skills 文件读取" : "等待保存到 Skills 文件";
     $("#skillState").title = payload.skillPath || "";
     if (!payload.updatedAt) await persistRemoteUserState({ quiet: true });
+    updateWorkflowContext();
   } catch (error) {
-    $("#skillState").textContent = "服务器偏好读取失败，当前使用本地缓存";
+    $("#skillState").textContent = "服务器偏好读取失败，当前使用内置 Skill";
     $("#skillState").title = error.message || "";
   }
 }
@@ -182,12 +441,12 @@ function scheduleRemoteUserStateSave() {
 
 async function persistRemoteUserState({ quiet = false } = {}) {
   window.clearTimeout(remoteSkillSaveTimer);
-  const userSkills = skills.filter((item) => item.id !== DEFAULT_SKILL.id);
+  const userSkills = skills.filter((item) => !isBuiltinSkill(item));
   const task = async () => {
     const response = await fetch(`${LISTING_API_BASE}/user-state`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skills: userSkills, preferences })
+      body: JSON.stringify({ skills: userSkills, preferences, riskLibrary })
     });
     const payload = await response.json();
     if (!response.ok || !payload.ok) throw new Error(payload.message || `保存失败：${response.status}`);
@@ -229,11 +488,15 @@ function bindEvents() {
       latestResult = result;
       renderResult(result);
       setFlowState("done");
-      showToast(
-        aiResponse.storage?.storedAs === "file"
-          ? "AI 已生成 3 个 Listing 方案，长文案已存档并记录"
-          : "AI 已生成 3 个 Listing 方案并写入数据库"
-      );
+      if (aiResponse.storage?.persistenceFailed) {
+        showToast(`AI 已生成 3 个 Listing 方案，可先复制；自动存档失败：${aiResponse.storage.message || "未知原因"}`);
+      } else {
+        showToast(
+          aiResponse.storage?.storedAs === "file"
+            ? "AI 已生成 3 个 Listing 方案，长文案已存档并记录"
+            : "AI 已生成 3 个 Listing 方案并写入数据库"
+        );
+      }
     } catch (error) {
       showToast(formatListingGenerationError(error.message));
     } finally {
@@ -289,7 +552,7 @@ function bindEvents() {
     const skill = skills.find((item) => item.id === event.target.value);
     if (skill) {
       syncSkillForm(skill);
-      $("#skillState").textContent = skill.id === DEFAULT_SKILL.id ? "默认模板" : "已加载";
+      $("#skillState").textContent = isBuiltinSkill(skill) ? "内置模板" : "已加载";
       preferences.selectedSkillId = skill.id;
       preferences.updatedAt = new Date().toISOString();
       savePreferences();
@@ -337,32 +600,28 @@ function bindEvents() {
 }
 
 function loadSkills() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const saved = raw ? JSON.parse(raw) : [];
-    skills = [DEFAULT_SKILL, ...saved.filter((item) => item.id !== DEFAULT_SKILL.id)];
-  } catch {
-    skills = [DEFAULT_SKILL];
-  }
+  skills = getBuiltinSkills();
 }
 
 function saveSkills() {
-  const userSkills = skills.filter((item) => item.id !== DEFAULT_SKILL.id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(userSkills));
   scheduleRemoteUserStateSave();
 }
 
 function saveCurrentSkill({ forceNew = false, silent = false } = {}) {
   const skill = collectSkill();
   const selectedId = forceNew ? DEFAULT_SKILL.id : $("#skillSelect").value;
-  const existingIndex = skills.findIndex((item) => item.id === selectedId && item.id !== DEFAULT_SKILL.id);
+  const existingIndex = skills.findIndex((item) => item.id === selectedId && !isBuiltinSkill(item));
   let savedSkill;
 
   if (existingIndex >= 0 && !forceNew) {
     savedSkill = { ...skills[existingIndex], ...skill, id: selectedId };
     skills[existingIndex] = savedSkill;
   } else {
-    savedSkill = { ...skill, id: `skill-${Date.now()}` };
+    savedSkill = {
+      ...skill,
+      id: `skill-${Date.now()}`,
+      name: isBuiltinSkill(selectedId) ? `${skill.name} （个人）` : skill.name
+    };
     skills.push(savedSkill);
   }
 
@@ -490,17 +749,10 @@ function getSkillLearning(skill) {
 }
 
 function loadPreferences() {
-  try {
-    const raw = localStorage.getItem(PREFERENCE_KEY);
-    preferences = raw ? { ...createDefaultPreferences(), ...JSON.parse(raw) } : createDefaultPreferences();
-    preferences.counts = preferences.counts || {};
-  } catch {
-    preferences = createDefaultPreferences();
-  }
+  preferences = createDefaultPreferences();
 }
 
 function savePreferences() {
-  localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
   scheduleRemoteUserStateSave();
 }
 
@@ -509,20 +761,22 @@ function createDefaultRiskLibrary() {
 }
 
 function loadRiskLibrary() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(RISK_LIBRARY_STORAGE_KEY) || "null");
-    if (Array.isArray(saved) && saved.length) {
-      riskLibrary = saved
-        .map((item) => ({ term: cleanText(item.term).toLowerCase(), level: item.level === "medium" ? "medium" : "high" }))
-        .filter((item) => item.term);
-    }
-  } catch {
-    riskLibrary = createDefaultRiskLibrary();
-  }
+  riskLibrary = createDefaultRiskLibrary();
+}
+
+function normalizeRiskLibrary(items) {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  return items
+    .map((item) => ({
+      term: cleanText(item?.term).toLowerCase(),
+      level: item?.level === "medium" ? "medium" : "high"
+    }))
+    .filter((item) => item.term && !seen.has(item.term) && seen.add(item.term));
 }
 
 function saveRiskLibrary() {
-  localStorage.setItem(RISK_LIBRARY_STORAGE_KEY, JSON.stringify(riskLibrary));
+  scheduleRemoteUserStateSave();
 }
 
 function buildRiskLibraryText() {
@@ -537,7 +791,7 @@ function buildRiskLibraryText() {
 function syncRiskLibraryToSkillField() {
   const field = $("#forbiddenClaims");
   if (!field) return;
-  field.value = unique([...parseTerms(field.value), ...riskLibrary.map((item) => item.term)]).join(", ");
+  field.value = unique(parseTerms(field.value)).join(", ");
 }
 
 function renderRiskLibrary() {
@@ -560,6 +814,7 @@ function renderRiskLibrary() {
   }).join("");
   count.textContent = `${riskLibrary.length} 个已启用`;
   syncRiskLibraryToSkillField();
+  updateWorkflowContext();
   renderIcons();
 }
 
@@ -627,7 +882,7 @@ function handleResultAreaClick(event) {
 
 function ensureSkillLearningTarget() {
   const selectedId = $("#skillSelect").value;
-  let skill = skills.find((item) => item.id === selectedId && item.id !== DEFAULT_SKILL.id);
+  let skill = skills.find((item) => item.id === selectedId && !isBuiltinSkill(item));
   if (skill) return skill;
 
   const draft = collectSkill();
@@ -740,7 +995,7 @@ function renderPreferences() {
       </div>
       <div class="preference-chips">
         <span>等待选择</span>
-        <span>本地保存</span>
+        <span>按飞书用户保存</span>
       </div>`;
     return;
   }
@@ -863,6 +1118,7 @@ function renderSellfoxSnapshot() {
   if (!rows.length) {
     container.className = "sellfox-snapshot empty";
     container.textContent = "尚未同步赛虎排名。你仍可手动填写 ABA 数据；同步后会自动过滤与当前产品无关的词。";
+    updateWorkflowContext();
     return;
   }
   const plan = buildSellfoxKeywordPlan(collectForm());
@@ -883,6 +1139,7 @@ function renderSellfoxSnapshot() {
     <div class="sellfox-keyword-grid">
       ${visible.map(([label, item]) => `<div class="sellfox-keyword"><strong>${escapeHtml(label)}：${escapeHtml(item.term)}</strong><span>当前 #${formatNumber(item.rank)} · 上期 #${formatNumber(item.previousRank)} · ${formatGrowth(item.growth)} · 点击 ${formatShare(item.clickShare)} / 转化 ${formatShare(item.conversionShare)}</span></div>`).join("")}
     </div>`;
+  updateWorkflowContext();
 }
 
 function formatSellfoxSnapshotDate(snapshot) {
@@ -905,6 +1162,7 @@ function refreshSkillSelect(selectedValue) {
     }
     select.appendChild(option);
   });
+  updateWorkflowContext();
 }
 
 function syncSkillForm(skill) {
@@ -917,6 +1175,7 @@ function syncSkillForm(skill) {
   $("#listingReference").value = skill.referenceListing || "";
   syncRiskLibraryToSkillField();
   renderSkillLearningSummary(skill);
+  updateWorkflowContext();
 }
 
 function collectSkill() {
@@ -928,6 +1187,7 @@ function collectSkill() {
     tone: $("#tone").value,
     bulletPattern: $("#bulletPattern").value,
     titleLimit: 75,
+    itemHighlightLimit: 125,
     bulletLimit: 500,
     descriptionLimit: 2000,
     searchTermLimit: 249,
@@ -1190,13 +1450,16 @@ function formatShare(value) {
 }
 
 function setListingGenerationState(isGenerating) {
+  listingGenerationInProgress = isGenerating;
   const button = $("#generateBtn");
-  if (!button) return;
-  button.disabled = isGenerating || !imageExtraction.confirmed;
-  button.classList.toggle("is-loading", isGenerating);
-  button.innerHTML = isGenerating
-    ? '<i data-lucide="loader-circle"></i> AI 撰写中'
-    : '<i data-lucide="sparkles"></i> 生成';
+  if (button) {
+    button.disabled = isGenerating || !imageExtraction.confirmed;
+    button.classList.toggle("is-loading", isGenerating);
+    button.innerHTML = isGenerating
+      ? '<i data-lucide="loader-circle"></i> AI 撰写中'
+      : '<i data-lucide="sparkles"></i> 生成';
+  }
+  updateWorkflowChrome();
   renderIcons();
 }
 
@@ -1250,6 +1513,7 @@ function buildAiListingPayload(data, skill) {
     },
     limits: {
       title: skill.titleLimit,
+      itemHighlight: skill.itemHighlightLimit,
       bullet: skill.bulletLimit,
       description: skill.descriptionLimit,
       searchTermsBytes: skill.searchTermLimit
@@ -1281,7 +1545,14 @@ function mergeAiListingResult(baseResult, aiResponse, data, skill) {
   baseResult.variants = baseResult.variants.map((templateVariant) => {
     const aiVariant = responseById.get(templateVariant.id);
     if (!aiVariant) return templateVariant;
-    const title = cleanText(aiVariant.title) || templateVariant.title;
+    const title = fitSentence(
+      cleanText(aiVariant.title) || templateVariant.title,
+      skill.titleLimit
+    );
+    const itemHighlight = fitSentence(
+      cleanText(aiVariant.itemHighlight) || templateVariant.itemHighlight,
+      skill.itemHighlightLimit
+    );
     const highlights = normalizeAiCopyItems(aiVariant.highlights, 3, templateVariant.highlights);
     const bullets = normalizeAiCopyItems(aiVariant.bullets, 5, templateVariant.bullets);
     const description = cleanText(aiVariant.description) || templateVariant.description;
@@ -1295,12 +1566,13 @@ function mergeAiListingResult(baseResult, aiResponse, data, skill) {
     return {
       ...templateVariant,
       title,
+      itemHighlight,
       highlights,
       first50: title.slice(0, 50),
       bullets,
       description,
       searchTerms,
-      selfCheck: buildSelfCheck(data, variantSkill, title, highlights, bullets, description, searchTerms),
+      selfCheck: buildSelfCheck(data, variantSkill, title, itemHighlight, highlights, bullets, description, searchTerms),
       reasons: unique([...(aiVariant.reasons || []), ...templateVariant.reasons]),
       generatedBy: "AI"
     };
@@ -1337,6 +1609,9 @@ function formatListingGenerationError(message) {
   }
   if (lower.includes("incomplete listing")) {
     return "AI 返回的三版内容不完整，请重试生成。";
+  }
+  if (lower.includes("timed out") || lower.includes("timeout")) {
+    return "AI 生成超时，系统已尝试备用模型，请重试一次。";
   }
   return "AI Listing 生成失败，请稍后重试或联系管理员。";
 }
@@ -1382,17 +1657,19 @@ function buildListingVariants(data, skill, context, needsConfirmation) {
       tone: profile.tone
     };
     const title = buildTitle(data, variantSkill, variantContext);
+    const itemHighlight = buildItemHighlight(data, variantContext, profile);
     const highlights = buildVariantHighlights(data, variantContext, profile);
     const bullets = buildBullets(data, variantContext, variantSkill);
     const description = buildVariantDescription(data, variantContext, profile);
-    const searchTerms = buildSearchTerms(data, variantSkill, title, highlights, bullets, description);
-    const selfCheck = buildSelfCheck(data, variantSkill, title, highlights, bullets, description, searchTerms);
+    const searchTerms = buildSearchTerms(data, variantSkill, title, itemHighlight, highlights, bullets, description);
+    const selfCheck = buildSelfCheck(data, variantSkill, title, itemHighlight, highlights, bullets, description, searchTerms);
     const score = scoreVariant(profile, data, variantContext, needsConfirmation, skill);
 
     return {
       ...profile,
       score,
       title,
+      itemHighlight,
       highlights,
       first50: title.slice(0, 50),
       tagMatrix: buildTagMatrix(data, variantContext),
@@ -1444,6 +1721,19 @@ function buildVariantHighlights(data, context, profile) {
     ];
   }
   return base;
+}
+
+function buildItemHighlight(data, context, profile) {
+  const product = titleCase(data.productType);
+  const spec = context.specLine || "confirmed product details";
+  const useCases = context.scenarioTerms.slice(0, 2).join(" and ") || "daily makeup";
+  if (profile.id === "style") {
+    return fitSentence(`${context.look} ${product} with ${spec} for ${useCases}`, 125);
+  }
+  if (profile.id === "search") {
+    return fitSentence(`${titleCase(context.coreKeyword)} with ${spec}, recommended for ${useCases}`, 125);
+  }
+  return fitSentence(`${product} with ${spec} for ${useCases}`, 125);
 }
 
 function buildVariantDescription(data, context, profile) {
@@ -1727,8 +2017,8 @@ function buildDescription(data, context) {
   ].join("\n\n");
 }
 
-function buildSearchTerms(data, skill, title, highlights, bullets, description) {
-  const frontCopy = [title, ...highlights, ...bullets, description, data.brandName].join(" ").toLowerCase();
+function buildSearchTerms(data, skill, title, itemHighlight, highlights, bullets, description) {
+  const frontCopy = [title, itemHighlight, ...highlights, ...bullets, description, data.brandName].join(" ").toLowerCase();
   const forbidden = unique([...parseTerms(skill.forbiddenClaims), ...extractRiskTerms(data.forbiddenRankings).all]);
   const sellfoxTerms = buildSellfoxKeywordPlan(data).backendTerms.map((item) => item.term);
   const sourceTerms = [
@@ -1893,8 +2183,29 @@ function buildAbPlan(data, context) {
   ];
 }
 
-function buildSelfCheck(data, skill, title, highlights, bullets, description, searchTerms) {
-  const fullCopy = [title, ...highlights, ...bullets, description, searchTerms].join(" ");
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findRepeatedTitleWords(title) {
+  const exempt = new Set([
+    "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "nor",
+    "of", "on", "or", "so", "the", "to", "with", "yet"
+  ]);
+  const counts = new Map();
+  (String(title || "").toLowerCase().match(/[a-z0-9]+(?:-[a-z0-9]+)?/g) || []).forEach((word) => {
+    if (!exempt.has(word)) counts.set(word, (counts.get(word) || 0) + 1);
+  });
+  return [...counts.entries()].filter(([, count]) => count > 2).map(([word]) => word);
+}
+
+function buildSelfCheck(data, skill, title, itemHighlight, highlights, bullets, description, searchTerms) {
+  const fullCopy = [title, itemHighlight, ...highlights, ...bullets, description, searchTerms].join(" ");
+  const titleWithoutBrand = data.brandName
+    ? title.replace(new RegExp(escapeRegExp(data.brandName), "ig"), "")
+    : title;
+  const disallowedTitleCharacters = unique(titleWithoutBrand.match(/[!$?_{}^¬¦]/g) || []);
+  const repeatedTitleWords = findRepeatedTitleWords(title);
   const rankedRisks = extractRiskTerms(data.forbiddenRankings);
   const forbidden = unique([...parseTerms(skill.forbiddenClaims), ...rankedRisks.all]);
   const forbiddenHits = forbidden.filter((term) => fullCopy.toLowerCase().includes(term.toLowerCase()));
@@ -1905,6 +2216,22 @@ function buildSelfCheck(data, skill, title, highlights, bullets, description, se
     {
       status: title.length <= skill.titleLimit ? "ok" : "bad",
       text: `标题 ${title.length}/${skill.titleLimit} 字符`
+    },
+    {
+      status: itemHighlight.length <= skill.itemHighlightLimit ? "ok" : "bad",
+      text: `Item Highlights ${itemHighlight.length}/${skill.itemHighlightLimit} 字符`
+    },
+    {
+      status: disallowedTitleCharacters.length ? "bad" : "ok",
+      text: disallowedTitleCharacters.length
+        ? `标题含禁用符号：${disallowedTitleCharacters.join(" ")}`
+        : "标题未发现 Amazon 禁用符号"
+    },
+    {
+      status: repeatedTitleWords.length ? "bad" : "ok",
+      text: repeatedTitleWords.length
+        ? `标题实义词重复超过 2 次：${repeatedTitleWords.join(", ")}`
+        : "标题实义词均未重复超过 2 次"
     },
     {
       status: Math.max(...bullets.map((item) => item.length)) <= skill.bulletLimit ? "ok" : "bad",
@@ -1998,7 +2325,12 @@ function renderResult(result) {
       content: selected.title
     },
     {
-      title: "产品亮点",
+      title: "Item Highlights（商品亮点，常称副标题）",
+      metric: `${selected.itemHighlight.length}/125`,
+      content: selected.itemHighlight
+    },
+    {
+      title: "卖点提炼（内部参考）",
       metric: `${selected.highlights.length} 条`,
       content: toNumbered(selected.highlights.map((item) => `${item} [${item.length}/125]`))
     },
@@ -2058,6 +2390,7 @@ function renderResult(result) {
 
   renderBlocks(blocks);
   $("#titleScore").textContent = `${selected.title.length}/75`;
+  $("#itemHighlightScore").textContent = `${selected.itemHighlight.length}/125`;
   $("#bulletScore").textContent = `${Math.max(...selected.bullets.map((item) => item.length))}/500`;
   $("#stScore").textContent = `${byteLength(selected.searchTerms)}/249 bytes`;
   currentOutputText = blocks.map((block) => `## ${block.title}\n${block.content}`).join("\n\n");
@@ -2079,6 +2412,10 @@ function renderVariantChoicesHtml(result, selected) {
           </div>
           <p>${escapeHtml(variant.bestFor)}</p>
           <div class="variant-title">${escapeHtml(variant.title)}</div>
+          <div class="variant-item-highlight">
+            <span>Item Highlights</span>
+            ${escapeHtml(variant.itemHighlight)}
+          </div>
           <ul>
             ${variant.reasons.slice(0, 3).map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
           </ul>
@@ -2105,7 +2442,9 @@ function renderVariantChoicesHtml(result, selected) {
 
 function renderVariantChoicesText(result) {
   return result.variants
-    .map((variant) => `${variant.name} (${variant.score}/100)\n${variant.title}\n${variant.reasons.join("\n")}`)
+    .map(
+      (variant) => `${variant.name} (${variant.score}/100)\n标题：${variant.title}\nItem Highlights：${variant.itemHighlight}\n${variant.reasons.join("\n")}`
+    )
     .join("\n\n");
 }
 
@@ -2299,6 +2638,7 @@ function previewImages(event) {
 }
 
 function setFlowState(state) {
+  document.body.dataset.flowState = state;
   const chips = $$(".status-chip");
   const activeMap = {
     idle: 0,
@@ -2314,6 +2654,16 @@ function setFlowState(state) {
     chip.classList.toggle("active", index <= activeIndex);
   });
   syncRecognitionGate();
+  const stepMap = {
+    idle: 1,
+    uploaded: 1,
+    extracting: 1,
+    extracted: 1,
+    review: 1,
+    confirmed: 2,
+    done: 4
+  };
+  setActiveWorkflowStep(stepMap[state] || activeWorkflowStep);
 }
 
 function syncRecognitionGate() {
@@ -2321,11 +2671,16 @@ function syncRecognitionGate() {
   const strategyPanel = $("#strategyPanel");
   const outputPanel = $("#outputPanel");
 
-  [strategyPanel, outputPanel].filter(Boolean).forEach((panel) => {
-    panel.classList.toggle("flow-locked", !isUnlocked);
-    panel.inert = !isUnlocked;
-    panel.setAttribute("aria-disabled", String(!isUnlocked));
-  });
+  if (strategyPanel) {
+    strategyPanel.classList.remove("flow-locked");
+    strategyPanel.inert = false;
+    strategyPanel.setAttribute("aria-disabled", "false");
+  }
+  if (outputPanel) {
+    outputPanel.classList.toggle("flow-locked", !isUnlocked);
+    outputPanel.inert = !isUnlocked;
+    outputPanel.setAttribute("aria-disabled", String(!isUnlocked));
+  }
 
   ["#strategyLock", "#outputLock"].forEach((selector) => {
     const notice = $(selector);
@@ -2336,7 +2691,7 @@ function syncRecognitionGate() {
     field.disabled = !isUnlocked;
   });
 
-  ["#buildSkillBtn", "#generateBtn", "#copyAllBtn", "#syncSellfoxBtn", "#addRiskTermBtn"].forEach((selector) => {
+  ["#generateBtn", "#copyAllBtn"].forEach((selector) => {
     const button = $(selector);
     if (button) button.disabled = !isUnlocked;
   });
@@ -2375,13 +2730,18 @@ async function extractImageFacts() {
       facts: manualEvidence
         ? [{ key: "packageText", label: "人工补充的图片证据", value: manualEvidence, source: "人工输入", confidence: "待确认" }]
         : [],
-      needs: [errorReason, "图片识别接口暂不可用，请手动填写图片可见事实，或配置后重新点击“提取”。"],
+      needs: [
+        errorReason,
+        manualEvidence
+          ? "图片识别接口暂不可用，可确认人工补充的图片证据后继续。"
+          : "图片识别接口暂不可用；识别补充为可选项，可留空并确认继续，或稍后重新提取。"
+      ],
       blocked: ["不要从图片臆测材质、安全、持久、防水、低敏或复用次数。"],
       source: error.message
     };
     renderExtractionReview();
     setFlowState("review");
-    showToast(manualEvidence ? "图片识别失败，请确认人工补充的图片证据后继续" : "图片识别失败，请补充图片文字后重新提取");
+    showToast(manualEvidence ? "图片识别失败，请确认人工补充的图片证据后继续" : "图片识别失败；识别补充可留空，确认后可继续");
   }
 }
 
@@ -2425,12 +2785,14 @@ async function readErrorPayload(response) {
       payload.siliconFlowCode && `code ${payload.siliconFlowCode}`,
       payload.siliconFlowMessage
     ].filter(Boolean).join(" · ");
+    const source = response.url.includes("/generate-listings") ? "AI Listing" : "Image extractor";
     return [
-      `Image extractor returned ${response.status}`,
+      `${source} returned ${response.status}`,
       siliconFlowPart || payload.message || payload.error || text
     ].filter(Boolean).join(": ");
   } catch {
-    return `Image extractor returned ${response.status}: ${text.slice(0, 240)}`;
+    const source = response.url.includes("/generate-listings") ? "AI Listing" : "Image extractor";
+    return `${source} returned ${response.status}: ${text.slice(0, 240)}`;
   }
 }
 
@@ -2627,7 +2989,12 @@ function fileToPayload(file) {
 
 function confirmImageFacts() {
   if (!imageExtraction.facts.length) {
-    showToast("还没有可确认的图片事实");
+    imageExtraction.confirmed = true;
+    imageExtraction.status = "confirmed";
+    renderExtractionReview();
+    drawTrayPreview();
+    setFlowState("confirmed");
+    showToast("已确认暂无可用图片事实，识别补充可留空，可以继续生成");
     return;
   }
 
@@ -2690,7 +3057,8 @@ function renderExtractionReview() {
   };
   status.textContent = statusText[imageExtraction.status] || statusText.idle;
   if (confirmButton) {
-    confirmButton.disabled = !imageExtraction.facts.length || imageExtraction.confirmed;
+    const canConfirmEmptyResult = imageExtraction.status === "extracted";
+    confirmButton.disabled = imageExtraction.confirmed || (!imageExtraction.facts.length && !canConfirmEmptyResult);
   }
 
   if (imageExtraction.status === "idle") {
@@ -3034,6 +3402,7 @@ description: Personal Amazon listing generation skill for category-specific prod
 ## Core Rules
 
 - Title limit: ${skill.titleLimit} characters.
+- Item Highlights limit: ${skill.itemHighlightLimit} characters.
 - Bullet limit: ${skill.bulletLimit} characters each.
 - Product description limit: ${skill.descriptionLimit} characters.
 - Backend Search Terms limit: ${skill.searchTermLimit} bytes.
@@ -3054,7 +3423,7 @@ ${skill.customRules}
 1. Confirm product facts from user input, packaging and images.
 2. Map MCP data into T1/T2/T3/T4 keywords.
 3. Generate strategy before final copy.
-4. Generate title, highlights, five bullets, description, image/A+ plan, backend Search Terms and Rufus Q&A.
+4. Generate title, Item Highlights, internal selling-point summaries, five bullets, description, image/A+ plan, backend Search Terms and Rufus Q&A.
 5. Run character, byte, unsupported-claim and duplication checks.
 ${learningSection}${referenceSection}`;
 }

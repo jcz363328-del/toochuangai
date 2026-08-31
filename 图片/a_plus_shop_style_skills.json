@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "stores": {
+    "3": [
+      {
+        "skill_id": "builtin-shop-3-desktop",
+        "title": "店铺 3｜电脑端 A+ 风格",
+        "device": "desktop",
+        "source_examples": ["3-317A-a+ (2).jpg", "317B--1464.jpg"],
+        "analysis": {
+          "schema_version": 1,
+          "case_count": 2,
+          "cases": [
+            {"canvas": {"width": 1464, "height": 3000, "aspect_ratio": "1464:3000"}},
+            {"canvas": {"width": 1464, "height": 3000, "aspect_ratio": "1464:3000"}}
+          ],
+          "common": {
+            "style": "奶油浅蓝与暖棕橙构成的轻奢编辑感，兼具柔和女性气质与清晰技术说明",
+            "design_strengths": [
+              "首屏用超大标题、人物和完整产品形成三角视觉关系",
+              "浅蓝长背景贯穿全页，奶油光晕与白色卡片控制信息密度",
+              "宏观佩戴效果、产品微距和结构示意交替出现，证据链完整",
+              "超大衬线、手写叠字、粗体卖点形成鲜明但稳定的层级"
+            ],
+            "hero": {
+              "height_ratio": 0.30,
+              "visual_center": [555, 160],
+              "product_position": "左下或中左，完整露出并与人物错位",
+              "model_position": "右半幅，占首屏约一半",
+              "text_blocks": 3,
+              "text_area_ratio": 0.20,
+              "elements": [
+                {"type": "title", "bbox": [45, 35, 525, 155], "alignment": "左对齐", "overlap": "可与淡化背景字叠加"},
+                {"type": "product", "bbox": [135, 140, 470, 330], "alignment": "左下", "overlap": "不遮挡标题"},
+                {"type": "model", "bbox": [515, 0, 1000, 300], "alignment": "右对齐", "overlap": "人物边缘可轻微跨区"}
+              ]
+            },
+            "sections": [
+              {"type": "hero", "height_ratio": 0.30, "bbox": [0, 0, 1000, 300], "alignment": "左右不对称", "whitespace_ratio": 0.22, "elements": []},
+              {"type": "specification_strip", "height_ratio": 0.08, "bbox": [0, 300, 1000, 380], "alignment": "横向等距", "whitespace_ratio": 0.18, "elements": [{"type": "product", "bbox": [120, 310, 860, 370], "alignment": "横向阵列", "overlap": "置于浅色条带"}]},
+              {"type": "wear_result", "height_ratio": 0.16, "bbox": [0, 380, 1000, 540], "alignment": "宽幅微距", "whitespace_ratio": 0.10, "elements": [{"type": "detail", "bbox": [25, 390, 975, 525], "alignment": "横向满幅", "overlap": "圆角或弧形裁切"}]},
+              {"type": "technical_features", "height_ratio": 0.24, "bbox": [0, 540, 1000, 780], "alignment": "双列模块", "whitespace_ratio": 0.26, "elements": [{"type": "detail", "bbox": [50, 570, 460, 735], "alignment": "左列", "overlap": "与文字互补"}, {"type": "selling_point", "bbox": [510, 570, 950, 735], "alignment": "右列", "overlap": "置于白色或奶油卡片"}]},
+              {"type": "style_map", "height_ratio": 0.22, "bbox": [0, 780, 1000, 1000], "alignment": "三列卡片", "whitespace_ratio": 0.16, "elements": [{"type": "detail", "bbox": [45, 835, 315, 975], "alignment": "左列", "overlap": "统一圆角"}, {"type": "detail", "bbox": [365, 835, 635, 975], "alignment": "中列", "overlap": "统一圆角"}, {"type": "detail", "bbox": [685, 835, 955, 975], "alignment": "右列", "overlap": "统一圆角"}]}
+            ],
+            "typography": {"hierarchy": ["高对比超大衬线标题", "橙色手写叠字", "粗体无衬线卖点", "细体说明"], "text_blocks": 10, "density": "中等", "alignment": "左对齐为主，局部弧形或纵向排字", "max_title_lines": 3},
+            "background": {"palette": ["#D6EBFA", "#FFF2D5", "#9B4F1A", "#FFFFFF"], "lighting": "柔和奶油光晕与自然人像光", "decorative_language": "超大淡化字母、皇冠或星芒轮廓、圆形高光、细线标注", "depth": "人物和产品前景清晰，背景大字低对比", "continuity": "浅蓝底色和淡化字母跨区延续"},
+            "reading_flow": ["首屏标题与人物", "产品规格横条", "佩戴效果", "结构与材质细节", "款式选择收尾"],
+            "cross_section_rules": ["使用浅蓝通底和细灰蓝分隔条连接模块", "大号淡化字母只做背景水印，不抢正文", "圆角卡片和圆形标注重复出现"],
+            "product_placement_rules": ["首屏必须同时出现完整套装和人物", "中段交替使用超大产品微距与佩戴效果", "规格阵列必须等距且一眼可比较"],
+            "anti_patterns": ["深色大面积背景", "高饱和霓虹配色", "碎片化社媒贴纸堆叠", "文字压住产品关键结构"],
+            "device_rules": ["以 1464×2400 或同等电脑端长图为目标", "首屏保持左右双区，后续优先双列或三列模块", "横向宽幅佩戴图和规格带要充分利用画布宽度"],
+            "layout_rules": ["每个阶段保留明确标题与单一主证据图", "技术卖点使用圆形放大或白色卡片，不使用复杂图标墙", "结尾用三列眼型或效果卡形成稳定收束"]
+          }
+        }
+      },
+      {
+        "skill_id": "builtin-shop-3-mobile",
+        "title": "店铺 3｜手机版 A+ 风格",
+        "device": "mobile",
+        "source_examples": ["3-317A-a+ (1).jpg", "317B--1200.jpg"],
+        "analysis": {
+          "schema_version": 1,
+          "case_count": 2,
+          "cases": [
+            {"canvas": {"width": 1200, "height": 4500, "aspect_ratio": "1200:4500"}},
+            {"canvas": {"width": 1200, "height": 4500, "aspect_ratio": "1200:4500"}}
+          ],
+          "common": {
+            "style": "奶油浅蓝与暖棕橙的纵向轻奢编辑风，强调大图、清楚分段和手机阅读节奏",
+            "design_strengths": ["首屏人物、标题和套装在窄画幅内上下错位", "卖点以大图配短句逐屏展开", "浅蓝通底和白色圆角卡片保持长图连贯", "佩戴效果与结构细节按证据顺序纵向呈现"],
+            "hero": {"height_ratio": 0.25, "visual_center": [560, 145], "product_position": "首屏左下或中下，完整露出", "model_position": "首屏右侧并贴近上边", "text_blocks": 3, "text_area_ratio": 0.22, "elements": [{"type": "title", "bbox": [55, 30, 570, 145], "alignment": "左对齐", "overlap": "手写字可穿插标题空隙"}, {"type": "model", "bbox": [520, 0, 1000, 255], "alignment": "右对齐", "overlap": "不遮挡标题"}, {"type": "product", "bbox": [95, 130, 500, 260], "alignment": "左下", "overlap": "与人物轻微错位"}]},
+            "sections": [
+              {"type": "hero", "height_ratio": 0.25, "bbox": [0, 0, 1000, 250], "alignment": "窄屏左右错位", "whitespace_ratio": 0.18, "elements": []},
+              {"type": "specification_strip", "height_ratio": 0.08, "bbox": [0, 250, 1000, 330], "alignment": "横向等距", "whitespace_ratio": 0.12, "elements": [{"type": "product", "bbox": [80, 265, 920, 320], "alignment": "横向阵列", "overlap": "置于浅色胶囊条"}]},
+              {"type": "wear_result", "height_ratio": 0.17, "bbox": [0, 330, 1000, 500], "alignment": "单列大图", "whitespace_ratio": 0.08, "elements": [{"type": "detail", "bbox": [60, 350, 940, 480], "alignment": "居中", "overlap": "圆角裁切"}]},
+              {"type": "technical_features", "height_ratio": 0.27, "bbox": [0, 500, 1000, 770], "alignment": "上下交替卡片", "whitespace_ratio": 0.22, "elements": [{"type": "detail", "bbox": [60, 525, 470, 650], "alignment": "左", "overlap": "对应右侧短文"}, {"type": "detail", "bbox": [520, 650, 940, 750], "alignment": "右", "overlap": "对应左侧短文"}]},
+              {"type": "style_map", "height_ratio": 0.23, "bbox": [0, 770, 1000, 1000], "alignment": "三张纵向卡片", "whitespace_ratio": 0.15, "elements": [{"type": "detail", "bbox": [80, 790, 920, 850], "alignment": "居中", "overlap": "圆角"}, {"type": "detail", "bbox": [80, 860, 920, 920], "alignment": "居中", "overlap": "圆角"}, {"type": "detail", "bbox": [80, 930, 920, 990], "alignment": "居中", "overlap": "圆角"}]}
+            ],
+            "typography": {"hierarchy": ["高对比衬线主标题", "橙色手写叠字", "粗体无衬线卖点", "短说明"], "text_blocks": 9, "density": "中低", "alignment": "左对齐为主，窄屏避免过长行", "max_title_lines": 3},
+            "background": {"palette": ["#D6EBFA", "#FFF2D5", "#9B4F1A", "#FFFFFF"], "lighting": "柔和奶油光与自然人像光", "decorative_language": "淡化皇冠或大字母、圆形高光、细线指引、圆角卡片", "depth": "产品大图和人物前景清楚，背景装饰低对比", "continuity": "浅蓝底色贯穿，使用窄分隔条建立屏间节奏"},
+            "reading_flow": ["首屏人物与套装", "规格", "佩戴效果", "结构和材质细节", "款式地图"],
+            "cross_section_rules": ["每一手机屏只保留一个主视觉任务", "模块间用浅蓝连续背景而非硬切多种底色", "卡片在窄屏内上下堆叠并保持统一圆角"],
+            "product_placement_rules": ["产品至少在首屏完整出现一次", "细节图允许放大但不得裁掉关键根部或规格", "佩戴效果优先横向宽图或单列大图"],
+            "anti_patterns": ["三列小字硬塞进手机画幅", "标题超出安全边距", "复杂贴纸与高饱和撞色", "同一屏放多个同权重焦点"],
+            "device_rules": ["面向 600×1800 或等比例手机长图", "电脑端双列内容改为上下交替，阅读顺序严格从上到下", "正文保持短句和大字号，左右安全边距不少于画布宽度的 8%"],
+            "layout_rules": ["每屏一个核心卖点加一张证据图", "规格区使用横向胶囊条，必要时拆成两行", "结尾将款式效果改为纵向三卡，不做横向三列小图"]
+          }
+        }
+      }
+    ],
+    "15": [
+      {
+        "skill_id": "builtin-shop-15-desktop",
+        "title": "店铺 15｜电脑端 A+ 风格",
+        "device": "desktop",
+        "source_examples": ["15-76A 电脑端A+.jpg", "15-76C-电脑端A+.jpg"],
+        "analysis": {
+          "schema_version": 1,
+          "case_count": 2,
+          "cases": [{"canvas": {"width": 1464, "height": 3600, "aspect_ratio": "1464:3600"}}, {"canvas": {"width": 1464, "height": 3600, "aspect_ratio": "1464:3600"}}],
+          "common": {
+            "style": "暖奶油、橄榄绿与明亮黄色构成的复古时尚杂志风，带柔焦人像和高对比编辑排版",
+            "design_strengths": ["首屏超大衬线标题与手写字叠印，人物和套装形成强烈封面感", "奶油底色贯穿，橄榄色信息与黄色标注形成稳定识别", "产品微距、眼部效果和模特生活方式图交替，兼顾质感与说服力", "电脑端善用三列特性卡、双列对比和横向人物拼贴"],
+            "hero": {"height_ratio": 0.34, "visual_center": [570, 170], "product_position": "左下大比例倾斜或横向铺开", "model_position": "右半幅或右上双人构图", "text_blocks": 3, "text_area_ratio": 0.22, "elements": [{"type": "title", "bbox": [25, 15, 610, 120], "alignment": "左对齐", "overlap": "标题可叠在柔焦背景和手写字上"}, {"type": "model", "bbox": [520, 0, 1000, 350], "alignment": "右对齐", "overlap": "人物可跨越首屏下缘"}, {"type": "product", "bbox": [0, 150, 590, 350], "alignment": "左下", "overlap": "保持包装完整"}]},
+            "sections": [
+              {"type": "editorial_hero", "height_ratio": 0.34, "bbox": [0, 0, 1000, 340], "alignment": "左右不对称封面", "whitespace_ratio": 0.15, "elements": []},
+              {"type": "feature_cards", "height_ratio": 0.20, "bbox": [0, 340, 1000, 540], "alignment": "三列等宽", "whitespace_ratio": 0.18, "elements": [{"type": "detail", "bbox": [20, 360, 320, 520], "alignment": "左列", "overlap": "圆角奶油卡"}, {"type": "detail", "bbox": [350, 360, 650, 520], "alignment": "中列", "overlap": "圆角奶油卡"}, {"type": "detail", "bbox": [680, 360, 980, 520], "alignment": "右列", "overlap": "圆角奶油卡"}]},
+              {"type": "wearing_styles", "height_ratio": 0.18, "bbox": [0, 540, 1000, 720], "alignment": "双列大图", "whitespace_ratio": 0.12, "elements": [{"type": "detail", "bbox": [25, 560, 485, 700], "alignment": "左列", "overlap": "文字沿下缘叠加"}, {"type": "detail", "bbox": [515, 560, 975, 700], "alignment": "右列", "overlap": "文字沿下缘叠加"}]},
+              {"type": "specification_detail", "height_ratio": 0.15, "bbox": [0, 720, 1000, 870], "alignment": "横向说明与超大微距", "whitespace_ratio": 0.16, "elements": [{"type": "product", "bbox": [35, 750, 620, 850], "alignment": "左到中", "overlap": "标注线贴近产品"}, {"type": "selling_point", "bbox": [630, 735, 960, 850], "alignment": "右侧", "overlap": "避免遮挡产品"}]},
+              {"type": "lifestyle_collage", "height_ratio": 0.13, "bbox": [0, 870, 1000, 1000], "alignment": "三人横向拼贴", "whitespace_ratio": 0.05, "elements": [{"type": "model", "bbox": [0, 880, 340, 1000], "alignment": "左", "overlap": "人物相邻软融合"}, {"type": "model", "bbox": [330, 870, 680, 1000], "alignment": "中", "overlap": "人物相邻软融合"}, {"type": "model", "bbox": [670, 880, 1000, 1000], "alignment": "右", "overlap": "人物相邻软融合"}]}
+            ],
+            "typography": {"hierarchy": ["超大 Didot/Bodoni 衬线标题", "细长手写签名字", "厚重无衬线卖点", "紧凑正文"], "text_blocks": 11, "density": "中等", "alignment": "杂志式左对齐，局部沿图形弧线排字", "max_title_lines": 3},
+            "background": {"palette": ["#F8E7C4", "#F7F0DE", "#777357", "#FFD900", "#7B3310"], "lighting": "暖调柔焦、轻胶片质感和局部黄色光晕", "decorative_language": "超大透明衬线单词、细手写叠字、黄色虚线圆和引导线、橄榄圆章", "depth": "人物与产品清晰，背景柔焦，大字低透明", "continuity": "奶油底色和淡橄榄光晕跨区连接"},
+            "reading_flow": ["杂志封面式首屏", "三项产品特性", "佩戴风格对比", "规格与结构", "多人生活方式收尾"],
+            "cross_section_rules": ["黄色标注线和橄榄色标签反复出现", "圆角奶油卡片保持统一半径", "大号背景字可跨区但必须低对比"],
+            "product_placement_rules": ["首屏套装占据左侧强视觉面积", "特性卡优先使用单个产品微距而非缩小整盒", "眼部效果和模特图不得替代真实产品展示"],
+            "anti_patterns": ["冷蓝科技感", "纯白极简无层次", "整页同尺寸卡片", "小标题与大图缺少对比"],
+            "device_rules": ["以 1464×2400 或同类电脑端长图为目标", "首屏保持左文案/产品与右人物的横向张力", "中段可使用三列特性、双列效果和横向规格带"],
+            "layout_rules": ["标题可大但最多三行，避免遮住人物脸和产品", "每个特性卡只突出一个结构细节", "结尾人物拼贴做满宽视觉收束，不再堆叠技术文字"]
+          }
+        }
+      },
+      {
+        "skill_id": "builtin-shop-15-mobile",
+        "title": "店铺 15｜手机版 A+ 风格",
+        "device": "mobile",
+        "source_examples": ["15-76A 手机端A+.jpg", "15-76C-手机端A+7.jpg"],
+        "analysis": {
+          "schema_version": 1,
+          "case_count": 2,
+          "cases": [{"canvas": {"width": 600, "height": 2700, "aspect_ratio": "600:2700"}}, {"canvas": {"width": 600, "height": 2700, "aspect_ratio": "600:2700"}}],
+          "common": {
+            "style": "暖奶油与橄榄黄的纵向复古杂志美妆风，大字号、强人像和单屏单卖点",
+            "design_strengths": ["首屏在窄屏内保留封面式大标题、人物和完整套装", "三项特性从横向三列改为纵向大卡，产品细节更易读", "眼部效果交错排布，避免机械网格", "末屏用三人拼贴形成强生活方式氛围"],
+            "hero": {"height_ratio": 0.28, "visual_center": [560, 150], "product_position": "左下或下半幅大比例露出", "model_position": "右上，占首屏约半幅", "text_blocks": 3, "text_area_ratio": 0.20, "elements": [{"type": "title", "bbox": [30, 15, 760, 105], "alignment": "左对齐", "overlap": "可叠加手写字但不压脸"}, {"type": "model", "bbox": [410, 20, 1000, 285], "alignment": "右侧", "overlap": "人物贴边"}, {"type": "product", "bbox": [0, 135, 610, 300], "alignment": "左下", "overlap": "完整露出"}]},
+            "sections": [
+              {"type": "editorial_hero", "height_ratio": 0.28, "bbox": [0, 0, 1000, 280], "alignment": "窄屏不对称封面", "whitespace_ratio": 0.12, "elements": []},
+              {"type": "feature_cards", "height_ratio": 0.24, "bbox": [0, 280, 1000, 520], "alignment": "三张纵向卡", "whitespace_ratio": 0.16, "elements": [{"type": "detail", "bbox": [25, 295, 975, 365], "alignment": "单列", "overlap": "圆角"}, {"type": "detail", "bbox": [25, 375, 975, 445], "alignment": "单列", "overlap": "圆角"}, {"type": "detail", "bbox": [25, 455, 975, 515], "alignment": "单列", "overlap": "圆角"}]},
+              {"type": "wearing_styles", "height_ratio": 0.18, "bbox": [0, 520, 1000, 700], "alignment": "上下交错大图", "whitespace_ratio": 0.12, "elements": [{"type": "detail", "bbox": [25, 535, 680, 610], "alignment": "偏左", "overlap": "文字沿下缘"}, {"type": "detail", "bbox": [320, 620, 975, 695], "alignment": "偏右", "overlap": "文字沿下缘"}]},
+              {"type": "specification_detail", "height_ratio": 0.17, "bbox": [0, 700, 1000, 870], "alignment": "上下大图与规格条", "whitespace_ratio": 0.14, "elements": [{"type": "product", "bbox": [70, 715, 930, 805], "alignment": "居中", "overlap": "弧形标注"}, {"type": "selling_point", "bbox": [55, 815, 945, 860], "alignment": "横向", "overlap": "短句"}]},
+              {"type": "lifestyle_collage", "height_ratio": 0.13, "bbox": [0, 870, 1000, 1000], "alignment": "三人竖幅拼贴", "whitespace_ratio": 0.03, "elements": [{"type": "model", "bbox": [0, 880, 350, 1000], "alignment": "左", "overlap": "软融合"}, {"type": "model", "bbox": [325, 870, 690, 1000], "alignment": "中", "overlap": "软融合"}, {"type": "model", "bbox": [665, 880, 1000, 1000], "alignment": "右", "overlap": "软融合"}]}
+            ],
+            "typography": {"hierarchy": ["超大高对比衬线标题", "手写签名字", "粗体卖点", "短正文"], "text_blocks": 10, "density": "中低", "alignment": "左对齐或图文左右交替", "max_title_lines": 3},
+            "background": {"palette": ["#F8E7C4", "#F7F0DE", "#777357", "#FFD900", "#7B3310"], "lighting": "暖调柔焦与局部黄色光晕", "decorative_language": "超大淡化单词、黄色虚线圆、短引导线、橄榄标签", "depth": "产品和眼部特写前景清楚，背景柔和", "continuity": "奶油底色从首屏延续到末屏"},
+            "reading_flow": ["封面式首屏", "三张纵向特性卡", "佩戴效果", "规格与结构", "多人拼贴"],
+            "cross_section_rules": ["每屏一个核心卖点", "卡片宽度统一且贴合手机安全边距", "交错大图用背景留白连接，不用硬色块切断"],
+            "product_placement_rules": ["首屏完整套装必须足够大", "产品微距与说明在同一视区", "人物图不得挤压规格文字"],
+            "anti_patterns": ["手机端三列小卡", "正文长段落", "过多图标或徽章", "标题贴边裁切"],
+            "device_rules": ["面向 600×1800 或等比例手机长图", "将电脑端三列模块改为三张上下卡片，双列对比改为上下交错", "所有重要文字保持 8% 以上左右安全边距"],
+            "layout_rules": ["特性卡图文可左右互换但保持单一焦点", "眼部效果使用大圆角图并交错排列", "最后一屏保留三人并列，但不叠加大段正文"]
+          }
+        }
+      }
+    ],
+    "28": [
+      {
+        "skill_id": "builtin-shop-28-desktop",
+        "title": "店铺 28｜电脑端 A+ 风格",
+        "device": "desktop",
+        "source_examples": ["28-73A-A+.jpg", "83B---1464.jpg", "87B-1464.jpg"],
+        "analysis": {
+          "schema_version": 1,
+          "case_count": 3,
+          "cases": [{"canvas": {"width": 1464, "height": 3000, "aspect_ratio": "1464:3000"}}, {"canvas": {"width": 1464, "height": 3000, "aspect_ratio": "1464:3000"}}, {"canvas": {"width": 1464, "height": 3000, "aspect_ratio": "1464:3000"}}],
+          "common": {
+            "style": "高饱和粉色主导的 Y2K 社媒美妆拼贴风，年轻、外向、强调网红人像和可视化产品证据",
+            "design_strengths": ["首屏用超大人物、完整套装和夸张标题制造社媒停留感", "粉红渐变、奶油黄与白色形成明快但统一的品牌识别", "有机弧形、斜切、环绕字与社媒涂鸦让版面有运动感", "产品结构、佩戴前后和规格数量均用大图直接证明"],
+            "hero": {"height_ratio": 0.36, "visual_center": [585, 165], "product_position": "中下或右下，完整包装大比例展示", "model_position": "左侧或右侧超大人像，占半幅以上", "text_blocks": 3, "text_area_ratio": 0.18, "elements": [{"type": "model", "bbox": [0, 0, 565, 360], "alignment": "左侧大切图", "overlap": "可与弧形背景叠加"}, {"type": "title", "bbox": [20, 20, 960, 90], "alignment": "横向跨幅", "overlap": "低层级可被人物局部穿插"}, {"type": "product", "bbox": [550, 170, 950, 355], "alignment": "右下", "overlap": "完整且不遮规格"}]},
+            "sections": [
+              {"type": "social_hero", "height_ratio": 0.36, "bbox": [0, 0, 1000, 360], "alignment": "强不对称拼贴", "whitespace_ratio": 0.10, "elements": []},
+              {"type": "product_proof", "height_ratio": 0.25, "bbox": [0, 360, 1000, 610], "alignment": "超大产品与卖点斜向穿插", "whitespace_ratio": 0.14, "elements": [{"type": "product", "bbox": [40, 390, 680, 570], "alignment": "斜向或横向", "overlap": "局部可越过有机色块"}, {"type": "selling_point", "bbox": [620, 390, 960, 570], "alignment": "右侧", "overlap": "大字号短句"}]},
+              {"type": "wearing_evidence", "height_ratio": 0.20, "bbox": [0, 610, 1000, 810], "alignment": "前后对比或双列眼部图", "whitespace_ratio": 0.10, "elements": [{"type": "detail", "bbox": [50, 635, 570, 760], "alignment": "左或上", "overlap": "白框或圆角"}, {"type": "model", "bbox": [610, 620, 1000, 810], "alignment": "右侧", "overlap": "可跨至下一模块"}]},
+              {"type": "quantity_and_finish", "height_ratio": 0.19, "bbox": [0, 810, 1000, 1000], "alignment": "包装大图与规格阵列", "whitespace_ratio": 0.12, "elements": [{"type": "product", "bbox": [20, 825, 610, 995], "alignment": "左下", "overlap": "包装完整"}, {"type": "detail", "bbox": [630, 835, 970, 980], "alignment": "右侧", "overlap": "正确/错误或长度规格"}]}
+            ],
+            "typography": {"hierarchy": ["超大时尚衬线或 Y2K 展示字", "高粗无衬线标题", "细体短句", "手写或环绕装饰字"], "text_blocks": 10, "density": "中高但分组明确", "alignment": "不对称、弧形与斜向混合", "max_title_lines": 3},
+            "background": {"palette": ["#F6AED4", "#EF4FA7", "#FFF0F7", "#FFF3C7", "#D60067", "#FFFFFF"], "lighting": "粉色渐变光、柔和人像光与局部高亮", "decorative_language": "有机波浪色块、斜切、环绕文字、社媒线稿图标、超大背景字", "depth": "人物与包装在前景，半透明人像或字母在背景", "continuity": "粉色系贯穿，用波浪和渐变跨区"},
+            "reading_flow": ["网红式首屏", "产品造型与结构", "佩戴或前后证据", "数量规格与使用细节"],
+            "cross_section_rules": ["粉色深浅变化但不得跳出主色体系", "弧形和斜线推动视线向下", "每段至少有一个大尺度人物或产品焦点"],
+            "product_placement_rules": ["首屏包装必须完整且与人物形成双焦点", "产品纤维或结构微距可放大跨区", "数量与长度用图形化阵列直接表达"],
+            "anti_patterns": ["低饱和商务蓝灰", "整齐呆板的等宽卡片墙", "大段技术正文", "无人物、无情绪的纯目录式展示"],
+            "device_rules": ["以 1464×2400 或同类电脑端长图为目标", "允许双列社媒拼贴和跨栏人物，但保持一个主视觉中心", "使用宽画幅做人物/产品对照，避免所有内容都居中"],
+            "layout_rules": ["标题、人物和产品可重叠但不能互相遮挡关键信息", "正确/错误对比只使用清楚的局部微距和简洁符号", "环绕文字与社媒图标仅作装饰，不能喧宾夺主"]
+          }
+        }
+      },
+      {
+        "skill_id": "builtin-shop-28-mobile",
+        "title": "店铺 28｜手机版 A+ 风格",
+        "device": "mobile",
+        "source_examples": ["28-73A-A+(600).jpg", "83B---600.jpg", "87B-600.jpg"],
+        "analysis": {
+          "schema_version": 1,
+          "case_count": 3,
+          "cases": [{"canvas": {"width": 600, "height": 2250, "aspect_ratio": "600:2250"}}, {"canvas": {"width": 600, "height": 2250, "aspect_ratio": "600:2250"}}, {"canvas": {"width": 600, "height": 2250, "aspect_ratio": "600:2250"}}],
+          "common": {
+            "style": "高饱和粉色 Y2K 社媒美妆长图，强调手机首屏冲击、纵向大图和短促卖点",
+            "design_strengths": ["手机首屏用超大人像和套装快速建立情绪与商品识别", "超大产品微距纵向跨屏，避免把细节缩成小图", "前后对比、眼部效果与规格信息依次展开，阅读顺序直接", "波浪底色、环绕字和少量社媒涂鸦维持年轻动势"],
+            "hero": {"height_ratio": 0.32, "visual_center": [560, 150], "product_position": "首屏下半部或右下，包装完整", "model_position": "上半部大人像，可贴左右边", "text_blocks": 3, "text_area_ratio": 0.16, "elements": [{"type": "title", "bbox": [15, 10, 980, 80], "alignment": "跨幅", "overlap": "可被人物局部穿插"}, {"type": "model", "bbox": [0, 0, 720, 315], "alignment": "偏左或偏右", "overlap": "贴边裁切但保留脸部"}, {"type": "product", "bbox": [420, 175, 960, 325], "alignment": "右下", "overlap": "包装完整"}]},
+            "sections": [
+              {"type": "social_hero", "height_ratio": 0.32, "bbox": [0, 0, 1000, 320], "alignment": "窄屏强拼贴", "whitespace_ratio": 0.08, "elements": []},
+              {"type": "product_proof", "height_ratio": 0.27, "bbox": [0, 320, 1000, 590], "alignment": "单列超大微距", "whitespace_ratio": 0.12, "elements": [{"type": "product", "bbox": [0, 350, 1000, 535], "alignment": "跨幅", "overlap": "有机色块穿插"}, {"type": "selling_point", "bbox": [55, 520, 820, 585], "alignment": "左对齐", "overlap": "奶油胶囊底"}]},
+              {"type": "wearing_evidence", "height_ratio": 0.18, "bbox": [0, 590, 1000, 770], "alignment": "双图或上下对比", "whitespace_ratio": 0.10, "elements": [{"type": "detail", "bbox": [25, 610, 475, 735], "alignment": "左", "overlap": "圆角"}, {"type": "detail", "bbox": [525, 610, 975, 735], "alignment": "右", "overlap": "圆角"}]},
+              {"type": "quantity_and_finish", "height_ratio": 0.23, "bbox": [0, 770, 1000, 1000], "alignment": "包装大图后接规格阵列", "whitespace_ratio": 0.10, "elements": [{"type": "product", "bbox": [40, 785, 960, 925], "alignment": "居中", "overlap": "包装完整"}, {"type": "detail", "bbox": [30, 925, 970, 995], "alignment": "横向阵列", "overlap": "大数字优先"}]}
+            ],
+            "typography": {"hierarchy": ["超大 Y2K 展示标题", "高粗无衬线卖点", "细体短句", "弧形装饰字"], "text_blocks": 9, "density": "中等", "alignment": "跨幅标题与短行左对齐", "max_title_lines": 3},
+            "background": {"palette": ["#F6AED4", "#EF4FA7", "#FFF0F7", "#FFF3C7", "#D60067", "#FFFFFF"], "lighting": "粉红渐变、人像柔光和局部高亮", "decorative_language": "波浪色块、斜线、环绕字、少量社媒线稿和大背景字", "depth": "人物和产品清楚，背景装饰半透明", "continuity": "粉色渐变和有机曲线跨屏连接"},
+            "reading_flow": ["手机首屏人物与包装", "产品结构大微距", "佩戴或前后效果", "完整包装与规格"],
+            "cross_section_rules": ["每屏一个大焦点", "波浪曲线承担转场，避免矩形硬切", "装饰文字必须远离正文和商品关键信息"],
+            "product_placement_rules": ["首屏和末段各完整展示一次包装", "细节区使用横跨画布的产品微距", "规格必须用大数字和清楚阵列"],
+            "anti_patterns": ["手机端缩小复制电脑双列", "正文密集", "粉色之外加入过多竞争色", "装饰遮住人物眼部或包装文字"],
+            "device_rules": ["面向 600×1800 或等比例手机长图", "电脑端双栏拼贴改为上下分层，人物与商品仍可轻微重叠", "所有主要文字保持 8% 以上左右安全边距"],
+            "layout_rules": ["产品结构区允许一张大图占据接近整屏", "双眼效果只保留两张并列或前后两层，不做小图矩阵", "末屏用完整包装加规格阵列收束"]
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "ads-monitor-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "sync:data": "node scripts/sync-monitor-data.mjs",
+    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "build:flask": "vite build --base=/ai/ads-monitor/ --outDir=dist-flask",
+    "preview": "vite preview",
+    "test:sites": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@vitejs/plugin-react": "5.0.4",
+    "echarts": "^6.1.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "recharts": "^3.10.1",
+    "vite": "6.4.2"
+  }
+}

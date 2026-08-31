@@ -2,12 +2,13 @@ import asyncio
 import concurrent.futures
 import time
 from threading import Lock, Thread
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory, send_file
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory, send_file, g
 from openai import OpenAI
 from datetime import datetime, timedelta, date
 from collections import Counter
 import sqlite3
 import os
+import sys
 import json
 import re
 import base64
@@ -15,8 +16,9 @@ import hashlib
 import mimetypes
 import requests
 import importlib.util
-from functools import partial
-from secret_settings import TUCHUANGAI_STORAGE_ROOT, ai_runtime_config, env, relocate_storage_path, sql_server_config
+from functools import partial, wraps
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from secret_settings import TUCHUANGAI_STORAGE_ROOT, ai_runtime_config, env, env_int, relocate_storage_path, sql_server_config
 from tools import ai_chat_complete, is_mobile_user_agent, safe_print as _safe_debug_print
 from xiaotu_report_memory import render_report_memory_context, update_report_memory_file
 from html import escape as html_escape, unescape as html_unescape
@@ -46,6 +48,13 @@ from seedance_web import seedance_web_bp
 from yangban_inventory import yangban_inventory_bp
 from tk_gmv_authorization import tk_gmv_authorization_bp
 from listing_agent import listing_agent_bp
+from listing_agent_v2 import listing_agent_v2_bp
+from business_analysis_access import (
+    BUSINESS_ANALYSIS_DEPARTMENTS,
+    force_business_analysis_query_params,
+    prepare_business_analysis_payload,
+    resolve_business_analysis_scope,
+)
 
 app = Flask(__name__)
 app.secret_key = env("FLASK_SECRET_KEY", "change-this-secret-key")  # 用于session加密
@@ -112,6 +121,24 @@ _LASHFORGE_HEALTH_URL = (os.environ.get("LASHFORGE_HEALTH_URL") or "http://127.0
 _LASHFORGE_AUTH_TOKEN_SALT = "lashforge-auth-v1"
 _lashforge_watchdog_lock = Lock()
 _lashforge_watchdog_last_attempt = 0.0
+_BUSINESS_ANALYSIS_ROOT = os.path.join(os.path.dirname(__file__), "business_analysis")
+_BUSINESS_ANALYSIS_DIST_DIR = os.path.join(_BUSINESS_ANALYSIS_ROOT, "dist-flask")
+_BUSINESS_ANALYSIS_API_PORT = env_int("SALES_API_PORT", 4311)
+_BUSINESS_ANALYSIS_HEALTH_URL = f"http://127.0.0.1:{_BUSINESS_ANALYSIS_API_PORT}/api/health"
+_business_analysis_start_lock = Lock()
+_business_analysis_last_start_attempt = 0.0
+_ADS_MONITOR_ROOT = os.path.join(
+    os.path.dirname(__file__),
+    "ads_monitor_web",
+    "ads-monitor-web-full-source",
+)
+_ADS_MONITOR_WEB_ROOT = os.path.join(_ADS_MONITOR_ROOT, "ads-monitor-web")
+_ADS_MONITOR_DIST_DIR = os.path.join(_ADS_MONITOR_WEB_ROOT, "dist-flask")
+_ADS_MONITOR_PYTHON_DEPS_DIR = os.path.join(_ADS_MONITOR_ROOT, ".python_deps")
+_ADS_MONITOR_API_PORT = 4174
+_ADS_MONITOR_HEALTH_URL = f"http://127.0.0.1:{_ADS_MONITOR_API_PORT}/api/diagnostic/health"
+_ads_monitor_start_lock = Lock()
+_ads_monitor_last_start_attempt = 0.0
 _INFINITE_CANVAS_OPENROUTER_IMAGE_MODELS = (
     "google/gemini-2.5-flash-image",
     "google/gemini-3.1-flash-image",
@@ -433,6 +460,9 @@ def _build_mobile_function_cards(accessible_functions):
         elif function_name == 'tech_dept':
             href = url_for('tech_dept')
             icon = 'fa-solid fa-microchip'
+        elif function_name == 'rd_dept':
+            href = url_for('rd_dept')
+            icon = 'fa-solid fa-flask'
         elif function_name == 'visual_design_dept':
             href = url_for('visual_design_dept')
             icon = 'fa-solid fa-palette'
@@ -573,6 +603,169 @@ def _ensure_lashforge_watchdog_started():
             return False
 
 
+def _is_business_analysis_api_reachable(timeout=2.0):
+    try:
+        response = requests.get(_BUSINESS_ANALYSIS_HEALTH_URL, timeout=timeout)
+        return 200 <= response.status_code < 400
+    except Exception:
+        return False
+
+
+def _ensure_business_analysis_api_started():
+    """Start the localhost-only dashboard API when the AI page first needs it."""
+    global _business_analysis_last_start_attempt
+    if _is_business_analysis_api_reachable(timeout=0.8):
+        return True
+
+    with _business_analysis_start_lock:
+        now = time.time()
+        if now - _business_analysis_last_start_attempt < 30:
+            return False
+        _business_analysis_last_start_attempt = now
+
+        script_path = os.path.join(_BUSINESS_ANALYSIS_ROOT, "scripts", "start-api.ps1")
+        if not os.path.exists(script_path):
+            app.logger.warning("Business analysis API launcher not found: %s", script_path)
+            return False
+
+        try:
+            import subprocess
+
+            creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            subprocess.Popen(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-WindowStyle",
+                    "Hidden",
+                    "-File",
+                    script_path,
+                    "-ApiPort",
+                    str(_BUSINESS_ANALYSIS_API_PORT),
+                ],
+                cwd=_BUSINESS_ANALYSIS_ROOT,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=creationflags,
+            )
+            return True
+        except Exception as exc:
+            app.logger.warning("Failed to start business analysis API: %s", exc)
+            return False
+
+
+def _is_ads_monitor_api_reachable(timeout=2.0):
+    try:
+        response = requests.get(_ADS_MONITOR_HEALTH_URL, timeout=timeout)
+        return 200 <= response.status_code < 400
+    except requests.RequestException:
+        return False
+
+
+def _ensure_ads_monitor_api_started():
+    """Start the localhost-only Sellfox diagnostic API on first use."""
+    global _ads_monitor_last_start_attempt
+    if _is_ads_monitor_api_reachable(timeout=0.8):
+        return True
+
+    with _ads_monitor_start_lock:
+        now = time.time()
+        if now - _ads_monitor_last_start_attempt < 30:
+            return False
+        _ads_monitor_last_start_attempt = now
+
+        script_path = os.path.join(_ADS_MONITOR_ROOT, "sellfox_ad_diagnostic_server.py")
+        if not os.path.isfile(script_path):
+            app.logger.warning("Ads monitor API entry not found: %s", script_path)
+            return False
+
+        child_env = os.environ.copy()
+        if os.path.isdir(_ADS_MONITOR_PYTHON_DEPS_DIR):
+            existing_python_path = str(child_env.get("PYTHONPATH") or "").strip()
+            child_env["PYTHONPATH"] = os.pathsep.join(
+                part
+                for part in (_ADS_MONITOR_PYTHON_DEPS_DIR, existing_python_path)
+                if part
+            )
+
+        try:
+            import subprocess
+
+            creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            subprocess.Popen(
+                [sys.executable, script_path],
+                cwd=_ADS_MONITOR_ROOT,
+                env=child_env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=creationflags,
+            )
+            return True
+        except Exception as exc:
+            app.logger.warning("Failed to start ads monitor API: %s", exc)
+            return False
+
+
+def _get_business_analysis_scope(resolve_leader=False):
+    cache_key = "business_analysis_scope_with_leader" if resolve_leader else "business_analysis_scope"
+    cached = getattr(g, cache_key, None)
+    if isinstance(cached, dict):
+        return cached
+
+    user_id = str(session.get('feishu_user_id') or '').strip()
+    user_name = _normalize_feishu_user_name(session.get('feishu_user_name'), fallback='')
+    try:
+        department_rows = permission_manager.get_user_departments(user_id) or []
+    except Exception:
+        department_rows = []
+    fallback_department = str(session.get('user_department') or '').strip()
+    if fallback_department and not any(
+        str(row.get('name') or '').strip() == fallback_department
+        for row in department_rows
+        if isinstance(row, dict)
+    ):
+        department_rows = list(department_rows) + [{
+            'department_id': f'local:{fallback_department}',
+            'name': fallback_department,
+            'status': 'active',
+        }]
+
+    leader_getter = (
+        lambda department_id: ""
+        if str(department_id or '').startswith('local:')
+        else _xiaotu_get_department_leader_user_id(department_id)
+    ) if resolve_leader else None
+    scope = resolve_business_analysis_scope(
+        user_id,
+        user_name,
+        department_rows,
+        leader_id_getter=leader_getter,
+    )
+    if isinstance(scope, dict):
+        setattr(g, cache_key, scope)
+    return scope
+
+
+def _require_business_analysis_access(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if _get_business_analysis_scope(resolve_leader=False):
+            return view(*args, **kwargs)
+        message = f"经营分析仅限{'、'.join(BUSINESS_ANALYSIS_DEPARTMENTS)}成员访问"
+        if request.path.startswith('/api/'):
+            return jsonify({
+                'error': {'code': 'BUSINESS_ANALYSIS_FORBIDDEN', 'message': message}
+            }), 403
+        flash(message, 'error')
+        return redirect(url_for('dashboard'))
+
+    return wrapped
+
+
 def _normalize_dashboard_functions(accessible_functions):
     normalized = []
     for idx, func in enumerate(accessible_functions or []):
@@ -655,7 +848,9 @@ def _clear_feishu_identity_session():
         'feishu_user_id', 'feishu_open_id', 'feishu_user_name', 'feishu_user_email', 'feishu_email',
         'feishu_avatar', 'feishu_user_access_token', 'feishu_user_refresh_token',
         'feishu_user_access_token_expire_at', 'preloaded_departments', 'preloaded_functions',
-        'preload_time', 'user_department', 'login_time'
+        'preload_time', 'user_department', 'login_time',
+        'permission_debug_departments', 'permission_debug_user_name',
+        'permission_debug_user_open_id', 'permission_debug_updated_at'
     ]:
         session.pop(k, None)
 
@@ -3968,6 +4163,7 @@ app.register_blueprint(innovation_proposals_bp)
 app.register_blueprint(innovation_bp)
 app.register_blueprint(tk_dashboard_bp)
 app.register_blueprint(listing_agent_bp)
+app.register_blueprint(listing_agent_v2_bp)
 app.register_blueprint(bd_metrics_bp)
 app.register_blueprint(knowledge_base_bp)
 app.register_blueprint(seedance_web_bp, url_prefix="/seedance-web")
@@ -4271,6 +4467,12 @@ def dev_login():
             'name': '运营六部测试用户',
             'email': 'operation6_test@company.com',
             'department': '运营六部'
+        },
+        'operation7': {
+            'user_id': 'dev_operation7_user_001',
+            'name': '运营七部测试用户',
+            'email': 'operation7_test@company.com',
+            'department': '运营七部'
         }
     }
 
@@ -9680,6 +9882,7 @@ def dashboard():
                            user_id=user_id,
                            user_department=user_department,
                            accessible_functions=accessible_functions,
+                           can_switch_identity=_can_dashboard_switch_identity(),
                            permission_debug_departments=session.get('permission_debug_departments') or [],
                            permission_debug_user_name=str(session.get('permission_debug_user_name') or '').strip())
 
@@ -14723,6 +14926,76 @@ def api_tk_customer_service_shops():
         return jsonify({'success': False, 'message': f'获取店铺列表失败: {str(e)}'}), 500
 
 
+def _tk_customer_service_build_export_rows(items):
+    """Build every requested export row and separately collect validation errors.
+
+    Address validation is advisory: a malformed address must not make a matching
+    customer-service record disappear from the primary export sheet.
+    """
+    export_rows = []
+    error_rows = []
+    for item in items or []:
+        raw_address = item.get('wanghongdizhi', '')
+        order_no = item.get('FaYangDingDanHao', '')
+        parsed = _tk_parse_wanghong_address(raw_address)
+        export_contact = _tk_prepare_export_contact_fields(raw_address, parsed)
+        errors = _tk_validate_export_address(raw_address, parsed, order_no)
+        if errors:
+            error_rows.append({
+                '订单号': order_no,
+                'SKU': item.get('SKU', ''),
+                '店铺': item.get('dian', ''),
+                '客服备注': item.get('kefubeizhu', ''),
+                '网红地址原文': raw_address,
+                '错误原因': '；'.join(errors)
+            })
+
+        shop_raw = str(item.get('dian') or '').strip()
+        shop_label = f"{shop_raw}（自发货）" if shop_raw else ''
+        export_rows.append({
+            '*订单号': order_no,
+            '*店铺名称': shop_label,
+            '*sku': item.get('SKU', ''),
+            '*数量': 1,
+            '*单价': 0,
+            '买家运费': '',
+            '币种（默认USD）': 'USD',
+            '买家指定物流': '',
+            '下单时间': '',
+            '发货截止时间': '',
+            '发货仓库': '',
+            'IOSS税号': '',
+            '买家留言': '',
+            '*收件人': export_contact.get('receiver', ''),
+            '*地址1': export_contact.get('address1', ''),
+            '地址2': '',
+            '短地址': str(raw_address or '').strip(),
+            '*城市': export_contact.get('city', ''),
+            '州/省': export_contact.get('state', ''),
+            '区/县': '',
+            '*国家二字码': export_contact.get('country', '') or 'US',
+            '*邮编': export_contact.get('zipcode', ''),
+            '电话': export_contact.get('phone', ''),
+            '手机': '',
+            '邮箱': '',
+            '税号': '',
+            '门牌号': '',
+            '订单备注': item.get('kefubeizhu', ''),
+            '中文报关名': '',
+            '英文报关名': '',
+            '申报金额（USD）': '',
+            '申报重量（g）': '',
+            '材质': '',
+            '用途': '',
+            '海关编码': '',
+            '报关属性': '',
+            '业务员': '',
+            '交易方式': '',
+            '买方公司': ''
+        })
+    return export_rows, error_rows
+
+
 @app.route('/api/tk_customer_service/export', methods=['GET'])
 @require_permission('tk_customer_service')
 def api_tk_customer_service_export():
@@ -14738,73 +15011,15 @@ def api_tk_customer_service_export():
             datetime.strptime(end_date, '%Y-%m-%d')
         except Exception:
             return jsonify({'success': False, 'message': '日期格式错误，应为YYYY-MM-DD'}), 400
+        if start_date > end_date:
+            return jsonify({'success': False, 'message': '开始日期不能晚于结束日期'}), 400
         items = _tk_customer_service_query_rows(start_date, end_date, shop_names, importer_names, order_nos)
         headers = [
             '*订单号', '*店铺名称', '*sku', '*数量', '*单价', '买家运费', '币种（默认USD）', '买家指定物流', '下单时间', '发货截止时间', '发货仓库', 'IOSS税号', '买家留言',
             '*收件人', '*地址1', '地址2', '短地址', '*城市', '州/省', '区/县', '*国家二字码', '*邮编', '电话', '手机', '邮箱', '税号', '门牌号', '订单备注',
             '中文报关名', '英文报关名', '申报金额（USD）', '申报重量（g）', '材质', '用途', '海关编码', '报关属性', '业务员', '交易方式', '买方公司'
         ]
-        export_rows = []
-        error_rows = []
-        for item in items:
-            parsed = _tk_parse_wanghong_address(item.get('wanghongdizhi', ''))
-            raw_address = item.get('wanghongdizhi', '')
-            order_no = item.get('FaYangDingDanHao', '')
-            errors = _tk_validate_export_address(raw_address, parsed, order_no)
-            if errors:
-                error_rows.append({
-                    '订单号': order_no,
-                    'SKU': item.get('SKU', ''),
-                    '店铺': item.get('dian', ''),
-                    '客服备注': item.get('kefubeizhu', ''),
-                    '网红地址原文': raw_address,
-                    '错误原因': '；'.join(errors)
-                })
-                continue
-            shop_raw = str(item.get('dian') or '').strip()
-            shop_label = f"{shop_raw}（自发货）" if shop_raw else ''
-            export_contact = _tk_prepare_export_contact_fields(raw_address, parsed)
-            export_rows.append({
-                '*订单号': order_no,
-                '*店铺名称': shop_label,
-                '*sku': item.get('SKU', ''),
-                '*数量': 1,
-                '*单价': 0,
-                '买家运费': '',
-                '币种（默认USD）': 'USD',
-                '买家指定物流': '',
-                '下单时间': '',
-                '发货截止时间': '',
-                '发货仓库': '',
-                'IOSS税号': '',
-                '买家留言': '',
-                '*收件人': export_contact.get('receiver', ''),
-                '*地址1': export_contact.get('address1', ''),
-                '地址2': '',
-                '短地址': str(raw_address or '').strip(),
-                '*城市': export_contact.get('city', ''),
-                '州/省': export_contact.get('state', ''),
-                '区/县': '',
-                '*国家二字码': export_contact.get('country', '') or 'US',
-                '*邮编': export_contact.get('zipcode', ''),
-                '电话': export_contact.get('phone', ''),
-                '手机': '',
-                '邮箱': '',
-                '税号': '',
-                '门牌号': '',
-                '订单备注': item.get('kefubeizhu', ''),
-                '中文报关名': '',
-                '英文报关名': '',
-                '申报金额（USD）': '',
-                '申报重量（g）': '',
-                '材质': '',
-                '用途': '',
-                '海关编码': '',
-                '报关属性': '',
-                '业务员': '',
-                '交易方式': '',
-                '买方公司': ''
-            })
+        export_rows, error_rows = _tk_customer_service_build_export_rows(items)
         import pandas as pd
         from io import BytesIO
         df = pd.DataFrame(export_rows, columns=headers)
@@ -14812,7 +15027,7 @@ def api_tk_customer_service_export():
         error_headers = ['订单号', 'SKU', '店铺', '客服备注', '网红地址原文', '错误原因']
         error_df = pd.DataFrame(error_rows, columns=error_headers)
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='正确数据')
+            df.to_excel(writer, index=False, sheet_name='全部数据')
             error_df.to_excel(writer, index=False, sheet_name='导出错误列表')
         output.seek(0)
         now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -16978,6 +17193,22 @@ def tech_dept():
                            dept_name='技术部',
                            dept_id='tech_dept')
 
+
+@app.route('/rd_dept')
+@require_permission('rd_dept')
+def rd_dept():
+    """研发部功能页面"""
+    user_id = session.get('feishu_user_id')
+    user_name = session.get('feishu_user_name', '用户')
+    permission_flags = _operation_page_permission_flags(user_id)
+    return render_template('operation_dept.html',
+                           user_name=user_name,
+                           user_id=user_id,
+                           dept_name='研发部',
+                           dept_id='rd_dept',
+                           **permission_flags)
+
+
 @app.route('/photography_dept')
 @require_permission('photography_dept')
 def photography_dept():
@@ -17240,6 +17471,255 @@ def ai_modules():
     return render_template('ai_modules.html', user_id=user_id, user_name=user_name)
 
 
+_AI_UPDATE_QUERY = "select * from gengxin where riqi=convert(date, getdate())"
+
+
+def _format_ai_update_cell(value):
+    if value is None:
+        return "—"
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+@app.route('/ai/update')
+@require_permission('ai_dept')
+def ai_update():
+    """Show today's rows from the gengxin table for AI department users."""
+    try:
+        raw_columns = sf_db(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_NAME = 'gengxin' ORDER BY ORDINAL_POSITION"
+        ) or []
+        columns = [
+            str(column[0] if isinstance(column, (list, tuple)) else column)
+            for column in raw_columns
+        ]
+
+        raw_rows = sf_db(_AI_UPDATE_QUERY) or []
+        normalized_rows = []
+        for raw_row in raw_rows:
+            values = list(raw_row) if isinstance(raw_row, (list, tuple)) else [raw_row]
+            normalized_rows.append([_format_ai_update_cell(value) for value in values])
+
+        widest_row = max((len(row) for row in normalized_rows), default=0)
+        if widest_row > len(columns):
+            columns.extend(
+                f"列{index}"
+                for index in range(len(columns) + 1, widest_row + 1)
+            )
+        for row in normalized_rows:
+            row.extend("—" for _ in range(len(columns) - len(row)))
+
+        return render_template(
+            'ai_update.html',
+            columns=columns,
+            rows=normalized_rows,
+            loaded_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            error=None,
+        )
+    except Exception:
+        app.logger.exception("Failed to query today's gengxin rows")
+        return render_template(
+            'ai_update.html',
+            columns=[],
+            rows=[],
+            loaded_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            error='查询失败，请稍后重试或联系管理员。',
+        ), 503
+
+
+@app.route('/ai/business-analysis')
+@_require_business_analysis_access
+def business_analysis():
+    """AI 部经营分析看板；页面资源与实时数据均经过主站权限校验。"""
+    index_path = os.path.join(_BUSINESS_ANALYSIS_DIST_DIR, 'index.html')
+    if not os.path.isfile(index_path):
+        return render_template(
+            'business_analysis_unavailable.html',
+            reason='经营分析前端资源尚未构建，请联系管理员执行构建。',
+        ), 503
+    _ensure_business_analysis_api_started()
+    response = send_from_directory(_BUSINESS_ANALYSIS_DIST_DIR, 'index.html')
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/ai/business-analysis/assets/<path:filename>')
+@_require_business_analysis_access
+def business_analysis_asset(filename):
+    response = send_from_directory(_BUSINESS_ANALYSIS_DIST_DIR, filename)
+    response.headers['Cache-Control'] = 'private, max-age=31536000, immutable'
+    return response
+
+
+@app.route('/ai/ads-monitor')
+@require_permission('ai_dept')
+def ads_monitor():
+    """AI 部 MAGIC AD 广告监控工作台。"""
+    index_path = os.path.join(_ADS_MONITOR_DIST_DIR, 'index.html')
+    if not os.path.isfile(index_path):
+        return render_template(
+            'ads_monitor_unavailable.html',
+            reason='广告监控前端资源尚未构建，请联系管理员执行构建。',
+        ), 503
+    _ensure_ads_monitor_api_started()
+    response = send_from_directory(_ADS_MONITOR_DIST_DIR, 'index.html')
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/ai/ads-monitor/<path:filename>')
+@require_permission('ai_dept')
+def ads_monitor_asset(filename):
+    response = send_from_directory(_ADS_MONITOR_DIST_DIR, filename)
+    if filename.startswith('assets/'):
+        response.headers['Cache-Control'] = 'private, max-age=31536000, immutable'
+    else:
+        response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/api/ads-monitor/diagnostic', defaults={'subpath': ''}, methods=['GET', 'POST'])
+@app.route('/api/ads-monitor/diagnostic/<path:subpath>', methods=['GET', 'POST'])
+@require_permission('ai_dept')
+def ads_monitor_diagnostic_api(subpath):
+    if not _is_ads_monitor_api_reachable(timeout=0.8):
+        _ensure_ads_monitor_api_started()
+        for _ in range(24):
+            time.sleep(0.25)
+            if _is_ads_monitor_api_reachable(timeout=0.5):
+                break
+        else:
+            return jsonify({
+                'error': {
+                    'code': 'ADS_MONITOR_SERVICE_STARTING',
+                    'message': '广告诊断服务正在启动，请稍后刷新。',
+                }
+            }), 503
+
+    upstream_path = '/api/diagnostic'
+    if subpath:
+        upstream_path += '/' + str(subpath).lstrip('/')
+    upstream_headers = {
+        'Accept': request.headers.get('Accept') or 'application/json',
+    }
+    if request.method == 'POST':
+        upstream_headers['Content-Type'] = request.headers.get('Content-Type') or 'application/json'
+        upstream_headers['Origin'] = 'http://127.0.0.1:4173'
+        control_token = str(request.headers.get('X-SP-Control-Token') or '').strip()
+        if control_token:
+            upstream_headers['X-SP-Control-Token'] = control_token
+
+    try:
+        upstream = requests.request(
+            method=request.method,
+            url=f'http://127.0.0.1:{_ADS_MONITOR_API_PORT}{upstream_path}',
+            params=list(request.args.items(multi=True)),
+            data=request.get_data() if request.method == 'POST' else None,
+            headers=upstream_headers,
+            timeout=70,
+        )
+    except requests.RequestException:
+        return jsonify({
+            'error': {
+                'code': 'ADS_MONITOR_SERVICE_UNAVAILABLE',
+                'message': '广告诊断服务暂时不可用，请稍后刷新。',
+            }
+        }), 503
+
+    response = app.response_class(
+        upstream.content,
+        status=upstream.status_code,
+        content_type=upstream.headers.get('Content-Type', 'application/json; charset=utf-8'),
+    )
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/ai/business-analysis/status')
+@_require_business_analysis_access
+def business_analysis_status():
+    ready = _is_business_analysis_api_reachable(timeout=1.0)
+    if not ready:
+        _ensure_business_analysis_api_started()
+    return jsonify({
+        'ready': ready,
+        'snapshot_available': os.path.isfile(
+            os.path.join(_BUSINESS_ANALYSIS_DIST_DIR, 'index.html')
+        ),
+    })
+
+
+@app.route('/api/ai/business-analysis/dashboard')
+@_require_business_analysis_access
+def business_analysis_dashboard_api():
+    scope = _get_business_analysis_scope(resolve_leader=True)
+    if not scope:
+        return jsonify({
+            'error': {
+                'code': 'BUSINESS_ANALYSIS_FORBIDDEN',
+                'message': '当前用户不在经营分析五部门范围内。',
+            }
+        }), 403
+    if not _is_business_analysis_api_reachable(timeout=0.8):
+        _ensure_business_analysis_api_started()
+        for _ in range(20):
+            time.sleep(0.25)
+            if _is_business_analysis_api_reachable(timeout=0.5):
+                break
+        else:
+            return jsonify({
+                'error': {
+                    'code': 'SERVICE_STARTING',
+                    'message': '实时数据服务正在启动，当前先显示经营数据快照。',
+                }
+            }), 503
+
+    try:
+        upstream = requests.get(
+            f'http://127.0.0.1:{_BUSINESS_ANALYSIS_API_PORT}/api/dashboard',
+            params=force_business_analysis_query_params(
+                list(request.args.items(multi=True)),
+                scope,
+            ),
+            timeout=65,
+            headers={'Accept': 'application/json'},
+        )
+    except requests.RequestException:
+        return jsonify({
+            'error': {
+                'code': 'SERVICE_UNAVAILABLE',
+                'message': '实时数据暂不可用，当前先显示经营数据快照。',
+            }
+        }), 503
+
+    try:
+        payload = upstream.json()
+    except ValueError:
+        payload = None
+    if 200 <= upstream.status_code < 300 and isinstance(payload, dict):
+        payload = prepare_business_analysis_payload(
+            payload,
+            scope,
+            str(request.args.get('period') or ''),
+        )
+        response = jsonify(payload)
+        response.status_code = upstream.status_code
+    else:
+        response = app.response_class(
+            upstream.content,
+            status=upstream.status_code,
+            content_type=upstream.headers.get('Content-Type', 'application/json; charset=utf-8'),
+        )
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route('/ai/innovation_pending_reminder_test')
 @require_permission('ai_dept')
 def innovation_pending_reminder_test_page():
@@ -17445,6 +17925,185 @@ def _permission_debug_available_departments():
         if name:
             names.add(name)
     return sorted(list(names), key=lambda x: x)
+
+
+_DASHBOARD_IDENTITY_SWITCH_USER_NAMES = {'周俊成'}
+
+
+def _can_dashboard_switch_identity():
+    """Only explicitly approved real Feishu users may impersonate another member."""
+    if not str(session.get('feishu_user_id') or '').strip():
+        return False
+    real_user_name = _normalize_feishu_user_name(
+        session.get('feishu_user_name'),
+        fallback='',
+    ).strip()
+    return real_user_name in _DASHBOARD_IDENTITY_SWITCH_USER_NAMES
+
+
+def _dashboard_identity_switch_forbidden_response():
+    return jsonify({
+        'success': False,
+        'message': '当前账号无权切换成员身份',
+    }), 403
+
+
+def _dashboard_identity_switch_serializer():
+    return URLSafeTimedSerializer(
+        app.secret_key,
+        salt='dashboard-identity-switch-member-v1',
+    )
+
+
+def _dashboard_identity_switch_selection_token(open_id, user_name):
+    return _dashboard_identity_switch_serializer().dumps({
+        'open_id': str(open_id or '').strip(),
+        'name': _normalize_feishu_user_name(user_name, fallback='').strip(),
+    })
+
+
+def _dashboard_identity_switch_selected_member(selection_token):
+    token = str(selection_token or '').strip()
+    if not token:
+        return None
+    try:
+        member = _dashboard_identity_switch_serializer().loads(token, max_age=600)
+    except (BadSignature, SignatureExpired):
+        return None
+    if not isinstance(member, dict):
+        return None
+    open_id = str(member.get('open_id') or '').strip()
+    name = _normalize_feishu_user_name(member.get('name'), fallback='').strip()
+    if not open_id.startswith(('ou_', 'ou-')) or not name:
+        return None
+    return {'open_id': open_id, 'name': name}
+
+
+def _dashboard_identity_switch_departments(open_id):
+    rows = permission_manager.get_user_departments(open_id) or []
+    departments = []
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get('status') or '').strip().lower() == 'invalid':
+            continue
+        name = str(row.get('name') or '').strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        departments.append(name)
+    return departments
+
+
+@app.route('/api/dashboard/identity-switch/members', methods=['GET'])
+def api_dashboard_identity_switch_members():
+    if not _can_dashboard_switch_identity():
+        return _dashboard_identity_switch_forbidden_response()
+    keyword = _normalize_feishu_user_name(
+        request.args.get('q') or request.args.get('keyword') or '',
+        fallback='',
+    ).strip()
+    if not keyword:
+        return jsonify({'success': True, 'data': [], 'keyword': ''})
+    try:
+        members = _xiaotu_search_notify_users(keyword, limit=30)
+        if not members:
+            exact_open_id = str(_xiaotu_lookup_open_id_by_name(keyword) or '').strip()
+            if exact_open_id.startswith(('ou_', 'ou-')):
+                resolved_names = _xiaotu_query_user_names_by_open_ids([exact_open_id]) or {}
+                resolved_name = _normalize_feishu_user_name(
+                    resolved_names.get(exact_open_id) or keyword,
+                    fallback=keyword,
+                ).strip()
+                members = [{
+                    'open_id': exact_open_id,
+                    'name': resolved_name,
+                    'display_name': resolved_name,
+                }]
+        payload = []
+        seen = set()
+        for member in members or []:
+            if not isinstance(member, dict):
+                continue
+            open_id = str(member.get('open_id') or '').strip()
+            name = _normalize_feishu_user_name(
+                member.get('name') or member.get('display_name') or '',
+                fallback='',
+            ).strip()
+            if not open_id.startswith(('ou_', 'ou-')) or not name or open_id in seen:
+                continue
+            seen.add(open_id)
+            payload.append({
+                'open_id': open_id,
+                'name': name,
+                'selection_token': _dashboard_identity_switch_selection_token(open_id, name),
+            })
+        return jsonify({'success': True, 'data': payload, 'keyword': keyword})
+    except Exception as exc:
+        app.logger.exception('Failed to search dashboard identity-switch members')
+        return jsonify({
+            'success': False,
+            'message': f'成员搜索失败：{exc}',
+            'data': [],
+        }), 500
+
+
+@app.route('/api/dashboard/identity-switch', methods=['POST'])
+def api_dashboard_identity_switch():
+    if not _can_dashboard_switch_identity():
+        return _dashboard_identity_switch_forbidden_response()
+    data = request.get_json(silent=True) or {}
+    selected_member = _dashboard_identity_switch_selected_member(
+        data.get('selection_token'),
+    )
+    if not selected_member:
+        return jsonify({
+            'success': False,
+            'message': '请先搜索并选择有效的飞书成员',
+        }), 400
+    open_id = selected_member['open_id']
+
+    try:
+        resolved_names = _xiaotu_query_user_names_by_open_ids([open_id]) or {}
+        resolved_name = _normalize_feishu_user_name(
+            resolved_names.get(open_id) or selected_member.get('name'),
+            fallback='',
+        ).strip()
+        if not resolved_name:
+            return jsonify({'success': False, 'message': '无法确认该成员的飞书身份'}), 400
+        departments = _dashboard_identity_switch_departments(open_id)
+    except Exception as exc:
+        app.logger.exception('Failed to resolve dashboard identity-switch member')
+        return jsonify({
+            'success': False,
+            'message': f'读取成员身份失败：{exc}',
+        }), 500
+
+    session['permission_debug_departments'] = departments
+    session['permission_debug_user_name'] = resolved_name
+    session['permission_debug_user_open_id'] = open_id
+    session['permission_debug_updated_at'] = datetime.now().isoformat()
+    session.pop('preloaded_functions', None)
+    session.pop('preloaded_departments', None)
+    session.pop('preload_time', None)
+    session.modified = True
+    app.logger.info(
+        'Dashboard identity switched: operator=%s target=%s target_open_id=%s departments=%s',
+        _normalize_feishu_user_name(session.get('feishu_user_name'), fallback=''),
+        resolved_name,
+        open_id,
+        '、'.join(departments),
+    )
+    return jsonify({
+        'success': True,
+        'message': f'已切换为 {resolved_name}',
+        'data': {
+            'user_name': resolved_name,
+            'open_id': open_id,
+            'departments': departments,
+        },
+    })
 
 
 def _permission_debug_session_state():

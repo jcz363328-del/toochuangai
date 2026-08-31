@@ -1,7 +1,8 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify, session, send_file
 from openai import OpenAI
 from datetime import datetime, timedelta
 from collections import Counter
+from io import BytesIO
 import bjc
 import os
 import re
@@ -15,6 +16,46 @@ review_analysis_bp = Blueprint('review_analysis', __name__)
 
 _OPENAI_TEXT_MODEL = (os.getenv("OPENAI_TEXT_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-5").strip()
 _OPENAI_TEXT_MODEL_CANDIDATES = [m for m in [_OPENAI_TEXT_MODEL, "gpt-5-mini", "gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"] if m]
+
+_REVIEW_EXPORT_SOURCE_COLUMNS = [
+    "PingJiaNeiRong_EN",
+    "PingJiaNeiRong_ZH",
+    "RiQi",
+    "PingJiaLianJie",
+    "SKU",
+    "ASIN",
+    "MaiJiaXinXi",
+    "MaiJiaYouXiang",
+]
+_REVIEW_EXPORT_HEADERS = [
+    "评价内容",
+    "时间",
+    "评价链接",
+    "sku",
+    "asin",
+    "买家信息",
+    "卖家邮箱",
+]
+_EXCEL_MAX_DATA_ROWS_PER_SHEET = 1_048_575
+_ILLEGAL_EXCEL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_REVIEW_FILTERS = {
+    "sku": {
+        "label": "SKU/ASIN",
+        "column": None,
+    },
+    "category": {
+        "label": "分类",
+        "column": "fenlei1",
+    },
+    "factory": {
+        "label": "生产工厂",
+        "column": "gongyingshang",
+    },
+    "remark": {
+        "label": "毛型/备注",
+        "column": "shangpinbeizhu",
+    },
+}
 
 
 def format_analysis_result(analysis_text):
@@ -733,35 +774,265 @@ def local_analysis(reviews):
     
     return analysis
 
-def _build_review_query(sku_or_asin, start_date, max_rating):
-    """构建评价查询，避免 pytds 将 LIKE 通配符误当成格式化占位符。"""
-    identifier_safe = str(sku_or_asin or '').replace("'", "''")
+def _normalize_review_filter_type(filter_type):
+    """只允许预定义的评价筛选维度进入 SQL。"""
+    normalized = str(filter_type or "sku").strip().lower()
+    return normalized if normalized in _REVIEW_FILTERS else None
+
+
+def _review_filter_display(filter_type, filter_value):
+    normalized_type = _normalize_review_filter_type(filter_type) or "sku"
+    label = _REVIEW_FILTERS[normalized_type]["label"]
+    value = str(filter_value or "").strip()
+    return value if normalized_type == "sku" else f"{label}：{value}"
+
+
+def _build_review_filter_options_query(filter_type):
+    """构建 zidian 筛选项查询；列名只能来自服务端白名单。"""
+    normalized_type = _normalize_review_filter_type(filter_type)
+    if not normalized_type or normalized_type == "sku":
+        raise ValueError("该筛选维度不支持加载选项")
+
+    column = _REVIEW_FILTERS[normalized_type]["column"]
+    value_expression = f"LTRIM(RTRIM(CAST([{column}] AS NVARCHAR(500))))"
+    return (
+        f"SELECT DISTINCT {value_expression} AS option_value "
+        "FROM zidian WITH (NOLOCK) "
+        f"WHERE NULLIF({value_expression}, N'') IS NOT NULL "
+        "ORDER BY option_value"
+    )
+
+
+def _build_review_query(filter_value, start_date, max_rating, filter_type="sku"):
+    """按 SKU/ASIN 或 zidian 属性构建评价查询。"""
+    normalized_type = _normalize_review_filter_type(filter_type)
+    if not normalized_type:
+        raise ValueError("不支持的筛选维度")
+
+    identifier_safe = str(filter_value or '').replace("'", "''")
     rating_limit = int(max_rating)
     rating_condition = (
         ""
         if rating_limit >= 5
-        else f"\n            AND XingJi <= {rating_limit}"
+        else f"\n            AND pj.XingJi <= {rating_limit}"
     )
-    return f"""
-            SELECT * FROM PingJia
-            WHERE CHARINDEX(
+
+    if normalized_type == "sku":
+        filter_condition = f"""CHARINDEX(
                 N'{identifier_safe}',
                 COALESCE(ASIN, '') + COALESCE(SKU, '')
-            ) > 0{rating_condition}
-            AND RiQi >= '{start_date.strftime('%Y-%m-%d')}'
-            ORDER BY RiQi DESC
+            ) > 0"""
+    else:
+        column = _REVIEW_FILTERS[normalized_type]["column"]
+        filter_condition = f"""EXISTS (
+                SELECT 1
+                FROM zidian AS zd WITH (NOLOCK)
+                WHERE zd.sku = pj.SKU
+                  AND LTRIM(RTRIM(COALESCE(CAST(zd.[{column}] AS NVARCHAR(500)), N''))) = N'{identifier_safe}'
+            )"""
+
+    return f"""
+            SELECT pj.* FROM PingJia AS pj
+            WHERE {filter_condition}{rating_condition}
+            AND pj.RiQi >= '{start_date.strftime('%Y-%m-%d')}'
+            ORDER BY pj.RiQi DESC
             """
 
 
-def analyze_negative_reviews(sku_or_asin, months_limit=3, max_rating=5, use_local=False):
+def _review_row_value(review, index, column_name):
+    if isinstance(review, dict):
+        return review.get(column_name, review.get(column_name.lower()))
+    if isinstance(review, (tuple, list)) and index < len(review):
+        return review[index]
+    return None
+
+
+def _build_review_chart_data(reviews):
+    """基于本次查询的全量评论生成前端图表数据。"""
+    rating_counts = {rating: 0 for rating in range(1, 6)}
+    monthly_stats = {}
+    shop_counts = Counter()
+    valid_rating_count = 0
+    rating_total = 0
+
+    for review in reviews or []:
+        rating_value = _review_row_value(review, 5, "XingJi")
+        try:
+            rating = int(float(rating_value))
+        except (TypeError, ValueError):
+            rating = 0
+
+        if 1 <= rating <= 5:
+            rating_counts[rating] += 1
+            valid_rating_count += 1
+            rating_total += rating
+
+        review_date = _review_row_value(review, 1, "RiQi")
+        month = ""
+        if review_date:
+            if hasattr(review_date, "strftime"):
+                try:
+                    month = review_date.strftime("%Y-%m")
+                except (TypeError, ValueError):
+                    month = ""
+            if not month:
+                date_match = re.search(r"\d{4}-\d{2}", str(review_date))
+                month = date_match.group(0) if date_match else ""
+        if month:
+            month_stat = monthly_stats.setdefault(
+                month,
+                {"count": 0, "rating_total": 0, "rating_count": 0},
+            )
+            month_stat["count"] += 1
+            if 1 <= rating <= 5:
+                month_stat["rating_total"] += rating
+                month_stat["rating_count"] += 1
+
+        shop = str(_review_row_value(review, 2, "Dian") or "").strip()
+        if shop:
+            shop_counts[shop] += 1
+
+    rating_distribution = [
+        {"rating": rating, "count": rating_counts[rating]}
+        for rating in range(1, 6)
+    ]
+    monthly_trend = []
+    for month in sorted(monthly_stats):
+        stat = monthly_stats[month]
+        average_rating = (
+            round(stat["rating_total"] / stat["rating_count"], 2)
+            if stat["rating_count"]
+            else 0
+        )
+        monthly_trend.append({
+            "month": month,
+            "count": stat["count"],
+            "average_rating": average_rating,
+        })
+
+    shop_distribution = [
+        {"shop": shop, "count": count}
+        for shop, count in shop_counts.most_common(10)
+    ]
+    negative_count = sum(rating_counts[rating] for rating in (1, 2, 3))
+    return {
+        "summary": {
+            "review_count": len(reviews or []),
+            "average_rating": (
+                round(rating_total / valid_rating_count, 2)
+                if valid_rating_count
+                else 0
+            ),
+            "negative_count": negative_count,
+            "negative_rate": (
+                round(negative_count * 100 / valid_rating_count, 1)
+                if valid_rating_count
+                else 0
+            ),
+            "shop_count": len(shop_counts),
+        },
+        "rating_distribution": rating_distribution,
+        "monthly_trend": monthly_trend,
+        "shop_distribution": shop_distribution,
+    }
+
+
+def _build_all_review_export_query(product_identifier):
+    """构建指定 SKU/ASIN 的全部历史评论导出查询。"""
+    database_columns = ", ".join(f"[{column}]" for column in _REVIEW_EXPORT_SOURCE_COLUMNS)
+    identifier_safe = str(product_identifier or '').replace("'", "''")
+    return (
+        f"SELECT {database_columns} FROM PingJia "
+        f"WHERE COALESCE(SKU, '') = N'{identifier_safe}' "
+        f"OR COALESCE(ASIN, '') = N'{identifier_safe}' "
+        "ORDER BY RiQi DESC, ID DESC"
+    )
+
+
+def _excel_safe_value(value):
+    """将数据转成 Excel 可安全写入的值。"""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        return value
+
+    cleaned = _ILLEGAL_EXCEL_CHARACTERS.sub("", value)
+    # 防止用户评论被 Excel 当作公式执行。
+    if cleaned.startswith(("=", "+", "-", "@")):
+        cleaned = "'" + cleaned
+    # Excel 单元格最多存储 32767 个字符。
+    return cleaned[:32767]
+
+
+def _create_all_review_export(reviews):
+    """生成全部历史评论 Excel，数据过多时自动拆分工作表。"""
+    from openpyxl import Workbook
+
+    output = BytesIO()
+    workbook = Workbook(write_only=True)
+    headers = _REVIEW_EXPORT_HEADERS
+    worksheet = None
+
+    for row_index, review in enumerate(reviews):
+        if row_index % _EXCEL_MAX_DATA_ROWS_PER_SHEET == 0:
+            sheet_number = row_index // _EXCEL_MAX_DATA_ROWS_PER_SHEET + 1
+            sheet_title = "历史评论" if sheet_number == 1 else f"历史评论{sheet_number}"
+            worksheet = workbook.create_sheet(title=sheet_title)
+            worksheet.freeze_panes = "A2"
+            worksheet.append(headers)
+
+        source_values = list(review[:len(_REVIEW_EXPORT_SOURCE_COLUMNS)])
+        if len(source_values) < len(_REVIEW_EXPORT_SOURCE_COLUMNS):
+            source_values.extend([""] * (len(_REVIEW_EXPORT_SOURCE_COLUMNS) - len(source_values)))
+
+        content_en, content_zh, review_time, review_url, sku, asin, buyer_info, email = source_values
+        content_en = str(content_en or '').strip()
+        content_zh = str(content_zh or '').strip()
+        if content_en and content_zh and content_en != content_zh:
+            review_content = f"{content_zh}\n{content_en}"
+        else:
+            review_content = content_zh or content_en
+
+        export_values = [
+            review_content,
+            review_time,
+            review_url,
+            sku,
+            asin,
+            buyer_info,
+            email,
+        ]
+        worksheet.append([_excel_safe_value(value) for value in export_values])
+
+    workbook.save(output)
+    output.seek(0)
+    return output
+
+
+def analyze_negative_reviews(
+    filter_value,
+    months_limit=3,
+    max_rating=5,
+    use_local=False,
+    filter_type="sku",
+):
     """分析评价的主函数（支持所有星级）"""
     try:
+        normalized_type = _normalize_review_filter_type(filter_type)
+        if not normalized_type:
+            return {
+                'success': False,
+                'message': '不支持的筛选维度',
+                'analysis': '',
+                'review_count': 0
+            }
+
+        filter_display = _review_filter_display(normalized_type, filter_value)
         # 计算时间范围
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months_limit * 30)
         
-        # 使用 CHARINDEX 做包含匹配，避免 pytds 把 LIKE 中的百分号解释为格式化符。
-        sql = _build_review_query(sku_or_asin, start_date, max_rating)
+        sql = _build_review_query(filter_value, start_date, max_rating, normalized_type)
         rating_desc = "所有星级" if max_rating >= 5 else f"{max_rating}星及以下"
         
         # 从数据库获取数据
@@ -770,7 +1041,7 @@ def analyze_negative_reviews(sku_or_asin, months_limit=3, max_rating=5, use_loca
         if not reviews:
             return {
                 'success': False,
-                'message': f'未找到SKU/ASIN "{sku_or_asin}" 在过去{months_limit}个月内{rating_desc}的评价数据',
+                'message': f'未找到“{filter_display}”在过去{months_limit}个月内{rating_desc}的评价数据',
                 'analysis': '',
                 'review_count': 0
             }
@@ -812,7 +1083,7 @@ def analyze_negative_reviews(sku_or_asin, months_limit=3, max_rating=5, use_loca
                         你是一位专业的产品分析师，请对以下产品评价进行深度分析。请务必用中文回答，提供详细、全面的分析报告。
                         
                         📊 产品信息：
-                        • 产品标识: {sku_or_asin}
+                        • 筛选范围: {filter_display}
                         • 评价数量: {len(reviews)} 条
                         • 分析时间范围: 最近 {months_limit} 个月
                         
@@ -878,13 +1149,15 @@ def analyze_negative_reviews(sku_or_asin, months_limit=3, max_rating=5, use_loca
                 analysis_result = local_analysis(reviews)
         
         # 保存分析记录
-        save_analysis_record(sku_or_asin, len(reviews), analysis_result)
+        save_analysis_record(filter_display, len(reviews), analysis_result)
+        chart_data = _build_review_chart_data(reviews)
         
         return {
             'success': True,
             'message': f'成功分析了{len(reviews)}条评价',
             'analysis': analysis_result,
             'review_count': len(reviews),
+            'chart_data': chart_data,
             'reviews': reviews[:10]  # 返回前10条评价供详细查看
         }
         
@@ -900,11 +1173,12 @@ def save_analysis_record(sku_or_asin, review_count, analysis_result):
     """保存分析记录到数据库"""
     try:
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        sku_or_asin_safe = str(sku_or_asin or '').replace("'", "''")
         
         # 插入分析记录
         insert_sql = f"""
         INSERT INTO AnalysisHistory (sku_asin, review_count, analysis_result, analysis_time)
-        VALUES ('{sku_or_asin}', {review_count}, '{analysis_result.replace("'", "''")}', '{current_time}')
+        VALUES ('{sku_or_asin_safe}', {review_count}, '{analysis_result.replace("'", "''")}', '{current_time}')
         """
         
         bjc.dui_db(insert_sql)
@@ -942,28 +1216,72 @@ def review_analysis():
     """差评分析页面"""
     return render_template('review_analysis.html')
 
+
+@review_analysis_bp.route('/api/review_analysis/filter_options', methods=['GET'])
+@require_permission('review_analysis')
+def review_filter_options():
+    """返回分类、生产工厂或毛型/备注的去重筛选项。"""
+    filter_type = _normalize_review_filter_type(request.args.get('filter_type'))
+    if not filter_type or filter_type == "sku":
+        return jsonify({
+            'success': False,
+            'message': '不支持的筛选维度',
+            'options': []
+        }), 400
+
+    try:
+        rows = bjc.sf_db(_build_review_filter_options_query(filter_type)) or []
+        options = []
+        seen = set()
+        for row in rows:
+            value = row[0] if isinstance(row, (tuple, list)) else row
+            value = str(value or '').strip()
+            if value and value not in seen:
+                seen.add(value)
+                options.append(value)
+        return jsonify({'success': True, 'options': options})
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'加载筛选项失败: {str(e)}',
+            'options': []
+        }), 500
+
+
 @review_analysis_bp.route('/analyze_reviews', methods=['POST'])
 @require_permission('review_analysis')
 def analyze_reviews():
     """处理差评分析请求"""
     try:
-        data = request.get_json()
-        product_identifier = data.get('product_identifier', '').strip()
+        data = request.get_json(silent=True) or {}
+        filter_type = _normalize_review_filter_type(data.get('filter_type'))
+        filter_value = str(
+            data.get('filter_value') or data.get('product_identifier') or ''
+        ).strip()
         months_limit = int(data.get('months_limit', 3))
         max_rating = int(data.get('max_rating', 3))
         use_local = data.get('use_local', False)
-        
-        # 检查是否输入了产品标识符
-        if not product_identifier:
+
+        if not filter_type:
             return jsonify({
                 'success': False,
-                'message': '请输入SKU或ASIN'
+                'message': '不支持的筛选维度'
+            }), 400
+
+        if not filter_value:
+            return jsonify({
+                'success': False,
+                'message': '请输入或选择筛选值'
             })
-        
-        sku_or_asin = product_identifier
-        
+
         # 执行分析
-        result = analyze_negative_reviews(sku_or_asin, months_limit, max_rating, use_local)
+        result = analyze_negative_reviews(
+            filter_value,
+            months_limit,
+            max_rating,
+            use_local,
+            filter_type,
+        )
         
         return jsonify(result)
         
@@ -972,6 +1290,42 @@ def analyze_reviews():
             'success': False,
             'message': f'请求处理失败: {str(e)}'
         })
+
+
+@review_analysis_bp.route('/api/review_analysis/export_all_history', methods=['GET'])
+@require_permission('review_analysis')
+def export_all_review_history():
+    """导出指定 SKU/ASIN 的全部历史评论。"""
+    try:
+        product_identifier = (request.args.get('product_identifier') or '').strip()
+        if not product_identifier:
+            return jsonify({
+                'success': False,
+                'message': '请先输入要导出的 SKU 或 ASIN'
+            }), 400
+
+        reviews = bjc.sf_db(_build_all_review_export_query(product_identifier)) or []
+        if not reviews:
+            return jsonify({
+                'success': False,
+                'message': f'未找到 SKU/ASIN“{product_identifier}”的历史评论'
+            }), 404
+
+        output = _create_all_review_export(reviews)
+        filename_identifier = re.sub(r'[\\/:*?"<>|]+', '_', product_identifier)[:80] or '产品'
+        filename = f"评价分析_{filename_identifier}_全部历史评论_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'导出该产品的历史评论失败: {str(e)}'
+        }), 500
+
 
 @review_analysis_bp.route('/get_analysis_history')
 def get_analysis_history_api():
@@ -1045,19 +1399,25 @@ def get_analysis_detail():
 @require_permission('review_analysis')
 def analyze_word_freq():
     try:
-        data = request.get_json()
-        product_identifier = (data.get('product_identifier') or '').strip()
+        data = request.get_json(silent=True) or {}
+        filter_type = _normalize_review_filter_type(data.get('filter_type'))
+        filter_value = str(
+            data.get('filter_value') or data.get('product_identifier') or ''
+        ).strip()
         months_limit = int(data.get('months_limit') or 3)
         max_rating = int(data.get('max_rating') or 5)
         exclude_words_raw = data.get('exclude_words') or ''
         top_n = int(data.get('top_n') or 100)
 
-        if not product_identifier:
-            return jsonify({'success': False, 'message': '请输入SKU或ASIN'})
+        if not filter_type:
+            return jsonify({'success': False, 'message': '不支持的筛选维度'}), 400
+
+        if not filter_value:
+            return jsonify({'success': False, 'message': '请输入或选择筛选值'})
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months_limit * 30)
-        sql = _build_review_query(product_identifier, start_date, max_rating)
+        sql = _build_review_query(filter_value, start_date, max_rating, filter_type)
         reviews = bjc.sf_db(sql) or []
 
         if not reviews:

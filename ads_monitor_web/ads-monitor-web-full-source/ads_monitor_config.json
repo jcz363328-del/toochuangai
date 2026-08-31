@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "shops": [],
+  "collection": {
+    "discover_shops": true,
+    "lookback_days": 14,
+    "maturity_lag_days": 2,
+    "max_campaigns_per_shop": 0,
+    "pull_targets": true,
+    "listing_new_days": 90,
+    "main_product": {
+      "window_days": 7,
+      "min_orders": 50,
+      "max_daily_cv": 0.35,
+      "sudden_drop_ratio": 0.6
+    },
+    "report_shop_batch_size": 50,
+    "report_poll_seconds": 10,
+    "report_timeout_seconds": 900
+  },
+  "rules": {
+    "target_acos": 0.3,
+    "min_orders": 3,
+    "scale_min_orders": 5,
+    "min_clicks": 10,
+    "min_spend": 5.0,
+    "max_zero_order_spend": 20.0,
+    "high_acos_multiplier": 1.2,
+    "low_acos_multiplier": 0.8,
+    "bid_decrease_pct": 0.1,
+    "bid_increase_pct": 0.05,
+    "budget_increase_pct": 0.1,
+    "budget_utilization_threshold": 0.98,
+    "budget_utilization_days": 3,
+    "min_bid": 0.02,
+    "max_bid": 10.0,
+    "max_change_pct": 0.1,
+    "min_mature_days": 7,
+    "performance_ctr_threshold": 0.01,
+    "performance_cvr_threshold": 0.1,
+    "protected_campaign_ids": [],
+    "protected_target_ids": []
+  },
+  "realtime": {
+    "enabled": true,
+    "max_calls_per_run": 350,
+    "max_runtime_seconds": 480,
+    "stale_grace_minutes": 30,
+    "tier_intervals_minutes": {
+      "P0": 30,
+      "P1": 120,
+      "P2": 240,
+      "P3": 720
+    },
+    "new_campaign_days": 14,
+    "min_alert_clicks": 10,
+    "min_alert_spend": 5.0,
+    "cpc_spike_multiplier": 1.5,
+    "spend_pace_multiplier": 1.6,
+    "budget_alert_threshold": 0.85,
+    "timezone_by_shop": {},
+    "timezone_by_marketplace": {},
+    "watch_campaign_ids": []
+  },
+  "storage": {
+    "database_path": "data/sellfox_ads.sqlite3",
+    "output_dir": "outputs/ads_monitor",
+    "raw_report_dir": "data/ads_report_cache",
+    "dashboard_payload_path": "ads-monitor-web/public/data/ads-monitor.json",
+    "realtime_state_path": "data/ads_realtime_state.json",
+    "realtime_dashboard_payload_path": "ads-monitor-web/public/data/ads-realtime.json",
+    "node_path": ""
+  }
+}

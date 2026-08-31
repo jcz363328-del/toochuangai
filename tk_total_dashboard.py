@@ -58,6 +58,26 @@ def _shop_sort_key(shop):
     return (1, normalized.casefold(), normalized)
 
 
+def _tinyint_shop_in_clause(shops):
+    """Build a safe shop list for legacy TINYINT shop columns.
+
+    TK_FeiYong.Dian is still TINYINT while newer sources can contain shop
+    numbers such as 601. Passing '601' directly to a TINYINT comparison makes
+    SQL Server raise an overflow instead of simply returning no fee rows.
+    """
+    values = []
+    for shop in shops or []:
+        normalized = str(shop).strip()
+        if not normalized.isdecimal():
+            continue
+        value = int(normalized)
+        if not 0 <= value <= 255:
+            continue
+        if value not in values:
+            values.append(value)
+    return ','.join(str(value) for value in values) or 'NULL'
+
+
 def _get_overall_dashboard_shops():
     """Return every shop present in either settlement or order data."""
     rows = bjc.sf_db("""
@@ -308,7 +328,7 @@ def _get_tk_order_gmv_sales(start_dt, end_dt, prev_start, prev_end, shops):
         WHERE dd.DingGouShiJian >= '{overall_start:%Y-%m-%d}'
           AND dd.DingGouShiJian < DATEADD(DAY, 1, CONVERT(date, '{overall_end:%Y-%m-%d}'))
           AND dd.Dian IN ({in_clause})
-          AND dd.ZhuangTai <> N'已取消'
+          AND dd.ZhuangTai IN (N'已发货', N'已完成')
         OPTION (RECOMPILE)
     """
     rows = bjc.sf_db(sql, single=False) or []
@@ -320,7 +340,14 @@ def _get_tk_order_gmv_sales(start_dt, end_dt, prev_start, prev_end, shops):
     }
 
 
-def _fetch_dashboard_metrics_fast(start_str, end_str, in_clause, year, month):
+def _fetch_dashboard_metrics_fast(
+    start_str,
+    end_str,
+    in_clause,
+    year,
+    month,
+    fee_in_clause,
+):
     """Return the 25 metric columns without the monolithic dashboard query.
 
     The former stored procedure put every aggregate and complex view into one
@@ -374,7 +401,7 @@ def _fetch_dashboard_metrics_fast(start_str, end_str, in_clause, year, month):
             FROM TK_FeiYong WITH (NOLOCK)
             WHERE riqi >= '{start_str}'
               AND riqi <= '{end_str}'
-              AND dian IN ({in_clause})
+              AND dian IN ({fee_in_clause})
         """, 4)
 
         shipping = fetch_row(cursor, f"""
@@ -612,6 +639,7 @@ def _compute_metrics_payload(
 ):
     safe_shops = [str(s).replace("'", "''") for s in shops]
     in_clause = ','.join([f"'{s}'" for s in safe_shops])
+    fee_in_clause = _tinyint_shop_in_clause(shops)
     yday = date.today() - timedelta(days=1)
     yday_str = yday.strftime('%Y-%m-%d')
     total_val = 0.0
@@ -655,7 +683,7 @@ def _compute_metrics_payload(
                 ISNULL(SUM(CASE WHEN xiangmu = '给网红购买产品费' THEN feiyonge ELSE 0 END), 0) AS buy_product_for_influencer_fee,
                 ISNULL(SUM(CASE WHEN xiangmu = '达人礼品费' THEN feiyonge ELSE 0 END), 0) AS influencer_gift_fee
             FROM TK_FeiYong WITH (NOLOCK)
-            WHERE riqi >= '{start_str}' AND riqi <= '{end_str}' AND dian IN ({in_clause})
+            WHERE riqi >= '{start_str}' AND riqi <= '{end_str}' AND dian IN ({fee_in_clause})
         """
         rows = bjc.sf_db(sql, single=False) or []
         r = rows[0] if rows else [0, 0, 0, 0, 0]
@@ -681,7 +709,7 @@ def _compute_metrics_payload(
         sql_channel = f"""
             SELECT ISNULL(SUM(feiyonge), 0)
             FROM TK_FeiYong WITH (NOLOCK)
-            WHERE riqi >= '{start_str}' AND riqi <= '{end_str}' AND dian IN ({in_clause}) AND xiangmu = '达人渠道号佣金'
+            WHERE riqi >= '{start_str}' AND riqi <= '{end_str}' AND dian IN ({fee_in_clause}) AND xiangmu = '达人渠道号佣金'
         """
         channel_val = bjc.sf_db(sql_channel, single=True) or 0
         return {
@@ -698,7 +726,7 @@ def _compute_metrics_payload(
                 ISNULL(SUM(CASE WHEN xiangmu = '仓储费' THEN feiyonge ELSE 0 END), 0) AS storage_fee,
                 ISNULL(SUM(CASE WHEN xiangmu = '退货费' THEN feiyonge ELSE 0 END), 0) AS return_fee
             FROM TK_FeiYong WITH (NOLOCK)
-            WHERE riqi >= '{start_str}' AND riqi <= '{end_str}' AND dian IN ({in_clause})
+            WHERE riqi >= '{start_str}' AND riqi <= '{end_str}' AND dian IN ({fee_in_clause})
         """
         rows = bjc.sf_db(sql, single=False) or []
         r = rows[0] if rows else [0, 0, 0]
@@ -765,6 +793,7 @@ def _compute_metrics_payload(
         in_clause,
         prev_year,
         prev_month,
+        fee_in_clause=fee_in_clause,
     )
     if len(prev_raw) < 24:
         prev_vals = list(prev_raw) + [0]*(24 - len(prev_raw))
@@ -980,6 +1009,7 @@ def _compute_metrics_payload(
         in_clause,
         sel_year,
         sel_month,
+        fee_in_clause=fee_in_clause,
     )
     if len(sel_raw) < 24:
         sel_vals = list(sel_raw) + [0]*(24 - len(sel_raw))

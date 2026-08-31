@@ -45,6 +45,9 @@ from 图片.amazon_a_plus_psd import (
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
+ARK_IMAGES_URL = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+ARK_SEEDREAM_5_PRO_MODEL = "doubao-seedream-5-0-pro-260628"
+ARK_SEEDREAM_5_PRO_SIZE = "2K"
 DEFAULT_MODEL = "google/gemini-3.1-flash-image"
 NANO_BANANA_MODEL = "google/gemini-3.1-flash-image"
 DEFAULT_ASPECT_RATIO = "自动"
@@ -129,6 +132,14 @@ OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS = 360
 OPENROUTER_IMAGES_MAX_ATTEMPTS = 2
 OPENROUTER_IMAGES_RETRY_DELAYS = (4,)
 OPENROUTER_IMAGES_TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+ARK_IMAGES_CONNECT_TIMEOUT_SECONDS = 30
+ARK_IMAGES_READ_TIMEOUT_SECONDS = 360
+ARK_IMAGES_MAX_ATTEMPTS = 2
+ARK_IMAGES_RETRY_DELAYS = (4,)
+ARK_IMAGES_TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+ARK_MAX_INPUT_IMAGE_BYTES = 29 * 1024 * 1024
+ARK_MAX_INPUT_IMAGE_EDGE = 6000
+ARK_MAX_INPUT_IMAGE_PIXELS = 36_000_000
 JIMENG_HD_API_RESOLUTION = "8k"
 JIMENG_HD_API_SCALE = 50
 DB_IMAGE_DIR = Path(r"D:\tuchuangai\视觉图片")
@@ -149,6 +160,7 @@ MAIN_IMAGE_A_PLUS_TEXT_POINT_QUERY_KEY = "a_plus_text_point"
 UPLOAD_DELETE_QUERY_KEY = "delete_upload"
 UPLOAD_REPLACE_WIDGET_QUERY_KEY = "replace_upload_widget"
 UPLOAD_REPLACE_INDEX_QUERY_KEY = "replace_upload_index"
+UPLOAD_REORDER_QUERY_KEY = "reorder_upload"
 OUTPAINT_DRAG_QUERY_KEY = "outpaint_drag"
 AUTH_TOKEN_SALT = "lashforge-auth-v1"
 DB_CONFIG = sql_server_config()
@@ -157,6 +169,49 @@ DEFAULT_SERVER_PORT = 8501
 DEFAULT_JIMENG_STATIC_PORT = 8502
 DEFAULT_PUBLIC_APP_URL = "http://www.toochuangai.com:8501/lashforge"
 INFINITE_CANVAS_STATIC_ROUTE_PREFIX = "/infinite-canvas"
+INFINITE_CANVAS_MODEL_HD_MAX_REQUEST_BYTES = 80 * 1024 * 1024
+INFINITE_CANVAS_MODEL_HD_METHOD_NANO = "nano-banana-2"
+INFINITE_CANVAS_MODEL_HD_METHOD_SEEDREAM = "seedream-5-pro"
+INFINITE_CANVAS_MODEL_HD_METHODS = {
+    INFINITE_CANVAS_MODEL_HD_METHOD_NANO,
+    INFINITE_CANVAS_MODEL_HD_METHOD_SEEDREAM,
+}
+INFINITE_CANVAS_IMAGE_FEATURE_MAX_REQUEST_BYTES = 80 * 1024 * 1024
+INFINITE_CANVAS_IMAGE_FEATURE_KEYS = {
+    "background_cutout",
+    JIMENG_HD_FEATURE_KEY,
+    "remove_eyelashes",
+    "pose_change",
+    "scene_change",
+    "outpaint",
+    "single_to_double",
+    "skin_tone",
+    "pupil_color_change",
+    "eye_shape_change",
+    "three_view",
+    "ai_qa_image",
+}
+INFINITE_CANVAS_IMAGE_FEATURE_REFERENCE_KEYS = {
+    "pose_change",
+    "scene_change",
+    "skin_tone",
+    "pupil_color_change",
+    "eye_shape_change",
+    "three_view",
+}
+INFINITE_CANVAS_IMAGE_FEATURE_SINGLE_INPUT_KEYS = {
+    "background_cutout",
+    JIMENG_HD_FEATURE_KEY,
+    "remove_eyelashes",
+    "outpaint",
+    "single_to_double",
+}
+INFINITE_CANVAS_USAGE_ACTION_LABELS = {
+    "image_generation": "图片生成",
+    "image_edit": "图片编辑",
+    "image_generation_retry": "图片生成重试",
+    "image_edit_retry": "图片编辑重试",
+}
 INFINITE_CANVAS_BUILD_DIR = Path(
     os.getenv(
         "INFINITE_CANVAS_BUILD_DIR",
@@ -175,6 +230,10 @@ MODEL_OPTIONS = [
     "bytedance-seed/seedream-4.5",
     "x-ai/grok-imagine-image-quality",
     "recraft/recraft-v4.1-utility-pro",
+]
+OUTPAINT_MODEL_OPTIONS = [
+    NANO_BANANA_MODEL,
+    ARK_SEEDREAM_5_PRO_MODEL,
 ]
 INFINITE_CANVAS_IMAGE_MODELS = tuple(
     model for model in MODEL_OPTIONS if model != JIMENG_MODEL_NAME
@@ -251,7 +310,12 @@ A_PLUS_IMAGES_API_FEATURE_KEYS = {
 }
 MAIN_IMAGE_A_PLUS_MAX_FILES = 10
 MAIN_IMAGE_A_PLUS_SECTION_COUNT = 4
+MAIN_IMAGE_A_PLUS_DESKTOP_SCREEN_HEIGHT = 600
+MAIN_IMAGE_A_PLUS_MOBILE_SCREEN_HEIGHT = 450
+MAIN_IMAGE_A_PLUS_MIN_MOBILE_SCREENS = 4
+MAIN_IMAGE_A_PLUS_MAX_MOBILE_SCREENS = 10
 A_PLUS_SKILL_ROOT = Path(os.getenv("A_PLUS_SKILL_ROOT", r"D:\tuchuangai\A+skills"))
+A_PLUS_SHOP_STYLE_SKILL_CATALOG = APP_DIR / "a_plus_shop_style_skills.json"
 A_PLUS_SKILL_DB_TYPE = "A+生成"
 A_PLUS_SKILL_MAX_CASES = 8
 A_PLUS_SKILL_SCHEMA_VERSION = 1
@@ -273,8 +337,29 @@ MAIN_IMAGE_A_PLUS_MAX_SECTION_CONCURRENCY = 4
 MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE = 2048
 MAIN_IMAGE_A_PLUS_REFERENCE_TARGET_BYTES = 3 * 1024 * 1024
 MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL = "google/gemini-2.5-flash"
+MAIN_IMAGE_A_PLUS_QUALITY_REVIEW_MODEL = "google/gemini-2.5-flash"
+MAIN_IMAGE_A_PLUS_MAX_QUALITY_ATTEMPTS = 2
+MAIN_IMAGE_A_PLUS_MOBILE_REFERENCE_ROOT = APP_DIR / "a_plus_mobile_reference_pairs"
+MAIN_IMAGE_A_PLUS_MOBILE_REFERENCE_PAIRS = (
+    ("23-84F-desktop.jpg", "23-84F-mobile.jpg"),
+    ("22-56G-desktop.jpg", "22-56G-mobile.jpg"),
+    ("36-71G-desktop.jpg", "36-71G-mobile.jpg"),
+)
 IMAGE_SMART_ANALYSIS_FEATURE_KEY = "image_smart_analysis"
 IMAGE_SMART_ANALYSIS_MODEL = "google/gemini-2.5-flash"
+BACKGROUND_TEXTURE_FEATURE_KEY = "background_texture"
+BACKGROUND_TEXTURE_PRESETS: dict[str, str] = {
+    "高级哑光": "细腻、均匀的高级哑光表面，低反射、无塑料感，保留自然明暗层次",
+    "柔雾磨砂": "柔和雾面磨砂质感，细颗粒漫反射，干净通透但不产生明显镜面高光",
+    "微水泥": "现代微水泥质感，细微矿物颗粒与克制的不规则纹理，真实而不过度粗糙",
+    "天然洞石": "天然洞石或浅色石材质感，带细微孔隙和自然层理，纹理尺度真实",
+    "丝绒绒面": "细密丝绒绒面质感，柔和吸光并带轻微方向性光泽，触感高级",
+    "亚麻织物": "自然亚麻织物质感，保留细密经纬纤维，纹理均匀且不过度抢眼",
+    "拉丝金属": "精细拉丝金属表面，方向一致的细丝纹和受控金属反射，无廉价镀铬感",
+    "磨砂玻璃": "真实磨砂玻璃质感，柔和透光、轻微散射，边缘与空间深度自然",
+    "清漆镜面": "平整清漆镜面质感，反射清晰但受控，高光与环境透视符合原场景光线",
+    "自然木纹": "真实细腻的自然木纹，纹理走向符合表面结构，颜色与原场景协调",
+}
 MAIN_IMAGE_A_PLUS_MAX_ELEMENT_GROUPS = 20
 MAIN_IMAGE_A_PLUS_MODE_FREE = "free_create"
 MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN = "hero_design"
@@ -318,22 +403,22 @@ MAIN_IMAGE_A_PLUS_LAYOUTS: dict[str, dict[str, Any]] = {
         "label": "手机端｜600×1800｜自然流动",
         "target_size": (600, 1800),
         "section_heights": (450, 450, 450, 450),
-        "text_margin_x": 48,
-        "text_margin_y": 32,
+        "text_margin_x": 54,
+        "text_margin_y": 90,
     },
     "desktop_equal": {
         "label": "电脑端｜1464×2400｜自然均衡",
         "target_size": (1464, 2400),
         "section_heights": (600, 600, 600, 600),
-        "text_margin_x": 120,
-        "text_margin_y": 72,
+        "text_margin_x": 132,
+        "text_margin_y": 96,
     },
     "desktop_hero": {
         "label": "电脑端｜1464×2400｜首屏突出",
         "target_size": (1464, 2400),
         "section_heights": (800, 533, 533, 534),
-        "text_margin_x": 120,
-        "text_margin_y": 64,
+        "text_margin_x": 132,
+        "text_margin_y": 96,
     },
 }
 MAIN_IMAGE_A_PLUS_SECTION_PURPOSES = (
@@ -351,6 +436,12 @@ A_PLUS_PRODUCT_LOCK_RULES = (
     "禁止增加、删除、复制、合并、拆分或移动产品本体的任何零件、配件、包装内容和装饰；禁止把不同参考图的局部拼成一个不存在的新产品，禁止用模板产品或模型臆造内容替换用户产品细节。"
     "产品只允许作为一个完整、不可编辑的整体，在保持原始比例的前提下等比缩放和移动；禁止非等比拉伸、镜像、旋转、改变透视、裁切产品、遮挡产品关键信息或让产品超出画布。"
     "可以重新设计背景、场景、模特、装饰和文案排版，但这些元素不得覆盖、污染、染色或改变产品；如果产品与版式冲突，必须调整版式、背景和其他元素，绝不能调整产品本身。"
+)
+MAIN_IMAGE_A_PLUS_MOBILE_SOURCE_LOCK_RULES = (
+    "手机端适配素材角色锁定规则（最高优先级）：输入图片第 1 张是本次唯一内容源，最终成品中的人物、商品、包装、Logo、文字、参数、步骤图、效果图和品牌视觉只能来自第 1 张。"
+    "第 2 张起若存在图片，它们只构成经过批准的 PC→手机版式参考对：每对按‘电脑版、对应手机版’连续排列，只用于学习如何拆解横向模块、调整主次、重新换行和组织纵向节奏。"
+    "严禁从版式参考对复制或混入任何人物、脸、眼睛、睫毛、商品、包装、Logo、品牌名、文字、数字、颜色、背景照片、装饰或像素；参考对中的所有商业内容都属于其他商品。"
+    "第 1 张中的真实商品与人物必须保持身份、数量、外观、结构、角度、颜色、材质、比例和细节不变；只能对完整语义元素等比缩放、移动和重排，禁止重绘、换款、变形、镜像或臆造。"
 )
 MAIN_IMAGE_A_PLUS_TEMPLATE_DEFAULT_PROMPT = (
     "请执行电商 A+ 成品套版替换。版式模板只用于锁定构图和设计结构，内容参考图用于提供新的品牌、文案、模特、商品、包装和细节素材。"
@@ -534,11 +625,37 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
+    def do_POST(self) -> None:
+        request_url = urllib.parse.urlsplit(self.path)
+        request_path = urllib.parse.unquote(request_url.path or "/").rstrip("/")
+        model_hd_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/model-hd"
+        if request_path == model_hd_path:
+            self.serve_infinite_canvas_model_hd(request_url.query)
+            return
+        image_feature_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/image-feature"
+        if request_path == image_feature_path:
+            self.serve_infinite_canvas_image_feature(request_url.query)
+            return
+        usage_record_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/usage-record"
+        if request_path == usage_record_path:
+            self.serve_infinite_canvas_usage_record(request_url.query)
+            return
+        self.send_json({"success": False, "message": "接口不存在"}, status=404)
+
     def end_headers(self) -> None:
         request_url = urllib.parse.urlsplit(self.path)
+        request_path = urllib.parse.unquote(request_url.path or "/")
         query = urllib.parse.parse_qs(request_url.query)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Expose-Headers", "Content-Disposition, Content-Type")
+        canvas_prefix = INFINITE_CANVAS_STATIC_ROUTE_PREFIX.rstrip("/")
+        if request_path == canvas_prefix or request_path == f"{canvas_prefix}/" or (
+            request_path.startswith(f"{canvas_prefix}/")
+            and not Path(request_path).suffix
+        ):
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
         if str((query.get("download") or [""])[0]).strip() == "1":
             file_name = Path(urllib.parse.unquote(request_url.path or "")).name or "image.png"
             encoded_name = urllib.parse.quote(file_name)
@@ -584,6 +701,317 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
                 },
             }
         )
+
+    def serve_infinite_canvas_model_hd(self, query_text: str) -> None:
+        query = urllib.parse.parse_qs(query_text)
+        username = str((query.get(AUTH_QUERY_USER_KEY) or [""])[0]).strip()
+        auth_token = str((query.get(AUTH_QUERY_TOKEN_KEY) or [""])[0]).strip()
+        expected_token = build_auth_token(username) if username else ""
+        if not username or not auth_token or not hmac.compare_digest(auth_token, expected_token):
+            self.send_json({"success": False, "message": "无效的画布访问凭证"}, status=403)
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            content_length = 0
+        if content_length <= 0 or content_length > INFINITE_CANVAS_MODEL_HD_MAX_REQUEST_BYTES:
+            self.send_json({"success": False, "message": "模特高清输入图片为空或超过 50MB"}, status=413)
+            return
+
+        try:
+            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            image_data_url = str(payload.get("image") or "").strip()
+            decoded_image = decode_data_url(image_data_url)
+            if not decoded_image:
+                raise ValueError("无法读取输入图片")
+            image_bytes, mime_type = decoded_image
+            if not str(mime_type or "").lower().startswith("image/"):
+                raise ValueError("输入内容不是图片")
+            source_input = {
+                "data": image_bytes,
+                "name": "infinite_canvas_model_hd.png",
+                "type": mime_type,
+            }
+            feature = get_feature_by_key("hd_batch")
+            if feature is None:
+                raise RuntimeError("模特高清功能未初始化")
+            method = str(payload.get("method") or INFINITE_CANVAS_MODEL_HD_METHOD_NANO).strip()
+            if method not in INFINITE_CANVAS_MODEL_HD_METHODS:
+                raise ValueError("不支持的模特高清处理方式")
+            custom_prompt = str(payload.get("prompt") or "").strip()[:500]
+            final_prompt = build_prompt(
+                feature,
+                custom_prompt,
+                DEFAULT_ASPECT_RATIO,
+                "本次请求来自无限画布的模特高清模块，只处理第1张连接的原图。",
+            )
+            if method == INFINITE_CANVAS_MODEL_HD_METHOD_SEEDREAM:
+                result = call_ark_seedream_images_api(
+                    prompt=(
+                        build_portrait_hd_prompt(final_prompt)
+                        + "\n\n"
+                        + build_portrait_hd_size_instruction(source_input)
+                    ),
+                    uploaded_files=[source_input],
+                )
+                result = finalize_portrait_hd_result(result, source_input)
+                result["channel"] = "即梦 5 Pro 模特高清 · 原图尺寸输出"
+            else:
+                result = call_openrouter_portrait_hd(
+                    model=NANO_BANANA_MODEL,
+                    prompt=final_prompt,
+                    aspect_ratio=DEFAULT_ASPECT_RATIO,
+                    uploaded_files=[source_input],
+                )
+            result_image = next(iter(list(result.get("images") or [])[:1]), "")
+            if not result_image:
+                raise RuntimeError("模特高清没有返回图片")
+            result_bytes, result_mime_type = load_image_bytes_from_url(str(result_image))
+            width, height = get_uploaded_input_dimensions(
+                {
+                    "data": result_bytes,
+                    "name": "infinite_canvas_model_hd_result.png",
+                    "type": result_mime_type or "image/png",
+                }
+            )
+            usage_model = (
+                ARK_SEEDREAM_5_PRO_MODEL
+                if method == INFINITE_CANVAS_MODEL_HD_METHOD_SEEDREAM
+                else NANO_BANANA_MODEL
+            )
+            record_infinite_canvas_usage(
+                account_name=username,
+                feature_name="模特高清",
+                model=usage_model,
+                image_count=1,
+            )
+            self.send_json(
+                {
+                    "success": True,
+                    "image": image_bytes_to_data_url(
+                        result_bytes,
+                        result_mime_type or "image/png",
+                    ),
+                    "width": width,
+                    "height": height,
+                    "channel": str(result.get("channel") or "Nano Banana 2 模特高清"),
+                }
+            )
+        except Exception as exc:
+            print(f"[infinite-canvas-model-hd] {exc}", file=sys.stderr)
+            self.send_json(
+                {
+                    "success": False,
+                    "message": format_user_facing_error_message(exc),
+                },
+                status=502,
+            )
+
+    def serve_infinite_canvas_usage_record(self, query_text: str) -> None:
+        query = urllib.parse.parse_qs(query_text)
+        username = str((query.get(AUTH_QUERY_USER_KEY) or [""])[0]).strip()
+        auth_token = str((query.get(AUTH_QUERY_TOKEN_KEY) or [""])[0]).strip()
+        expected_token = build_auth_token(username) if username else ""
+        if not username or not auth_token or not hmac.compare_digest(auth_token, expected_token):
+            self.send_json({"success": False, "message": "无效的画布访问凭证"}, status=403)
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            content_length = 0
+        if content_length <= 0 or content_length > 16 * 1024:
+            self.send_json({"success": False, "message": "使用记录参数无效"}, status=413)
+            return
+
+        try:
+            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            action = str(payload.get("action") or "").strip()
+            feature_name = INFINITE_CANVAS_USAGE_ACTION_LABELS.get(action)
+            if not feature_name:
+                raise ValueError("不支持的画布使用记录类型")
+            model = str(payload.get("model") or "").strip()[:200]
+            image_count = max(1, min(int(payload.get("imageCount") or 1), BATCH_MULTI_IMAGE_MAX_FILES))
+            if not record_infinite_canvas_usage(
+                account_name=username,
+                feature_name=feature_name,
+                model=model,
+                image_count=image_count,
+            ):
+                raise RuntimeError("使用记录写入失败")
+            self.send_json({"success": True})
+        except Exception as exc:
+            print(f"[infinite-canvas-usage] {exc}", file=sys.stderr)
+            self.send_json(
+                {
+                    "success": False,
+                    "message": format_user_facing_error_message(exc),
+                },
+                status=502,
+            )
+
+    def serve_infinite_canvas_image_feature(self, query_text: str) -> None:
+        query = urllib.parse.parse_qs(query_text)
+        username = str((query.get(AUTH_QUERY_USER_KEY) or [""])[0]).strip()
+        auth_token = str((query.get(AUTH_QUERY_TOKEN_KEY) or [""])[0]).strip()
+        expected_token = build_auth_token(username) if username else ""
+        if not username or not auth_token or not hmac.compare_digest(auth_token, expected_token):
+            self.send_json({"success": False, "message": "无效的画布访问凭证"}, status=403)
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            content_length = 0
+        if content_length <= 0 or content_length > INFINITE_CANVAS_IMAGE_FEATURE_MAX_REQUEST_BYTES:
+            self.send_json({"success": False, "message": "图片功能输入为空或请求超过 80MB"}, status=413)
+            return
+
+        try:
+            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            feature_key = str(payload.get("feature") or "").strip()
+            if feature_key not in INFINITE_CANVAS_IMAGE_FEATURE_KEYS:
+                raise ValueError("不支持的图片功能")
+            feature = get_feature_by_key(feature_key)
+            if feature is None:
+                raise RuntimeError("图片功能未初始化")
+
+            raw_images = payload.get("images")
+            if not isinstance(raw_images, list) or not raw_images:
+                raise ValueError("请先提供 1 张待处理原图")
+            source_inputs: list[dict[str, Any]] = []
+            for image_index, raw_image in enumerate(raw_images[:INFINITE_CANVAS_MAX_INPUT_IMAGES], start=1):
+                decoded_image = decode_data_url(str(raw_image or "").strip())
+                if not decoded_image:
+                    raise ValueError(f"无法读取第 {image_index} 张输入图片")
+                image_bytes, mime_type = decoded_image
+                if not str(mime_type or "").lower().startswith("image/"):
+                    raise ValueError(f"第 {image_index} 个输入内容不是图片")
+                source_inputs.append(
+                    {
+                        "data": image_bytes,
+                        "name": f"infinite_canvas_feature_{image_index}.png",
+                        "type": mime_type,
+                    }
+                )
+            if feature_key in INFINITE_CANVAS_IMAGE_FEATURE_REFERENCE_KEYS and len(source_inputs) < 2:
+                raise ValueError(f"{str(feature.get('name') or '当前功能')}还需要连接至少 1 张参考图")
+            if feature_key in INFINITE_CANVAS_IMAGE_FEATURE_SINGLE_INPUT_KEYS:
+                source_inputs = source_inputs[:1]
+            if feature_key == "ai_qa_image":
+                source_inputs = source_inputs[:3]
+
+            custom_prompt = str(payload.get("prompt") or "").strip()[:2000]
+            if feature_key == "ai_qa_image" and not custom_prompt:
+                raise ValueError("AI问答生图需要填写文字要求")
+            method = str(payload.get("method") or INFINITE_CANVAS_MODEL_HD_METHOD_NANO).strip()
+            if method not in INFINITE_CANVAS_MODEL_HD_METHODS:
+                raise ValueError("不支持的图片处理模型")
+            model = (
+                ARK_SEEDREAM_5_PRO_MODEL
+                if method == INFINITE_CANVAS_MODEL_HD_METHOD_SEEDREAM
+                else NANO_BANANA_MODEL
+            )
+            raw_outpaint = payload.get("outpaint")
+            outpaint_payload = raw_outpaint if isinstance(raw_outpaint, dict) else {}
+            outpaint_settings = {
+                direction: max(
+                    0,
+                    min(
+                        OUTPAINT_ABSOLUTE_MAX_EXTENSION_PX,
+                        int(outpaint_payload.get(direction, 0) or 0),
+                    ),
+                )
+                for direction in ("top", "bottom", "left", "right")
+            }
+            if feature_key == "outpaint" and not sum(outpaint_settings.values()):
+                raise ValueError("模特扩图需要至少设置一个方向的扩展像素")
+
+            extra_notes = build_infinite_canvas_image_feature_notes(
+                feature_key,
+                len(source_inputs),
+                outpaint_settings,
+            )
+            final_prompt = build_prompt(
+                feature,
+                custom_prompt,
+                DEFAULT_ASPECT_RATIO,
+                extra_notes,
+            )
+            job_context = {
+                "feature": feature,
+                "model": model,
+                "prompt": final_prompt,
+                "uploaded_files": source_inputs,
+                "output_mode": "image",
+                "max_output_images": 1,
+                "target_size": None,
+                "outpaint_settings": outpaint_settings if feature_key == "outpaint" else {},
+                "aspect_ratio": DEFAULT_ASPECT_RATIO,
+            }
+            if feature_key == "background_cutout":
+                result = run_ai_background_cutout_job(job_context)
+            else:
+                group_result = process_batch_group(job_context, source_inputs, 1)
+                result = {
+                    "images": list(group_result.get("images") or []),
+                    "text": str(group_result.get("text") or "").strip(),
+                }
+
+            result_image = next(iter(list(result.get("images") or [])[:1]), "")
+            if not result_image:
+                raise RuntimeError(f"{str(feature.get('name') or '图片功能')}没有返回图片")
+            result_bytes, result_mime_type = load_image_bytes_from_url(str(result_image))
+            width, height = get_uploaded_input_dimensions(
+                {
+                    "data": result_bytes,
+                    "name": "infinite_canvas_feature_result.png",
+                    "type": result_mime_type or "image/png",
+                }
+            )
+            usage_model = (
+                JIMENG_HD_MODEL_NAME
+                if feature_key == JIMENG_HD_FEATURE_KEY
+                else "智能抠图专用接口"
+                if feature_key == "background_cutout"
+                else model
+            )
+            record_infinite_canvas_usage(
+                account_name=username,
+                feature_name=str(feature.get("name") or feature_key),
+                model=usage_model,
+                image_count=1,
+            )
+            self.send_json(
+                {
+                    "success": True,
+                    "image": image_bytes_to_data_url(
+                        result_bytes,
+                        result_mime_type or "image/png",
+                    ),
+                    "width": width,
+                    "height": height,
+                    "feature": feature_key,
+                    "featureName": str(feature.get("name") or feature_key),
+                    "channel": (
+                        "即梦智能超清 · 原生 8K"
+                        if feature_key == JIMENG_HD_FEATURE_KEY
+                        else "智能抠图"
+                        if feature_key == "background_cutout"
+                        else f"{get_model_display_name(model)} · {str(feature.get('name') or feature_key)}"
+                    ),
+                }
+            )
+        except Exception as exc:
+            print(f"[infinite-canvas-image-feature] {exc}", file=sys.stderr)
+            self.send_json(
+                {
+                    "success": False,
+                    "message": format_user_facing_error_message(exc),
+                },
+                status=502,
+            )
 
     def send_json(self, payload: dict[str, Any], status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -663,11 +1091,16 @@ def build_infinite_canvas_url(public_app_url: str, static_port: int, username: s
     if static_port and static_port != default_port:
         netloc = f"{hostname}:{static_port}"
     normalized_username = str(username or "访客").strip() or "访客"
+    try:
+        canvas_version = str((INFINITE_CANVAS_BUILD_DIR / "index.html").stat().st_mtime_ns)
+    except OSError:
+        canvas_version = "unbuilt"
     query = urllib.parse.urlencode(
         {
             AUTH_QUERY_USER_KEY: normalized_username,
             AUTH_QUERY_TOKEN_KEY: build_auth_token(normalized_username),
             "embed": "true",
+            "build": canvas_version,
         }
     )
     return urllib.parse.urlunsplit(
@@ -842,6 +1275,24 @@ FEATURES = [
             "请严格基于主模特图进行场景变化，只允许改变背景、空间氛围和环境。"
             "人物身份、脸部特征、发型、妆容、服饰、姿势、肢体动作、构图、机位、光线关系和整体风格都必须严格保持不变。"
             "仅输出 1 张结果图。"
+        ),
+    },
+    {
+        "key": BACKGROUND_TEXTURE_FEATURE_KEY,
+        "name": "场景背景质感",
+        "summary": "只改变背景表面质感，人物、商品与构图不变",
+        "mode": "openrouter",
+        "output_mode": "image",
+        "min_images": 1,
+        "max_output_images": 1,
+        "description": "上传 1 张原图，选择预设质感或直接用提示词描述；只重塑场景背景的材质与纹理，不替换人物、商品和空间结构。",
+        "default_prompt": (
+            "请严格基于第 1 张原图执行局部背景材质编辑，只允许改变场景背景表面的材质、纹理、粗糙度、反射特性和与材质直接相关的细微光影。"
+            "必须保留原场景的空间结构、墙面与地面边界、家具和道具的位置、透视、景深、机位、画幅、构图、光线方向与整体色彩关系。"
+            "人物、脸部、五官、皮肤、头发、妆容、服饰、姿势、肢体、商品、包装、Logo、文字和前景物体全部锁定，禁止重绘、替换、移动、增删、变形、调色或覆盖。"
+            "背景新质感必须沿原有表面透视与几何结构自然贴合，纹理尺度真实，遮挡关系、接触阴影、反射和景深符合原照片，不得像平铺贴图、滤镜、蒙版或独立色块。"
+            "不得更换场景类型，不得生成新人物、新商品、新文字、新道具或无关装饰。"
+            "最终仅输出 1 张与原图构图和宽高比一致的真实商业摄影结果。"
         ),
     },
     {
@@ -1076,6 +1527,33 @@ def get_visible_features() -> list[dict[str, Any]]:
     return [feature for feature in FEATURES if not bool(feature.get("hidden"))]
 
 
+def build_background_texture_instruction(
+    selected_presets: list[str] | tuple[str, ...] | None,
+    custom_description: str = "",
+) -> str:
+    normalized_presets = [
+        str(name).strip()
+        for name in list(selected_presets or [])
+        if str(name).strip() in BACKGROUND_TEXTURE_PRESETS
+    ]
+    parts: list[str] = []
+    if normalized_presets:
+        preset_details = "；".join(
+            f"{name}：{BACKGROUND_TEXTURE_PRESETS[name]}" for name in normalized_presets
+        )
+        parts.append(f"选择的背景质感为：{preset_details}。")
+    normalized_description = str(custom_description or "").strip()
+    if normalized_description:
+        parts.append(f"用户对背景质感的直接描述：{normalized_description}。")
+    parts.append(
+        "如果同时选择了预设并填写描述，请把二者自然融合；用户描述优先用于决定颜色、纹理强弱、反光程度和局部表现。"
+    )
+    parts.append(
+        "质感只能作用于原图的场景背景表面，人物、商品、包装、文字、Logo、前景主体、轮廓边缘和主体投影不得被材质化或改写。"
+    )
+    return "".join(parts)
+
+
 def get_main_image_a_plus_layout(layout_key: str | None = None) -> dict[str, Any]:
     normalized_key = str(layout_key or "").strip()
     if normalized_key not in MAIN_IMAGE_A_PLUS_LAYOUTS:
@@ -1087,12 +1565,165 @@ def get_main_image_a_plus_layout(layout_key: str | None = None) -> dict[str, Any
     return layout
 
 
+def infer_main_image_a_plus_screen_count(canvas_size: tuple[int, int]) -> int:
+    """Infer how many logical A+ screens a desktop or mobile long image contains."""
+    width, height = (max(int(value), 1) for value in canvas_size)
+    canvas_ratio = width / float(height)
+    if canvas_ratio <= 0.38:
+        raw_count = height / float(width * 0.75)
+    else:
+        normalized_desktop_height = height * (1464.0 / float(width))
+        raw_count = normalized_desktop_height / float(MAIN_IMAGE_A_PLUS_DESKTOP_SCREEN_HEIGHT)
+    rounded_count = int(math.floor(raw_count + 0.5))
+    return max(
+        MAIN_IMAGE_A_PLUS_MIN_MOBILE_SCREENS,
+        min(rounded_count, MAIN_IMAGE_A_PLUS_MAX_MOBILE_SCREENS),
+    )
+
+
+def get_main_image_a_plus_mobile_layout_for_source(
+    source_size: tuple[int, int],
+) -> dict[str, Any]:
+    screen_count = infer_main_image_a_plus_screen_count(source_size)
+    target_width = int(MAIN_IMAGE_A_PLUS_LAYOUTS["mobile_equal"]["target_size"][0])
+    target_height = screen_count * MAIN_IMAGE_A_PLUS_MOBILE_SCREEN_HEIGHT
+    layout = get_main_image_a_plus_layout("mobile_equal")
+    layout.update(
+        {
+            "label": f"手机端｜{target_width}×{target_height}｜{screen_count} 屏自然重排",
+            "target_size": (target_width, target_height),
+            "section_heights": (MAIN_IMAGE_A_PLUS_MOBILE_SCREEN_HEIGHT,) * screen_count,
+            "mobile_screen_count": screen_count,
+            "source_size": tuple(max(int(value), 1) for value in source_size),
+        }
+    )
+    return layout
+
+
+def is_main_image_a_plus_mobile_size(canvas_size: tuple[int, int]) -> bool:
+    try:
+        width, height = (int(value) for value in canvas_size)
+    except Exception:
+        return False
+    if width <= 0 or height <= width:
+        return False
+    screen_count = infer_main_image_a_plus_screen_count((width, height))
+    expected_height = width * 0.75 * screen_count
+    return abs(height - expected_height) <= max(4.0, expected_height * 0.015)
+
+
 def select_main_image_a_plus_safe_aspect_ratio(canvas_size: tuple[int, int]) -> str:
     """Choose the closest native ratio so four-sided crop-free fitting stays minimal."""
     width, height = (int(value) for value in canvas_size)
     if width <= 0 or height <= 0:
         raise ValueError("A+ canvas dimensions must be positive.")
     return select_closest_aspect_ratio((width, height))
+
+
+def select_main_image_a_plus_vertical_preserving_aspect_ratio(
+    canvas_size: tuple[int, int],
+) -> str:
+    """Choose the narrowest native ratio that can be cropped only on the sides."""
+    width, height = (int(value) for value in canvas_size)
+    if width <= 0 or height <= 0:
+        raise ValueError("A+ canvas dimensions must be positive.")
+    target_ratio = width / float(height)
+    parsed_ratios: list[tuple[float, str]] = []
+    for ratio_text in GEMINI_IMAGE_ASPECT_RATIOS:
+        ratio_match = re.fullmatch(r"(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)", ratio_text)
+        if not ratio_match:
+            continue
+        ratio_value = float(ratio_match.group(1)) / float(ratio_match.group(2))
+        if ratio_value + 1e-9 >= target_ratio:
+            parsed_ratios.append((ratio_value, ratio_text))
+    if not parsed_ratios:
+        raise ValueError("No native A+ aspect ratio can preserve the complete vertical canvas.")
+    return min(parsed_ratios, key=lambda item: (item[0] - target_ratio, item[0]))[1]
+
+
+def get_main_image_a_plus_native_safe_zones(
+    layout: dict[str, Any],
+    request_aspect_ratio: str | None = None,
+) -> dict[str, Any]:
+    """Map final-canvas safety margins into the model's native aspect-ratio canvas."""
+    target_width, target_height = (int(value) for value in layout["target_size"])
+    normalized_ratio = str(
+        request_aspect_ratio
+        or select_main_image_a_plus_safe_aspect_ratio((target_width, target_height))
+    ).strip()
+    ratio_match = re.fullmatch(r"(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)", normalized_ratio)
+    if not ratio_match:
+        raise ValueError(f"Unsupported A+ native aspect ratio: {normalized_ratio}")
+    native_width = float(ratio_match.group(1))
+    native_height = float(ratio_match.group(2))
+    if native_width <= 0 or native_height <= 0:
+        raise ValueError(f"Unsupported A+ native aspect ratio: {normalized_ratio}")
+
+    native_ratio = native_width / native_height
+    target_ratio = target_width / float(target_height)
+    crop_x = 0.0
+    crop_y = 0.0
+    active_width = 1.0
+    active_height = 1.0
+    if native_ratio > target_ratio:
+        active_width = target_ratio / native_ratio
+        crop_x = (1.0 - active_width) / 2.0
+    elif native_ratio < target_ratio:
+        active_height = native_ratio / target_ratio
+        crop_y = (1.0 - active_height) / 2.0
+
+    foreground_margin_x = max(0.025, 18.0 / float(target_width))
+    foreground_margin_y = max(0.02, 36.0 / float(target_height))
+    text_margin_x = max(
+        0.08,
+        float(layout.get("text_margin_x") or 0) / float(target_width),
+    )
+    text_margin_y = max(
+        0.04,
+        float(layout.get("text_margin_y") or 0) / float(target_height),
+    )
+
+    def native_box(margin_x: float, margin_y: float) -> list[int]:
+        return [
+            math.ceil((crop_x + active_width * margin_x) * 1000),
+            math.ceil((crop_y + active_height * margin_y) * 1000),
+            math.floor((crop_x + active_width * (1.0 - margin_x)) * 1000),
+            math.floor((crop_y + active_height * (1.0 - margin_y)) * 1000),
+        ]
+
+    return {
+        "request_aspect_ratio": normalized_ratio,
+        "crop_x_percent": round(crop_x * 100, 1),
+        "crop_y_percent": round(crop_y * 100, 1),
+        "foreground_box": native_box(foreground_margin_x, foreground_margin_y),
+        "text_box": native_box(text_margin_x, text_margin_y),
+        "final_text_margin_x": round(text_margin_x * target_width),
+        "final_text_margin_y": round(text_margin_y * target_height),
+    }
+
+
+def build_main_image_a_plus_canvas_safety_instruction(
+    layout: dict[str, Any],
+    request_aspect_ratio: str | None = None,
+) -> str:
+    zones = get_main_image_a_plus_native_safe_zones(layout, request_aspect_ratio)
+    foreground_box = json.dumps(zones["foreground_box"], separators=(",", ":"))
+    text_box = json.dumps(zones["text_box"], separators=(",", ":"))
+    crop_parts = []
+    if float(zones["crop_x_percent"]) > 0:
+        crop_parts.append(f"左右各约 {zones['crop_x_percent']}%")
+    if float(zones["crop_y_percent"]) > 0:
+        crop_parts.append(f"上下各约 {zones['crop_y_percent']}%")
+    crop_note = "、".join(crop_parts) if crop_parts else "不裁切外围"
+    return (
+        f"画布安全区硬规则：模型原生画幅为 {zones['request_aspect_ratio']}，最终规格适配会{crop_note}。"
+        f"在原生画布 0–1000 归一化坐标中，人物、商品、包装、图片窗口和关键装饰的完整外接框必须位于 {foreground_box} 内；"
+        f"标题、正文、参数、品牌名、可读 Logo 和包装上的关键可读文字必须位于更严格的文字安全框 {text_box} 内。"
+        f"换算到最终成品，所有新增可读文字距左右边缘至少 {zones['final_text_margin_x']}px，距上下边缘至少 {zones['final_text_margin_y']}px；"
+        "这些距离按整段文字的完整外接框计算，包含字高、行高、描边、阴影和装饰端点，不能只按文字基线或中心点计算。"
+        "任何文字或前景一旦触碰安全框，必须缩小字号、重新换行、整组等比缩小或向内移动；禁止依赖最终裁切碰运气。"
+        "安全框只用于内部构图检查，成品中不得显示坐标、辅助线、安全框或尺寸标注。"
+    )
 
 
 def get_main_image_a_plus_template_layout(template_input: Any) -> dict[str, Any]:
@@ -1903,6 +2534,8 @@ def build_main_image_a_plus_element_replacement_prompt(
 def build_main_image_a_plus_layout_notes(layout_key: str, image_count: int) -> str:
     layout = get_main_image_a_plus_layout(layout_key)
     target_width, target_height = layout["target_size"]
+    text_margin_x = int(layout.get("text_margin_x") or round(target_width * 0.08))
+    text_margin_y = int(layout.get("text_margin_y") or round(target_height * 0.04))
     return (
         f"当前共上传 {image_count} 张商品主图，图片顺序即参考优先级。"
         "第 1 张必须作为核心主图，严格锁定商品身份、品牌、包装、颜色、材质、结构和比例；"
@@ -1923,7 +2556,8 @@ def build_main_image_a_plus_layout_notes(layout_key: str, image_count: int) -> s
         "只允许展示上传图片中真实存在的商品、配件、包装和信息，不得增加无关商品，不得改变品牌与商品外观。"
         "不得编造参数、认证、功效、促销价格或承诺；补充宣传要求与图片冲突时，以主图中的真实商品信息为准。"
         "背景、场景、色块、纹理和装饰必须满版延伸到画布四边，不得生成边框、白边、黑边、模糊边带或可见留白。"
-        "标题、卖点、参数、说明文字和可读 Logo 必须在上、下、左、右四条画布外边缘保留自然可读空间，不显示任何安全距离。"
+        f"标题、卖点、参数、说明文字和可读 Logo 的完整外接框必须在最终成品中距左右边缘至少 {text_margin_x}px、距上下边缘至少 {text_margin_y}px；"
+        "安全距离只用于内部排版，成品中不得显示辅助线、坐标或尺寸数字。"
         "文字可以跟随整体构图跨越概念阶段，但每一段完整文字都不能被画布边缘切断，不能出现半个字、缺字或被截断的行。"
         "禁止在画布顶部、底部、左侧或右侧放置贴边文字；每个标题、正文、参数、品牌名和可读 Logo 必须完整保留字高、行高与四周呼吸空间，必要时缩小字号、自动换行或向画面内部移动。"
         "最终规格适配必须采用满版覆盖，禁止通过补色、补白或增加页边距来凑尺寸；只允许从原生画面最外围的纯背景或连续场景做最少量裁切，人物、商品、文字、Logo 和关键装饰必须完整保留。"
@@ -1940,12 +2574,24 @@ def build_main_image_a_plus_free_prompt(
 ) -> str:
     target_width, target_height = (int(value) for value in layout["target_size"])
     request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio((target_width, target_height))
+    canvas_safety = build_main_image_a_plus_canvas_safety_instruction(
+        layout,
+        request_aspect_ratio,
+    )
     full_bleed_note = (
         f"原生生成使用最接近成品的 {request_aspect_ratio} 画幅，最终会以保持比例、满版覆盖的方式适配到 {target_width}×{target_height}px；"
         "禁止给画面增加白边、米色边、黑边、透明边、纯色空白带、模糊边带、相框、页边距或任何补边。"
         "画布四条外边的每一个像素都必须由连续背景、场景、色块、纹理或装饰自然铺满。"
         "比例差异只允许从原生画面最外围的纯背景或连续场景做最少量居中裁切；"
         "所有人物、商品、Logo、完整文字和关键装饰必须提前放在内侧安全区域，绝不能进入可能被适配裁掉的外围背景区。"
+    )
+    art_direction_note = (
+        "整图艺术指导硬要求：先从真实商品、包装和品牌视觉中提取一套明确的创意概念，再统一决定主色、辅助色、材质语言、光线气质、字体气质和贯穿全图的单一视觉母题。"
+        "成品必须像由资深电商艺术总监完成，而不是把素材放进通用模板：使用编辑设计式网格、不对称平衡、强弱明确的尺度对比、前中后景、局部满版特写、克制留白和连续色彩节奏建立高级感。"
+        "从上到下形成‘品牌主视觉—核心价值—细节证据—场景或工艺—品牌收尾’的叙事起伏；相邻内容通过同一背景空间、光线、材质、色带或主体轮廓自然衔接，但每一屏仍要有一个清晰焦点。"
+        "禁止使用廉价模板感的等宽卡片、平均四等分、连续相同版式、悬浮小图堆叠、密集徽章、无意义圆角框、贴纸标签、随机花朵光斑和大段说明文字。"
+        "文字系统最多使用两种字体气质和三级字号，标题、辅助信息与正文必须有明显层级；文字只能落在低干扰留白上，不压人脸、商品、包装 Logo 或复杂纹理。"
+        "如果参考素材品质或数量不足，宁可用尺度、裁切、留白、光影和背景材质完成少而精的构图，也不能复制主体或编造内容来填满画布。"
     )
     return (
         f"{str(full_prompt or '').strip()}\n\n"
@@ -1960,8 +2606,10 @@ def build_main_image_a_plus_free_prompt(
         "如果上传素材中有多张模特图，只挑选一位最清晰、最适合商业展示的模特，放在整张图最上方的首屏并置于最上层；"
         "禁止出现第二位模特，禁止在中段或底部再次重复同一模特，任何元素都不能遮挡模特，商品、文字和装饰尤其不能遮挡选中的模特；"
         "如果所有上传素材都没有模特，则以核心商品为首屏主视觉，不得凭空生成陌生人物。"
+        f"{art_direction_note}"
         "所有标题、正文、参数、品牌名和可读 Logo 必须逐字完整、清晰可读，上下左右四边都要保留完整字高、行高和自然呼吸空间；"
         "禁止半个字、缺字、断行裁切、文字或主体超出画布、紧贴任何一侧边缘，空间不足时必须缩小字号、换行、缩小主体或向内移动。"
+        f"{canvas_safety}"
         f"{full_bleed_note}"
         f"{A_PLUS_PRODUCT_LOCK_RULES}"
         "最终只返回这一张融合完成的商业级 A+ 成品，不返回局部图、过程图、拼接图或候选版本。"
@@ -1996,10 +2644,14 @@ def analyze_main_image_a_plus_mobile_element_inventory(source_input: Any) -> lis
     response = call_openrouter(
         model=MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL,
         prompt=(
-            "你是电商 A+ 手机端重排前的完整元素清点器。请从上到下盘点这张电脑端 A+ 成品中所有可见且必须保留的独立元素，"
+            "你是电商 A+ 手机端重排前的完整元素清点器。请从上到下盘点这张电脑端 A+ 成品中的独立语义元素，"
             "包括每一个模特及其首饰配件、商品、包装盒、瓶子、刷子、Logo、品牌名、标题、正文、卖点、参数、图标、徽章、"
             "图片窗口、局部特写、花束与其他装饰、带文字或商品语义的背景内容。相同元素重复出现时必须记录真实出现次数；"
             "不同文案块、不同产品、不同图片窗口必须分开列出。不得忽略画布四角、边缘、底部或背景中的小元素。"
+            "每个元素还要返回 retention_priority：人物、商品、包装、Logo、文字、参数、步骤图、效果图、眼部特写和有品牌意义的装饰为 critical；"
+            "仅用于铺满画面的纯背景、环境延伸、无文字纹理或不承载信息的小装饰为 flexible_background。"
+            "同时返回 crop_policy：文字、Logo、商品和图形使用 full_element；摄影窗口允许在保留完整脸部、眼睛、商品和动作语义的前提下使用 photo_recrop_allowed；"
+            "纯背景使用 background_crop_allowed。不得把人物、商品或文字误判成可裁背景。"
             "对每个标题、正文、卖点、参数、Logo、品牌名和包装上的可读文字，必须在 verbatim_text 中逐字转录原文，保留原始大小写、标点、数字、单位和行顺序，不得概括或改写。"
             "按电脑端从上到下、同一高度从左到右的阅读顺序返回元素，并在 reading_order 中返回从 1 开始的顺序号。"
             "每个元素必须返回它每一次出现的完整外接框 regions，坐标使用 0 到 1000 的归一化整数 [left,top,right,bottom]，"
@@ -2007,6 +2659,7 @@ def analyze_main_image_a_plus_mobile_element_inventory(source_input: Any) -> lis
             "只返回严格 JSON，不要 Markdown，不要解释。JSON 格式："
             '{"elements":[{"name":"Adapt to Your Skin Tone 卖点","type":"text","count":1,'
             '"description":"完整英文卖点文字","verbatim_text":"Adapt to Your Skin Tone",'
+            '"retention_priority":"critical","crop_policy":"full_element",'
             '"reading_order":1,"regions":[[80,120,420,190]]}]}'
         ),
         uploaded_files=[source_input],
@@ -2048,6 +2701,16 @@ def analyze_main_image_a_plus_mobile_element_inventory(source_input: Any) -> lis
             reading_order = max(int(raw_element.get("reading_order") or index), 1)
         except Exception:
             reading_order = index
+        retention_priority = str(raw_element.get("retention_priority") or "critical").strip().lower()
+        if retention_priority not in {"critical", "flexible_background"}:
+            retention_priority = "critical"
+        crop_policy = str(raw_element.get("crop_policy") or "full_element").strip().lower()
+        if crop_policy not in {
+            "full_element",
+            "photo_recrop_allowed",
+            "background_crop_allowed",
+        }:
+            crop_policy = "full_element"
         normalized_elements.append(
             {
                 "name": name,
@@ -2057,6 +2720,8 @@ def analyze_main_image_a_plus_mobile_element_inventory(source_input: Any) -> lis
                 "verbatim_text": str(
                     raw_element.get("verbatim_text") or raw_element.get("text") or ""
                 ).strip()[:800],
+                "retention_priority": retention_priority,
+                "crop_policy": crop_policy,
                 "reading_order": reading_order,
                 "regions": regions,
             }
@@ -2074,6 +2739,8 @@ def format_main_image_a_plus_mobile_element_inventory(elements: list[dict[str, A
         name = str(element.get("name") or f"元素 {index}").strip()
         description = str(element.get("description") or "").strip()
         verbatim_text = str(element.get("verbatim_text") or "").strip()
+        retention_priority = str(element.get("retention_priority") or "critical").strip()
+        crop_policy = str(element.get("crop_policy") or "full_element").strip()
         try:
             reading_order = max(int(element.get("reading_order") or index), 1)
         except Exception:
@@ -2082,7 +2749,10 @@ def format_main_image_a_plus_mobile_element_inventory(elements: list[dict[str, A
             element_count = max(int(element.get("count") or len(list(element.get("regions") or [])) or 1), 1)
         except Exception:
             element_count = 1
-        line = f"{index}. {name}（阅读顺序 {reading_order}，出现 {element_count} 处）"
+        line = (
+            f"{index}. {name}（阅读顺序 {reading_order}，出现 {element_count} 处，"
+            f"保留级别 {retention_priority}，裁切策略 {crop_policy}）"
+        )
         regions = list(element.get("regions") or [])
         if regions:
             line += "；电脑端完整外接框=" + json.dumps(regions, ensure_ascii=False, separators=(",", ":"))
@@ -2096,7 +2766,18 @@ def format_main_image_a_plus_mobile_element_inventory(elements: list[dict[str, A
     return "电脑端元素清单（这是最低保留清单，不代表可以忽略清单外的可见元素）：\n" + "\n".join(lines)
 
 
-def build_main_image_a_plus_mobile_safe_margin_instruction(elements: list[dict[str, Any]]) -> str:
+def build_main_image_a_plus_mobile_safe_margin_instruction(
+    elements: list[dict[str, Any]],
+    mobile_layout: dict[str, Any] | None = None,
+) -> str:
+    resolved_layout = dict(mobile_layout or get_main_image_a_plus_layout("mobile_equal"))
+    target_width, target_height = resolved_layout["target_size"]
+    request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio(
+        (int(target_width), int(target_height))
+    )
+    zones = get_main_image_a_plus_native_safe_zones(resolved_layout, request_aspect_ratio)
+    foreground_box = json.dumps(zones["foreground_box"], separators=(",", ":"))
+    text_box = json.dumps(zones["text_box"], separators=(",", ":"))
     regions = [
         region
         for element in list(elements or [])
@@ -2119,7 +2800,9 @@ def build_main_image_a_plus_mobile_safe_margin_instruction(elements: list[dict[s
         source_note = "电脑端元素坐标仅用于逐项核对，不允许据此裁掉任何边缘内容。"
     return (
         f"{source_note}手机端首次生成时，必须根据元素数量和最大外接框动态规划安全边距，"
-        "确保每个完整前景元素都与四条画布边缘保持可见背景缓冲，任何元素外接框都不能触碰或跨越画布边缘。"
+        f"确保每个完整前景元素都位于原生画布安全框 {foreground_box} 内，任何元素外接框都不能触碰或跨越该边界。"
+        f"其中所有标题、正文、参数、品牌名、可读 Logo 与包装上的关键可读文字还必须位于文字安全框 {text_box} 内，"
+        f"以保证最终 {target_width}×{target_height} 成品中的完整文字距左右至少 {zones['final_text_margin_x']}px、距上下至少 {zones['final_text_margin_y']}px。"
         "安全缓冲区域不是空白边框，必须继续使用与相邻区域一致的背景、渐变或纹理铺满。"
         "如果放不下，必须继续整体等比缩小元素并重新分配纵向位置，禁止裁切、遮罩、overflow 隐藏或贴边截断。"
     )
@@ -2128,53 +2811,297 @@ def build_main_image_a_plus_mobile_safe_margin_instruction(elements: list[dict[s
 def build_main_image_a_plus_mobile_adaptation_prompt(
     element_inventory: str = "",
     safe_margin_instruction: str = "",
+    mobile_layout: dict[str, Any] | None = None,
+    reference_pair_count: int = 0,
 ) -> str:
-    target_width, target_height = MAIN_IMAGE_A_PLUS_LAYOUTS["mobile_equal"]["target_size"]
+    resolved_layout = dict(mobile_layout or get_main_image_a_plus_layout("mobile_equal"))
+    target_width, target_height = (int(value) for value in resolved_layout["target_size"])
+    screen_count = int(
+        resolved_layout.get("mobile_screen_count")
+        or max(round(target_height / MAIN_IMAGE_A_PLUS_MOBILE_SCREEN_HEIGHT), 1)
+    )
+    request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio(
+        (target_width, target_height)
+    )
+    zones = get_main_image_a_plus_native_safe_zones(resolved_layout, request_aspect_ratio)
+    foreground_box = json.dumps(zones["foreground_box"], separators=(",", ":"))
+    text_box = json.dumps(zones["text_box"], separators=(",", ":"))
+    pair_count = max(int(reference_pair_count or 0), 0)
+    reference_note = (
+        f"输入图片共包含 1 张任务原稿和 {pair_count} 组版式参考对：第 1 张是本次待适配的电脑版 A+；"
+        f"第 2 张起每两张为一组，顺序固定为电脑版示例、对应手机版示例，共 {pair_count} 组。"
+        "先比较每组前后变化，学习其重排语法，再只用第 1 张的内容完成当前任务。"
+        if pair_count
+        else "输入图片第 1 张是本次待适配的电脑版 A+，也是唯一内容源。"
+    )
     prompt = (
-        "输入图片是一张已经确认满意的电脑端 A+ 成品，也是本次适配唯一允许使用的内容与设计依据。"
-        f"请输出一张完整的 {target_width}×{target_height}px 手机端 A+ 长图，只为更窄、更长的手机画布轻微调整现有排版。"
-        "生成前必须在内部从上到下逐项盘点电脑端成品中的每一个独立元素，并保持手机端元素总数、元素种类、出现次数和内容一一对应。"
-        "内容集合必须一对一完全锁定：原图中已有的模特、商品、包装、Logo、标题、正文、卖点、参数、图标、装饰、背景元素和内容区都必须保留；"
-        "不得新增、删除、替换、改写、概括、扩写、翻译或重复任何内容，也不得编造新卖点、新文案、新商品或新装饰。"
-        "这不是一次新设计或内容重绘，而是对同一张电脑端成品做响应式重排；即使新版看起来更美观，只要任何内容、文字、人物、商品、Logo、细节或出现次数发生变化，就是失败结果。"
+        f"{reference_note}"
+        f"请输出一张完整的 {target_width}×{target_height}px、共 {screen_count} 个约 600×450 阅读屏的手机端 A+ 长图。"
+        "这不是缩放或裁长图，而是参照样本完成同款逻辑的移动端艺术指导与响应式重排。"
+        "生成前必须从上到下盘点第 1 张中的全部 critical 元素；人物、商品、包装、Logo、标题、正文、卖点、参数、图标、步骤图、效果图和有语义的图片窗口必须保持种类、数量、原文和阅读顺序一一对应。"
+        "对这些 critical 内容不得新增、删除、替换、改写、概括、扩写、翻译或重复，也不得编造新卖点、新文案、新商品或新装饰。"
+        "flexible_background 只允许在窄屏重构时裁掉无信息的环境边缘、纯背景和连续纹理；不得把人物、商品、文字或品牌装饰当成背景删除。"
+        "这不是内容重绘，但必须是一次真正的移动端版式重构：锁定全部内容与品牌设计语言，同时重新建立适合单手纵向浏览的焦点、层级、尺度、留白和节奏；"
+        "禁止把电脑端整图直接缩窄、压扁、中心裁切，或把桌面模块机械地逐块竖排。"
         "所有可读文字必须逐字保持原文，只允许在不改变字符内容和阅读顺序的前提下重新换行。"
         "不得根据语义重新撰写相似文案；无法确认某个字符时，必须按电脑端的原始视觉形状保留该文字块，不得猜测、替换或省略。"
-        "只允许做手机端响应式排版：现有元素可以等比缩放、移动、调整间距、改变同一行中的排列方式，或把横向并排关系改为自然的纵向排列。"
-        "为了适配 600×1800 规格，必须主动对原有完整元素做穿插式重排，不得只把电脑端的每个横向模块简单缩成一排再从上到下机械堆叠。"
-        "穿插方式包括：保持 reading_order 的左右交替与上下错位、将小型完整元素放入另一元素周围的纯背景留白、让背景色块或光影跨内容区延伸、以及让完整人物或商品轮廓跨相邻内容区建立前后层次。"
-        "穿插只能利用元素的透明区、纯背景区和自然留白：允许不同完整元素的矩形外接框在空间上穿插，但不允许任何有效像素被另一元素覆盖。"
-        "每一个元素都必须被视为不可拆分的完整整体，只能整组搬移和等比缩放；禁止把一个元素切成多块、只保留局部、裁掉边缘、拆散内部组成、隐藏到其他元素后方或放到画布之外。"
-        "禁止为了做穿插而给任何元素添加裁切窗口、蒙版、遮罩或 overflow 隐藏；人物头发与肢体、商品边缘、包装、Logo、文字、图标和装饰的每一个可见像素都必须保留。"
-        "图片窗口和局部特写必须完整保留电脑端已经展示的全部可见范围，不能再次裁切；空间不足时必须缩小整个元素并另找位置，绝不能牺牲元素的任何一部分。"
+        "版式重排必须遵循三组参考对共同体现的语法：首屏继续使用原品牌主视觉并满宽展示；桌面横向双栏或多栏模块按语义拆成一个或两个纵向阅读屏；Before/After、双眼型、步骤图等天然成组内容可在仍清晰可读时保留紧凑双栏；商品盘、长度表、卖点图和教程模块要放大到手机可读尺寸。"
+        "每个约 600×450 阅读屏只建立一个主要信息任务，使用满宽主图、18–30px 内容边距、清楚的标题层级和紧凑但不拥挤的模块间距；上下屏通过原有品牌底色、纹理、撕纸边、胶片边、色带或光影连续衔接。"
+        "首屏保留一个最大视觉焦点；后续屏在大图、紧凑信息组、局部特写和商品包装之间形成疏密交替。允许左右交替、上下错位和穿插纯背景留白，但不得遮挡有效内容。"
+        "允许把桌面中的一个复合模块按语义拆成若干完整子组后重排，例如把‘产品盘+长度表’、‘Before/After’、‘卖点文字+睫毛结构图’分别组织；禁止拆散单个文字块、Logo、商品、眼睛、步骤动作或图形内部。"
+        "摄影窗口可按 photo_recrop_allowed 为手机比例重新取景，但必须完整保留关键脸部、眼睛、人物身份、商品和动作语义；纯背景可以裁，人物、商品、文字、Logo、步骤图和效果图不能裁。"
+        "禁止连续使用相同高度的廉价卡片、平均分栏、素材缩略图列表、密集标签和无意义装饰；不得把所有内容统一缩小来换取完整，必须通过模块拆解、主次尺度和疏密节奏同时保证完整与美观。"
         "任何元素之间都不得相互覆盖有效内容；人脸、头发轮廓、肢体、商品主体、包装边缘、Logo、文字、图标和装饰必须完整可见且四周不被截断。"
         "禁止对整张图或任何人物、商品、Logo、文字、图片窗口进行非等比压缩、拉伸、挤扁、增高、变形、镜像、旋转或透视改造。"
         "人物、商品和包装必须与电脑端成品保持同一外观、数量、比例、角度、颜色、材质、纹理和细节，不能重绘或改款。"
-        "保持电脑端成品相同的品牌风格、配色、背景、字体气质、视觉层级、阅读顺序和整体相似度；只解决手机端宽度变窄后的拥挤问题，不重新设计。"
-        "内容完整性高于满版效果：禁止对任何前景执行 cover 裁切、中心裁切、mask 截断、overflow 隐藏、贴边切断、局部缩放或任何宽高拉伸。"
+        "保持电脑端成品相同的品牌风格、配色、背景、字体气质、核心视觉母题和阅读顺序，把同一套设计系统翻译成更适合手机浏览的构图，而不是复制桌面坐标。"
         "执行原则必须同时满足：full-bleed background + all foreground elements fully visible。"
-        "目标 600×1800 的背景、渐变、光影和纹理必须无缝铺满上下左右四边，不能出现白边、黑边、透明条、纯色留白条、相框边或可见空带。"
-        "原生 1:4 请求画布必须把完整的 600×1800 内容设计放在中间 75% 高度范围内；上方 12.5% 和下方 12.5% 只允许是与相邻区域连续的纯背景、光影、渐变或纹理，不得放置任何人物、商品、Logo、文字、卖点、包装、刷子或装饰。"
-        "所有前景元素的完整外接框必须位于原生 1:4 画布归一化安全区 [30,150,970,850] 内：左右各保留 3% 背景缓冲，上下还要在最终会移除的 12.5% 背景区内侧再保留 2.5% 缓冲。"
-        "安全区是前景元素外接框的硬边界，不是对齐建议；任何元素一旦超出或碰到该边界，必须继续整组等比缩小、换行或移动，直到外接框完全进入安全区。"
-        "这两段上下背景是最终尺寸适配时唯一允许移除的区域；中间内容区的所有前景必须完整保留。"
-        "禁止把边缘像素、家具线条、人物轮廓、包装或任何纹理横向或纵向拉长来补边，禁止任何拖影、条纹化延展或镜像复制痕迹。"
-        "如果中间内容区放不下全部元素，必须先用穿插式重排消化横向空白和无效间隙，再继续等比缩小完整元素、重新规划间距和纵向位置，不能侵占上下背景区，也不能牺牲任何元素。"
-        "人物、商品、Logo、全部文字、卖点、包装、刷子、装饰、干花和图片窗口必须整体位于中间内容区内。"
+        f"目标 {target_width}×{target_height} 的背景、渐变、光影和纹理必须无缝铺满四边，不能出现白边、黑边、透明条、纯色留白条或可见空带。"
+        f"原生 {request_aspect_ratio} 请求画布就是唯一成品层；系统只会在本地把这一层归一为 {target_width}×{target_height}px，"
+        "不会二次扩图、生成背景副本、叠加回贴、拆屏、分别生成或拼接；整张长图必须始终保持一个连续背景、一个统一网格和一条完整阅读动线。"
+        f"所有 critical 前景的完整外接框必须位于原生画布归一化安全区 {foreground_box} 内；"
+        f"所有可读文字与 Logo 必须进一步位于文字安全区 {text_box} 内，最终成品距左右边缘至少 {zones['final_text_margin_x']}px、距上下边缘至少 {zones['final_text_margin_y']}px。"
+        "安全区是硬边界；任何 critical 元素触碰边界时必须重新换行、重排模块、整组等比缩小或向内移动。禁止拉长边缘像素、镜像复制、拖影或条纹化补边。"
         "只返回这一张手机端适配成品，不返回说明、对比图、过程图、线框图或多个版本。"
-        f"{A_PLUS_PRODUCT_LOCK_RULES}"
+        f"{MAIN_IMAGE_A_PLUS_MOBILE_SOURCE_LOCK_RULES}"
     )
     normalized_inventory = str(element_inventory or "").strip()
     if normalized_inventory:
         prompt += (
             f"\n\n{normalized_inventory}\n"
-            "生成结果必须逐条满足以上清单：每一条的出现次数必须完全一致，每个元素必须完整可见且不可切割；"
+            "生成结果必须逐条满足以上清单：critical 元素的出现次数必须完全一致且不得切割；flexible_background 只能按其 crop_policy 处理；"
             "清单中的 verbatim_text 必须逐字一致，reading_order 必须保持；"
-            "清单中的元素全部放置完成并确认外接框位于 [30,150,970,850] 后才能输出最终图片。"
+            f"全部 critical 元素放置完成并确认普通前景位于 {foreground_box}、文字与可读 Logo 位于 {text_box} 后才能输出。"
         )
     normalized_safe_margin = str(safe_margin_instruction or "").strip()
     if normalized_safe_margin:
         prompt += f"\n\n手机端安全边距硬规则：{normalized_safe_margin}"
     return prompt
+
+
+def review_main_image_a_plus_candidate(
+    candidate_image: str,
+    layout: dict[str, Any],
+    mode: str,
+    source_inputs: list[Any] | None = None,
+    expected_element_inventory: str = "",
+) -> dict[str, Any]:
+    """Use a lightweight vision pass to reject clipped, incomplete, or weak A+ results."""
+    target_width, target_height = (int(value) for value in layout["target_size"])
+    mobile_screen_count = int(
+        layout.get("mobile_screen_count")
+        or max(round(target_height / MAIN_IMAGE_A_PLUS_MOBILE_SCREEN_HEIGHT), 1)
+    )
+    text_margin_x = int(layout.get("text_margin_x") or round(target_width * 0.08))
+    text_margin_y = int(layout.get("text_margin_y") or round(target_height * 0.04))
+    is_mobile = str(mode or "").strip() == MAIN_IMAGE_A_PLUS_MODE_MOBILE_ADAPT
+    try:
+        candidate_bytes, candidate_mime_type = load_image_bytes_from_url(candidate_image)
+        candidate_reference = prepare_main_image_a_plus_reference_input(
+            {
+                "data": candidate_bytes,
+                "name": "a_plus_candidate.png",
+                "type": candidate_mime_type,
+            }
+        )
+        comparison_inputs = list(source_inputs or [])[:2]
+        comparison_inputs.append(candidate_reference)
+        source_note = (
+            f"前 {len(comparison_inputs) - 1} 张图是电脑端原稿，最后 1 张图是待验收的手机端成品。"
+            if is_mobile and len(comparison_inputs) > 1
+            else "唯一输入图是待验收的 A+ 成品。"
+        )
+        inventory_note = str(expected_element_inventory or "").strip()
+        review_prompt = (
+            "你是资深电商视觉总监和 A+ 成品质检员。"
+            f"{source_note}只检查最后一张候选图，目标尺寸为 {target_width}×{target_height}px。"
+            f"所有新增标题、正文、参数、品牌名和可读 Logo 的完整外接框必须距最终画布左右至少 {text_margin_x}px、上下至少 {text_margin_y}px；"
+            "逐项检查是否存在半个字、断笔、末行被切、文字描边或阴影碰边、主体/包装/人物肢体/装饰被画布切断。"
+            "设计质量检查必须严格：画面要有明确主焦点、专业网格、尺度对比、疏密节奏、连续品牌视觉语言和清晰文字层级；"
+            "普通素材堆叠、机械等分卡片、连续相同模块、拥挤小字、大片无目的空洞或廉价贴纸感都要降分。"
+            + (
+                f"手机端应形成 {mobile_screen_count} 个约 600×450 的清晰阅读屏，并与电脑端逐项对照 critical 元素数量、出现次数、文字原文和阅读顺序；"
+                "missing_elements 只填写清单中 retention_priority=critical 的缺失项，flexible_background 的合理裁切不能判缺失。"
+                "不得把桌面版直接缩窄或机械竖排；横向复合模块应像批准样本一样按语义拆解重排，同时保留 Before/After、双眼型和步骤图等天然内容组。"
+                "最终适配必须是一张从顶部到底部连续设计的完整长图。只要出现横向接缝、逐屏风格变化、重复小画面、画中画边框、两侧补片、虚化边、模糊带、毛玻璃、纯色边框、镜像或拉伸像素，"
+                "就必须写入 layout_issues 并判定不通过。"
+                "但只要顶部标题、底部文案、人物、商品或任何 critical 元素被最终画布切掉，就必须判定为 clipped_foreground 或 cropped_or_edge_touching_text。"
+                if is_mobile
+                else "不要因为参考素材没有全部出现而判缺失；自由创作允许主动取舍素材，只评估候选成品自身的完整性、文字安全和商业设计质量。"
+            )
+            + (
+                f"\n\n必须核对的电脑端最低元素清单：\n{inventory_note}"
+                if is_mobile and inventory_note
+                else ""
+            )
+            + "\n\n只返回严格 JSON，不要 Markdown，不要解释。格式："
+            '{"composition_score":8,"mobile_layout_score":8,'
+            '"cropped_or_edge_touching_text":[],"clipped_foreground":[],'
+            '"missing_elements":[],"duplicated_elements":[],"text_mismatches":[],'
+            '"layout_issues":[],"passed":true,'
+            '"retry_instruction":"若不通过，用一句可直接交给生成模型的中文指令说明如何修复"}'
+        )
+        response = call_openrouter(
+            model=MAIN_IMAGE_A_PLUS_QUALITY_REVIEW_MODEL,
+            prompt=review_prompt,
+            uploaded_files=comparison_inputs,
+            output_mode="text",
+            aspect_ratio=DEFAULT_ASPECT_RATIO,
+        )
+        payload = _extract_strict_json_object(
+            str(response.get("text") or ""),
+            "A+ 成品质检没有返回有效结果。",
+        )
+
+        def normalize_issue_list(key: str) -> list[str]:
+            raw_value = payload.get(key) or []
+            if isinstance(raw_value, str):
+                raw_value = [raw_value]
+            return [
+                str(item).strip()[:240]
+                for item in list(raw_value or [])
+                if str(item).strip()
+            ][:20]
+
+        try:
+            composition_score = max(0.0, min(float(payload.get("composition_score") or 0), 10.0))
+        except Exception:
+            composition_score = 0.0
+        try:
+            mobile_layout_score = max(
+                0.0,
+                min(float(payload.get("mobile_layout_score") or composition_score), 10.0),
+            )
+        except Exception:
+            mobile_layout_score = composition_score
+        review = {
+            "reviewed": True,
+            "composition_score": composition_score,
+            "mobile_layout_score": mobile_layout_score,
+            "cropped_or_edge_touching_text": normalize_issue_list(
+                "cropped_or_edge_touching_text"
+            ),
+            "clipped_foreground": normalize_issue_list("clipped_foreground"),
+            "missing_elements": normalize_issue_list("missing_elements"),
+            "duplicated_elements": normalize_issue_list("duplicated_elements"),
+            "text_mismatches": normalize_issue_list("text_mismatches"),
+            "layout_issues": normalize_issue_list("layout_issues"),
+            "retry_instruction": str(payload.get("retry_instruction") or "").strip()[:1200],
+        }
+        critical_issues = (
+            list(review["cropped_or_edge_touching_text"])
+            + list(review["clipped_foreground"])
+        )
+        if is_mobile:
+            critical_issues.extend(review["missing_elements"])
+            critical_issues.extend(review["duplicated_elements"])
+            critical_issues.extend(review["text_mismatches"])
+        quality_score = min(composition_score, mobile_layout_score) if is_mobile else composition_score
+        raw_passed = payload.get("passed", True)
+        if isinstance(raw_passed, str):
+            review_passed = raw_passed.strip().lower() in {"true", "1", "yes", "pass", "passed"}
+        else:
+            review_passed = bool(raw_passed)
+        review["quality_score"] = quality_score
+        review["critical_issue_count"] = len(critical_issues)
+        review["passed"] = review_passed and not critical_issues and quality_score >= 7.0
+        return review
+    except Exception as exc:
+        return {
+            "reviewed": False,
+            "passed": True,
+            "quality_score": 0.0,
+            "critical_issue_count": 0,
+            "layout_issues": [],
+            "retry_instruction": "",
+            "review_error": str(exc)[:300],
+        }
+
+
+def build_main_image_a_plus_quality_retry_instruction(review: dict[str, Any]) -> str:
+    issue_keys = (
+        "cropped_or_edge_touching_text",
+        "clipped_foreground",
+        "missing_elements",
+        "duplicated_elements",
+        "text_mismatches",
+        "layout_issues",
+    )
+    issues = [
+        str(issue).strip()
+        for key in issue_keys
+        for issue in list(review.get(key) or [])
+        if str(issue).strip()
+    ]
+    model_instruction = str(review.get("retry_instruction") or "").strip()
+    issue_summary = "；".join(issues[:12]) or "设计层级或安全区未达到商业成品标准"
+    return (
+        "上一候选已被成品质检拦截，请从原始参考图重新构图，不要沿用上一候选的错误坐标。"
+        f"必须修复：{issue_summary}。"
+        + (f"质检修复建议：{model_instruction}。" if model_instruction else "")
+        + "修复后先逐字检查四边文字，再逐项检查主体与元素数量，最后检查移动端/整图的视觉焦点和疏密节奏；只有全部通过才输出。"
+    )
+
+
+def collect_main_image_a_plus_quality_issues(review: dict[str, Any]) -> list[str]:
+    issue_keys = (
+        "cropped_or_edge_touching_text",
+        "clipped_foreground",
+        "missing_elements",
+        "duplicated_elements",
+        "text_mismatches",
+        "layout_issues",
+    )
+    return [
+        str(issue).strip()
+        for key in issue_keys
+        for issue in list(review.get(key) or [])
+        if str(issue).strip()
+    ][:40]
+
+
+def build_main_image_a_plus_mobile_repair_prompt(
+    layout: dict[str, Any],
+    element_inventory: str,
+    safe_margin_instruction: str,
+    review: dict[str, Any],
+) -> str:
+    target_width, target_height = (int(value) for value in layout["target_size"])
+    screen_count = int(
+        layout.get("mobile_screen_count")
+        or max(round(target_height / MAIN_IMAGE_A_PLUS_MOBILE_SCREEN_HEIGHT), 1)
+    )
+    repair_instruction = build_main_image_a_plus_quality_retry_instruction(review)
+    return (
+        "这是手机端 A+ 的定向修复任务。输入图片只有两张：第 1 张是电脑版原稿，也是人物、商品、包装、Logo、文字、参数和图片内容的唯一事实来源；"
+        "第 2 张是上一轮生成的手机版候选，只用于继承已经完成的手机端构图、品牌风格、配色、层级和纵向节奏。"
+        "严禁把第 2 张中与第 1 张不一致的文字、商品细节或虚构元素继续保留，也不得交换两张图的角色。"
+        f"请在第 2 张版式基础上做局部重排和精确修复，直接输出一张完整的 {target_width}×{target_height}px、共 {screen_count} 个约 600×450 阅读屏的手机版 A+。"
+        "优先保持第 2 张中已经正确且美观的区域不变；只对质检指出的问题及其必要邻近区域进行修改，避免整张图重新随机生成。"
+        "逐项对照第 1 张恢复缺失元素、纠正重复元素和错误文字；所有文字必须逐字沿用第 1 张原文，不能凭语义改写。"
+        "任何被裁切、贴边或遮挡的文字、Logo、人物、商品、包装、步骤图和效果图，都必须整组向内移动、重新换行或等比缩小，不能用遮罩、补边、拉伸或删除解决。"
+        "摄影背景可以重新取景，但人脸、眼睛、动作和商品语义必须完整；背景、渐变与纹理必须继续满版铺满四边。"
+        f"{repair_instruction}"
+        + (
+            f"\n\n必须逐项核对的电脑版内容清单：\n{str(element_inventory).strip()}"
+            if str(element_inventory or "").strip()
+            else ""
+        )
+        + (
+            f"\n\n手机端安全边距硬规则：{str(safe_margin_instruction).strip()}"
+            if str(safe_margin_instruction or "").strip()
+            else ""
+        )
+        + "\n\n只返回修复后的单张手机端成品，不返回说明、对比图、标记框或多个版本。"
+    )
+
+
+def rank_main_image_a_plus_quality_review(review: dict[str, Any]) -> tuple[int, int, float]:
+    return (
+        2 if bool(review.get("passed")) and bool(review.get("reviewed")) else 1,
+        -int(review.get("critical_issue_count") or 0),
+        float(review.get("quality_score") or 0.0),
+    )
 
 
 def build_main_image_a_plus_section_prompt(
@@ -2677,7 +3604,14 @@ def build_a_plus_layout_skill_prompt(analysis: dict[str, Any]) -> str:
     cross_rules = "；".join(_layout_skill_string_list(common.get("cross_section_rules"))) or "背景与视觉动线自然跨区"
     product_rules = "；".join(_layout_skill_string_list(common.get("product_placement_rules"))) or "产品完整、清晰且不被文案遮挡"
     anti_patterns = "；".join(_layout_skill_string_list(common.get("anti_patterns"))) or "素材堆叠、硬分割、文字拥挤"
+    device_rules = "；".join(_layout_skill_string_list(common.get("device_rules"), 16))
+    layout_rules = "；".join(_layout_skill_string_list(common.get("layout_rules"), 16))
     palette = "、".join(list(background.get("palette") or [])) or "跟随商品与品牌素材"
+    preset_rules = ""
+    if device_rules:
+        preset_rules += f"\n端型适配规则：{device_rules}。"
+    if layout_rules:
+        preset_rules += f"\n模块编排规则：{layout_rules}。"
     return (
         "A+ 案例版式技能（只允许学习设计结构，禁止复制案例内容）：\n"
         f"共同设计风格：{str(common.get('style') or '专业电商 A+')}。\n"
@@ -2696,6 +3630,7 @@ def build_a_plus_layout_skill_prompt(analysis: dict[str, Any]) -> str:
         f"连续性={str(background.get('continuity') or '背景跨区连续')}。\n"
         f"阅读动线：{reading_flow}。\n跨区规则：{cross_rules}。\n产品布局原则：{product_rules}。\n"
         f"必须避免：{anti_patterns}。\n"
+        f"{preset_rules}\n"
         "如果请求附带版式骨架图，它只表达抽象位置、比例、留白和层级；不得把骨架色块、边框或占位形状直接画进成品。"
         "绝对禁止识别、复用、模仿或输出优秀案例中的旧产品、旧人物、旧品牌、旧 Logo、旧文案、旧参数和旧价格。"
         "所有真实内容只能来自本次用户上传的商品与品牌素材。\n"
@@ -2789,6 +3724,54 @@ def normalize_a_plus_layout_skill_account(account_name: str) -> str:
     return str(account_name or "admin").strip() or "admin"
 
 
+def list_builtin_a_plus_layout_skills() -> list[dict[str, Any]]:
+    if not A_PLUS_SHOP_STYLE_SKILL_CATALOG.is_file():
+        return []
+    try:
+        catalog = json.loads(A_PLUS_SHOP_STYLE_SKILL_CATALOG.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if int(catalog.get("schema_version") or 0) != A_PLUS_SKILL_SCHEMA_VERSION:
+        return []
+    raw_stores = catalog.get("stores")
+    if not isinstance(raw_stores, dict):
+        return []
+    skills: list[dict[str, Any]] = []
+    for store_key in ("3", "15", "28"):
+        for raw_skill in list(raw_stores.get(store_key) or []):
+            if not isinstance(raw_skill, dict):
+                continue
+            skill_id = _layout_skill_text(raw_skill.get("skill_id"), 120)
+            analysis = dict(raw_skill.get("analysis") or {})
+            common = dict(analysis.get("common") or {})
+            if not skill_id or not common:
+                continue
+            device = _layout_skill_text(raw_skill.get("device"), 24)
+            target_size = (600, 1800) if device == "mobile" else (1464, 2400)
+            skills.append(
+                {
+                    "schema_version": A_PLUS_SKILL_SCHEMA_VERSION,
+                    "type": A_PLUS_SKILL_DB_TYPE,
+                    "skill_id": skill_id,
+                    "title": _layout_skill_text(raw_skill.get("title") or "店铺预置 A+ 风格", 120),
+                    "created_at": "",
+                    "created_by": "system",
+                    "store_key": store_key,
+                    "device": device,
+                    "target_size": target_size,
+                    "is_builtin": True,
+                    "source_examples": _layout_skill_string_list(
+                        raw_skill.get("source_examples"),
+                        A_PLUS_SKILL_MAX_CASES,
+                    ),
+                    "analysis": analysis,
+                    "common": common,
+                    "skill_prompt": build_a_plus_layout_skill_prompt(analysis),
+                }
+            )
+    return skills
+
+
 def get_a_plus_layout_skill_user_pointer_path(account_name: str) -> Path:
     normalized_account = normalize_a_plus_layout_skill_account(account_name)
     account_hash = hashlib.sha1(normalized_account.casefold().encode("utf-8")).hexdigest()[:12]
@@ -2833,6 +3816,13 @@ def list_a_plus_layout_skills(account_name: str) -> list[dict[str, Any]]:
     return manifests
 
 
+def list_available_a_plus_layout_skills(account_name: str) -> list[dict[str, Any]]:
+    return [
+        *list_builtin_a_plus_layout_skills(),
+        *list_a_plus_layout_skills(account_name),
+    ]
+
+
 def load_latest_a_plus_layout_skill(account_name: str = "admin") -> dict[str, Any]:
     skills = list_a_plus_layout_skills(account_name)
     return dict(skills[0]) if skills else {}
@@ -2842,6 +3832,16 @@ def load_a_plus_layout_skill(account_name: str, skill_id: str) -> dict[str, Any]
     normalized_skill_id = str(skill_id or "").strip()
     if not normalized_skill_id:
         return {}
+    builtin_skill = next(
+        (
+            dict(skill)
+            for skill in list_builtin_a_plus_layout_skills()
+            if str(skill.get("skill_id") or "") == normalized_skill_id
+        ),
+        {},
+    )
+    if builtin_skill:
+        return builtin_skill
     return next(
         (
             dict(skill)
@@ -2896,6 +3896,8 @@ def delete_a_plus_layout_skill(account_name: str, skill_id: str) -> dict[str, An
     manifest = load_a_plus_layout_skill(normalized_account, normalized_skill_id)
     if not manifest:
         raise RuntimeError("未找到属于当前账号的 A+ 版式 Skill，无法删除。")
+    if bool(manifest.get("is_builtin")):
+        raise RuntimeError("店铺预置 A+ 版式 Skill 不能删除。")
     owner = normalize_a_plus_layout_skill_account(str(manifest.get("created_by") or ""))
     if owner.casefold() != normalized_account.casefold():
         raise RuntimeError("只能删除当前账号自己创建的 A+ 版式 Skill。")
@@ -3063,14 +4065,38 @@ def get_active_a_plus_layout_skill_context(
     if not manifest:
         return {}
     prompt = str(manifest.get("skill_prompt") or "").strip()
-    skeleton_path = Path(str(manifest.get("skeleton_path") or ""))
+    is_builtin = bool(manifest.get("is_builtin"))
+    if is_builtin:
+        skeleton_analysis = dict(manifest.get("analysis") or {})
+        skeleton_cases = [dict(item) for item in list(skeleton_analysis.get("cases") or [])]
+        target_size = tuple(manifest.get("target_size") or ())
+        if skeleton_cases and len(target_size) == 2:
+            target_width, target_height = (max(int(value), 1) for value in target_size)
+            skeleton_cases[0]["canvas"] = {
+                "width": target_width,
+                "height": target_height,
+                "aspect_ratio": f"{target_width}:{target_height}",
+            }
+            skeleton_analysis["cases"] = skeleton_cases
+        skeleton: Path | dict[str, Any] | None = {
+            "name": f"{str(manifest.get('skill_id') or 'shop_style')}_layout_skeleton.png",
+            "type": "image/png",
+            "data": build_a_plus_layout_skeleton_image(skeleton_analysis),
+        }
+    else:
+        skeleton_path = Path(str(manifest.get("skeleton_path") or ""))
+        skeleton = skeleton_path if skeleton_path.exists() and skeleton_path.is_file() else None
     return {
         "skill_id": str(manifest.get("skill_id") or ""),
         "title": str(manifest.get("title") or "A+ 版式技能"),
         "created_at": str(manifest.get("created_at") or ""),
         "created_by": str(manifest.get("created_by") or ""),
+        "store_key": str(manifest.get("store_key") or ""),
+        "device": str(manifest.get("device") or ""),
+        "target_size": tuple(manifest.get("target_size") or ()),
+        "is_builtin": is_builtin,
         "prompt": prompt,
-        "skeleton": skeleton_path if skeleton_path.exists() and skeleton_path.is_file() else None,
+        "skeleton": skeleton,
         "common": dict(manifest.get("common") or {}),
     }
 
@@ -3091,44 +4117,7 @@ def render_a_plus_layout_skill_builder(
         st.success(delete_notice)
     if delete_warning:
         st.warning(delete_warning)
-    with st.expander("优秀 A+ 案例学习", expanded=False):
-        st.caption(
-            "上传不同版式的优秀 A+，系统只提取布局、层级、留白、配色和阅读动线；"
-            "案例中的产品、人物、品牌、Logo 与文案不会进入后续生成请求。建议每批上传 2–8 张。"
-            f"当前账号：{normalized_account}，这里只保存和展示该账号自己的 Skill。"
-        )
-        skill_title = st.text_input(
-            "版式技能名称（可选）",
-            key=f"a_plus_layout_skill_title_{feature_key}",
-            placeholder="例如：高端美妆 A+ 通用版式",
-        )
-        case_files = render_multi_image_uploader(
-            "上传优秀 A+ 完整案例",
-            key=f"a_plus_layout_skill_cases_{feature_key}",
-            help_text=f"支持 JPG / PNG / WEBP，最多 {A_PLUS_SKILL_MAX_CASES} 张；会保存原案例，但后续 API 只接收结构化 skill 和无内容骨架图。",
-            max_files=A_PLUS_SKILL_MAX_CASES,
-        )
-        if st.button(
-            "解析版式并生成 Skill",
-            key=f"create_a_plus_layout_skill_{feature_key}",
-            type="secondary",
-            use_container_width=True,
-        ):
-            if not case_files:
-                st.warning("请至少上传 1 张优秀 A+ 完整案例。")
-            else:
-                try:
-                    with st.spinner("正在逐张解析版式并提取共同设计优点…"):
-                        manifest = create_a_plus_layout_skill(
-                            case_files,
-                            title=skill_title,
-                            account_name=normalized_account,
-                        )
-                    st.session_state[selection_key] = str(manifest.get("skill_id") or "")
-                    st.success("版式 Skill 已生成并登记到 AI_skills，已选为本次生成使用的 Skill。")
-                except Exception as exc:
-                    st.error(f"A+ 版式 Skill 生成失败：{format_user_facing_error_message(exc)}")
-    available_skills = list_a_plus_layout_skills(normalized_account)
+    available_skills = list_available_a_plus_layout_skills(normalized_account)
     skill_by_id = {
         str(skill.get("skill_id") or ""): skill
         for skill in available_skills
@@ -3151,8 +4140,12 @@ def render_a_plus_layout_skill_builder(
                 "不使用版式 Skill"
                 if not value
                 else (
-                    f"{skill_by_id[value].get('title') or 'A+ 版式技能'} · "
-                    f"{skill_by_id[value].get('created_at') or '时间未知'}"
+                    str(skill_by_id[value].get("title") or "A+ 版式技能")
+                    if skill_by_id[value].get("is_builtin")
+                    else (
+                        f"{skill_by_id[value].get('title') or 'A+ 版式技能'} · "
+                        f"{skill_by_id[value].get('created_at') or '时间未知'}"
+                    )
                 )
             ),
             label_visibility="collapsed",
@@ -3164,7 +4157,10 @@ def render_a_plus_layout_skill_builder(
             type="secondary",
             icon=":material/delete:",
             use_container_width=True,
-            disabled=not bool(selected_skill_id),
+            disabled=(
+                not bool(selected_skill_id)
+                or bool(skill_by_id.get(str(selected_skill_id or ""), {}).get("is_builtin"))
+            ),
         ):
             st.session_state[delete_confirmation_key] = str(selected_skill_id or "")
             st.rerun()
@@ -3218,21 +4214,82 @@ def render_a_plus_layout_skill_builder(
         str(selected_skill_id or ""),
     )
     if active_context:
-        st.info(
-            f"本次已选择：{active_context.get('title') or 'A+ 版式技能'} · "
-            f"{active_context.get('created_at') or '时间未知'}。只应用结构，不上传历史案例原图。"
+        is_builtin = bool(active_context.get("is_builtin"))
+        title = str(
+            active_context.get("title")
+            or ("店铺预置 A+ 风格" if is_builtin else "A+ 版式技能")
+        ).strip()
+        device = str(active_context.get("device") or "").strip().lower()
+        device_label = "手机端" if device == "mobile" else "电脑端" if device == "desktop" else "通用"
+        target_size = tuple(active_context.get("target_size") or ())
+        target_size_label = (
+            f"{int(target_size[0])}×{int(target_size[1])} px"
+            if len(target_size) == 2
+            else "自适应尺寸"
+        )
+        source_label = "店铺预置" if is_builtin else "个人 Skill"
+        created_at = str(active_context.get("created_at") or "").strip()
+        common = dict(active_context.get("common") or {})
+        style_summary = str(common.get("style") or "使用已提炼的版式结构与视觉层级").strip()
+        summary_meta = [device_label, target_size_label, source_label]
+        if created_at and not is_builtin:
+            summary_meta.append(created_at)
+        summary_meta_html = "".join(
+            f"<span>{html.escape(value)}</span>" for value in summary_meta if value
+        )
+        st.markdown(
+            '<div class="a-plus-skill-summary">'
+            '<div class="a-plus-skill-summary-head">'
+            f'<div class="a-plus-skill-summary-title">{html.escape(title)}</div>'
+            '<span class="a-plus-skill-status">已启用</span>'
+            '</div>'
+            f'<div class="a-plus-skill-summary-meta">{summary_meta_html}</div>'
+            f'<div class="a-plus-skill-summary-desc">{html.escape(style_summary)}</div>'
+            '<div class="a-plus-skill-summary-note">只应用结构与视觉规则，不会带入历史案例中的产品、品牌、人物或文案。</div>'
+            '</div>',
+            unsafe_allow_html=True,
         )
         skeleton_path = active_context.get("skeleton")
+        skeleton_bytes = b""
         if isinstance(skeleton_path, Path):
             try:
-                st.image(skeleton_path.read_bytes(), caption="无产品、无文案的通用版式骨架")
+                skeleton_bytes = skeleton_path.read_bytes()
             except Exception:
                 pass
-        if st.checkbox(
-            "查看结构化共同版式数据",
-            key=f"show_a_plus_layout_skill_data_{feature_key}_{account_key}",
-        ):
-            st.json(active_context.get("common") or {})
+        elif isinstance(skeleton_path, dict) and skeleton_path.get("data"):
+            skeleton_bytes = bytes(skeleton_path.get("data") or b"")
+        with st.expander("查看版式结构（可选）", expanded=False):
+            preview_column, rule_column = st.columns([0.42, 0.58], gap="medium")
+            with preview_column:
+                st.markdown('<div class="panel-subtitle">结构骨架</div>', unsafe_allow_html=True)
+                if skeleton_bytes:
+                    st.image(
+                        skeleton_bytes,
+                        width=128 if device == "mobile" else 180,
+                    )
+                    st.caption("仅表示位置、比例和阅读顺序，不会出现在生成结果里。")
+                else:
+                    st.caption("当前 Skill 没有可用的结构骨架图。")
+            with rule_column:
+                reading_flow = " → ".join(
+                    str(item).strip()
+                    for item in list(common.get("reading_flow") or [])
+                    if str(item).strip()
+                ) or "按首屏、卖点、细节和收尾顺序组织内容"
+                section_count = len(list(common.get("sections") or []))
+                st.markdown(
+                    '<div class="panel-subtitle">版式摘要</div>'
+                    '<div class="a-plus-skill-detail-copy">'
+                    f'<strong>阅读顺序</strong><br>{html.escape(reading_flow)}<br><br>'
+                    f'<strong>结构模块</strong><br>{section_count} 个主要内容阶段'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+            if st.checkbox(
+                "显示完整结构数据",
+                key=f"show_a_plus_layout_skill_data_{feature_key}_{account_key}",
+            ):
+                st.json(common)
     else:
         st.caption("本次不会向生成 API 附加任何历史版式 Skill。")
     return active_context
@@ -3274,6 +4331,22 @@ def load_api_key() -> str:
         if value:
             return value
 
+    return ""
+
+
+def load_ark_api_key() -> str:
+    env_key = os.getenv("ARK_API_KEY", "").strip()
+    if env_key:
+        return env_key
+
+    namespace = load_config_namespace()
+    if not namespace:
+        return ""
+
+    for key_name in ("ark_api_key", "ARK_API_KEY"):
+        value = str(namespace.get(key_name, "")).strip()
+        if value:
+            return value
     return ""
 
 
@@ -3586,6 +4659,51 @@ def consume_pending_upload_delete() -> bool:
         return False
     widget_key, item_index = parsed
     remove_upload_cache_item(widget_key, item_index)
+    reset_upload_widget(widget_key)
+    return True
+
+
+def build_upload_reorder_token(widget_key: str, source_index: int, target_index: int) -> str:
+    payload = json.dumps(
+        {
+            "widget_key": str(widget_key or "").strip(),
+            "source_index": int(source_index),
+            "target_index": int(target_index),
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+
+
+def parse_upload_reorder_token(raw_token: str) -> tuple[str, int, int] | None:
+    normalized = str(raw_token or "").strip()
+    if not normalized:
+        return None
+    padding = "=" * (-len(normalized) % 4)
+    try:
+        payload = base64.urlsafe_b64decode((normalized + padding).encode("ascii")).decode("utf-8")
+        parsed = json.loads(payload)
+        widget_key = str(parsed.get("widget_key") or "").strip()
+        source_index = int(parsed.get("source_index"))
+        target_index = int(parsed.get("target_index"))
+    except Exception:
+        return None
+    if not widget_key or source_index < 0 or target_index < 0:
+        return None
+    return widget_key, source_index, target_index
+
+
+def consume_pending_upload_reorder() -> bool:
+    reorder_token = str(st.query_params.get(UPLOAD_REORDER_QUERY_KEY, "")).strip()
+    if not reorder_token:
+        return False
+    clear_query_param(UPLOAD_REORDER_QUERY_KEY)
+    parsed = parse_upload_reorder_token(reorder_token)
+    if parsed is None:
+        return False
+    widget_key, source_index, target_index = parsed
+    reorder_upload_cache_item(widget_key, source_index, target_index)
     reset_upload_widget(widget_key)
     return True
 
@@ -4006,6 +5124,67 @@ def prepare_openrouter_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
         ) from exc
 
     raise RuntimeError("OpenRouter 输入图片超过 30MB，自动压缩后仍然太大，请降低图片尺寸后重试。")
+
+
+def prepare_ark_seedream_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
+    normalized = normalize_uploaded_input(uploaded_file)
+    image_bytes = bytes(normalized.get("data") or b"")
+    if not image_bytes:
+        raise RuntimeError("即梦 5 Pro 输入图片为空，请重新上传。")
+
+    original_name = sanitize_file_name(str(normalized.get("name") or "seedream_input.png"))
+    stem = Path(original_name).stem or "seedream_input"
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            working = ImageOps.exif_transpose(image)
+            width, height = working.size
+            needs_resize = (
+                max(width, height) > ARK_MAX_INPUT_IMAGE_EDGE
+                or width * height > ARK_MAX_INPUT_IMAGE_PIXELS
+            )
+            if (
+                not needs_resize
+                and len(image_bytes) <= ARK_MAX_INPUT_IMAGE_BYTES
+            ):
+                return normalized
+
+            scale = min(
+                1.0,
+                ARK_MAX_INPUT_IMAGE_EDGE / float(max(width, height)),
+                math.sqrt(ARK_MAX_INPUT_IMAGE_PIXELS / float(max(width * height, 1))),
+            )
+            resized_size = (
+                max(1, int(math.floor(width * scale))),
+                max(1, int(math.floor(height * scale))),
+            )
+            has_alpha = working.mode in {"RGBA", "LA"} or "transparency" in working.info
+            working = working.convert("RGBA") if has_alpha else working.convert("RGB")
+            if resized_size != working.size:
+                working = working.resize(resized_size, Image.Resampling.LANCZOS)
+            if has_alpha:
+                background = Image.new("RGB", working.size, (255, 255, 255))
+                background.paste(working, mask=working.getchannel("A"))
+                working = background
+            else:
+                working = working.convert("RGB")
+
+            output_bytes = b""
+            for quality in (94, 90, 86, 82, 78, 72, 66, 60, 54):
+                output = io.BytesIO()
+                working.save(output, format="JPEG", quality=quality, optimize=True)
+                output_bytes = output.getvalue()
+                if len(output_bytes) <= ARK_MAX_INPUT_IMAGE_BYTES:
+                    return {
+                        "data": output_bytes,
+                        "name": f"{sanitize_file_name(stem)}_seedream.jpg",
+                        "type": "image/jpeg",
+                    }
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"即梦 5 Pro 输入图片预处理失败：{exc}") from exc
+
+    raise RuntimeError("即梦 5 Pro 输入图片压缩后仍超过 30MB，请降低图片尺寸后重试。")
 
 
 def get_uploaded_input_closest_aspect_ratio(
@@ -4873,6 +6052,28 @@ def remove_upload_cache_item(widget_key: str, item_index: int, account_name: str
     current_files = load_upload_cache(widget_key, account_name=normalized_account, max_files=None)
     remaining_files = [item for index, item in enumerate(current_files) if index != item_index]
     return replace_upload_cache(widget_key, remaining_files, account_name=normalized_account)
+
+
+def reorder_upload_cache_item(
+    widget_key: str,
+    source_index: int,
+    target_index: int,
+    account_name: str | None = None,
+) -> list[dict[str, Any]]:
+    normalized_account = str(account_name or get_current_account_name()).strip() or "admin"
+    current_files = load_upload_cache(widget_key, account_name=normalized_account, max_files=None)
+    if (
+        source_index < 0
+        or target_index < 0
+        or source_index >= len(current_files)
+        or target_index >= len(current_files)
+        or source_index == target_index
+    ):
+        return current_files
+    reordered_files = list(current_files)
+    moved_file = reordered_files.pop(source_index)
+    reordered_files.insert(target_index, moved_file)
+    return replace_upload_cache(widget_key, reordered_files, account_name=normalized_account)
 
 
 def replace_upload_cache_item(
@@ -6098,6 +7299,36 @@ def prepare_main_image_a_plus_reference_input(uploaded_input: Any) -> dict[str, 
         return normalized
 
 
+@st.cache_data(show_spinner=False, ttl=3600, max_entries=2)
+def get_main_image_a_plus_mobile_reference_inputs() -> list[dict[str, Any]]:
+    """Load the approved PC→mobile pairs as few-shot layout references."""
+    references: list[dict[str, Any]] = []
+    for pair_index, (desktop_name, mobile_name) in enumerate(
+        MAIN_IMAGE_A_PLUS_MOBILE_REFERENCE_PAIRS,
+        start=1,
+    ):
+        pair_paths = (
+            ("desktop", MAIN_IMAGE_A_PLUS_MOBILE_REFERENCE_ROOT / desktop_name),
+            ("mobile", MAIN_IMAGE_A_PLUS_MOBILE_REFERENCE_ROOT / mobile_name),
+        )
+        if not all(path.exists() and path.is_file() for _role, path in pair_paths):
+            continue
+        prepared_pair: list[dict[str, Any]] = []
+        for role, reference_path in pair_paths:
+            prepared = prepare_main_image_a_plus_reference_input(
+                {
+                    "data": reference_path.read_bytes(),
+                    "name": f"layout_example_{pair_index}_{role}.jpg",
+                    "type": "image/jpeg",
+                }
+            )
+            if bytes(prepared.get("data") or b""):
+                prepared_pair.append(prepared)
+        if len(prepared_pair) == 2:
+            references.extend(prepared_pair)
+    return references
+
+
 def build_main_image_a_plus_continuity_reference(
     image_url: str,
     target_width: int,
@@ -6329,6 +7560,30 @@ def insert_history_db_record(
             max(int(image_count), 0),
         ),
     )
+
+
+def record_infinite_canvas_usage(
+    account_name: str,
+    feature_name: str,
+    model: str,
+    image_count: int = 1,
+) -> bool:
+    normalized_feature_name = str(feature_name or "图片生成").strip() or "图片生成"
+    if not normalized_feature_name.startswith("无限画布-"):
+        normalized_feature_name = f"无限画布-{normalized_feature_name}"
+    try:
+        insert_history_db_record(
+            account_name=str(account_name or "访客").strip() or "访客",
+            feature_name=normalized_feature_name,
+            model=str(model or "").strip(),
+            image_path="",
+            created_at_text=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            image_count=max(int(image_count), 0),
+        )
+        return True
+    except Exception as exc:
+        print(f"[infinite-canvas-usage] 写入 {DB_HISTORY_TABLE} 失败：{exc}", file=sys.stderr)
+        return False
 
 
 def save_generated_images_and_record_db(
@@ -6694,8 +7949,14 @@ def is_jimeng_model(model_name: str) -> bool:
     return str(model_name or "").strip() in {JIMENG_MODEL_NAME, JIMENG_HD_MODEL_NAME}
 
 
+def is_ark_seedream_model(model_name: str) -> bool:
+    return str(model_name or "").strip() == ARK_SEEDREAM_5_PRO_MODEL
+
+
 def get_model_display_name(model_name: str) -> str:
     normalized_name = str(model_name or "").strip()
+    if is_ark_seedream_model(normalized_name):
+        return "即梦 5 Pro（火山方舟）"
     if normalized_name == JIMENG_HD_MODEL_NAME:
         return "即梦智能超清 8K"
     if is_jimeng_model(normalized_name):
@@ -6818,6 +8079,11 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
         )
         if feature_key == JIMENG_HD_FEATURE_KEY:
             return call_jimeng_hd_upscale(uploaded_files=list(active_uploaded_group[:1]))
+        if is_ark_seedream_model(str(job_context.get("model") or "")):
+            return call_ark_seedream_images_api(
+                prompt=prompt_text,
+                uploaded_files=list(active_uploaded_group),
+            )
         if is_jimeng_model(str(job_context.get("model") or "")):
             if feature_key == "hd_batch":
                 return call_jimeng_portrait_hd(
@@ -7356,6 +8622,33 @@ def stitch_main_image_a_plus_sections(
     return image_bytes_to_data_url(output.getvalue(), "image/png")
 
 
+def resize_main_image_a_plus_mobile_single_layer(
+    candidate_image_url: str,
+    target_width: int,
+    target_height: int,
+) -> str:
+    """Normalize the one generated mobile canvas without adding or compositing a backdrop."""
+    candidate_bytes, _mime_type = load_image_bytes_from_url(candidate_image_url)
+    try:
+        with Image.open(io.BytesIO(candidate_bytes)) as candidate_image:
+            candidate = ImageOps.exif_transpose(candidate_image).convert("RGB")
+        if candidate.width <= 0 or candidate.height <= 0:
+            raise ValueError("Candidate image dimensions are invalid.")
+        exact_width = max(int(target_width), 1)
+        exact_height = max(int(target_height), 1)
+        fitted = candidate.resize(
+            (exact_width, exact_height),
+            Image.Resampling.LANCZOS,
+        )
+        output = io.BytesIO()
+        fitted.save(output, format="PNG")
+        return image_bytes_to_data_url(output.getvalue(), "image/png")
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"手机端单层成品尺寸归一失败：{exc}") from exc
+
+
 def run_main_image_a_plus_text_edit_job(job_context: dict[str, Any]) -> dict[str, Any]:
     job_id = str(job_context.get("job_id") or "")
     source_image = str(job_context.get("main_image_a_plus_text_edit_source") or "").strip()
@@ -7442,50 +8735,143 @@ def run_main_image_a_plus_mobile_adaptation_job(job_context: dict[str, Any]) -> 
     if not source_image:
         raise RuntimeError("请先生成一张电脑端 A+ 成品，再进行手机端适配。")
 
-    target_layout = get_main_image_a_plus_layout("mobile_equal")
-    target_width, target_height = target_layout["target_size"]
-    request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio((target_width, target_height))
     if job_id:
         set_task_progress(job_id, 12, "正在读取电脑端 A+ 成品")
     source_bytes, source_mime_type = load_image_bytes_from_url(source_image)
+    source_input = {
+        "data": source_bytes,
+        "name": "desktop_a_plus_reference.png",
+        "type": source_mime_type,
+    }
+    source_size = get_uploaded_input_dimensions(source_input)
+    target_layout = get_main_image_a_plus_mobile_layout_for_source(source_size)
+    target_width, target_height = target_layout["target_size"]
+    request_aspect_ratio = select_main_image_a_plus_safe_aspect_ratio((target_width, target_height))
     source_reference = prepare_main_image_a_plus_reference_input(
-        {
-            "data": source_bytes,
-            "name": "desktop_a_plus_reference.png",
-            "type": source_mime_type,
-        }
+        source_input
     )
+    mobile_layout_references = get_main_image_a_plus_mobile_reference_inputs()
+    reference_pair_count = len(mobile_layout_references) // 2
+    generation_inputs = [source_reference, *mobile_layout_references]
     if job_id:
         set_task_progress(job_id, 20, "正在建立电脑端元素清单")
     source_elements = analyze_main_image_a_plus_mobile_element_inventory(source_reference)
     element_inventory = format_main_image_a_plus_mobile_element_inventory(source_elements)
-    safe_margin_instruction = build_main_image_a_plus_mobile_safe_margin_instruction(source_elements)
-    if job_id:
-        set_task_progress(job_id, 36, "正在按完整元素清单适配手机端排版")
-    mobile_result = call_openrouter_images_api(
-        model=str(job_context.get("model") or NANO_BANANA_MODEL),
-        prompt=build_main_image_a_plus_mobile_adaptation_prompt(
-            element_inventory,
-            safe_margin_instruction,
-        ),
-        uploaded_files=[source_reference],
-        aspect_ratio=request_aspect_ratio,
-        resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
-        max_attempts=1,
+    safe_margin_instruction = build_main_image_a_plus_mobile_safe_margin_instruction(
+        source_elements,
+        target_layout,
     )
-    generated_images = list(mobile_result.get("images") or [])
-    if not generated_images:
+    if job_id:
+        set_task_progress(
+            job_id,
+            36,
+            f"正在参考 {reference_pair_count} 组样本重排为 {target_layout['mobile_screen_count']} 屏手机版",
+        )
+    base_generation_prompt = build_main_image_a_plus_mobile_adaptation_prompt(
+        element_inventory,
+        safe_margin_instruction,
+        target_layout,
+        reference_pair_count,
+    )
+    quality_reviews: list[dict[str, Any]] = []
+    best_image_url = ""
+    best_review: dict[str, Any] = {}
+    best_rank: tuple[int, int, float] | None = None
+    generation_attempts = 0
+    retry_instruction = ""
+    repair_candidate_reference: Any | None = None
+    repair_review: dict[str, Any] = {}
+    for attempt_index in range(MAIN_IMAGE_A_PLUS_MAX_QUALITY_ATTEMPTS):
+        generation_attempts = attempt_index + 1
+        attempt_inputs = generation_inputs
+        if repair_candidate_reference is not None and repair_review:
+            attempt_prompt = build_main_image_a_plus_mobile_repair_prompt(
+                target_layout,
+                element_inventory,
+                safe_margin_instruction,
+                repair_review,
+            )
+            attempt_inputs = [source_reference, repair_candidate_reference]
+            if job_id:
+                set_task_progress(job_id, 62, "首版未通过完整性检查，正在定向修复")
+        else:
+            attempt_prompt = base_generation_prompt
+        if retry_instruction and repair_candidate_reference is None:
+            attempt_prompt += f"\n\n{retry_instruction}"
+            if job_id:
+                set_task_progress(job_id, 62, "首版未通过完整性检查，正在自动重排修复")
+        mobile_result = call_openrouter_images_api(
+            model=str(job_context.get("model") or NANO_BANANA_MODEL),
+            prompt=attempt_prompt,
+            uploaded_files=attempt_inputs,
+            aspect_ratio=request_aspect_ratio,
+            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+            max_attempts=1,
+        )
+        generated_images = list(mobile_result.get("images") or [])
+        if not generated_images:
+            if attempt_index + 1 >= MAIN_IMAGE_A_PLUS_MAX_QUALITY_ATTEMPTS:
+                break
+            retry_instruction = "上一候选没有返回成品图，请重新生成一张完整手机端 A+。"
+            continue
+        if job_id:
+            set_task_progress(job_id, 68, "正在将单张手机版成品归一为规定尺寸")
+        candidate_image_url = resize_main_image_a_plus_mobile_single_layer(
+            str(generated_images[0]),
+            target_width,
+            target_height,
+        )
+        if job_id:
+            set_task_progress(job_id, 72, "正在检查元素、文字安全区和移动端设计质量")
+        quality_review = review_main_image_a_plus_candidate(
+            candidate_image_url,
+            target_layout,
+            MAIN_IMAGE_A_PLUS_MODE_MOBILE_ADAPT,
+            source_inputs=[source_reference],
+            expected_element_inventory=element_inventory,
+        )
+        quality_reviews.append(quality_review)
+        candidate_rank = rank_main_image_a_plus_quality_review(quality_review)
+        if best_rank is None or candidate_rank > best_rank:
+            best_rank = candidate_rank
+            best_image_url = candidate_image_url
+            best_review = quality_review
+        if bool(quality_review.get("passed")):
+            break
+        retry_instruction = build_main_image_a_plus_quality_retry_instruction(quality_review)
+        repair_review = quality_review
+        try:
+            candidate_bytes, candidate_mime_type = load_image_bytes_from_url(candidate_image_url)
+            repair_candidate_reference = prepare_main_image_a_plus_reference_input(
+                {
+                    "data": candidate_bytes,
+                    "name": f"mobile_candidate_attempt_{generation_attempts}.png",
+                    "type": candidate_mime_type,
+                }
+            )
+        except Exception:
+            repair_candidate_reference = None
+    if not best_image_url:
         raise RuntimeError("手机端适配没有返回成品图，请重试。")
+    final_image_url = best_image_url
+    quality_issues = collect_main_image_a_plus_quality_issues(best_review)
+    critical_issue_count = int(best_review.get("critical_issue_count") or 0)
+    quality_passed = bool(best_review.get("passed"))
     if job_id:
-        set_task_progress(job_id, 76, "手机端排版完成，正在适配最终尺寸")
-    final_image_url = fit_image_to_exact_size_by_trimming_reserved_background(
-        str(generated_images[0]),
-        target_width,
-        target_height,
-    )
+        set_task_progress(
+            job_id,
+            84,
+            "手机端成品质检通过，正在保存结果"
+            if quality_passed
+            else "已保留问题最少的版本，正在保存质检标记",
+        )
     return {
         "images": [final_image_url],
-        "text": "",
+        "text": (
+            ""
+            if quality_passed
+            else f"已完成手机端适配并自动修复；复核仍标记 {critical_issue_count} 项完整性风险，已保留两轮候选中问题较少的版本供预览。"
+        ),
         "channel": "Images API 原生 4K · 手机端排版适配",
         "mobile_adaptation_source": source_image,
         "requested_aspect_ratios": (request_aspect_ratio,),
@@ -7496,13 +8882,24 @@ def run_main_image_a_plus_mobile_adaptation_job(job_context: dict[str, Any]) -> 
         "main_image_a_plus_layout_key": target_layout["key"],
         "main_image_a_plus_layout_label": target_layout["label"],
         "main_image_a_plus_mode": MAIN_IMAGE_A_PLUS_MODE_MOBILE_ADAPT,
-        "generation_waves": 1,
+        "generation_waves": 2,
         "max_parallel_sections": 1,
-        "prepared_reference_count": 1,
-        "mobile_generation_attempts": 1,
+        "mobile_generation_attempts": generation_attempts,
+        "mobile_screen_count": int(target_layout.get("mobile_screen_count") or 1),
         "mobile_element_inventory_count": len(source_elements),
-        "mobile_foreground_fit": "reserved_background_trim",
-        "mobile_background_fill": "native_full_bleed",
+        "mobile_reference_pair_count": reference_pair_count,
+        "prepared_reference_count": len(generation_inputs),
+        "mobile_foreground_fit": "single_layer_exact_size",
+        "mobile_background_fill": "none",
+        "mobile_outpaint_section_count": 0,
+        "quality_reviewed": bool(best_review.get("reviewed")),
+        "quality_review_passed": quality_passed,
+        "quality_score": float(best_review.get("quality_score") or 0.0),
+        "quality_review_attempts": len(quality_reviews),
+        "quality_critical_issue_count": critical_issue_count,
+        "quality_review_issues": quality_issues,
+        "quality_delivery_status": "passed" if quality_passed else "needs_review",
+        "mobile_repair_attempted": generation_attempts > 1,
     }
 
 
@@ -7554,29 +8951,73 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
                 layout,
             )
         )
-        free_result = call_openrouter_images_api(
-            model=str(job_context["model"]),
-            prompt=generation_prompt,
-            uploaded_files=generation_references,
-            aspect_ratio=request_aspect_ratio,
-            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
-            max_attempts=1,
-        )
-        generated_images = list(free_result.get("images") or [])
-        if not generated_images:
+        quality_reviews: list[dict[str, Any]] = []
+        best_image_url = ""
+        best_model_text = ""
+        best_review: dict[str, Any] = {}
+        best_rank: tuple[int, int, float] | None = None
+        generation_attempts = 0
+        retry_instruction = ""
+        for attempt_index in range(MAIN_IMAGE_A_PLUS_MAX_QUALITY_ATTEMPTS):
+            generation_attempts = attempt_index + 1
+            attempt_prompt = generation_prompt
+            if retry_instruction:
+                attempt_prompt += f"\n\n{retry_instruction}"
+                if job_id:
+                    set_task_progress(job_id, 62, "首版未通过成品质检，正在自动重构版式")
+            free_result = call_openrouter_images_api(
+                model=str(job_context["model"]),
+                prompt=attempt_prompt,
+                uploaded_files=generation_references,
+                aspect_ratio=request_aspect_ratio,
+                resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+                max_attempts=1,
+            )
+            generated_images = list(free_result.get("images") or [])
+            if not generated_images:
+                if attempt_index + 1 >= MAIN_IMAGE_A_PLUS_MAX_QUALITY_ATTEMPTS:
+                    break
+                retry_instruction = "上一候选没有返回成品图，请重新生成一张完整的商业 A+ 长图。"
+                continue
+            if job_id:
+                set_task_progress(job_id, 72, "正在检查设计层级、完整文字和四边安全区")
+            candidate_image_url = cover_image_to_exact_size(
+                str(generated_images[0]),
+                target_width,
+                target_height,
+            )
+            quality_review = review_main_image_a_plus_candidate(
+                candidate_image_url,
+                layout,
+                generation_mode,
+            )
+            quality_reviews.append(quality_review)
+            candidate_rank = rank_main_image_a_plus_quality_review(quality_review)
+            if best_rank is None or candidate_rank > best_rank:
+                best_rank = candidate_rank
+                best_image_url = candidate_image_url
+                best_model_text = str(free_result.get("text") or "").strip()
+                best_review = quality_review
+            if bool(quality_review.get("passed")):
+                break
+            retry_instruction = build_main_image_a_plus_quality_retry_instruction(quality_review)
+        if not best_image_url:
             raise RuntimeError(
                 "首屏设计感模式没有返回完整 A+ 成品图，请重新提交。"
                 if is_hero_design_mode
                 else "自由创作没有返回完整 A+ 成品图，请重新提交。"
             )
+        if bool(best_review.get("reviewed")) and int(
+            best_review.get("critical_issue_count") or 0
+        ) > 0:
+            raise RuntimeError(
+                "A+ 已自动重构，但复核仍发现文字或主体被边缘裁切；"
+                "为避免交付残缺图片，本次结果已拦截，请重新生成。"
+            )
         if job_id:
-            set_task_progress(job_id, 76, "整张 A+ 已生成，正在适配所选规格")
-        final_image_url = cover_image_to_exact_size(
-            str(generated_images[0]),
-            target_width,
-            target_height,
-        )
-        model_text = str(free_result.get("text") or "").strip()
+            set_task_progress(job_id, 84, "整张 A+ 已通过检查，正在保存所选规格")
+        final_image_url = best_image_url
+        model_text = best_model_text
         summary = (
             (
                 f"已按“{layout['label']}”完成首屏商业主视觉强化，并一次生成、适配为 {target_width}×{target_height}px A+ 长图。"
@@ -7603,9 +9044,15 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
             "main_image_a_plus_mode": generation_mode,
             "generation_waves": 1,
             "max_parallel_sections": 1,
+            "generation_attempts": generation_attempts,
             "prepared_reference_count": len(generation_references),
             "layout_skill_id": str(job_context.get("a_plus_layout_skill_id") or ""),
             "layout_skill_skeleton_used": skill_skeleton_used,
+            "quality_reviewed": bool(best_review.get("reviewed")),
+            "quality_review_passed": bool(best_review.get("passed")),
+            "quality_score": float(best_review.get("quality_score") or 0.0),
+            "quality_review_attempts": len(quality_reviews),
+            "quality_review_issues": list(best_review.get("layout_issues") or []),
         }
     if generation_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
         template_input = job_context.get("main_image_a_plus_template")
@@ -9158,6 +10605,93 @@ def inject_app_styles() -> None:
             text-align: left;
             margin: 0.12rem 0 0.32rem;
         }
+        .a-plus-skill-summary {
+            margin: 0.5rem 0 0.44rem;
+            padding: 0.78rem 0.82rem;
+            border: 1px solid rgba(132, 111, 255, 0.22);
+            border-radius: 14px;
+            background:
+                radial-gradient(circle at top right, rgba(132, 111, 255, 0.12), transparent 42%),
+                rgba(8, 16, 34, 0.76);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+        }
+        .a-plus-skill-summary-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.7rem;
+        }
+        .a-plus-skill-summary-title {
+            min-width: 0;
+            color: #f6f7ff;
+            font-size: 0.9rem;
+            font-weight: 750;
+            line-height: 1.35;
+        }
+        .a-plus-skill-status {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.46rem;
+            border: 1px solid rgba(104, 226, 170, 0.24);
+            border-radius: 999px;
+            background: rgba(58, 193, 129, 0.1);
+            color: #8be6ba;
+            font-size: 0.68rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .a-plus-skill-status::before {
+            content: "";
+            width: 0.34rem;
+            height: 0.34rem;
+            border-radius: 999px;
+            background: #71dda8;
+            box-shadow: 0 0 0 3px rgba(113, 221, 168, 0.1);
+        }
+        .a-plus-skill-summary-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.34rem;
+            margin-top: 0.52rem;
+        }
+        .a-plus-skill-summary-meta span {
+            padding: 0.2rem 0.42rem;
+            border: 1px solid rgba(255, 255, 255, 0.075);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.035);
+            color: rgba(224, 228, 255, 0.72);
+            font-size: 0.68rem;
+            line-height: 1.2;
+        }
+        .a-plus-skill-summary-desc {
+            display: -webkit-box;
+            margin-top: 0.5rem;
+            overflow: hidden;
+            color: rgba(214, 219, 255, 0.68);
+            font-size: 0.73rem;
+            line-height: 1.55;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+        .a-plus-skill-summary-note {
+            margin-top: 0.48rem;
+            padding-top: 0.46rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            color: rgba(168, 182, 232, 0.62);
+            font-size: 0.68rem;
+            line-height: 1.45;
+        }
+        .a-plus-skill-detail-copy {
+            color: rgba(214, 219, 255, 0.72);
+            font-size: 0.74rem;
+            line-height: 1.62;
+        }
+        .a-plus-skill-detail-copy strong {
+            color: #f2f4ff;
+            font-weight: 700;
+        }
         .inline-action-row {
             margin-top: 0.42rem;
             padding-top: 0.48rem;
@@ -9216,6 +10750,67 @@ def inject_app_styles() -> None:
         }
         .upload-summary-row span:last-child {
             color: rgba(214, 219, 255, 0.56);
+        }
+        .upload-sortable-item {
+            position: relative;
+        }
+        .upload-sort-grip {
+            position: absolute;
+            z-index: 24;
+            top: 6px;
+            left: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.28rem;
+            min-height: 28px;
+            padding: 0.18rem 0.48rem;
+            border: 1px solid rgba(255, 255, 255, 0.46);
+            border-radius: 999px;
+            background: rgba(16, 24, 47, 0.9);
+            color: #ffffff;
+            font-size: 0.68rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
+        }
+        .upload-sort-grip:active {
+            cursor: grabbing;
+        }
+        .upload-sort-grip-icon {
+            color: #b9adff;
+            font-size: 0.8rem;
+            letter-spacing: -0.16rem;
+        }
+        .upload-sortable-item.upload-sort-dragging {
+            opacity: 0.56;
+        }
+        .upload-sort-drop-zone {
+            position: fixed;
+            z-index: 999997;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed rgba(174, 158, 255, 0.88);
+            border-radius: 14px;
+            background: rgba(30, 24, 64, 0.58);
+            color: #ffffff;
+            font-size: 0.76rem;
+            font-weight: 750;
+            pointer-events: auto;
+            backdrop-filter: blur(2px);
+            transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+        }
+        .upload-sort-drop-zone.is-source {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(8, 15, 31, 0.35);
+            color: rgba(255, 255, 255, 0.56);
+        }
+        .upload-sort-drop-zone.is-target {
+            border-color: #c9beff;
+            background: rgba(99, 72, 222, 0.72);
+            transform: scale(1.025);
         }
         div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker),
         div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) {
@@ -10068,6 +11663,126 @@ def inject_upload_drag_replace_support() -> None:
     )
 
 
+def inject_upload_reorder_support() -> None:
+    components.html(
+        f"""
+        <script>
+        (function () {{
+          const hostWindow = window.parent;
+          const hostDocument = hostWindow && hostWindow.document;
+          const installVersion = "upload-priority-sort-v1";
+          if (!hostWindow || !hostDocument || hostWindow.__xiaohaUploadSortInstalled === installVersion) {{
+            return;
+          }}
+          hostWindow.__xiaohaUploadSortInstalled = installVersion;
+          let activeDrag = null;
+
+          function clearDropZones() {{
+            hostDocument.querySelectorAll(".upload-sort-drop-zone").forEach((node) => node.remove());
+            hostDocument.querySelectorAll(".upload-sortable-item.upload-sort-dragging").forEach((node) => {{
+              node.classList.remove("upload-sort-dragging");
+            }});
+          }}
+
+          function encodePayload(payload) {{
+            const bytes = new hostWindow.TextEncoder().encode(JSON.stringify(payload));
+            let binary = "";
+            bytes.forEach((byte) => {{ binary += String.fromCharCode(byte); }});
+            return hostWindow.btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+          }}
+
+          function commitReorder(widgetKey, sourceIndex, targetIndex) {{
+            if (sourceIndex === targetIndex) return;
+            const currentUrl = new URL(hostWindow.location.href);
+            currentUrl.searchParams.set(
+              "{UPLOAD_REORDER_QUERY_KEY}",
+              encodePayload({{
+                widget_key: widgetKey,
+                source_index: sourceIndex,
+                target_index: targetIndex,
+              }}),
+            );
+            hostWindow.location.href = currentUrl.toString();
+          }}
+
+          function showDropZones() {{
+            clearDropZones();
+            if (!activeDrag) return;
+            hostDocument.querySelectorAll('.upload-preview-root[data-upload-sortable="true"]').forEach((marker) => {{
+              if ((marker.dataset.uploadWidget || "") !== activeDrag.widgetKey) return;
+              const card = marker.closest('div[data-testid="stVerticalBlock"]');
+              if (!card) return;
+              const rect = card.getBoundingClientRect();
+              if (rect.width < 24 || rect.height < 24) return;
+              const targetIndex = Number(marker.dataset.uploadIndex || 0);
+              const zone = hostDocument.createElement("div");
+              zone.className = "upload-sort-drop-zone" + (targetIndex === activeDrag.sourceIndex ? " is-source" : "");
+              zone.style.left = `${{rect.left}}px`;
+              zone.style.top = `${{rect.top}}px`;
+              zone.style.width = `${{rect.width}}px`;
+              zone.style.height = `${{rect.height}}px`;
+              zone.textContent = targetIndex === activeDrag.sourceIndex ? "当前位置" : `放到优先级 ${{targetIndex + 1}}`;
+              zone.addEventListener("dragover", (event) => {{
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                zone.classList.add("is-target");
+              }});
+              zone.addEventListener("dragleave", () => zone.classList.remove("is-target"));
+              zone.addEventListener("drop", (event) => {{
+                event.preventDefault();
+                event.stopPropagation();
+                const payload = activeDrag;
+                clearDropZones();
+                activeDrag = null;
+                if (payload) commitReorder(payload.widgetKey, payload.sourceIndex, targetIndex);
+              }});
+              hostDocument.body.appendChild(zone);
+            }});
+          }}
+
+          function installSortHandles() {{
+            hostDocument.querySelectorAll('.upload-preview-root[data-upload-sortable="true"]').forEach((marker) => {{
+              const card = marker.closest('div[data-testid="stVerticalBlock"]');
+              if (!card || card.querySelector(":scope > .upload-sort-grip")) return;
+              const widgetKey = marker.dataset.uploadWidget || "";
+              const itemIndex = Number(marker.dataset.uploadIndex || 0);
+              card.classList.add("upload-sortable-item");
+              const grip = hostDocument.createElement("div");
+              grip.className = "upload-sort-grip";
+              grip.draggable = true;
+              grip.title = "拖拽调整图片参考优先级";
+              grip.innerHTML = '<span class="upload-sort-grip-icon">⠿</span><span>优先级 ' + (itemIndex + 1) + "</span>";
+              grip.addEventListener("dragstart", (event) => {{
+                activeDrag = {{ widgetKey, sourceIndex: itemIndex }};
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", JSON.stringify(activeDrag));
+                card.classList.add("upload-sort-dragging");
+                hostWindow.setTimeout(showDropZones, 0);
+              }});
+              grip.addEventListener("dragend", () => {{
+                activeDrag = null;
+                clearDropZones();
+              }});
+              card.appendChild(grip);
+            }});
+          }}
+
+          const observer = new hostWindow.MutationObserver(() => installSortHandles());
+          observer.observe(hostDocument.body, {{ childList: true, subtree: true }});
+          hostWindow.addEventListener("scroll", () => {{
+            if (activeDrag) showDropZones();
+          }}, true);
+          hostWindow.addEventListener("resize", () => {{
+            if (activeDrag) showDropZones();
+          }});
+          installSortHandles();
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str, extra_notes: str) -> str:
     sections = [
         f"当前执行功能：{feature['name']}",
@@ -10116,7 +11831,11 @@ def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str,
         sections.append(f"正面提示词：{positive_prompt}")
     if negative_prompt:
         sections.append(f"负面提示词：{negative_prompt}")
-    if aspect_ratio != "自动" and feature.get("key") not in {"hd_batch", JIMENG_HD_FEATURE_KEY}:
+    if aspect_ratio != "自动" and feature.get("key") not in {
+        "hd_batch",
+        JIMENG_HD_FEATURE_KEY,
+        BACKGROUND_TEXTURE_FEATURE_KEY,
+    }:
         sections.append(f"目标画幅比例：{aspect_ratio}")
     if custom_prompt.strip():
         sections.append(f"补充要求：{custom_prompt.strip()}")
@@ -10145,6 +11864,45 @@ def enforce_global_no_distortion_rules(
     if prepend:
         return f"{GLOBAL_NO_DISTORTION_RULES}\n\n{normalized_prompt}"
     return f"{normalized_prompt}\n\n{GLOBAL_NO_DISTORTION_RULES}"
+
+
+def build_infinite_canvas_image_feature_notes(
+    feature_key: str,
+    input_count: int,
+    outpaint_settings: dict[str, int],
+) -> str:
+    reference_count = max(0, int(input_count) - 1)
+    if feature_key == "outpaint":
+        return build_outpaint_extra_notes(
+            int(outpaint_settings.get("top", 0) or 0),
+            int(outpaint_settings.get("bottom", 0) or 0),
+            int(outpaint_settings.get("left", 0) or 0),
+            int(outpaint_settings.get("right", 0) or 0),
+        )
+    if feature_key == "pose_change":
+        return (
+            "第 1 张图是当前图片节点中的主模特图，必须保持人物身份、场景、服装和画面风格。"
+            f"后续 {reference_count} 张连接图片只作为姿势参考，只提取肢体动作、头部朝向、手势和重心，不得迁移参考图中的人物或背景。"
+        )
+    if feature_key == "scene_change":
+        return (
+            "第 1 张图是当前图片节点中的主模特图，必须保持人物身份、五官、服装、姿势和动作。"
+            f"后续 {reference_count} 张连接图片只作为场景参考，只提取环境、空间和氛围，不得迁移参考图中的人物。"
+        )
+    if feature_key == "skin_tone":
+        return "第 1 张图是主体图，第 2 张连接图片只作为肤色参考；只迁移肤色，其他内容全部以第 1 张图为准。"
+    if feature_key == "pupil_color_change":
+        return "第 1 张图是主体图，第 2 张连接图片只作为瞳孔颜色参考；只改变瞳孔颜色，眼型、眼神和其他内容保持不变。"
+    if feature_key == "eye_shape_change":
+        return "第 1 张图是主体图，第 2 张连接图片只作为眼型参考；只改变眼型结构，瞳孔颜色、人物身份和其他内容保持不变。"
+    if feature_key == "three_view":
+        return "第 1 张图是主体图，第 2 张连接图片只作为侧面角度参考；只改变拍摄角度和脸部朝向，人物身份及画面风格保持不变。"
+    if feature_key == "ai_qa_image":
+        return (
+            f"第 1 张图是当前图片节点中的主图，另有 {reference_count} 张连接参考图。"
+            "先理解图片内容和关系，再严格执行用户的文字要求，只返回 1 张最终结果图。"
+        )
+    return "第 1 张图是当前图片节点中的唯一待处理原图，只执行所选功能，不改变无关内容。"
 
 
 def build_outpaint_extra_notes(
@@ -10600,6 +12358,19 @@ def format_user_facing_error_message(error_message: Any) -> str:
     if not raw_message:
         return "任务失败，请稍后重试。"
     normalized_message = raw_message.lower()
+    is_ark_seedream_error = "即梦 5 pro" in normalized_message or "火山方舟" in raw_message
+    if is_ark_seedream_error:
+        if "ark_api_key" in normalized_message or "api key" in normalized_message and "未配置" in raw_message:
+            return "即梦 5 Pro 未配置 ARK_API_KEY，请联系管理员完成配置。"
+        if "http 401" in normalized_message or "unauthorized" in normalized_message or "invalid api key" in normalized_message:
+            return "即梦 5 Pro 鉴权失败，请联系管理员检查 ARK_API_KEY 和模型开通状态。"
+        if "http 429" in normalized_message or "rate limit" in normalized_message or "并发" in raw_message:
+            return "即梦 5 Pro 当前请求较多或额度已满，请稍后重试。"
+        if "timeout" in normalized_message or "timed out" in normalized_message or "超时" in raw_message:
+            return "即梦 5 Pro 连接超时，请稍后重试。"
+        if "safety" in normalized_message or "审核" in raw_message or "blocked" in normalized_message:
+            return "图片或文字要求触发了即梦 5 Pro 安全审核，请更换合规图片或调整要求后重试。"
+        return "即梦 5 Pro 请求失败，详细信息已记录在服务器，请稍后重试或联系管理员。"
     is_jimeng_error = (
         "agent 请求失败" in normalized_message
         or "即梦" in raw_message
@@ -10765,6 +12536,106 @@ def call_openrouter_images_api(
     }
 
 
+def call_ark_seedream_images_api(
+    prompt: str,
+    uploaded_files: list[Any] | None = None,
+    size: str = ARK_SEEDREAM_5_PRO_SIZE,
+) -> dict[str, Any]:
+    api_key = load_ark_api_key()
+    if not api_key:
+        raise RuntimeError("即梦 5 Pro 未配置 ARK_API_KEY。")
+
+    normalized_files = list(uploaded_files or [])
+    if not normalized_files:
+        raise RuntimeError("即梦 5 Pro 扩图失败：请先上传 1 张原图。")
+    if len(normalized_files) > 10:
+        raise RuntimeError("即梦 5 Pro 单次最多支持 10 张参考图。")
+
+    image_inputs = [
+        file_to_data_url(prepare_ark_seedream_uploaded_input(uploaded_file))
+        for uploaded_file in normalized_files
+    ]
+    payload: dict[str, Any] = {
+        "model": ARK_SEEDREAM_5_PRO_MODEL,
+        "prompt": enforce_global_no_distortion_rules(prompt),
+        "image": image_inputs[0] if len(image_inputs) == 1 else image_inputs,
+        "size": str(size or ARK_SEEDREAM_5_PRO_SIZE).strip() or ARK_SEEDREAM_5_PRO_SIZE,
+        "response_format": "url",
+        "watermark": True,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    response = None
+    last_request_error: requests.RequestException | None = None
+    for attempt_index in range(ARK_IMAGES_MAX_ATTEMPTS):
+        try:
+            response = requests.post(
+                ARK_IMAGES_URL,
+                headers=headers,
+                json=payload,
+                **get_external_request_kwargs(
+                    timeout=(ARK_IMAGES_CONNECT_TIMEOUT_SECONDS, ARK_IMAGES_READ_TIMEOUT_SECONDS),
+                    use_proxy=False,
+                ),
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_request_error = exc
+            if attempt_index + 1 >= ARK_IMAGES_MAX_ATTEMPTS:
+                raise RuntimeError(
+                    f"即梦 5 Pro 连接失败，已自动尝试 {ARK_IMAGES_MAX_ATTEMPTS} 次：{exc}"
+                ) from exc
+            time.sleep(ARK_IMAGES_RETRY_DELAYS[min(attempt_index, len(ARK_IMAGES_RETRY_DELAYS) - 1)])
+            continue
+        except requests.RequestException as exc:
+            raise RuntimeError(f"即梦 5 Pro 连接失败：{exc}") from exc
+        if (
+            response.status_code in ARK_IMAGES_TRANSIENT_STATUS_CODES
+            and attempt_index + 1 < ARK_IMAGES_MAX_ATTEMPTS
+        ):
+            time.sleep(ARK_IMAGES_RETRY_DELAYS[min(attempt_index, len(ARK_IMAGES_RETRY_DELAYS) - 1)])
+            continue
+        break
+
+    if response is None:
+        raise RuntimeError(f"即梦 5 Pro 连接失败：{last_request_error or '未收到响应'}")
+    try:
+        data = response.json()
+    except Exception as exc:
+        raise RuntimeError(f"即梦 5 Pro 返回了无法解析的内容（HTTP {response.status_code}）。") from exc
+    if response.status_code >= 400:
+        error_payload = data.get("error") if isinstance(data, dict) else data
+        error_message = (
+            error_payload.get("message") or error_payload
+            if isinstance(error_payload, dict)
+            else error_payload
+        )
+        raise RuntimeError(f"即梦 5 Pro 请求失败（HTTP {response.status_code}）：{error_message}")
+
+    images: list[str] = []
+    for item in list(data.get("data") or []) if isinstance(data, dict) else []:
+        if not isinstance(item, dict):
+            continue
+        image_url = str(item.get("url") or "").strip()
+        if image_url:
+            images.append(image_url)
+            continue
+        encoded_image = str(item.get("b64_json") or "").strip()
+        if encoded_image:
+            images.append(f"data:image/png;base64,{encoded_image}")
+    if not images:
+        raise RuntimeError("即梦 5 Pro 没有返回可用图片。")
+    return {
+        "images": images,
+        "text": "",
+        "raw": data,
+        "channel": "即梦 5 Pro · 火山方舟",
+        "requested_resolution": payload["size"],
+    }
+
+
 def call_openrouter(
     model: str,
     prompt: str,
@@ -10922,13 +12793,7 @@ def is_main_image_a_plus_mobile_canvas(image_source: str) -> bool:
             width, height = normalized.size
     except Exception:
         return False
-    if width <= 0 or height <= 0:
-        return False
-    mobile_width, mobile_height = MAIN_IMAGE_A_PLUS_LAYOUTS["mobile_equal"]["target_size"]
-    if (width, height) == (int(mobile_width), int(mobile_height)):
-        return True
-    mobile_ratio = float(mobile_width) / float(mobile_height)
-    return height > width and abs((float(width) / float(height)) - mobile_ratio) <= 0.015
+    return is_main_image_a_plus_mobile_size((width, height))
 
 
 def build_main_image_a_plus_crop_archive(
@@ -10953,6 +12818,22 @@ def build_main_image_a_plus_crop_archive(
             source_width, source_height = prepared.size
             if source_width <= 0 or source_height <= 0:
                 raise ValueError("图片尺寸无效。")
+            exact_segment_count = (
+                source_height // segment_height
+                if source_height % segment_height == 0
+                else 0
+            )
+            if (
+                MAIN_IMAGE_A_PLUS_MIN_MOBILE_SCREENS
+                <= exact_segment_count
+                <= MAIN_IMAGE_A_PLUS_MAX_MOBILE_SCREENS
+            ):
+                segment_count = exact_segment_count
+            else:
+                segment_count = infer_main_image_a_plus_screen_count(
+                    (source_width, source_height)
+                )
+            target_height = segment_height * segment_count
             if source_height != target_height:
                 scale = target_height / source_height
                 target_width = max(1, round(source_width * scale))
@@ -11053,7 +12934,7 @@ def render_main_image_a_plus_crop_downloads(
         if base_names and image_index < len(base_names):
             supplied_name = str(base_names[image_index] or "").strip()
         base_name = supplied_name or infer_main_image_a_plus_crop_base_name(image_source, image_index)
-        st.caption("完整长图会等比适配后横向切成 4 段；不拉伸、不压缩、不漏掉首尾内容。")
+        st.caption("完整长图会按实际 4 屏或 5 屏高度等比适配后横向切段；不拉伸、不压缩、不漏掉首尾内容。")
         option_columns = st.columns(2, gap="small")
         for option_column, preset_key in zip(option_columns, ("mobile", "desktop")):
             preset = MAIN_IMAGE_A_PLUS_CROP_PRESETS[preset_key]
@@ -11070,7 +12951,7 @@ def render_main_image_a_plus_crop_downloads(
                     continue
                 segment_width = int(archive["segment_sizes"][0][0])
                 st.download_button(
-                    f"{preset['label']} · {segment_width}×{preset['segment_height']} × 4",
+                    f"{preset['label']} · {segment_width}×{preset['segment_height']} × {archive['segment_count']}",
                     data=archive["data"],
                     file_name=archive["file_name"],
                     mime=archive["mime"],
@@ -11293,44 +13174,6 @@ def cover_image_to_canvas_without_distortion(
             crop_top + safe_target_height,
         )
     )
-
-
-def fit_image_to_exact_size_by_trimming_reserved_background(
-    image_url: str,
-    target_width: int,
-    target_height: int,
-) -> str:
-    """Fit the native canvas by trimming only prompt-reserved outer background bands."""
-    image_bytes, _mime_type = load_image_bytes_from_url(image_url)
-    try:
-        with Image.open(io.BytesIO(image_bytes)) as image:
-            source = ImageOps.exif_transpose(image).convert("RGB")
-            safe_target_width = max(int(target_width), 1)
-            safe_target_height = max(int(target_height), 1)
-            scale = max(
-                safe_target_width / float(source.width),
-                safe_target_height / float(source.height),
-            )
-            resized_width = max(safe_target_width, int(math.ceil(source.width * scale)))
-            resized_height = max(safe_target_height, int(math.ceil(source.height * scale)))
-            resized = source.resize((resized_width, resized_height), Image.Resampling.LANCZOS)
-            crop_left = max((resized_width - safe_target_width) // 2, 0)
-            crop_top = max((resized_height - safe_target_height) // 2, 0)
-            canvas = resized.crop(
-                (
-                    crop_left,
-                    crop_top,
-                    crop_left + safe_target_width,
-                    crop_top + safe_target_height,
-                )
-            )
-            output = io.BytesIO()
-            canvas.save(output, format="PNG")
-        return image_bytes_to_data_url(output.getvalue(), "image/png")
-    except Exception as exc:
-        if isinstance(exc, RuntimeError) and str(exc).startswith("图片下载失败："):
-            raise
-        raise RuntimeError(f"手机端 A+ 预留背景区适配失败：{exc}") from exc
 
 
 def resize_image_to_exact_size(image_url: str, target_width: int, target_height: int) -> str:
@@ -12055,6 +13898,7 @@ def render_uploaded_preview_card(
     item_index: int,
     component_key: str,
     preview_renderer: Any | None = None,
+    allow_reorder: bool = False,
 ) -> None:
     preview_container = st.container()
     with preview_container:
@@ -12064,6 +13908,7 @@ def render_uploaded_preview_card(
                 class="upload-preview-root"
                 data-upload-widget="{html.escape(widget_key, quote=True)}"
                 data-upload-index="{item_index}"
+                data-upload-sortable="{'true' if allow_reorder else 'false'}"
             ></div>
             """,
             unsafe_allow_html=True,
@@ -12115,6 +13960,7 @@ def render_uploaded_gallery(
     widget_key: str,
     slot_count: int = 5,
     preview_renderer: Any | None = None,
+    allow_reorder: bool = False,
 ) -> None:
     if not files:
         st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
@@ -12132,6 +13978,7 @@ def render_uploaded_gallery(
                         item_index=item_index,
                         component_key=f"upload_preview_{widget_key}_{item_index}",
                         preview_renderer=preview_renderer,
+                        allow_reorder=allow_reorder,
                     )
     if empty_text:
         st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
@@ -13093,6 +14940,7 @@ def render_multi_image_uploader(
     max_files: int = 3,
     preview_renderer: Any | None = None,
     preview_slot_count: int | None = None,
+    allow_reorder: bool = False,
 ) -> list[Any]:
     cached_files = load_upload_cache(key, max_files=max_files)
     active_uploaded_files = cached_files
@@ -13111,7 +14959,10 @@ def render_multi_image_uploader(
             widget_key=key,
             slot_count=preview_slot_count or max_files,
             preview_renderer=preview_renderer,
+            allow_reorder=allow_reorder,
         )
+        if allow_reorder and len(active_uploaded_files) > 1:
+            st.caption("按住图片左上角的“优先级”标签拖拽，即可调整生成时的参考顺序。")
     else:
         st.markdown(
             '<div class="upload-main-empty">'
@@ -16790,6 +18641,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     elif feature.get("key") == IMAGE_SMART_ANALYSIS_FEATURE_KEY:
         default_model_for_feature = IMAGE_SMART_ANALYSIS_MODEL
         model_options_for_feature = [IMAGE_SMART_ANALYSIS_MODEL]
+    elif feature.get("key") == "outpaint":
+        default_model_for_feature = NANO_BANANA_MODEL
+        model_options_for_feature = OUTPAINT_MODEL_OPTIONS
     elif feature.get("key") in A_PLUS_IMAGES_API_FEATURE_KEYS:
         default_model_for_feature = NANO_BANANA_MODEL
         model_options_for_feature = [NANO_BANANA_MODEL]
@@ -16810,6 +18664,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     supports_a_plus_images_api = supports_amazon_a_plus or supports_main_image_a_plus
     supports_pose_references = feature["key"] == "pose_change"
     supports_scene_references = feature["key"] == "scene_change"
+    supports_background_texture = feature["key"] == BACKGROUND_TEXTURE_FEATURE_KEY
     supports_outpaint = feature["key"] == "outpaint"
     model_reference_files = get_model_reference_files() if supports_skin_reference else []
     skin_texture_reference_files = get_skin_texture_reference_files() if supports_skin_reference else []
@@ -16849,6 +18704,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append('<span class="meta-pill">背景与视觉元素自动拆层</span>')
         meta_items.append('<span class="meta-pill">一键导出 Photoshop PSD</span>')
     elif supports_outpaint:
+        meta_items.append('<span class="meta-pill">Nano Banana 2 / 即梦 5 Pro 可选</span>')
         meta_items.append('<span class="meta-pill">画布宽高最大可扩至原图 3 倍</span>')
         meta_items.append('<span class="meta-pill">自动匹配扩展画幅</span>')
         meta_items.append('<span class="meta-pill">整图一次生成 · 无矩形拼接</span>')
@@ -16860,6 +18716,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         )
     elif feature.get("key") == "hd_batch":
         meta_items.append('<span class="meta-pill">输出尺寸与原图完全一致 · 无补边 · 无拉伸</span>')
+    elif supports_background_texture:
+        meta_items.append(f'<span class="meta-pill">{len(BACKGROUND_TEXTURE_PRESETS)} 种预设质感 · 支持多选</span>')
+        meta_items.append('<span class="meta-pill">支持直接提示词描述</span>')
+        meta_items.append('<span class="meta-pill">人物、商品与场景结构锁定</span>')
     elif supports_image_smart_analysis:
         meta_items.append('<span class="meta-pill">单图深度识别 · 只分析不改图</span>')
         meta_items.append('<span class="meta-pill">分区域简析 · 原图真实取色</span>')
@@ -16886,6 +18746,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         workflow_steps = ("上传原图", "提交 8K 超清", "查看结果")
     elif feature.get("key") == "hd_batch":
         workflow_steps = ("上传图片", "补充参考", "开始处理", "查看结果")
+    elif supports_background_texture:
+        workflow_steps = ("上传原图", "选择背景质感", "补充描述", "开始生成", "查看结果")
     elif supports_image_smart_analysis:
         workflow_steps = ("上传主图", "识别内容", "解析视觉", "生成报告", "查看与下载")
     else:
@@ -16938,6 +18800,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         a_plus_layout_skill_context: dict[str, Any] = {}
         pose_reference_files: list[Any] = []
         scene_reference_files: list[Any] = []
+        background_texture_presets: list[str] = ["高级哑光"]
+        background_texture_prompt = ""
         batch_source_files: list[Any] = []
         hd_skin_reference_file = None
         hd_skin_texture_reference_file: Path | None = None
@@ -17779,6 +19643,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         )
                     ),
                     max_files=MAIN_IMAGE_A_PLUS_MAX_FILES,
+                    allow_reorder=True,
                 )
                 st.markdown(
                     (
@@ -17804,10 +19669,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 st.info(
                     (
                         f"{selected_width}×{selected_height}px · 首屏商业主视觉强化 · 单一视觉中心 · "
-                        "杂志式不对称构图 · 克制信息层级 · 整张一次生成、不拆段、不拼接。"
+                        "杂志式不对称构图 · 克制信息层级 · 生成后自动成品复核。"
                         if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_HERO_DESIGN
                         else f"{selected_width}×{selected_height}px · 整张一次生成 · 不拆段、不拼接 · "
-                        "上下左右四边完整保留 · 单一模特置于首屏最上方 · 完整文字与可读 Logo 不截断。"
+                        "艺术指导强化 · 文字安全区锁定 · 生成后自动检查裁切与版式。"
                     )
                 )
             st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
@@ -17835,6 +19700,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     f"最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张。"
                 ),
                 max_files=MAIN_IMAGE_A_PLUS_MAX_FILES,
+                allow_reorder=True,
             )
             st.markdown('<div class="slot-helper">请把最能代表商品与品牌的图片放在第一张；图片顺序即参考优先级</div>', unsafe_allow_html=True)
             st.markdown('<div class="panel-subtitle">选择成品规格</div>', unsafe_allow_html=True)
@@ -17862,6 +19728,37 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 label_visibility="collapsed",
             )
             st.caption("PSD 中的文字和视觉元素为独立像素图层，可在 Photoshop 中移动、隐藏、缩放或替换。")
+        elif supports_background_texture:
+            st.markdown('<div class="panel-subtitle">原图（1 张）</div>', unsafe_allow_html=True)
+            uploaded_file = render_single_image_uploader(
+                "上传需要调整背景质感的原图",
+                key=f"uploader_{feature['key']}",
+                help_text="上传 JPG / PNG / WEBP。人物、商品和构图会保持不变，只编辑场景背景表面。",
+            )
+            st.markdown('<div class="panel-subtitle">选择背景质感（可多选）</div>', unsafe_allow_html=True)
+            background_texture_presets = st.multiselect(
+                "背景质感预设",
+                options=list(BACKGROUND_TEXTURE_PRESETS),
+                default=["高级哑光"],
+                key=f"background_texture_presets_{feature['key']}",
+                placeholder="选择一种或多种质感",
+                label_visibility="collapsed",
+            )
+            if background_texture_presets:
+                selected_texture_details = "；".join(
+                    f"{name}：{BACKGROUND_TEXTURE_PRESETS[name]}"
+                    for name in background_texture_presets
+                )
+                st.caption(selected_texture_details)
+            st.markdown('<div class="panel-subtitle">直接描述想要的质感（可选）</div>', unsafe_allow_html=True)
+            background_texture_prompt = st.text_area(
+                "输入背景质感描述",
+                key=f"background_texture_prompt_{feature['key']}",
+                placeholder="例如：背景墙改成偏暖灰色的细腻微水泥，纹理轻一些、低反光，保留原来的光影和空间结构。",
+                height=108,
+                label_visibility="collapsed",
+            )
+            st.caption("可以只选预设、只写描述，也可以组合使用；文字描述会优先控制具体颜色与纹理强弱。")
         elif supports_pose_references or supports_scene_references or supports_dual_reference_upload:
             subject_label = "主体图（1 张）" if supports_dual_reference_upload else "主模特图（1 张）"
             st.markdown(f'<div class="panel-subtitle">{subject_label}</div>', unsafe_allow_html=True)
@@ -17927,7 +19824,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     else (
                         "开始生成 PSD"
                         if supports_amazon_a_plus
-                        else ("开始扩图" if supports_outpaint else "开始处理")
+                        else (
+                            "开始更换质感"
+                            if supports_background_texture
+                            else ("开始扩图" if supports_outpaint else "开始处理")
+                        )
                     )
                 )
             )
@@ -17970,7 +19871,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 selector_col, process_col = st.columns([1.35, 0.95], gap="small")
                 with selector_col:
                     active_model = st.selectbox(
-                        "模型切换",
+                        "生成方式" if supports_outpaint else "模型切换",
                         model_options_for_feature,
                         index=model_options_for_feature.index(default_model_for_feature),
                         format_func=get_model_display_name,
@@ -18219,6 +20120,28 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     show_title=False,
                     download_images=result_download_images,
                 )
+            if supports_main_image_a_plus and bool(result.get("quality_reviewed")):
+                quality_score = float(result.get("quality_score") or 0.0)
+                if bool(result.get("quality_review_passed")):
+                    st.caption(
+                        f"成品复核已通过 · 设计质量 {quality_score:.1f}/10 · "
+                        "文字安全区、主体完整性与版式层级已检查"
+                    )
+                else:
+                    critical_issue_count = int(
+                        result.get("quality_critical_issue_count") or 0
+                    )
+                    issue_preview = "；".join(
+                        str(issue).strip()
+                        for issue in list(result.get("quality_review_issues") or [])[:3]
+                        if str(issue).strip()
+                    )
+                    st.warning(
+                        f"已完成两轮生成并保留问题较少的版本，设计质量 {quality_score:.1f}/10，"
+                        f"仍有 {critical_issue_count} 项完整性风险。"
+                        + (f"重点检查：{issue_preview}。" if issue_preview else "")
+                        + "图片不会再被直接拦截，可先预览后决定是否重新生成。"
+                    )
             if supports_main_image_a_plus and result_download_images:
                 crop_result_id = str(
                     result.get("result_id")
@@ -18235,10 +20158,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     key_prefix=f"current_main_image_a_plus_text_edit_{crop_result_id}",
                 )
                 result_target_size = tuple(int(value) for value in (result.get("target_size") or ()))
-                mobile_target_size = tuple(
-                    int(value) for value in MAIN_IMAGE_A_PLUS_LAYOUTS["mobile_equal"]["target_size"]
+                is_mobile_result = (
+                    str(result.get("main_image_a_plus_mode") or "").strip()
+                    == MAIN_IMAGE_A_PLUS_MODE_MOBILE_ADAPT
+                    or is_main_image_a_plus_mobile_size(result_target_size)
                 )
-                is_mobile_result = result_target_size == mobile_target_size
                 mobile_adaptation_active = str(job_info.get("status") or "").strip().lower() in {
                     "queued",
                     "running",
@@ -18286,6 +20210,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             if supports_main_image_a_plus
             else amazon_a_plus_prompt
             if supports_amazon_a_plus
+            else build_background_texture_instruction(
+                background_texture_presets,
+                background_texture_prompt,
+            )
+            if supports_background_texture
             else ""
         )
         main_image_a_plus_template_layout_error = ""
@@ -18346,6 +20275,12 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             st.warning("AI问答生图功能最多只能上传 3 张参考图。")
         elif supports_ai_qa_image and not ai_qa_prompt.strip():
             st.warning("请输入你的文字要求。")
+        elif (
+            supports_background_texture
+            and not background_texture_presets
+            and not background_texture_prompt.strip()
+        ):
+            st.warning("请至少选择一种背景质感，或直接填写质感描述。")
         elif (
             supports_main_image_a_plus
             and main_image_a_plus_mode in MAIN_IMAGE_A_PLUS_TEMPLATE_MODES
@@ -18432,6 +20367,12 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "请先充分理解这些图片中的主体、构图、场景、风格、细节和视觉关系，再严格执行用户的文字要求。"
                     "如果用户要求保留原图中的人物、商品、场景或构图，需要优先保持一致。"
                     "只输出 1 张最终结果图，不要输出多个版本。"
+                )
+            elif supports_background_texture:
+                extra_notes = (
+                    "第 1 张图是唯一待处理原图。只识别并重塑场景背景的材质表面，不改变背景空间的几何布局。"
+                    "前景人物、商品和所有主体内容是不可编辑区域；主体边缘必须干净完整，不能出现材质溢出、光晕、蒙版边缘或背景纹理穿透。"
+                    "最终只返回 1 张完成图，不要返回对比图、材质样板、拼图或多个版本。"
                 )
             elif supports_main_image_a_plus:
                 if main_image_a_plus_mode == MAIN_IMAGE_A_PLUS_MODE_ELEMENT:
@@ -18753,10 +20694,13 @@ def main() -> None:
     jimeng_static_server = ensure_jimeng_static_server()
     if consume_pending_upload_delete():
         st.rerun()
+    if consume_pending_upload_reorder():
+        st.rerun()
     if consume_pending_outpaint_drag():
         st.rerun()
     inject_app_styles()
     inject_clipboard_paste_support()
+    inject_upload_reorder_support()
     if not st.session_state.is_authenticated:
         authenticate_requested_user()
     visible_features = get_visible_features()

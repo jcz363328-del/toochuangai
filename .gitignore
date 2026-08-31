@@ -14,6 +14,9 @@ env/
 # Frontend dependencies and generated build metadata
 node_modules/
 *.tsbuildinfo
+.npm-cache/
+.python_deps/
+dist-flask/
 
 # Local secrets and machine-specific config
 .env
@@ -62,6 +65,8 @@ innovation/static/uploads/rewards/
 *.mov
 *.webm
 *.ogg
+!图片/a_plus_mobile_reference_pairs/
+!图片/a_plus_mobile_reference_pairs/*.jpg
 *.mp3
 *.wav
 

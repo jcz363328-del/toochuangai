@@ -5,11 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>评价分析 - 图创AI系统</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        [hidden] {
+            display: none !important;
         }
 
         body {
@@ -141,6 +146,23 @@
             margin-bottom: 10px;
         }
 
+        .identifier-export-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .identifier-export-row input {
+            flex: 1;
+            width: auto;
+            min-width: 0;
+        }
+
+        .identifier-export-row .btn {
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
         .checkbox-group {
             display: flex;
             align-items: center;
@@ -199,6 +221,63 @@
         .result-container {
             display: none;
             margin-top: 30px;
+        }
+
+        .review-metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            margin: 14px 0;
+        }
+
+        .review-metric-card {
+            padding: 14px 16px;
+            border: 1px solid #e7ecf5;
+            border-radius: 10px;
+            background: linear-gradient(145deg, #ffffff, #f7f9ff);
+        }
+
+        .review-metric-label {
+            color: #6b7280;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+
+        .review-metric-value {
+            color: #111827;
+            font-size: 22px;
+            line-height: 1.2;
+            font-weight: 700;
+        }
+
+        .review-chart-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .review-chart-card {
+            min-width: 0;
+            border: 1px solid #e7ecf5;
+            border-radius: 10px;
+            padding: 14px;
+            background: #fff;
+        }
+
+        .review-chart-card.is-wide {
+            grid-column: 1 / -1;
+        }
+
+        .review-chart-title {
+            color: #374151;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .review-chart {
+            width: 100%;
+            height: 320px;
         }
 
         .result-content {
@@ -294,6 +373,24 @@
             .form-row {
                 grid-template-columns: 1fr;
             }
+
+            .review-metric-grid,
+            .review-chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .review-chart-card.is-wide {
+                grid-column: auto;
+            }
+
+            .review-chart {
+                height: 280px;
+            }
+
+            .identifier-export-row {
+                align-items: stretch;
+                flex-direction: column;
+            }
             
             .container { padding: 14px 10px 20px; }
             .analysis-card { padding: 12px; }
@@ -323,10 +420,30 @@
             <div id="alertContainer"></div>
             
             <form id="analysisForm">
-                <div class="form-group">
-                    <label for="product_identifier">产品标识符</label>
-                    <input type="text" id="product_identifier" name="product_identifier" placeholder="请输入产品SKU或ASIN编号">
-                    <small class="text-muted">* 支持输入SKU或ASIN编号</small>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="review_filter_type">筛选维度</label>
+                        <select id="review_filter_type" name="filter_type">
+                            <option value="sku" selected>单个 SKU/ASIN</option>
+                            <option value="category">分类</option>
+                            <option value="factory">生产工厂</option>
+                            <option value="remark">毛型/备注</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="product_identifier" id="reviewFilterValueLabel">产品标识符</label>
+                        <div class="identifier-export-row" id="skuFilterControl">
+                            <input type="text" id="product_identifier" name="product_identifier" placeholder="请输入产品SKU或ASIN编号">
+                            <button type="button" class="btn" id="exportProductReviewsBtn" onclick="exportProductReviewHistory()">
+                                <i class="fas fa-file-excel"></i>
+                                导出全部评论
+                            </button>
+                        </div>
+                        <select id="attribute_filter_value" name="filter_value" hidden disabled>
+                            <option value="">请选择筛选值</option>
+                        </select>
+                        <small class="text-muted" id="reviewFilterHelp">* 支持输入SKU或ASIN编号</small>
+                    </div>
                 </div>
                 
                 <div class="form-row">
@@ -383,6 +500,42 @@
             <div class="loading" id="loadingDiv">
                 <i class="fas fa-spinner"></i>
                 <p>正在分析中，请稍候...</p>
+            </div>
+
+            <div class="result-container" id="reviewDashboard">
+                <h3><i class="fas fa-chart-pie"></i> 数据图表</h3>
+                <div class="review-metric-grid">
+                    <div class="review-metric-card">
+                        <div class="review-metric-label">评价总数</div>
+                        <div class="review-metric-value" id="reviewMetricTotal">0</div>
+                    </div>
+                    <div class="review-metric-card">
+                        <div class="review-metric-label">平均星级</div>
+                        <div class="review-metric-value" id="reviewMetricAverage">0</div>
+                    </div>
+                    <div class="review-metric-card">
+                        <div class="review-metric-label">1–3 星评价</div>
+                        <div class="review-metric-value" id="reviewMetricNegative">0</div>
+                    </div>
+                    <div class="review-metric-card">
+                        <div class="review-metric-label">涉及店铺</div>
+                        <div class="review-metric-value" id="reviewMetricShops">0</div>
+                    </div>
+                </div>
+                <div class="review-chart-grid">
+                    <div class="review-chart-card">
+                        <div class="review-chart-title">星级分布</div>
+                        <div class="review-chart" id="reviewRatingChart"></div>
+                    </div>
+                    <div class="review-chart-card">
+                        <div class="review-chart-title">店铺评价量 Top 10</div>
+                        <div class="review-chart" id="reviewShopChart"></div>
+                    </div>
+                    <div class="review-chart-card is-wide">
+                        <div class="review-chart-title">月度评价趋势</div>
+                        <div class="review-chart" id="reviewTrendChart"></div>
+                    </div>
+                </div>
             </div>
             
             <div class="result-container" id="resultContainer">
@@ -489,21 +642,167 @@
             }, 5000);
         }
 
+        const reviewFilterMeta = {
+            sku: {
+                label: '产品标识符',
+                help: '* 支持输入SKU或ASIN编号'
+            },
+            category: {
+                label: '分类',
+                help: '* 数据来源：zidian.fenlei1（已去重）'
+            },
+            factory: {
+                label: '生产工厂',
+                help: '* 数据来源：zidian.gongyingshang（已去重）'
+            },
+            remark: {
+                label: '毛型/备注',
+                help: '* 数据来源：zidian.shangpinbeizhu（已去重）'
+            }
+        };
+        const reviewFilterOptionsCache = new Map();
+        let reviewFilterRequestId = 0;
+
+        async function readReviewFilterJson(response) {
+            const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
+            if (!contentType.includes('application/json')) {
+                // 登录失效时 fetch 会跟随重定向并拿到登录页/首页 HTML。
+                if (response.redirected) {
+                    throw new Error('登录状态已失效，请刷新页面后重新登录');
+                }
+                if (response.status === 404) {
+                    throw new Error('筛选项接口尚未生效，请重启应用服务后刷新页面');
+                }
+                throw new Error(`筛选项接口返回异常（HTTP ${response.status}）`);
+            }
+
+            let result;
+            try {
+                result = await response.json();
+            } catch (error) {
+                throw new Error('筛选项接口返回的数据格式不正确');
+            }
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || `加载筛选项失败（HTTP ${response.status}）`);
+            }
+            return result;
+        }
+
+        function getSelectedReviewFilter() {
+            const filterType = document.getElementById('review_filter_type').value || 'sku';
+            const value = filterType === 'sku'
+                ? (document.getElementById('product_identifier').value || '').trim()
+                : (document.getElementById('attribute_filter_value').value || '').trim();
+            return {
+                filterType,
+                value,
+                label: (reviewFilterMeta[filterType] || reviewFilterMeta.sku).label
+            };
+        }
+
+        function renderReviewFilterOptions(options, selectedValue = '') {
+            const select = document.getElementById('attribute_filter_value');
+            select.innerHTML = '';
+
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = options.length ? '请选择筛选值' : '暂无可用选项';
+            select.appendChild(placeholder);
+
+            options.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            });
+
+            if (selectedValue && options.includes(selectedValue)) {
+                select.value = selectedValue;
+            }
+        }
+
+        async function loadReviewFilterOptions(filterType) {
+            const select = document.getElementById('attribute_filter_value');
+            const requestId = ++reviewFilterRequestId;
+            const previousValue = select.value;
+
+            if (reviewFilterOptionsCache.has(filterType)) {
+                renderReviewFilterOptions(reviewFilterOptionsCache.get(filterType), previousValue);
+                select.disabled = false;
+                return;
+            }
+
+            select.disabled = true;
+            select.innerHTML = '<option value="">正在加载筛选项...</option>';
+
+            try {
+                const url = new URL('/api/review_analysis/filter_options', window.location.origin);
+                url.searchParams.set('filter_type', filterType);
+                const response = await fetch(url, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const result = await readReviewFilterJson(response);
+
+                const options = Array.isArray(result.options) ? result.options : [];
+                reviewFilterOptionsCache.set(filterType, options);
+                if (requestId === reviewFilterRequestId) {
+                    renderReviewFilterOptions(options, previousValue);
+                }
+            } catch (error) {
+                if (requestId === reviewFilterRequestId) {
+                    renderReviewFilterOptions([]);
+                    showAlert(error.message || '加载筛选项失败', 'error');
+                }
+            } finally {
+                if (requestId === reviewFilterRequestId) {
+                    select.disabled = false;
+                }
+            }
+        }
+
+        function updateReviewFilterControls() {
+            const filterType = document.getElementById('review_filter_type').value || 'sku';
+            const isSku = filterType === 'sku';
+            const meta = reviewFilterMeta[filterType] || reviewFilterMeta.sku;
+            const skuControl = document.getElementById('skuFilterControl');
+            const skuInput = document.getElementById('product_identifier');
+            const attributeSelect = document.getElementById('attribute_filter_value');
+
+            document.getElementById('reviewFilterValueLabel').textContent = meta.label;
+            document.getElementById('reviewFilterValueLabel').htmlFor = isSku
+                ? 'product_identifier'
+                : 'attribute_filter_value';
+            document.getElementById('reviewFilterHelp').textContent = meta.help;
+            skuControl.hidden = !isSku;
+            skuInput.disabled = !isSku;
+            attributeSelect.hidden = isSku;
+            attributeSelect.disabled = isSku;
+
+            if (isSku) {
+                reviewFilterRequestId += 1;
+            } else {
+                loadReviewFilterOptions(filterType);
+            }
+        }
+
+        document.getElementById('review_filter_type').addEventListener('change', updateReviewFilterControls);
+
         // 处理分析表单提交
         document.getElementById('analysisForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const formData = new FormData(this);
-            const productIdentifier = formData.get('product_identifier') || '';
+            const selectedFilter = getSelectedReviewFilter();
             
-            // 检查是否输入了产品标识符
-            if (!productIdentifier.trim()) {
-                showAlert('请输入产品SKU或ASIN编号', 'error');
+            if (!selectedFilter.value) {
+                showAlert(`请输入或选择${selectedFilter.label}`, 'error');
                 return;
             }
             
             const data = {
-                product_identifier: productIdentifier.trim(),
+                filter_type: selectedFilter.filterType,
+                filter_value: selectedFilter.value,
                 months_limit: parseInt(formData.get('months_limit')),
                 max_rating: parseInt(formData.get('max_stars')),
                 use_local: formData.get('use_local_analysis') === 'on'
@@ -513,6 +812,7 @@
             document.getElementById('analyzeBtn').disabled = true;
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultContainer').style.display = 'none';
+            document.getElementById('reviewDashboard').style.display = 'none';
             
             try {
                 const response = await fetch('/analyze_reviews', {
@@ -540,6 +840,134 @@
                 document.getElementById('loadingDiv').style.display = 'none';
             }
         });
+
+        const reviewChartInstances = new Map();
+
+        function getReviewChart(elementId) {
+            if (!window.echarts) return null;
+            const element = document.getElementById(elementId);
+            if (!element) return null;
+            let chart = reviewChartInstances.get(elementId);
+            if (!chart || chart.isDisposed()) {
+                chart = echarts.init(element, null, { renderer: 'canvas' });
+                reviewChartInstances.set(elementId, chart);
+            }
+            return chart;
+        }
+
+        function hideReviewDashboard() {
+            document.getElementById('reviewDashboard').style.display = 'none';
+            reviewChartInstances.forEach(chart => {
+                if (chart && !chart.isDisposed()) chart.dispose();
+            });
+            reviewChartInstances.clear();
+        }
+
+        function renderReviewDashboard(chartData) {
+            if (!chartData || !window.echarts) {
+                hideReviewDashboard();
+                return;
+            }
+
+            const summary = chartData.summary || {};
+            const ratingDistribution = chartData.rating_distribution || [];
+            const monthlyTrend = chartData.monthly_trend || [];
+            const shopDistribution = chartData.shop_distribution || [];
+
+            document.getElementById('reviewMetricTotal').textContent = summary.review_count || 0;
+            document.getElementById('reviewMetricAverage').textContent = `${Number(summary.average_rating || 0).toFixed(2)} ★`;
+            document.getElementById('reviewMetricNegative').textContent = `${summary.negative_count || 0}（${summary.negative_rate || 0}%）`;
+            document.getElementById('reviewMetricShops').textContent = summary.shop_count || 0;
+
+            const dashboard = document.getElementById('reviewDashboard');
+            dashboard.style.display = 'block';
+
+            requestAnimationFrame(() => {
+                const ratingChart = getReviewChart('reviewRatingChart');
+                if (ratingChart) {
+                    ratingChart.setOption({
+                        color: ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e'],
+                        tooltip: { trigger: 'item', formatter: '{b}<br/>{c} 条（{d}%）' },
+                        legend: { bottom: 0, itemWidth: 10, itemHeight: 10 },
+                        series: [{
+                            name: '星级分布',
+                            type: 'pie',
+                            radius: ['42%', '68%'],
+                            center: ['50%', '45%'],
+                            avoidLabelOverlap: true,
+                            label: { formatter: '{b}\n{c} 条' },
+                            data: ratingDistribution.map(item => ({
+                                name: `${item.rating} 星`,
+                                value: item.count
+                            }))
+                        }]
+                    }, true);
+                }
+
+                const shopChart = getReviewChart('reviewShopChart');
+                if (shopChart) {
+                    const shops = [...shopDistribution].reverse();
+                    shopChart.setOption({
+                        color: ['#5b7cff'],
+                        grid: { left: 18, right: 34, top: 18, bottom: 24, containLabel: true },
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        xAxis: { type: 'value', minInterval: 1, name: '评价数' },
+                        yAxis: {
+                            type: 'category',
+                            data: shops.map(item => item.shop),
+                            axisLabel: {
+                                width: 120,
+                                overflow: 'truncate'
+                            }
+                        },
+                        series: [{
+                            type: 'bar',
+                            barMaxWidth: 24,
+                            data: shops.map(item => item.count),
+                            label: { show: true, position: 'right' },
+                            itemStyle: { borderRadius: [0, 5, 5, 0] }
+                        }]
+                    }, true);
+                }
+
+                const trendChart = getReviewChart('reviewTrendChart');
+                if (trendChart) {
+                    trendChart.setOption({
+                        color: ['#5b7cff', '#f59e0b'],
+                        grid: { left: 22, right: 32, top: 48, bottom: 28, containLabel: true },
+                        tooltip: { trigger: 'axis' },
+                        legend: { top: 4, data: ['评价数', '平均星级'] },
+                        xAxis: {
+                            type: 'category',
+                            boundaryGap: false,
+                            data: monthlyTrend.map(item => item.month)
+                        },
+                        yAxis: [
+                            { type: 'value', name: '评价数', minInterval: 1 },
+                            { type: 'value', name: '平均星级', min: 0, max: 5, interval: 1 }
+                        ],
+                        series: [
+                            {
+                                name: '评价数',
+                                type: 'line',
+                                smooth: true,
+                                symbolSize: 8,
+                                areaStyle: { opacity: 0.12 },
+                                data: monthlyTrend.map(item => item.count)
+                            },
+                            {
+                                name: '平均星级',
+                                type: 'line',
+                                smooth: true,
+                                yAxisIndex: 1,
+                                symbolSize: 8,
+                                data: monthlyTrend.map(item => item.average_rating)
+                            }
+                        ]
+                    }, true);
+                }
+            });
+        }
 
         // 显示分析结果
         function displayResult(result) {
@@ -570,6 +998,7 @@
             resultContent.classList.add('rich-text');
             resultContent.innerHTML = _renderRichText(formattedResult);
             resultContainer.style.display = 'block';
+            renderReviewDashboard(result.chart_data);
         }
 
         // 加载分析历史
@@ -598,6 +1027,70 @@
             }
         }
 
+        // 导出当前 SKU/ASIN 的全部历史评论
+        async function exportProductReviewHistory() {
+            const selectedFilter = getSelectedReviewFilter();
+            if (selectedFilter.filterType !== 'sku') {
+                showAlert('全部历史评论导出仅支持单个 SKU/ASIN', 'error');
+                return;
+            }
+            const productIdentifier = (document.getElementById('product_identifier').value || '').trim();
+            if (!productIdentifier) {
+                showAlert('请先输入要导出的 SKU 或 ASIN', 'error');
+                return;
+            }
+
+            const exportBtn = document.getElementById('exportProductReviewsBtn');
+            const originalContent = exportBtn.innerHTML;
+
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在导出...';
+
+            try {
+                const exportUrl = new URL('/api/review_analysis/export_all_history', window.location.origin);
+                exportUrl.searchParams.set('product_identifier', productIdentifier);
+                const response = await fetch(exportUrl);
+                if (!response.ok) {
+                    let message = '导出失败，请稍后重试';
+                    try {
+                        const result = await response.json();
+                        message = result.message || message;
+                    } catch (error) {
+                        // 非 JSON 错误响应使用默认提示。
+                    }
+                    throw new Error(message);
+                }
+
+                const blob = await response.blob();
+                const disposition = response.headers.get('Content-Disposition') || '';
+                const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+                const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+                let filename = `评价分析_${productIdentifier}_全部历史评论_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+                if (utf8Match) {
+                    filename = decodeURIComponent(utf8Match[1]);
+                } else if (plainMatch) {
+                    filename = plainMatch[1];
+                }
+
+                const downloadUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(downloadUrl);
+                showAlert(`SKU/ASIN“${productIdentifier}”的全部历史评论已导出`, 'success');
+            } catch (error) {
+                showAlert(error.message || '导出失败，请稍后重试', 'error');
+                console.error('Export error:', error);
+            } finally {
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = originalContent;
+            }
+        }
+
         // 显示历史记录
         function displayHistory(history) {
             const historyContainer = document.getElementById('historyContainer');
@@ -613,7 +1106,7 @@
                 const historyItem = document.createElement('div');
                 historyItem.className = 'history-item';
                 historyItem.innerHTML = `
-                    <h4>SKU/ASIN: ${record.product_identifier}</h4>
+                    <h4>筛选范围: ${record.product_identifier}</h4>
                     <p><i class="fas fa-clock"></i> 分析时间: ${record.analysis_date}</p>
                     <p><i class="fas fa-chart-bar"></i> 差评数量: ${record.review_count}条</p>
                     <p><i class="fas fa-info-circle"></i> 状态: 已完成</p>
@@ -645,9 +1138,9 @@
         }
 
         async function analyzeWordFreq() {
-            const productIdentifier = (document.getElementById('product_identifier').value || '').trim();
-            if (!productIdentifier) {
-                showAlert('请输入产品SKU或ASIN编号', 'error');
+            const selectedFilter = getSelectedReviewFilter();
+            if (!selectedFilter.value) {
+                showAlert(`请输入或选择${selectedFilter.label}`, 'error');
                 return;
             }
             const monthsLimit = parseInt(document.getElementById('months_limit').value);
@@ -663,7 +1156,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        product_identifier: productIdentifier,
+                        filter_type: selectedFilter.filterType,
+                        filter_value: selectedFilter.value,
                         months_limit: monthsLimit,
                         max_rating: maxStars,
                         exclude_words: excludeWords,
@@ -701,7 +1195,14 @@
 
         // 页面加载完成后自动加载历史记录
         window.addEventListener('load', function() {
+            updateReviewFilterControls();
             loadHistory();
+        });
+
+        window.addEventListener('resize', function() {
+            reviewChartInstances.forEach(chart => {
+                if (chart && !chart.isDisposed()) chart.resize();
+            });
         });
     </script>
 </body>

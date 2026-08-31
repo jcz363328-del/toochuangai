@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import io
 import json
 import re
@@ -18,6 +19,7 @@ from listing_agent import blueprint as listing_module
 
 class ListingAgentBlueprintTests(unittest.TestCase):
     def setUp(self) -> None:
+        listing_module._clear_aba_dashboard_render_cache()
         self.app = Flask(__name__)
         self.app.secret_key = "listing-agent-test"
         self.app.register_blueprint(listing_agent_bp)
@@ -57,6 +59,7 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.mock_dui_db = self.db_write_patcher.start()
 
     def tearDown(self) -> None:
+        listing_module._clear_aba_dashboard_render_cache()
         self.db_write_patcher.stop()
         for storage_patcher in reversed(self.storage_patchers):
             storage_patcher.stop()
@@ -112,6 +115,92 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertGreater(len(payload["rows"]), 0)
         self.assertEqual(payload["meta"]["uniqueTermCount"], len(payload["rows"]))
 
+    def test_aba_dashboard_is_gzipped_revalidated_and_splits_echarts_asset(self) -> None:
+        self.login()
+
+        dashboard = self.client.get(
+            "/listing-agent/aba-ranking/",
+            headers={"Accept-Encoding": "gzip"},
+        )
+        self.addCleanup(dashboard.close)
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(dashboard.headers.get("Content-Encoding"), "gzip")
+        self.assertIn("private", dashboard.headers.get("Cache-Control", ""))
+        self.assertIn("no-cache", dashboard.headers.get("Cache-Control", ""))
+        self.assertIn("Accept-Encoding", dashboard.headers.get("Vary", ""))
+        html = gzip.decompress(dashboard.get_data()).decode("utf-8")
+        self.assertIn("/listing-agent/aba-ranking/echarts.min.js?v=", html)
+        self.assertNotIn("Licensed to the Apache Software Foundation", html)
+
+        revalidated = self.client.get(
+            "/listing-agent/aba-ranking/",
+            headers={
+                "Accept-Encoding": "gzip",
+                "If-None-Match": dashboard.headers["ETag"],
+            },
+        )
+        self.addCleanup(revalidated.close)
+        self.assertEqual(revalidated.status_code, 304)
+
+        echarts = self.client.get(
+            "/listing-agent/aba-ranking/echarts.min.js",
+            headers={"Accept-Encoding": "gzip"},
+        )
+        self.addCleanup(echarts.close)
+        self.assertEqual(echarts.status_code, 200)
+        self.assertEqual(echarts.headers.get("Content-Encoding"), "gzip")
+        self.assertIn("immutable", echarts.headers.get("Cache-Control", ""))
+        self.assertIn(
+            "Licensed to the Apache Software Foundation",
+            gzip.decompress(echarts.get_data()).decode("utf-8"),
+        )
+
+    def test_aba_dashboard_reuses_render_until_active_file_changes(self) -> None:
+        self.login()
+        first_payload = {
+            "meta": {"dateRange": "2026-08-01 至 2026-08-07"},
+            "rows": [
+                {
+                    "marketplace": "美国",
+                    "searchTerm": "cached keyword",
+                    "searchFrequencyRank": 1200,
+                }
+            ],
+        }
+        second_payload = {
+            "meta": {"dateRange": "2026-08-08 至 2026-08-14"},
+            "rows": [
+                {
+                    "marketplace": "美国",
+                    "searchTerm": "changed cached keyword",
+                    "searchFrequencyRank": 900,
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            active_file = Path(temporary_directory) / "active-aba-ranking.json"
+            active_file.write_text(json.dumps(first_payload, ensure_ascii=False), encoding="utf-8")
+            with (
+                patch.object(listing_module, "ACTIVE_RANKING_FILE", active_file),
+                patch.object(
+                    listing_module,
+                    "_load_ranking_data",
+                    wraps=listing_module._load_ranking_data,
+                ) as load_ranking_data,
+            ):
+                first = self.client.get("/listing-agent/aba-ranking/")
+                second = self.client.get("/listing-agent/aba-ranking/")
+                active_file.write_text(json.dumps(second_payload, ensure_ascii=False), encoding="utf-8")
+                third = self.client.get("/listing-agent/aba-ranking/")
+                self.addCleanup(first.close)
+                self.addCleanup(second.close)
+                self.addCleanup(third.close)
+
+        self.assertEqual(load_ranking_data.call_count, 2)
+        self.assertIn("cached keyword", first.get_data(as_text=True))
+        self.assertIn("cached keyword", second.get_data(as_text=True))
+        self.assertIn("changed cached keyword", third.get_data(as_text=True))
+
     def test_image_extraction_normalizes_model_response(self) -> None:
         self.login()
         model_content = {
@@ -158,6 +247,34 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(payload["source"], "服务端图片识别")
         self.assertIn("不要推断材质", payload["doNotInfer"])
         self.assertGreater(len(payload["doNotInfer"]), 1)
+
+    def test_image_extraction_falls_back_when_configured_model_no_longer_exists(self) -> None:
+        unavailable = {
+            "ok": False,
+            "status": 400,
+            "error": {"code": 20012, "message": "Model does not exist. Please check it carefully."},
+        }
+        available = {"ok": True, "status": 200, "text": "{}"}
+        with (
+            patch.object(listing_module, "_get_model", return_value="retired/vision-model"),
+            patch.object(
+                listing_module,
+                "_call_siliconflow",
+                side_effect=[unavailable, available],
+            ) as call_siliconflow,
+        ):
+            result = listing_module._call_siliconflow_with_fallbacks(
+                "test-key",
+                {"messages": []},
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(call_siliconflow.call_count, 2)
+        self.assertEqual(
+            call_siliconflow.call_args_list[1].args[1]["model"],
+            listing_module.DEFAULT_SILICONFLOW_MODEL,
+        )
+        self.assertTrue(listing_module._model_unavailable(unavailable))
 
     def test_ai_configuration_is_server_managed_and_hides_models(self) -> None:
         self.login()
@@ -214,6 +331,18 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertIn('"yonghu": ""', seed_data)
         self.assertIn('"bumen": "AI部"', seed_data)
 
+    def test_image_recognition_supplement_remains_optional_when_no_facts_are_returned(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn("识别补充（可选）", page)
+        self.assertNotIn('id="imageFacts" required', page)
+        self.assertIn("识别补充为可选项，可留空并确认继续", script)
+        self.assertIn("已确认暂无可用图片事实", script)
+        self.assertIn('const canConfirmEmptyResult = imageExtraction.status === "extracted"', script)
+        self.assertNotIn("图片识别失败，请补充图片文字后重新提取", script)
+
     def test_user_skill_preferences_are_saved_to_file_and_database_record(self) -> None:
         self.login()
         response = self.client.post(
@@ -221,6 +350,10 @@ class ListingAgentBlueprintTests(unittest.TestCase):
             json={
                 "skills": [{"id": "skill-1", "name": "我的 Skill", "tone": "beauty factual"}],
                 "preferences": {"selectedSkillId": "skill-1", "lastVariantId": "balanced"},
+                "riskLibrary": [
+                    {"term": "Waterproof", "level": "high"},
+                    {"term": "Vegan", "level": "medium"},
+                ],
             },
         )
 
@@ -233,14 +366,91 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(saved["userName"], "测试用户")
         self.assertEqual(saved["skills"][0]["id"], "skill-1")
         self.assertEqual(saved["preferences"]["selectedSkillId"], "skill-1")
+        self.assertEqual(
+            saved["riskLibrary"],
+            [
+                {"term": "waterproof", "level": "high"},
+                {"term": "vegan", "level": "medium"},
+            ],
+        )
         sql = self.mock_dui_db.call_args.args[0]
         self.assertIn("dbo.Listing_ShengCheng", sql)
-        self.assertIn("测试用户", sql)
-        self.assertIn(str(skill_path), sql)
+        params = self.mock_dui_db.call_args.kwargs["params"]
+        self.assertEqual(params[0], "测试用户")
+        self.assertEqual(params[3], str(skill_path))
 
         loaded = self.client.get("/listing-agent/api/user-state")
         self.assertEqual(loaded.status_code, 200)
         self.assertEqual(loaded.get_json()["skills"][0]["name"], "我的 Skill")
+        self.assertEqual(loaded.get_json()["riskLibrary"][1]["term"], "vegan")
+
+    def test_text_generation_retries_a_fast_fallback_after_timeout(self) -> None:
+        timed_out = {
+            "ok": False,
+            "status": 0,
+            "text": "Read timed out. (read timeout=60)",
+            "error": {"message": "Read timed out. (read timeout=60)"},
+        }
+        available = {"ok": True, "status": 200, "text": "{}"}
+        with (
+            patch.object(listing_module, "_get_text_model", return_value="slow/text-model"),
+            patch.object(
+                listing_module,
+                "_call_siliconflow",
+                side_effect=[timed_out, available],
+            ) as call_siliconflow,
+        ):
+            result = listing_module._call_siliconflow_with_text_fallbacks(
+                "test-key",
+                {"messages": []},
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(call_siliconflow.call_count, 2)
+        self.assertEqual(
+            call_siliconflow.call_args_list[1].args[1]["model"],
+            listing_module.DEFAULT_SILICONFLOW_TEXT_MODEL,
+        )
+        self.assertEqual(call_siliconflow.call_args_list[0].kwargs["read_timeout"], 60)
+
+    def test_listing_page_has_selectable_builtin_skills_and_user_scoped_risk_state(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn("可先选择 Skill 和管理违禁词库", page)
+        self.assertIn('id: "builtin-ranking-first"', script)
+        self.assertIn('id: "builtin-natural-premium"', script)
+        self.assertIn("JSON.stringify({ skills: userSkills, preferences, riskLibrary })", script)
+        self.assertIn("strategyPanel.inert = false", script)
+
+    def test_listing_page_uses_a_single_primary_guided_workflow(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="workflowRoot"', page)
+        self.assertIn('class="workflow-sidebar"', page)
+        self.assertIn('id="workflowStageBody"', page)
+        self.assertIn('id="workflowPrimaryBtn"', page)
+        self.assertEqual(page.count('id="workflowPrimaryBtn"'), 1)
+        self.assertIn("function organizeWorkflowLayout()", script)
+        self.assertIn("function setActiveWorkflowStep", script)
+        self.assertIn("document.body.dataset.flowState = state", script)
+        self.assertIn('confirmed: 2', script)
+        self.assertIn('done: 4', script)
+
+    def test_listing_page_exposes_current_title_and_item_highlight_limits(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="titleScore">0/75', page)
+        self.assertIn('id="itemHighlightScore">0/125', page)
+        self.assertIn('titleLimit: 75', script)
+        self.assertIn('itemHighlightLimit: 125', script)
+        self.assertIn('Item Highlights（商品亮点，常称副标题）', script)
+        self.assertIn('${escapeHtml(variant.itemHighlight)}', script)
 
     def test_imported_aba_file_becomes_ranking_detail_source(self) -> None:
         self.login()
@@ -457,6 +667,7 @@ class ListingAgentBlueprintTests(unittest.TestCase):
                 {
                     "id": variant_id,
                     "title": f"{variant_id} title",
+                    "itemHighlight": f"{variant_id} item highlight",
                     "highlights": ["One", "Two", "Three"],
                     "bullets": ["One", "Two", "Three", "Four", "Five"],
                     "description": "Description",
@@ -500,12 +711,37 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(payload["storage"]["storedAs"], "database")
         self.assertEqual(Path(payload["storage"]["skillPath"]).parent, self.skill_storage_dir)
         self.assertEqual([item["id"] for item in payload["variants"]], ["balanced", "style", "search"])
+        self.assertEqual(payload["variants"][0]["itemHighlight"], "balanced item highlight")
         request_payload = mocked_call.call_args.args[1]
         self.assertEqual(request_payload["messages"][0]["role"], "system")
+        self.assertIn("July 27, 2026", request_payload["messages"][0]["content"])
+        self.assertIn("Item Highlights", request_payload["messages"][0]["content"])
         self.assertIn("lash clusters", request_payload["messages"][1]["content"])
         sql = self.mock_dui_db.call_args.args[0]
-        self.assertIn("测试用户", sql)
-        self.assertIn("balanced title", sql)
+        params = self.mock_dui_db.call_args.kwargs["params"]
+        self.assertEqual(params[0], "测试用户")
+        self.assertIn("balanced title", params[2])
+
+    def test_generated_title_and_item_highlight_use_current_amazon_limits(self) -> None:
+        variants = [
+            {
+                "id": variant_id,
+                "title": "Title " + ("x" * 100),
+                "itemHighlight": "Item highlight " + ("y" * 180),
+                "highlights": ["One", "Two", "Three"],
+                "bullets": ["One", "Two", "Three", "Four", "Five"],
+                "description": "Description",
+                "searchTerms": "lash clusters wispy",
+                "reasons": ["测试理由"],
+            }
+            for variant_id in ("balanced", "style", "search")
+        ]
+
+        normalized = listing_module._normalize_generated_listing_variants(variants)
+
+        self.assertEqual(len(normalized), 3)
+        self.assertTrue(all(len(item["title"]) <= 75 for item in normalized))
+        self.assertTrue(all(len(item["itemHighlight"]) <= 125 for item in normalized))
 
     def test_long_listing_is_archived_to_configured_listing_folder(self) -> None:
         self.login()
@@ -554,7 +790,82 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         archived = json.loads(listing_path.read_text(encoding="utf-8"))
         self.assertEqual(archived["userName"], "测试用户")
         self.assertEqual(len(archived["variants"]), 3)
-        self.assertIn(str(listing_path), self.mock_dui_db.call_args.args[0])
+        self.assertEqual(
+            self.mock_dui_db.call_args.kwargs["params"][2],
+            str(listing_path),
+        )
+
+    def test_generated_variants_are_returned_when_persistence_fails(self) -> None:
+        self.login()
+        variants = [
+            {
+                "id": variant_id,
+                "title": f"{variant_id} title",
+                "highlights": ["One", "Two", "Three"],
+                "bullets": ["One", "Two", "Three", "Four", "Five"],
+                "description": "Description",
+                "searchTerms": "lash clusters wispy",
+                "reasons": ["测试理由"],
+            }
+            for variant_id in ("balanced", "style", "search")
+        ]
+        completion = {
+            "choices": [{"message": {"content": json.dumps({"variants": variants}, ensure_ascii=False)}}]
+        }
+        fake_result = {
+            "ok": True,
+            "status": 200,
+            "text": json.dumps(completion, ensure_ascii=False),
+            "model": listing_module.DEFAULT_SILICONFLOW_MODEL,
+        }
+
+        with (
+            patch.object(listing_module, "_call_siliconflow", return_value=fake_result),
+            patch.object(
+                listing_module,
+                "_persist_generated_listing",
+                side_effect=RuntimeError("database temporarily unavailable"),
+            ),
+        ):
+            response = self.client.post(
+                "/listing-agent/api/generate-listings",
+                json={
+                    "marketplace": "US",
+                    "product": {"type": "lash clusters", "brand": "ALICE"},
+                    "keywords": {},
+                    "compliance": {},
+                    "skill": {},
+                    "limits": {},
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(len(payload["variants"]), 3)
+        self.assertTrue(payload["storage"]["persistenceFailed"])
+        self.assertEqual(payload["storage"]["storedAs"], "unsaved")
+
+    def test_listing_with_percentages_is_passed_as_a_database_parameter(self) -> None:
+        listing_value = json.dumps(
+            {"ranking": "点击 18% / 转化 8.8%", "title": "Kid's Lashes"},
+            ensure_ascii=False,
+        )
+        saved_at = listing_module._now_shanghai()
+
+        listing_module._upsert_listing_record(
+            user_name="百分号测试用户",
+            saved_at=saved_at,
+            skill_path=self.skill_storage_dir / "percent-skill.json",
+            listing_value=listing_value,
+        )
+
+        sql = self.mock_dui_db.call_args.args[0]
+        params = self.mock_dui_db.call_args.kwargs["params"]
+        self.assertNotIn("18%", sql)
+        self.assertNotIn("Kid's Lashes", sql)
+        self.assertEqual(params[2], listing_value)
+        self.assertEqual(params[4], 1)
 
 
 if __name__ == "__main__":

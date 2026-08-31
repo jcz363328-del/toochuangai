@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>赛狐广告 API 与 MCP 数据调控清单</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --panel: rgba(255, 255, 255, .92);
+      --ink: #142033;
+      --muted: #627086;
+      --line: #dce4ef;
+      --blue: #2559d6;
+      --blue-soft: #eaf0ff;
+      --green: #137a55;
+      --green-soft: #e8f7f0;
+      --amber: #a85d00;
+      --amber-soft: #fff3dd;
+      --red: #b62e3c;
+      --red-soft: #ffeaed;
+      --violet: #6941c6;
+      --violet-soft: #f1ebff;
+      --shadow: 0 18px 48px rgba(28, 42, 70, .09);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font: 14px/1.58 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 0 0, rgba(37, 89, 214, .12), transparent 28rem),
+        radial-gradient(circle at 100% 10%, rgba(105, 65, 198, .09), transparent 26rem),
+        var(--bg);
+    }
+
+    button, input, select { font: inherit; }
+
+    code {
+      padding: .12rem .35rem;
+      border: 1px solid #d8e0ec;
+      border-radius: .35rem;
+      color: #23447c;
+      background: #f5f8fc;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .shell { width: min(1880px, calc(100% - 32px)); margin: 0 auto; }
+
+    .hero { padding: 44px 0 22px; }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 10px;
+      border: 1px solid #cdd9f8;
+      border-radius: 999px;
+      color: var(--blue);
+      background: rgba(255, 255, 255, .72);
+      font-weight: 750;
+      letter-spacing: .02em;
+    }
+
+    h1 { margin: 15px 0 8px; font-size: clamp(29px, 4vw, 48px); line-height: 1.12; letter-spacing: -.035em; }
+    h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+    h3 { margin: 0 0 6px; font-size: 15px; }
+    p { margin: 0; }
+
+    .hero-copy { max-width: 980px; color: var(--muted); font-size: 16px; }
+
+    .status-banner {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-top: 22px;
+      padding: 16px 18px;
+      border: 1px solid #f1c785;
+      border-radius: 16px;
+      color: #6c4305;
+      background: rgba(255, 247, 227, .93);
+    }
+
+    .status-banner strong { display: block; margin-bottom: 2px; color: #563300; }
+    .status-icon { flex: 0 0 auto; font-size: 21px; }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0 0;
+    }
+
+    .kpi {
+      min-height: 116px;
+      padding: 17px;
+      border: 1px solid rgba(214, 224, 239, .9);
+      border-radius: 17px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .kpi b { display: block; margin: 5px 0 2px; font-size: 27px; line-height: 1.1; }
+    .kpi span, .kpi small { color: var(--muted); }
+    .kpi small { display: block; }
+
+    .toolbar-wrap { position: sticky; z-index: 20; top: 0; padding: 10px 0; background: rgba(244, 247, 251, .88); backdrop-filter: blur(12px); }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 8px 30px rgba(28, 42, 70, .07);
+    }
+
+    .search {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 13px;
+      border: 1px solid #ccd7e5;
+      border-radius: 11px;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+
+    .search:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37, 89, 214, .12); }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 7px; }
+
+    .filter {
+      padding: 8px 11px;
+      border: 1px solid #d4deeb;
+      border-radius: 10px;
+      color: #526176;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .filter.active { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); font-weight: 750; }
+
+    main { padding: 12px 0 48px; }
+
+    .section {
+      margin-top: 18px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .section-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; margin-bottom: 15px; }
+    .section-head p { margin-top: 4px; color: var(--muted); }
+    .count { white-space: nowrap; color: var(--muted); }
+
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 14px; }
+
+    table { width: 100%; min-width: 1180px; border-collapse: separate; border-spacing: 0; background: #fff; }
+
+    th {
+      position: sticky;
+      z-index: 2;
+      top: 0;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      color: #49576c;
+      background: #f7f9fc;
+      font-size: 12px;
+      text-align: left;
+      letter-spacing: .02em;
+      white-space: nowrap;
+    }
+
+    td { padding: 12px; border-bottom: 1px solid #edf1f6; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: #fbfcff; }
+
+    .id { color: #758298; font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
+    .object { min-width: 160px; }
+    .object strong { display: block; margin-bottom: 2px; }
+    .sub { color: var(--muted); font-size: 12px; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+    .chip, .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 7px;
+      border: 1px solid #d7e0ed;
+      border-radius: 999px;
+      color: #44536a;
+      background: #f6f8fb;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .badge.read { border-color: #c5d4ff; color: var(--blue); background: var(--blue-soft); }
+    .badge.write { border-color: #bde7d5; color: var(--green); background: var(--green-soft); }
+    .badge.partial { border-color: #efd29f; color: var(--amber); background: var(--amber-soft); }
+    .badge.blocked { border-color: #ffc3ca; color: var(--red); background: var(--red-soft); }
+    .badge.derived { border-color: #d8c9fb; color: var(--violet); background: var(--violet-soft); }
+
+    .fields { min-width: 310px; max-width: 630px; color: #324158; }
+    .fields details { margin-top: 6px; }
+    .fields summary { color: var(--blue); cursor: pointer; font-weight: 700; }
+    .fields .all-fields { margin-top: 7px; color: #56657a; overflow-wrap: anywhere; }
+
+    .endpoint { min-width: 255px; }
+    .scope { min-width: 220px; color: #48576d; }
+    .note { min-width: 250px; color: #56657a; }
+
+    .callout-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .callout { padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: #fbfcfe; }
+    .callout p { color: var(--muted); }
+    .callout strong { color: var(--ink); }
+
+    .empty { display: none; padding: 30px; color: var(--muted); text-align: center; }
+
+    footer { padding: 0 0 48px; color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 1050px) {
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .toolbar { grid-template-columns: 1fr; }
+      .callout-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .shell { width: min(100% - 20px, 1880px); }
+      .hero { padding-top: 26px; }
+      .kpis { grid-template-columns: 1fr; }
+      .section { padding: 14px; border-radius: 16px; }
+      .section-head { align-items: flex-start; flex-direction: column; }
+      .status-banner { padding: 13px; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .toolbar-wrap { display: none; }
+      .shell { width: 100%; }
+      .section, .kpi { box-shadow: none; break-inside: avoid; }
+      .table-wrap { overflow: visible; }
+      table { min-width: 0; font-size: 9px; }
+      th, td { padding: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero shell">
+    <span class="eyebrow">Sellfox SP Ads · Capability Inventory</span>
+    <h1>赛狐广告 API 与 MCP 数据调控清单</h1>
+    <p class="hero-copy">依据当前项目源码、2026-08-22 本地真实快照与 MCP 调控实现整理。表格严格区分：赛狐原始字段、系统派生字段、仅建议能力和真实写回能力。</p>
+    <div class="status-banner">
+      <span class="status-icon">⚠</span>
+      <div>
+        <strong>当前结论：广告成熟层可读但为部分覆盖；实时层已过期；MCP 尚未完成在线预检。</strong>
+        真实写回通道虽然存在，但本地最后一份计划为 <code>DRY_RUN</code>、<code>mcp_preflight=NOT_CHECKED</code>、<code>sent=false</code>。因此此刻不能视为可安全执行。
+      </div>
+    </div>
+    <div class="kpis">
+      <article class="kpi"><span>直接读取端点</span><b>18</b><small>15 个广告/业务端点 + 店铺 + 2 个报表任务端点</small></article>
+      <article class="kpi"><span>成熟快照</span><b>390 店</b><small>3,487 活动 · 5,938 聚合投放</small></article>
+      <article class="kpi"><span>原始对象快照</span><b>217,743</b><small>活动、关键词、商品投放、广告商品合计</small></article>
+      <article class="kpi"><span>MCP 已接入工具</span><b>2 读 / 1 写</b><small>写入仅限 SP 关键词/商品投放竞价</small></article>
+      <article class="kpi"><span>自动执行范围</span><b>0</b><small>默认全为审核或 Dry-run，不自动写广告</small></article>
+    </div>
+  </header>
+
+  <div class="toolbar-wrap">
+    <div class="toolbar shell">
+      <input id="search" class="search" type="search" placeholder="搜索对象、接口、字段、动作或限制，例如：budget / 关键词 / 否定词">
+      <div class="filters" aria-label="能力筛选">
+        <button class="filter active" type="button" data-filter="all">全部</button>
+        <button class="filter" type="button" data-filter="read">可读取</button>
+        <button class="filter" type="button" data-filter="write">可写回</button>
+        <button class="filter" type="button" data-filter="blocked">当前不支持写回</button>
+        <button class="filter" type="button" data-filter="derived">派生数据</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="shell">
+    <section class="section" data-section="status">
+      <div class="section-head">
+        <div><h2>当前数据可用性</h2><p>这里反映本机现有文件，不代表赛狐服务永久状态。</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>数据层</th><th>本地时间 / 窗口</th><th>规模</th><th>状态</th><th>判断</th></tr></thead>
+          <tbody>
+            <tr data-cap="read"><td><strong>成熟归因层</strong><div class="sub">ads-monitor.json</div></td><td>2026-08-22 09:10:51 +08:00<br>最近 14 个成熟日，截止 D-2</td><td>390 店 · 3,487 活动 · 5,938 投放 · 4,384 在投商品 · 9,425 条建议</td><td><span class="badge partial">partial</span></td><td>可以查询和分析；受影响对象必须保留数据质量阻断，不能直接执行。</td></tr>
+            <tr data-cap="read"><td><strong>基础对象原始快照</strong><div class="sub">base-20260822</div></td><td>2026-08-22</td><td>3,487 活动 · 52,862 关键词 · 86,449 商品投放 · 74,945 广告商品</td><td><span class="badge read">真实响应已观察</span></td><td>用于确认对象、状态、竞价、预算、层级关系；原始 JSON 完整保留。</td></tr>
+            <tr data-cap="read"><td><strong>在线产品 V2</strong><div class="sub">base-20260821</div></td><td>2026-08-21</td><td>10,114 产品行；2026-08-22 缓存中为 0 行</td><td><span class="badge partial">需注意日期</span></td><td>可用于 SKU/ASIN、上架日期、库存、价格、利润等上下文；当天空缓存不能替代前一日有效快照。</td></tr>
+            <tr data-cap="blocked"><td><strong>实时小时层</strong><div class="sub">ads-realtime.json</div></td><td>生成：2026-08-20 21:04:01 +08:00<br>过期：2026-08-20 21:49:01 +08:00</td><td>覆盖 658 / 3,434 个应覆盖活动</td><td><span class="badge blocked">已过期</span></td><td>当前只能作历史参考；不能为任何 MCP 写入提供 <code>fresh + NO_OBJECTION</code> 门禁。</td></tr>
+            <tr data-cap="blocked"><td><strong>MCP 决策计划</strong><div class="sub">decision-plan.json</div></td><td>2026-08-20 21:06:59 +08:00</td><td>单店 · 单对象 · 单动作</td><td><span class="badge blocked">NOT_CHECKED / 未发送</span></td><td>在线 <code>tools/list</code> 未完成；当前 Windows 用户无法解密已保存凭据，不能把工具可用性视为在线已确认。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" data-section="api">
+      <div class="section-head">
+        <div><h2>赛狐广告 API：可获取的全部数据对象</h2><p>字段列优先采用 2026-08-22 真实响应并补充诊断服务中已接入字段；“原始 JSON”意味着接口新增字段也会随快照保留。</p></div>
+        <span class="count" id="api-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>数据对象</th><th>端点 / 报表类型</th><th>请求范围</th><th>可获取字段</th><th>能力</th><th>说明</th></tr></thead>
+          <tbody id="api-body"></tbody>
+        </table>
+        <div class="empty">没有匹配的 API 数据对象。</div>
+      </div>
+    </section>
+
+    <section class="section" data-section="derived">
+      <div class="section-head">
+        <div><h2>本地派生与诊断数据</h2><p>这些字段不是单个赛狐端点直接返回，而是由基础对象、日报、小时层和规则合并得到。</p></div>
+        <span class="count" id="derived-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>数据产品</th><th>位置 / 接口</th><th>主要字段</th><th>能力</th><th>口径与限制</th></tr></thead>
+          <tbody id="derived-body"></tbody>
+        </table>
+        <div class="empty">没有匹配的派生数据。</div>
+      </div>
+    </section>
+
+    <section class="section" data-section="mcp">
+      <div class="section-head">
+        <div><h2>MCP：可获取与可调控能力</h2><p>官方地址固定为 <code>https://api-mcp.sellfox.com/mcp</code>；当前实现只信任该地址并使用 Streamable HTTP / JSON-RPC。</p></div>
+        <span class="count" id="mcp-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>MCP 方法 / 工具</th><th>输入</th><th>输出</th><th>能力</th><th>当前状态与边界</th></tr></thead>
+          <tbody id="mcp-body"></tbody>
+        </table>
+        <div class="empty">没有匹配的 MCP 能力。</div>
+      </div>
+    </section>
+
+    <section class="section" data-section="control">
+      <div class="section-head">
+        <div><h2>调控矩阵：哪些数据真的能改</h2><p>“有建议”不等于“有写接口”。下表以当前仓库实际放行逻辑为准。</p></div>
+        <span class="count" id="control-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>调控对象</th><th>可读当前值</th><th>可生成建议</th><th>真实写回</th><th>允许的值 / 幅度</th><th>实现与限制</th></tr></thead>
+          <tbody id="control-body"></tbody>
+        </table>
+        <div class="empty">没有匹配的调控项。</div>
+      </div>
+    </section>
+
+    <section class="section" data-section="gates">
+      <div class="section-head"><div><h2>真实写入必须同时通过的门禁</h2><p>任何一项不满足都应保持 Dry-run 或阻断。</p></div></div>
+      <div class="callout-grid">
+        <article class="callout"><h3>数据证据</h3><p><strong>live + 36 小时内</strong>、<code>data_status=complete</code>、成熟源 SHA-256 不变、同一基线实时层 <code>fresh + NO_OBJECTION</code>。</p></article>
+        <article class="callout"><h3>对象与数值</h3><p>只允许 <strong>USD</strong>、单店单对象、<code>enabled</code> 且正常投放；拒绝 <code>text:</code> 合成 ID；单次变化不超过 10%。</p></article>
+        <article class="callout"><h3>人工授权</h3><p>冻结计划未过期、<code>--confirm</code> 精确等于 <code>plan_id</code>，并显式设置写入总开关；默认永远不写。</p></article>
+        <article class="callout"><h3>MCP 预检</h3><p><code>tools/list</code> 必须包含所需读写工具；<code>inputSchema</code> 摘要一致；写前重新读取当前竞价并与计划一致。</p></article>
+        <article class="callout"><h3>防重复</h3><p>跨进程锁、写前原子审计占位、同一对象 <strong>48 小时冷却</strong>，共同阻止本机重复提交。</p></article>
+        <article class="callout"><h3>写后核验</h3><p><code>successIds</code> 必须唯一包含目标且 <code>failList</code> 为空；随后再次读取竞价确认。结果不确定时记为 <code>UNKNOWN</code> 并禁止重试。</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    <p>整理依据：当前仓库中的广告监控、批量报表、实时采集、单店诊断与 SP MCP 调控代码，以及本机 2026-08-21/22 快照。未成功执行在线 MCP <code>tools/list</code>，因此未将服务端可能存在但仓库未引用的工具列为已可用。</p>
+  </footer>
+
+  <script>
+    const apiRows = [
+      {
+        id: "A01", object: "Amazon 店铺", sub: "广告授权范围与币种归属", endpoint: "/api/shop/pageList.json", scope: "pageNo, pageSize；仅纳入 adStatus=auth 且 status=0", cap: "read", observed: "真实使用",
+        fields: "id, name, adStatus, status, marketplaceId, region", note: "marketplaceId 映射币种；未知站点或重名会安全退出。"
+      },
+      {
+        id: "A02", object: "SP 广告活动", sub: "Campaign", endpoint: "/api/cpc/manageData/spCampaign.json", scope: "shopId, campaignId/state, pageSize, nextToken", cap: "read", observed: "2026-08-22 · 3,487 行",
+        fields: "shopId, state, portfolioId, campaignId, name, targetingType, budget, servingStatus, offAmazonBudgetControlStrategy, campaignSite, strategy, adjustments, startDate, endDate, creationDate, lastUpdatedDate", note: "可读预算、竞价策略和广告位加价 adjustments；监控端不直接写此端点。"
+      },
+      {
+        id: "A03", object: "SP 广告组", sub: "Ad group", endpoint: "/api/cpc/manageData/spGroup.json", scope: "固定试点店 shopId + campaignId；游标分页", cap: "read", observed: "诊断代码已接入",
+        fields: "shopId, campaignId, groupId, name, defaultBid, state, servingStatus；以及接口原始 JSON 中的新增字段", note: "全店成熟监控当前未落此表；单店诊断 full 视图读取。"
+      },
+      {
+        id: "A04", object: "SP 广告商品", sub: "Advertised product", endpoint: "/api/cpc/manageData/spAdProduct.json", scope: "shopId, campaignId/state, pageSize, nextToken", cap: "read", observed: "2026-08-22 · 74,945 行",
+        fields: "shopId, campaignId, groupId, adId, asin, sku, state, servingStatus", note: "用于活动—广告组—SKU/ASIN 关联和新品生命周期判断。"
+      },
+      {
+        id: "A05", object: "SP 关键词投放", sub: "Keyword targeting", endpoint: "/api/cpc/manageData/spKeyword.json", scope: "shopId, campaignId/state, pageSize, nextToken", cap: "read", observed: "2026-08-22 · 52,862 行",
+        fields: "shopId, campaignId, groupId, keywordId, keywordText, matchType, bid, state, servingStatus", note: "MCP 通过独立工具复查同一对象的当前 bid。"
+      },
+      {
+        id: "A06", object: "SP 商品投放", sub: "Product targeting", endpoint: "/api/cpc/manageData/spTarget.json", scope: "shopId, campaignId/state, pageSize, nextToken", cap: "read", observed: "2026-08-22 · 86,449 行",
+        fields: "shopId, campaignId, groupId, targetId, bid, state, servingStatus, expressionType, expression, resolvedExpression", note: "实体类型在本地归一为 target；可与 MCP 写工具的 targetingType=product 对应。"
+      },
+      {
+        id: "A07", object: "SP 否定关键词", sub: "Negative keyword", endpoint: "/api/cpc/manageData/spNeKeyword.json", scope: "固定试点店 shopId + campaignId；游标分页", cap: "read", observed: "诊断代码已接入，未纳入 8/22 基础快照",
+        fields: "接口 itemList 的完整原始对象；核心身份字段为 shopId, campaignId, groupId, 否定关键词 ID/文本, matchType, state/servingStatus", note: "当前只读；没有否词创建、编辑或删除通道。字段全集需在凭据恢复后以真实响应复核。"
+      },
+      {
+        id: "A08", object: "SP 否定商品投放", sub: "Negative product target", endpoint: "/api/cpc/manageData/spNeTarget.json", scope: "固定试点店 shopId + campaignId；游标分页", cap: "read", observed: "诊断代码已接入，未纳入 8/22 基础快照",
+        fields: "接口 itemList 的完整原始对象；核心身份字段为 shopId, campaignId, groupId, 否定投放 ID, expression/expressionType, state/servingStatus", note: "当前只读；没有新增或删除否定商品投放的实现。字段全集需在线真实响应复核。"
+      },
+      {
+        id: "A09", object: "在线产品 V2", sub: "SKU / ASIN / 上架 / 库存 / 价格 / 利润", endpoint: "/api/order/api/product/v2/pageList.json", scope: "shopIdList, marketplaceIdList, onlineStatusList, SKU 精确搜索；页码分页", cap: "read", observed: "2026-08-21 · 10,114 行",
+        preview: "80+ 个已观察字段，包括上架日期、库存、售价、利润、FBA 费用和销量", fields: "amazonBrand, asin, brand, bsrRank, buyBoxCurrency, buyBoxWinner, commodityId, commodityName, commoditySku, createId, currency, day7AdTotalCost, day14AdTotalCost, day30AdTotalCost, day7SaleNum, day14SaleNum, day30SaleNum, day7SalePrice, day14SalePrice, day30SalePrice, devId, devList, devStatus, dxmPublishState, fbaFees, feeCurrency, firstOrderDate, firstSaleDate, fnsku, fullCid, headTripCost, id, inboundReceiving, inventoryManage, isVariation, itemDimensions, labels, lastSyncTime, listingId, listingPrice, listingPricing, mainImage, marketplaceId, onlineStatus, openDate, operationStatus, parentAsin, parentSku, perItemFee, productLabelList, profitPrice, profitRate, purchaseCost, quantity, rating, ratingCount, receivableFbaFee, receivableUpStringTime, referralFee, reservedQty, saleNum, salePrices, shipCost, shippingPrice, shopId, sku, standardPrice, standardProductId, standardProductType, switchFulfillmentTo, title, totalFee, totalInventory, unfulfillable, unsellable, upStringId, variableClosingFee, variationChildStr, warehousing", note: "新品只按 openDate 判断；关联键为 shopId + ASIN + SKU。"
+      },
+      {
+        id: "A10", object: "SP 活动小时数据", sub: "Campaign hourly", endpoint: "/api/cpc/hourData/spCampaign.json", scope: "aggregationType=campaign, shopId, date, campaignId；逐活动请求", cap: "read", observed: "成熟监控与诊断均已接入",
+        fields: "shopId, campaignId, date, hour, costs, clicks, impressions, orders, sales, units, sameOrders, sameSales, sameUnits", note: "当日归因是暂定值，只能预警、确认或阻断。"
+      },
+      {
+        id: "A11", object: "SP 广告组小时数据", sub: "Ad group hourly", endpoint: "/api/cpc/hourData/spGroup.json", scope: "aggregationType=adGroup, shopId, date, campaignId", cap: "read", observed: "单店诊断 full 视图已接入",
+        fields: "活动小时公共指标 + groupId；可能同时包含 targeting/adId/placement/SKU 维度字段", note: "预期延迟约 15 分钟；返回范围会按店铺、活动、日期再次校验。"
+      },
+      {
+        id: "A12", object: "SP 广告商品小时数据", sub: "Advertised product hourly", endpoint: "/api/cpc/hourData/spAdProduct.json", scope: "aggregationType=adProduct, shopId, date, campaignId", cap: "read", observed: "单店诊断已接入",
+        fields: "活动小时公共指标 + groupId, adId, msku, asin；响应可带 targetingId, targeting, matchType, placement", note: "用于 SKU 当日上下文，不按活动指标比例拆分到多个 SKU。"
+      },
+      {
+        id: "A13", object: "SP 投放小时数据", sub: "Target / keyword hourly", endpoint: "/api/cpc/hourData/spTarget.json", scope: "aggregationType=target, shopId, date, campaignId", cap: "read", observed: "成熟监控与诊断均已接入",
+        fields: "活动小时公共指标 + groupId, adId, targetingId, targeting, matchType, placement, msku, asin", note: "targetingId 缺失时可能生成 text: 合成身份；该身份永远禁止 MCP 写入。"
+      },
+      {
+        id: "A14", object: "SP 广告位小时数据", sub: "Placement hourly", endpoint: "/api/cpc/hourData/spPlacement.json", scope: "aggregationType=placement, shopId, date, campaignId", cap: "read", observed: "单店诊断已接入",
+        fields: "活动小时公共指标 + placement；响应可能带 groupId, adId, targetingId, msku, asin", note: "可诊断搜索首页、商品页等位置表现，但当前不写广告位加价。"
+      },
+      {
+        id: "A15", object: "产品分析", sub: "14 天 SKU 经营与广告上下文", endpoint: "/api/productAnalyze/new/pageList.json", scope: "shop/marketplace/SKU、日期、SP 广告类型、币种；页码分页", cap: "read", observed: "单店诊断已接入",
+        preview: "销售、利润、广告花费/销售/订单/曝光/点击、ACoS、库存", fields: "shopIdList, marketplaceIdList, skuList, mskuList, asinList, parentAsinList, productIdList, salePriceThis, orderNumThis, productTotalNumThis, refundRateThis, returnSaleRateThis, profitPriceThis, profitRateThis, adCostThis, adTotalSalesThis, adOrderNumThis, adImpressionsThis, adClicksThis, acosThis, acoasThis, asoasThis, adOrderRateThis, adCostSp, adTotalSalesSp, adOrderNumSp, adImpressionsSp, adClicksSp, acosSp, availableDays, totalInventory", note: "只作诊断证据；利润和库存不直接触发竞价或预算修改。"
+      },
+      {
+        id: "A16", object: "SKU 利润", sub: "利润、费用、各广告类型成本", endpoint: "/api/sale/profit/product/pageList.json", scope: "shopIdList, SKU, 日期, currency；页码分页", cap: "read", observed: "单店诊断已接入",
+        preview: "利润率、退款、采购/头程/FBA/佣金费用、SP/SB/SBV/SBS/SD 广告成本", fields: "shopIdList, skuList, mskuList, asinList, profit, profitRate, profitRateNet, salePrice, saleNum, orderNum, refundPercent, refundPrice, adTotalOrderNum, adTotalSale, adOrderNum, adTotalSales, adTotalCost, adTotalCostPercent, adSpOrderNum, adSpSalePrice, adSpCost, adSpCostPercent, adOrderNumSp, adTotalSalesSp, adTotalCostSp, adSbOrderNum, adSbSalePrice, adSbCost, adSbCostPercent, adOrderNumSb, adTotalSalesSb, adTotalCostSb, adSbvOrderNum, adSbvSalePrice, adSbvCost, adSbvCostPercent, adOrderNumSbv, adTotalSalesSbv, adTotalCostSbv, adSbsOrderNum, adSbsSalePrice, adSbsCost, adSbsCostPercent, adSdOrderNum, adSdSalePrice, adSdCost, adSdCostPercent, adOrderNumSd, adTotalSalesSd, adTotalCostSd, adCostRate, purchasePrice, headTripPrice, salesCommission, fbaDeliveryFee, fbaStorageFee, referralFee", note: "负广告成本仅在展示时取绝对值；仍是全业务 SKU 口径，不是单活动归因。"
+      },
+      {
+        id: "A17", object: "FBA 退货", sub: "30 天 SKU 退货上下文", endpoint: "/api/order/api/report/fbaReturn/pageList.json", scope: "shopIdList, SKU, returnStartDate, returnEndDate", cap: "read", observed: "单店诊断已接入",
+        fields: "对外保留 shopId, msku, asin, quantity, reason/reasonStr, status 的聚合结果；接口原始行还可能含 orderId, customerComments", note: "诊断输出明确排除订单 ID 和客户评论，只展示退货数量、原因和状态汇总。"
+      },
+      {
+        id: "A18", object: "产品销售趋势", sub: "销售额 / 订单 / 商品数日趋势", endpoint: "/api/productSale/page.json", scope: "type=salePrice|orderNum|productNum, groupType=sku, shop, SKU, 日期, 币种", cap: "read", observed: "单店诊断已接入",
+        fields: "shopId, sku/msku/skuList, productSaleDayOpenVo[{day, salePrice|orderNum|productNum, currency}]", note: "属于 SKU 全业务趋势，不是广告活动归因。"
+      },
+      {
+        id: "A19", object: "广告活动日报", sub: "成熟 14 天活动级", endpoint: "adCampaignReport", scope: "SP · daily · shopIds · reportStartDate/reportEndDate", cap: "read", observed: "批量报表已接入",
+        fields: "店铺, 日期, 广告活动, 定位类型, 广告花费, 广告曝光量, 广告点击量, CPC, 广告点击率, 广告转化率, ACoS, ROAS, 广告订单量, 本/其他产品订单量, 广告销售额, 本/其他产品销售额, 广告销量, 本/其他产品销量, 活动开始/结束时间, 活动运行状态, 广告组合ID, 广告活动ID", note: "全店监控正式建议的活动级成熟事实。"
+      },
+      {
+        id: "A20", object: "广告组日报", sub: "深度诊断报表", endpoint: "adGroupReport", scope: "SP · daily · 固定试点店 · 14 天", cap: "read", observed: "诊断报表刷新器已接入",
+        fields: "活动日报公共指标 + 广告组ID, 广告组名称等广告组维度；原始 XLSX 表头完整保留", note: "服务会校验店铺、日期窗口和活动 ID。"
+      },
+      {
+        id: "A21", object: "广告商品日报", sub: "深度诊断报表", endpoint: "adProductReport", scope: "SP · daily · 固定试点店 · 14 天", cap: "read", observed: "诊断报表刷新器已接入",
+        fields: "活动日报公共指标 + 广告产品ID, ASIN, SKU 等商品维度；原始 XLSX 表头完整保留", note: "用于商品级表现上下文。"
+      },
+      {
+        id: "A22", object: "广告位日报", sub: "深度诊断报表", endpoint: "adSpaceReport", scope: "SP · daily · 固定试点店 · 14 天", cap: "read", observed: "诊断报表刷新器已接入",
+        fields: "活动日报公共指标 + 广告位维度；原始 XLSX 表头完整保留", note: "可比较广告位效果，但当前不提供广告位写回。"
+      },
+      {
+        id: "A23", object: "投放日报", sub: "关键词 / 商品投放成熟表现", endpoint: "adTargeringReport", scope: "SP · daily · shopIds · 14 天", cap: "read", observed: "批量报表已接入",
+        fields: "店铺, 日期, 投放, 匹配类型, 广告组, 广告活动, 定位类型, 广告花费, 曝光, 点击, CPC, CTR, CVR, ACoS, ROAS, 订单/销售额/销量及本商品与其他商品拆分, 活动开始/结束时间, 投放运行状态, 活动ID, 广告组ID, 广告投放ID", note: "代码沿用赛狐类型名中的 Targering 拼写。"
+      },
+      {
+        id: "A24", object: "搜索词日报", sub: "浪费词与转化词", endpoint: "adSearchTermReport", scope: "SP · daily · 固定试点店 · 14 天", cap: "read", observed: "搜索词索引与分页已接入",
+        fields: "身份：用户搜索词, 广告投放ID, 投放, 匹配类型；指标：spend, impressions, clicks, orders, sales, units, same_orders, other_orders, same_sales, other_sales, same_units, other_units", note: "当前只形成否词/迁移建议，不执行否词。自动活动优质词建议新建手动精准+广泛，而非直接改 CPC。"
+      },
+      {
+        id: "A25", object: "购买商品日报", sub: "广告归因购买项", endpoint: "adPurchasedItemReport", scope: "SP · daily · 固定试点店 · 14 天", cap: "read", observed: "诊断报表刷新器已接入",
+        fields: "活动日报公共指标 + 其他ASIN/ASIN/SKU/投放等购买商品维度；原始 XLSX 表头完整保留", note: "用于识别广告带来的本品/他品购买。"
+      },
+      {
+        id: "A26", object: "Amazon Business 广告位报表", sub: "B2B 位置上下文", endpoint: "amazonBusinessReport", scope: "SP · daily · 固定试点店 · 14 天", cap: "read", observed: "诊断 overview 已接入",
+        fields: "活动日报公共指标 + 广告位维度；原始 XLSX 表头完整保留", note: "overview 优先读取此深度报表，其余深度报表在 full 详情读取。"
+      },
+      {
+        id: "A27", object: "创建广告报表任务", sub: "异步下载控制面", endpoint: "/api/cpc/download/createTask.json", scope: "shopIds, adTypeCode=sp, reportTypeCode, timeUnit=daily, 起止日期", cap: "read", observed: "已接入",
+        fields: "返回 task id；本地同时保存 shop_ids 与 report_type_code 作为后续核验依据", note: "创建的是只读下载任务，不会修改广告。"
+      },
+      {
+        id: "A28", object: "查询广告报表任务", sub: "任务状态与下载地址", endpoint: "/api/cpc/download/pageList.json", scope: "pageNo, pageSize, taskIds", cap: "read", observed: "已接入",
+        fields: "id, reportState(生成中/失败/已生成), reportTypeCode, shopId[], downloadUrl[]；以及分页字段", note: "下载前会核验类型、店铺范围、URL 和文件大小。"
+      }
+    ];
+
+    const derivedRows = [
+      { id: "D01", object: "运行元数据", endpoint: "ads-monitor.json → meta", fields: "run_id, generated_at, as_of, mode, status, rule_version, lookback_days, maturity_lag_days, source_start_date, source_end_date, shop_count, currencies, 请求/成功/失败/质量失败调用数, 选中/跳过活动数, 源行发布/总数/截断状态", cap: "derived", note: "用于判断批次、成熟窗口、覆盖和可信度。" },
+      { id: "D02", object: "店铺与覆盖", endpoint: "shops / shop_coverage", fields: "shop_id, shop_name, currency, marketplace_id, region, status, campaigns, campaigns_with_report_rows, successful_calls, failed_calls, source_start_date, source_end_date", cap: "derived", note: "币种严格隔离；不同币种金额不直接相加。" },
+      { id: "D03", object: "成熟活动聚合", endpoint: "campaigns / campaign_daily_trend", fields: "活动身份与状态, budget, strategy, creation/last_updated_date, spend, sales, orders, clicks, impressions, units, ACoS, ROAS, CPC, CTR, CVR, data_days, latest/expected_latest_date, 7 日预算利用天数；按日趋势", cap: "derived", note: "由活动基础数据与活动日报聚合。" },
+      { id: "D04", object: "成熟投放聚合", endpoint: "targets", fields: "entity_type, target_key/id/text, match_type, current_bid, 活动/广告组/广告商品/SKU/ASIN 身份, 状态, spend, sales, orders, clicks, impressions, units, ACoS, ROAS, CPC, CTR, CVR, data_days, 最新成熟日", cap: "derived", note: "关键词与商品投放统一输出；无法唯一关联竞价时只允许人工复核。" },
+      { id: "D05", object: "广告商品生命周期", endpoint: "advertised_products / listing_coverage", fields: "shop/campaign/group/ad 身份, ASIN, SKU, open_date, listing_age_days, listing_stage(new/established/unknown), mapping_status/count, online_status, ad_state/serving_status；覆盖率与排除数量", cap: "derived", note: "新品或混合活动只观察/复核；生命周期未知会阻断执行。" },
+      { id: "D06", object: "调控建议", endpoint: "recommendations / CSV / SQLite", fields: "entity_type/key, action_code, priority, current/proposed_value, change_pct, spend/sales/orders/clicks/ACoS/target_ACoS, rule_id/version, reason, data_status, review_status", cap: "derived", note: "动作包含 DECREASE_BID、INCREASE_BID、INCREASE_BUDGET、REVIEW_TARGET、MONITOR_ONLY 等；只有很小子集能进入 MCP 写通道。" },
+      { id: "D07", object: "规则配置", endpoint: "rules / ads_monitor_config.json", fields: "target_acos, 订单/点击/花费门槛, 高低 ACoS 倍数, 竞价升降幅, 预算升幅, 预算利用阈值与天数, 最小/最大 bid, 最大变化, 最少成熟天数, 保护活动/投放名单", cap: "derived", note: "可按店铺覆盖规则；这是本地决策配置，不是直接修改 Amazon 广告。" },
+      { id: "D08", object: "实时活动快照", endpoint: "ads-realtime.json → campaign_snapshots", fields: "shop/campaign, tier, timezone/source, lifecycle, mature_priority/action_codes/baseline, today, signals, freshness, execution_gate", cap: "derived", note: "调度优先级 P0-P3；当前文件已过期，不能为执行解锁。" },
+      { id: "D09", object: "实时异常", endpoint: "ads-realtime.json → alerts", fields: "alert_id/code, severity, shop/campaign, currency, metric, baseline/current_value, deviation_pct, observed_at, handling, reason", cap: "derived", note: "只预警、阻断或复核，不直接降价；0 单只会触发观察。" },
+      { id: "D10", object: "单店诊断活动列表", endpoint: "GET /api/diagnostic 或 /api/diagnostic/campaigns", fields: "固定 21-US 店活动基础字段 + 广告商品数/SKU/ASIN + mature_14d + 可行动数量/动作/优先级；meta/shop/data_quality/sources", cap: "read derived", note: "本地 127.0.0.1:4174，只允许 GET/OPTIONS，列表缓存 180 秒。" },
+      { id: "D11", object: "单店诊断活动详情", endpoint: "GET /api/diagnostic?campaign_id=…&section=overview|full", fields: "campaign, structure(广告组/商品/关键词/商品投放/否定投放), listing_context, performance(mature_14d + today), decision, data_quality, sources；full 还带活动列表", cap: "read derived", note: "详情缓存 60 秒；refresh 有 30 秒冷却；固定试点店，拒绝其他 shop 参数。" },
+      { id: "D12", object: "搜索词分页", endpoint: "GET /api/diagnostic/search-terms", fields: "campaign_id, kind=waste|conversion, page, page_size, rows, total, entity_count, summary, effective_date, status", cap: "read derived", note: "每页默认 10 条，按索引懒加载。" },
+      { id: "D13", object: "诊断健康状态", endpoint: "GET /api/diagnostic/health", fields: "status, service, bind, shop, read_only, allowed_methods, write_operations_available", cap: "read derived", note: "POST/PUT/PATCH/DELETE/HEAD 均返回 405；不会写广告。" },
+      { id: "D14", object: "同步与审计", endpoint: "sync_logs / sources / MCP execution audit", fields: "endpoint, fetched/logged_at, effective_date/report_date, shop/campaign, row_count/pages/raw_row_count, status/error/cache_status, scope_dropped/verified；MCP 写前后值、状态、时间与 verified", cap: "derived", note: "不记录 client_secret；不确定的 MCP 写入结果标记 UNKNOWN。" }
+    ];
+
+    const mcpRows = [
+      { id: "M01", object: "initialize", input: "protocolVersion=2025-03-26, capabilities={}, clientInfo", output: "protocolVersion 与 Mcp-Session-Id；随后 notifications/initialized", cap: "read", note: "只连接固定官方地址；拒绝重定向携带凭据。" },
+      { id: "M02", object: "tools/list", input: "空参数", output: "工具 name + inputSchema；本地对所需 schema 计算 SHA-256", cap: "read", note: "当前凭据无法解密，因此本轮没有在线获得完整服务端工具清单。这里只列仓库实际引用的工具。" },
+      { id: "M03", object: "get_sp_keyword_list", input: "shop_id, campaign_id, page_size=1000；后续页使用 next_token", output: "data.itemList + nextToken；读取 keywordId, bid, state, servingStatus，并可返回关键词基础字段", cap: "read", note: "最多追 10 页；目标必须 enabled 且 servingStatus 不含 paused/archived/disabled/ended/ineligible/suspended。" },
+      { id: "M04", object: "get_sp_product_targeting_list", input: "shop_id, campaign_id, page_size=1000；后续页使用 next_token", output: "data.itemList + nextToken；读取 targetId, bid, state, servingStatus，并可返回商品投放基础字段", cap: "read", note: "用于商品投放写前/写后读回核验。" },
+      { id: "M05", object: "edit_sp_targeting", input: "shop_id, items:[{targetId, targetingType: keyword|product, bid}]", output: "successIds, failList；随后用对应 get 工具再次读回", cap: "write", note: "当前唯一放行的真实广告写工具；同一次仅允许一个 item，且只允许 USD。" }
+    ];
+
+    const controlRows = [
+      { id: "C01", object: "SP 关键词 bid", read: "是", suggest: "是：降价/加价", write: "是（条件式）", value: "计划步长 -5% / +3%；硬上限 ±10%；最终 0.02–10.00", cap: "write", note: "MCP edit_sp_targeting，targetingType=keyword；需真实 keywordId，不能是 text: 合成 ID。" },
+      { id: "C02", object: "SP 商品投放 bid", read: "是", suggest: "是：降价/加价", write: "是（条件式）", value: "计划步长 -5% / +3%；硬上限 ±10%；最终 0.02–10.00", cap: "write", note: "MCP edit_sp_targeting，targetingType=product；需真实 targetId。" },
+      { id: "C03", object: "SP 活动 budget", read: "是", suggest: "是：INCREASE_BUDGET", write: "否", value: "本地默认建议 +10%，但仅供审核", cap: "blocked", note: "MCP Demo 明确不支持预算；诊断 decision 的 budget_guardrail_passed 默认 false。" },
+      { id: "C04", object: "活动 state / 暂停 / 归档", read: "是", suggest: "否", write: "否", value: "enabled/paused/archived 等仅作状态门禁", cap: "blocked", note: "当前无状态写工具；非 enabled 对象会被阻断。" },
+      { id: "C05", object: "广告组默认竞价与状态", read: "是（单店诊断）", suggest: "否", write: "否", value: "defaultBid, state 仅展示", cap: "blocked", note: "未接 MCP 广告组编辑。" },
+      { id: "C06", object: "关键词/商品投放 state", read: "是", suggest: "否", write: "否", value: "state/servingStatus 只作资格校验", cap: "blocked", note: "MCP 写工具当前只允许改 bid，不允许暂停、启用或归档。" },
+      { id: "C07", object: "活动竞价策略 strategy", read: "是", suggest: "否", write: "否", value: "manual / legacyForSales / autoForSales 等", cap: "blocked", note: "可读不可改。" },
+      { id: "C08", object: "广告位加价 adjustments", read: "是", suggest: "可诊断", write: "否", value: "placementTop / placementProductPage / placementRestOfSearch 百分比", cap: "blocked", note: "小时与日报可比较效果，但当前没有广告位写回。" },
+      { id: "C09", object: "否定关键词", read: "是（单店诊断）", suggest: "是：浪费词候选", write: "否", value: "不创建、不编辑、不删除", cap: "blocked", note: "搜索词报告只产出候选；Demo 明确不支持否定词。" },
+      { id: "C10", object: "否定商品投放", read: "是（单店诊断）", suggest: "可人工复核", write: "否", value: "不创建、不编辑、不删除", cap: "blocked", note: "当前仅结构读取。" },
+      { id: "C11", object: "新建活动/广告组/广告商品", read: "可读现有对象", suggest: "部分场景可提示", write: "否", value: "无创建通道", cap: "blocked", note: "不创建活动、广告组或广告商品。" },
+      { id: "C12", object: "新建关键词/商品投放", read: "可读现有对象", suggest: "自动活动优质词会建议迁移", write: "否", value: "不新建精准、广泛或商品投放", cap: "blocked", note: "自动活动优质词只给“新建手动精准 + 广泛”建议，不自动执行。" },
+      { id: "C13", object: "批量修改", read: "可批量读取", suggest: "可生成多条建议", write: "否", value: "每个冻结计划恰好 1 个对象", cap: "blocked", note: "真实执行层强制 one_entity_only，拒绝批量写。" },
+      { id: "C14", object: "SB / SD 广告", read: "利润上下文可见其成本", suggest: "否", write: "否", value: "当前广告控制范围仅 SP", cap: "blocked", note: "SB、SD 直接读取与调控不在当前实现范围。" },
+      { id: "C15", object: "前端审核/暂缓状态", read: "是", suggest: "不适用", write: "仅浏览器本地", value: "review / snooze 状态", cap: "derived", note: "只保存在当前浏览器 localStorage，不调用任何赛狐或 Amazon 写接口。" }
+    ];
+
+    const badge = (cap) => {
+      if (cap === "write") return '<span class="badge write">可真实写回</span>';
+      if (cap === "blocked") return '<span class="badge blocked">不支持写回</span>';
+      if (cap.includes("derived") && cap.includes("read")) return '<span class="badge read">可读取</span> <span class="badge derived">派生</span>';
+      if (cap === "derived") return '<span class="badge derived">派生</span>';
+      return '<span class="badge read">只读</span>';
+    };
+
+    const fieldCell = (row) => {
+      const preview = row.preview || row.fields;
+      if (!row.preview) return `<div class="fields">${escapeHtml(preview)}</div>`;
+      return `<div class="fields">${escapeHtml(preview)}<details><summary>展开全部字段</summary><div class="all-fields">${escapeHtml(row.fields)}</div></details></div>`;
+    };
+
+    const escapeHtml = (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+    const apiBody = document.querySelector("#api-body");
+    apiBody.innerHTML = apiRows.map((row) => `
+      <tr data-cap="${row.cap}" data-search="${escapeHtml(Object.values(row).join(" ").toLowerCase())}">
+        <td class="id">${row.id}</td>
+        <td class="object"><strong>${escapeHtml(row.object)}</strong><span class="sub">${escapeHtml(row.sub)}</span></td>
+        <td class="endpoint"><code>${escapeHtml(row.endpoint)}</code><div class="sub">${escapeHtml(row.observed)}</div></td>
+        <td class="scope">${escapeHtml(row.scope)}</td>
+        <td>${fieldCell(row)}</td>
+        <td>${badge(row.cap)}</td>
+        <td class="note">${escapeHtml(row.note)}</td>
+      </tr>`).join("");
+
+    const derivedBody = document.querySelector("#derived-body");
+    derivedBody.innerHTML = derivedRows.map((row) => `
+      <tr data-cap="${row.cap}" data-search="${escapeHtml(Object.values(row).join(" ").toLowerCase())}">
+        <td class="id">${row.id}</td>
+        <td class="object"><strong>${escapeHtml(row.object)}</strong></td>
+        <td class="endpoint"><code>${escapeHtml(row.endpoint)}</code></td>
+        <td>${fieldCell(row)}</td>
+        <td>${badge(row.cap)}</td>
+        <td class="note">${escapeHtml(row.note)}</td>
+      </tr>`).join("");
+
+    const mcpBody = document.querySelector("#mcp-body");
+    mcpBody.innerHTML = mcpRows.map((row) => `
+      <tr data-cap="${row.cap}" data-search="${escapeHtml(Object.values(row).join(" ").toLowerCase())}">
+        <td class="id">${row.id}</td>
+        <td class="object"><strong><code>${escapeHtml(row.object)}</code></strong></td>
+        <td class="scope">${escapeHtml(row.input)}</td>
+        <td class="fields">${escapeHtml(row.output)}</td>
+        <td>${badge(row.cap)}</td>
+        <td class="note">${escapeHtml(row.note)}</td>
+      </tr>`).join("");
+
+    const controlBody = document.querySelector("#control-body");
+    controlBody.innerHTML = controlRows.map((row) => `
+      <tr data-cap="${row.cap}" data-search="${escapeHtml(Object.values(row).join(" ").toLowerCase())}">
+        <td class="id">${row.id}</td>
+        <td class="object"><strong>${escapeHtml(row.object)}</strong></td>
+        <td>${escapeHtml(row.read)}</td>
+        <td>${escapeHtml(row.suggest)}</td>
+        <td>${badge(row.cap)}<div class="sub">${escapeHtml(row.write)}</div></td>
+        <td class="scope">${escapeHtml(row.value)}</td>
+        <td class="note">${escapeHtml(row.note)}</td>
+      </tr>`).join("");
+
+    const search = document.querySelector("#search");
+    const filters = [...document.querySelectorAll(".filter")];
+    let activeFilter = "all";
+
+    function filterRows() {
+      const query = search.value.trim().toLowerCase();
+      document.querySelectorAll("tbody tr[data-cap]").forEach((row) => {
+        const cap = row.dataset.cap || "";
+        const filterMatch = activeFilter === "all" || cap.includes(activeFilter);
+        const searchMatch = !query || (row.dataset.search || row.textContent.toLowerCase()).includes(query);
+        row.hidden = !(filterMatch && searchMatch);
+      });
+      document.querySelectorAll("[data-section]").forEach((section) => {
+        const body = section.querySelector("tbody");
+        const empty = section.querySelector(".empty");
+        if (!body || !empty) return;
+        empty.style.display = [...body.rows].some((row) => !row.hidden) ? "none" : "block";
+      });
+      updateCounts();
+    }
+
+    function updateCounts() {
+      ["api", "derived", "mcp", "control"].forEach((name) => {
+        const rows = [...document.querySelectorAll(`#${name}-body tr`)];
+        const shown = rows.filter((row) => !row.hidden).length;
+        document.querySelector(`#${name}-count`).textContent = `${shown} / ${rows.length} 项`;
+      });
+    }
+
+    search.addEventListener("input", filterRows);
+    filters.forEach((button) => button.addEventListener("click", () => {
+      activeFilter = button.dataset.filter;
+      filters.forEach((item) => item.classList.toggle("active", item === button));
+      filterRows();
+    }));
+
+    updateCounts();
+  </script>
+</body>
+</html>

@@ -350,6 +350,69 @@
         </div>
 
         <div class="modules-grid">
+            <!-- 更新 -->
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon">
+                    <i class="fas fa-arrows-rotate"></i>
+                </div>
+                <h3>更新</h3>
+                <p>查看 gengxin 表中今天产生的更新结果</p>
+                <ul class="feature-list">
+                    <li>展示今日更新项目及执行状态</li>
+                    <li>保留失败原因与通知人等完整字段</li>
+                    <li>每次打开页面实时查询 SQL Server</li>
+                    <li>仅限拥有 AI 部功能权限的用户访问</li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('ai_update') }}" style="display: inline-block; background: linear-gradient(135deg, #0f9f7a 0%, #08735a 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+                        <i class="fas fa-database"></i> 查看更新
+                    </a>
+                </div>
+            </div>
+
+            <!-- 经营分析 -->
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <h3>经营分析</h3>
+                <p>汇总销售、利润、库存与履约数据，按月份、部门、运营和店铺多维分析经营表现</p>
+                <ul class="feature-list">
+                    <li>核心 KPI、环比与同比趋势总览</li>
+                    <li>部门、店铺及品类经营表现分析</li>
+                    <li>滞销、未发货、运输与新品风险追踪</li>
+                    <li>实时 SQL 数据与计算公式追溯</li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('business_analysis') }}" style="display: inline-block; background: linear-gradient(135deg, #3158c9 0%, #203f9e 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+                        <i class="fas fa-chart-line"></i> 进入经营分析
+                    </a>
+                </div>
+            </div>
+
+            <!-- MAGIC AD 广告监控 -->
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon">
+                    <i class="fas fa-bullseye"></i>
+                </div>
+                <h3>MAGIC AD 广告监控</h3>
+                <p>面向 Amazon SP 广告的店铺诊断、成熟表现分析与人工确认调控工作台</p>
+                <ul class="feature-list">
+                    <li>单店广告活动与 SKU 表现诊断</li>
+                    <li>成熟归因、实时异常与搜索词分析</li>
+                    <li>广告位、预算及流量证据对比</li>
+                    <li>调控操作先预览，再人工确认执行</li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('ads_monitor') }}" style="display: inline-block; background: linear-gradient(135deg, #ff6b1a 0%, #e64a19 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+                        <i class="fas fa-chart-column"></i> 进入广告监控
+                    </a>
+                </div>
+            </div>
+
             <!-- 性能监控 -->
             <div class="module-card">
                 <div class="module-icon">
@@ -590,6 +653,29 @@
                     </a>
                     <a href="{{ url_for('listing_agent.aba_ranking_dashboard') }}" style="display: inline-block; margin-left: 8px; background: linear-gradient(135deg, #2563eb 0%, #4338ca 100%); color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
                         <i class="fas fa-chart-column"></i> 查看 ABA 看板
+                    </a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW V2</div>
+                <div class="module-icon">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                </div>
+                <h3>Listing 生成工作台 V2</h3>
+                <p>参照 Sellfox 工作流重构的独立新版，左侧集中配置，右侧生成、编辑与优化 Listing</p>
+                <ul class="feature-list">
+                    <li>商品事实、图片、关键词和参考写法分步配置</li>
+                    <li>均衡版、风格版、搜索版即时切换</li>
+                    <li>关键词高亮、覆盖率和 Search Terms 字节统计</li>
+                    <li>支持分段编辑、复制、翻译和 AI 优化</li>
+                </ul>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="{{ url_for('listing_agent_v2.index') }}" style="display: inline-block; background: #9d315f; color: white; padding: 10px 26px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-play"></i> 进入 V2 工作台
+                    </a>
+                    <a href="{{ url_for('listing_agent.index') }}" style="display: inline-block; margin-left: 8px; background: #ffffff; color: #702341; border: 1px solid #9d315f; padding: 9px 24px; border-radius: 25px; text-decoration: none; font-weight: 600;">
+                        <i class="fas fa-arrow-left"></i> 原版入口
                     </a>
                 </div>
             </div>

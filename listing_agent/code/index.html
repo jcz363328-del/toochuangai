@@ -28,7 +28,65 @@
       </div>
     </header>
 
-    <main class="workspace">
+    <main class="workflow-layout" id="workflowRoot" data-active-step="1">
+      <aside class="workflow-sidebar" aria-label="Listing 生成步骤">
+        <nav class="workflow-steps">
+          <button class="workflow-step is-active" type="button" data-workflow-step="1" aria-current="step">
+            <span class="workflow-step-number">01</span>
+            <span><strong>先识别产品图片</strong><small>上传并提取事实</small></span>
+          </button>
+          <button class="workflow-step" type="button" data-workflow-step="2">
+            <span class="workflow-step-number">02</span>
+            <span><strong>关键词与个人 Skill</strong><small>选择你的生成偏好</small></span>
+          </button>
+          <button class="workflow-step" type="button" data-workflow-step="3">
+            <span class="workflow-step-number">03</span>
+            <span><strong>ABA 数据与策略</strong><small>确认关键词和合规设置</small></span>
+          </button>
+          <button class="workflow-step" type="button" data-workflow-step="4">
+            <span class="workflow-step-number">04</span>
+            <span><strong>生成 Listing 方案</strong><small>生成、选择并复制内容</small></span>
+          </button>
+        </nav>
+        <p class="workflow-sidebar-note"><i data-lucide="chevrons-down"></i> 可随时返回修改</p>
+      </aside>
+
+      <section class="workflow-stage-shell" aria-labelledby="workflowStageTitle">
+        <header class="workflow-stage-head">
+          <div class="workflow-stage-icon"><i data-lucide="images"></i></div>
+          <div class="workflow-stage-copy">
+            <span>当前步骤</span>
+            <h2 id="workflowStageTitle">下一步：上传产品图并提取事实</h2>
+            <p id="workflowStageDescription">上传产品图，系统将识别可见的事实信息，确认后再进入策略。</p>
+          </div>
+          <details class="workflow-more">
+            <summary aria-label="更多操作"><i data-lucide="ellipsis"></i></summary>
+            <div class="workflow-more-menu">
+              <button type="button" data-proxy-action="sampleBtn"><i data-lucide="wand-sparkles"></i> 填入示例</button>
+              <button type="button" data-proxy-action="clearBtn"><i data-lucide="rotate-ccw"></i> 清空当前内容</button>
+              <button type="button" data-proxy-action="buildSkillBtn"><i data-lucide="braces"></i> 刷新 Skill 摘要</button>
+            </div>
+          </details>
+        </header>
+        <div class="workflow-stage-body" id="workflowStageBody"></div>
+      </section>
+
+      <aside class="workflow-context" aria-label="数据与策略总览">
+        <div class="workflow-context-title"><i data-lucide="briefcase-business"></i><strong>数据与策略总览</strong></div>
+        <button class="context-item" type="button" data-context-action="aba">
+          <span><strong>ABA 数据</strong><small id="contextAbaMeta">正在读取排名数据</small></span><i data-lucide="chevron-right"></i>
+        </button>
+        <button class="context-item" type="button" data-workflow-step="3">
+          <span><strong>关键词策略</strong><small id="contextKeywordMeta">核心词、扩展词、场景词</small></span><i data-lucide="chevron-right"></i>
+        </button>
+        <button class="context-item" type="button" data-workflow-step="2">
+          <span><strong>个人 Skill 与违禁词库</strong><small id="contextSkillMeta">正在读取个人设置</small></span><i data-lucide="chevron-right"></i>
+        </button>
+        <details class="context-detail" id="abaContextDetail">
+          <summary>查看 ABA 数据详情</summary>
+          <div id="abaPanelMount"></div>
+        </details>
+      </aside>
       <section class="sellfox-panel aba-import-hero" id="abaRankingContext" aria-labelledby="sellfoxTitle" data-step="ABA">
         <div class="sellfox-panel-head">
           <div>
@@ -186,7 +244,12 @@
 
           <label class="upload-zone recognition-upload" for="productImages">
             <input id="productImages" type="file" accept="image/*" multiple />
-            <span><i data-lucide="image-plus"></i> 上传产品图</span>
+            <span class="recognition-upload-copy">
+              <i data-lucide="upload-cloud"></i>
+              <strong>点击上传或拖拽产品图片到此处</strong>
+              <small>支持 JPG / PNG / WEBP，最多 6 张</small>
+              <em>选择文件</em>
+            </span>
           </label>
           <div id="imagePreview" class="image-preview recognition-preview" aria-live="polite"></div>
 
@@ -236,8 +299,8 @@
         <div class="flow-lock-notice" id="strategyLock" aria-live="polite">
           <i data-lucide="scan-search"></i>
           <div>
-            <strong>等待图片识别确认</strong>
-            <span>请先在第二步上传图片、提取并确认可写入的产品事实，再进行关键词判断。</span>
+            <strong>可先选择 Skill 和管理违禁词库</strong>
+            <span>关键词、违禁词和个人 Skill 可以先设置；确认图片事实后即可生成 Listing。</span>
           </div>
         </div>
 
@@ -268,20 +331,25 @@
                 <span class="eyebrow">合规控制</span>
                 <h3 id="riskLibraryTitle">已启用的违禁词库</h3>
               </div>
-              <span id="riskLibraryCount" class="data-state" data-state="warn"></span>
+              <div class="settings-head-actions">
+                <span id="riskLibraryCount" class="data-state" data-state="warn"></span>
+                <button class="text-action" id="toggleRiskLibraryBtn" type="button">管理</button>
+              </div>
             </div>
-            <div id="riskLibrary" class="risk-library-groups" aria-live="polite"></div>
-            <div class="risk-add-row">
-              <label class="sr-only" for="riskTermInput">新增风险词</label>
-              <input id="riskTermInput" type="text" placeholder="新增风险词，例如 waterproof" />
-              <label class="sr-only" for="riskLevel">风险等级</label>
-              <select id="riskLevel">
-                <option value="high">高风险</option>
-                <option value="medium">中风险</option>
-              </select>
-              <button class="icon-button" id="addRiskTermBtn" type="button" title="加入违禁词库" aria-label="加入违禁词库">
-                <i data-lucide="plus"></i>
-              </button>
+            <div class="risk-library-content" id="riskLibraryContent" hidden>
+              <div id="riskLibrary" class="risk-library-groups" aria-live="polite"></div>
+              <div class="risk-add-row">
+                <label class="sr-only" for="riskTermInput">新增风险词</label>
+                <input id="riskTermInput" type="text" placeholder="新增风险词，例如 waterproof" />
+                <label class="sr-only" for="riskLevel">风险等级</label>
+                <select id="riskLevel">
+                  <option value="high">高风险</option>
+                  <option value="medium">中风险</option>
+                </select>
+                <button class="icon-button" id="addRiskTermBtn" type="button" title="加入违禁词库" aria-label="加入违禁词库">
+                  <i data-lucide="plus"></i>
+                </button>
+              </div>
             </div>
           </section>
           <label>
@@ -299,7 +367,10 @@
                 <span class="eyebrow">Skill 管理</span>
                 <h3>选择或新建 Listing Skill</h3>
               </div>
-              <span id="skillState">本地未保存</span>
+              <div class="settings-head-actions">
+                <span id="skillState">本地未保存</span>
+                <button class="text-action" id="toggleSkillDetailsBtn" type="button">编辑</button>
+              </div>
             </div>
             <div class="skill-picker">
               <label>
@@ -320,8 +391,9 @@
                 </button>
               </div>
             </div>
-            <div id="skillLearningSummary" class="skill-learning-summary" aria-live="polite"></div>
-            <div class="listing-reference">
+            <div class="skill-detail-content" id="skillDetailContent" hidden>
+              <div id="skillLearningSummary" class="skill-learning-summary" aria-live="polite"></div>
+              <div class="listing-reference">
               <label for="listingReference">
                 历史 Listing 文案（可选）
                 <textarea id="listingReference" rows="6" placeholder="粘贴之前的标题、五点、描述或 Search Terms。系统会提炼标题顺序、语气、五点结构和风险词，生成一份新的 Skill。"></textarea>
@@ -332,8 +404,8 @@
                   从文案生成 Skill
                 </button>
               </div>
-            </div>
-            <div class="field-grid">
+              </div>
+              <div class="field-grid">
               <label>
                 Skill 名称
                 <input id="skillName" type="text" placeholder="例如：自然款假睫毛转化 Skill" />
@@ -363,12 +435,13 @@
                   <option value="routineFirst">使用流程优先</option>
                 </select>
               </label>
+              </div>
+              <textarea id="forbiddenClaims" hidden></textarea>
+              <label>
+                自定义规则
+              <textarea id="customRules" rows="4">标题不超过 75 字符，避免禁用符号且实义词不重复超过 2 次；Item Highlights 不超过 125 字符；Search Terms 不超过 249 bytes；未确认根数不进标题；五点避免模板化，必须结合场景和痛点。</textarea>
+              </label>
             </div>
-            <textarea id="forbiddenClaims" hidden></textarea>
-            <label>
-              自定义规则
-              <textarea id="customRules" rows="4">标题不超过 75 字符；Search Terms 不超过 249 bytes；未确认根数不进标题；五点避免模板化，必须结合场景和痛点。</textarea>
-            </label>
           </div>
         </div>
       </section>
@@ -405,6 +478,10 @@
             <strong id="titleScore">0/75</strong>
           </div>
           <div>
+            <span>Item Highlights</span>
+            <strong id="itemHighlightScore">0/125</strong>
+          </div>
+          <div>
             <span>五点</span>
             <strong id="bulletScore">0/500</strong>
           </div>
@@ -423,6 +500,18 @@
         </div>
       </section>
     </main>
+
+    <footer class="workflow-footer" aria-live="polite">
+      <div class="workflow-footer-copy">
+        <span>下一步</span>
+        <strong id="workflowFooterTitle">选择并上传产品图片</strong>
+        <small id="workflowFooterHint">上传后将自动进入图片事实提取。</small>
+      </div>
+      <button class="workflow-primary-button" id="workflowPrimaryBtn" type="button">
+        <span id="workflowPrimaryLabel">选择产品图片</span>
+        <i data-lucide="arrow-right"></i>
+      </button>
+    </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

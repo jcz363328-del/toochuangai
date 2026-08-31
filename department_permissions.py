@@ -63,7 +63,7 @@ PERMISSION_CONFIG = {
     },
     'review_analysis': {
         'name': '差评分析系统',
-        'allowed_departments': ['运营部', '技术部', 'AI部', '总经办'],  # 运营部及其下各运营分部 + 技术部、AI部和总经办
+        'allowed_departments': ['运营部', '研发部', '技术部', 'AI部', '总经办'],  # 运营部及其下各运营分部 + 研发部、技术部、AI部和总经办
         'description': '产品差评分析工具'
     },
     'amazon_reply_agent': {
@@ -1259,6 +1259,20 @@ class FeishuPermissionManager:
             return list(debug_departments), True
         return real_departments, False
 
+    def _resolve_permission_subject_user_id(self, real_user_id, function_name, context):
+        """Resolve whose personal grants/denials apply for the current permission row."""
+        _, using_debug = self._resolve_effective_departments(
+            list((context or {}).get("valid_departments") or []),
+            function_name,
+        )
+        if using_debug:
+            debug_open_id = str(
+                self._get_debug_user_from_session().get("open_id") or ""
+            ).strip()
+            if debug_open_id:
+                return debug_open_id
+        return str(real_user_id or "").strip()
+
     def _resolve_effective_department_rows(
         self,
         real_user_departments,
@@ -1636,6 +1650,20 @@ class FeishuPermissionManager:
             effective_names,
             using_debug,
         )
+        permission_subject_context = context
+        if using_debug:
+            debug_user = self._get_debug_user_from_session()
+            debug_open_id = str(debug_user.get("open_id") or "").strip()
+            if debug_open_id:
+                permission_subject_context = dict(context)
+                permission_subject_context["user_id"] = debug_open_id
+                permission_subject_context["identities"] = {
+                    value for value in {
+                        debug_open_id,
+                        str(debug_user.get("name") or "").strip(),
+                    }
+                    if value
+                }
 
         allowed_departments = self._split_permission_values(row.get("bumen"))
         public_tokens = {"all", "*", "全部", "登录用户", "全体已登录用户"}
@@ -1659,14 +1687,16 @@ class FeishuPermissionManager:
 
         allowed_users = set(self._split_permission_values(row.get("yonghu")))
         if "@department_leader" in allowed_users and self._is_dynamic_department_leader(
-            context,
+            permission_subject_context,
             effective_rows,
         ):
             return True, "权限表：部门负责人动态权限"
-        identities = context.get("identities")
+        identities = permission_subject_context.get("identities")
         if identities is None and allowed_users:
-            identities = self._permission_user_identities(context.get("user_id"))
-            context["identities"] = identities
+            identities = self._permission_user_identities(
+                permission_subject_context.get("user_id")
+            )
+            permission_subject_context["identities"] = identities
         matched_users = sorted(allowed_users & set(identities or set()))
         if matched_users:
             return True, f"权限表：个人权限通过（{'、'.join(matched_users)}）"
@@ -1699,19 +1729,32 @@ class FeishuPermissionManager:
         if function_name not in records:
             return False, f"权限表中不存在功能: {function_name}"
 
-        try:
-            permission_overrides = self.get_user_permission_overrides(user_id)
-            permission_override = permission_overrides.get(function_name)
-        except Exception as exc:
-            _safe_print(f"⚠️ 读取用户单独权限失败，继续使用部门权限: {exc}")
-            permission_overrides = {}
-            permission_override = None
+        context = self._permission_context(user_id)
+        override_cache = {}
+
+        def permission_overrides_for(target_function_name):
+            subject_user_id = self._resolve_permission_subject_user_id(
+                user_id,
+                target_function_name,
+                context,
+            )
+            if subject_user_id in override_cache:
+                return override_cache[subject_user_id]
+            try:
+                overrides = self.get_user_permission_overrides(subject_user_id)
+            except Exception as exc:
+                _safe_print(f"⚠️ 读取用户单独权限失败，继续使用部门权限: {exc}")
+                overrides = {}
+            override_cache[subject_user_id] = overrides
+            return overrides
+
+        permission_overrides = permission_overrides_for(function_name)
+        permission_override = permission_overrides.get(function_name)
         if permission_override is not None:
             if permission_override.get('is_allowed'):
                 return True, "用户单独授权"
             return False, "用户单独禁用"
 
-        context = self._permission_context(user_id)
         allowed, reason = self._check_direct_permission_row(records[function_name], context)
         if allowed:
             return True, reason
@@ -1728,7 +1771,7 @@ class FeishuPermissionManager:
                 continue
             if function_name not in self._permission_ancestors(child_name, records):
                 continue
-            child_override = permission_overrides.get(child_name)
+            child_override = permission_overrides_for(child_name).get(child_name)
             if child_override is not None:
                 if child_override.get('is_allowed'):
                     return True, f"由单独授权的子功能 {child_name} 反向获得父级可见权限"
@@ -1927,29 +1970,42 @@ class FeishuPermissionManager:
         context = self._permission_context(user_id)
         direct_allowed = set()
         direct_reasons = {}
-        try:
-            permission_overrides = self.get_user_permission_overrides(user_id)
-        except Exception as exc:
-            _safe_print(f"⚠️ 读取用户单独权限失败，继续使用权限表规则: {exc}")
-            permission_overrides = {}
+        override_cache = {}
+
+        def permission_overrides_for(function_name):
+            subject_user_id = self._resolve_permission_subject_user_id(
+                user_id,
+                function_name,
+                context,
+            )
+            if subject_user_id in override_cache:
+                return override_cache[subject_user_id]
+            try:
+                overrides = self.get_user_permission_overrides(subject_user_id)
+            except Exception as exc:
+                _safe_print(f"⚠️ 读取用户单独权限失败，继续使用权限表规则: {exc}")
+                overrides = {}
+            override_cache[subject_user_id] = overrides
+            return overrides
 
         wildcard = records.get("*")
         if wildcard:
             allowed, reason = self._check_direct_permission_row(wildcard, context)
             if allowed:
-                direct_allowed = {
-                    name for name in records
-                    if name != "*" and not (
-                        permission_overrides.get(name) is not None
-                        and not permission_overrides[name].get('is_allowed')
-                    )
-                }
+                direct_allowed = set()
+                for name in records:
+                    if name == "*":
+                        continue
+                    permission_override = permission_overrides_for(name).get(name)
+                    if permission_override is not None and not permission_override.get('is_allowed'):
+                        continue
+                    direct_allowed.add(name)
                 direct_reasons = {name: reason for name in direct_allowed}
 
         for function_name, row in records.items():
             if function_name == "*":
                 continue
-            permission_override = permission_overrides.get(function_name)
+            permission_override = permission_overrides_for(function_name).get(function_name)
             if permission_override is not None:
                 if permission_override.get('is_allowed'):
                     direct_allowed.add(function_name)
@@ -1968,7 +2024,7 @@ class FeishuPermissionManager:
         inherited_from = {}
         for child_name in direct_allowed:
             for parent_name in self._permission_ancestors(child_name, records):
-                parent_override = permission_overrides.get(parent_name)
+                parent_override = permission_overrides_for(parent_name).get(parent_name)
                 if parent_name in records and not (
                     parent_override is not None and not parent_override.get('is_allowed')
                 ):

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广告监控暂不可用 - 图创AI系统</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            color: #172033;
+            background: #f4f6fb;
+        }
+        main {
+            width: min(480px, 100%);
+            padding: 32px;
+            border: 1px solid #dce3ef;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 16px 40px rgba(28, 43, 77, .08);
+            text-align: center;
+        }
+        h1 { margin: 0 0 12px; font-size: 24px; }
+        p { margin: 0 0 24px; color: #647187; line-height: 1.7; }
+        a {
+            display: inline-block;
+            padding: 10px 18px;
+            border-radius: 999px;
+            color: #fff;
+            background: #1473e6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>广告监控暂不可用</h1>
+        <p>{{ reason or '服务正在准备中，请稍后重试。' }}</p>
+        <a href="{{ url_for('ai_modules') }}">返回 AI 功能</a>
+    </main>
+</body>
+</html>
