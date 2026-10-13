@@ -5,11 +5,13 @@ import {
   CAMPAIGNS_PER_PAGE,
   DEFAULT_CAMPAIGN_ID,
   acosState,
+  buildPublishedCampaignFallbackModel,
   campaignIdOf,
   campaignAdTypeLabel,
   campaignBudgetMatrix,
   campaignLifecycleLabel,
   campaignMetricValue,
+  campaignPerformanceGrade,
   campaignPerformanceStatus,
   campaignSpendOf,
   campaignWindowMetrics,
@@ -20,12 +22,14 @@ import {
   filterCampaigns,
   focusProducts,
   grainLabel,
+  hourlyMetricDisplay,
   isAutomaticCampaign,
   keywordPopoverPosition,
   missingValue,
   mergeDiagnosticDataQuality,
   mergeDiagnosticModels,
   mergeCampaignDetailMetrics,
+  mergePublishedCampaignMetrics,
   normalizeDecision,
   normalizeDiagnosticPayload,
   normalizeDiagnosticShops,
@@ -49,6 +53,83 @@ const campaign = (id, overrides = {}) => ({
   state: "enabled",
   spend: Number(id),
   ...overrides,
+});
+
+test("hydrates every catalog campaign from the published mature snapshot", () => {
+  const catalogCampaign = campaign("23", {
+    shop_id: "476221",
+    budget: 1,
+    listing_stage: "unknown",
+    performance_status: "unknown",
+    mature_14d: {},
+    performance_windows: {},
+  });
+  const publishedCampaign = {
+    shop_id: "476221",
+    campaign_id: "23",
+    listing_stage: "established",
+    performance_status: "normal",
+    budget: 71,
+    spend: 140,
+    sales: 400,
+    clicks: 140,
+    impressions: 7000,
+    orders: 21,
+    ctr: 0.02,
+    cvr: 0.16,
+    data_days: 14,
+    latest_date: "2026-09-01",
+    performance_7d: {
+      spend: 70,
+      sales: 200,
+      clicks: 70,
+      impressions: 3500,
+      orders: 11,
+      ctr: 0.02,
+      cvr: 0.157,
+      data_days: 7,
+    },
+  };
+  const dailyTrend = Array.from({ length: 14 }, (_, index) => ({
+    campaign_id: "23",
+    date: `2026-08-${String(index + 19).padStart(2, "0")}`,
+    spend: 10,
+  }));
+  const merged = mergePublishedCampaignMetrics(catalogCampaign, publishedCampaign, dailyTrend);
+
+  assert.equal(campaignWindowMetrics(merged, "14d").spend, 140);
+  assert.equal(campaignWindowMetrics(merged, "14d").daily_trend.length, 14);
+  assert.equal(campaignWindowMetrics(merged, "7d").data_days, 7);
+  assert.equal(merged.listing_stage, "established");
+  assert.equal(merged.performance_status, "normal");
+  assert.equal(merged.budget, 71);
+  assert.equal(campaignPerformanceGrade(merged, "14d").key, "excellent");
+});
+
+test("builds a matching published fallback detail when live campaign detail is unavailable", () => {
+  const published = mergePublishedCampaignMetrics(
+    campaign("344188052942742", { shop_id: "476221" }),
+    {
+      shop_id: "476221",
+      campaign_id: "344188052942742",
+      spend: 6568.48,
+      sales: 1739.56,
+      clicks: 816,
+      impressions: 28535,
+      orders: 121,
+      ctr: 0.029,
+      cvr: 0.148,
+      data_days: 14,
+    },
+    [{ campaign_id: "344188052942742", date: "2026-09-01", spend: 50 }],
+  );
+  const fallback = buildPublishedCampaignFallbackModel(published);
+
+  assert.equal(campaignIdOf(fallback.campaign), "344188052942742");
+  assert.equal(fallback.meta.detail_status, "summary_only");
+  assert.equal(fallback.performance.mature_14d.campaign.spend, 6568.48);
+  assert.equal(fallback.performance.mature_14d.daily_trend.length, 1);
+  assert.deepEqual(fallback.structure, {});
 });
 
 test("builds diagnostic and SP-control URLs scoped to the selected shop", () => {
@@ -80,6 +161,7 @@ test("normalizes every diagnostic shop returned by the backend", () => {
     normalizeDiagnosticShops({
       shops: [
         { id: 475394, name: "21号站-李娜-US", currency: "usd", marketplace_id: "ATVPDKIKX0DER", timezone: "America/Los_Angeles" },
+        { id: 476221, name: "23号店-侯梁-US", currency: "usd" },
         { shop_id: "999", shop_name: "新店-DE", currency: "eur" },
         { id: "999", name: "重复店铺" },
         null,
@@ -87,6 +169,7 @@ test("normalizes every diagnostic shop returned by the backend", () => {
     }),
     [
       { id: "475394", name: "21号站-李娜-US", currency: "USD", marketplaceId: "ATVPDKIKX0DER", timezone: "America/Los_Angeles", defaultCampaignId: "70540977760495" },
+      { id: "476221", name: "23号店-侯梁-US", currency: "USD", marketplaceId: "", timezone: "", defaultCampaignId: "390041487563225" },
       { id: "999", name: "新店-DE", currency: "EUR", marketplaceId: "", timezone: "", defaultCampaignId: "" },
     ],
   );
@@ -99,6 +182,14 @@ test("puts the preferred campaign first, then actionable and high-spend campaign
     campaign(DEFAULT_CAMPAIGN_ID, { spend: 0 }),
   ]);
   assert.deepEqual(rows.map(campaignIdOf), [DEFAULT_CAMPAIGN_ID, "2", "1"]);
+});
+
+test("puts enabled campaigns ahead of archived campaigns when no preferred campaign matches", () => {
+  const rows = sortCampaigns([
+    campaign("1", { state: "archived", spend: 999, campaign_name: "Archived" }),
+    campaign("2", { state: "enabled", spend: 1, campaign_name: "Enabled" }),
+  ], "missing");
+  assert.deepEqual(rows.map(campaignIdOf), ["2", "1"]);
 });
 
 test("selects campaign performance by mature window without fabricating missing windows", () => {
@@ -143,6 +234,52 @@ test("hydrates the selected campaign card from its downloaded report summary", (
   assert.equal(campaignWindowMetrics(hydrated, "14d").data_days, 14);
 });
 
+test("restores selected campaign performance from resolved listing context", () => {
+  const catalogCampaign = campaign("7", {
+    listing_stage: "unknown",
+    performance_status: "unknown",
+    performance_windows: {
+      "7d": { data_days: 7, impressions: 1000, clicks: 20, orders: 3, ctr: 0.02, cvr: 0.15 },
+    },
+  });
+  const model = {
+    campaign: { campaign_id: "7", campaign_name: "Detailed campaign" },
+    listingContext: [
+      { campaign_id: "7", sku: "sku-1", listing_stage: "established" },
+      { campaign_id: "7", sku: "sku-2", listing_stage: "established" },
+    ],
+  };
+
+  const hydrated = mergeCampaignDetailMetrics(catalogCampaign, model);
+
+  assert.equal(hydrated.listing_stage, "established");
+  assert.equal(hydrated.performance_status, "normal");
+  assert.equal(campaignLifecycleLabel(hydrated), "老品");
+  assert.equal(campaignPerformanceStatus(hydrated), "normal");
+});
+
+test("keeps campaign performance unknown when any listing remains unresolved", () => {
+  const hydrated = mergeCampaignDetailMetrics(
+    campaign("7", {
+      listing_stage: "unknown",
+      performance_status: "unknown",
+      performance_windows: {
+        "7d": { data_days: 7, impressions: 1000, clicks: 20, orders: 3, ctr: 0.02, cvr: 0.15 },
+      },
+    }),
+    {
+      campaign: { campaign_id: "7" },
+      listingContext: [
+        { campaign_id: "7", listing_stage: "established" },
+        { campaign_id: "7", listing_stage: "unknown" },
+      ],
+    },
+  );
+
+  assert.equal(hydrated.listing_stage, "unknown");
+  assert.equal(hydrated.performance_status, "unknown");
+});
+
 test("classifies established campaign performance and the budget matrix from seven mature days", () => {
   const base = campaign("7", {
     listing_stage: "established",
@@ -161,6 +298,26 @@ test("classifies established campaign performance and the budget matrix from sev
   assert.equal(campaignPerformanceStatus({ ...base, performance_windows: { "7d": { data_days: 7, clicks: 9 } } }), "insufficient_sample");
   assert.equal(campaignPerformanceStatus({ ...base, listing_stage: "new" }), "new_observation");
   assert.equal(campaignBudgetMatrix({ ...base, performance_status: "poor" }).key, "poor_full");
+});
+
+test("grades every campaign directly from the selected mature window", () => {
+  const graded = (ctr, cvr, overrides = {}) => campaign("7", {
+    listing_stage: "unknown",
+    performance_status: "unknown",
+    performance_windows: {
+      "7d": { data_days: 7, impressions: 1000, clicks: 100, orders: 10, ctr, cvr },
+    },
+    ...overrides,
+  });
+
+  assert.equal(campaignPerformanceGrade(graded(0.02, 0.16)).label, "表现优秀");
+  assert.equal(campaignPerformanceGrade(graded(0.015, 0.12)).label, "表现良好");
+  assert.equal(campaignPerformanceGrade(graded(0.008, 0.08)).label, "表现一般");
+  assert.equal(campaignPerformanceGrade(graded(0.005, 0.12)).label, "表现较差");
+  assert.equal(campaignPerformanceGrade(graded(0.02, 0.16, {
+    performance_windows: { "7d": { data_days: 6, clicks: 100, ctr: 0.02, cvr: 0.16 } },
+  })).label, "样本不足");
+  assert.equal(campaignPerformanceGrade(graded(0.02, 0.16), "14d").label, "暂无数据");
 });
 
 test("derives purchase rate and sorts every campaign metric with missing values last", () => {
@@ -372,6 +529,18 @@ test("adapts the live backend report, hourly and source contracts", () => {
   assert.equal(current.summary.spend, 21.5);
   assert.equal(current.latestHour, 14);
   assert.equal(current.layer.is_provisional, true);
+
+  const delayed = hourlyMetricDisplay({
+    today: { report_date: "2026-08-21", targets: { rows: [] } },
+    recent_hour: {
+      report_date: "2026-08-20",
+      targets: { summary: { latest_hour: 23 }, rows: [{ hour: 23, targeting: "lash clusters" }] },
+    },
+  }, "targets");
+  assert.equal(delayed.isFallback, true);
+  assert.equal(delayed.reportDate, "2026-08-20");
+  assert.equal(delayed.rows[0].hour, 23);
+  assert.equal(delayed.freshness, "recent_hour");
 
   assert.equal(sourceLayerLabel({ source_id: "hour_campaign", provisional: true }), "当前小时暂定");
   assert.equal(sourceLayerLabel({ source_id: "deep_search_terms", realtime: false, cache_status: "file_cache" }), "D-2 本地 XLSX 快照");

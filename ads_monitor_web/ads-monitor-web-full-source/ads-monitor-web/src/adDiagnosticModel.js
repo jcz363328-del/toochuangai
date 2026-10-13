@@ -1,6 +1,6 @@
 export const DIAGNOSTIC_SHOPS = Object.freeze([
   Object.freeze({ id: "475394", name: "21号站-李娜-US", currency: "USD", defaultCampaignId: "70540977760495" }),
-  Object.freeze({ id: "476221", name: "23号店-侯梁-US", currency: "USD", defaultCampaignId: "" }),
+  Object.freeze({ id: "476221", name: "23号店-侯梁-US", currency: "USD", defaultCampaignId: "390041487563225" }),
 ]);
 
 export const PILOT_SHOP = DIAGNOSTIC_SHOPS[0];
@@ -208,6 +208,30 @@ export function campaignPerformanceLabel(row) {
 }
 
 
+export function campaignPerformanceGrade(row, window = "7d") {
+  const metrics = campaignWindowMetrics(row, window);
+  if (!Object.keys(metrics).length) {
+    return { key: "unavailable", label: "暂无数据", tone: "neutral" };
+  }
+  const expectedDays = Number.parseInt(String(window).replace("d", ""), 10) || 7;
+  const days = finiteNumber(valueOf(metrics, "data_days", "dataDays"));
+  const clicks = finiteNumber(valueOf(metrics, "clicks"));
+  const ctr = campaignMetricValue(row, "ctr", window);
+  const cvr = campaignMetricValue(row, "cvr", window);
+  if (days == null || days < expectedDays || clicks == null || clicks < 10) {
+    return { key: "insufficient_sample", label: "样本不足", tone: "neutral" };
+  }
+  if (ctr == null || cvr == null) {
+    return { key: "unavailable", label: "暂无数据", tone: "neutral" };
+  }
+  const score = Math.min(ctr / 0.01, cvr / 0.1);
+  if (score >= 1.5) return { key: "excellent", label: "表现优秀", tone: "excellent", score };
+  if (score >= 1) return { key: "good", label: "表现良好", tone: "good", score };
+  if (score >= 0.7) return { key: "average", label: "表现一般", tone: "average", score };
+  return { key: "poor", label: "表现较差", tone: "poor", score };
+}
+
+
 export function campaignBudgetStatus(row) {
   const explicit = String(valueOf(row, "budget_status", "budgetStatus") || "").toLowerCase();
   if (["full", "not_full"].includes(explicit)) return explicit;
@@ -288,6 +312,9 @@ export function sortCampaigns(campaigns, preferredId = DEFAULT_CAMPAIGN_ID, wind
     const leftPreferred = campaignIdOf(left) === String(preferredId);
     const rightPreferred = campaignIdOf(right) === String(preferredId);
     if (leftPreferred !== rightPreferred) return Number(rightPreferred) - Number(leftPreferred);
+    const leftEnabled = ["enabled", "active", "running"].includes(campaignStateOf(left));
+    const rightEnabled = ["enabled", "active", "running"].includes(campaignStateOf(right));
+    if (leftEnabled !== rightEnabled) return Number(rightEnabled) - Number(leftEnabled);
     const priorityDifference = campaignPriorityScore(right) - campaignPriorityScore(left);
     if (priorityDifference) return priorityDifference;
     const spendDifference = campaignSpendOf(right, window) - campaignSpendOf(left, window);
@@ -431,13 +458,150 @@ export function mergeCampaignDetailMetrics(campaign, model) {
     : {};
   if (hasMatureMetrics) performanceWindows["14d"] = matureMetrics;
 
+  const listingRows = rowsOf(model?.listingContext).filter((row) => {
+    const rowCampaignId = campaignIdOf(row);
+    return !rowCampaignId || rowCampaignId === sourceId;
+  });
+  const listingStages = new Set(listingRows.map(campaignLifecycleOf));
+  const resolvedLifecycle = !listingRows.length || listingStages.has("unknown")
+    ? "unknown"
+    : listingStages.size === 1 && listingStages.has("new")
+      ? "new"
+      : listingStages.has("new")
+        ? "mixed"
+        : "established";
+  const existingPerformanceStatus = String(valueOf(source, "performance_status", "performanceStatus") || "").toLowerCase();
+  const resolvedPerformanceStatus = resolvedLifecycle !== "unknown" && (!existingPerformanceStatus || existingPerformanceStatus === "unknown")
+    ? campaignPerformanceStatus({
+      ...detailCampaign,
+      ...source,
+      listing_stage: resolvedLifecycle,
+      performance_status: "",
+      performanceStatus: "",
+      performance_windows: performanceWindows,
+    })
+    : existingPerformanceStatus;
+
   return {
     ...detailCampaign,
     ...source,
+    ...(resolvedLifecycle !== "unknown" ? {
+      listing_stage: resolvedLifecycle,
+      performance_status: resolvedPerformanceStatus,
+    } : {}),
     ...(hasMatureMetrics ? {
       performance_windows: performanceWindows,
       mature_14d: { ...reportSummary, ...(source.mature_14d || {}) },
     } : {}),
+  };
+}
+
+const PUBLISHED_CAMPAIGN_METRIC_KEYS = [
+  "spend",
+  "sales",
+  "orders",
+  "units",
+  "clicks",
+  "impressions",
+  "acos",
+  "roas",
+  "cpc",
+  "cvr",
+  "ctr",
+  "data_days",
+  "latest_date",
+  "expected_latest_date",
+];
+
+const PUBLISHED_CAMPAIGN_CLASSIFICATION_KEYS = [
+  "shop_id",
+  "shop_name",
+  "currency",
+  "campaign_name",
+  "state",
+  "serving_status",
+  "budget",
+  "strategy",
+  "creation_date",
+  "last_updated_date",
+  "listing_stage",
+  "performance_status",
+  "budget_utilization_days_7d",
+  "latest_complete_budget_full",
+  "budget_status",
+  "budget_full",
+  "budget_matrix_status",
+  "performance_thresholds",
+];
+
+export function mergePublishedCampaignMetrics(campaign, publishedCampaign, dailyTrend = []) {
+  const source = campaign && typeof campaign === "object" ? campaign : {};
+  const published = publishedCampaign && typeof publishedCampaign === "object" ? publishedCampaign : {};
+  const sourceId = campaignIdOf(source);
+  const publishedId = campaignIdOf(published);
+  if (!sourceId || !publishedId || sourceId !== publishedId) return source;
+
+  const matureMetrics = {};
+  PUBLISHED_CAMPAIGN_METRIC_KEYS.forEach((key) => {
+    if (!missingValue(published[key])) matureMetrics[key] = published[key];
+  });
+  const matchingTrend = rowsOf(dailyTrend).filter((row) => campaignIdOf(row) === sourceId);
+  if (matchingTrend.length) matureMetrics.daily_trend = matchingTrend;
+
+  const performanceWindows = source.performance_windows && typeof source.performance_windows === "object"
+    ? { ...source.performance_windows }
+    : {};
+  if (published.performance_7d && typeof published.performance_7d === "object") {
+    performanceWindows["7d"] = { ...published.performance_7d };
+  }
+  if (Object.keys(matureMetrics).length) performanceWindows["14d"] = matureMetrics;
+
+  const publishedFields = {};
+  PUBLISHED_CAMPAIGN_CLASSIFICATION_KEYS.forEach((key) => {
+    if (!missingValue(published[key])) publishedFields[key] = published[key];
+  });
+
+  return {
+    ...source,
+    ...publishedFields,
+    performance_windows: performanceWindows,
+    ...(Object.keys(matureMetrics).length ? { mature_14d: matureMetrics } : {}),
+  };
+}
+
+export function buildPublishedCampaignFallbackModel(campaign) {
+  const source = campaign && typeof campaign === "object" ? campaign : {};
+  const campaignId = campaignIdOf(source);
+  const matureMetrics = campaignWindowMetrics(source, "14d");
+  const dailyTrend = rowsOf(matureMetrics.daily_trend || matureMetrics.dailyTrend);
+  const hasMatureMetrics = Object.keys(matureMetrics).length > 0;
+
+  return {
+    raw: {},
+    meta: {
+      cache_status: "published_campaign_snapshot",
+      detail_status: "summary_only",
+      snapshot_generated_at: valueOf(matureMetrics, "latest_date", "expected_latest_date"),
+      snapshot_stale: false,
+    },
+    campaigns: campaignId ? [source] : [],
+    campaign: source,
+    structure: {},
+    listingContext: [],
+    performance: {
+      mature_14d: {
+        campaign: matureMetrics,
+        campaigns: hasMatureMetrics ? [{ ...matureMetrics, campaign_id: campaignId }] : [],
+        daily_trend: dailyTrend,
+      },
+    },
+    decision: {},
+    adjustmentReviews: [],
+    dataQuality: {
+      status: "partial",
+      issues: ["LIVE_DETAIL_PENDING"],
+    },
+    sources: [],
   };
 }
 
@@ -828,6 +992,41 @@ export function currentHourCampaign(performance) {
   };
 }
 
+export function hourlyMetricDisplay(performance, metric) {
+  const source = performance && typeof performance === "object" ? performance : {};
+  const today = source.today && typeof source.today === "object" ? source.today : {};
+  const recent = source.recent_hour && typeof source.recent_hour === "object"
+    ? source.recent_hour
+    : source.recentHour && typeof source.recentHour === "object"
+      ? source.recentHour
+      : {};
+  const currentValue = today[metric];
+  const recentValue = recent[metric];
+  const currentRows = rowsOf(currentValue);
+  const recentRows = rowsOf(recentValue);
+  const isFallback = currentRows.length === 0 && recentRows.length > 0;
+  const value = isFallback ? recentValue : currentValue;
+  const displayRows = [...(isFallback ? recentRows : currentRows)].sort((left, right) => {
+    const leftHour = Number(valueOf(left, "hour"));
+    const rightHour = Number(valueOf(right, "hour"));
+    const hourDifference = (Number.isFinite(leftHour) ? leftHour : 24) - (Number.isFinite(rightHour) ? rightHour : 24);
+    if (hourDifference) return hourDifference;
+    return String(valueOf(left, "placement", "targeting", "group_name", "sku", "asin") || "")
+      .localeCompare(String(valueOf(right, "placement", "targeting", "group_name", "sku", "asin") || ""), "zh-CN");
+  });
+  const summary = value && typeof value === "object" && value.summary && typeof value.summary === "object"
+    ? value.summary
+    : {};
+  return {
+    rows: displayRows,
+    summary,
+    isFallback,
+    reportDate: valueOf(isFallback ? recent : today, "report_date", "reportDate"),
+    latestHour: valueOf(summary, "latest_hour", "latestHour"),
+    freshness: isFallback ? "recent_hour" : "current_hour",
+  };
+}
+
 export function sourceLayerLabel(row) {
   const cache = String(valueOf(row, "cache_status") || "");
   if (["persistent_snapshot", "stale_snapshot"].includes(cache)) return "定时本地快照";
@@ -922,6 +1121,7 @@ export function grainLabel(value) {
 export function freshnessLabel(value) {
   const key = String(value || "unknown").toLowerCase();
   if (["today", "hour", "hourly", "current_hour", "provisional"].includes(key)) return "当前小时·暂定";
+  if (["recent_hour", "recent_complete_hour"].includes(key)) return "最近可用小时·历史回退";
   if (["mature", "mature_14d", "d-2", "d2"].includes(key)) return "D-2成熟";
   if (["live", "configuration", "config"].includes(key)) return "定时快照·配置";
   return "时间层未知";

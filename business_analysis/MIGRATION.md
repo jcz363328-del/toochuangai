@@ -32,7 +32,7 @@ Invoke-RestMethod http://127.0.0.1:4311/api/health
 5. 从 `.env.example` 新建目标环境变量文件；不要复制或提交原项目的 `.env.local`。
 6. 运行 `npm run lint` 和 `npm test`，确认公式、三期口径和构建均正常。
 
-SQL Server 只读账号需要能够查询当前 SQL 中使用的对象，包括 `v_MaoLiLv`、`v_PinPaiDianPu`、`v_ZhiXiao`、`ChuKu`、`v_FBAHuoJian`、`v_CengJi`、`ZiDian`、`XinPinWeiFaHuo` 和 `v_ShangXin`。
+SQL Server 只读账号需要能够查询当前 SQL 中使用的对象，包括 `v_MaoLiLv`、`v_PinPaiDianPu`、`v_ZhiXiao`、`ChuKu`、`v_FBAHuoJian`、`CengJi`、`ZiDian`、`XinPinWeiFaHuo` 和 `v_ShangXin`。
 
 ## 主要入口
 

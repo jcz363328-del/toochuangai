@@ -168,7 +168,8 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("生成手机端适配版", history_source)
         self.assertIn("is_main_image_a_plus_mobile_canvas", history_source)
         self.assertIn("submit_main_image_a_plus_mobile_adaptation", history_source)
-        self.assertIn("图片不会再被直接拦截", page_source)
+        self.assertIn("保留问题最少的可编辑预览", page_source)
+        self.assertIn("人物或商品严重截断的结果仍会阻断", page_source)
 
     def test_layout_keeps_primary_and_dynamic_actions_in_reserved_slots(self) -> None:
         render_source = inspect.getsource(site.render_openrouter_feature)
@@ -257,14 +258,33 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("原生 4K", prompt)
         self.assertIn("满版延伸到画布四边", prompt)
         self.assertNotIn("左右至少内缩 48px", prompt)
-        self.assertIn("距左右边缘至少 54px", prompt)
-        self.assertIn("距上下边缘至少 90px", prompt)
-        self.assertIn("不得显示辅助线、坐标或尺寸数字", prompt)
+        self.assertIn("充分向画布内侧收拢", prompt)
+        self.assertIn("明显且一致的呼吸空间", prompt)
+        self.assertIn("不得显示辅助线、坐标、距离、像素文字、标尺或箭头", prompt)
+        self.assertNotIn("距左右边缘至少 54px", prompt)
+        self.assertNotIn("距上下边缘至少 90px", prompt)
         self.assertIn("首屏必须是完整的商业主视觉", prompt)
         self.assertIn("参考图只是可选择的素材池，不要求全部出现在首屏", prompt)
         self.assertIn("严禁在首屏中直接堆叠多个产品抠图", prompt)
         self.assertIn("整体采用黑金风格", prompt)
-        self.assertIn("最终连续长图成品尺寸必须严格等于 600*1800px", prompt)
+        self.assertIn("最终连续长图只锁定成品宽度 600px", prompt)
+        self.assertIn("1800px 只是构图节奏参考", prompt)
+        self.assertIn("实际高度按 API 返回图比例等比自适应", prompt)
+
+    def test_generation_canvas_safety_does_not_expose_measurements_to_image_model(self) -> None:
+        instruction = site.build_main_image_a_plus_canvas_safety_instruction(
+            site.get_main_image_a_plus_layout("desktop_equal"),
+            "3:4",
+        )
+
+        self.assertNotIn("px", instruction)
+        self.assertNotIn("%", instruction)
+        self.assertNotIn("0–1000", instruction)
+        self.assertNotIn("[", instruction)
+        self.assertIn("标尺、辅助线、箭头", instruction)
+        self.assertIn("文字排版必须先确定文本框宽度", instruction)
+        self.assertIn("较长标题必须降低一个或多个字号层级", instruction)
+        self.assertIn("右对齐文字只能对齐到画面内部的统一文字栏", instruction)
 
     def test_all_generation_prompts_include_the_global_geometry_lock(self) -> None:
         feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
@@ -326,18 +346,27 @@ class MainImageAPlusTests(unittest.TestCase):
             layout,
         )
 
-        self.assertIn("一次模型生成中直接输出 1 张完整的 600×1800px", prompt)
+        self.assertIn("一次模型生成中直接输出 1 张以 600×1800px 为构图节奏参考", prompt)
         self.assertIn("禁止把画布拆成四段", prompt)
         self.assertIn("禁止调用多次生成后拼接", prompt)
         self.assertIn("统一场景", prompt)
         self.assertIn("主体跨区", prompt)
         self.assertIn("四个内容阶段只负责阅读节奏", prompt)
-        self.assertIn("保持比例、满版覆盖", prompt)
-        self.assertIn("禁止给画面增加白边、米色边、黑边", prompt)
-        self.assertIn("最外围的纯背景或连续场景做最少量居中裁切", prompt)
+        self.assertIn("完整返回图按宽度等比缩放", prompt)
+        self.assertIn("禁止裁切或拉伸人物、商品、包装、文字、Logo", prompt)
+        self.assertIn("禁止增加白边、米色边、黑边", prompt)
+        self.assertIn("原图内容层不裁掉任何一个像素", prompt)
+        self.assertIn("比例不一致时不生成任何补边区域", prompt)
+        self.assertIn("高度不强制改成 1800px", prompt)
         self.assertIn("只挑选一位最清晰、最适合商业展示的模特", prompt)
         self.assertIn("禁止出现第二位模特", prompt)
         self.assertIn("禁止半个字、缺字、断行裁切", prompt)
+        self.assertIn("禁止整张缩小搬运", prompt)
+        self.assertIn("最多 3 个支撑证据模块", prompt)
+        self.assertIn("主文字组总数不得超过 5 个", prompt)
+        self.assertIn("后端适配只锁定最终宽度", prompt)
+        self.assertIn("最终高度由原生图比例自动决定", prompt)
+        self.assertIn("较长标题必须降低一个或多个字号层级", prompt)
 
     def test_hero_design_prompt_keeps_free_creation_flow_and_strengthens_first_screen(self) -> None:
         layout = site.get_main_image_a_plus_layout("desktop_equal")
@@ -380,8 +409,11 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("不得把所有内容统一缩小来换取完整", prompt)
         self.assertIn("full-bleed background + all foreground elements fully visible", prompt)
         self.assertIn("不能出现白边、黑边、透明条、纯色留白条", prompt)
-        self.assertIn("[30,140,970,860]", prompt)
-        self.assertIn("[90,163,910,837]", prompt)
+        self.assertNotIn("[222,20,778,980]", prompt)
+        self.assertNotIn("[258,50,742,950]", prompt)
+        self.assertNotIn("18–30px", prompt)
+        self.assertIn("明显而均衡的内侧呼吸空间", prompt)
+        self.assertIn("不得出现安全框、坐标、距离、像素、百分比、标尺、辅助线、箭头", prompt)
         self.assertIn("安全区是硬边界", prompt)
         self.assertIn("禁止拉长边缘像素、镜像复制、拖影或条纹化补边", prompt)
         self.assertIn("禁止对整张图或任何人物、商品、Logo、文字、图片窗口进行非等比压缩、拉伸", prompt)
@@ -407,7 +439,7 @@ class MainImageAPlusTests(unittest.TestCase):
                 site,
                 "review_main_image_a_plus_candidate",
                 return_value=passed_quality_review(),
-            ),
+            ) as review_candidate,
             patch.object(
                 site,
                 "analyze_main_image_a_plus_mobile_element_inventory",
@@ -467,7 +499,7 @@ class MainImageAPlusTests(unittest.TestCase):
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.size, (600, 1800))
 
-    def test_mobile_adaptation_repairs_first_candidate_and_returns_best_flagged_result(self) -> None:
+    def test_mobile_adaptation_repairs_first_candidate_and_blocks_failed_result(self) -> None:
         desktop_source = image_data_url(Image.new("RGB", (1464, 2400), "navy"))
         first_candidate = image_data_url(Image.new("RGB", (600, 1800), "red"))
         repaired_candidate = image_data_url(Image.new("RGB", (600, 1800), "green"))
@@ -525,12 +557,13 @@ class MainImageAPlusTests(unittest.TestCase):
                 ],
             ),
         ):
-            result = site.run_main_image_a_plus_mobile_adaptation_job(
-                {
-                    "model": site.NANO_BANANA_MODEL,
-                    "main_image_a_plus_desktop_source": desktop_source,
-                }
-            )
+            with self.assertRaisesRegex(RuntimeError, "本次结果已拦截"):
+                site.run_main_image_a_plus_mobile_adaptation_job(
+                    {
+                        "model": site.NANO_BANANA_MODEL,
+                        "main_image_a_plus_desktop_source": desktop_source,
+                    }
+                )
 
         self.assertEqual(request_images.call_count, 2)
         first_call = request_images.call_args_list[0].kwargs
@@ -545,15 +578,6 @@ class MainImageAPlusTests(unittest.TestCase):
                 "mobile_candidate_attempt_1"
             )
         )
-        self.assertFalse(result["quality_review_passed"])
-        self.assertEqual(result["quality_critical_issue_count"], 1)
-        self.assertEqual(result["quality_delivery_status"], "needs_review")
-        self.assertTrue(result["mobile_repair_attempted"])
-        self.assertIn("1 项完整性风险", result["text"])
-        self.assertIn("底部参数行仍略贴边", result["quality_review_issues"])
-        with open_data_url(result["images"][0]) as output:
-            self.assertEqual(output.getpixel((300, 900)), (0, 128, 0))
-
     def test_mobile_inventory_is_built_before_generation_and_keeps_small_elements(self) -> None:
         source = image_uploaded_input(Image.new("RGB", (1464, 2400), "white"))
         inventory_json = json.dumps(
@@ -707,9 +731,11 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("首屏设计感整图直出", result["channel"])
         self.assertIn("没有执行图片拼接", result["text"])
         with open_data_url(result["images"][0]) as output:
-            self.assertEqual(output.size, (600, 1800))
+            self.assertEqual(output.size, (600, 900))
+        self.assertEqual(result["requested_target_size"], (600, 1800))
+        self.assertEqual(result["target_size"], (600, 900))
 
-    def test_free_aspect_ratio_uses_closest_native_ratio_for_crop_free_fitting(self) -> None:
+    def test_free_aspect_ratio_preserves_complete_horizontal_canvas(self) -> None:
         self.assertEqual(
             site.select_main_image_a_plus_safe_aspect_ratio((600, 1800)),
             "1:4",
@@ -720,30 +746,38 @@ class MainImageAPlusTests(unittest.TestCase):
         )
         self.assertEqual(
             site.select_main_image_a_plus_vertical_preserving_aspect_ratio((600, 1800)),
-            "9:16",
+            "1:4",
         )
         self.assertEqual(
             site.select_main_image_a_plus_vertical_preserving_aspect_ratio((600, 2250)),
-            "9:16",
+            "1:4",
         )
         self.assertEqual(
             site.select_main_image_a_plus_vertical_preserving_aspect_ratio((600, 2700)),
-            "1:4",
+            "1:8",
         )
 
-    def test_native_safe_zones_account_for_final_crop_and_use_stricter_text_box(self) -> None:
+    def test_native_safe_zones_disable_crop_and_use_stricter_text_box(self) -> None:
         mobile_layout = site.get_main_image_a_plus_layout("mobile_equal")
         mobile_zones = site.get_main_image_a_plus_native_safe_zones(mobile_layout, "1:4")
 
-        self.assertEqual(mobile_zones["crop_y_percent"], 12.5)
-        self.assertEqual(mobile_zones["foreground_box"], [30, 140, 970, 860])
-        self.assertEqual(mobile_zones["text_box"], [90, 163, 910, 837])
+        self.assertEqual(mobile_zones["crop_x_percent"], 0.0)
+        self.assertEqual(mobile_zones["crop_y_percent"], 0.0)
+        self.assertEqual(mobile_zones["extension_x_percent"], 0.0)
+        self.assertEqual(mobile_zones["extension_y_percent"], 0.0)
         self.assertEqual(mobile_zones["final_text_margin_x"], 54)
         self.assertEqual(mobile_zones["final_text_margin_y"], 90)
+        self.assertGreater(mobile_zones["text_box"][0], mobile_zones["foreground_box"][0])
+        self.assertGreater(mobile_zones["text_box"][1], mobile_zones["foreground_box"][1])
+        self.assertLess(mobile_zones["text_box"][2], mobile_zones["foreground_box"][2])
+        self.assertLess(mobile_zones["text_box"][3], mobile_zones["foreground_box"][3])
 
         desktop_layout = site.get_main_image_a_plus_layout("desktop_equal")
         desktop_zones = site.get_main_image_a_plus_native_safe_zones(desktop_layout, "9:16")
-        self.assertGreater(desktop_zones["crop_y_percent"], 0)
+        self.assertEqual(desktop_zones["crop_x_percent"], 0.0)
+        self.assertEqual(desktop_zones["crop_y_percent"], 0.0)
+        self.assertEqual(desktop_zones["extension_x_percent"], 0.0)
+        self.assertEqual(desktop_zones["extension_y_percent"], 0.0)
         self.assertGreater(desktop_zones["text_box"][0], desktop_zones["foreground_box"][0])
         self.assertGreater(desktop_zones["text_box"][1], desktop_zones["foreground_box"][1])
         self.assertLess(desktop_zones["text_box"][2], desktop_zones["foreground_box"][2])
@@ -755,9 +789,13 @@ class MainImageAPlusTests(unittest.TestCase):
             "1:4",
         )
         self.assertEqual(adaptation_zones["crop_x_percent"], 0.0)
-        self.assertEqual(adaptation_zones["crop_y_percent"], 12.5)
-        self.assertEqual(adaptation_zones["foreground_box"], [30, 140, 970, 860])
-        self.assertEqual(adaptation_zones["text_box"], [90, 163, 910, 837])
+        self.assertEqual(adaptation_zones["crop_y_percent"], 0.0)
+        self.assertEqual(adaptation_zones["extension_x_percent"], 0.0)
+        self.assertEqual(adaptation_zones["extension_y_percent"], 0.0)
+        self.assertGreater(adaptation_zones["text_box"][0], adaptation_zones["foreground_box"][0])
+        self.assertGreater(adaptation_zones["text_box"][1], adaptation_zones["foreground_box"][1])
+        self.assertLess(adaptation_zones["text_box"][2], adaptation_zones["foreground_box"][2])
+        self.assertLess(adaptation_zones["text_box"][3], adaptation_zones["foreground_box"][3])
 
     def test_free_generation_retries_after_quality_gate_rejects_edge_clipping(self) -> None:
         first_candidate = image_data_url(Image.new("RGB", (200, 300), "red"))
@@ -806,10 +844,145 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(review_candidate.call_count, 2)
         self.assertIn("上一候选已被成品质检拦截", request_images.call_args_list[1].kwargs["prompt"])
         self.assertIn("右侧标题末字贴边并被截断", request_images.call_args_list[1].kwargs["prompt"])
+        self.assertIn("定向修复任务", request_images.call_args_list[1].kwargs["prompt"])
+        self.assertIn("商业设计感和内容丰富度不足", request_images.call_args_list[1].kwargs["prompt"])
+        self.assertIn("半透明材质面、投影、高光反射", request_images.call_args_list[1].kwargs["prompt"])
+        repair_inputs = request_images.call_args_list[1].kwargs["uploaded_files"]
+        self.assertEqual(len(repair_inputs), 2)
+        self.assertIn("a_plus_failed_candidate", str(repair_inputs[0]["name"]))
         self.assertEqual(result["generation_attempts"], 2)
+        self.assertEqual(result["quality_repair_attempts"], 1)
         self.assertTrue(result["quality_review_passed"])
         with open_data_url(result["images"][0]) as output:
             self.assertEqual(output.getpixel((output.width // 2, output.height // 2)), (0, 128, 0))
+
+    def test_free_generation_can_apply_two_targeted_repairs_to_the_best_candidate(self) -> None:
+        first_candidate = image_data_url(Image.new("RGB", (200, 300), "red"))
+        second_candidate = image_data_url(Image.new("RGB", (200, 300), "yellow"))
+        third_candidate = image_data_url(Image.new("RGB", (200, 300), "green"))
+        first_review = {
+            "reviewed": True,
+            "passed": False,
+            "quality_score": 5.0,
+            "critical_issue_count": 1,
+            "cropped_or_edge_touching_text": [],
+            "clipped_foreground": ["模特头顶被截切"],
+            "missing_elements": [],
+            "duplicated_elements": [],
+            "text_mismatches": [],
+            "layout_issues": ["主焦点分散"],
+            "retry_instruction": "缩小模特并向内移动",
+        }
+        second_review = {
+            "reviewed": True,
+            "passed": False,
+            "quality_score": 6.5,
+            "critical_issue_count": 0,
+            "cropped_or_edge_touching_text": [],
+            "clipped_foreground": [],
+            "missing_elements": [],
+            "duplicated_elements": [],
+            "text_mismatches": [],
+            "layout_issues": ["网格系统不清晰"],
+            "retry_instruction": "统一对齐线和模块间距",
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                side_effect=[
+                    {"images": [first_candidate], "text": ""},
+                    {"images": [second_candidate], "text": ""},
+                    {"images": [third_candidate], "text": ""},
+                ],
+            ) as request_images,
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                side_effect=[first_review, second_review, passed_quality_review()],
+            ),
+        ):
+            result = site.run_main_image_a_plus_job(
+                {
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成高设计感 A+",
+                    "uploaded_files": [{"name": "main.png", "data": b"image"}],
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                    "main_image_a_plus_layout": site.get_main_image_a_plus_layout(
+                        "desktop_equal"
+                    ),
+                }
+            )
+
+        self.assertEqual(request_images.call_count, 3)
+        self.assertIn("模特头顶被截切", request_images.call_args_list[1].kwargs["prompt"])
+        self.assertIn("网格系统不清晰", request_images.call_args_list[2].kwargs["prompt"])
+        self.assertTrue(
+            all(
+                "a_plus_failed_candidate"
+                in str(request_images.call_args_list[index].kwargs["uploaded_files"][0]["name"])
+                for index in (1, 2)
+            )
+        )
+        self.assertEqual(result["generation_attempts"], 3)
+        self.assertEqual(result["quality_repair_attempts"], 2)
+        self.assertTrue(result["quality_review_passed"])
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.getpixel((output.width // 2, output.height // 2)), (0, 128, 0))
+
+    def test_free_generation_returns_editable_preview_for_text_only_quality_issues(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (200, 300), "orange"))
+        text_only_review = {
+            "reviewed": True,
+            "passed": False,
+            "quality_score": 6.8,
+            "critical_issue_count": 1,
+            "cropped_or_edge_touching_text": ["底部收尾文案边距不足"],
+            "clipped_foreground": [],
+            "missing_elements": [],
+            "duplicated_elements": [],
+            "text_mismatches": [],
+            "layout_issues": ["底部信息略显拥挤"],
+            "retry_instruction": "删除虚构收尾文案并增加底部留白",
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [candidate], "text": ""},
+            ) as request_images,
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                return_value=text_only_review,
+            ),
+        ):
+            result = site.run_main_image_a_plus_job(
+                {
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成高设计感 A+",
+                    "uploaded_files": [{"name": "main.png", "data": b"image"}],
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                    "main_image_a_plus_layout": site.get_main_image_a_plus_layout(
+                        "desktop_equal"
+                    ),
+                }
+            )
+
+        self.assertEqual(request_images.call_count, 4)
+        self.assertEqual(result["generation_attempts"], 4)
+        self.assertEqual(result["quality_repair_attempts"], 3)
+        self.assertFalse(result["quality_review_passed"])
+        self.assertEqual(result["quality_delivery_status"], "needs_review")
+        self.assertEqual(result["quality_critical_issue_count"], 1)
+        self.assertIn("底部收尾文案边距不足", result["quality_review_issues"])
+        self.assertIn("可编辑预览", result["text"])
+        self.assertIn(
+            "禁止新增 Thank you",
+            request_images.call_args_list[-1].kwargs["prompt"],
+        )
 
     def test_quality_review_forces_failure_when_candidate_has_clipped_text(self) -> None:
         candidate = image_data_url(Image.new("RGB", (600, 1800), "white"))
@@ -844,6 +1017,338 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(len(review_api.call_args.kwargs["uploaded_files"]), 2)
         self.assertIn("距最终画布左右至少 54px、上下至少 90px", review_api.call_args.kwargs["prompt"])
         self.assertIn("电脑端最低元素清单", review_api.call_args.kwargs["prompt"])
+        self.assertIn("必须区分‘专业摄影出血’与‘意外截断’", review_api.call_args.kwargs["prompt"])
+        self.assertIn("发梢、肩臂或躯干出画", review_api.call_args.kwargs["prompt"])
+        self.assertIn("诸如 96px、132px 的制作标注", review_api.call_args.kwargs["prompt"])
+
+    def test_outer_blank_border_detector_flags_white_frame(self) -> None:
+        framed = Image.new("RGB", (600, 900), "white")
+        ImageDraw.Draw(framed).rectangle((18, 18, 581, 881), fill=(214, 174, 126))
+        output = io.BytesIO()
+        framed.save(output, format="PNG")
+
+        issues = site.detect_main_image_a_plus_outer_blank_borders(output.getvalue())
+
+        self.assertTrue(any("左侧" in issue for issue in issues))
+        self.assertTrue(any("右侧" in issue for issue in issues))
+        self.assertTrue(any("顶部" in issue for issue in issues))
+        self.assertTrue(any("底部" in issue for issue in issues))
+
+    def test_outer_blank_border_detector_allows_full_bleed_light_background(self) -> None:
+        full_bleed = Image.new("RGB", (600, 900), (250, 247, 240))
+        output = io.BytesIO()
+        full_bleed.save(output, format="PNG")
+
+        self.assertEqual(
+            site.detect_main_image_a_plus_outer_blank_borders(output.getvalue()),
+            [],
+        )
+
+    def test_strict_quality_rejects_flat_layout_and_production_marks(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (600, 900), "beige"))
+        review_json = json.dumps(
+            {
+                "composition_score": 8.8,
+                "depth_score": 5.5,
+                "content_richness_score": 7.5,
+                "commercial_design_score": 4.8,
+                "mobile_layout_score": 8.8,
+                "cropped_or_edge_touching_text": [],
+                "clipped_foreground": [],
+                "missing_elements": [],
+                "duplicated_elements": [],
+                "text_mismatches": [],
+                "technical_artifacts": ["顶部出现尺寸箭头"],
+                "outer_border_issues": [],
+                "layout_issues": ["同尺寸浅色圆角卡片机械堆叠"],
+                "passed": True,
+                "retry_instruction": "删除标注并重建前中后景",
+            },
+            ensure_ascii=False,
+        )
+
+        with patch.object(site, "call_openrouter", return_value={"text": review_json}):
+            review = site.review_main_image_a_plus_candidate(
+                candidate,
+                site.get_main_image_a_plus_layout("desktop_equal"),
+                site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                strict_visual_quality=True,
+            )
+
+        self.assertFalse(review["passed"])
+        self.assertEqual(review["quality_score"], 4.8)
+        self.assertEqual(review["commercial_design_score"], 4.8)
+        self.assertEqual(review["critical_issue_count"], 2)
+
+    def test_strict_quality_checks_all_sources_and_rejects_invented_elements(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (600, 900), "beige"))
+        sources = [
+            image_uploaded_input(Image.new("RGB", (300, 300), (index * 30, 80, 120)))
+            for index in range(1, 6)
+        ]
+        review_json = json.dumps(
+            {
+                "composition_score": 9,
+                "depth_score": 9,
+                "mobile_layout_score": 9,
+                "cropped_or_edge_touching_text": [],
+                "clipped_foreground": [],
+                "missing_elements": [],
+                "duplicated_elements": [],
+                "invented_elements": ["右下角新增了源图不存在的胶水瓶"],
+                "text_mismatches": [],
+                "technical_artifacts": [],
+                "outer_border_issues": [],
+                "layout_issues": [],
+                "passed": True,
+                "retry_instruction": "删除新增胶水瓶",
+            },
+            ensure_ascii=False,
+        )
+
+        with patch.object(
+            site,
+            "call_openrouter",
+            return_value={"text": review_json},
+        ) as review_api:
+            review = site.review_main_image_a_plus_candidate(
+                candidate,
+                site.get_main_image_a_plus_layout("desktop_equal"),
+                site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                source_inputs=sources,
+                strict_visual_quality=True,
+            )
+
+        self.assertEqual(len(review_api.call_args.kwargs["uploaded_files"]), 6)
+        self.assertIn("任何源图中不存在", review_api.call_args.kwargs["prompt"])
+        self.assertIn("commercial_design_score", review_api.call_args.kwargs["prompt"])
+        self.assertIn("至少四组真实证据", review_api.call_args.kwargs["prompt"])
+        self.assertEqual(review["invented_elements"], ["右下角新增了源图不存在的胶水瓶"])
+        self.assertFalse(review["passed"])
+        self.assertEqual(review["critical_issue_count"], 1)
+
+    def test_plain_title_is_not_misreported_as_severe_subject_clipping(self) -> None:
+        review = {
+            "clipped_foreground": [
+                "Newcally Lash: Your Ultimate Lash Collection",
+                "模特头顶被截断",
+            ]
+        }
+
+        self.assertEqual(
+            site.collect_main_image_a_plus_severe_subject_clips(review),
+            ["模特头顶被截断"],
+        )
+
+    def test_quality_review_ignores_hair_only_photographic_bleed(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (600, 900), "beige"))
+        review_json = json.dumps(
+            {
+                "composition_score": 9,
+                "depth_score": 9,
+                "mobile_layout_score": 9,
+                "cropped_or_edge_touching_text": [],
+                "clipped_foreground": ["左侧模特头发自然出画"],
+                "missing_elements": [],
+                "duplicated_elements": [],
+                "text_mismatches": [],
+                "technical_artifacts": [],
+                "outer_border_issues": [],
+                "layout_issues": [],
+                "passed": False,
+                "retry_instruction": "缩小模特",
+            },
+            ensure_ascii=False,
+        )
+
+        with patch.object(site, "call_openrouter", return_value={"text": review_json}):
+            review = site.review_main_image_a_plus_candidate(
+                candidate,
+                site.get_main_image_a_plus_layout("desktop_equal"),
+                site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                strict_visual_quality=True,
+            )
+
+        self.assertEqual(review["clipped_foreground"], [])
+        self.assertTrue(review["passed"])
+
+    def test_strict_last_attempt_restores_best_candidate_after_safe_rebuild(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (200, 300), "orange"))
+        rejected_review = {
+            "reviewed": True,
+            "passed": False,
+            "quality_score": 6.0,
+            "critical_issue_count": 1,
+            "cropped_or_edge_touching_text": [],
+            "clipped_foreground": ["右侧产品包装的右边部分被画布切断"],
+            "missing_elements": [],
+            "duplicated_elements": [],
+            "text_mismatches": [],
+            "technical_artifacts": [],
+            "outer_border_issues": [],
+            "layout_issues": [],
+            "retry_instruction": "缩小并内移右侧商品组",
+        }
+        source = {"name": "main.png", "data": b"image", "type": "image/png"}
+        reports = [
+            {
+                "image_index": 1,
+                "status": "complete",
+                "asset_role": "raw_asset",
+                "confidence": 0.99,
+            }
+        ]
+
+        with (
+            patch.object(
+                site,
+                "prepare_main_image_a_plus_sources_with_repair",
+                return_value=([source], reports, 0, []),
+            ),
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [candidate], "text": ""},
+            ) as request_images,
+            patch.object(
+                site,
+                "cover_image_to_exact_size",
+                return_value=candidate,
+            ),
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                return_value=rejected_review,
+            ),
+        ):
+            result = site.run_main_image_a_plus_job(
+                {
+                    "feature": {"key": site.A_PLUS_REFERENCE_LAB_FEATURE_KEY},
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成 A+测试图",
+                    "uploaded_files": [source],
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                    "main_image_a_plus_layout": site.get_main_image_a_plus_layout(
+                        "desktop_equal"
+                    ),
+                }
+            )
+
+        self.assertEqual(request_images.call_count, 4)
+        self.assertIn(
+            "最后一轮安全构图重建",
+            request_images.call_args_list[-1].kwargs["prompt"],
+        )
+        self.assertEqual(
+            request_images.call_args_list[-1].kwargs["uploaded_files"][0]["name"],
+            "main.png",
+        )
+        self.assertNotIn(
+            "a_plus_failed_candidate",
+            str(request_images.call_args_list[-1].kwargs["uploaded_files"][0]["name"]),
+        )
+        self.assertEqual(result["quality_delivery_status"], "needs_review")
+        self.assertTrue(result["quality_result_restored"])
+        self.assertEqual(
+            result["quality_severe_subject_risks"],
+            ["右侧产品包装的右边部分被画布切断"],
+        )
+
+    def test_lab_restores_generated_candidate_when_quality_review_is_unavailable(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (200, 300), "orange"))
+        source = {"name": "main.png", "data": b"image", "type": "image/png"}
+        reports = [
+            {
+                "image_index": 1,
+                "status": "complete",
+                "asset_role": "raw_asset",
+                "confidence": 0.99,
+            }
+        ]
+        unavailable_review = {
+            "reviewed": False,
+            "passed": False,
+            "quality_score": 0.0,
+            "critical_issue_count": 1,
+            "layout_issues": ["成品质检未完成"],
+            "retry_instruction": "",
+        }
+
+        with (
+            patch.object(
+                site,
+                "prepare_main_image_a_plus_sources_with_repair",
+                return_value=([source], reports, 0, []),
+            ),
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [candidate], "text": ""},
+            ) as request_images,
+            patch.object(site, "cover_image_to_exact_size", return_value=candidate),
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                return_value=unavailable_review,
+            ),
+        ):
+            result = site.run_main_image_a_plus_job(
+                {
+                    "feature": {"key": site.A_PLUS_REFERENCE_LAB_FEATURE_KEY},
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成 A+测试图",
+                    "uploaded_files": [source],
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                    "main_image_a_plus_layout": site.get_main_image_a_plus_layout(
+                        "desktop_equal"
+                    ),
+                }
+            )
+
+        self.assertEqual(request_images.call_count, 1)
+        self.assertFalse(result["quality_reviewed"])
+        self.assertEqual(result["quality_delivery_status"], "needs_review")
+        self.assertTrue(result["quality_result_restored"])
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.size, (1464, 2196))
+            self.assertEqual(output.getpixel((732, 1098)), (255, 165, 0))
+
+    def test_designed_module_review_treats_invented_copy_as_critical(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (1464, 2400), "white"))
+        review_json = json.dumps(
+            {
+                "composition_score": 8,
+                "mobile_layout_score": 8,
+                "cropped_or_edge_touching_text": [],
+                "clipped_foreground": [],
+                "missing_elements": [],
+                "duplicated_elements": [],
+                "text_mismatches": [
+                    "新增了源图不存在的品牌口号",
+                    "mismatched_text_in_section_6",
+                ],
+                "layout_issues": [],
+                "passed": True,
+                "retry_instruction": "删除新增口号",
+            },
+            ensure_ascii=False,
+        )
+
+        with patch.object(site, "call_openrouter", return_value={"text": review_json}) as review_api:
+            review = site.review_main_image_a_plus_candidate(
+                candidate,
+                site.get_main_image_a_plus_layout("desktop_equal"),
+                site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                source_inputs=[image_uploaded_input(Image.new("RGB", (300, 300), "gray"))],
+                designed_module_pipeline=True,
+                expected_section_count=3,
+            )
+
+        self.assertFalse(review["passed"])
+        self.assertEqual(review["critical_issue_count"], 1)
+        self.assertEqual(review["text_mismatches"], ["新增了源图不存在的品牌口号"])
+        self.assertIn("一对一分区重构", review_api.call_args.kwargs["prompt"])
+        self.assertIn("不要仅因存在分区就判为拼贴", review_api.call_args.kwargs["prompt"])
 
     def test_template_prompt_requires_layout_lock_and_full_content_replacement(self) -> None:
         notes = site.build_main_image_a_plus_template_notes("desktop_equal", 5)
@@ -1129,7 +1634,7 @@ class MainImageAPlusTests(unittest.TestCase):
                 self.assertEqual(section.size, expected_size)
                 self.assertEqual(section.getpixel((70, section.height // 2)), expected_color)
 
-    def test_job_uses_ten_references_native_4k_and_fixed_output(self) -> None:
+    def test_job_uses_ten_references_native_4k_and_width_locked_output(self) -> None:
         source = Image.new("RGB", (200, 300), "white")
         references = [{"name": f"main-{index}.png", "data": b"image"} for index in range(10)]
         feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
@@ -1171,20 +1676,25 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("只挑选一位最清晰、最适合商业展示的模特", call_kwargs["prompt"])
         self.assertIn("禁止出现第二位模特", call_kwargs["prompt"])
         self.assertIn("不能遮挡模特", call_kwargs["prompt"])
-        self.assertIn("保持比例、满版覆盖", call_kwargs["prompt"])
-        self.assertIn("禁止给画面增加白边、米色边、黑边", call_kwargs["prompt"])
+        self.assertIn("完整返回图按宽度等比缩放", call_kwargs["prompt"])
+        self.assertIn("比例不一致时不生成任何补边区域", call_kwargs["prompt"])
+        self.assertIn("禁止裁切或拉伸人物、商品、包装、文字、Logo", call_kwargs["prompt"])
+        self.assertIn("禁止增加白边、米色边、黑边", call_kwargs["prompt"])
         with open_data_url(result["images"][0]) as output:
-            self.assertEqual(output.size, (1464, 2400))
+            self.assertEqual(output.size, (1464, 2196))
         self.assertEqual(result["section_count"], 1)
-        self.assertEqual(result["section_height"], 2400)
-        self.assertEqual(result["section_heights"], (2400,))
+        self.assertEqual(result["target_size"], (1464, 2196))
+        self.assertEqual(result["requested_target_size"], (1464, 2400))
+        self.assertEqual(result["section_height"], 2196)
+        self.assertEqual(result["section_heights"], (2196,))
+        self.assertTrue(result["width_only_proportional_fit"])
         self.assertEqual(result["main_image_a_plus_layout_key"], "desktop_equal")
         self.assertIn("整图直出", result["channel"])
         self.assertIn("没有执行图片拼接", result["text"])
         self.assertNotIn("safe_margin", result)
 
     def test_job_applies_mobile_layout_size_and_sections(self) -> None:
-        source = Image.new("RGB", (200, 300), "white")
+        source = Image.new("RGB", (200, 800), "white")
         feature = site.get_feature_by_key(site.MAIN_IMAGE_A_PLUS_FEATURE_KEY)
         assert feature is not None
         job_context = {
@@ -1210,7 +1720,7 @@ class MainImageAPlusTests(unittest.TestCase):
                 site,
                 "review_main_image_a_plus_candidate",
                 return_value=passed_quality_review(),
-            ),
+            ) as review_candidate,
             patch.object(site, "build_main_image_a_plus_continuity_reference") as continuity_reference,
             patch.object(site, "stitch_main_image_a_plus_sections") as stitch_sections,
             patch.object(site, "finalize_feature_job_result", side_effect=lambda _context, result, _job_id: result),
@@ -1223,12 +1733,15 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(len(request_images.call_args.kwargs["uploaded_files"]), 1)
         self.assertEqual(request_images.call_args.kwargs["aspect_ratio"], "1:4")
         with open_data_url(result["images"][0]) as output:
-            self.assertEqual(output.size, (600, 1800))
+            self.assertEqual(output.size, (600, 2400))
         self.assertEqual(result["requested_aspect_ratios"], ("1:4",))
         self.assertEqual(result["section_count"], 1)
-        self.assertEqual(result["section_heights"], (1800,))
-        self.assertEqual(result["section_height"], 1800)
+        self.assertEqual(result["target_size"], (600, 2400))
+        self.assertEqual(result["requested_target_size"], (600, 1800))
+        self.assertEqual(result["section_heights"], (2400,))
+        self.assertEqual(result["section_height"], 2400)
         self.assertEqual(result["main_image_a_plus_layout_key"], "mobile_equal")
+        self.assertEqual(review_candidate.call_args.args[1]["target_size"], (600, 2400))
 
     def test_continuity_reference_is_resized_and_compressed(self) -> None:
         source = Image.new("RGB", (1200, 900), "purple")
@@ -1245,7 +1758,7 @@ class MainImageAPlusTests(unittest.TestCase):
         with Image.open(io.BytesIO(reference["data"])) as compressed:
             self.assertEqual(compressed.size, (600, 450))
 
-    def test_free_canvas_size_adapter_fills_left_and_right_without_borders(self) -> None:
+    def test_free_canvas_size_adapter_preserves_complete_wide_image(self) -> None:
         source = Image.new("RGB", (300, 100), "green")
         source.paste("red", (0, 0, 100, 100))
         source.paste("blue", (200, 0, 300, 100))
@@ -1254,13 +1767,85 @@ class MainImageAPlusTests(unittest.TestCase):
 
         with open_data_url(fitted_url) as fitted:
             self.assertEqual(fitted.size, (100, 100))
-            self.assertEqual(fitted.getpixel((0, 50)), (0, 128, 0))
-            self.assertEqual(fitted.getpixel((99, 50)), (0, 128, 0))
+            self.assertEqual(fitted.getpixel((0, 50)), (255, 0, 0))
+            self.assertEqual(fitted.getpixel((99, 50)), (0, 0, 255))
+
+    def test_width_only_adapter_preserves_ratio_without_crop_or_background_fill(self) -> None:
+        source = Image.new("RGB", (100, 300), "green")
+        source.paste("red", (0, 0, 100, 40))
+        source.paste("blue", (0, 260, 100, 300))
+
+        fitted_url, fitted_size = site.resize_image_to_target_width(
+            image_data_url(source),
+            200,
+        )
+
+        self.assertEqual(fitted_size, (200, 600))
+        with open_data_url(fitted_url) as fitted:
+            self.assertEqual(fitted.size, (200, 600))
+            self.assertEqual(fitted.getpixel((100, 0)), (255, 0, 0))
+            self.assertEqual(fitted.getpixel((100, 599)), (0, 0, 255))
+
+    def test_width_only_adapter_keeps_wide_result_short_instead_of_padding_height(self) -> None:
+        source = Image.new("RGB", (300, 100), "green")
+        source.paste("red", (0, 0, 100, 100))
+        source.paste("blue", (200, 0, 300, 100))
+
+        fitted_url, fitted_size = site.resize_image_to_target_width(
+            image_data_url(source),
+            150,
+        )
+
+        self.assertEqual(fitted_size, (150, 50))
+        with open_data_url(fitted_url) as fitted:
+            self.assertEqual(fitted.size, (150, 50))
+            self.assertEqual(fitted.getpixel((0, 25)), (255, 0, 0))
+            self.assertEqual(fitted.getpixel((149, 25)), (0, 0, 255))
+
+    def test_free_canvas_size_adapter_ignores_crop_anchors_and_preserves_both_edges(self) -> None:
+        source = Image.new("RGB", (300, 100), "green")
+        source.paste("red", (0, 0, 100, 100))
+        source.paste("blue", (200, 0, 300, 100))
+
+        right_anchored_url = site.cover_image_to_exact_size(
+            image_data_url(source),
+            100,
+            100,
+            horizontal_anchor="right",
+        )
+        left_anchored_url = site.cover_image_to_exact_size(
+            image_data_url(source),
+            100,
+            100,
+            horizontal_anchor="left",
+        )
+
+        with open_data_url(right_anchored_url) as right_anchored:
+            self.assertEqual(right_anchored.getpixel((0, 50)), (255, 0, 0))
+            self.assertEqual(right_anchored.getpixel((99, 50)), (0, 0, 255))
+        with open_data_url(left_anchored_url) as left_anchored:
+            self.assertEqual(left_anchored.getpixel((0, 50)), (255, 0, 0))
+            self.assertEqual(left_anchored.getpixel((99, 50)), (0, 0, 255))
+
+    def test_crop_anchor_follows_quality_review_edge_direction(self) -> None:
+        review = {
+            "cropped_or_edge_touching_text": [
+                "‘NEWCALLY’ 的字母 Y 在右侧被切断",
+                "Logo 在右侧被切断",
+            ],
+            "clipped_foreground": [],
+            "layout_issues": [],
+        }
+
+        self.assertEqual(
+            site.select_main_image_a_plus_crop_anchors(review),
+            ("right", "center"),
+        )
 
     def test_mobile_single_layer_normalization_uses_only_the_generated_candidate(self) -> None:
-        candidate = Image.new("RGB", (120, 480), "green")
-        candidate.paste("red", (0, 0, 120, 24))
-        candidate.paste("blue", (0, 456, 120, 480))
+        candidate = Image.new("RGB", (270, 480), "green")
+        candidate.paste("red", (0, 0, 270, 24))
+        candidate.paste("blue", (0, 456, 270, 480))
         candidate_url = image_data_url(candidate)
         result_url = site.resize_main_image_a_plus_mobile_single_layer(
             candidate_url,
@@ -1280,7 +1865,517 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertNotIn("expand_main_image_a_plus_mobile_candidate_sections", run_source)
         self.assertNotIn("stitch_main_image_a_plus_sections", run_source)
 
-    def test_free_canvas_size_adapter_fills_top_and_bottom_without_borders(self) -> None:
+    def test_layout_skeleton_has_an_explicit_non_content_role(self) -> None:
+        prompt = site.build_main_image_a_plus_free_prompt(
+            "生成商业 A+",
+            site.get_main_image_a_plus_layout("desktop_equal"),
+            has_layout_skeleton=True,
+        )
+
+        self.assertIn("最后一张是抽象版式骨架", prompt)
+        self.assertIn("不是商品或品牌素材", prompt)
+        self.assertIn("其余输入图才是本次真实商品与品牌素材", prompt)
+
+    def test_free_job_records_source_repair_and_tells_generation_model(self) -> None:
+        source = image_uploaded_input(Image.new("RGB", (200, 300), "white"), "source.png")
+        prepared_source = site.prepare_main_image_a_plus_reference_input(source)
+        repaired_report = {
+            "image_index": 1,
+            "status": "cropped",
+            "cropped_sides": ["top"],
+            "content_types": ["hair"],
+            "repairability": "safe_auto",
+            "confidence": 0.95,
+            "reason": "头发顶部被截断",
+            "repair_status": "repaired",
+        }
+        generated = image_data_url(Image.new("RGB", (200, 300), "green"))
+
+        with (
+            patch.object(
+                site,
+                "prepare_main_image_a_plus_sources_with_repair",
+                return_value=([prepared_source], [repaired_report], 1, []),
+            ),
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [generated], "text": ""},
+            ) as generate_request,
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                return_value=passed_quality_review(),
+            ),
+        ):
+            result = site.run_main_image_a_plus_job(
+                {
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成 A+",
+                    "uploaded_files": [source],
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                    "main_image_a_plus_layout": site.get_main_image_a_plus_layout("desktop_equal"),
+                }
+            )
+
+        self.assertIn("源图完整性预处理", generate_request.call_args.kwargs["prompt"])
+        self.assertIn("第 1 张已补齐 top 边缘", generate_request.call_args.kwargs["prompt"])
+        self.assertEqual(result["source_repair_count"], 1)
+        self.assertTrue(result["source_integrity_checked"])
+
+    def test_source_integrity_analysis_normalizes_detected_crop(self) -> None:
+        source = image_uploaded_input(Image.new("RGB", (200, 300), "white"), "source.png")
+        response_text = json.dumps(
+            {
+                "images": [
+                    {
+                        "image_index": 1,
+                        "asset_role": "designed_module",
+                        "status": "cropped",
+                        "intentional_crop": False,
+                        "cropped_sides": ["top", "invalid"],
+                        "content_types": ["hair", "invalid"],
+                        "repairability": "safe_auto",
+                        "reference_image_indices": [2, 1, 99],
+                        "confidence": 0.94,
+                        "reason": "头发顶部被截断",
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        )
+
+        with patch.object(site, "call_openrouter", return_value={"text": response_text}):
+            reports = site.analyze_main_image_a_plus_source_integrity([source])
+
+        self.assertEqual(reports[0]["status"], "cropped")
+        self.assertEqual(reports[0]["asset_role"], "designed_module")
+        self.assertEqual(reports[0]["cropped_sides"], ["top"])
+        self.assertEqual(reports[0]["content_types"], ["hair"])
+        self.assertEqual(reports[0]["repairability"], "safe_auto")
+        self.assertEqual(reports[0]["reference_image_indices"], [])
+        self.assertAlmostEqual(reports[0]["confidence"], 0.94)
+
+    def test_designed_module_with_unsafe_text_crop_is_preserved_as_reference(self) -> None:
+        source = image_uploaded_input(Image.new("RGB", (300, 300), "white"), "module.png")
+        report = {
+            "image_index": 1,
+            "asset_role": "designed_module",
+            "status": "cropped",
+            "intentional_crop": False,
+            "cropped_sides": ["bottom"],
+            "content_types": ["text", "parameter"],
+            "repairability": "reference_required",
+            "reference_image_indices": [],
+            "confidence": 0.95,
+            "reason": "底部 Before 模块和参数被切断",
+        }
+
+        with (
+            patch.object(
+                site,
+                "analyze_main_image_a_plus_source_integrity",
+                return_value=[report],
+            ),
+            patch.object(site, "repair_main_image_a_plus_source_crop") as repair_source,
+        ):
+            prepared, reports, repair_count, warnings = (
+                site.prepare_main_image_a_plus_sources_with_repair(
+                    [source],
+                    model=site.NANO_BANANA_MODEL,
+                )
+            )
+
+        repair_source.assert_not_called()
+        self.assertEqual(len(prepared), 1)
+        self.assertEqual(repair_count, 0)
+        self.assertEqual(reports[0]["repair_status"], "preserved_unrepaired")
+        self.assertIn("已保留原图", warnings[0])
+        instruction = site.build_main_image_a_plus_source_integrity_instruction(reports)
+        self.assertIn("已排版的广告/A+ 模块", instruction)
+        self.assertIn("只能采用其完整可见", instruction)
+        self.assertIn("内容预算是硬上限", instruction)
+        self.assertIn("支撑证据组总数不得超过 3 个", instruction)
+
+    def test_completed_designed_modules_are_rebuilt_one_source_per_section(self) -> None:
+        colors = {
+            "hero.png": "red",
+            "detail.png": "green",
+            "proof.png": "blue",
+        }
+        sources = [
+            image_uploaded_input(Image.new("RGB", (300, 300), color), name)
+            for name, color in colors.items()
+        ]
+        reports = [
+            {
+                "image_index": index,
+                "asset_role": "designed_module",
+                "status": "complete",
+                "intentional_crop": index == 2,
+                "cropped_sides": [],
+                "content_types": [],
+                "repairability": "unknown",
+                "reference_image_indices": [],
+                "confidence": 0.99,
+                "reason": "完成广告模块",
+            }
+            for index in range(1, 4)
+        ]
+
+        def generate_section(**kwargs):
+            source_name = kwargs["uploaded_files"][0]["name"]
+            source_color = next(
+                color
+                for original_name, color in colors.items()
+                if source_name.startswith(original_name.rsplit(".", 1)[0])
+            )
+            return {
+                "images": [
+                    image_data_url(Image.new("RGB", (160, 100), source_color))
+                ],
+                "text": "",
+            }
+
+        with (
+            patch.object(
+                site,
+                "analyze_main_image_a_plus_source_integrity",
+                return_value=reports,
+            ),
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                side_effect=generate_section,
+            ) as request_images,
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                return_value=passed_quality_review(),
+            ),
+        ):
+            result = site.run_main_image_a_plus_job(
+                {
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成 A+",
+                    "uploaded_files": sources,
+                    "main_image_a_plus_mode": site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                    "main_image_a_plus_layout": site.get_main_image_a_plus_layout(
+                        "desktop_equal"
+                    ),
+                }
+            )
+
+        self.assertEqual(request_images.call_count, 3)
+        for call in request_images.call_args_list:
+            self.assertEqual(len(call.kwargs["uploaded_files"]), 1)
+            self.assertIn("严禁把源图整个方形/矩形画布缩小后贴入", call.kwargs["prompt"])
+            self.assertIn("安全区只是内部构图约束", call.kwargs["prompt"])
+            self.assertNotIn("132px", call.kwargs["prompt"])
+        self.assertTrue(result["designed_module_pipeline"])
+        self.assertEqual(result["section_count"], 3)
+        self.assertEqual(result["section_heights"], (800, 800, 800))
+        self.assertEqual(result["quality_delivery_status"], "passed")
+        self.assertIn("已设计素材分区重构", result["channel"])
+        with open_data_url(result["images"][0]) as output:
+            self.assertEqual(output.size, (1464, 2400))
+            self.assertEqual(output.getpixel((700, 400)), (255, 0, 0))
+            self.assertEqual(output.getpixel((700, 1200)), (0, 128, 0))
+            self.assertEqual(output.getpixel((700, 2000)), (0, 0, 255))
+
+    def test_designed_module_section_prompt_discards_unrecoverable_edge_groups(self) -> None:
+        prompt = site.build_main_image_a_plus_designed_module_section_prompt(
+            "生成专业睫毛 A+",
+            site.get_main_image_a_plus_layout("mobile_equal"),
+            2,
+            3,
+            600,
+            {
+                "status": "cropped",
+                "cropped_sides": ["right", "bottom"],
+                "intentional_crop": False,
+            },
+        )
+
+        self.assertIn("第 3/3 个横向连续区段", prompt)
+        self.assertIn("任何半截文字、半张卡片、残缺参数", prompt)
+        self.assertIn("不得编造 Thank you", prompt)
+        self.assertIn("严禁把纵向长度阶梯、完整参数表", prompt)
+        self.assertIn("只能选择一个代表性参数", prompt)
+        self.assertIn("只含连续背景、渐变、纹理或光影的过渡带", prompt)
+        self.assertIn("绝不能把安全区边界、边距数值、像素单位", prompt)
+        self.assertNotIn("54px", prompt)
+
+    def test_designed_module_retry_only_regenerates_reviewed_problem_section(self) -> None:
+        sources = [
+            image_uploaded_input(Image.new("RGB", (200, 200), color), name)
+            for name, color in (
+                ("hero.png", "red"),
+                ("detail.png", "green"),
+                ("proof.png", "blue"),
+            )
+        ]
+        reports = [
+            {
+                "image_index": index,
+                "asset_role": "designed_module",
+                "status": "complete",
+                "intentional_crop": False,
+            }
+            for index in range(1, 4)
+        ]
+        first_review = {
+            "reviewed": True,
+            "passed": False,
+            "quality_score": 6.5,
+            "critical_issue_count": 0,
+            "cropped_or_edge_touching_text": [],
+            "clipped_foreground": [],
+            "missing_elements": [],
+            "duplicated_elements": [],
+            "text_mismatches": [],
+            "layout_issues": ["第 3 段参数过多"],
+            "affected_section_indices": [3],
+            "retry_instruction": "第 3 段只保留一个参数",
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={
+                    "images": [image_data_url(Image.new("RGB", (160, 100), "orange"))],
+                    "text": "",
+                },
+            ) as request_images,
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                side_effect=[first_review, passed_quality_review()],
+            ),
+        ):
+            result = site.run_main_image_a_plus_designed_module_job(
+                job_context={
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成 A+",
+                },
+                generation_mode=site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                layout=site.get_main_image_a_plus_layout("desktop_equal"),
+                uploaded_files=sources,
+                source_integrity_reports=reports,
+                source_repair_count=0,
+                source_integrity_warnings=[],
+            )
+
+        self.assertEqual(request_images.call_count, 4)
+        self.assertTrue(
+            str(request_images.call_args_list[-1].kwargs["uploaded_files"][0]["name"])
+            .startswith("proof")
+        )
+        self.assertIn("第 3 段只保留一个参数", request_images.call_args_list[-1].kwargs["prompt"])
+        self.assertEqual(result["repaired_section_indices"], (3,))
+        self.assertTrue(result["quality_review_passed"])
+
+    def test_lab_designed_module_packaging_crop_returns_preview_instead_of_task_failure(self) -> None:
+        sources = [
+            image_uploaded_input(Image.new("RGB", (200, 200), "gray"), f"module-{index}.png")
+            for index in range(1, 4)
+        ]
+        reports = [
+            {
+                "image_index": index,
+                "asset_role": "designed_module",
+                "status": "complete",
+                "intentional_crop": False,
+            }
+            for index in range(1, 4)
+        ]
+        badge_review = {
+            "reviewed": True,
+            "passed": False,
+            "quality_score": 7.0,
+            "critical_issue_count": 1,
+            "cropped_or_edge_touching_text": [],
+            "clipped_foreground": ["产品包装左侧的 NEWCALLY 被画布左侧切断"],
+            "missing_elements": [],
+            "duplicated_elements": [],
+            "text_mismatches": [],
+            "layout_issues": [],
+            "affected_section_indices": [3],
+            "retry_instruction": "缩小并内移产品包装",
+        }
+
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={
+                    "images": [image_data_url(Image.new("RGB", (160, 100), "orange"))],
+                    "text": "",
+                },
+            ) as request_images,
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                side_effect=[badge_review, badge_review, badge_review],
+            ),
+        ):
+            result = site.run_main_image_a_plus_designed_module_job(
+                job_context={
+                    "feature": {"key": site.A_PLUS_REFERENCE_LAB_FEATURE_KEY},
+                    "model": site.NANO_BANANA_MODEL,
+                    "prompt": "生成 A+",
+                },
+                generation_mode=site.MAIN_IMAGE_A_PLUS_MODE_FREE,
+                layout=site.get_main_image_a_plus_layout("desktop_equal"),
+                uploaded_files=sources,
+                source_integrity_reports=reports,
+                source_repair_count=0,
+                source_integrity_warnings=[],
+            )
+
+        self.assertEqual(request_images.call_count, 5)
+        self.assertFalse(result["quality_review_passed"])
+        self.assertEqual(result["quality_delivery_status"], "needs_review")
+        self.assertTrue(result["quality_result_restored"])
+        self.assertTrue(
+            any("产品包装" in issue for issue in result["quality_review_issues"])
+        )
+        self.assertIn("必须把该次要内容整组删除", request_images.call_args_list[-1].kwargs["prompt"])
+
+    def test_source_repair_uses_only_explicit_same_identity_references(self) -> None:
+        cropped = image_uploaded_input(Image.new("RGB", (200, 300), "white"), "cropped.png")
+        matching = image_uploaded_input(Image.new("RGB", (200, 300), "gray"), "matching.png")
+        unrelated = image_uploaded_input(Image.new("RGB", (200, 300), "black"), "unrelated.png")
+        reports = [
+            {
+                "image_index": 1,
+                "asset_role": "raw_asset",
+                "status": "cropped",
+                "intentional_crop": False,
+                "cropped_sides": ["right"],
+                "content_types": ["product"],
+                "repairability": "reference_required",
+                "reference_image_indices": [2],
+                "confidence": 0.96,
+                "reason": "商品右侧缺失",
+            },
+            {
+                "image_index": 2,
+                "asset_role": "raw_asset",
+                "status": "complete",
+                "cropped_sides": [],
+                "content_types": [],
+                "repairability": "unknown",
+                "reference_image_indices": [],
+                "confidence": 0.9,
+                "reason": "",
+            },
+            {
+                "image_index": 3,
+                "asset_role": "raw_asset",
+                "status": "complete",
+                "cropped_sides": [],
+                "content_types": [],
+                "repairability": "unknown",
+                "reference_image_indices": [],
+                "confidence": 0.9,
+                "reason": "",
+            },
+        ]
+
+        with (
+            patch.object(
+                site,
+                "analyze_main_image_a_plus_source_integrity",
+                return_value=reports,
+            ),
+            patch.object(
+                site,
+                "repair_main_image_a_plus_source_crop",
+                return_value=cropped,
+            ) as repair_source,
+        ):
+            prepared, _reports, repair_count, _warnings = (
+                site.prepare_main_image_a_plus_sources_with_repair(
+                    [cropped, matching, unrelated],
+                    model=site.NANO_BANANA_MODEL,
+                )
+            )
+
+        self.assertEqual(len(prepared), 3)
+        self.assertEqual(repair_count, 1)
+        supporting = repair_source.call_args.kwargs["supporting_references"]
+        self.assertEqual(len(supporting), 1)
+        self.assertEqual(supporting[0]["name"], "matching.png")
+
+    def test_source_repair_outpaints_only_confirmed_edges(self) -> None:
+        source = image_uploaded_input(Image.new("RGB", (100, 100), "red"), "cropped.png")
+        generated = image_data_url(Image.new("RGB", (100, 124), "green"))
+        report = {
+            "status": "cropped",
+            "cropped_sides": ["top"],
+            "content_types": ["hair"],
+            "repairability": "safe_auto",
+            "confidence": 0.95,
+        }
+
+        with patch.object(
+            site,
+            "call_openrouter_images_api",
+            return_value={"images": [generated], "text": ""},
+        ) as repair_request:
+            repaired = site.repair_main_image_a_plus_source_crop(
+                source,
+                report,
+                model=site.NANO_BANANA_MODEL,
+            )
+
+        self.assertTrue(str(repaired["name"]).endswith("_a_plus_completed.png"))
+        with Image.open(io.BytesIO(bytes(repaired["data"]))) as image:
+            self.assertEqual(image.size, (100, 124))
+        call_kwargs = repair_request.call_args.kwargs
+        self.assertEqual(len(call_kwargs["uploaded_files"]), 1)
+        self.assertEqual(call_kwargs["uploaded_files"][0]["name"], "outpaint_transition_canvas.png")
+        self.assertIn("只补齐这些缺失方向", call_kwargs["prompt"])
+
+    def test_unrecoverable_core_source_crop_requires_another_reference(self) -> None:
+        source = image_uploaded_input(Image.new("RGB", (200, 300), "white"), "product.png")
+        report = {
+            "image_index": 1,
+            "status": "cropped",
+            "cropped_sides": ["right"],
+            "content_types": ["product", "logo"],
+            "repairability": "unrecoverable",
+            "confidence": 0.96,
+            "reason": "商品和 Logo 右侧缺失",
+        }
+
+        with patch.object(
+            site,
+            "analyze_main_image_a_plus_source_integrity",
+            return_value=[report],
+        ):
+            with self.assertRaisesRegex(RuntimeError, "不会猜造商品结构"):
+                site.prepare_main_image_a_plus_sources_with_repair(
+                    [source],
+                    model=site.NANO_BANANA_MODEL,
+                )
+
+    def test_quality_review_failure_is_not_treated_as_passed(self) -> None:
+        candidate = image_data_url(Image.new("RGB", (600, 1800), "white"))
+        with patch.object(site, "call_openrouter", side_effect=RuntimeError("review offline")):
+            review = site.review_main_image_a_plus_candidate(
+                candidate,
+                site.get_main_image_a_plus_layout("mobile_equal"),
+                site.MAIN_IMAGE_A_PLUS_MODE_MOBILE_ADAPT,
+            )
+
+        self.assertFalse(review["reviewed"])
+        self.assertFalse(review["passed"])
+        self.assertEqual(review["critical_issue_count"], 1)
+
+    def test_free_canvas_size_adapter_preserves_top_and_bottom_content(self) -> None:
         source = Image.new("RGB", (100, 300), "green")
         source.paste("red", (0, 0, 100, 40))
         source.paste("blue", (0, 260, 100, 300))
@@ -1289,8 +2384,8 @@ class MainImageAPlusTests(unittest.TestCase):
 
         with open_data_url(fitted_url) as fitted:
             self.assertEqual(fitted.size, (100, 200))
-            self.assertEqual(fitted.getpixel((50, 0)), (0, 128, 0))
-            self.assertEqual(fitted.getpixel((50, 199)), (0, 128, 0))
+            self.assertEqual(fitted.getpixel((50, 0)), (255, 0, 0))
+            self.assertEqual(fitted.getpixel((50, 199)), (0, 0, 255))
 
     def test_uploaded_references_are_prepared_once_for_fast_reuse(self) -> None:
         source = Image.new("RGB", (3200, 2400), "purple")

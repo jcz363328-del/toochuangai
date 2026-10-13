@@ -102,6 +102,50 @@ PRODUCT_SALES_PATH = "/api/productSale/page.json"
 DEEP_REPORT_DIR = ROOT / "data" / "ad_diagnostic_reports"
 
 
+class _DiagnosticAccessTokenCache:
+    """Share one Sellfox access token across short-lived diagnostic clients."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._token = ""
+
+    def seed(self, token: Any) -> None:
+        value = as_text(token)
+        if not value:
+            return
+        with self._lock:
+            self._token = value
+
+    def get_or_fetch(self, fetcher: Callable[[], str]) -> str:
+        with self._lock:
+            if not self._token:
+                self._token = as_text(fetcher())
+            return self._token
+
+
+_DIAGNOSTIC_ACCESS_TOKEN_CACHE = _DiagnosticAccessTokenCache()
+
+
+class _SharedTokenRealtimeAdsClient(RealtimeAdsClient):
+    """Realtime client that avoids repeatedly hitting Sellfox's token endpoint."""
+
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        logger: logging.Logger,
+        token_cache: _DiagnosticAccessTokenCache,
+    ) -> None:
+        super().__init__(client_id, client_secret, logger)
+        self._token_cache = token_cache
+
+    def get_token(self) -> str:
+        if self._access_token:
+            return self._access_token
+        self._access_token = self._token_cache.get_or_fetch(super().get_token)
+        return self._access_token
+
+
 @dataclass(frozen=True)
 class DiagnosticShop:
     shop_id: str
@@ -1394,7 +1438,12 @@ class DiagnosticService:
     def _default_client() -> RealtimeAdsClient:
         client_id, client_secret = load_api_credentials()
         logger = logging.getLogger("SellfoxAdDiagnostic.upstream")
-        client = RealtimeAdsClient(client_id, client_secret, logger)
+        client = _SharedTokenRealtimeAdsClient(
+            client_id,
+            client_secret,
+            logger,
+            _DIAGNOSTIC_ACCESS_TOKEN_CACHE,
+        )
         client.configure_run(
             deadline=time.monotonic() + REQUEST_DEADLINE_SECONDS,
             max_http_attempts=MAX_HTTP_ATTEMPTS,
@@ -1591,6 +1640,7 @@ class DiagnosticService:
         client = self.client_factory()
         sources: list[dict[str, Any]] = []
         leaks_by_source: list[int] = []
+        online_rows: list[dict[str, Any]] = []
         try:
             campaigns, trace, leaks = self._cursor(
                 client,
@@ -1617,6 +1667,15 @@ class DiagnosticService:
                 structures[key] = rows
                 sources.append(trace)
                 leaks_by_source.append(dropped)
+            product_keys = {
+                (as_text(row.get("asin")).upper(), as_text(row.get("sku")))
+                for row in structures.get("products", [])
+                if as_text(row.get("asin")) and as_text(row.get("sku"))
+            }
+            online_rows, online_source = self._fetch_online_products(
+                client, product_keys
+            )
+            sources.append(online_source)
         finally:
             self._close(client)
         groups = structures.get("groups", [])
@@ -1647,6 +1706,21 @@ class DiagnosticService:
         products_by_campaign: dict[str, list[dict[str, Any]]] = {}
         for item in products:
             products_by_campaign.setdefault(as_text(item.get("campaignId")), []).append(item)
+        local_date = self._now().astimezone(ZoneInfo(self.shop.timezone)).date()
+        listing_context, _ = self._build_listing_context(
+            products,
+            online_rows,
+            [],
+            [],
+            [],
+            {},
+            local_date,
+        )
+        live_products_by_campaign: dict[str, list[dict[str, Any]]] = {}
+        for item in listing_context:
+            live_products_by_campaign.setdefault(
+                as_text(item.get("campaign_id")), []
+            ).append(item)
         groups_by_campaign: dict[str, list[dict[str, Any]]] = {}
         for item in groups:
             groups_by_campaign.setdefault(as_text(item.get("campaignId")), []).append(item)
@@ -1696,6 +1770,10 @@ class DiagnosticService:
                 mature_products_by_campaign.get(campaign_id, []),
                 snapshot.get("listing_stage"),
             )
+            if lifecycle == "unknown":
+                lifecycle = _campaign_lifecycle(
+                    live_products_by_campaign.get(campaign_id, [])
+                )
             performance_7d = windows.get("7d", {})
             performance_status = as_text(snapshot.get("performance_status")) or (
                 _campaign_performance_status(performance_7d, lifecycle)
@@ -1978,6 +2056,7 @@ class DiagnosticService:
                 issues.append("LISTING_MAPPING_UNKNOWN")
 
             today: dict[str, Any] = {}
+            recent_hour: dict[str, Any] = {}
             full_hour_specs = (
                 ("campaign", "hour_campaign", SP_HOUR_CAMPAIGN_PATH, "campaign", 15),
                 ("ad_groups", "hour_group", SP_HOUR_GROUP_PATH, "adGroup", 15),
@@ -2029,6 +2108,60 @@ class DiagnosticService:
                     issues.append(f"{source_id.upper()}_UNAVAILABLE")
                 elif trace["status"] == "partial":
                     issues.extend(trace.get("quality_issues", []))
+
+            missing_hour_specs = [
+                spec
+                for spec in hour_specs
+                if not today.get(spec[0], {}).get("rows")
+            ]
+            if missing_hour_specs:
+                recent_date = local_date - timedelta(days=1)
+
+                def fetch_recent_hour(
+                    spec: tuple[str, str, str, str, int]
+                ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+                    _, source_id, path, aggregation, expected_lag = spec
+                    worker = self.client_factory()
+                    token = getattr(client, "_access_token", "")
+                    if token and hasattr(worker, "_access_token"):
+                        worker._access_token = token
+                    try:
+                        return self._hour(
+                            worker,
+                            f"recent_{source_id}",
+                            path,
+                            aggregation,
+                            campaign_id,
+                            recent_date,
+                            expected_lag,
+                            provisional=False,
+                        )
+                    finally:
+                        self._close(worker)
+
+                with ThreadPoolExecutor(max_workers=len(missing_hour_specs)) as executor:
+                    recent_results = list(
+                        executor.map(fetch_recent_hour, missing_hour_specs)
+                    )
+                recent_hour = {
+                    "is_fallback": True,
+                    "report_timezone": self.shop.timezone,
+                    "report_date": recent_date.isoformat(),
+                    "fallback_for_date": local_date.isoformat(),
+                }
+                for (key, _, _, aggregation, _), (rows, trace) in zip(
+                    missing_hour_specs, recent_results
+                ):
+                    trace["fallback_for_date"] = local_date.isoformat()
+                    sources.append(trace)
+                    recent_hour[key] = {
+                        "metric_level": aggregation,
+                        "summary": _aggregate_metrics(rows),
+                        "rows": [_json_safe(row) for row in rows],
+                        "quality_status": trace["status"],
+                        "quality_issues": trace.get("quality_issues", []),
+                        "anomaly_rows": int(trace.get("anomaly_rows") or 0),
+                    }
 
             pacing, pacing_source = self._campaign_pacing(
                 client,
@@ -2114,6 +2247,7 @@ class DiagnosticService:
                     "attribution_warning": "当日订单和销售额可能延迟归因，只用于确认、冲突和阻断。",
                     **today,
                 },
+                "recent_hour": recent_hour,
             },
             "decision": decision,
             "adjustment_reviews": adjustment_reviews,
@@ -3986,6 +4120,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     finally:
         if discovery_client is not None:
+            _DIAGNOSTIC_ACCESS_TOKEN_CACHE.seed(
+                getattr(discovery_client, "_access_token", "")
+            )
             discovery_client.close()
     services = {
         shop_id: DiagnosticService(

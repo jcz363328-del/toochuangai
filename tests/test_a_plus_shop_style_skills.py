@@ -66,6 +66,29 @@ class APlusShopStyleSkillTests(unittest.TestCase):
             self.assertGreater(image.height, image.width)
             self.assertAlmostEqual(image.width / image.height, 1 / 3, places=2)
 
+    def test_builtin_skill_automatically_uses_the_matching_device_variant(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with patch.object(site, "A_PLUS_SKILL_ROOT", Path(temporary_directory)):
+                desktop_context = site.get_active_a_plus_layout_skill_context(
+                    "alice",
+                    "builtin-shop-15-desktop",
+                )
+                mobile_context = site.resolve_a_plus_layout_skill_context_for_layout(
+                    desktop_context,
+                    site.get_main_image_a_plus_layout("mobile_equal"),
+                    account_name="alice",
+                )
+
+        self.assertEqual(mobile_context["skill_id"], "builtin-shop-15-mobile")
+        self.assertEqual(mobile_context["device"], "mobile")
+        self.assertEqual(mobile_context["store_key"], "15")
+
+    def test_skill_builder_does_not_silently_select_the_first_store(self) -> None:
+        source = inspect.getsource(site.render_a_plus_layout_skill_builder)
+
+        self.assertIn('st.session_state[selection_key] = ""', source)
+        self.assertNotIn('st.session_state[selection_key] = skill_options[1]', source)
+
     def test_builtin_skill_cannot_be_deleted(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             with patch.object(site, "A_PLUS_SKILL_ROOT", Path(temporary_directory)):

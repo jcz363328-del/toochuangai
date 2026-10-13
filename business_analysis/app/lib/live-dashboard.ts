@@ -1,7 +1,7 @@
 import type { WorkbookData } from "./dashboard";
 
 export type LivePhase = "live" | "refreshing" | "degraded";
-export type LiveSourceMode = "database" | "memory-cache" | "workbook-snapshot";
+export type LiveSourceMode = "database" | "memory-cache" | "workbook-snapshot" | "daily-snapshot";
 export type LiveDatabaseStatus = "up" | "down" | "unknown";
 
 export interface LiveDatabaseSource {
@@ -70,6 +70,7 @@ const SOURCE_MODES = new Set<LiveSourceMode>([
   "database",
   "memory-cache",
   "workbook-snapshot",
+  "daily-snapshot",
 ]);
 const DB_STATUSES = new Set<LiveDatabaseStatus>(["up", "down", "unknown"]);
 const PERIOD_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;

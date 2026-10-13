@@ -5,7 +5,7 @@ import threading
 import time
 import pytds
 from functools import wraps
-from flask import request, jsonify, session, redirect, url_for, has_request_context
+from flask import request, jsonify, session, redirect, url_for, has_request_context, g
 from datetime import datetime, timedelta
 import os
 import hashlib
@@ -175,6 +175,26 @@ PERMISSION_CONFIG = {
         'name': 'AI部功能',
         'allowed_departments': ['AI部', '总经办'],
         'description': 'AI部专属功能模块'
+    },
+    'daily_replenishment': {
+        'name': '日常补货',
+        'allowed_departments': ['AI部'],
+        'description': 'AI功能卡片中的日常补货工作台，仅允许 AI部访问'
+    },
+    'daily_replenishment_operation': {
+        'name': '日常补货运营',
+        'allowed_departments': ['运营部', 'AI部', '总经办'],
+        'description': '日常补货运营版多工作表刷新功能，运营人员按 v_PinPaiDianPu.YunYing 查看本人店铺'
+    },
+    'ai_group_performance': {
+        'name': '组别经营数据',
+        'allowed_departments': ['AI部'],
+        'description': '按月份和组别查询店铺及站点经营数据，仅允许 AI部访问'
+    },
+    'video_claw': {
+        'name': 'VideoClaw AI视频创作',
+        'allowed_departments': ['AI部'],
+        'description': 'VideoClaw 全流程 AI 视频创作工作台，仅允许 AI部访问'
     },
     'finance_dept': {
         'name': '财务部功能',
@@ -632,7 +652,7 @@ class FeishuPermissionManager:
     def get_user_info_by_code(self, code):
         """通过授权码获取用户信息"""
         _safe_print(f"\n=== 通过授权码获取用户信息 ===")
-        _safe_print(f"🔑 授权码: {code}")  # 打印授权码
+        _safe_print(f"🔑 授权码已收到: {bool(code)}")
 
         # 新版 OAuth 授权码换取 user_access_token（v2）
         url = "https://open.feishu.cn/open-apis/authen/v2/oauth/token"
@@ -650,7 +670,10 @@ class FeishuPermissionManager:
 
         _safe_print(f"🌐 请求URL: {url}")  # 打印请求的 URL
         _safe_print(f"📋 请求头: {headers}")  # 打印请求头
-        _safe_print(f"📦 请求数据: {data}")  # 打印请求的数据
+        _safe_print(
+            f"📦 请求数据: grant_type={data.get('grant_type')}, "
+            f"client_id={data.get('client_id')}, redirect_uri={data.get('redirect_uri')}"
+        )
 
         try:
             _safe_print(f"🚀 发送请求获取用户访问令牌...")
@@ -658,7 +681,10 @@ class FeishuPermissionManager:
             _safe_print(f"📊 响应状态码: {response.status_code}")  # 打印响应的状态码
             _safe_print(f"📄 响应头: {dict(response.headers)}")  # 打印响应头
             result = response.json()  # 获取响应结果
-            _safe_print(f"📋 响应内容: {result}")  # 打印响应内容
+            _safe_print(
+                f"📋 响应概要: code={result.get('code')}, "
+                f"token_present={bool(result.get('access_token') or result.get('user_access_token') or (result.get('data') or {}).get('access_token'))}"
+            )
 
             if result.get('code') == 0:
                 token_data = result.get('data') or result
@@ -672,7 +698,7 @@ class FeishuPermissionManager:
                     _safe_print(f"❌ 响应成功但未返回 user_access_token")
                     _safe_print("========================\n")
                     return None
-                _safe_print(f"✅ 用户访问令牌获取成功: {user_access_token[:20]}...")  # 打印用户 token（部分）
+                _safe_print(f"✅ 用户访问令牌获取成功: length={len(user_access_token)}")
                 _safe_print(f"🔄 开始通过用户令牌获取用户信息...")
                 user_info = self.get_user_info_by_token(user_access_token)  # 使用用户 token 获取用户信息
                 if isinstance(user_info, dict):
@@ -680,14 +706,18 @@ class FeishuPermissionManager:
                     user_info['user_refresh_token'] = token_data.get('refresh_token', '')
                     user_info['user_token_expires_in'] = token_data.get('expires_in', 0)
                     user_info['user_refresh_expires_in'] = token_data.get('refresh_expires_in', 0)
-                _safe_print(f"📋 最终用户信息: {user_info}")  # 打印最终的用户信息
+                _safe_print(
+                    "📋 最终用户信息: "
+                    f"name={(user_info or {}).get('name') if isinstance(user_info, dict) else ''}, "
+                    f"open_id={(user_info or {}).get('open_id') if isinstance(user_info, dict) else ''}"
+                )
                 _safe_print("========================\n")
                 return user_info  # 返回用户信息
             else:
                 _safe_print(f"❌ 通过code获取用户token失败")  # 如果失败，打印失败信息
                 _safe_print(f"🔍 错误代码: {result.get('code')}")  # 打印错误代码
                 _safe_print(f"🔍 错误消息: {result.get('msg')}")  # 打印错误消息
-                _safe_print(f"🔍 完整响应: {result}")  # 打印完整的响应信息
+                _safe_print(f"🔍 响应概要: code={result.get('code')}, msg={result.get('msg')}")
                 _safe_print("========================\n")
                 return None  # 如果获取失败，返回 None
         except requests.exceptions.Timeout:
@@ -778,7 +808,7 @@ class FeishuPermissionManager:
             _safe_print("❌ 无法获取访问令牌，部门信息获取失败")  # 如果无法获取令牌，返回失败
             _safe_print("========================\n")
             return []
-        _safe_print(f"✅ 访问令牌获取成功: {token[:20]}...")  # 打印访问令牌（部分）
+        _safe_print(f"✅ 访问令牌获取成功: length={len(token)}")
 
         url = f"https://open.feishu.cn/open-apis/contact/v3/users/{user_id}"  # 获取用户部门信息的 API URL
         headers = {
@@ -795,7 +825,7 @@ class FeishuPermissionManager:
 
         _safe_print(f"📡 请求飞书API:")  # 打印请求的 API 信息
         _safe_print(f"  URL: {url}")
-        _safe_print(f"  Headers: {headers}")
+        _safe_print("  Headers: Authorization=<redacted>, Content-Type=application/json")
         _safe_print(f"  Params: {params}")
 
         try:
@@ -1000,7 +1030,12 @@ class FeishuPermissionManager:
         """读取会话里的权限调试部门（仅用于AI部权限联调）"""
         if not has_request_context():
             return []
-        raw = session.get('permission_debug_departments')
+        request_state = getattr(g, 'permission_debug_state', None)
+        raw = (
+            request_state.get('departments')
+            if isinstance(request_state, dict)
+            else session.get('permission_debug_departments')
+        )
         if isinstance(raw, str):
             raw = [raw]
         if not isinstance(raw, list):
@@ -1019,6 +1054,12 @@ class FeishuPermissionManager:
         """读取会话里的权限调试用户信息（仅用于AI部权限联调）"""
         if not has_request_context():
             return {'name': '', 'open_id': ''}
+        request_state = getattr(g, 'permission_debug_state', None)
+        if isinstance(request_state, dict):
+            return {
+                'name': str(request_state.get('user_name') or '').strip(),
+                'open_id': str(request_state.get('user_open_id') or '').strip()
+            }
         return {
             'name': str(session.get('permission_debug_user_name') or '').strip(),
             'open_id': str(session.get('permission_debug_user_open_id') or '').strip()
@@ -1248,13 +1289,12 @@ class FeishuPermissionManager:
         返回当前权限校验应使用的部门列表。
         - 默认使用真实部门
         - 当会话存在 permission_debug_departments 且用户真实包含 AI部 时，按模拟部门计算
-        - 为避免调试入口被锁死，ai_dept/admin_functions 始终按真实部门
+        - 模拟用户的所有功能（包括父级入口和管理员功能）都按模拟身份计算
         """
         real_departments = list(valid_departments or [])
         debug_departments = self._get_debug_departments_from_session()
         debug_user = self._get_debug_user_from_session()
-        bypass_debug_functions = {'ai_dept', 'admin_functions'}
-        can_use_debug = ('AI部' in real_departments) and function_name not in bypass_debug_functions
+        can_use_debug = 'AI部' in real_departments
         if can_use_debug and (debug_departments or debug_user.get('name')):
             return list(debug_departments), True
         return real_departments, False

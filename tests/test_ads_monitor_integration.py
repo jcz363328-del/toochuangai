@@ -13,11 +13,11 @@ class AdsMonitorIntegrationTests(unittest.TestCase):
         self.assertIn("MAGIC AD 广告监控", page)
         self.assertIn("url_for('ads_monitor')", page)
 
-    def test_main_app_protects_page_and_api_with_ai_department_permission(self):
+    def test_main_app_protects_page_and_api_with_magic_ad_permission(self):
         app_source = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn("@app.route('/ai/ads-monitor')", app_source)
         self.assertIn("@app.route('/api/ads-monitor/diagnostic'", app_source)
-        self.assertGreaterEqual(app_source.count("@require_permission('ai_dept')"), 3)
+        self.assertGreaterEqual(app_source.count("@require_permission('ads_monitor')"), 3)
 
     def test_frontend_has_a_dedicated_flask_build_and_proxy_endpoint(self):
         package = (WEB_ROOT / "package.json").read_text(encoding="utf-8")

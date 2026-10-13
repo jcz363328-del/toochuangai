@@ -463,7 +463,7 @@ export function App() {
                   label="Title"
                   fieldKey="title"
                   value={activeVariant.title}
-                  limit={75}
+                  limit={70}
                   keywords={keywords}
                   editingKey={editingKey}
                   translation={translations.title}
@@ -883,7 +883,7 @@ function buildGenerationPayload(form) {
     },
     compliance: {
       forbiddenTerms: parseTerms(form.forbiddenTerms),
-      customRules: "Title <=75 characters; Item Highlights <=125 characters; avoid unsupported claims and keyword stuffing.",
+      customRules: "Title must target exactly 70 characters; Item Highlights must target exactly 125 characters; avoid unsupported claims and keyword stuffing.",
     },
     skill: {
       name: "Focused Split Studio V2",
@@ -894,7 +894,7 @@ function buildGenerationPayload(form) {
       historicalReference: form.referenceListing,
     },
     limits: {
-      title: 75,
+      title: 70,
       itemHighlight: 125,
       bullet: 500,
       description: 2000,

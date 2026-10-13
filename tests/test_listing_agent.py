@@ -413,6 +413,17 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         )
         self.assertEqual(call_siliconflow.call_args_list[0].kwargs["read_timeout"], 60)
 
+    def test_text_model_defaults_to_dedicated_text_model(self) -> None:
+        with (
+            patch.object(listing_module, "ai_runtime_config", return_value={}),
+            patch.object(listing_module, "env", return_value=""),
+            patch.object(listing_module, "_get_model", return_value="slow/vision-model"),
+        ):
+            self.assertEqual(
+                listing_module._get_text_model(),
+                listing_module.DEFAULT_SILICONFLOW_TEXT_MODEL,
+            )
+
     def test_listing_page_has_selectable_builtin_skills_and_user_scoped_risk_state(self) -> None:
         root = Path(__file__).resolve().parents[1]
         page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
@@ -447,7 +458,7 @@ class ListingAgentBlueprintTests(unittest.TestCase):
 
         self.assertIn('id="titleScore">0/75', page)
         self.assertIn('id="itemHighlightScore">0/125', page)
-        self.assertIn('titleLimit: 75', script)
+        self.assertIn('titleLimit: 70', script)
         self.assertIn('itemHighlightLimit: 125', script)
         self.assertIn('Item Highlights（商品亮点，常称副标题）', script)
         self.assertIn('${escapeHtml(variant.itemHighlight)}', script)
@@ -711,8 +722,10 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         self.assertEqual(payload["storage"]["storedAs"], "database")
         self.assertEqual(Path(payload["storage"]["skillPath"]).parent, self.skill_storage_dir)
         self.assertEqual([item["id"] for item in payload["variants"]], ["balanced", "style", "search"])
-        self.assertEqual(payload["variants"][0]["itemHighlight"], "balanced item highlight")
+        self.assertEqual(payload["variants"][0]["itemHighlight"], "Balanced item highlight")
         request_payload = mocked_call.call_args.args[1]
+        self.assertFalse(request_payload["enable_thinking"])
+        self.assertEqual(request_payload["max_tokens"], 4000)
         self.assertEqual(request_payload["messages"][0]["role"], "system")
         self.assertIn("July 27, 2026", request_payload["messages"][0]["content"])
         self.assertIn("Item Highlights", request_payload["messages"][0]["content"])
@@ -740,8 +753,58 @@ class ListingAgentBlueprintTests(unittest.TestCase):
         normalized = listing_module._normalize_generated_listing_variants(variants)
 
         self.assertEqual(len(normalized), 3)
-        self.assertTrue(all(len(item["title"]) <= 75 for item in normalized))
+        self.assertTrue(all(len(item["title"]) <= 70 for item in normalized))
         self.assertTrue(all(len(item["itemHighlight"]) <= 125 for item in normalized))
+
+    def test_generated_highlights_and_bullets_start_with_uppercase_letters(self) -> None:
+        variants = [
+            {
+                "id": variant_id,
+                "title": "Lash Clusters Kit",
+                "itemHighlight": "soft wispy definition",
+                "highlights": ["mixed lengths", "clear band", "d curl"],
+                "bullets": ["first benefit", "second spec", "third design", "fourth scene", "fifth package"],
+                "description": "Description",
+                "searchTerms": "lash clusters wispy",
+                "reasons": ["测试理由"],
+            }
+            for variant_id in ("balanced", "style", "search")
+        ]
+
+        normalized = listing_module._normalize_generated_listing_variants(variants)
+
+        self.assertEqual(normalized[0]["itemHighlight"], "Soft wispy definition")
+        self.assertEqual(normalized[0]["highlights"], ["Mixed lengths", "Clear band", "D curl"])
+        self.assertEqual(normalized[0]["bullets"][0], "First benefit")
+
+    def test_keyword_priorities_are_sorted_by_aba_signals(self) -> None:
+        payload = listing_module._normalize_listing_generation_input(
+            {
+                "product": {"type": "lash clusters"},
+                "keywords": {
+                    "rankingPriority": [
+                        {"term": "lower priority", "rank": 900},
+                        {"term": "highest priority", "rank": 12},
+                        {"term": "unknown rank"},
+                    ],
+                    "growthPriority": [
+                        {"term": "slow growth", "growth": 20},
+                        {"term": "fast growth", "growth": 500},
+                    ],
+                    "conversionPriority": [
+                        {"term": "low conversion", "conversionShare": 0.1},
+                        {"term": "high conversion", "conversionShare": 0.4},
+                    ],
+                },
+            }
+        )
+
+        self.assertEqual(
+            [item["term"] for item in payload["keywords"]["rankingPriority"]],
+            ["highest priority", "lower priority", "unknown rank"],
+        )
+        self.assertEqual(payload["keywords"]["growthPriority"][0]["term"], "fast growth")
+        self.assertEqual(payload["keywords"]["conversionPriority"][0]["term"], "high conversion")
 
     def test_long_listing_is_archived_to_configured_listing_folder(self) -> None:
         self.login()

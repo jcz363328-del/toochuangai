@@ -927,6 +927,15 @@
             </div>
 
             <section class="section-card">
+                <div class="section-head"><div class="section-heading"><span class="step-index"><i class="fa-solid fa-download"></i></span><div><h2>按日期导出日报</h2><div class="section-caption">保留日报原格式并内嵌已上传图片</div></div></div></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+                    <div><label class="field-label" for="mobileExportDateStart">开始日期</label><input id="mobileExportDateStart" class="field" type="date"></div>
+                    <div><label class="field-label" for="mobileExportDateEnd">结束日期</label><input id="mobileExportDateEnd" class="field" type="date"></div>
+                </div>
+                <button id="mobileExportReportsBtn" type="button" class="btn secondary" style="width:100%;margin-top:12px"><i class="fa-solid fa-file-arrow-down"></i> 导出 HTML</button>
+            </section>
+
+            <section class="section-card">
                 <div class="section-head">
                     <div class="section-heading">
                         <span class="step-index">1</span>
@@ -2425,6 +2434,19 @@
     document.getElementById('testReminderBtn').addEventListener('click', testReportReminder);
     document.getElementById('generateBtn').addEventListener('click', generatePeriodReport);
     document.getElementById('refreshHistoryAnalysisBtn').addEventListener('click', loadHistoryAnalysisList);
+    (function initMobileReportExport() {
+        const start = document.getElementById('mobileExportDateStart');
+        const end = document.getElementById('mobileExportDateEnd');
+        const today = new Date();
+        const localDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        start.value = localDate(today);
+        end.value = localDate(today);
+        document.getElementById('mobileExportReportsBtn').addEventListener('click', function () {
+            if (!start.value || !end.value) { alert('请选择导出日期'); return; }
+            if (end.value < start.value) { alert('结束日期不能早于开始日期'); return; }
+            window.location.href = '/api/xiaotu/report_history_download?' + new URLSearchParams({date_start:start.value,date_end:end.value}).toString();
+        });
+    })();
     document.getElementById('knowledgeSearchBtn').addEventListener('click', searchOwnKnowledge);
     document.getElementById('knowledgeSearchInput').addEventListener('keydown', function (evt) {
         if ((evt.ctrlKey || evt.metaKey) && evt.key === 'Enter') searchOwnKnowledge();

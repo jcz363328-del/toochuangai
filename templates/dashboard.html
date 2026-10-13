@@ -351,6 +351,12 @@
                     <div class="nav-left"><i class="fa-solid fa-film"></i><span class="nav-name">Seedance 视频生成</span></div>
                     <div class="nav-right"><i class="fas fa-angle-right"></i></div>
                 </div>
+                {% if can_video_claw %}
+                <div class="nav-item available" data-menu="VideoClaw AI视频创作" data-href="{{ url_for('video_claw') }}" data-search="VideoClaw AI视频创作 剧本 分镜 视频生成">
+                    <div class="nav-left"><i class="fa-solid fa-clapperboard"></i><span class="nav-name">VideoClaw AI视频创作</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+                {% endif %}
                 <div class="nav-item available" data-menu="年会精彩瞬间" data-href="{{ url_for('annual_moments') }}" data-search="年会精彩瞬间 年会 图片 视频 相册">
                     <div class="nav-left"><i class="fa-solid fa-images"></i><span class="nav-name">年会精彩瞬间</span></div>
                     <div class="nav-right"><i class="fas fa-angle-right"></i></div>

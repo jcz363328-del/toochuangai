@@ -37,6 +37,13 @@ try {
     }
     if (-not $lockTaken -or (Test-ApiHealth)) { exit 0 }
 
+    # Some Windows hosts expose both `Path` and `PATH`. Start-Process builds a
+    # case-insensitive environment dictionary and otherwise fails before the
+    # API child process is created.
+    $processPath = $env:Path
+    Remove-Item Env:PATH -ErrorAction SilentlyContinue
+    $env:Path = $processPath
+
     $node = (Get-Command "node.exe" -ErrorAction Stop).Source
     $mssqlPackage = Join-Path $projectDir "node_modules\mssql\package.json"
     if (-not (Test-Path -LiteralPath $mssqlPackage)) {

@@ -64,6 +64,56 @@ SELECT
 FROM Performance p
 LEFT JOIN Organization o ON p.Store = o.Dian`,
   },
+  // 店铺层级来自 CengJi 历史表：取全表最近业务日，并用历史变化点
+  // 计算当前等级连续天数。每天跨过本地零点后会重新读取。
+  storeTiers: {
+    params: [
+      { name: "department", type: "text" },
+      { name: "operator", type: "text" },
+      { name: "store", type: "int" },
+    ],
+    text: `
+WITH CurrentTier AS (
+  SELECT
+    cj.Dian,
+    cj.RiQi,
+    CONCAT(CONVERT(nvarchar(20), cj.CengJi1), CONVERT(nvarchar(10), cj.CengJi2)) AS Tier,
+    cj.CengJiID
+  FROM CengJi cj
+  WHERE cj.RiQi = (SELECT MAX(RiQi) FROM CengJi)
+)
+SELECT
+  cj.Dian AS Store,
+  cj.Tier,
+  cj.CengJiID AS TierRank,
+  CASE
+    WHEN history.LastDifferentDate IS NOT NULL THEN DATEDIFF(day, history.LastDifferentDate, cj.RiQi)
+    ELSE DATEDIFF(day, firstSeen.FirstObservedDate, cj.RiQi) + 1
+  END AS CurrentLevelDays,
+  CAST(cj.RiQi AS date) AS EffectiveDate,
+  dp.BuMen AS Department,
+  dp.ZuZhang AS Leader,
+  dp.YunYing AS Operator
+FROM CurrentTier cj
+LEFT JOIN v_PinPaiDianPu dp ON cj.Dian = dp.Dian
+OUTER APPLY (
+  SELECT TOP (1) old.RiQi AS LastDifferentDate
+  FROM CengJi old
+  WHERE old.Dian = cj.Dian
+    AND old.RiQi < cj.RiQi
+    AND CONCAT(CONVERT(nvarchar(20), old.CengJi1), CONVERT(nvarchar(10), old.CengJi2)) <> cj.Tier
+  ORDER BY old.RiQi DESC
+) history
+CROSS APPLY (
+  SELECT MIN(old.RiQi) AS FirstObservedDate
+  FROM CengJi old
+  WHERE old.Dian = cj.Dian AND old.RiQi <= cj.RiQi
+) firstSeen
+WHERE (@department IS NULL OR dp.BuMen = @department)
+  AND (@operator IS NULL OR dp.YunYing = @operator)
+  AND (@store IS NULL OR cj.Dian = @store)
+ORDER BY dp.BuMen, dp.ZuZhang, dp.YunYing, cj.Dian`,
+  },
   categorySegments: {
     minimumTimeoutMs: 45_000,
     params: [
@@ -71,12 +121,16 @@ LEFT JOIN Organization o ON p.Store = o.Dian`,
       { name: "currentEnd", type: "date" },
       { name: "previousStart", type: "date" },
       { name: "previousEnd", type: "date" },
+      { name: "yearAgoStart", type: "date" },
+      { name: "yearAgoEnd", type: "date" },
     ],
     text: `
 WITH Periods AS (
   SELECT N'current' AS PeriodKey, @currentStart AS StartDate, @currentEnd AS EndDate
   UNION ALL
   SELECT N'previous', @previousStart, @previousEnd
+  UNION ALL
+  SELECT N'yearAgo', @yearAgoStart, @yearAgoEnd
 ), Segments AS (
   SELECT 1 AS SortOrder, N'paired' AS SegmentKey, N'对毛' AS CategoryLabel,
     N'对毛-化纤' AS IndustryLabel
@@ -120,8 +174,10 @@ WITH Periods AS (
     SegmentKey,
     SUM(CASE WHEN PeriodKey = N'current' THEN Sales ELSE 0 END) AS CurrentSales,
     SUM(CASE WHEN PeriodKey = N'previous' THEN Sales ELSE 0 END) AS PreviousSales,
+    SUM(CASE WHEN PeriodKey = N'yearAgo' THEN Sales ELSE 0 END) AS YearAgoSales,
     SUM(CASE WHEN PeriodKey = N'current' THEN UsSales ELSE 0 END) AS CurrentUsSales,
-    SUM(CASE WHEN PeriodKey = N'previous' THEN UsSales ELSE 0 END) AS PreviousUsSales
+    SUM(CASE WHEN PeriodKey = N'previous' THEN UsSales ELSE 0 END) AS PreviousUsSales,
+    SUM(CASE WHEN PeriodKey = N'yearAgo' THEN UsSales ELSE 0 END) AS YearAgoUsSales
   FROM CompanyRaw
   GROUP BY SegmentKey
 ), DepartmentPivot AS (
@@ -130,8 +186,10 @@ WITH Periods AS (
     Department,
     SUM(CASE WHEN PeriodKey = N'current' THEN Sales ELSE 0 END) AS CurrentSales,
     SUM(CASE WHEN PeriodKey = N'previous' THEN Sales ELSE 0 END) AS PreviousSales,
+    SUM(CASE WHEN PeriodKey = N'yearAgo' THEN Sales ELSE 0 END) AS YearAgoSales,
     SUM(CASE WHEN PeriodKey = N'current' THEN UsSales ELSE 0 END) AS CurrentUsSales,
-    SUM(CASE WHEN PeriodKey = N'previous' THEN UsSales ELSE 0 END) AS PreviousUsSales
+    SUM(CASE WHEN PeriodKey = N'previous' THEN UsSales ELSE 0 END) AS PreviousUsSales,
+    SUM(CASE WHEN PeriodKey = N'yearAgo' THEN UsSales ELSE 0 END) AS YearAgoUsSales
   FROM DepartmentRaw
   GROUP BY SegmentKey, Department
 )
@@ -146,12 +204,16 @@ SELECT
   d.Department,
   ISNULL(c.CurrentSales, 0) AS CurrentCompanySales,
   ISNULL(c.PreviousSales, 0) AS PreviousCompanySales,
+  ISNULL(c.YearAgoSales, 0) AS YearAgoCompanySales,
   ISNULL(c.CurrentUsSales, 0) AS CurrentCompanyUsSales,
   ISNULL(c.PreviousUsSales, 0) AS PreviousCompanyUsSales,
+  ISNULL(c.YearAgoUsSales, 0) AS YearAgoCompanyUsSales,
   ISNULL(dp.CurrentSales, 0) AS CurrentDepartmentSales,
   ISNULL(dp.PreviousSales, 0) AS PreviousDepartmentSales,
+  ISNULL(dp.YearAgoSales, 0) AS YearAgoDepartmentSales,
   ISNULL(dp.CurrentUsSales, 0) AS CurrentDepartmentUsSales,
   ISNULL(dp.PreviousUsSales, 0) AS PreviousDepartmentUsSales,
+  ISNULL(dp.YearAgoUsSales, 0) AS YearAgoDepartmentUsSales,
   CAST(0 AS decimal(19,4)) AS CurrentIndustrySales,
   CAST(0 AS decimal(19,4)) AS PreviousIndustrySales,
   CAST(0 AS int) AS CurrentCoveredDays,
@@ -216,7 +278,7 @@ SELECT
   dp.BuMen AS Department,
   dp.ZuZhang AS Leader,
   dp.YunYing AS Operator,
-  cj.CengJi1 AS Tier,
+  CONCAT(CONVERT(nvarchar(20), cj.CengJi1), CONVERT(nvarchar(10), cj.CengJi2)) AS Tier,
   o.Dian AS Store,
   o.TotalUnits,
   ISNULL(s.OceanUnits, 0) AS OceanUnits,

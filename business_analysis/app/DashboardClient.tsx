@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ECElementEvent, EChartsOption } from "echarts";
 import EChart from "./components/EChart";
+import FiscalOverview from "./components/FiscalOverview";
+import KeyTasksBoard from "./components/KeyTasksBoard";
+import { MARKET_OVERVIEW_ROWS } from "./data/marketOverview";
 import { useLiveDashboard } from "./hooks/useLiveDashboard";
 import {
   aggregateDepartments,
@@ -17,14 +20,16 @@ import {
   percent,
   shortDate,
   summarizeOverallPerformance,
+  tierRankValue,
+  type BusinessAnalysisAccessScope,
   type CategorySegment,
   type Filters,
   type WorkbookData,
 } from "./lib/dashboard";
 
 type Theme = "light" | "dark";
-type SortMode = "sales" | "growth" | "margin" | "slow" | "unshipped";
-type DashboardTab = "performance" | "categories" | "operations" | "stores";
+type SortMode = "sales" | "growth" | "margin" | "slow" | "tier";
+type DashboardTab = "home" | "performance" | "market" | "categories" | "operations" | "stores" | "tasks";
 type RiskTab = "inventory" | "fulfillment" | "shipping" | "new";
 type FormulaId = "sales.current" | "profit.current" | "margin.current" | "growth.daily_mom";
 
@@ -45,6 +50,27 @@ interface RiskDetailRow {
   primary: string;
   secondary: string;
   sortValue: number;
+  comparison?: string;
+}
+
+interface StoreTierHistoryRow {
+  date: string;
+  store: number;
+  tier: string;
+  tierRank: number | null;
+  department: string;
+  leader: string;
+  operator: string;
+}
+
+interface StoreTierHistoryMeta {
+  store: number;
+  currentTier: string;
+  currentLevelDays: number;
+  historicalOfficialTier: string | null;
+  historicalOfficialTierRank: number | null;
+  officialSince: string | null;
+  officialSource: string | null;
 }
 
 const riskTableLabels: Record<RiskTab, { primary: string; secondary: string; empty: string }> = {
@@ -54,24 +80,43 @@ const riskTableLabels: Record<RiskTab, { primary: string; secondary: string; emp
   new: { primary: "主 SKU", secondary: "原始记录", empty: "当前范围没有新品记录" },
 };
 
-const defaultFilters: Filters = { department: "", operator: "", store: "" };
+const defaultFilters: Filters = { department: "", operator: "", store: "", tier: "" };
 
 const trendTone = (value: number | null) =>
   value === null ? "neutral" : value >= 0 ? "positive" : "negative";
 
 const growthLabel = (value: number | null, digits = 1) => {
   if (value === null || !Number.isFinite(value)) return "—";
-  if (Math.abs(value) > 9.99) return value > 0 ? ">999%" : "<-999%";
+  if (Math.abs(value) > 9.99) return value > 0 ? ">999.00%" : "<-999.00%";
   return percent(value, digits);
 };
 
 const movementLabel = (value: number | null) =>
   value === null ? "暂无可比数据" : `${value >= 0 ? "上升" : "下降"} ${percent(Math.abs(value), 2)}`;
 
+const categoryAmountLabel = (value: number | null, visible: boolean) =>
+  visible ? (value !== null && Number.isFinite(value) ? compactMoney(value) : "—") : "---";
+
 const pointMovementLabel = (value: number | null) => {
   if (value === null || !Number.isFinite(value)) return "暂无可比数据";
   if (Math.abs(value) < 0.00005) return "基本持平";
   return `${value > 0 ? "上升" : "下降"} ${(Math.abs(value) * 100).toFixed(2)} 个百分点`;
+};
+
+const tierTone = (tier: string | null) => {
+  if (!tier) return "unknown";
+  if (/^[钻鑽]/.test(tier)) return "diamond";
+  if (tier.startsWith("金")) return "gold";
+  if (/^[银銀]/.test(tier)) return "silver";
+  if (/^[铜銅]/.test(tier)) return "bronze";
+  return "unknown";
+};
+
+const averageComparisonLabel = (value: number, average: number, benchmarkLabel: string) => {
+  if (!average) return value ? `高于${benchmarkLabel}` : `与${benchmarkLabel}持平`;
+  const difference = value / average - 1;
+  if (Math.abs(difference) < 0.0005) return `与${benchmarkLabel}持平`;
+  return `${difference > 0 ? "高于" : "低于"}${benchmarkLabel} ${percent(Math.abs(difference), 1)}`;
 };
 
 function KpiCard({
@@ -142,15 +187,20 @@ function PanelTitle({
   title,
   copy,
   tag,
+  metric,
 }: {
   title: string;
   copy: string;
   tag?: string;
+  metric?: string;
 }) {
   return (
     <div className="panel-title">
       <div>
-        <h3>{title}</h3>
+        <div className="panel-title-heading">
+          <h3>{title}</h3>
+          {metric ? <span className="panel-title-metric">{metric}</span> : null}
+        </div>
         <p>{copy}</p>
       </div>
       {tag ? <span className="panel-tag">{tag}</span> : null}
@@ -162,10 +212,14 @@ function CategoryArena({
   segment,
   currentLabel,
   previousLabel,
+  yearAgoLabel,
+  canViewAmounts,
 }: {
   segment: CategorySegment;
   currentLabel: string;
   previousLabel: string;
+  yearAgoLabel: string;
+  canViewAmounts: boolean;
 }) {
   const companyRatios = segment.ratios?.company;
   const ratioByDepartment = new Map(
@@ -175,7 +229,9 @@ function CategoryArena({
     .map((department) => ratioByDepartment.get(department))
     .filter((row): row is NonNullable<CategorySegment["ratios"]>["departments"][number] => Boolean(row));
   const companyMom = companyRatios?.dailyMom ?? null;
+  const companyYoy = companyRatios?.dailyYoy ?? null;
   const usMom = companyRatios?.usDailyMom ?? null;
+  const usYoy = companyRatios?.usDailyYoy ?? null;
 
   return (
     <article className={`category-arena category-${segment.key}`}>
@@ -183,7 +239,7 @@ function CategoryArena({
         <div>
           <span className="eyebrow">Category arena</span>
           <h3>{segment.label}</h3>
-          <p>绝对金额已隐藏，仅展示增长、销售结构与美国口径占比</p>
+          <p>{canViewAmounts ? "展示总体销售额、日均销售额、增长与美国口径占比" : "绝对金额已隐藏，仅展示增长、销售结构与美国口径占比"}</p>
         </div>
         <span className={`trend-pill ${trendTone(companyMom)}`}>图创日均 {growthLabel(companyMom, 2)}</span>
       </header>
@@ -193,30 +249,34 @@ function CategoryArena({
           <div className="category-block-title"><b>图创公司{segment.label}</b><span>比例公开</span></div>
           <div className="table-scroll table-scroll-compact">
             <table className="compact-table category-metric-table company-category-table">
-              <thead><tr><th>期间</th><th>美国销售占比</th><th>占比变化</th></tr></thead>
+              <thead><tr><th>期间</th><th>总体销售额</th><th>日均销售额</th><th>美国销售占比</th><th>占比变化</th></tr></thead>
               <tbody>
-                <tr><td>{previousLabel}</td><td>{percent(companyRatios?.previousUsShare ?? null, 2)}</td><td>基期</td></tr>
-                <tr><td>{currentLabel}</td><td><b>{percent(companyRatios?.currentUsShare ?? null, 2)}</b></td><td>{pointMovementLabel(
+                <tr><td>{yearAgoLabel}</td><td>{categoryAmountLabel(companyRatios?.yearAgoSales ?? null, canViewAmounts)}</td><td>{categoryAmountLabel(companyRatios?.yearAgoDailySales ?? null, canViewAmounts)}</td><td>{percent(companyRatios?.yearAgoUsShare ?? null, 2)}</td><td>同比基期</td></tr>
+                <tr><td>{previousLabel}</td><td>{categoryAmountLabel(companyRatios?.previousSales ?? null, canViewAmounts)}</td><td>{categoryAmountLabel(companyRatios?.previousDailySales ?? null, canViewAmounts)}</td><td>{percent(companyRatios?.previousUsShare ?? null, 2)}</td><td>环比基期</td></tr>
+                <tr><td>{currentLabel}</td><td><b>{categoryAmountLabel(companyRatios?.currentSales ?? null, canViewAmounts)}</b></td><td><b>{categoryAmountLabel(companyRatios?.currentDailySales ?? null, canViewAmounts)}</b></td><td><b>{percent(companyRatios?.currentUsShare ?? null, 2)}</b></td><td>{pointMovementLabel(
                   companyRatios?.currentUsShare != null && companyRatios.previousUsShare != null
                     ? companyRatios.currentUsShare - companyRatios.previousUsShare
                     : null,
                 )}</td></tr>
               </tbody>
-              <tfoot><tr><td>日均环比</td><td><span className={`trend-pill ${trendTone(companyMom)}`}>{growthLabel(companyMom, 2)}</span></td><td>美国口径 {growthLabel(usMom, 2)}</td></tr></tfoot>
+              <tfoot>
+                <tr><td colSpan={2}>日均环比</td><td><span className={`trend-pill ${trendTone(companyMom)}`}>{growthLabel(companyMom, 2)}</span></td><td colSpan={2}>美国口径 {growthLabel(usMom, 2)}</td></tr>
+                <tr><td colSpan={2}>日均同比</td><td><span className={`trend-pill ${trendTone(companyYoy)}`}>{growthLabel(companyYoy, 2)}</span></td><td colSpan={2}>美国口径 {growthLabel(usYoy, 2)}</td></tr>
+              </tfoot>
             </table>
           </div>
         </section>
       </div>
 
       <p className="category-insight">
-        图创公司较上月{movementLabel(companyMom)}，美国口径{movementLabel(usMom)}。
+        图创公司较上月{movementLabel(companyMom)}，较去年同期{movementLabel(companyYoy)}；美国口径环比{movementLabel(usMom)}、同比{movementLabel(usYoy)}。
       </p>
 
       <section className="category-department-block">
         <div className="category-block-title"><b>五部门{segment.label}比例</b><span>所有成员可见</span></div>
         <div className="table-scroll table-scroll-compact">
           <table className="compact-table category-department-table">
-            <thead><tr><th>部门</th><th>{previousLabel}占比</th><th>{currentLabel}占比</th><th>占比变化</th><th>日均环比</th><th>美国销售占比</th></tr></thead>
+            <thead><tr><th>部门</th><th>{currentLabel}总体销售额</th><th>{currentLabel}日均销售额</th><th>{yearAgoLabel}占比</th><th>{previousLabel}占比</th><th>{currentLabel}占比</th><th>占比变化</th><th>日均环比</th><th>日均同比</th><th>美国销售占比</th></tr></thead>
             <tbody>
               {departmentRows.map((row) => {
                 const shareChange = row.currentShare != null && row.previousShare != null
@@ -225,10 +285,14 @@ function CategoryArena({
                 return (
                   <tr key={row.department}>
                     <td><b>{row.department}</b></td>
+                    <td>{categoryAmountLabel(row.currentSales ?? null, row.currentSales != null)}</td>
+                    <td>{categoryAmountLabel(row.currentDailySales ?? null, row.currentDailySales != null)}</td>
+                    <td>{percent(row.yearAgoShare, 2)}</td>
                     <td>{percent(row.previousShare, 2)}</td>
                     <td><b>{percent(row.currentShare, 2)}</b></td>
                     <td><span className={`trend-text ${trendTone(shareChange)}`}>{pointMovementLabel(shareChange)}</span></td>
                     <td><span className={`trend-pill ${trendTone(row.dailyMom)}`}>{growthLabel(row.dailyMom, 2)}</span></td>
+                    <td><span className={`trend-pill ${trendTone(row.dailyYoy)}`}>{growthLabel(row.dailyYoy, 2)}</span></td>
                     <td>{percent(row.currentUsShare, 2)}</td>
                   </tr>
                 );
@@ -238,7 +302,7 @@ function CategoryArena({
         </div>
       </section>
       <p className="category-method">
-        金额字段由服务端脱敏；销售占比为部门销售 ÷ 五部门销售，美国销售占比为美国销售 ÷ 对应范围销售。
+        金额字段由服务端脱敏；日均同比按本月日均销售 ÷ 去年同月日均销售 − 1 计算，去年同月占比作为同比基期展示。
       </p>
     </article>
   );
@@ -264,7 +328,7 @@ function FormulaDrawer({
         </div>
         <div className="formula-result">
           <strong>{detail.value}</strong>
-          <span className={`source-badge source-${mode}`}>{mode === "database" ? "实时数据库" : mode === "memory-cache" ? "最近成功缓存" : "Excel 快照"}</span>
+          <span className={`source-badge source-${mode}`}>{mode === "daily-snapshot" ? "每日快照" : mode === "database" ? "实时数据库" : mode === "memory-cache" ? "最近成功缓存" : "Excel 快照"}</span>
         </div>
         <section className="formula-block">
           <span>计算公式</span>
@@ -306,32 +370,89 @@ function makeDateRange(start: string, end: string) {
 
 export default function DashboardClient({ data: initialData }: { data: WorkbookData }) {
   const initialPeriod = initialData.performance.periods.find((row) => row.key === "current");
+  const today = new Date();
   const [period, setPeriod] = useState(
-    initialPeriod ? `${initialPeriod.year}-${String(initialPeriod.month).padStart(2, "0")}` : "2026-07",
+    initialData.meta.sourceFile && initialPeriod
+      ? `${initialPeriod.year}-${String(initialPeriod.month).padStart(2, "0")}`
+      : `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`,
   );
   const live = useLiveDashboard(initialData, period);
   const data = live.data;
-  const accessScope = data.meta.accessScope;
+  const [resolvedAccessScope, setResolvedAccessScope] = useState<BusinessAnalysisAccessScope | null>(
+    initialData.meta.accessScope ?? null,
+  );
+  useEffect(() => {
+    if (data.meta.accessScope || resolvedAccessScope) return;
+    const controller = new AbortController();
+    const scopeApi = document.documentElement.dataset.scopeApi || "/api/ai/business-analysis/scope";
+    void fetch(scopeApi, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`scope request failed: ${response.status}`);
+        return response.json() as Promise<{ scope?: BusinessAnalysisAccessScope }>;
+      })
+      .then((payload) => {
+        if (payload.scope) setResolvedAccessScope(payload.scope);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.warn("Business analysis scope request failed", error);
+        }
+      });
+    return () => controller.abort();
+  }, [data.meta.accessScope, resolvedAccessScope]);
+  const accessScope = data.meta.accessScope ?? resolvedAccessScope ?? undefined;
   const canViewAmounts = accessScope?.canViewAmounts === true;
   const displayMoney = useCallback(
-    (value: number) => canViewAmounts ? money(value) : "已隐藏",
+    (value: number) => canViewAmounts ? money(value) : "---",
     [canViewAmounts],
   );
   const displayCompactMoney = useCallback(
-    (value: number) => canViewAmounts ? compactMoney(value) : "已隐藏",
+    (value: number) => canViewAmounts ? compactMoney(value) : "---",
     [canViewAmounts],
   );
   const displayIntegerAmount = (value: number | null) =>
-    canViewAmounts && value !== null ? integer(value) : "已隐藏";
+    canViewAmounts && value !== null ? integer(value) : "---";
   const [theme, setTheme] = useState<Theme>("light");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [sortMode, setSortMode] = useState<SortMode>("margin");
   const [showAll, setShowAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("performance");
+  const [showTierHistory, setShowTierHistory] = useState(false);
+  const [tierHistoryDays, setTierHistoryDays] = useState(90);
+  const [tierHistoryStore, setTierHistoryStore] = useState("");
+  const [tierHistoryRows, setTierHistoryRows] = useState<StoreTierHistoryRow[]>([]);
+  const [tierHistoryMeta, setTierHistoryMeta] = useState<StoreTierHistoryMeta[]>([]);
+  const [tierHistoryLoading, setTierHistoryLoading] = useState(false);
+  const [tierHistoryError, setTierHistoryError] = useState("");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   const [riskTab, setRiskTab] = useState<RiskTab>("inventory");
   const [activeFormula, setActiveFormula] = useState<FormulaId | null>(null);
   const themeReady = useRef(false);
-  const visibleTab: DashboardTab = accessScope?.role === "ratio_viewer" ? "categories" : activeTab;
+  const visibleTab: DashboardTab = activeTab;
+
+  const loadTierHistory = useCallback(async (days: number, store: string) => {
+    setTierHistoryLoading(true);
+    setTierHistoryError("");
+    try {
+      const query = new URLSearchParams({ days: String(days) });
+      if (store) query.set("store", store);
+      const response = await fetch(`/api/ai/business-analysis/store-tier-history?${query}`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      const payload = await response.json() as { rows?: StoreTierHistoryRow[]; storeMeta?: StoreTierHistoryMeta[]; error?: { message?: string } };
+      if (!response.ok) throw new Error(payload.error?.message || "店铺等级历史读取失败");
+      setTierHistoryRows(payload.rows ?? []);
+      setTierHistoryMeta(payload.storeMeta ?? []);
+    } catch (error) {
+      setTierHistoryError(error instanceof Error ? error.message : "店铺等级历史读取失败");
+    } finally {
+      setTierHistoryLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("sales-dashboard-theme") as Theme | null;
@@ -357,11 +478,43 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
     return () => window.removeEventListener("keydown", close);
   }, [activeFormula]);
 
+  useEffect(() => {
+    if (!showTierHistory) return;
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setShowTierHistory(false);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", close);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", close);
+    };
+  }, [showTierHistory]);
+
   const allStores = useMemo(() => buildStoreViews(data), [data]);
   const stores = useMemo(
     () => allStores.filter((row) => isFocusDepartment(row.department)),
     [allStores],
   );
+  const tierHistoryDates = useMemo(
+    () => [...new Set(tierHistoryRows.map((row) => row.date))].sort((a, b) => b.localeCompare(a)),
+    [tierHistoryRows],
+  );
+  const tierHistoryMatrix = useMemo(() => {
+    const metaByStore = new Map(tierHistoryMeta.map((item) => [item.store, item]));
+    const grouped = new Map<number, { store: number; department: string; operator: string; tiers: Map<string, string>; meta?: StoreTierHistoryMeta }>();
+    for (const row of tierHistoryRows) {
+      const item = grouped.get(row.store) ?? {
+        store: row.store,
+        department: row.department,
+        operator: row.operator,
+        tiers: new Map<string, string>(),
+        meta: metaByStore.get(row.store),
+      };
+      item.tiers.set(row.date, row.tier);
+      grouped.set(row.store, item);
+    }
+    return [...grouped.values()].sort((a, b) => a.store - b.store);
+  }, [tierHistoryMeta, tierHistoryRows]);
   const overallStores = useMemo(
     () => allStores.filter((row) => row.hasPerformance || row.current.sales || row.previous.sales || row.yearAgo.sales),
     [allStores],
@@ -372,9 +525,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
   );
   const operatorOptions = useMemo(
     () =>
-      [...new Set(stores.filter((row) => !filters.department || row.department === filters.department).map((row) => row.operator))]
+      [...new Set(stores
+        .filter((row) => !filters.department || row.department === filters.department)
+        .filter((row) => !filters.tier || row.tier === filters.tier)
+        .map((row) => row.operator))]
         .sort((a, b) => a.localeCompare(b, "zh-CN")),
-    [filters.department, stores],
+    [filters.department, filters.tier, stores],
   );
   const storeOptions = useMemo(
     () =>
@@ -382,11 +538,26 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         .filter(
           (row) =>
             (!filters.department || row.department === filters.department) &&
-            (!filters.operator || row.operator === filters.operator),
+            (!filters.operator || row.operator === filters.operator) &&
+            (!filters.tier || row.tier === filters.tier),
         )
         .sort((a, b) => a.store - b.store),
-    [filters.department, filters.operator, stores],
+    [filters.department, filters.operator, filters.tier, stores],
   );
+  const tierOptions = useMemo(
+    () => [...new Set(stores.map((row) => row.tier).filter((value): value is string => Boolean(value)))]
+      .sort((a, b) => (tierRankValue(b) ?? -1) - (tierRankValue(a) ?? -1)),
+    [stores],
+  );
+  const tierSummary = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of stores) {
+      if (row.tier) counts.set(row.tier, (counts.get(row.tier) ?? 0) + 1);
+    }
+    return tierOptions.map((tier) => ({ tier, count: counts.get(tier) ?? 0 }));
+  }, [stores, tierOptions]);
+  const tierAssignedCount = tierSummary.reduce((sum, item) => sum + item.count, 0);
+  const tierUnratedCount = Math.max(0, stores.length - tierAssignedCount);
   const filteredStores = useMemo(
     () => stores.filter((row) => matchesFilters(row, filters)),
     [filters, stores],
@@ -395,6 +566,21 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
     () => filteredStores.filter((row) => row.hasPerformance),
     [filteredStores],
   );
+  const companyPerformanceStores = useMemo(
+    () => stores.filter((row) => row.hasPerformance),
+    [stores],
+  );
+  const companySlowMovingAverage = useMemo(
+    () => companyPerformanceStores.length
+      ? companyPerformanceStores.reduce((sum, row) => sum + row.slowMovingAmount, 0) / companyPerformanceStores.length
+      : 0,
+    [companyPerformanceStores],
+  );
+  const slowMovingBenchmarkLabel = accessScope?.role === "business_owner"
+    ? "公司均值"
+    : accessScope?.role === "department_leader"
+      ? "部门均值"
+      : "权限范围均值";
   const filteredIds = useMemo(() => new Set(filteredStores.map((row) => row.store)), [filteredStores]);
   const currentPeriod = data.performance.periods.find((row) => row.key === "current");
   const previousPeriod = data.performance.periods.find((row) => row.key === "previous");
@@ -461,6 +647,9 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
           primary: displayMoney(row.slowMovingAmount),
           secondary: percent(row.slowMovingShare, 2),
           sortValue: canViewAmounts ? row.slowMovingAmount : row.slowMovingShare,
+          comparison: canViewAmounts
+            ? averageComparisonLabel(row.slowMovingAmount, companySlowMovingAverage, slowMovingBenchmarkLabel)
+            : undefined,
         }] : [];
       }
       if (riskTab === "fulfillment") {
@@ -494,7 +683,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
       }] : [];
     });
     return rows.sort((a, b) => b.sortValue - a.sortValue);
-  }, [canViewAmounts, displayMoney, filteredStores, newOrdersByStore, riskTab]);
+  }, [canViewAmounts, companySlowMovingAverage, displayMoney, filteredStores, newOrdersByStore, riskTab, slowMovingBenchmarkLabel]);
 
   const colors = useMemo(
     () =>
@@ -526,6 +715,88 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
     [theme],
   );
 
+  const marketLatestComplete = MARKET_OVERVIEW_ROWS.findLast((row) => !row.partial && row.salesVolume !== null);
+  const marketLatest = MARKET_OVERVIEW_ROWS[MARKET_OVERVIEW_ROWS.length - 1];
+  const marketScaleOption = useMemo<EChartsOption>(() => ({
+    animationDuration: 600,
+    color: [colors.accent, colors.blue],
+    aria: { enabled: true },
+    grid: { left: 18, right: 24, top: 44, bottom: 48, containLabel: true },
+    legend: { top: 4, textStyle: { color: colors.muted } },
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: colors.tooltip,
+      borderColor: colors.line,
+      textStyle: { color: colors.text },
+    },
+    xAxis: {
+      type: "category",
+      data: MARKET_OVERVIEW_ROWS.map((row) => row.period.slice(2)),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: colors.line } },
+      axisLabel: { color: colors.muted, interval: 2, rotate: 35 },
+    },
+    yAxis: [
+      {
+        type: "value",
+        name: "销售额",
+        axisLabel: { color: colors.muted, formatter: (value: number) => compactMoney(value) },
+        splitLine: { lineStyle: { color: colors.line, type: "dashed" } },
+      },
+      {
+        type: "value",
+        name: "销量",
+        axisLabel: { color: colors.muted, formatter: (value: number) => `${(value / 10000).toFixed(0)}万` },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: "类目销售额",
+        type: "bar",
+        data: MARKET_OVERVIEW_ROWS.map((row) => ({ value: row.salesAmount, itemStyle: row.partial ? { opacity: 0.5 } : undefined })),
+        barMaxWidth: 20,
+        itemStyle: { borderRadius: [4, 4, 0, 0] },
+        tooltip: { valueFormatter: (value: unknown) => money(Number(value)) },
+      },
+      {
+        name: "类目销量",
+        type: "line",
+        yAxisIndex: 1,
+        data: MARKET_OVERVIEW_ROWS.map((row) => row.salesVolume),
+        connectNulls: false,
+        showSymbol: false,
+        smooth: 0.18,
+        lineStyle: { width: 2.5 },
+        tooltip: { valueFormatter: (value: unknown) => `${integer(Number(value))}` },
+      },
+    ],
+  }), [colors]);
+
+  const marketEfficiencyOption = useMemo<EChartsOption>(() => ({
+    animationDuration: 600,
+    color: [colors.amber, colors.coral],
+    aria: { enabled: true },
+    grid: { left: 18, right: 24, top: 44, bottom: 48, containLabel: true },
+    legend: { top: 4, textStyle: { color: colors.muted } },
+    tooltip: { trigger: "axis", backgroundColor: colors.tooltip, borderColor: colors.line, textStyle: { color: colors.text } },
+    xAxis: {
+      type: "category",
+      data: MARKET_OVERVIEW_ROWS.map((row) => row.period.slice(2)),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: colors.line } },
+      axisLabel: { color: colors.muted, interval: 2, rotate: 35 },
+    },
+    yAxis: [
+      { type: "value", name: "客单价", min: 9.5, axisLabel: { color: colors.muted, formatter: (value: number) => value.toFixed(1) }, splitLine: { lineStyle: { color: colors.line, type: "dashed" } } },
+      { type: "value", name: "环比", axisLabel: { color: colors.muted, formatter: (value: number) => `${Math.round(value * 100)}%` }, splitLine: { show: false } },
+    ],
+    series: [
+      { name: "大盘客单价", type: "line", data: MARKET_OVERVIEW_ROWS.map((row) => row.averageOrderValue), showSymbol: false, smooth: 0.2, lineStyle: { width: 2.5 }, tooltip: { valueFormatter: (value: unknown) => Number(value).toFixed(2) } },
+      { name: "销售额环比", type: "line", yAxisIndex: 1, data: MARKET_OVERVIEW_ROWS.map((row) => row.monthOverMonthGrowth), showSymbol: false, smooth: 0.15, lineStyle: { width: 2, type: "dashed" }, tooltip: { valueFormatter: (value: unknown) => percent(Number(value), 2) } },
+    ],
+  }), [colors]);
+
   const departmentOption = useMemo<EChartsOption>(() => {
     const names = departments.map((row) => row.name);
     return {
@@ -551,14 +822,14 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
       yAxis: [
         {
           type: "value",
-          axisLabel: { color: colors.muted, formatter: (value: number) => `${Math.round(value / 10000)}万` },
+          axisLabel: { color: colors.muted, formatter: (value: number) => integer(value) },
           splitLine: { lineStyle: { color: colors.line, type: "dashed" } },
         },
         {
           type: "value",
           min: 0,
           max: Math.max(35, Math.ceil(Math.max(...departments.map((row) => (row.current.grossMargin ?? 0) * 100)) / 5) * 5),
-          axisLabel: { color: colors.muted, formatter: "{value}%" },
+          axisLabel: { color: colors.muted, formatter: (value: number) => percent(value / 100) },
           splitLine: { show: false },
         },
       ],
@@ -588,11 +859,11 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
           name: "毛利率",
           type: "line",
           yAxisIndex: 1,
-          data: departments.map((row) => Number(((row.current.grossMargin ?? 0) * 100).toFixed(2))),
+          data: departments.map((row) => (row.current.grossMargin ?? 0) * 100),
           symbol: "circle",
           symbolSize: 8,
           lineStyle: { width: 2.5 },
-          tooltip: { valueFormatter: (value: unknown) => `${Number(value).toFixed(1)}%` },
+          tooltip: { valueFormatter: (value: unknown) => percent(Number(value) / 100) },
         },
       ],
     };
@@ -615,12 +886,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         textStyle: { color: colors.text },
         formatter: (params: unknown) => {
           const point = (params as { data?: unknown[] }).data ?? [];
-          return `<strong>${point[2]}号店 · ${point[3]}</strong><br/>销售额：${displayMoney(Number(point[0]) * 10000)}<br/>毛利率：${Number(point[1]).toFixed(1)}%<br/>毛利润：${displayMoney(Number(point[4]) * 10000)}`;
+          return `<strong>${point[2]}号店 · ${point[3]}</strong><br/>销售额：${displayMoney(Number(point[0]))}<br/>毛利率：${percent(Number(point[1]) / 100)}<br/>毛利润：${displayMoney(Number(point[4]))}`;
         },
       },
       xAxis: {
         type: "value",
-        name: "销售额（万元）",
+        name: "销售额（元）",
         nameTextStyle: { color: colors.muted },
         axisLabel: { color: colors.muted },
         splitLine: { lineStyle: { color: colors.line, type: "dashed" } },
@@ -629,7 +900,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         type: "value",
         name: "毛利率",
         nameTextStyle: { color: colors.muted },
-        axisLabel: { color: colors.muted, formatter: "{value}%" },
+        axisLabel: { color: colors.muted, formatter: (value: number) => percent(value / 100) },
         splitLine: { lineStyle: { color: colors.line, type: "dashed" } },
       },
       series: groups.map((group) => ({
@@ -638,11 +909,11 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         data: rows
           .filter((row) => row.department === group)
           .map((row) => [
-            Number((row.current.sales / 10000).toFixed(2)),
-            Number(((row.current.grossMargin ?? 0) * 100).toFixed(2)),
+            Math.round(row.current.sales),
+            (row.current.grossMargin ?? 0) * 100,
             row.store,
             row.operator,
-            Number((row.current.grossProfit / 10000).toFixed(2)),
+            Math.round(row.current.grossProfit),
           ]),
         symbolSize: (value: unknown) => Math.max(10, Math.min(34, Math.sqrt(Number((value as number[])[0])) * 4.5)),
         emphasis: { focus: "series", scale: 1.25 },
@@ -669,7 +940,10 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         backgroundColor: colors.tooltip,
         borderColor: colors.line,
         textStyle: { color: colors.text },
-        formatter: "{b}<br/>{c} 件 · {d}%",
+        formatter: (params: unknown) => {
+          const item = params as { name?: string; value?: number; percent?: number };
+          return `${item.name ?? ""}<br/>${integer(Number(item.value ?? 0))} 件 · ${Number(item.percent ?? 0).toFixed(2)}%`;
+        },
       },
       legend: { bottom: 0, left: "center", textStyle: { color: colors.muted } },
       series: [
@@ -712,7 +986,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
       },
       xAxis: {
         type: "value",
-        axisLabel: { color: colors.muted, formatter: (value: number) => `${Math.round(value / 10000)}万` },
+        axisLabel: { color: colors.muted, formatter: (value: number) => integer(value) },
         splitLine: { lineStyle: { color: colors.line, type: "dashed" } },
       },
       yAxis: {
@@ -859,8 +1133,8 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         return bValue - aValue;
       }
       if (sortMode === "margin") return (b.current.grossMargin ?? -Infinity) - (a.current.grossMargin ?? -Infinity);
+      if (sortMode === "tier") return (b.tierRank ?? -Infinity) - (a.tierRank ?? -Infinity);
       if (sortMode === "slow") return b.slowMovingAmount - a.slowMovingAmount;
-      if (sortMode === "unshipped") return b.unshippedAmount - a.unshippedAmount;
       return b.current.sales - a.current.sales;
     });
     return rows;
@@ -873,16 +1147,22 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
   const weakestGrowth = [...departments]
     .filter((row) => row.dailyMom !== null)
     .sort((a, b) => (a.dailyMom ?? Infinity) - (b.dailyMom ?? Infinity))[0];
-  const hasFilters = Boolean(filters.department || filters.operator || filters.store);
+  const hasFilters = Boolean(filters.department || filters.operator || filters.store || filters.tier);
   const sourceMode = live.source?.mode ?? "workbook-snapshot";
   const evaluatedAt = live.source?.fetchedAt ?? data.meta.extractedAt;
+  const tierMeta = data.meta.storeTier;
+  const tierAsOf = tierMeta?.effectiveDate
+    ?? data.storeTiers?.find((row) => row.effectiveDate)?.effectiveDate
+    ?? null;
   const statusLabel = live.phase === "refreshing"
     ? "更新中"
     : sourceMode === "workbook-snapshot"
       ? "快照"
       : live.source?.stale
         ? "部分缓存"
-    : sourceMode === "database"
+    : sourceMode === "daily-snapshot"
+      ? "每日快照"
+      : sourceMode === "database"
       ? "实时"
       : sourceMode === "memory-cache"
         ? "缓存"
@@ -951,6 +1231,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
       department: row?.department ?? filters.department,
       operator: row?.operator ?? filters.operator,
       store,
+      tier: row?.tier ?? filters.tier ?? "",
     });
   };
 
@@ -963,32 +1244,39 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
             <span><b>经营分析</b><small>BUSINESS ANALYTICS</small></span>
           </a>
           <div className="app-actions">
-            <label className="period-control"><span>期间</span><input type="month" value={period} onChange={(event) => setPeriod(event.target.value)} /></label>
-            <div className={`data-status status-${sourceMode}${live.source?.stale ? " is-stale" : ""}${live.phase === "refreshing" ? " is-refreshing" : ""}`} title={live.source?.warning ?? "数据连接状态"}>
-              <i /><span>{statusLabel}</span>
-            </div>
-            <span className="updated-at">{new Date(evaluatedAt).toLocaleTimeString("zh-CN", { hour12: false })}</span>
-            <button className="icon-button refresh-button" type="button" onClick={() => void live.refresh(true)} disabled={live.phase === "refreshing"} aria-label="立即刷新">↻</button>
+            {visibleTab === "home" ? (
+              <span className="period-control fiscal-year-control"><span>财年</span><b>2026-2027</b></span>
+            ) : (
+              <label className="period-control"><span>期间</span><input type="month" value={period} onChange={(event) => setPeriod(event.target.value)} /></label>
+            )}
+            {visibleTab !== "home" ? <>
+              <div className={`data-status status-${sourceMode}${live.source?.stale ? " is-stale" : ""}${live.phase === "refreshing" ? " is-refreshing" : ""}`} title={live.source?.warning ?? "数据连接状态"}>
+                <i /><span>{statusLabel}</span>
+              </div>
+              <span className="updated-at">{new Date(evaluatedAt).toLocaleTimeString("zh-CN", { hour12: false })}</span>
+              <button className="icon-button refresh-button" type="button" onClick={() => void live.refresh(true)} disabled={live.phase === "refreshing"} aria-label="立即刷新">↻</button>
+            </> : null}
             <button className="icon-button" type="button" onClick={() => setTheme(theme === "light" ? "dark" : "light")} aria-label={`切换为${theme === "light" ? "深色" : "浅色"}模式`}>{theme === "light" ? "暗" : "明"}</button>
           </div>
         </div>
       </header>
 
+      {visibleTab !== "home" ? <>
       <section className="dashboard-toolbar" aria-label="数据筛选">
         <div className="filter-fields">
           <SelectField
             label="部门"
             value={filters.department}
             options={departmentOptions.map((value) => ({ value, label: value }))}
-            allLabel={accessScope?.department ?? "权限范围"}
-            disabled={Boolean(accessScope)}
-            onChange={(department) => setFilters({ department, operator: "", store: "" })}
+            allLabel={accessScope?.role === "business_owner" ? "全部部门" : accessScope?.department ?? "权限范围"}
+            disabled={Boolean(accessScope) && accessScope?.role !== "business_owner"}
+            onChange={(department) => setFilters({ department, operator: "", store: "", tier: "" })}
           />
           <SelectField
             label="运营"
             value={filters.operator}
             options={operatorOptions.map((value) => ({ value, label: value }))}
-            allLabel={accessScope?.operator ?? "本部门全部运营"}
+            allLabel={accessScope?.role === "business_owner" ? "全部运营" : accessScope?.operator ?? "本部门全部运营"}
             disabled={accessScope?.role === "member"}
             onChange={(operator) => setFilters((currentFilters) => ({ ...currentFilters, operator, store: "" }))}
           />
@@ -997,6 +1285,13 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
             value={filters.store}
             options={storeOptions.map((row) => ({ value: String(row.store), label: `${row.store} 号店` }))}
             onChange={selectStore}
+          />
+          <SelectField
+            label="店铺层级"
+            value={filters.tier ?? ""}
+            options={tierOptions.map((value) => ({ value, label: value }))}
+            allLabel="全部层级"
+            onChange={(tier) => setFilters((currentFilters) => ({ ...currentFilters, tier, store: "" }))}
           />
           <button
             className="reset-button"
@@ -1009,7 +1304,9 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         </div>
         <div className="filter-result">
           <span className="scope-label">
-            {accessScope?.role === "department_leader"
+            {accessScope?.role === "business_owner"
+              ? "经营分析全量负责人视角"
+              : accessScope?.role === "department_leader"
               ? `${accessScope.department}负责人视角`
               : accessScope?.role === "ratio_viewer"
                 ? "全员比例视图"
@@ -1063,15 +1360,17 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
           onInspect={setActiveFormula}
         />
       </section>
+      </> : null}
 
       <nav className="dashboard-tabs" role="tablist" aria-label="分析模块">
-        {(accessScope?.role === "ratio_viewer" ? [
-          ["categories", `品类比例 · ${categorySegments.length}`],
-        ] as const : [
+        {([
+          ["home", "首页"],
           ["performance", "业绩分析"],
+          ["market", "大盘趋势"],
           ["categories", `品类阵营 · ${categorySegments.length}`],
           ["operations", `运营风险 · ${integer(unshippedCount)}`],
-          ["stores", `店铺明细 · ${performanceStores.length}`],
+          ["stores", `店铺层级 · ${performanceStores.length}`],
+          ["tasks", "关键任务"],
         ] as const).map(([id, label]) => (
           <button
             key={id}
@@ -1089,6 +1388,10 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         ))}
       </nav>
 
+      <section className={`dashboard-section${visibleTab === "home" ? "" : " tab-hidden"}`} id="home" role="tabpanel">
+        <FiscalOverview visible={visibleTab === "home"} theme={theme} />
+      </section>
+
       <section className={`dashboard-section${visibleTab === "performance" ? "" : " tab-hidden"}`} id="performance" role="tabpanel">
         <div className="section-bar">
           <div><span className="eyebrow">Performance</span><h2>增长与毛利</h2><p>三期同口径对比；点击部门或店铺可联动筛选。</p></div>
@@ -1100,7 +1403,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
             <PanelTitle
               title="整体业绩"
               copy="当前权限范围三期汇总；普通成员金额自动隐藏"
-              tag={accessScope?.role === "department_leader" ? "本部门口径" : "本人比例口径"}
+              tag={accessScope?.role === "business_owner" ? "全公司口径" : accessScope?.role === "department_leader" ? "本部门口径" : "本人比例口径"}
             />
             <div className="performance-overview-grid">
               <div className="table-scroll table-scroll-compact">
@@ -1253,6 +1556,51 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         </div>
       </section>
 
+      <section className={`dashboard-section${visibleTab === "market" ? "" : " tab-hidden"}`} id="market" role="tabpanel">
+        <div className="section-bar">
+          <div><span className="eyebrow">Market overview</span><h2>大盘趋势</h2><p>2024 年 6 月起的类目销量、销售额、环比与客单价。</p></div>
+          <span className="data-chip">所有成员可见 · 用户提供</span>
+        </div>
+
+        <div className="market-kpis">
+          <div><span>最新完整月</span><strong>{marketLatestComplete?.period ?? "—"}</strong><small>截至完整口径</small></div>
+          <div><span>类目销量</span><strong>{marketLatestComplete?.salesVolume == null ? "—" : integer(marketLatestComplete.salesVolume)}</strong><small>{marketLatestComplete?.period ?? "—"}</small></div>
+          <div><span>类目销售额</span><strong>{marketLatestComplete ? compactMoney(marketLatestComplete.salesAmount) : "—"}</strong><small>{marketLatestComplete?.monthOverMonthGrowth == null ? "暂无环比" : `环比 ${percent(marketLatestComplete.monthOverMonthGrowth, 2)}`}</small></div>
+          <div><span>大盘客单价</span><strong>{marketLatestComplete?.averageOrderValue == null ? "—" : marketLatestComplete.averageOrderValue.toFixed(2)}</strong><small>{marketLatestComplete?.period ?? "—"}</small></div>
+          <div className="is-partial"><span>{marketLatest.period} 已有销售额</span><strong>{compactMoney(marketLatest.salesAmount)}</strong><small>其他指标待补充，不作零值处理</small></div>
+        </div>
+
+        <div className="panel-grid market-chart-grid">
+          <article className="panel panel-span-7">
+            <PanelTitle title="类目规模趋势" copy="柱形为销售额，折线为销量" tag={`${MARKET_OVERVIEW_ROWS.length} 个月`} />
+            <EChart option={marketScaleOption} theme={theme === "dark" ? "dark" : undefined} height={310} ariaLabel="大盘类目销售额与销量月度趋势" />
+          </article>
+          <article className="panel panel-span-5">
+            <PanelTitle title="价格与增长" copy="客单价与销售额环比" tag="月度" />
+            <EChart option={marketEfficiencyOption} theme={theme === "dark" ? "dark" : undefined} height={310} ariaLabel="大盘客单价与销售额环比趋势" />
+          </article>
+        </div>
+
+        <article className="panel compact-table-panel market-table-panel">
+          <PanelTitle title="大盘月度明细" copy="按最新月份优先展示；空值表示原始数据未提供" tag="全量历史" />
+          <div className="table-scroll market-table-scroll">
+            <table className="compact-table market-table">
+              <thead><tr><th>日期</th><th>类目销量</th><th>类目销售额</th><th>类目环比上月增长率</th><th>大盘客单价</th><th>数据状态</th></tr></thead>
+              <tbody>{[...MARKET_OVERVIEW_ROWS].reverse().map((row) => (
+                <tr key={row.period} className={row.partial ? "is-partial" : ""}>
+                  <td><b>{row.period}</b></td>
+                  <td>{row.salesVolume == null ? "—" : integer(row.salesVolume)}</td>
+                  <td><b>{money(row.salesAmount)}</b></td>
+                  <td>{row.monthOverMonthGrowth == null ? "—" : <span className={`trend-pill ${trendTone(row.monthOverMonthGrowth)}`}>{percent(row.monthOverMonthGrowth, 2)}</span>}</td>
+                  <td>{row.averageOrderValue == null ? "—" : row.averageOrderValue.toFixed(2)}</td>
+                  <td>{row.partial ? <span className="market-partial-badge">待补充</span> : "已完整"}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
       <section className={`dashboard-section${visibleTab === "categories" ? "" : " tab-hidden"}`} id="categories" role="tabpanel">
         <div className="section-bar">
           <div><span className="eyebrow">Category arena</span><h2>对毛与簇毛</h2><p>五部门共享比例视图，绝对金额由服务端脱敏。</p></div>
@@ -1266,6 +1614,8 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                 segment={segment}
                 currentLabel={currentPeriod?.label ?? period}
                 previousLabel={previousPeriod?.label ?? "上月"}
+                yearAgoLabel={yearAgoPeriod?.label ?? "去年同月"}
+                canViewAmounts={canViewAmounts}
               />
             ))}
           </div>
@@ -1307,7 +1657,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
             <EChart option={timelineOption} theme={theme === "dark" ? "dark" : undefined} height={248} ariaLabel="新品或磁铁销售日趋势图" />
           </article>
           <article className={`panel panel-span-7${riskTab === "inventory" ? "" : " tab-hidden"}`}>
-            <PanelTitle title="滞销金额 Top 10" copy="优先处理金额高、占比高的店铺" tag={displayCompactMoney(slowMoving)} />
+            <PanelTitle
+              title="滞销金额 Top 10"
+              copy="优先处理金额高、占比高的店铺"
+              metric={canViewAmounts ? `平均滞销 ${displayCompactMoney(companySlowMovingAverage)}` : undefined}
+              tag={displayCompactMoney(slowMoving)}
+            />
             {canViewAmounts
               ? <EChart option={slowOption} theme={theme === "dark" ? "dark" : undefined} height={248} ariaLabel="店铺滞销金额前十名" />
               : <div className="empty-state">金额已隐藏，请在右侧查看本人店铺滞销率</div>}
@@ -1331,7 +1686,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                     <tr>
                       <th>店铺</th>
                       <th>部门 / 运营</th>
-                      <th>{riskTableLabels[riskTab].primary}</th>
+                      <th>
+                        {riskTableLabels[riskTab].primary}
+                        {riskTab === "inventory" && canViewAmounts
+                          ? <small className="table-benchmark">{slowMovingBenchmarkLabel} {displayCompactMoney(companySlowMovingAverage)}</small>
+                          : null}
+                      </th>
                       <th>{riskTableLabels[riskTab].secondary}</th>
                     </tr>
                   </thead>
@@ -1340,7 +1700,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                       <tr key={`${riskTab}-${row.store}`}>
                         <td><button className="store-link" type="button" onClick={() => selectStore(String(row.store))}>{row.store} 号店</button></td>
                         <td><b>{row.department}</b><small>{row.operator}</small></td>
-                        <td><b>{row.primary}</b></td>
+                        <td><b>{row.primary}</b>{row.comparison ? <small className="risk-average-comparison">{row.comparison}</small> : null}</td>
                         <td>{row.secondary}</td>
                       </tr>
                     ))}
@@ -1362,12 +1722,69 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                 {canViewAmounts ? <option value="sales">销售额</option> : null}
                 <option value="growth">日均环比</option>
                 <option value="margin">毛利率</option>
+                <option value="tier">店铺层级</option>
                 {canViewAmounts ? <option value="slow">滞销金额</option> : null}
-                {canViewAmounts ? <option value="unshipped">未发货金额</option> : null}
               </select>
             </label>
           </div>
         </div>
+        <div className="tier-overview" aria-label="店铺层级概览">
+          <div className="tier-overview-lead">
+            <span>店铺层级</span>
+            <strong>{tierAssignedCount} / {stores.length} 家</strong>
+            <small>
+              {tierAsOf ? `截至 ${tierAsOf}` : "等待层级数据"}
+              {tierMeta ? (tierMeta.stale ? " · 使用快照" : " · 每日自动更新") : " · 状态待确认"}
+            </small>
+          </div>
+          <div className="tier-overview-items">
+            {tierSummary.length ? tierSummary.map((item) => (
+              <button
+                key={item.tier}
+                type="button"
+                className={`tier-summary-item tier-${tierTone(item.tier)}${filters.tier === item.tier ? " active" : ""}`}
+                onClick={() => setFilters((currentFilters) => ({ ...currentFilters, tier: currentFilters.tier === item.tier ? "" : item.tier, store: "" }))}
+              >
+                <b>{item.tier}</b><span>{item.count} 家</span>
+              </button>
+            )) : <span className="tier-summary-empty">当前范围暂无层级记录</span>}
+            {tierUnratedCount ? <span className="tier-summary-unrated">未定级 {tierUnratedCount} 家</span> : null}
+          </div>
+          <button className="tier-history-trigger" type="button" onClick={() => {
+            const next = !showTierHistory;
+            setShowTierHistory(next);
+            if (next && !tierHistoryRows.length) void loadTierHistory(tierHistoryDays, tierHistoryStore);
+          }}>全屏查看每日等级</button>
+        </div>
+        {showTierHistory ? (
+          <div className="tier-history-overlay" role="dialog" aria-modal="true" aria-label="店铺每日等级矩阵">
+            <div className="tier-history-panel">
+              <div className="tier-history-toolbar">
+                <div><b>店铺每日等级矩阵</b><small>横轴为日期，纵轴为店铺；描边单元格表示当天发生等级变化</small></div>
+                <label><span>店铺</span><select value={tierHistoryStore} onChange={(event) => {
+                  const value = event.target.value;
+                  setTierHistoryStore(value);
+                  void loadTierHistory(tierHistoryDays, value);
+                }}><option value="">全部店铺</option>{stores.map((row) => <option key={row.store} value={row.store}>{row.store} 号店</option>)}</select></label>
+                <label><span>范围</span><select value={tierHistoryDays} onChange={(event) => {
+                  const value = Number(event.target.value);
+                  setTierHistoryDays(value);
+                  void loadTierHistory(value, tierHistoryStore);
+                }}><option value={30}>最近 30 天</option><option value={90}>最近 90 天</option><option value={180}>最近 180 天</option><option value={365}>最近 365 天</option></select></label>
+                <button className="tier-history-close" type="button" onClick={() => setShowTierHistory(false)} aria-label="关闭每日等级全屏视图">×</button>
+              </div>
+              {tierHistoryLoading ? <div className="tier-history-state">正在读取每日等级记录…</div>
+                : tierHistoryError ? <div className="tier-history-state error">{tierHistoryError}</div>
+                : tierHistoryRows.length ? <div className="table-scroll tier-history-scroll"><table className="tier-history-matrix"><thead><tr><th className="tier-history-store-head">店铺 / 运营</th><th className="tier-history-meta-head">历史正式最高</th><th className="tier-history-meta-head tier-history-days-head">当前层级已满</th>{tierHistoryDates.map((date) => <th key={date} title={date}><span>{date.slice(5).replace("-", "/")}</span></th>)}</tr></thead><tbody>{tierHistoryMatrix.map((row) => <tr key={row.store}><th className="tier-history-store-cell"><b>{row.store}号店</b><small>{row.operator || row.department || "—"}</small></th><td className="tier-history-meta-cell" title={row.meta?.officialSource || ""}><span className={`tier-history-cell tier-${tierTone(row.meta?.historicalOfficialTier || null)}`}>{row.meta?.historicalOfficialTier || "暂无"}</span><small>{row.meta?.officialSince ? `${row.meta.officialSince}确认` : "未确认晋级"}</small></td><td className="tier-history-meta-cell tier-history-days-cell"><b>{row.meta?.currentLevelDays ?? 0} 天</b><small>{row.meta?.currentTier || "暂无等级"}</small></td>{tierHistoryDates.map((date, index) => {
+                  const tier = row.tiers.get(date) || "";
+                  const previousTier = index < tierHistoryDates.length - 1 ? row.tiers.get(tierHistoryDates[index + 1]) || "" : "";
+                  const changed = Boolean(tier && previousTier && tier !== previousTier);
+                  return <td key={date} className={changed ? "tier-history-changed" : ""} title={`${date} · ${row.store}号店 · ${tier || "无记录"}${changed ? `（由 ${previousTier} 变为 ${tier}）` : ""}`}><span className={`tier-history-cell tier-${tierTone(tier || null)}`}>{tier || "—"}</span></td>;
+                })}</tr>)}</tbody></table></div>
+                : <div className="tier-history-state">当前范围暂无等级记录</div>}
+            </div>
+          </div>
+        ) : null}
         <div className="table-panel">
           <div className="table-scroll">
             <table>
@@ -1375,13 +1792,14 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                 <tr>
                   <th>店铺</th>
                   <th>部门 / 运营</th>
+                  <th>店铺层级</th>
+                  <th>当前等级满</th>
                   <th>销售额</th>
                   <th>毛利率</th>
                   <th>日均环比</th>
                   <th>同比</th>
                   <th>滞销金额</th>
                   <th>海运占比</th>
-                  <th>未发货</th>
                 </tr>
               </thead>
               <tbody>
@@ -1392,13 +1810,14 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                     <tr key={row.store}>
                       <td><button className="store-link" type="button" onClick={() => selectStore(String(row.store))}>{row.store} 号店</button></td>
                       <td><b>{row.department}</b><small>{row.operator}</small></td>
+                      <td>{row.tier ? <button className={`tier-badge tier-${tierTone(row.tier)}`} type="button" onClick={() => setFilters((currentFilters) => ({ ...currentFilters, tier: row.tier ?? "", store: "" }))}>{row.tier}</button> : <span className="muted-value">未定级</span>}</td>
+                      <td>{row.currentLevelDays ? `${integer(row.currentLevelDays)} 天` : <span className="muted-value">暂无</span>}</td>
                       <td><b>{displayCompactMoney(row.current.sales)}</b><small>毛利 {displayCompactMoney(row.current.grossProfit)}</small></td>
                       <td>{percent(row.current.grossMargin)}</td>
                       <td><span className={`trend-pill ${trendTone(mom)}`}>{growthLabel(mom)}</span></td>
                       <td><span className={`trend-text ${trendTone(storeYoy)}`}>{growthLabel(storeYoy)}</span></td>
                       <td>{row.slowMovingAmount ? displayCompactMoney(row.slowMovingAmount) : "—"}<small>{row.slowMovingShare ? percent(row.slowMovingShare, 2) : ""}</small></td>
                       <td>{row.shippingUnits ? percent(row.oceanShare) : "—"}</td>
-                      <td>{row.unshippedAmount ? <><b className="warning-text">{displayCompactMoney(row.unshippedAmount)}</b><small>{integer(row.unshippedCount)} 次</small></> : "—"}</td>
                     </tr>
                   );
                 })}
@@ -1413,13 +1832,17 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         </div>
       </section>
 
-      <footer className="dashboard-footer">
+      <section className={`dashboard-section${visibleTab === "tasks" ? "" : " tab-hidden"}`} id="tasks" role="tabpanel">
+        <KeyTasksBoard visible={visibleTab === "tasks"} />
+      </section>
+
+      {visibleTab !== "home" ? <footer className="dashboard-footer">
         <div>
           <span className="brand-mark">BA</span>
           <p><b>经营分析</b><small>SQL Server 实时查询 · ECharts 本地经营分析</small></p>
         </div>
-        <p>当前来源：{sourceMode === "database" ? "数据库" : sourceMode === "memory-cache" ? "最近成功缓存" : "Excel 快照"} · 更新于 {new Date(evaluatedAt).toLocaleString("zh-CN", { hour12: false })}</p>
-      </footer>
+        <p>当前来源：{sourceMode === "daily-snapshot" ? "每日快照" : sourceMode === "database" ? "数据库" : sourceMode === "memory-cache" ? "最近成功缓存" : "Excel 快照"} · 更新于 {new Date(evaluatedAt).toLocaleString("zh-CN", { hour12: false })}</p>
+      </footer> : null}
       {activeFormula ? <FormulaDrawer detail={formulaDetails[activeFormula]} mode={sourceMode} evaluatedAt={evaluatedAt} onClose={() => setActiveFormula(null)} /> : null}
     </main>
   );

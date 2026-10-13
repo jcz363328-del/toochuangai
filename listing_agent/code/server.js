@@ -416,7 +416,7 @@ async function handleSellfoxProxy(req, res) {
   } catch (error) {
     sendJson(res, 502, {
       ok: false,
-      message: `无法连接赛虎广告看板（${getSellfoxDashboardUrl()}）。请先启动它的本地服务。`,
+      message: `无法连接赛狐广告看板（${getSellfoxDashboardUrl()}）。请先启动它的本地服务。`,
       detail: safeDetail(error.message)
     });
   }
@@ -444,7 +444,7 @@ function handleSellfoxRankingFile(res, headOnly) {
   } catch (error) {
     sendJson(res, 500, {
       ok: false,
-      message: "无法读取已绑定的赛虎 ABA 看板文件。",
+      message: "无法读取已绑定的赛狐 ABA 看板文件。",
       detail: safeDetail(error.message)
     }, headOnly);
   }

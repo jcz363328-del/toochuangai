@@ -74,7 +74,7 @@ def _load_export_row_builder(namespace):
 
 
 class TkCustomerServicePaginationTests(unittest.TestCase):
-    def test_complete_tracking_numbers_prefer_exact_sku_and_list_all_fallbacks(self):
+    def test_complete_tracking_numbers_list_every_tracking_for_the_order(self):
         source_rows = [
             ("ORDER-1", "SKU-A", "TRACK-1"),
             ("ORDER-1", "SKU-A", "TRACK-2"),
@@ -99,7 +99,10 @@ class TkCustomerServicePaginationTests(unittest.TestCase):
 
         helpers["_tk_customer_service_fill_complete_tracking_numbers"](items)
 
-        self.assertEqual(items[0]["GenZongHao"], "TRACK-1 / TRACK-2")
+        self.assertEqual(
+            items[0]["GenZongHao"],
+            "TRACK-1 / TRACK-2 / TRACK-OTHER-SKU",
+        )
         self.assertEqual(
             items[1]["GenZongHao"],
             "TRACK-FALLBACK-1 / TRACK-FALLBACK-2",
@@ -179,7 +182,7 @@ class TkCustomerServicePaginationTests(unittest.TestCase):
         self.assertEqual(len(error_rows), 1)
         self.assertEqual(error_rows[0]["订单号"], "ORDER-2")
 
-    def test_tracking_fallback_requires_one_unique_order_tracking_number(self):
+    def test_tracking_fallback_accepts_multi_package_orders(self):
         captured = []
 
         def fake_sf_db(sql):
@@ -201,8 +204,7 @@ class TkCustomerServicePaginationTests(unittest.TestCase):
             "dd_order.GenZongHao, '') AS GenZongHao",
             sql,
         )
-        self.assertIn("HAVING COUNT(DISTINCT", sql)
-        self.assertIn("= 1", sql)
+        self.assertNotIn("HAVING COUNT(DISTINCT", sql)
 
     def test_date_filter_is_sargable_and_escapes_values(self):
         helpers = _load_query_helpers(lambda _sql: [])

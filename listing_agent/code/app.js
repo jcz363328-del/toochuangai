@@ -61,7 +61,7 @@ const DEFAULT_SKILL = {
   titleStrategy: "keywordFirst",
   tone: "beauty factual",
   bulletPattern: "painSolutionScene",
-  titleLimit: 75,
+  titleLimit: 70,
   itemHighlightLimit: 125,
   bulletLimit: 500,
   descriptionLimit: 2000,
@@ -76,7 +76,7 @@ const DEFAULT_SKILL = {
   },
   forbiddenClaims: "",
   customRules:
-    "标题不超过 75 字符，避免禁用符号且实义词不重复超过 2 次；Item Highlights 不超过 125 字符；Search Terms 不超过 249 bytes；未确认根数不进标题；五点避免模板化，必须结合场景和痛点。"
+    "标题目标为 70 字符，避免禁用符号且实义词不重复超过 2 次；Item Highlights 目标为 125 字符；Search Terms 不超过 249 bytes；未确认根数不进标题；五点避免模板化，必须结合场景和痛点。"
 };
 
 const BUILTIN_SKILLS = [
@@ -1117,7 +1117,7 @@ function renderSellfoxSnapshot() {
   const rows = normalizeSellfoxRows(sellfoxSnapshot.rows);
   if (!rows.length) {
     container.className = "sellfox-snapshot empty";
-    container.textContent = "尚未同步赛虎排名。你仍可手动填写 ABA 数据；同步后会自动过滤与当前产品无关的词。";
+    container.textContent = "尚未同步赛狐排名。你仍可手动填写 ABA 数据；同步后会自动过滤与当前产品无关的词。";
     updateWorkflowContext();
     return;
   }
@@ -1186,7 +1186,7 @@ function collectSkill() {
     titleStrategy: $("#titleStrategy").value,
     tone: $("#tone").value,
     bulletPattern: $("#bulletPattern").value,
-    titleLimit: 75,
+    titleLimit: 70,
     itemHighlightLimit: 125,
     bulletLimit: 500,
     descriptionLimit: 2000,
@@ -1797,11 +1797,11 @@ function buildVariantReasons(profile, data, context, needsConfirmation, score) {
     profile.bestFor
   ];
   if (context.sellfoxFocus) {
-    reasons.push(`赛虎依据：${context.sellfoxFocus.term}，ABA #${formatNumber(context.sellfoxFocus.rank)}，${formatGrowth(context.sellfoxFocus.growth)}，前三商品点击 ${formatShare(context.sellfoxFocus.clickShare)} / 转化 ${formatShare(context.sellfoxFocus.conversionShare)}。`);
+    reasons.push(`赛狐依据：${context.sellfoxFocus.term}，ABA #${formatNumber(context.sellfoxFocus.rank)}，${formatGrowth(context.sellfoxFocus.growth)}，前三商品点击 ${formatShare(context.sellfoxFocus.clickShare)} / 转化 ${formatShare(context.sellfoxFocus.conversionShare)}。`);
   } else if (profile.id === "balanced" && needsConfirmation.length) {
     reasons.push(`当前还有 ${needsConfirmation.length} 个待确认项，排名优先版会减少未确认信息进入标题和卖点。`);
   } else {
-    reasons.push("尚未同步赛虎排名，本版暂用手动 T1/T2/T3、ABA 和 MCP 信息生成。");
+    reasons.push("尚未同步赛狐排名，本版暂用手动 T1/T2/T3、ABA 和 MCP 信息生成。");
   }
   if (preferences.counts?.[profile.id]) {
     reasons.push(`你此前选择过 ${preferences.counts[profile.id]} 次这个方向，推荐排序已参考该偏好。`);
@@ -1844,9 +1844,9 @@ function buildDecisionInfo(data, context, needsConfirmation, variants, recommend
     },
     {
       label: "关键词判断",
-      value: context.sellfoxPlan.relevantRows.length ? "赛虎数据驱动" : keywordScore >= 4 ? "信号较足" : "建议补充",
+      value: context.sellfoxPlan.relevantRows.length ? "赛狐数据驱动" : keywordScore >= 4 ? "信号较足" : "建议补充",
       detail: context.sellfoxPlan.relevantRows.length
-        ? `赛虎同步 ${context.sellfoxPlan.rows.length} 个词组，筛出 ${context.sellfoxPlan.relevantRows.length} 个产品相关词；标题优先 ${context.sellfoxPlan.titleTerms.slice(0, 3).map((item) => item.term).join(", ")}。`
+        ? `赛狐同步 ${context.sellfoxPlan.rows.length} 个词组，筛出 ${context.sellfoxPlan.relevantRows.length} 个产品相关词；标题优先 ${context.sellfoxPlan.titleTerms.slice(0, 3).map((item) => item.term).join(", ")}。`
         : `T1/T2/T3、ABA 与 MCP 数据覆盖 ${keywordScore}/6；ABA 高排名词 ${abaTerms.length ? abaTerms.slice(0, 4).join(", ") : "待填写"}。`
     },
     {
@@ -1866,7 +1866,7 @@ function buildRankingSummary(data) {
   const source = [];
 
   if (plan.relevantRows.length) {
-    source.push(`赛虎 ABA 已同步：${plan.rows.length} 个词组中筛出 ${plan.relevantRows.length} 个与 ${data.productType} 相关的词。排名优先：${plan.titleTerms.slice(0, 3).map((item) => `${item.term} (#${formatNumber(item.rank)})`).join("；")}。`);
+    source.push(`赛狐 ABA 已同步：${plan.rows.length} 个词组中筛出 ${plan.relevantRows.length} 个与 ${data.productType} 相关的词。排名优先：${plan.titleTerms.slice(0, 3).map((item) => `${item.term} (#${formatNumber(item.rank)})`).join("；")}。`);
     if (plan.growthTerms.length) {
       source.push(`增长机会：${plan.growthTerms.slice(0, 3).map((item) => `${item.term} (${formatGrowth(item.growth)})`).join("；")}。增长版标题会从这组词中选择。`);
     }
@@ -2099,8 +2099,8 @@ function buildStrategy(data, context) {
   return [
     `T1 title zone: ${context.coreKeyword} plus ${data.styleAngle}.`,
     context.sellfoxFocus
-      ? `赛虎标题依据：${context.sellfoxFocus.term} 的 ABA #${formatNumber(context.sellfoxFocus.rank)}；${formatGrowth(context.sellfoxFocus.growth)}。`
-      : "赛虎排名尚未同步，标题核心词暂用手动 T1 输入。",
+      ? `赛狐标题依据：${context.sellfoxFocus.term} 的 ABA #${formatNumber(context.sellfoxFocus.rank)}；${formatGrowth(context.sellfoxFocus.growth)}。`
+      : "赛狐排名尚未同步，标题核心词暂用手动 T1 输入。",
     `T2 conversion angle: ${data.t2Keywords.slice(0, 4).join(", ") || "beginner use, natural look, easy placement"}.`,
     `T3 COSMO scenes: ${context.primaryScenario}.`,
     `ABA ranking signal: ${abaTerms.length ? abaTerms.slice(0, 6).join(", ") : "No ABA ranking pasted; keyword priority is estimated from T1/T2/T3 and MCP."}`,
@@ -2114,10 +2114,10 @@ function buildRationale(data, context) {
   const abaTerms = extractRankedTerms(data.abaRankings);
   const riskTerms = extractRiskTerms(data.forbiddenRankings);
   return [
-    `${context.coreKeyword} -> ${context.sellfoxFocus ? "赛虎排名和产品相关性筛选后的核心词" : "T1 / MCP 输入的核心词"}。`,
+    `${context.coreKeyword} -> ${context.sellfoxFocus ? "赛狐排名和产品相关性筛选后的核心词" : "T1 / MCP 输入的核心词"}。`,
     context.sellfoxFocus
-      ? `${context.sellfoxFocus.term} -> 赛虎产品相关性筛选后，ABA #${formatNumber(context.sellfoxFocus.rank)}；${formatGrowth(context.sellfoxFocus.growth)}。`
-      : "赛虎排名 -> 尚未同步，未作为自动排名依据。",
+      ? `${context.sellfoxFocus.term} -> 赛狐产品相关性筛选后，ABA #${formatNumber(context.sellfoxFocus.rank)}；${formatGrowth(context.sellfoxFocus.growth)}。`
+      : "赛狐排名 -> 尚未同步，未作为自动排名依据。",
     `${abaTerms.slice(0, 3).join(", ") || "ABA ranking pending"} -> ABA ranking / keyword-share priority.`,
     `${data.styleAngle} -> visual or product-positioning style angle.`,
     `${context.specLine || "spec details"} -> user/image-confirmed product fact.`,

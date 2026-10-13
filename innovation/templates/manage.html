@@ -30,6 +30,17 @@
 .supplemental-rules-list ol {
     margin-top: .45rem;
 }
+.meeting-draw-card { border: 1px solid #dbe4f0; border-radius: 12px; }
+.meeting-draw-result {
+    min-height: 78px; border: 1px dashed #9db7dc; border-radius: 10px;
+    background: #f7faff; display: flex; align-items: center; justify-content: center; gap: 12px;
+}
+.meeting-department-badge { font-size: 1rem; padding: .55rem .8rem; }
+.meeting-draw-result.is-drawing {
+    background: linear-gradient(110deg, #eef5ff 25%, #fff 45%, #eef5ff 65%);
+    background-size: 220% 100%; animation: meetingDrawShimmer .7s linear infinite;
+}
+@keyframes meetingDrawShimmer { to { background-position-x: -220%; } }
 </style>
 <div class="row">
     <div class="col-12">
@@ -51,6 +62,11 @@
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="rewards-tab" data-bs-toggle="tab" data-bs-target="#rewards" type="button" role="tab">
                             <i class="bi bi-gift"></i> 奖品管理
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="meeting-draw-tab" data-bs-toggle="tab" data-bs-target="#meeting-draw" type="button" role="tab">
+                            <i class="bi bi-shuffle"></i> 会议抽签
                         </button>
                     </li>
                 </ul>
@@ -380,6 +396,25 @@
                             </div>
                             <div id="rewardsManageList">
                                 <!-- 动态加载奖品管理列表 -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="meeting-draw" role="tabpanel">
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5 class="mb-1">创新会议部门抽签</h5>
+                                    <div class="text-muted small">两个会议候选池相互独立；同一会议同一轮不重复，每次抽取两个部门。</div>
+                                </div>
+                                <button class="btn btn-outline-primary btn-sm" type="button" onclick="loadMeetingDrawState()">
+                                    <i class="bi bi-arrow-clockwise"></i> 刷新
+                                </button>
+                            </div>
+                            <div class="alert alert-info py-2 small">
+                                创新评审会抽签时，还会临时排除最近一次创新小组会抽中的两个部门。
+                            </div>
+                            <div class="row g-3" id="meetingDrawCards">
+                                <div class="col-12 text-center text-muted py-5">正在加载抽签信息...</div>
                             </div>
                         </div>
                     </div>
@@ -914,7 +949,156 @@ document.addEventListener('DOMContentLoaded', function() {
             loadRewardsManage();
         });
     }
+    const meetingDrawTab = document.getElementById('meeting-draw-tab');
+    if (meetingDrawTab) {
+        meetingDrawTab.addEventListener('shown.bs.tab', loadMeetingDrawState);
+    }
 });
+
+function meetingDrawMessage(message, type) {
+    if (window.InnovationApp && typeof InnovationApp.showMessage === 'function') {
+        InnovationApp.showMessage(message, type || 'success');
+    } else {
+        alert(message);
+    }
+}
+
+let meetingDrawStateCache = {};
+
+async function loadMeetingDrawState() {
+    const container = document.getElementById('meetingDrawCards');
+    if (!container) return;
+    container.innerHTML = '<div class="col-12 text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2"></span>正在加载...</div>';
+    try {
+        const response = await fetch('/innovation/api/meeting_draw/state');
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || '加载失败');
+        meetingDrawStateCache = data.meetings || {};
+        container.innerHTML = ['review', 'group'].map(type => renderMeetingDrawCard(type, data.meetings[type])).join('');
+    } catch (error) {
+        container.innerHTML = `<div class="col-12"><div class="alert alert-danger mb-0">${escapeMeetingText(error.message)}</div></div>`;
+    }
+}
+
+function escapeMeetingText(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+}
+
+function meetingBadges(items, badgeClass) {
+    if (!items || !items.length) return '<span class="text-muted small">暂无</span>';
+    return items.map(name => `<span class="badge ${badgeClass || 'bg-light text-dark border'} me-1 mb-1">${escapeMeetingText(name)}</span>`).join('');
+}
+
+function meetingSelectionHistory(items) {
+    if (!items || !items.length) return '<span class="text-muted small">暂无</span>';
+    return `<div class="d-flex flex-column gap-1">${items.map(item => `
+        <div class="d-flex align-items-center justify-content-between border rounded px-2 py-1 bg-light small">
+            <span class="fw-semibold">${escapeMeetingText(item.department)}</span>
+            <span class="text-muted ms-2"><i class="bi bi-clock"></i> ${escapeMeetingText(item.selected_at || '时间未知')}</span>
+        </div>`).join('')}</div>`;
+}
+
+function renderMeetingDrawCard(type, info) {
+    const crossRule = type === 'review' && info.latest_group_excluded.length
+        ? `<div class="small text-warning-emphasis mt-2"><i class="bi bi-shield-exclamation"></i> 本次额外排除：${meetingBadges(info.latest_group_excluded, 'bg-warning text-dark')}</div>` : '';
+    const fixedResult = info.latest_result && info.latest_result.length
+        ? info.latest_result.map(name => `<span class="badge bg-primary meeting-department-badge">${escapeMeetingText(name)}</span>`).join('')
+        : '<span class="text-muted">点击下方按钮抽取两个部门</span>';
+    return `<div class="col-lg-6">
+        <div class="meeting-draw-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">${escapeMeetingText(info.label)} <span class="badge bg-primary-subtle text-primary">第 ${info.round} 轮</span></h5>
+                <span class="text-muted small">剩余 ${info.candidates.length} 个</span>
+            </div>
+            <div class="meeting-draw-result mb-3" id="meetingResult-${type}">${fixedResult}</div>
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-primary flex-grow-1" ${info.can_draw ? '' : 'disabled'} onclick="drawMeetingDepartments('${type}', this)">
+                    <i class="bi bi-shuffle"></i> 随机抽取两个部门
+                </button>
+                <button class="btn btn-outline-danger" ${info.can_cancel ? '' : 'disabled'} onclick="cancelMeetingDraw('${type}')">
+                    <i class="bi bi-arrow-counterclockwise"></i> 取消
+                </button>
+                <button class="btn btn-outline-secondary" onclick="startMeetingNewRound('${type}')">开启新一轮</button>
+            </div>
+            <div class="small fw-semibold mb-1">本轮已抽中（${info.selected.length}）</div>
+            <div>${meetingSelectionHistory(info.selected_details)}</div>
+            ${crossRule}
+            <details class="mt-3"><summary class="small text-muted">查看当前候选部门（${info.candidates.length}）</summary>
+                <div class="mt-2">${meetingBadges(info.candidates, 'bg-success-subtle text-success border border-success-subtle')}</div>
+            </details>
+        </div>
+    </div>`;
+}
+
+async function drawMeetingDepartments(type, button) {
+    const card = button.closest('.meeting-draw-card');
+    const cardButtons = card ? Array.from(card.querySelectorAll('button')) : [button];
+    cardButtons.forEach(item => item.disabled = true);
+    const original = button.innerHTML;
+    const resultBox = document.getElementById(`meetingResult-${type}`);
+    const candidates = (meetingDrawStateCache[type] && meetingDrawStateCache[type].candidates) || [];
+    try {
+        const response = await fetch('/innovation/api/meeting_draw/draw', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({meeting_type: type})
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || '抽签失败');
+        resultBox.classList.add('is-drawing');
+        const startedAt = Date.now();
+        const ticker = setInterval(() => {
+            const shuffled = [...candidates].sort(() => Math.random() - 0.5).slice(0, 2);
+            resultBox.innerHTML = shuffled.map(name =>
+                `<span class="badge bg-secondary meeting-department-badge">${escapeMeetingText(name)}</span>`).join('');
+            const secondsLeft = Math.max(1, Math.ceil((3000 - (Date.now() - startedAt)) / 1000));
+            button.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>抽签中 ${secondsLeft}s`;
+        }, 90);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        clearInterval(ticker);
+        resultBox.classList.remove('is-drawing');
+        document.getElementById(`meetingResult-${type}`).innerHTML = data.winners.map(name =>
+            `<span class="badge bg-primary meeting-department-badge">${escapeMeetingText(name)}</span>`).join('');
+        button.innerHTML = original;
+        meetingDrawMessage(`抽中：${data.winners.join('、')}`, 'success');
+        setTimeout(loadMeetingDrawState, 600);
+    } catch (error) {
+        resultBox.classList.remove('is-drawing');
+        meetingDrawMessage(error.message, 'error');
+        cardButtons.forEach(item => item.disabled = false);
+        button.innerHTML = original;
+    }
+}
+
+async function startMeetingNewRound(type) {
+    if (!confirm('确定为该会议开启新一轮吗？本轮已抽记录会保留，但不再参与排除。')) return;
+    try {
+        const response = await fetch('/innovation/api/meeting_draw/new_round', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({meeting_type: type})
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || '操作失败');
+        meetingDrawMessage(data.message, 'success');
+        loadMeetingDrawState();
+    } catch (error) {
+        meetingDrawMessage(error.message, 'error');
+    }
+}
+
+async function cancelMeetingDraw(type) {
+    if (!confirm('确定取消该会议最近一次抽签吗？抽中的两个部门将重新进入候选池。')) return;
+    try {
+        const response = await fetch('/innovation/api/meeting_draw/cancel', {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({meeting_type: type})
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || '取消失败');
+        meetingDrawMessage(`${data.message}：${(data.departments || []).join('、')}`, 'success');
+        loadMeetingDrawState();
+    } catch (error) {
+        meetingDrawMessage(error.message, 'error');
+    }
+}
 
 // 设置委员会打分按钮权限
 function setCommitteeScoreButtonPermissions() {

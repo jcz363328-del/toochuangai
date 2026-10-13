@@ -1,12 +1,19 @@
 import unittest
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 
 from flask import Flask
 from openpyxl import load_workbook
 
 import review_analysis as review_module
+
+
+ROOT = Path(__file__).resolve().parents[1]
+REVIEW_TEMPLATE_SOURCE = (ROOT / "templates" / "review_analysis.html").read_text(
+    encoding="utf-8"
+)
 
 
 class ReviewAnalysisQueryTests(unittest.TestCase):
@@ -36,7 +43,7 @@ class ReviewAnalysisQueryTests(unittest.TestCase):
         expected_columns = {
             "category": "fenlei1",
             "factory": "gongyingshang",
-            "remark": "shangpinbeizhu",
+            "remark": "maoxing",
         }
 
         for filter_type, column in expected_columns.items():
@@ -51,14 +58,28 @@ class ReviewAnalysisQueryTests(unittest.TestCase):
                 self.assertIn("FROM zidian AS zd WITH (NOLOCK)", sql)
                 self.assertIn("zd.sku = pj.SKU", sql)
                 self.assertIn(f"zd.[{column}]", sql)
+                self.assertIn("CHARINDEX", sql)
                 self.assertIn("N'值''一'", sql)
+                self.assertIn(
+                    f"COALESCE(CAST(zd.[{column}] AS NVARCHAR(500)), N'')",
+                    sql,
+                )
+                self.assertNotIn(") = N'值''一'", sql)
                 self.assertNotIn("%", sql)
+
+    def test_attribute_filters_are_text_inputs_without_option_loading(self):
+        self.assertNotIn('id="attribute_filter_value"', REVIEW_TEMPLATE_SOURCE)
+        self.assertNotIn("loadReviewFilterOptions", REVIEW_TEMPLATE_SOURCE)
+        self.assertNotIn("/api/review_analysis/filter_options", REVIEW_TEMPLATE_SOURCE)
+        self.assertIn("请输入分类关键词", REVIEW_TEMPLATE_SOURCE)
+        self.assertIn("请输入生产工厂关键词", REVIEW_TEMPLATE_SOURCE)
+        self.assertIn("请输入毛型或备注关键词", REVIEW_TEMPLATE_SOURCE)
 
     def test_filter_option_queries_use_distinct_zidian_values(self):
         expected_columns = {
             "category": "fenlei1",
             "factory": "gongyingshang",
-            "remark": "shangpinbeizhu",
+            "remark": "maoxing",
         }
 
         for filter_type, column in expected_columns.items():

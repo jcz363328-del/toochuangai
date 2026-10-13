@@ -17,6 +17,7 @@ import subprocess
 import sys
 import threading
 import uuid
+import random
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from urllib.parse import quote
@@ -43,6 +44,136 @@ CONTENT_FACTORY_DEPARTMENT = '内容生产工厂'
 CONTENT_FACTORY_DEPARTMENT_ALIASES = {'TK项目', 'TK_离职', 'Tk_离职', 'TK'}
 _INNOVATION_PROJECT_COLUMNS_CACHE = None
 _INNOVATION_PROJECT_COLUMNS_LOCK = threading.Lock()
+INNOVATION_MEETING_DEPARTMENTS = (
+    'AI', '内容生产工厂', '财务部', '采购部', '技术部', '人力行政部', '摄影部',
+    '视觉设计部', '研发', '运营一部', '运营二部', '运营三部', '运营六部', '运营七部',
+)
+INNOVATION_MEETING_TYPES = {'review': '创新评审会', 'group': '创新小组会'}
+INNOVATION_MEETING_INITIAL_SELECTIONS = {
+    'review': ('财务部', '人力行政部', '采购部', '运营二部', '运营六部'),
+    'group': ('运营一部', '运营二部', '内容生产工厂', 'AI', '摄影部', '采购部'),
+}
+_INNOVATION_MEETING_DRAW_LOCK = threading.Lock()
+
+
+def _ensure_innovation_meeting_draw_storage():
+    """创建会议抽签记录表，并在空表时写入本轮已有记录。"""
+    dui_db("""
+        IF OBJECT_ID(N'dbo.innovation_meeting_draws', N'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.innovation_meeting_draws (
+                id INT IDENTITY(1,1) PRIMARY KEY,
+                meeting_type NVARCHAR(20) NOT NULL,
+                round_number INT NOT NULL CONSTRAINT DF_innovation_meeting_round DEFAULT 1,
+                draw_batch NVARCHAR(50) NOT NULL,
+                department NVARCHAR(100) NOT NULL,
+                selected_at DATETIME2 NOT NULL CONSTRAINT DF_innovation_meeting_selected DEFAULT SYSDATETIME(),
+                selected_by NVARCHAR(200) NULL
+            );
+            CREATE UNIQUE INDEX UX_innovation_meeting_round_department
+            ON dbo.innovation_meeting_draws(meeting_type, round_number, department);
+        END
+    """)
+    count = int(sf_db("SELECT COUNT(*) FROM dbo.innovation_meeting_draws", single=True) or 0)
+    if count:
+        return
+    for meeting_type, departments in INNOVATION_MEETING_INITIAL_SELECTIONS.items():
+        for index in range(0, len(departments), 2):
+            batch = f'initial-{meeting_type}-{index // 2 + 1}'
+            values = ','.join(
+                f"({_sql_nvarchar(meeting_type)}, 1, {_sql_nvarchar(batch)}, {_sql_nvarchar(department)}, N'历史导入')"
+                for department in departments[index:index + 2]
+            )
+            dui_db("""
+                INSERT INTO dbo.innovation_meeting_draws
+                    (meeting_type, round_number, draw_batch, department, selected_by)
+                VALUES """ + values)
+
+
+def _innovation_meeting_current_round(meeting_type):
+    value = sf_db(
+        f"SELECT ISNULL(MAX(round_number), 1) FROM dbo.innovation_meeting_draws "
+        f"WHERE meeting_type = {_sql_nvarchar(meeting_type)}",
+        single=True,
+    )
+    return max(1, int(value or 1))
+
+
+def _innovation_meeting_selected(meeting_type, round_number):
+    rows = sf_db(f"""
+        SELECT department
+        FROM dbo.innovation_meeting_draws
+        WHERE meeting_type = {_sql_nvarchar(meeting_type)} AND round_number = {int(round_number)}
+          AND department <> N'__ROUND_MARKER__'
+        ORDER BY id
+    """) or []
+    return [str(row[0] if isinstance(row, (list, tuple)) else row).strip() for row in rows]
+
+
+def _innovation_meeting_selected_details(meeting_type, round_number):
+    rows = sf_db(f"""
+        SELECT department, selected_at, selected_by
+        FROM dbo.innovation_meeting_draws
+        WHERE meeting_type = {_sql_nvarchar(meeting_type)} AND round_number = {int(round_number)}
+          AND department <> N'__ROUND_MARKER__'
+        ORDER BY id
+    """) or []
+    details = []
+    for row in rows:
+        values = list(row) if isinstance(row, (list, tuple)) else [row]
+        selected_at = values[1] if len(values) > 1 else None
+        selected_by = str(values[2] if len(values) > 2 and values[2] is not None else '').strip()
+        details.append({
+            'department': str(values[0] if values and values[0] is not None else '').strip(),
+            'selected_at': (
+                '历史导入' if selected_by == '历史导入'
+                else selected_at.strftime('%Y-%m-%d %H:%M:%S') if isinstance(selected_at, datetime)
+                else str(selected_at or '').strip()
+            ),
+        })
+    return details
+
+
+def _innovation_meeting_latest_group_departments():
+    rows = sf_db("""
+        SELECT TOP 2 department
+        FROM dbo.innovation_meeting_draws
+        WHERE meeting_type = N'group'
+          AND draw_batch = (
+              SELECT TOP 1 draw_batch FROM dbo.innovation_meeting_draws
+              WHERE meeting_type = N'group' ORDER BY id DESC
+          )
+        ORDER BY id
+    """) or []
+    return [str(row[0] if isinstance(row, (list, tuple)) else row).strip() for row in rows]
+
+
+def _innovation_meeting_latest_cancelable_batch(meeting_type, round_number):
+    rows = sf_db(f"""
+        SELECT TOP 1 draw_batch
+        FROM dbo.innovation_meeting_draws
+        WHERE meeting_type = {_sql_nvarchar(meeting_type)}
+          AND round_number = {int(round_number)}
+          AND draw_batch NOT LIKE N'initial-%%'
+          AND draw_batch NOT LIKE N'round-marker-%%'
+        ORDER BY id DESC
+    """) or []
+    if not rows:
+        return ''
+    row = rows[0]
+    return str(row[0] if isinstance(row, (list, tuple)) else row).strip()
+
+
+def _innovation_meeting_batch_departments(meeting_type, round_number, batch):
+    if not batch:
+        return []
+    rows = sf_db(f"""
+        SELECT department FROM dbo.innovation_meeting_draws
+        WHERE meeting_type = {_sql_nvarchar(meeting_type)}
+          AND round_number = {int(round_number)} AND draw_batch = {_sql_nvarchar(batch)}
+        ORDER BY id
+    """) or []
+    return [str(row[0] if isinstance(row, (list, tuple)) else row).strip() for row in rows]
 
 
 def _normalize_innovation_department(department_name):
@@ -1001,6 +1132,118 @@ def manage():
                            feishu_user_name=feishu_user_name,
                            feishu_user_id=feishu_user_id,
                            is_committee_member=is_committee_member)  # 渲染创新管理页面，传递用户信息和权限
+
+
+@app.route('/api/meeting_draw/state', methods=['GET'])
+def innovation_meeting_draw_state():
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '请先登录后再操作'}), 401
+    try:
+        _ensure_innovation_meeting_draw_storage()
+        meetings = {}
+        latest_group = _innovation_meeting_latest_group_departments()
+        for meeting_type, label in INNOVATION_MEETING_TYPES.items():
+            round_number = _innovation_meeting_current_round(meeting_type)
+            selected = _innovation_meeting_selected(meeting_type, round_number)
+            excluded = set(selected)
+            if meeting_type == 'review':
+                excluded.update(latest_group)
+            candidates = [name for name in INNOVATION_MEETING_DEPARTMENTS if name not in excluded]
+            latest_batch = _innovation_meeting_latest_cancelable_batch(meeting_type, round_number)
+            meetings[meeting_type] = {
+                'label': label, 'round': round_number, 'selected': selected,
+                'selected_details': _innovation_meeting_selected_details(meeting_type, round_number),
+                'candidates': candidates,
+                'latest_group_excluded': latest_group if meeting_type == 'review' else [],
+                'can_draw': len(candidates) >= 2,
+                'can_cancel': bool(latest_batch),
+                'latest_result': _innovation_meeting_batch_departments(meeting_type, round_number, latest_batch),
+            }
+        return jsonify({'success': True, 'departments': INNOVATION_MEETING_DEPARTMENTS, 'meetings': meetings})
+    except Exception as exc:
+        _safe_print(f'读取会议抽签状态失败: {exc}')
+        return jsonify({'success': False, 'message': '读取抽签状态失败，请稍后重试'}), 500
+
+
+@app.route('/api/meeting_draw/draw', methods=['POST'])
+def innovation_meeting_draw():
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '请先登录后再操作'}), 401
+    meeting_type = str((request.get_json(silent=True) or {}).get('meeting_type') or '').strip()
+    if meeting_type not in INNOVATION_MEETING_TYPES:
+        return jsonify({'success': False, 'message': '会议类型无效'}), 400
+    try:
+        with _INNOVATION_MEETING_DRAW_LOCK:
+            _ensure_innovation_meeting_draw_storage()
+            round_number = _innovation_meeting_current_round(meeting_type)
+            excluded = set(_innovation_meeting_selected(meeting_type, round_number))
+            if meeting_type == 'review':
+                excluded.update(_innovation_meeting_latest_group_departments())
+            candidates = [name for name in INNOVATION_MEETING_DEPARTMENTS if name not in excluded]
+            if len(candidates) < 2:
+                return jsonify({'success': False, 'message': '本轮剩余候选部门不足两个，请开启新一轮'}), 409
+            winners = random.SystemRandom().sample(candidates, 2)
+            batch = str(uuid.uuid4())
+            selected_by = _get_current_feishu_user_name() or '管理员'
+            values = ','.join(
+                f"({_sql_nvarchar(meeting_type)}, {round_number}, {_sql_nvarchar(batch)}, "
+                f"{_sql_nvarchar(department)}, {_sql_nvarchar(selected_by)})" for department in winners
+            )
+            dui_db("INSERT INTO dbo.innovation_meeting_draws "
+                   "(meeting_type, round_number, draw_batch, department, selected_by) VALUES " + values)
+        return jsonify({'success': True, 'winners': winners, 'message': '抽签完成'})
+    except Exception as exc:
+        _safe_print(f'会议抽签失败: {exc}')
+        return jsonify({'success': False, 'message': '抽签失败，请稍后重试'}), 500
+
+
+@app.route('/api/meeting_draw/new_round', methods=['POST'])
+def innovation_meeting_new_round():
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '请先登录后再操作'}), 401
+    meeting_type = str((request.get_json(silent=True) or {}).get('meeting_type') or '').strip()
+    if meeting_type not in INNOVATION_MEETING_TYPES:
+        return jsonify({'success': False, 'message': '会议类型无效'}), 400
+    try:
+        with _INNOVATION_MEETING_DRAW_LOCK:
+            _ensure_innovation_meeting_draw_storage()
+            new_round = _innovation_meeting_current_round(meeting_type) + 1
+            dui_db(f"""
+                INSERT INTO dbo.innovation_meeting_draws
+                    (meeting_type, round_number, draw_batch, department, selected_by)
+                VALUES ({_sql_nvarchar(meeting_type)}, {new_round}, {_sql_nvarchar(f'round-marker-{new_round}')},
+                        N'__ROUND_MARKER__', {_sql_nvarchar(_get_current_feishu_user_name() or '管理员')})
+            """)
+        return jsonify({'success': True, 'round': new_round, 'message': f'已开启第 {new_round} 轮'})
+    except Exception as exc:
+        _safe_print(f'开启会议抽签新轮次失败: {exc}')
+        return jsonify({'success': False, 'message': '开启新一轮失败，请稍后重试'}), 500
+
+
+@app.route('/api/meeting_draw/cancel', methods=['POST'])
+def innovation_meeting_cancel_draw():
+    if not session.get('feishu_user_id'):
+        return jsonify({'success': False, 'message': '请先登录后再操作'}), 401
+    meeting_type = str((request.get_json(silent=True) or {}).get('meeting_type') or '').strip()
+    if meeting_type not in INNOVATION_MEETING_TYPES:
+        return jsonify({'success': False, 'message': '会议类型无效'}), 400
+    try:
+        with _INNOVATION_MEETING_DRAW_LOCK:
+            _ensure_innovation_meeting_draw_storage()
+            round_number = _innovation_meeting_current_round(meeting_type)
+            batch = _innovation_meeting_latest_cancelable_batch(meeting_type, round_number)
+            if not batch:
+                return jsonify({'success': False, 'message': '本轮没有可撤销的抽签'}), 409
+            departments = _innovation_meeting_batch_departments(meeting_type, round_number, batch)
+            dui_db(f"""
+                DELETE FROM dbo.innovation_meeting_draws
+                WHERE meeting_type = {_sql_nvarchar(meeting_type)}
+                  AND round_number = {round_number} AND draw_batch = {_sql_nvarchar(batch)}
+            """)
+        return jsonify({'success': True, 'departments': departments, 'message': '已撤销最近一次抽签'})
+    except Exception as exc:
+        _safe_print(f'撤销会议抽签失败: {exc}')
+        return jsonify({'success': False, 'message': '撤销失败，请稍后重试'}), 500
 
 
 @app.route('/manage/demo', endpoint='innovation.innovation_manage_demo')
@@ -3578,6 +3821,13 @@ def exchange_reward():
                     points_spent=points_required,
                     remaining_points=new_points
                 )
+                message_service.send_exchange_notification_renli(
+                    notice_name='王晓菁',
+                    user_name=user_name,
+                    reward_name=reward_name,
+                    points_spent=points_required,
+                    remaining_points=new_points
+                )
 
             except Exception as notify_error:
                 _safe_print(f"[WARNING] 飞书通知发送失败: {notify_error}")
@@ -4593,29 +4843,21 @@ def get_dashboard_data():
         if monthly_raw and len(monthly_raw) > 0:
             for row in monthly_raw:
                 monthly_trend.append({'month': row[0], 'count': row[1]})
-        # 6.个人提案数量前三
+        # 6. 先按提案总数取前五名（第五名允许并列），再取有效率前三名（第三名允许并列）
         personal_stats_sql = f"""
-                select top 3 姓名,部门,提案数量,提案有效量,提案有效率
+                select 姓名,部门,提案数量,提案有效量,提案有效率
                 from(select 发起人 姓名,
                      CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END 部门,
                      count(*) 提案数量, sum(case when 是否通过='Y'then 1 else 0 end ) 提案有效量,sum(case when 是否通过='Y'then 1 else 0 end )/(count(*)+0.0) 提案有效率
                      from v_QuanYuanChuangXin v
                      WHERE 1=1 {date_filter.replace('t1.发起时间', 'v.发起时间')}
                      group by 发起人, CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK') THEN '内容生产工厂' ELSE 部门 END) t
-                order by 提案数量 desc
+                order by 提案数量 desc, 姓名
                                """
         personal_stats_raw = sf_db(personal_stats_sql)
 
-        # 转换为字典格式
-        top_proposal_counts = []
-        if personal_stats_raw:
-            for row in personal_stats_raw:
-                top_proposal_counts.append({
-                    'name': row[0],
-                    'department': row[1],
-                    'count': row[2],
-                    'effective_count': row[3]
-                })
+        from innovation.dashboard_rankings import select_personal_proposal_performers
+        top_proposal_counts = select_personal_proposal_performers(personal_stats_raw or [])
 
         # 7.个人提案最高分
         highest_score_sql = f"""

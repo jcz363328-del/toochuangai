@@ -1202,6 +1202,10 @@
     </nav>
     <div class="report-header-actions">
         <span class="report-safe-state">安全连接</span>
+        <input id="quickExportDateStart" type="date" aria-label="导出开始日期" title="导出开始日期" style="height:34px;border:1px solid #d9e0eb;border-radius:8px;padding:0 8px;background:#fff;color:#273244">
+        <span style="color:#718096;font-size:12px">至</span>
+        <input id="quickExportDateEnd" type="date" aria-label="导出结束日期" title="导出结束日期" style="height:34px;border:1px solid #d9e0eb;border-radius:8px;padding:0 8px;background:#fff;color:#273244">
+        <button id="quickExportReportsBtn" type="button" class="report-head-link" style="cursor:pointer"><i class="fas fa-download"></i>按日期导出</button>
         <a href="{{ url_for('dashboard_xiaotu_report_history') }}" class="report-head-link"><i class="fas fa-clock-rotate-left"></i>历史记录</a>
         <button id="reportInspectorToggle" type="button" class="report-drawer-toggle" aria-label="打开智能检查"><i class="fas fa-panel-right"></i>智能检查</button>
     </div>
@@ -3509,6 +3513,20 @@
         setInspector('preview');
         document.body.classList.add('report-inspector-open');
     });
+    function initQuickReportExport() {
+        const start = document.getElementById('quickExportDateStart');
+        const end = document.getElementById('quickExportDateEnd');
+        const today = new Date();
+        const localDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        start.value = localDate(today);
+        end.value = localDate(today);
+        document.getElementById('quickExportReportsBtn').addEventListener('click', () => {
+            if (!start.value || !end.value) { alert('请选择导出日期'); return; }
+            if (end.value < start.value) { alert('结束日期不能早于开始日期'); return; }
+            const params = new URLSearchParams({date_start: start.value, date_end: end.value});
+            window.location.href = '/api/xiaotu/report_history_download?' + params.toString();
+        });
+    }
     document.getElementById('reportInspectorToggle').addEventListener('click', () => {
         document.body.classList.toggle('report-inspector-open');
     });
@@ -3528,6 +3546,7 @@
     desktopObserver.observe(document.getElementById('reportImageList'), { childList: true, subtree: true, characterData: true });
 
     syncReportType();
+    initQuickReportExport();
     syncPersonType();
     updateDesktopMetrics();
     updatePreview();

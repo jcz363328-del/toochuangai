@@ -8,8 +8,10 @@ param(
     [int]$DeepShopBatchSize = 8,
     [ValidateRange(1, 16)]
     [int]$CatalogWorkers = 3,
+    [ValidateRange(1, 1440)]
+    [int]$CatalogTtlMinutes = 45,
     [ValidateRange(1, 16)]
-    [int]$OverviewWorkers = 4,
+    [int]$OverviewWorkers = 2,
     [string]$SnapshotDir = "data\ad_diagnostic_snapshots"
 )
 
@@ -30,12 +32,12 @@ if (-not (Test-Path -LiteralPath $dpapiPath -PathType Leaf)) {
     throw "Stored DPAPI credentials not found."
 }
 
-& $runnerPath -SnapshotDir $resolvedSnapshotDir -BatchSize $BatchSize -DeepShopBatchSize $DeepShopBatchSize -CatalogWorkers $CatalogWorkers -OverviewWorkers $OverviewWorkers -CheckConfig
+& $runnerPath -SnapshotDir $resolvedSnapshotDir -BatchSize $BatchSize -DeepShopBatchSize $DeepShopBatchSize -CatalogWorkers $CatalogWorkers -CatalogTtlMinutes $CatalogTtlMinutes -OverviewWorkers $OverviewWorkers -CheckConfig
 if ($LASTEXITCODE -ne 0) {
     throw "Snapshot credential preflight failed; the task was not created."
 }
 
-$arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -SnapshotDir "{1}" -BatchSize {2} -DeepShopBatchSize {3} -CatalogWorkers {4} -OverviewWorkers {5}' -f $runnerPath, $resolvedSnapshotDir, $BatchSize, $DeepShopBatchSize, $CatalogWorkers, $OverviewWorkers
+$arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -SnapshotDir "{1}" -BatchSize {2} -DeepShopBatchSize {3} -CatalogWorkers {4} -CatalogTtlMinutes {5} -OverviewWorkers {6}' -f $runnerPath, $resolvedSnapshotDir, $BatchSize, $DeepShopBatchSize, $CatalogWorkers, $CatalogTtlMinutes, $OverviewWorkers
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arguments -WorkingDirectory $projectRoot
 $startAt = (Get-Date).AddMinutes(1)
 while (($startAt.Minute % 15) -ne 10) {

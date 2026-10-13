@@ -25,6 +25,31 @@ def image_data_url(width: int = 200, height: int = 300) -> str:
     return f"data:image/png;base64,{base64.b64encode(bytes(image_bytes)).decode('ascii')}"
 
 
+def complete_source_reports(inputs: list[object]) -> list[dict[str, object]]:
+    return [
+        {
+            "image_index": index,
+            "status": "complete",
+            "cropped_sides": [],
+            "content_types": [],
+            "repairability": "unknown",
+            "confidence": 1.0,
+            "reason": "",
+        }
+        for index in range(1, len(inputs) + 1)
+    ]
+
+
+def passed_quality_review() -> dict[str, object]:
+    return {
+        "reviewed": True,
+        "passed": True,
+        "quality_score": 9.0,
+        "critical_issue_count": 0,
+        "layout_issues": [],
+    }
+
+
 def analysis_payload(case_count: int = 2) -> dict[str, object]:
     case = {
         "style": "高端黑金",
@@ -211,11 +236,23 @@ class APlusLayoutSkillTests(unittest.TestCase):
         user_product = image_input(240, 320, "current-product.png", "red")
         skeleton = image_input(320, 640, "layout_skeleton.png", "gray")
 
-        with patch.object(
-            site,
-            "call_openrouter_images_api",
-            return_value={"images": [image_data_url()], "text": ""},
-        ) as request:
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [image_data_url()], "text": ""},
+            ) as request,
+            patch.object(
+                site,
+                "analyze_main_image_a_plus_source_integrity",
+                side_effect=complete_source_reports,
+            ),
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                return_value=passed_quality_review(),
+            ),
+        ):
             result = site.run_main_image_a_plus_job(
                 {
                     "model": site.NANO_BANANA_MODEL,
@@ -240,11 +277,23 @@ class APlusLayoutSkillTests(unittest.TestCase):
         references = [image_input(80, 80, f"product-{index}.png") for index in range(10)]
         layout = site.get_main_image_a_plus_layout("mobile_equal")
 
-        with patch.object(
-            site,
-            "call_openrouter_images_api",
-            return_value={"images": [image_data_url()], "text": ""},
-        ) as request:
+        with (
+            patch.object(
+                site,
+                "call_openrouter_images_api",
+                return_value={"images": [image_data_url()], "text": ""},
+            ) as request,
+            patch.object(
+                site,
+                "analyze_main_image_a_plus_source_integrity",
+                side_effect=complete_source_reports,
+            ),
+            patch.object(
+                site,
+                "review_main_image_a_plus_candidate",
+                return_value=passed_quality_review(),
+            ),
+        ):
             result = site.run_main_image_a_plus_job(
                 {
                     "model": site.NANO_BANANA_MODEL,

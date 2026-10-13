@@ -11,6 +11,18 @@ export interface Filters {
   department: string;
   operator: string;
   store: string;
+  tier?: string;
+}
+
+export interface StoreTier {
+  store: number;
+  tier: string | null;
+  tierRank?: number | null;
+  currentLevelDays?: number | null;
+  department?: string | null;
+  leader?: string | null;
+  operator?: string | null;
+  effectiveDate?: string | null;
 }
 
 export interface CategorySegment {
@@ -20,6 +32,7 @@ export interface CategorySegment {
   company: {
     current: { sales: number; usSales: number };
     previous: { sales: number; usSales: number };
+    yearAgo?: { sales: number; usSales: number };
   };
   industry: {
     current: { sales: number; coveredDays: number; dailySales: number | null };
@@ -29,8 +42,10 @@ export interface CategorySegment {
     department: string;
     currentSales: number;
     previousSales: number;
+    yearAgoSales?: number;
     currentUsSales: number;
     previousUsSales: number;
+    yearAgoUsSales?: number;
   }>;
   shareDaily?: Array<{
     date: string;
@@ -40,18 +55,32 @@ export interface CategorySegment {
   }>;
   ratios?: {
     company: {
+      currentSales: number | null;
+      previousSales: number | null;
+      yearAgoSales: number | null;
+      currentDailySales: number | null;
+      previousDailySales: number | null;
+      yearAgoDailySales: number | null;
       dailyMom: number | null;
+      dailyYoy: number | null;
       usDailyMom: number | null;
+      usDailyYoy: number | null;
       currentUsShare: number | null;
       previousUsShare: number | null;
+      yearAgoUsShare: number | null;
     };
     departments: Array<{
       department: string;
+      currentSales?: number | null;
+      currentDailySales?: number | null;
       currentShare: number | null;
       previousShare: number | null;
+      yearAgoShare: number | null;
       dailyMom: number | null;
+      dailyYoy: number | null;
       currentUsShare: number | null;
       previousUsShare: number | null;
+      yearAgoUsShare: number | null;
     }>;
   };
 }
@@ -78,6 +107,15 @@ export function isFocusDepartment(department: string) {
   return focusDepartmentSet.has(department);
 }
 
+export interface BusinessAnalysisAccessScope {
+  role: "business_owner" | "department_leader" | "member" | "ratio_viewer";
+  department: string | null;
+  operator: string | null;
+  userName: string;
+  canViewAmounts: boolean;
+  categoryRatioVisible: boolean;
+}
+
 export interface WorkbookData {
   meta: {
     sourceFile: string;
@@ -89,13 +127,13 @@ export interface WorkbookData {
     rowCounts: Record<string, number>;
     sourceTotals: Record<string, number>;
     reconciliation: Record<string, { source: number; calculated: number; match: boolean }>;
-    accessScope?: {
-      role: "department_leader" | "member" | "ratio_viewer";
-      department: string | null;
-      operator: string | null;
-      userName: string;
-      canViewAmounts: boolean;
-      categoryRatioVisible: boolean;
+    accessScope?: BusinessAnalysisAccessScope;
+    storeTier?: {
+      effectiveDate: string | null;
+      updatedAt: string | null;
+      source: string;
+      stale: boolean;
+      warning: string | null;
     };
   };
   performance: {
@@ -116,6 +154,8 @@ export interface WorkbookData {
       store: number;
       openedOn: string | null;
       ageYears: number | null;
+      tier?: string | null;
+      tierRank?: number | null;
     }>;
     periodRows: Array<{
       periodKey: PeriodKey;
@@ -151,7 +191,9 @@ export interface WorkbookData {
     airUnits: number;
     oceanShare: number;
     airShare: number;
+    tier?: string | null;
   }>;
+  storeTiers?: StoreTier[];
   newProductOrders: Array<{
     orderedOn: string;
     department?: string | null;
@@ -187,6 +229,9 @@ export interface StoreView {
   operator: string;
   openedOn: string | null;
   ageYears: number | null;
+  tier: string | null;
+  tierRank: number | null;
+  currentLevelDays: number | null;
   hasPerformance: boolean;
   current: PeriodMetric;
   previous: PeriodMetric;
@@ -233,22 +278,47 @@ const emptyMetric = (): PeriodMetric => ({
 
 const ratio = (value: number, base: number) => (base ? value / base : null);
 
+const TIER_GROUPS: Record<string, number> = {
+  铜: 0,
+  銅: 0,
+  银: 3,
+  銀: 3,
+  金: 7,
+  钻: 16,
+  鑽: 16,
+};
+
+export function tierRankValue(value: string | null | undefined) {
+  const match = value?.replace(/\s+/g, "").match(/^(铜|銅|银|銀|金|钻|鑽)(\d+)$/);
+  if (!match) return null;
+  const group = TIER_GROUPS[match[1]];
+  const level = Number(match[2]);
+  return Number.isInteger(group) && Number.isInteger(level) && level > 0
+    ? group + level
+    : null;
+}
+
 export function buildStoreViews(data: WorkbookData): StoreView[] {
   const rows = new Map<number, StoreView>();
   const periodByLabel = new Map(
     data.performance.periods.map(({ key, year, month }) => [`${year}-${month}`, key]),
   );
   const details = new Map(data.performance.stores.map((row) => [row.store, row]));
+  const tierDetails = new Map((data.storeTiers ?? []).map((row) => [row.store, row]));
 
   const ensure = (store: number) => {
     if (!rows.has(store)) {
       const detail = details.get(store);
+      const tierDetail = tierDetails.get(store);
       rows.set(store, {
         store,
         department: normalizeDepartmentName(detail?.department ?? detail?.leader) ?? "未分组",
         operator: detail?.operator ?? "未分配",
         openedOn: detail?.openedOn ?? null,
         ageYears: detail?.ageYears ?? null,
+        tier: tierDetail?.tier ?? detail?.tier ?? null,
+        tierRank: tierDetail?.tierRank ?? detail?.tierRank ?? tierRankValue(tierDetail?.tier ?? detail?.tier),
+        currentLevelDays: tierDetail?.currentLevelDays ?? detail?.currentLevelDays ?? null,
         hasPerformance: false,
         current: emptyMetric(),
         previous: emptyMetric(),
@@ -307,6 +377,10 @@ export function buildStoreViews(data: WorkbookData): StoreView[] {
     target.airUnits = row.airUnits;
     target.oceanShare = row.oceanShare;
     target.airShare = row.airShare;
+    if (row.tier && !target.tier) {
+      target.tier = row.tier;
+      target.tierRank = target.tierRank ?? tierRankValue(row.tier);
+    }
   }
 
   for (const row of data.unshipped) {
@@ -323,6 +397,17 @@ export function buildStoreViews(data: WorkbookData): StoreView[] {
     if (target.operator === "未分配" && row.operator) target.operator = row.operator;
   }
 
+  // Tier-only stores (for example a newly opened store with no sales rows)
+  // still need to be visible in the store-level view.
+  for (const row of data.storeTiers ?? []) {
+    const target = ensure(row.store);
+    if (row.department) target.department = normalizeDepartmentName(row.department) ?? target.department;
+    if (row.operator && target.operator === "未分配") target.operator = row.operator;
+    target.tier = row.tier ?? target.tier;
+    target.tierRank = row.tierRank ?? target.tierRank ?? tierRankValue(row.tier);
+    target.currentLevelDays = row.currentLevelDays ?? target.currentLevelDays;
+  }
+
   return [...rows.values()].sort((a, b) => b.current.sales - a.current.sales);
 }
 
@@ -330,6 +415,7 @@ export function matchesFilters(row: StoreView, filters: Filters) {
   return (
     (!filters.department || row.department === filters.department) &&
     (!filters.operator || row.operator === filters.operator) &&
+    (!filters.tier || row.tier === filters.tier) &&
     (!filters.store || String(row.store) === filters.store)
   );
 }
@@ -409,13 +495,14 @@ export const money = (value: number) =>
   new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY", maximumFractionDigits: 0 }).format(value);
 
 export const compactMoney = (value: number) => {
-  if (Math.abs(value) >= 10000) return `${(value / 10000).toFixed(value >= 1000000 ? 1 : 2)}万`;
   return money(value);
 };
 
 export const integer = (value: number) => new Intl.NumberFormat("zh-CN").format(Math.round(value));
 
-export const percent = (value: number | null, digits = 1) =>
-  value === null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(digits)}%`;
+export const percent = (value: number | null, _digits = 2) => {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `${(value * 100).toFixed(2)}%`;
+};
 
 export const shortDate = (value: string) => value.slice(5).replace("-", "/");

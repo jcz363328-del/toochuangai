@@ -53,7 +53,7 @@ _REVIEW_FILTERS = {
     },
     "remark": {
         "label": "毛型/备注",
-        "column": "shangpinbeizhu",
+        "column": "maoxing",
     },
 }
 
@@ -828,7 +828,10 @@ def _build_review_query(filter_value, start_date, max_rating, filter_type="sku")
                 SELECT 1
                 FROM zidian AS zd WITH (NOLOCK)
                 WHERE zd.sku = pj.SKU
-                  AND LTRIM(RTRIM(COALESCE(CAST(zd.[{column}] AS NVARCHAR(500)), N''))) = N'{identifier_safe}'
+                  AND CHARINDEX(
+                        N'{identifier_safe}',
+                        COALESCE(CAST(zd.[{column}] AS NVARCHAR(500)), N'')
+                      ) > 0
             )"""
 
     return f"""
@@ -1271,7 +1274,7 @@ def analyze_reviews():
         if not filter_value:
             return jsonify({
                 'success': False,
-                'message': '请输入或选择筛选值'
+                'message': '请输入筛选值'
             })
 
         # 执行分析
@@ -1413,7 +1416,7 @@ def analyze_word_freq():
             return jsonify({'success': False, 'message': '不支持的筛选维度'}), 400
 
         if not filter_value:
-            return jsonify({'success': False, 'message': '请输入或选择筛选值'})
+            return jsonify({'success': False, 'message': '请输入筛选值'})
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months_limit * 30)

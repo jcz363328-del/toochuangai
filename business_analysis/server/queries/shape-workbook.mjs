@@ -11,6 +11,79 @@ function nullableText(value) {
   return text || null;
 }
 
+const TIER_GROUP_RANK = Object.freeze({
+  铜: 0,
+  銅: 0,
+  银: 3,
+  銀: 3,
+  金: 7,
+  钻: 16,
+  鑽: 16,
+});
+
+/**
+ * Keep the level label as displayed by the source system while exposing a
+ * stable numeric rank for sorting and summaries. Unknown labels are valid
+ * (the business can add levels without a code deployment) and receive null.
+ */
+export function tierRank(value) {
+  const text = nullableText(value)?.replace(/\s+/g, "") || "";
+  const match = text.match(/^(铜|銅|银|銀|金|钻|鑽)\s*(\d+)$/);
+  if (!match) return null;
+  const group = TIER_GROUP_RANK[match[1]];
+  const level = Number(match[2]);
+  return Number.isInteger(group) && Number.isInteger(level) && level > 0
+    ? group + level
+    : null;
+}
+
+function tierFallbackMap(snapshot) {
+  const rows = Array.isArray(snapshot?.storeTiers)
+    ? snapshot.storeTiers
+    : Array.isArray(snapshot?.performance?.stores)
+      ? snapshot.performance.stores
+      : [];
+  return new Map(rows.map((row) => [finite(row.store), row]));
+}
+
+/** Shape authoritative CengJi history rows into the dashboard store contract. */
+export function shapeStoreTiers(rows, snapshot = null, effectiveDate = null) {
+  const fallback = tierFallbackMap(snapshot);
+  const shaped = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const store = finite(row.Store ?? row.Dian ?? row.store);
+    if (!store) continue;
+    const old = fallback.get(store);
+    const item = shaped.get(store) || {
+      store,
+      tier: null,
+      tierRank: null,
+      currentLevelDays: null,
+      department: null,
+      leader: null,
+      operator: null,
+      effectiveDate: effectiveDate || null,
+    };
+    const tier = nullableText(row.Tier ?? row.CengJi1 ?? row.tier) || old?.tier || item.tier;
+    item.tier = tier;
+    const sourceRank = Number(row.TierRank ?? row.CengJiID ?? row.tierRank);
+    item.tierRank = Number.isFinite(sourceRank) && sourceRank > 0 ? sourceRank : tierRank(tier);
+    const sourceDays = Number(row.CurrentLevelDays ?? row.currentLevelDays);
+    item.currentLevelDays = Number.isInteger(sourceDays) && sourceDays > 0
+      ? sourceDays
+      : (old?.currentLevelDays ?? item.currentLevelDays);
+    item.department = toDisplayDepartment(row.Department ?? row.department) || old?.department || item.department;
+    item.leader = nullableText(row.Leader ?? row.leader) || old?.leader || item.leader;
+    item.operator = nullableText(row.Operator ?? row.operator) || old?.operator || item.operator;
+    const rawEffectiveDate = row.EffectiveDate ?? row.AsOf ?? row.RiQi;
+    item.effectiveDate = rawEffectiveDate != null && String(rawEffectiveDate).trim()
+      ? isoDay(rawEffectiveDate)
+      : (old?.effectiveDate || item.effectiveDate || null);
+    shaped.set(store, item);
+  }
+  return [...shaped.values()].sort((a, b) => a.store - b.store);
+}
+
 function isoDay(value) {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return String(value).slice(0, 10);
@@ -100,6 +173,7 @@ export function shapePerformance(rows, context, snapshot, timezone) {
       operator: nullableText(row.Operator) || fallback?.operator || "未分配",
       openedOn: fallback?.openedOn || null,
       ageYears: fallback?.ageYears ?? null,
+      tier: fallback?.tier || null,
       current: metric(),
       previous: metric(),
       yearAgo: metric(),
@@ -129,6 +203,7 @@ export function shapePerformance(rows, context, snapshot, timezone) {
     yoySalesGrowth: simpleGrowth(store.current.sales, store.yearAgo.sales),
     openedOn: store.openedOn,
     ageYears: store.ageYears,
+    tier: store.tier || null,
   })).sort((a, b) => b.current.sales - a.current.sales);
 
   const departmentMap = new Map();
@@ -240,6 +315,10 @@ export function shapeCategorySegments(rows) {
             sales: finite(representative.PreviousCompanySales),
             usSales: finite(representative.PreviousCompanyUsSales),
           },
+          yearAgo: {
+            sales: finite(representative.YearAgoCompanySales),
+            usSales: finite(representative.YearAgoCompanyUsSales),
+          },
         },
         industry: {
           current: { sales: 0, coveredDays: 0, dailySales: null },
@@ -254,8 +333,10 @@ export function shapeCategorySegments(rows) {
             department: display,
             currentSales: finite(row.CurrentDepartmentSales),
             previousSales: finite(row.PreviousDepartmentSales),
+            yearAgoSales: finite(row.YearAgoDepartmentSales),
             currentUsSales: finite(row.CurrentDepartmentUsSales),
             previousUsSales: finite(row.PreviousDepartmentUsSales),
+            yearAgoUsSales: finite(row.YearAgoDepartmentUsSales),
           };
         }),
       };
@@ -280,6 +361,7 @@ export function shapeShipping(rows, snapshot) {
       airUnits,
       oceanShare: totalUnits ? oceanUnits / totalUnits : 0,
       airShare: totalUnits ? airUnits / totalUnits : 0,
+      tier: nullableText(row.Tier) || old?.tier || null,
     };
   });
 }

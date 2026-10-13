@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>360价值评价</title>
+  <style>
+    :root{--brand:#4f46e5;--ink:#172033;--muted:#64748b;--line:#dbe2ea;--bg:#f4f6fb}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei",Arial,sans-serif}
+    header{background:linear-gradient(135deg,#4338ca,#7c3aed);color:#fff}.bar,main{width:min(1160px,calc(100% - 28px));margin:auto}.bar{min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:20px}.bar a{color:#fff;text-decoration:none}.identity{font-size:14px;opacity:.9}
+    main{padding:22px 0 50px}.intro,.panel{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 7px 22px #25325a12}.intro{padding:20px;margin-bottom:16px}.intro h1{margin:0 0 8px;font-size:24px}.intro p{margin:0;color:var(--muted);line-height:1.7}
+    .toolbar{display:flex;align-items:end;gap:14px;flex-wrap:wrap;padding:18px}.field{display:grid;gap:7px;flex:1;min-width:240px}.field label{font-size:13px;color:var(--muted)}select{height:42px;border:1px solid #cbd5e1;border-radius:9px;padding:0 12px;background:#fff;font-size:15px}.status{font-size:13px;color:var(--muted)}
+    .questions{display:grid;gap:14px;margin-top:16px}.question{background:#fff;border:1px solid var(--line);border-radius:13px;padding:18px}.question h3{margin:0 0 9px;font-size:17px}.question .desc{white-space:pre-line;color:#475569;line-height:1.65;font-size:14px;max-height:190px;overflow:auto;padding-right:8px}.answer{display:grid;grid-template-columns:150px 1fr;gap:14px;margin-top:14px}.score{display:flex;gap:6px;flex-wrap:wrap}.score label{cursor:pointer}.score input{position:absolute;opacity:0}.score span{display:grid;place-items:center;width:38px;height:38px;border:1px solid #cbd5e1;border-radius:9px}.score input:checked+span{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}textarea{width:100%;min-height:82px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;resize:vertical;font:inherit}.open textarea{min-height:110px}
+    .actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;margin-top:18px}.submit{border:0;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:12px 28px;font-weight:700;cursor:pointer}.submit:disabled{opacity:.55}.message{font-size:14px}.error{color:#dc2626}.ok{color:#047857}.empty{padding:55px 20px;text-align:center;color:var(--muted)}
+    @media(max-width:700px){.answer{grid-template-columns:1fr}.bar{align-items:flex-start;padding:14px 0;flex-direction:column}.identity{padding-bottom:5px}}
+  </style>
+</head>
+<body>
+<header><div class="bar"><a href="{{ url_for('ai_modules') }}">← 返回 AI 部功能</a><div class="identity">当前飞书用户：{{ user_name }}</div></div></header>
+<main>
+  <section class="intro"><h1>360价值评价</h1><p>请基于实际工作表现客观评价。评分只能为 1–5 的整数；1 分或 5 分须填写不少于 20 个字的说明；6 项评分不能完全相同。</p></section>
+  <section class="panel"><div class="toolbar"><div class="field"><label for="person">选择被评价人</label><select id="person"><option value="">正在加载…</option></select></div><div id="status" class="status"></div></div></section>
+  <div id="questions" class="questions"></div>
+  <div class="actions"><span id="message" class="message"></span><button id="submit" class="submit" disabled>提交评价</button></div>
+</main>
+<script>
+const personEl=document.getElementById('person'),questionsEl=document.getElementById('questions'),statusEl=document.getElementById('status'),messageEl=document.getElementById('message'),submitEl=document.getElementById('submit');
+let criteria=[];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function render(existing={}){questionsEl.innerHTML=criteria.map(c=>{const a=existing[c.code]||{};if(c.code.startsWith('2-'))return `<section class="question open" data-code="${esc(c.code)}"><h3>${esc(c.description||c.item)}</h3><textarea placeholder="请填写具体内容">${esc(a.remark||'')}</textarea></section>`;return `<section class="question" data-code="${esc(c.code)}"><h3>${esc(c.code)} · ${esc(c.item)}</h3><div class="desc">${esc(c.description)}</div><div class="answer"><div class="score">${[1,2,3,4,5].map(n=>`<label><input type="radio" name="score-${esc(c.code)}" value="${n}" ${Number(a.score)===n?'checked':''}><span>${n}</span></label>`).join('')}</div><textarea placeholder="备注（1分或5分时至少20字）">${esc(a.remark||'')}</textarea></div></section>`}).join('');submitEl.disabled=!personEl.value}
+async function load(){try{const r=await fetch('/api/ai/value-evaluation'),d=await r.json();if(!r.ok||!d.success)throw Error(d.message||'加载失败');criteria=d.criteria||[];personEl.innerHTML='<option value="">请选择</option>'+d.people.map(p=>`<option value="${esc(p.name)}">${esc(p.name)} · ${esc(p.relationship)}${p.submitted?'（已评价）':''}</option>`).join('');statusEl.textContent=d.batch_no?`当前批次：${d.batch_no}，待评价 ${d.people.length} 人`:'当前没有进行中的评价任务';if(!d.people.length)questionsEl.innerHTML='<div class="panel empty">当前飞书用户没有待评价人员</div>'}catch(e){statusEl.textContent=e.message;statusEl.className='status error';personEl.innerHTML='<option value="">加载失败</option>'}}
+personEl.addEventListener('change',async()=>{messageEl.textContent='';if(!personEl.value){questionsEl.innerHTML='';submitEl.disabled=true;return}let existing={};try{const r=await fetch('/api/ai/value-evaluation/existing?person='+encodeURIComponent(personEl.value)),d=await r.json();if(d.success)existing=Object.fromEntries((d.answers||[]).map(a=>[a.code,a]))}catch(_){}render(existing)});
+submitEl.addEventListener('click',async()=>{const answers=[...questionsEl.querySelectorAll('.question')].map(el=>({code:el.dataset.code,score:el.querySelector('input:checked')?.value??null,remark:el.querySelector('textarea').value}));submitEl.disabled=true;messageEl.textContent='正在提交…';messageEl.className='message';try{const r=await fetch('/api/ai/value-evaluation/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({person:personEl.value,answers})}),d=await r.json();if(!r.ok||!d.success)throw Error(d.message||'提交失败');messageEl.textContent=d.message;messageEl.className='message ok';const o=personEl.options[personEl.selectedIndex];if(!o.text.includes('（已评价）'))o.text+='（已评价）'}catch(e){messageEl.textContent=e.message;messageEl.className='message error'}finally{submitEl.disabled=!personEl.value}});
+load();
+</script>
+</body></html>

@@ -17,6 +17,9 @@ def _joined(values):
 
 
 CORE_PARENT_MAP = {
+    "video_claw": "ai_dept",
+    "daily_replenishment": "ai_dept",
+    "ai_group_performance": "ai_dept",
     "tk_email_register": "tk_project_group",
     "tk_video_realtime": "tk_project_group",
     "tk_dashboard": "tk_project_group",
@@ -27,7 +30,9 @@ CORE_PARENT_MAP = {
 
 
 CORE_USER_OVERRIDES = {
-    "operation_dept_1": "孙洁；侯梁",
+    "review_analysis": "郭婷",
+    "amazon_reply_agent": "郭婷",
+    "operation_dept_1": "孙洁；侯梁；郭婷",
     "operation_dept_2": "孙洁；侯梁",
     "operation_dept_3": "孙洁；侯梁",
     "operation_dept_6": "孙洁；侯梁",
@@ -47,11 +52,35 @@ CONTENT_FACTORY_CHILD_DEPARTMENTS = (
 )
 
 
-ADMIN_USERS = "周俊成；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭"
-PARTIAL_ADMIN_USERS = "张莉；周俊成；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭"
+ADMIN_USERS = "周俊成；蔡晶；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭"
+PARTIAL_ADMIN_USERS = "张莉；周俊成；蔡晶；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭"
 
 
 EXTRA_PERMISSION_ROWS = [
+    {
+        "gongneng": "business_analysis",
+        "mingcheng": "经营分析",
+        "yonghu": "郭婷；王丰慧",
+        "bumen": "运营一部；运营二部；运营三部；运营六部；运营七部；AI部；总经办",
+        "fujigongneng": "ai_dept",
+        "miaoshu": "经营分析入口权限；部门负责人仅看本部门，普通员工仅看本人，未命中全量权限时仅展示比例数据。",
+    },
+    {
+        "gongneng": "business_analysis_all",
+        "mingcheng": "经营分析（全量权限）",
+        "yonghu": "周俊成；王丰慧；蔡晶；侯梁；孙洁；刘蓉蓉",
+        "bumen": "AI部；总经办",
+        "fujigongneng": "business_analysis",
+        "miaoshu": "经营分析全量数据与全部关键任务管理权限。",
+    },
+    {
+        "gongneng": "ads_monitor",
+        "mingcheng": "MAGIC AD 广告监控",
+        "yonghu": "孙洁；侯梁；刘蓉蓉",
+        "bumen": "AI部；总经办",
+        "fujigongneng": "ai_dept",
+        "miaoshu": "MAGIC AD 广告监控页面、静态资源与诊断接口权限。",
+    },
     {
         "gongneng": "listing_agent_aba_import",
         "mingcheng": "ABA 看板导入",
@@ -167,7 +196,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "tk_dashboard_82",
         "mingcheng": "TK 82看板",
-        "yonghu": "张莉；周俊成；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭；朱晓禹；侯梁",
+        "yonghu": "张莉；周俊成；蔡晶；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭；朱晓禹；侯梁",
         "bumen": "",
         "fujigongneng": "operation_dept_6；tk_project_group",
         "miaoshu": "82号店独立看板和指标接口。",
@@ -175,7 +204,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "tk_dashboard_88",
         "mingcheng": "TK 88看板",
-        "yonghu": "张莉；周俊成；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭；朱晓禹；侯梁；刘俊霞；李晓明",
+        "yonghu": "张莉；周俊成；蔡晶；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭；朱晓禹；侯梁；刘俊霞；李晓明",
         "bumen": "",
         "fujigongneng": "operation_dept_6；newcomer_group",
         "miaoshu": "88号店独立看板和指标接口。",
@@ -183,7 +212,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "tk_dashboard_90",
         "mingcheng": "TK 90看板",
-        "yonghu": "张莉；周俊成；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭；朱晓禹；侯梁；孙洁",
+        "yonghu": "张莉；周俊成；蔡晶；毕景春；陶晓飞；李昌翰；孙军；李春；宋亚倩；王丰慧；陈梦昭；朱晓禹；侯梁；孙洁；郭婷",
         "bumen": "",
         "fujigongneng": "operation_dept_1",
         "miaoshu": "90号店独立看板和指标接口。",
@@ -191,7 +220,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "xiaotu_report_history_all",
         "mingcheng": "小图报告历史（全量上传记录）",
-        "yonghu": "陶晓飞；周俊成；毕景春",
+        "yonghu": "陶晓飞；周俊成；蔡晶；毕景春",
         "bumen": "",
         "fujigongneng": "xiaotu_qa",
         "miaoshu": "可查看所有上传人的报告。",
@@ -223,7 +252,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "xiaotu_report_history_debug",
         "mingcheng": "小图报告历史（权限调试视角）",
-        "yonghu": "周俊成",
+        "yonghu": "周俊成；蔡晶",
         "bumen": "",
         "fujigongneng": "xiaotu_qa",
         "miaoshu": "可切换本人、全量、运营受限视角。",
@@ -247,7 +276,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "image_history_all",
         "mingcheng": "图片工具生成历史（全部账号）",
-        "yonghu": "周俊成",
+        "yonghu": "周俊成；蔡晶",
         "bumen": "",
         "fujigongneng": "visual_design_dept",
         "miaoshu": "查看图片工具全部账号的生成历史。",
@@ -255,7 +284,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "operation_fba_shipping",
         "mingcheng": "FBA货件运输方式",
-        "yonghu": "",
+        "yonghu": "郭婷",
         "bumen": "运营一部；运营二部；运营三部；运营六部；运营七部；新人组；AI部；总经办",
         "fujigongneng": "",
         "miaoshu": "运营部门和新人组共用的FBA货件运输方式。",

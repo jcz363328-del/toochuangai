@@ -13,9 +13,11 @@ import json
 import re
 import base64
 import hashlib
+import secrets
 import mimetypes
 import requests
 import importlib.util
+import subprocess
 from functools import partial, wraps
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from secret_settings import TUCHUANGAI_STORAGE_ROOT, ai_runtime_config, env, env_int, relocate_storage_path, sql_server_config
@@ -49,12 +51,21 @@ from yangban_inventory import yangban_inventory_bp
 from tk_gmv_authorization import tk_gmv_authorization_bp
 from listing_agent import listing_agent_bp
 from listing_agent_v2 import listing_agent_v2_bp
+from daily_replenishment import daily_replenishment_bp
+from daily_replenishment_operation import daily_replenishment_operation_bp
+from ai_group_performance import ai_group_performance_bp
+from value_evaluation import value_evaluation_bp
 from business_analysis_access import (
-    BUSINESS_ANALYSIS_DEPARTMENTS,
+    BUSINESS_ANALYSIS_DEPARTMENT_LEADERS,
     force_business_analysis_query_params,
+    merge_business_analysis_store_tier_snapshot,
     prepare_business_analysis_payload,
     resolve_business_analysis_scope,
 )
+from business_analysis_key_tasks import KeyTaskStore, KeyTaskStoreError
+from business_analysis_fiscal_overview import load_fiscal_overview, validate_fiscal_year
+from business_analysis_store_tier_promotion import detect_promotions
+from business_analysis_usage import record_business_analysis_usage
 
 app = Flask(__name__)
 app.secret_key = env("FLASK_SECRET_KEY", "change-this-secret-key")  # 用于session加密
@@ -116,6 +127,9 @@ _xiaotu_report_reminder_thread_started = False
 _xiaotu_report_reminder_lock = Lock()
 _xiaotu_report_reminder_sent_marks = {}
 _xiaotu_user_open_id_cache = {}
+_feishu_user_token_cache = {}
+_feishu_user_token_cache_lock = Lock()
+_FEISHU_USER_TOKEN_DEFAULT_TTL_SECONDS = 2 * 60 * 60
 _LASHFORGE_PUBLIC_URL = (os.environ.get("LASHFORGE_PUBLIC_URL") or "http://www.toochuangai.com:8501/lashforge").strip().rstrip("/")
 _LASHFORGE_HEALTH_URL = (os.environ.get("LASHFORGE_HEALTH_URL") or "http://127.0.0.1:8501/lashforge/").strip()
 _LASHFORGE_AUTH_TOKEN_SALT = "lashforge-auth-v1"
@@ -123,10 +137,31 @@ _lashforge_watchdog_lock = Lock()
 _lashforge_watchdog_last_attempt = 0.0
 _BUSINESS_ANALYSIS_ROOT = os.path.join(os.path.dirname(__file__), "business_analysis")
 _BUSINESS_ANALYSIS_DIST_DIR = os.path.join(_BUSINESS_ANALYSIS_ROOT, "dist-flask")
+_BUSINESS_ANALYSIS_SNAPSHOT_PATH = os.path.join(
+    _BUSINESS_ANALYSIS_ROOT,
+    "app",
+    "data",
+    "workbook-data.json",
+)
+_BUSINESS_ANALYSIS_TIER_SNAPSHOT_PATH = os.path.join(
+    _BUSINESS_ANALYSIS_ROOT,
+    "app",
+    "data",
+    "store-tiers.json",
+)
+_BUSINESS_ANALYSIS_DASHBOARD_SNAPSHOT_PATH = os.path.join(
+    _BUSINESS_ANALYSIS_ROOT,
+    "data",
+    "dashboard-snapshot.json",
+)
 _BUSINESS_ANALYSIS_API_PORT = env_int("SALES_API_PORT", 4311)
 _BUSINESS_ANALYSIS_HEALTH_URL = f"http://127.0.0.1:{_BUSINESS_ANALYSIS_API_PORT}/api/health"
 _business_analysis_start_lock = Lock()
 _business_analysis_last_start_attempt = 0.0
+_business_analysis_key_task_store = KeyTaskStore(
+    os.environ.get("SALES_KEY_TASKS_FILE")
+    or os.path.join(_BUSINESS_ANALYSIS_ROOT, "data", "key-tasks.json")
+)
 _ADS_MONITOR_ROOT = os.path.join(
     os.path.dirname(__file__),
     "ads_monitor_web",
@@ -139,6 +174,16 @@ _ADS_MONITOR_API_PORT = 4174
 _ADS_MONITOR_HEALTH_URL = f"http://127.0.0.1:{_ADS_MONITOR_API_PORT}/api/diagnostic/health"
 _ads_monitor_start_lock = Lock()
 _ads_monitor_last_start_attempt = 0.0
+_VIDEOCLAW_URL = os.environ.get('VIDEOCLAW_URL', '').strip()
+_VIDEOCLAW_ROOT = os.path.join(os.path.dirname(__file__), 'VideoClaw', 'video-claw', 'video-claw')
+_VIDEOCLAW_FRONTEND_ROOT = os.path.join(_VIDEOCLAW_ROOT, 'frontend')
+_VIDEOCLAW_BACKEND_ROOT = os.path.join(_VIDEOCLAW_ROOT, 'backend')
+_VIDEOCLAW_FRONTEND_PORT = env_int('VIDEOCLAW_FRONTEND_PORT', 3000)
+_VIDEOCLAW_BACKEND_PORT = env_int('VIDEOCLAW_BACKEND_PORT', 18000)
+_VIDEOCLAW_FRONTEND_URL = f'http://127.0.0.1:{_VIDEOCLAW_FRONTEND_PORT}'
+_VIDEOCLAW_BACKEND_URL = f'http://127.0.0.1:{_VIDEOCLAW_BACKEND_PORT}'
+_videoclaw_start_lock = Lock()
+_videoclaw_last_start_attempt = 0.0
 _INFINITE_CANVAS_OPENROUTER_IMAGE_MODELS = (
     "google/gemini-2.5-flash-image",
     "google/gemini-3.1-flash-image",
@@ -503,6 +548,13 @@ def _build_mobile_function_cards(accessible_functions):
         'icon': 'fa-solid fa-circle-play',
         'available': True
     })
+    if _is_ai_department_user(session.get('feishu_user_id')):
+        cards.append({
+            'name': 'VideoClaw AI视频创作',
+            'href': url_for('video_claw'),
+            'icon': 'fa-solid fa-clapperboard',
+            'available': True,
+        })
     return cards
 
 
@@ -710,6 +762,80 @@ def _ensure_ads_monitor_api_started():
             return False
 
 
+def _is_videoclaw_frontend_reachable(timeout=1.0):
+    try:
+        response = requests.get(_VIDEOCLAW_FRONTEND_URL, timeout=timeout)
+        return 200 <= response.status_code < 500
+    except requests.RequestException:
+        return False
+
+
+def _ensure_videoclaw_started():
+    """Start VideoClaw's local API and Next frontend on first AI-page visit."""
+    global _videoclaw_last_start_attempt
+    if _is_videoclaw_frontend_reachable(timeout=0.4):
+        return True
+    with _videoclaw_start_lock:
+        now = time.time()
+        if now - _videoclaw_last_start_attempt < 30:
+            return False
+        _videoclaw_last_start_attempt = now
+        if not os.path.isdir(_VIDEOCLAW_FRONTEND_ROOT):
+            app.logger.warning('VideoClaw frontend not found: %s', _VIDEOCLAW_FRONTEND_ROOT)
+            return False
+        try:
+            creationflags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            child_env = os.environ.copy()
+            ffmpeg_dir = os.path.join(os.path.dirname(__file__), 'VideoClaw', 'ffmpeg')
+            if os.path.isdir(ffmpeg_dir):
+                child_env['PATH'] = ffmpeg_dir + os.pathsep + child_env.get('PATH', '')
+            # The backend is intentionally localhost-only; Flask remains the auth boundary.
+            backend_python = os.path.join(_VIDEOCLAW_BACKEND_ROOT, 'venv', 'Scripts', 'python.exe')
+            if os.name != 'nt' or not os.path.isfile(backend_python):
+                backend_python = sys.executable
+            backend_env = dict(child_env)
+            backend_env['VIDEOCLAW_BACKEND_PORT'] = str(_VIDEOCLAW_BACKEND_PORT)
+            config_path = os.path.join(_VIDEOCLAW_BACKEND_ROOT, 'config.yaml')
+            if os.path.isfile(config_path):
+                subprocess.Popen(
+                    [backend_python, 'api_server.py'],
+                    cwd=_VIDEOCLAW_BACKEND_ROOT,
+                    env=backend_env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=creationflags,
+                )
+            subprocess.Popen(
+                ['npm.cmd' if os.name == 'nt' else 'npm', 'start'],
+                cwd=_VIDEOCLAW_FRONTEND_ROOT,
+                env=child_env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=creationflags,
+            )
+            return True
+        except Exception as exc:
+            app.logger.warning('Failed to start VideoClaw: %s', exc)
+            return False
+
+
+def _is_ai_department_user(user_id=''):
+    """Strictly limit VideoClaw to users whose current department is AI部."""
+    candidates = [session.get('user_department')]
+    if user_id:
+        try:
+            rows = permission_manager.get_user_departments(user_id) or []
+            candidates.extend(
+                item.get('name') if isinstance(item, dict) else item
+                for item in rows
+            )
+        except Exception:
+            pass
+    return any('AI部' in str(value or '').strip() for value in candidates)
+
+
 def _get_business_analysis_scope(resolve_leader=False):
     cache_key = "business_analysis_scope_with_leader" if resolve_leader else "business_analysis_scope"
     cached = getattr(g, cache_key, None)
@@ -718,6 +844,40 @@ def _get_business_analysis_scope(resolve_leader=False):
 
     user_id = str(session.get('feishu_user_id') or '').strip()
     user_name = _normalize_feishu_user_name(session.get('feishu_user_name'), fallback='')
+    effective_identity = _permission_debug_effective_state()
+    effective_user_id = str(effective_identity.get('user_open_id') or '').strip()
+    effective_user_name = _normalize_feishu_user_name(
+        effective_identity.get('user_name'),
+        fallback='',
+    ).strip()
+    if effective_user_id and effective_user_name:
+        user_id = effective_user_id
+        user_name = effective_user_name
+    identity_key = '|'.join((
+        'effective-identity-v2',
+        user_id,
+        user_name,
+        _permission_debug_identity_cache_key(),
+    ))
+    session_cache_key = f'_{cache_key}'
+    session_cached = session.get(session_cache_key)
+    if isinstance(session_cached, dict):
+        cached_at = float(session_cached.get('cached_at') or 0)
+        cached_scope = session_cached.get('scope')
+        if (
+            session_cached.get('identity') == identity_key
+            and time.time() - cached_at < 300
+            and isinstance(cached_scope, dict)
+        ):
+            setattr(g, cache_key, cached_scope)
+            return cached_scope
+    try:
+        full_access, _ = permission_manager.check_user_permission(
+            user_id,
+            'business_analysis_all',
+        )
+    except Exception:
+        full_access = False
     try:
         department_rows = permission_manager.get_user_departments(user_id) or []
     except Exception:
@@ -744,18 +904,48 @@ def _get_business_analysis_scope(resolve_leader=False):
         user_name,
         department_rows,
         leader_id_getter=leader_getter,
+        full_access=full_access,
     )
     if isinstance(scope, dict):
         setattr(g, cache_key, scope)
+        session[session_cache_key] = {
+            'identity': identity_key,
+            'cached_at': time.time(),
+            'scope': scope,
+        }
     return scope
 
 
 def _require_business_analysis_access(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if _get_business_analysis_scope(resolve_leader=False):
+        user_id = str(session.get('feishu_user_id') or '').strip()
+        identity_key = '|'.join((
+            user_id,
+            _permission_debug_identity_cache_key(),
+        ))
+        cached = session.get('_business_analysis_access')
+        allowed = None
+        if isinstance(cached, dict):
+            cached_at = float(cached.get('cached_at') or 0)
+            if cached.get('identity') == identity_key and time.time() - cached_at < 60:
+                allowed = bool(cached.get('allowed'))
+        if allowed is None:
+            try:
+                allowed, _ = permission_manager.check_user_permission(
+                    user_id,
+                    'business_analysis',
+                )
+            except Exception:
+                allowed = False
+            session['_business_analysis_access'] = {
+                'identity': identity_key,
+                'cached_at': time.time(),
+                'allowed': bool(allowed),
+            }
+        if allowed:
             return view(*args, **kwargs)
-        message = f"经营分析仅限{'、'.join(BUSINESS_ANALYSIS_DEPARTMENTS)}成员访问"
+        message = "当前账号未获经营分析权限，请联系管理员在权限表中开通"
         if request.path.startswith('/api/'):
             return jsonify({
                 'error': {'code': 'BUSINESS_ANALYSIS_FORBIDDEN', 'message': message}
@@ -785,6 +975,17 @@ def _normalize_dashboard_functions(accessible_functions):
                 one['description'] = '周报/月报提交与生成'
         one['_order_index'] = idx
         normalized.append(one)
+
+    # “日常补货运营”位于 AI 功能页内；运营人员只有子功能权限时，
+    # 在首页补充 AI 功能入口，不扩大 ai_dept 本身的后端权限。
+    function_names = {str(one.get('function_name') or '').strip() for one in normalized}
+    if 'daily_replenishment_operation' in function_names and 'ai_dept' not in function_names:
+        normalized.append({
+            'function_name': 'ai_dept',
+            'name': 'AI部功能',
+            'description': '日常补货运营入口',
+            '_order_index': len(normalized),
+        })
 
     order_priority = {
         'innovation_proposals': 10,
@@ -843,12 +1044,78 @@ def _resolve_feishu_user_name(user_info, fallback='用户'):
     return _normalize_feishu_user_name(info.get('name'), fallback=fallback)
 
 
+def _clear_feishu_user_access_token():
+    """Remove the user token without putting the large JWT in the browser cookie."""
+    token_ref = str(session.pop('feishu_user_token_ref', '') or '').strip()
+    session.pop('feishu_user_access_token', None)
+    if token_ref:
+        with _feishu_user_token_cache_lock:
+            _feishu_user_token_cache.pop(token_ref, None)
+
+
+def _set_feishu_user_access_token(token, expires_in=0):
+    """Keep Feishu's large user token server-side and store only an opaque reference."""
+    _clear_feishu_user_access_token()
+    clean_token = str(token or '').strip()
+    if not clean_token:
+        return ''
+
+    try:
+        ttl_seconds = int(expires_in or 0)
+    except (TypeError, ValueError):
+        ttl_seconds = 0
+    if ttl_seconds <= 0:
+        ttl_seconds = _FEISHU_USER_TOKEN_DEFAULT_TTL_SECONDS
+
+    token_ref = secrets.token_urlsafe(24)
+    expires_at = time.time() + ttl_seconds
+    with _feishu_user_token_cache_lock:
+        now = time.time()
+        expired_refs = [
+            ref for ref, item in _feishu_user_token_cache.items()
+            if float(item.get('expires_at') or 0) <= now
+        ]
+        for ref in expired_refs:
+            _feishu_user_token_cache.pop(ref, None)
+        _feishu_user_token_cache[token_ref] = {
+            'token': clean_token,
+            'expires_at': expires_at,
+        }
+    session['feishu_user_token_ref'] = token_ref
+    return clean_token
+
+
+def _get_feishu_user_access_token():
+    """Resolve the current user's token from the server-side token cache."""
+    # Migrate cookies issued by older versions without keeping the JWT client-side.
+    legacy_token = str(session.get('feishu_user_access_token') or '').strip()
+    if legacy_token:
+        return _set_feishu_user_access_token(legacy_token)
+
+    token_ref = str(session.get('feishu_user_token_ref') or '').strip()
+    if not token_ref:
+        return ''
+    with _feishu_user_token_cache_lock:
+        item = _feishu_user_token_cache.get(token_ref)
+        if not item or float(item.get('expires_at') or 0) <= time.time():
+            _feishu_user_token_cache.pop(token_ref, None)
+            item = None
+    if not item:
+        session.pop('feishu_user_token_ref', None)
+        return ''
+    return str(item.get('token') or '').strip()
+
+
 def _clear_feishu_identity_session():
+    _clear_feishu_user_access_token()
     for k in [
-        'feishu_user_id', 'feishu_open_id', 'feishu_user_name', 'feishu_user_email', 'feishu_email',
-        'feishu_avatar', 'feishu_user_access_token', 'feishu_user_refresh_token',
+        'feishu_user_id', 'feishu_open_id', 'feishu_tenant_user_id',
+        'feishu_user_name', 'feishu_user_email', 'feishu_email',
+        'feishu_avatar', 'feishu_user_access_token', 'feishu_user_token_ref', 'feishu_user_refresh_token',
         'feishu_user_access_token_expire_at', 'preloaded_departments', 'preloaded_functions',
         'preload_time', 'user_department', 'login_time',
+        '_business_analysis_access', '_business_analysis_scope',
+        '_business_analysis_scope_with_leader',
         'permission_debug_departments', 'permission_debug_user_name',
         'permission_debug_user_open_id', 'permission_debug_updated_at'
     ]:
@@ -858,16 +1125,26 @@ def _clear_feishu_identity_session():
 def _bind_feishu_session(user_info, user_access_token=''):
     info = dict(user_info or {})
     token = str(user_access_token or info.get('user_access_token') or '').strip()
-    session['feishu_user_id'] = info.get('open_id') or info.get('user_id') or ''
-    session['feishu_open_id'] = info.get('open_id') or info.get('user_id') or ''
+    open_id = str(info.get('open_id') or info.get('user_id') or '').strip()
+    tenant_user_id = str(info.get('user_id') or '').strip()
+    # `feishu_user_id` is the canonical permission subject and historically stores
+    # open_id. Keep Feishu's tenant-scoped user_id separately so request headers are
+    # only compared within the same identifier namespace.
+    session['feishu_user_id'] = open_id
+    session['feishu_open_id'] = open_id
+    if tenant_user_id:
+        session['feishu_tenant_user_id'] = tenant_user_id
+    else:
+        session.pop('feishu_tenant_user_id', None)
     session['feishu_user_name'] = _resolve_feishu_user_name(info, fallback='用户')
     session['feishu_user_email'] = info.get('email', '') or info.get('enterprise_email', '')
     session['feishu_email'] = info.get('email', '') or info.get('enterprise_email', '')
     session['feishu_avatar'] = info.get('avatar_url', '') or info.get('avatar', '')
-    session['feishu_user_access_token'] = token
-    if info.get('user_refresh_token'):
-        session['feishu_user_refresh_token'] = str(info.get('user_refresh_token') or '')
     token_expires_in = int(info.get('user_token_expires_in') or 0)
+    _set_feishu_user_access_token(token, token_expires_in)
+    # Refresh tokens are not used by this app and can also be too large for a
+    # client-side Flask session, so never place them in the browser cookie.
+    session.pop('feishu_user_refresh_token', None)
     if token_expires_in > 0:
         session['feishu_user_access_token_expire_at'] = (datetime.now() + timedelta(seconds=token_expires_in)).isoformat()
     session['login_time'] = datetime.now()
@@ -884,7 +1161,7 @@ def _sync_feishu_identity_via_current_app(force_refresh=False):
     auth_header = str(request.headers.get('Authorization') or '').strip()
     if (not request_token) and auth_header.lower().startswith('bearer '):
         request_token = auth_header[7:].strip()
-    session_token = str(session.get('feishu_user_access_token') or '').strip()
+    session_token = _get_feishu_user_access_token()
     current_user_id = str(session.get('feishu_user_id') or '').strip()
     current_app_id = str(session.get('feishu_identity_app_id') or '').strip()
     expected_app_id = str(FEISHU_CONFIG.get('app_id') or '').strip()
@@ -4164,6 +4441,10 @@ app.register_blueprint(innovation_bp)
 app.register_blueprint(tk_dashboard_bp)
 app.register_blueprint(listing_agent_bp)
 app.register_blueprint(listing_agent_v2_bp)
+app.register_blueprint(daily_replenishment_bp)
+app.register_blueprint(daily_replenishment_operation_bp)
+app.register_blueprint(ai_group_performance_bp)
+app.register_blueprint(value_evaluation_bp)
 app.register_blueprint(bd_metrics_bp)
 app.register_blueprint(knowledge_base_bp)
 app.register_blueprint(seedance_web_bp, url_prefix="/seedance-web")
@@ -4177,6 +4458,7 @@ def get_message_service():
 
 
 @app.route('/api/ai/version_update_notice', methods=['POST'])
+@require_permission('admin_functions')
 def api_ai_version_update_notice():
     try:
         data = request.get_json(silent=True) or {}
@@ -4270,6 +4552,7 @@ def api_ai_version_update_notice():
 
 
 @app.route('/api/ai/version_update_departments')
+@require_permission('admin_functions')
 def api_ai_version_update_departments():
     try:
         rows = sf_db("SELECT DISTINCT YONGHU FROM feishu_id WHERE FeiShu_ID LIKE 'od_%' ORDER BY YONGHU")
@@ -4297,7 +4580,7 @@ def api_ai_version_update_departments():
 
 
 @app.route('/api/ai/delete_innovation_project', methods=['POST'])
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def api_ai_delete_innovation_project():
     try:
         data = request.get_json(silent=True) or {}
@@ -4317,7 +4600,7 @@ def api_ai_delete_innovation_project():
 
 
 @app.route('/api/ai/innovation_project_preview', methods=['GET'])
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def api_ai_innovation_project_preview():
     try:
         project_id = str(request.args.get('project_id') or '').strip()
@@ -4350,7 +4633,7 @@ def api_ai_innovation_project_preview():
 
 
 @app.route('/api/ai/innovation_pending_reminder/test-send', methods=['POST'])
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def api_ai_innovation_pending_reminder_test_send():
     try:
         result = innovation_pending_reminder.run_once(
@@ -4444,6 +4727,12 @@ def dev_login():
             'email': 'admin_test@company.com',
             'department': '总经办'
         },
+        'business_owner': {
+            'user_id': 'dev_business_owner_001',
+            'name': '周俊成',
+            'email': 'business_owner_test@company.com',
+            'department': 'AI部'
+        },
         'operation1': {
             'user_id': 'dev_operation1_user_001',
             'name': '运营一部测试用户',
@@ -4486,7 +4775,7 @@ def dev_login():
     session['feishu_user_id'] = user_info['user_id']
     session['feishu_user_name'] = feishu_name or raw_name
     session['feishu_user_email'] = user_info['email']
-    session['feishu_user_access_token'] = 'dev_local_access_token'
+    _set_feishu_user_access_token('dev_local_access_token')
     session['user_department'] = user_info['department']
     session['login_time'] = datetime.now()
     session.permanent = True
@@ -4536,6 +4825,11 @@ def check_feishu_user():
         _safe_debug_print("========================\n")
         return
 
+    # The real Feishu session can already be close to the browser's per-cookie
+    # size limit because it contains access credentials. Keep impersonation in a
+    # separate signed cookie and expose it to permission checks through `g`.
+    _load_dashboard_identity_switch_request_state()
+
     # 检查是否为本地开发环境
     is_local_dev = request.host.startswith('127.0.0.1') or request.host.startswith('localhost')
     _safe_debug_print(f"🏠 本地开发环境: {is_local_dev}")
@@ -4543,11 +4837,13 @@ def check_feishu_user():
     # 检查当前session状态
     current_user_id = session.get('feishu_user_id')
     current_open_id = str(session.get('feishu_open_id') or current_user_id or '').strip()
-    current_token = str(session.get('feishu_user_access_token') or '').strip()
+    current_tenant_user_id = str(session.get('feishu_tenant_user_id') or '').strip()
+    current_token = _get_feishu_user_access_token()
     request_token = str(request.headers.get('X-Lark-User-Access-Token') or '').strip()
     header_open_id = str(request.headers.get('X-Lark-Open-Id') or '').strip()
     header_user_id = str(request.headers.get('X-Lark-User-Id') or '').strip()
-    header_identity = header_open_id or header_user_id
+    comparable_session_identity = current_open_id if header_open_id else current_tenant_user_id
+    header_identity = header_open_id or (header_user_id if current_tenant_user_id else '')
     _safe_debug_print(f"👤 当前Session用户ID: {current_user_id}")
     _safe_debug_print(f"🔑 当前Session Token存在: {bool(current_token)} | 请求头Token存在: {bool(request_token)}")
     _xiaotu_remember_user_open_id(session.get('feishu_user_name'), current_open_id)
@@ -4555,8 +4851,16 @@ def check_feishu_user():
         _safe_debug_print(f"🪪 当前请求头身份: {header_identity}")
 
     # 请求头身份只用于校验当前 session 是否已经串号，不直接用来认人
-    if (not is_local_dev) and current_user_id and header_identity and str(current_user_id).strip() != header_identity:
-        _safe_debug_print(f"⚠️ 检测到飞书身份与会话不一致: session={current_user_id}, header={header_identity}")
+    if (
+        (not is_local_dev)
+        and current_user_id
+        and header_identity
+        and comparable_session_identity != header_identity
+    ):
+        _safe_debug_print(
+            f"⚠️ 检测到飞书身份与会话不一致: "
+            f"session={comparable_session_identity}, header={header_identity}"
+        )
         _clear_feishu_identity_session()
         _debug_log_elapsed(
             "before_request_identity_mismatch",
@@ -4620,7 +4924,7 @@ def check_feishu_user():
         path=request.path,
         endpoint=request.endpoint or "",
         user_id=str(session.get('feishu_user_id') or '').strip(),
-        has_session_token=bool(session.get('feishu_user_access_token'))
+        has_session_token=bool(_get_feishu_user_access_token())
     )
     _safe_debug_print("========================\n")
 
@@ -9876,15 +10180,18 @@ def dashboard():
     _safe_debug_print("========================\n")
 
     accessible_functions = _normalize_dashboard_functions(accessible_functions)
+    permission_debug_state = _permission_debug_session_state()
+    can_video_claw = _is_ai_department_user(user_id)
 
     return render_template('dashboard.html',
                            user_name=user_name,
                            user_id=user_id,
                            user_department=user_department,
                            accessible_functions=accessible_functions,
+                           can_video_claw=can_video_claw,
                            can_switch_identity=_can_dashboard_switch_identity(),
-                           permission_debug_departments=session.get('permission_debug_departments') or [],
-                           permission_debug_user_name=str(session.get('permission_debug_user_name') or '').strip())
+                           permission_debug_departments=permission_debug_state['current_departments'],
+                           permission_debug_user_name=permission_debug_state['current_user_name'])
 
 
 @app.route('/dashboard/mobile')
@@ -9934,6 +10241,7 @@ def dashboard_mobile():
         accessible_functions = []
 
     cards = _build_mobile_function_cards(accessible_functions)
+    permission_debug_state = _permission_debug_session_state()
     _debug_log_elapsed(
         "dashboard_mobile_ready_to_render",
         dashboard_mobile_started_at,
@@ -9947,8 +10255,8 @@ def dashboard_mobile():
         user_id=user_id,
         user_department=user_department,
         mobile_cards=cards,
-        permission_debug_departments=session.get('permission_debug_departments') or [],
-        permission_debug_user_name=str(session.get('permission_debug_user_name') or '').strip()
+        permission_debug_departments=permission_debug_state['current_departments'],
+        permission_debug_user_name=permission_debug_state['current_user_name']
     )
 
 
@@ -9959,7 +10267,7 @@ def dashboard_xiaotu():
     if not user_id:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu')
         return redirect(url_for('feishu_auth'))
-    user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+    user_access_token = _get_feishu_user_access_token()
     if not user_access_token:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu')
         return redirect(url_for('feishu_auth'))
@@ -9974,7 +10282,7 @@ def dashboard_xiaotu_report_center():
     if not user_id:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_center')
         return redirect(url_for('feishu_auth'))
-    user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+    user_access_token = _get_feishu_user_access_token()
     if not user_access_token:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_center')
         return redirect(url_for('feishu_auth'))
@@ -9995,7 +10303,7 @@ def dashboard_xiaotu_report_center_mobile():
     if not user_id:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_center_mobile')
         return redirect(url_for('feishu_auth'))
-    user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+    user_access_token = _get_feishu_user_access_token()
     if not user_access_token:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_center_mobile')
         return redirect(url_for('feishu_auth'))
@@ -10014,7 +10322,7 @@ def dashboard_xiaotu_report_history():
     if not user_id:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_history')
         return redirect(url_for('feishu_auth'))
-    user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+    user_access_token = _get_feishu_user_access_token()
     if not user_access_token:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_history')
         return redirect(url_for('feishu_auth'))
@@ -10399,7 +10707,7 @@ def api_xiaotu_docs():
     user_id = session.get('feishu_user_id')
     if not user_id:
         return jsonify({'success': False, 'message': '未登录'}), 401
-    user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+    user_access_token = _get_feishu_user_access_token()
     if not user_access_token:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu')
         return jsonify({
@@ -10414,7 +10722,7 @@ def api_xiaotu_docs():
         user_access_token=user_access_token
     )
     if _xiaotu_need_reauth(sync_err):
-        session['feishu_user_access_token'] = ''
+        _clear_feishu_user_access_token()
         session['feishu_user_access_token_expire_at'] = ''
         session['post_auth_redirect'] = url_for('dashboard_xiaotu')
         return jsonify({
@@ -10486,7 +10794,7 @@ def api_xiaotu_chat():
     user_id = session.get('feishu_user_id')
     if not user_id:
         return jsonify({'success': False, 'message': '未登录'}), 401
-    user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+    user_access_token = _get_feishu_user_access_token()
     if not user_access_token:
         session['post_auth_redirect'] = url_for('dashboard_xiaotu')
         return jsonify({
@@ -10807,7 +11115,7 @@ def api_xiaotu_report_submit():
         user_id = session.get('feishu_user_id')
         if not user_id:
             return jsonify({'success': False, 'message': '未登录'}), 401
-        user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+        user_access_token = _get_feishu_user_access_token()
         if not user_access_token:
             session['post_auth_redirect'] = _xiaotu_resolve_redirect_url(redirect_endpoint, fallback='dashboard_xiaotu')
             return jsonify({
@@ -11907,6 +12215,14 @@ def _xiaotu_build_report_history_export_context(args, session_user_name):
     filter_name = str(request_name or session_user_name or '').strip()
     date_start = str(args.get('date_start') or '').strip()
     date_end = str(args.get('date_end') or '').strip()
+    for date_value in (date_start, date_end):
+        if date_value:
+            try:
+                datetime.strptime(date_value, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError("日期格式无效，请重新选择")
+    if date_start and date_end and date_end < date_start:
+        raise ValueError("结束日期不能早于开始日期")
     keyword = str(args.get('keyword') or '').strip()
     focus_wid = str(args.get('wendangid') or '').strip()
     if department_id and not (department_id.startswith("od_") or department_id.startswith("od-")):
@@ -12104,7 +12420,25 @@ def _xiaotu_history_export_body_html(raw_body, image_paths_text, image_cache=Non
     )
     html = re.sub(r"<\s*(?:script|style|iframe|object|embed|form|meta|link|base)\b[^>]*?/?>", "", html, flags=re.IGNORECASE)
     html = re.sub(r"\s+on[a-z]+\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", "", html, flags=re.IGNORECASE)
-    html = re.sub(r"\s+style\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", "", html, flags=re.IGNORECASE)
+    # 保留原富文本排版，仅移除可执行代码或发起外部请求的危险 CSS。
+    def sanitize_style(match):
+        quote_char = match.group(1)
+        style_value = str(match.group(2) or "")
+        safe_declarations = []
+        for declaration in style_value.split(";"):
+            if ":" not in declaration:
+                continue
+            property_name, property_value = declaration.split(":", 1)
+            property_name = property_name.strip().lower()
+            property_value = property_value.strip()
+            if not re.fullmatch(r"(?:color|background-color|font-(?:size|weight|style|family)|text-(?:align|decoration|indent)|line-height|letter-spacing|white-space|margin(?:-(?:top|right|bottom|left))?|padding(?:-(?:top|right|bottom|left))?|list-style-type|border(?:-(?:top|right|bottom|left))?(?:-(?:color|style|width))?|width|max-width|height|max-height)", property_name):
+                continue
+            if re.search(r"(?:url\s*\(|expression\s*\(|javascript:|@import|behavior\s*:|-moz-binding)", property_value, flags=re.IGNORECASE):
+                continue
+            safe_declarations.append(f"{property_name}: {property_value}")
+        return (f" style={quote_char}{'; '.join(safe_declarations)}{quote_char}" if safe_declarations else "")
+
+    html = re.sub(r"\s+style\s*=\s*([\"'])(.*?)\1", sanitize_style, html, flags=re.IGNORECASE | re.DOTALL)
     html = re.sub(r"\s+href\s*=\s*([\"'])\s*javascript:[^\"']*\1", "", html, flags=re.IGNORECASE)
 
     embedded_count = 0
@@ -12122,7 +12456,19 @@ def _xiaotu_history_export_body_html(raw_body, image_paths_text, image_cache=Non
             missing_count += 1
             return f'<span class="image-missing">[{html_escape(alt_text)}暂不可用]</span>'
         embedded_count += 1
-        return f'<img src="{html_escape(data_uri, quote=True)}" alt="{html_escape(alt_text, quote=True)}">'
+        preserved_attributes = []
+        for attribute_name in ("class", "style", "width", "height"):
+            attribute_match = re.search(
+                rf"\b{attribute_name}\s*=\s*([\"'])(.*?)\1",
+                tag,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            if attribute_match:
+                preserved_attributes.append(
+                    f'{attribute_name}="{html_escape(attribute_match.group(2), quote=True)}"'
+                )
+        extra = (" " + " ".join(preserved_attributes)) if preserved_attributes else ""
+        return f'<img src="{html_escape(data_uri, quote=True)}" alt="{html_escape(alt_text, quote=True)}"{extra}>'
 
     html = re.sub(r"<img\b[^>]*>", replace_image_tag, html, flags=re.IGNORECASE)
     return html, embedded_count, missing_count
@@ -12717,7 +13063,7 @@ def api_xiaotu_daily_from_im():
         stage = "auth"
         user_id = str(session.get('feishu_user_id') or '').strip()
         user_name = str(session.get('feishu_user_name') or '用户').strip()
-        user_access_token = str(session.get('feishu_user_access_token') or '').strip()
+        user_access_token = _get_feishu_user_access_token()
         if not user_id:
             return jsonify({'success': False, 'message': '未登录'}), 401
         if not user_access_token:
@@ -12913,7 +13259,7 @@ def api_xiaotu_daily_from_im():
         source_text = "\n".join(all_lines).strip()
         if not source_text:
             if need_reauth:
-                session['feishu_user_access_token'] = ''
+                _clear_feishu_user_access_token()
                 session['feishu_user_access_token_expire_at'] = ''
                 session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_center')
                 return jsonify({
@@ -13552,13 +13898,18 @@ def rococo_training_videos():
             if not os.path.isdir(folder_path):
                 continue
             videos = []
-            for name in sorted(os.listdir(folder_path)):
-                file_path = os.path.join(folder_path, name)
-                ext = os.path.splitext(name)[1].lower()
-                if os.path.isfile(file_path) and ext in _VIDEO_EXTENSIONS:
+            for current_dir, dir_names, file_names in os.walk(folder_path):
+                dir_names.sort()
+                for name in sorted(file_names):
+                    file_path = os.path.join(current_dir, name)
+                    ext = os.path.splitext(name)[1].lower()
+                    if ext not in _VIDEO_EXTENSIONS:
+                        continue
+                    rel_file = os.path.relpath(file_path, root_folder).replace('\\', '/')
+                    display_name = os.path.relpath(file_path, folder_path).replace('\\', ' / ')
                     videos.append({
-                        "name": name,
-                        "url": url_for('rococo_training_video_file', folder=folder_name, filename=name)
+                        "name": display_name,
+                        "url": url_for('rococo_training_video_file_by_path', relpath=rel_file)
                     })
             grouped_videos.append({
                 "folder_name": folder_name,
@@ -13585,6 +13936,30 @@ def rococo_training_video_file(folder, filename):
     if not os.path.isdir(target_dir) or not os.path.isfile(file_path):
         return "文件不存在", 404
     return send_from_directory(target_dir, safe_name, as_attachment=False)
+
+
+@app.route('/training_videos/rococo/files/tree/<path:relpath>')
+def rococo_training_video_file_by_path(relpath):
+    raw_rel = str(relpath or '').replace('\\', '/').strip()
+    if not raw_rel:
+        return "文件不存在", 404
+    safe_rel = os.path.normpath(raw_rel).replace('\\', '/')
+    if safe_rel in {'.', ''} or safe_rel.startswith('../') or safe_rel.startswith('/'):
+        return "文件不存在", 404
+    root_abs = os.path.abspath(_ROCOCO_TRAINING_VIDEO_DIR)
+    file_abs = os.path.abspath(os.path.join(root_abs, safe_rel))
+    try:
+        if os.path.commonpath([root_abs, file_abs]).lower() != root_abs.lower():
+            return "文件不存在", 404
+    except ValueError:
+        return "文件不存在", 404
+    safe_name = os.path.basename(file_abs)
+    ext = os.path.splitext(safe_name)[1].lower()
+    if ext not in _VIDEO_EXTENSIONS:
+        return "不支持的文件类型", 400
+    if not os.path.isfile(file_abs):
+        return "文件不存在", 404
+    return send_from_directory(os.path.dirname(file_abs), safe_name, as_attachment=False)
 
 
 @app.route('/api/menu_click', methods=['POST'])
@@ -13617,6 +13992,7 @@ def api_menu_click():
 
 
 @app.route('/performance')
+@require_permission('performance_monitor')
 def performance_monitor():
     """性能监控页面"""
     user_id = session.get('feishu_user_id')
@@ -14488,8 +14864,9 @@ def _tk_customer_service_join_key(value):
 def _tk_customer_service_fill_complete_tracking_numbers(items, query_fn=sf_db):
     """Replace aggregate placeholders with every distinct available tracking number.
 
-    Exact order + SKU matches take precedence. If Saihu uses a converted SKU and
-    there is no exact match, all tracking numbers for that order are shown instead.
+    Tracking belongs to the shipment order for display purposes. Show every
+    non-empty tracking number found for that order, even when Saihu converted the
+    SKU or the order was shipped in multiple packages.
     """
     if not items:
         return items
@@ -14503,7 +14880,6 @@ def _tk_customer_service_fill_complete_tracking_numbers(items, query_fn=sf_db):
     if not order_values:
         return items
 
-    exact_tracks = {}
     order_tracks = {}
 
     def add_tracking(mapping, key, tracking_no):
@@ -14546,19 +14922,14 @@ def _tk_customer_service_fill_complete_tracking_numbers(items, query_fn=sf_db):
             else:
                 continue
             order_key = _tk_customer_service_join_key(order_no)
-            sku_key = _tk_customer_service_join_key(sku)
             tracking_text = str(tracking_no or '').strip()
             if not order_key or not tracking_text:
                 continue
             add_tracking(order_tracks, order_key, tracking_text)
-            add_tracking(exact_tracks, (order_key, sku_key), tracking_text)
 
     for item in items:
         order_key = _tk_customer_service_join_key(item.get('FaYangDingDanHao'))
-        sku_key = _tk_customer_service_join_key(item.get('SKU'))
-        tracking_values = exact_tracks.get((order_key, sku_key))
-        if not tracking_values:
-            tracking_values = order_tracks.get(order_key)
+        tracking_values = order_tracks.get(order_key)
         if tracking_values:
             item['GenZongHao'] = ' / '.join(tracking_values)
     return items
@@ -14722,9 +15093,9 @@ def _tk_customer_service_query_rows(
                 UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.SKU AS NVARCHAR(100)), ''))))
     """
     # Some Saihu sample/after-sale rows use a converted SKU while retaining the
-    # same order-level tracking number. Fall back by order only when that order
-    # has exactly one distinct non-empty tracking number, so multi-package orders
-    # cannot leak a tracking number from one SKU onto another.
+    # same order-level tracking number. Fall back by order whenever a non-empty
+    # tracking number exists; the final fill step expands multi-package orders to
+    # every distinct tracking number.
     after_sale_order_sql = f"""
             SELECT
                 UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.DanHao AS NVARCHAR(100)), '')))) AS join_danhao,
@@ -14735,7 +15106,6 @@ def _tk_customer_service_query_rows(
             {after_sale_order_page_filter}
             GROUP BY
                 UPPER(LTRIM(RTRIM(ISNULL(CAST(sh.DanHao AS NVARCHAR(100)), ''))))
-            HAVING COUNT(DISTINCT UPPER(LTRIM(RTRIM(CAST(sh.GenZongHao AS NVARCHAR(500)))))) = 1
     """
     if page is not None:
         # Page the filtered cooperation rows before joining the aggregated after-sale
@@ -17468,7 +17838,72 @@ def ai_modules():
     """AI模块页面"""
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
-    return render_template('ai_modules.html', user_id=user_id, user_name=user_name)
+
+    def has_permission(function_name):
+        try:
+            return bool(permission_manager.check_user_permission(user_id, function_name)[0])
+        except Exception as exc:
+            _safe_debug_print(f"AI模块内部权限检查失败: {function_name} -> {exc}")
+            return False
+
+    if not (has_permission('ai_dept') or has_permission('daily_replenishment_operation')):
+        return redirect(url_for('dashboard'))
+
+    # VideoClaw 是 AI 部专属卡片；即使权限种子尚未同步到数据库，也按实时部门身份兜底。
+    can_video_claw = _is_ai_department_user(user_id)
+
+    return render_template(
+        'ai_modules.html',
+        user_id=user_id,
+        user_name=user_name,
+        can_ai_full=has_permission('admin_functions'),
+        can_daily_replenishment=has_permission('daily_replenishment'),
+        can_daily_replenishment_operation=has_permission('daily_replenishment_operation'),
+        can_group_performance=has_permission('ai_group_performance'),
+        can_business_analysis=has_permission('business_analysis'),
+        can_ads_monitor=has_permission('ads_monitor'),
+        can_video_claw=can_video_claw,
+        can_value_evaluation=has_permission('ai_dept'),
+    )
+
+@app.route('/ai/video-claw', defaults={'subpath': ''}, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
+@app.route('/ai/video-claw/<path:subpath>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
+@require_permission('ai_dept')
+def video_claw(subpath=''):
+    """进入受 AI 部权限保护的 VideoClaw 部署。"""
+    if not _is_ai_department_user(session.get('feishu_user_id')):
+        return jsonify({'success': False, 'message': 'VideoClaw 仅限 AI部使用。'}), 403
+    _ensure_videoclaw_started()
+    upstream_path = '/ai/video-claw' + (('/' + str(subpath).lstrip('/')) if subpath else '')
+    headers = {
+        key: value for key, value in request.headers.items()
+        if key.lower() not in {'host', 'content-length', 'connection'}
+    }
+    try:
+        upstream = requests.request(
+            method=request.method,
+            url=_VIDEOCLAW_FRONTEND_URL + upstream_path,
+            params=list(request.args.items(multi=True)),
+            data=request.get_data() or None,
+            headers=headers,
+            timeout=30,
+        )
+    except requests.RequestException:
+        return render_template(
+            'videoclaw_unavailable.html',
+            frontend_url=_VIDEOCLAW_FRONTEND_URL,
+            message='VideoClaw 正在启动，请刷新页面重试。',
+        ), 503
+    excluded = {'content-encoding', 'content-length', 'transfer-encoding', 'connection'}
+    response = app.response_class(
+        upstream.content,
+        status=upstream.status_code,
+        content_type=upstream.headers.get('Content-Type'),
+    )
+    for key, value in upstream.headers.items():
+        if key.lower() not in excluded and key.lower() != 'content-type':
+            response.headers[key] = value
+    return response
 
 
 _AI_UPDATE_QUERY = "select * from gengxin where riqi=convert(date, getdate())"
@@ -17487,7 +17922,7 @@ def _format_ai_update_cell(value):
 
 
 @app.route('/ai/update')
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def ai_update():
     """Show today's rows from the gengxin table for AI department users."""
     try:
@@ -17536,14 +17971,23 @@ def ai_update():
 @app.route('/ai/business-analysis')
 @_require_business_analysis_access
 def business_analysis():
-    """AI 部经营分析看板；页面资源与实时数据均经过主站权限校验。"""
+    """AI 部经营分析看板；页面资源与每日快照均经过主站权限校验。"""
     index_path = os.path.join(_BUSINESS_ANALYSIS_DIST_DIR, 'index.html')
     if not os.path.isfile(index_path):
         return render_template(
             'business_analysis_unavailable.html',
             reason='经营分析前端资源尚未构建，请联系管理员执行构建。',
         ), 503
-    _ensure_business_analysis_api_started()
+    try:
+        record_business_analysis_usage(
+            user_id=session.get('feishu_user_id'),
+            user_name=session.get('feishu_user_name'),
+            access_path=request.path,
+            client_ip=request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',', 1)[0].strip(),
+            user_agent=request.headers.get('User-Agent', ''),
+        )
+    except Exception:
+        app.logger.exception("Failed to record business-analysis usage")
     response = send_from_directory(_BUSINESS_ANALYSIS_DIST_DIR, 'index.html')
     response.headers['Cache-Control'] = 'no-store'
     return response
@@ -17558,7 +18002,7 @@ def business_analysis_asset(filename):
 
 
 @app.route('/ai/ads-monitor')
-@require_permission('ai_dept')
+@require_permission('ads_monitor')
 def ads_monitor():
     """AI 部 MAGIC AD 广告监控工作台。"""
     index_path = os.path.join(_ADS_MONITOR_DIST_DIR, 'index.html')
@@ -17574,7 +18018,7 @@ def ads_monitor():
 
 
 @app.route('/ai/ads-monitor/<path:filename>')
-@require_permission('ai_dept')
+@require_permission('ads_monitor')
 def ads_monitor_asset(filename):
     response = send_from_directory(_ADS_MONITOR_DIST_DIR, filename)
     if filename.startswith('assets/'):
@@ -17586,7 +18030,7 @@ def ads_monitor_asset(filename):
 
 @app.route('/api/ads-monitor/diagnostic', defaults={'subpath': ''}, methods=['GET', 'POST'])
 @app.route('/api/ads-monitor/diagnostic/<path:subpath>', methods=['GET', 'POST'])
-@require_permission('ai_dept')
+@require_permission('ads_monitor')
 def ads_monitor_diagnostic_api(subpath):
     if not _is_ads_monitor_api_reachable(timeout=0.8):
         _ensure_ads_monitor_api_started()
@@ -17644,14 +18088,10 @@ def ads_monitor_diagnostic_api(subpath):
 @app.route('/ai/business-analysis/status')
 @_require_business_analysis_access
 def business_analysis_status():
-    ready = _is_business_analysis_api_reachable(timeout=1.0)
-    if not ready:
-        _ensure_business_analysis_api_started()
+    ready = os.path.isfile(_BUSINESS_ANALYSIS_DASHBOARD_SNAPSHOT_PATH)
     return jsonify({
         'ready': ready,
-        'snapshot_available': os.path.isfile(
-            os.path.join(_BUSINESS_ANALYSIS_DIST_DIR, 'index.html')
-        ),
+        'snapshot_available': ready,
     })
 
 
@@ -17666,6 +18106,108 @@ def business_analysis_dashboard_api():
                 'message': '当前用户不在经营分析五部门范围内。',
             }
         }), 403
+
+    try:
+        with open(_BUSINESS_ANALYSIS_DASHBOARD_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
+            dashboard_snapshot = json.load(handle)
+        snapshot_period = str(dashboard_snapshot.get('period') or '')
+        snapshot_payload = dashboard_snapshot.get('envelope')
+        if not isinstance(snapshot_payload, dict) or not isinstance(snapshot_payload.get('data'), dict):
+            raise ValueError('dashboard snapshot envelope is invalid')
+    except (OSError, ValueError) as exc:
+        app.logger.error('Business analysis daily snapshot unavailable: %s', exc)
+        return jsonify({
+            'error': {
+                'code': 'DAILY_SNAPSHOT_UNAVAILABLE',
+                'message': '每日经营分析快照暂不可用，请等待每日刷新任务完成。',
+            }
+        }), 503
+
+    payload = prepare_business_analysis_payload(
+        snapshot_payload,
+        scope,
+        snapshot_period,
+    )
+    response = jsonify(payload)
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['X-Business-Analysis-Source'] = 'daily-snapshot'
+    response.headers['X-Business-Analysis-Period'] = snapshot_period
+    return response
+
+    def category_fallback_for_period(period):
+        try:
+            with open(_BUSINESS_ANALYSIS_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
+                snapshot = json.load(handle)
+        except (OSError, ValueError) as exc:
+            app.logger.warning('Business analysis category fallback unavailable: %s', exc)
+            return None
+        history = snapshot.get('categorySegmentsByPeriod')
+        if isinstance(history, dict) and isinstance(history.get(period), dict):
+            return history[period]
+        root = snapshot.get('categorySegments')
+        return root if isinstance(root, dict) else None
+
+    def needs_category_year_ago(payload):
+        data = payload.get('data') if isinstance(payload, dict) else None
+        root = data.get('categorySegments') if isinstance(data, dict) else None
+        categories = root.get('categories') if isinstance(root, dict) else None
+        if not categories:
+            return False
+        for category in categories:
+            if not isinstance(category, dict):
+                continue
+            company = category.get('company')
+            if not isinstance(company, dict) or 'yearAgo' not in company:
+                return True
+            for row in category.get('departments') or []:
+                if isinstance(row, dict) and 'yearAgoSales' not in row:
+                    return True
+        return False
+
+    def snapshot_response(message):
+        try:
+            with open(_BUSINESS_ANALYSIS_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
+                snapshot_data = json.load(handle)
+        except (OSError, ValueError) as exc:
+            app.logger.warning('Business analysis snapshot unavailable: %s', exc)
+            return None
+
+        try:
+            with open(_BUSINESS_ANALYSIS_TIER_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
+                tier_snapshot = json.load(handle)
+            snapshot_data = merge_business_analysis_store_tier_snapshot(
+                snapshot_data,
+                tier_snapshot,
+                warning=message,
+            )
+        except (OSError, ValueError) as exc:
+            app.logger.warning('Business analysis tier snapshot unavailable: %s', exc)
+            return None
+
+        extracted_at = str((snapshot_data.get('meta') or {}).get('extractedAt') or '')
+        payload = prepare_business_analysis_payload({
+            'data': snapshot_data,
+            'formulas': [],
+            'source': {
+                'mode': 'workbook-snapshot',
+                'stale': True,
+                'fetchedAt': extracted_at or datetime.now().isoformat(),
+                'lastSuccessAt': None,
+                'latencyMs': None,
+                'warning': message,
+                'database': {
+                    'configured': True,
+                    'status': 'down',
+                    'latencyMs': None,
+                },
+            },
+            'refreshAfterMs': 60_000,
+        }, scope, str(request.args.get('period') or ''))
+        response = jsonify(payload)
+        response.headers['Cache-Control'] = 'no-store'
+        response.headers['X-Business-Analysis-Source'] = 'workbook-snapshot'
+        return response
+
     if not _is_business_analysis_api_reachable(timeout=0.8):
         _ensure_business_analysis_api_started()
         for _ in range(20):
@@ -17673,10 +18215,13 @@ def business_analysis_dashboard_api():
             if _is_business_analysis_api_reachable(timeout=0.5):
                 break
         else:
+            fallback = snapshot_response('实时数据服务正在启动，当前显示经营数据快照。')
+            if fallback is not None:
+                return fallback
             return jsonify({
                 'error': {
                     'code': 'SERVICE_STARTING',
-                    'message': '实时数据服务正在启动，当前先显示经营数据快照。',
+                    'message': '实时数据服务正在启动，经营数据快照暂不可用。',
                 }
             }), 503
 
@@ -17691,6 +18236,9 @@ def business_analysis_dashboard_api():
             headers={'Accept': 'application/json'},
         )
     except requests.RequestException:
+        fallback = snapshot_response('实时数据服务暂不可用，当前显示经营数据快照。')
+        if fallback is not None:
+            return fallback
         return jsonify({
             'error': {
                 'code': 'SERVICE_UNAVAILABLE',
@@ -17703,13 +18251,28 @@ def business_analysis_dashboard_api():
     except ValueError:
         payload = None
     if 200 <= upstream.status_code < 300 and isinstance(payload, dict):
+        selected_period = str(request.args.get('period') or '')
         payload = prepare_business_analysis_payload(
             payload,
             scope,
-            str(request.args.get('period') or ''),
+            selected_period,
+            category_fallback=(
+                category_fallback_for_period(selected_period)
+                if needs_category_year_ago(payload)
+                else None
+            ),
         )
         response = jsonify(payload)
         response.status_code = upstream.status_code
+    elif upstream.status_code >= 500:
+        fallback = snapshot_response('实时数据库查询失败，当前显示经营数据快照。')
+        if fallback is not None:
+            return fallback
+        response = app.response_class(
+            upstream.content,
+            status=upstream.status_code,
+            content_type=upstream.headers.get('Content-Type', 'application/json; charset=utf-8'),
+        )
     else:
         response = app.response_class(
             upstream.content,
@@ -17720,8 +18283,270 @@ def business_analysis_dashboard_api():
     return response
 
 
+@app.route('/api/ai/business-analysis/scope')
+@_require_business_analysis_access
+def business_analysis_scope_api():
+    """Return the resolved viewing scope without waiting for dashboard data."""
+    scope = _get_business_analysis_scope(resolve_leader=True)
+    if not scope:
+        return jsonify({
+            'error': {
+                'code': 'BUSINESS_ANALYSIS_FORBIDDEN',
+                'message': 'Current user does not have a resolvable business analysis scope.',
+            }
+        }), 403
+    response = jsonify({'scope': scope})
+    response.headers['Cache-Control'] = 'private, max-age=60'
+    return response
+
+
+def _business_analysis_store_tier_scope_condition(scope):
+    """Translate dashboard scope to the actual ownership fields in v_PinPaiDianPu."""
+    if not scope or scope.get('role') == 'business_owner':
+        return ''
+    escape_sql = lambda value: str(value or '').replace("'", "''")
+    if scope.get('role') == 'member' and scope.get('operator'):
+        return f"LTRIM(RTRIM(dp.YunYing)) = N'{escape_sql(scope['operator'])}'"
+    if scope.get('role') == 'department_leader' and scope.get('department'):
+        department = str(scope['department']).strip()
+        owner_names = set(BUSINESS_ANALYSIS_DEPARTMENT_LEADERS.get(department, set()))
+        owner_names.add(department)
+        values = ', '.join(f"N'{escape_sql(value)}'" for value in sorted(owner_names))
+        return f"LTRIM(RTRIM(dp.BuMen)) IN ({values})"
+    return '1 = 0'
+
+
+@app.route('/api/ai/business-analysis/store-tier-history')
+@_require_business_analysis_access
+def business_analysis_store_tier_history_api():
+    """Return daily CengJi rows, constrained to the effective dashboard scope."""
+    scope = _get_business_analysis_scope(resolve_leader=True)
+    if not scope or scope.get('role') == 'ratio_viewer':
+        return jsonify({'rows': [], 'total': 0})
+
+    raw_store = str(request.args.get('store') or '').strip()
+    store = None
+    if raw_store:
+        try:
+            store = int(raw_store)
+        except ValueError:
+            return jsonify({'error': {'code': 'INVALID_STORE', 'message': '店铺参数无效'}}), 400
+        if store <= 0:
+            return jsonify({'error': {'code': 'INVALID_STORE', 'message': '店铺参数无效'}}), 400
+    try:
+        days = int(request.args.get('days') or 90)
+    except (TypeError, ValueError):
+        return jsonify({'error': {'code': 'INVALID_DAYS', 'message': '日期范围参数无效'}}), 400
+    if days not in {30, 90, 180, 365}:
+        return jsonify({'error': {'code': 'INVALID_DAYS', 'message': '日期范围仅支持 30、90、180、365 天'}}), 400
+
+    conditions = [f"cj.RiQi >= DATEADD(day, -{days - 1}, (SELECT MAX(RiQi) FROM CengJi))"]
+    if store is not None:
+        conditions.append(f"cj.Dian = {store}")
+    scope_condition = _business_analysis_store_tier_scope_condition(scope)
+    if scope_condition:
+        conditions.append(scope_condition)
+
+    sql = f"""
+        SELECT CAST(cj.RiQi AS date), cj.Dian,
+               CONCAT(CONVERT(nvarchar(20), cj.CengJi1), CONVERT(nvarchar(10), cj.CengJi2)),
+               cj.CengJiID, dp.BuMen, dp.ZuZhang, dp.YunYing
+          FROM CengJi cj
+          LEFT JOIN v_PinPaiDianPu dp ON cj.Dian = dp.Dian
+         WHERE {' AND '.join(conditions)}
+         ORDER BY cj.RiQi DESC, cj.Dian
+    """
+    try:
+        rows = sf_db(sql) or []
+        history_conditions = []
+        if store is not None:
+            history_conditions.append(f"cj.Dian = {store}")
+        if scope_condition:
+            history_conditions.append(scope_condition)
+        history_where = f"WHERE {' AND '.join(history_conditions)}" if history_conditions else ''
+        history_rows = sf_db(f"""
+            SELECT CAST(cj.RiQi AS date), cj.Dian,
+                   CONCAT(CONVERT(nvarchar(20), cj.CengJi1), CONVERT(nvarchar(10), cj.CengJi2)),
+                   cj.CengJiID
+              FROM CengJi cj
+              LEFT JOIN v_PinPaiDianPu dp ON cj.Dian = dp.Dian
+              {history_where}
+             ORDER BY cj.Dian, cj.RiQi
+        """) or []
+    except Exception as exc:
+        app.logger.exception('Failed to query business analysis store tier history')
+        return jsonify({'error': {'code': 'STORE_TIER_HISTORY_UNAVAILABLE', 'message': f'店铺等级历史查询失败：{exc}'}}), 503
+    payload = [{
+        'date': value[0].isoformat() if hasattr(value[0], 'isoformat') else str(value[0])[:10],
+        'store': int(value[1]),
+        'tier': str(value[2] or ''),
+        'tierRank': int(value[3]) if value[3] is not None else None,
+        'department': str(value[4] or ''),
+        'leader': str(value[5] or ''),
+        'operator': str(value[6] or ''),
+    } for value in rows]
+    by_store = {}
+    for raw_day, raw_store, raw_tier, raw_rank in history_rows:
+        by_store.setdefault(int(raw_store), []).append({
+            'date': raw_day if isinstance(raw_day, date) else date.fromisoformat(str(raw_day)[:10]),
+            'tier': str(raw_tier or ''),
+            'rank': int(raw_rank) if raw_rank is not None else 0,
+        })
+    official_by_store = {}
+    official_baseline_path = os.path.join(
+        _BUSINESS_ANALYSIS_ROOT,
+        'data',
+        'store-tier-official-baseline.json',
+    )
+    try:
+        with open(official_baseline_path, 'r', encoding='utf-8') as handle:
+            baseline_stores = (json.load(handle) or {}).get('stores') or {}
+        for raw_store, item in baseline_stores.items():
+            if not isinstance(item, dict):
+                continue
+            official_by_store[int(raw_store)] = {
+                'historicalOfficialTier': str(item.get('tier') or ''),
+                'historicalOfficialTierRank': int(item.get('tierRank') or 0),
+                'officialSince': str(item.get('officialSince') or '') or None,
+                'officialSource': '历史正式晋级台账',
+            }
+    except (OSError, ValueError, TypeError) as exc:
+        app.logger.warning('Store tier official baseline unavailable: %s', exc)
+    for event in detect_promotions(history_rows):
+        current = official_by_store.get(event.store)
+        if current is None or event.tier_rank > current['historicalOfficialTierRank']:
+            official_by_store[event.store] = {
+                'historicalOfficialTier': event.tier,
+                'historicalOfficialTierRank': event.tier_rank,
+                'officialSince': event.qualified_on.isoformat(),
+                'officialSource': '每日快照连续30天确认',
+            }
+    store_meta = []
+    for store_id, history in sorted(by_store.items()):
+        history.sort(key=lambda item: item['date'])
+        latest = history[-1]
+        current_level_days = 0
+        expected_day = latest['date']
+        for item in reversed(history):
+            if item['date'] != expected_day or item['tier'] != latest['tier']:
+                break
+            current_level_days += 1
+            expected_day -= timedelta(days=1)
+        store_meta.append({
+            'store': store_id,
+            'currentTier': latest['tier'],
+            'currentLevelDays': current_level_days,
+            **official_by_store.get(store_id, {
+                'historicalOfficialTier': None,
+                'historicalOfficialTierRank': None,
+                'officialSince': None,
+                'officialSource': None,
+            }),
+        })
+    response = jsonify({'rows': payload, 'storeMeta': store_meta, 'total': len(payload), 'days': days})
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
+
+
+@app.route('/api/ai/business-analysis/fiscal-overview', methods=['GET'])
+@_require_business_analysis_access
+def business_analysis_fiscal_overview_api():
+    """返回按当前经营分析权限裁剪后的财年目标达成首页数据。"""
+    scope = _get_business_analysis_scope(resolve_leader=True)
+    if not scope:
+        return jsonify({
+            'error': {
+                'code': 'BUSINESS_ANALYSIS_FORBIDDEN',
+                'message': '当前用户无权访问经营分析财年首页。',
+            }
+        }), 403
+
+    try:
+        fiscal_year = validate_fiscal_year(request.args.get('fiscal_year') or '2026-2027')
+        force_value = str(request.args.get('force') or '0').strip().lower()
+        if force_value not in {'0', '1', 'false', 'true'}:
+            raise ValueError('force 参数仅支持 0、1、false 或 true')
+        payload = load_fiscal_overview(
+            fiscal_year,
+            scope,
+            force=force_value in {'1', 'true'},
+            filters={
+                'department': request.args.get('department'),
+                'periodType': request.args.get('period_type') or 'annual',
+                'period': request.args.get('period'),
+            },
+        )
+    except ValueError as exc:
+        return jsonify({
+            'error': {
+                'code': 'INVALID_FISCAL_OVERVIEW_QUERY',
+                'message': str(exc),
+            }
+        }), 400
+    except Exception as exc:
+        app.logger.exception('business analysis fiscal overview failed: %s', exc)
+        return jsonify({
+            'error': {
+                'code': 'FISCAL_OVERVIEW_UNAVAILABLE',
+                'message': '财年目标数据暂时无法读取，请稍后重试。',
+            }
+        }), 503
+
+    response = jsonify(payload)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/api/ai/business-analysis/key-tasks', defaults={'task_id': None}, methods=['GET', 'POST'])
+@app.route('/api/ai/business-analysis/key-tasks/<task_id>', methods=['PUT', 'DELETE'])
+@_require_business_analysis_access
+def business_analysis_key_tasks_api(task_id):
+    """读写经营分析关键任务；内容由本地服务直接持久化为 JSON。"""
+    scope = _get_business_analysis_scope(resolve_leader=True)
+    if not scope:
+        return jsonify({
+            'error': {
+                'code': 'BUSINESS_ANALYSIS_FORBIDDEN',
+                'message': '当前用户无权访问经营分析关键任务。',
+            }
+        }), 403
+
+    try:
+        if request.method == 'GET':
+            payload = _business_analysis_key_task_store.list(scope)
+        elif request.method == 'POST':
+            payload = _business_analysis_key_task_store.create(request.get_json(silent=True), scope)
+        elif request.method == 'PUT':
+            payload = _business_analysis_key_task_store.update(
+                str(task_id or ''),
+                request.get_json(silent=True),
+                scope,
+            )
+        else:
+            payload = _business_analysis_key_task_store.remove(str(task_id or ''), scope)
+    except KeyTaskStoreError as exc:
+        return jsonify({
+            'error': {
+                'code': exc.code,
+                'message': exc.message,
+            }
+        }), exc.status
+    except OSError as exc:
+        app.logger.exception('Failed to persist business analysis key tasks: %s', exc)
+        return jsonify({
+            'error': {
+                'code': 'TASK_FILE_UNAVAILABLE',
+                'message': '关键任务 JSON 文件暂时无法读写，请稍后重试。',
+            }
+        }), 503
+
+    response = jsonify(payload)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route('/ai/innovation_pending_reminder_test')
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def innovation_pending_reminder_test_page():
     return render_template('innovation_pending_reminder_test.html')
 
@@ -17927,7 +18752,9 @@ def _permission_debug_available_departments():
     return sorted(list(names), key=lambda x: x)
 
 
-_DASHBOARD_IDENTITY_SWITCH_USER_NAMES = {'周俊成'}
+_DASHBOARD_IDENTITY_SWITCH_USER_NAMES = {'周俊成', '蔡晶'}
+_DASHBOARD_IDENTITY_SWITCH_COOKIE = 'dashboard_identity_switch'
+_DASHBOARD_IDENTITY_SWITCH_MAX_AGE_SECONDS = 24 * 60 * 60
 
 
 def _can_dashboard_switch_identity():
@@ -17953,6 +18780,92 @@ def _dashboard_identity_switch_serializer():
         app.secret_key,
         salt='dashboard-identity-switch-member-v1',
     )
+
+
+def _dashboard_identity_switch_state_serializer():
+    return URLSafeTimedSerializer(
+        app.secret_key,
+        salt='dashboard-identity-switch-state-v1',
+    )
+
+
+def _dashboard_identity_switch_operator_open_id():
+    return str(
+        session.get('feishu_open_id') or session.get('feishu_user_id') or ''
+    ).strip()
+
+
+def _dashboard_identity_switch_state_token(open_id, user_name, departments, updated_at):
+    return _dashboard_identity_switch_state_serializer().dumps({
+        'o': _dashboard_identity_switch_operator_open_id(),
+        'u': str(open_id or '').strip(),
+        'n': _normalize_feishu_user_name(user_name, fallback='').strip(),
+        'd': [str(name).strip() for name in departments or [] if str(name).strip()],
+        't': str(updated_at or '').strip(),
+    })
+
+
+def _dashboard_identity_switch_state_from_request():
+    token = str(request.cookies.get(_DASHBOARD_IDENTITY_SWITCH_COOKIE) or '').strip()
+    if not token or not _can_dashboard_switch_identity():
+        return None
+    try:
+        payload = _dashboard_identity_switch_state_serializer().loads(
+            token,
+            max_age=_DASHBOARD_IDENTITY_SWITCH_MAX_AGE_SECONDS,
+        )
+    except (BadSignature, SignatureExpired):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    operator_open_id = str(payload.get('o') or '').strip()
+    user_open_id = str(payload.get('u') or '').strip()
+    user_name = _normalize_feishu_user_name(payload.get('n'), fallback='').strip()
+    departments = payload.get('d') or []
+    if isinstance(departments, str):
+        departments = [departments]
+    if (
+        operator_open_id != _dashboard_identity_switch_operator_open_id()
+        or not user_open_id.startswith(('ou_', 'ou-'))
+        or not user_name
+        or not isinstance(departments, list)
+    ):
+        return None
+    return {
+        'departments': [
+            str(name).strip() for name in departments if str(name).strip()
+        ],
+        'user_name': user_name,
+        'user_open_id': user_open_id,
+        'updated_at': str(payload.get('t') or '').strip(),
+    }
+
+
+def _load_dashboard_identity_switch_request_state():
+    state = _dashboard_identity_switch_state_from_request()
+    if state:
+        g.permission_debug_state = state
+    return state
+
+
+def _permission_debug_effective_state():
+    request_state = getattr(g, 'permission_debug_state', None)
+    if isinstance(request_state, dict):
+        return request_state
+    return {
+        'departments': session.get('permission_debug_departments') or [],
+        'user_name': str(session.get('permission_debug_user_name') or '').strip(),
+        'user_open_id': str(session.get('permission_debug_user_open_id') or '').strip(),
+        'updated_at': str(session.get('permission_debug_updated_at') or '').strip(),
+    }
+
+
+def _permission_debug_identity_cache_key():
+    state = _permission_debug_effective_state()
+    return '|'.join((
+        str(state.get('user_open_id') or '').strip(),
+        str(state.get('updated_at') or '').strip(),
+    ))
 
 
 def _dashboard_identity_switch_selection_token(open_id, user_name):
@@ -18080,10 +18993,17 @@ def api_dashboard_identity_switch():
             'message': f'读取成员身份失败：{exc}',
         }), 500
 
-    session['permission_debug_departments'] = departments
-    session['permission_debug_user_name'] = resolved_name
-    session['permission_debug_user_open_id'] = open_id
-    session['permission_debug_updated_at'] = datetime.now().isoformat()
+    updated_at = datetime.now().isoformat()
+    for key in (
+        'permission_debug_departments',
+        'permission_debug_user_name',
+        'permission_debug_user_open_id',
+        'permission_debug_updated_at',
+        '_business_analysis_access',
+        '_business_analysis_scope',
+        '_business_analysis_scope_with_leader',
+    ):
+        session.pop(key, None)
     session.pop('preloaded_functions', None)
     session.pop('preloaded_departments', None)
     session.pop('preload_time', None)
@@ -18095,7 +19015,7 @@ def api_dashboard_identity_switch():
         open_id,
         '、'.join(departments),
     )
-    return jsonify({
+    response = jsonify({
         'success': True,
         'message': f'已切换为 {resolved_name}',
         'data': {
@@ -18104,15 +19024,30 @@ def api_dashboard_identity_switch():
             'departments': departments,
         },
     })
+    response.set_cookie(
+        _DASHBOARD_IDENTITY_SWITCH_COOKIE,
+        _dashboard_identity_switch_state_token(
+            open_id,
+            resolved_name,
+            departments,
+            updated_at,
+        ),
+        httponly=True,
+        secure=request.is_secure,
+        samesite='Lax',
+        path='/',
+    )
+    return response
 
 
 def _permission_debug_session_state():
-    current = session.get('permission_debug_departments') or []
+    effective_state = _permission_debug_effective_state()
+    current = effective_state.get('departments') or []
     if isinstance(current, str):
         current = [current]
     current = [str(x).strip() for x in current if str(x).strip()]
-    debug_user_name = str(session.get('permission_debug_user_name') or '').strip()
-    debug_user_open_id = str(session.get('permission_debug_user_open_id') or '').strip()
+    debug_user_name = str(effective_state.get('user_name') or '').strip()
+    debug_user_open_id = str(effective_state.get('user_open_id') or '').strip()
     mode = 'user' if debug_user_name else ('department' if current else '')
     return {
         'enabled': bool(mode),
@@ -18124,7 +19059,7 @@ def _permission_debug_session_state():
 
 
 @app.route('/api/ai/permission_debug/status', methods=['GET'])
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def api_ai_permission_debug_status():
     state = _permission_debug_session_state()
     return jsonify({
@@ -18141,7 +19076,7 @@ def api_ai_permission_debug_status():
 
 
 @app.route('/api/ai/permission_debug/switch', methods=['POST'])
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def api_ai_permission_debug_switch():
     data = request.get_json(silent=True) or {}
     target_user_name = _normalize_feishu_user_name(data.get('user_name') or '', fallback='').strip()
@@ -18234,7 +19169,13 @@ def permission_debug_clear():
     session.modified = True
     flash('已恢复真实身份权限', 'success')
     to_mobile = str(request.args.get('mobile') or '').strip().lower() in {'1', 'true', 'yes'}
-    return redirect(url_for('dashboard_mobile' if to_mobile else 'dashboard'))
+    response = redirect(url_for('dashboard_mobile' if to_mobile else 'dashboard'))
+    response.delete_cookie(
+        _DASHBOARD_IDENTITY_SWITCH_COOKIE,
+        path='/',
+        samesite='Lax',
+    )
+    return response
 
 @app.route('/finance_modules')
 @require_permission('finance_dept')
@@ -18698,7 +19639,7 @@ def _export_approval_amounts_core(start_date, end_date, approval_code, source):
     return send_file(buf, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
 
 @app.route('/api/export_approval_amounts', methods=['GET'])
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def export_approval_amounts():
     try:
         start_date = request.args.get('start_date')
@@ -18722,7 +19663,7 @@ def export_approval_amounts_finance():
         return jsonify({'success': False, 'message': f'导出失败: {str(e)}'}), 500
 
 @app.route('/api/feishu/approvals', methods=['GET'])
-@require_permission('ai_dept')
+@require_permission('admin_functions')
 def list_feishu_approvals():
     try:
         token = permission_manager.get_access_token()
@@ -19316,7 +20257,9 @@ def feishu_callback():
     """飞书授权回调"""
     _safe_debug_print(f"\n=== 飞书授权回调处理 ===")
     _safe_debug_print(f"请求方法: {request.method}")
-    _safe_debug_print(f"请求头: {dict(request.headers)}")
+    _safe_debug_print(
+        f"请求来源: host={request.host}, user_agent={str(request.user_agent)[:160]}"
+    )
 
     # 如果是POST请求，可能是飞书的事件回调或URL验证
     if request.method == 'POST':
@@ -19353,7 +20296,7 @@ def feishu_callback():
             # 校验 token（可选）
             token = data.get('token')
             if token and token != FEISHU_CONFIG.get('verification_token'):
-                _safe_debug_print(f"Token验证失败: 期望 {FEISHU_CONFIG.get('verification_token')}, 收到 {token}")
+                _safe_debug_print("Token验证失败")
                 return jsonify({"msg": "verification token mismatch"}), 403
 
             # 处理事件
@@ -19388,7 +20331,7 @@ def feishu_callback():
     code = request.args.get('code')
     state = request.args.get('state')
 
-    _safe_debug_print(f"📝 授权码: {code}")
+    _safe_debug_print(f"📝 授权码已收到: {bool(code)}")
     _safe_debug_print(f"🔐 状态码: {state}")
 
     # 如果没有授权码，可能是直接访问回调地址，返回友好提示
@@ -19413,10 +20356,19 @@ def feishu_callback():
 
         if not user_info:
             _safe_debug_print(f"❌ 获取用户信息失败")
+            # OAuth authorization codes are single-use. If a browser restores or
+            # refreshes an old callback URL, start a fresh authorization flow
+            # instead of leaving the user on a 500 page.
+            _clear_feishu_identity_session()
+            session['force_feishu_reauth'] = '1'
             _safe_debug_print("========================\n")
-            return jsonify({'error': '获取用户信息失败'}), 500
+            return redirect(url_for('feishu_auth', force='1'))
 
-        _safe_debug_print(f"✅ 成功获取用户信息: {user_info}")
+        _safe_debug_print(
+            "✅ 成功获取用户信息: "
+            f"name={user_info.get('name')}, "
+            f"open_id={user_info.get('open_id') or user_info.get('user_id')}"
+        )
 
         # 统一绑定为当前应用下的用户身份
         _clear_feishu_identity_session()
@@ -19738,6 +20690,7 @@ def reset_permission():
 @app.route('/logout')
 def logout():
     """退出登录"""
+    _clear_feishu_user_access_token()
     session.clear()
     return redirect(url_for('dashboard'))
 
@@ -19757,6 +20710,7 @@ def reauth():
         _safe_debug_print(f"✅ 已清除用户 {user_id} 的缓存")
     
     # 清除session，但保留强制重授权标记
+    _clear_feishu_user_access_token()
     session.clear()
     session['force_feishu_reauth'] = '1'
     _safe_debug_print(f"✅ 已清除session")

@@ -8,8 +8,10 @@ param(
     [int]$DeepShopBatchSize = 8,
     [ValidateRange(1, 16)]
     [int]$CatalogWorkers = 3,
+    [ValidateRange(1, 1440)]
+    [int]$CatalogTtlMinutes = 45,
     [ValidateRange(1, 16)]
-    [int]$OverviewWorkers = 4,
+    [int]$OverviewWorkers = 2,
     [string]$SnapshotDir = "data\ad_diagnostic_snapshots"
 )
 
@@ -21,6 +23,7 @@ $installerPath = Join-Path $PSScriptRoot "install_ads_diagnostic_hourly_task.ps1
     -BatchSize $BatchSize `
     -DeepShopBatchSize $DeepShopBatchSize `
     -CatalogWorkers $CatalogWorkers `
+    -CatalogTtlMinutes $CatalogTtlMinutes `
     -OverviewWorkers $OverviewWorkers `
     -SnapshotDir $SnapshotDir
 exit $LASTEXITCODE

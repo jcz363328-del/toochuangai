@@ -21,7 +21,9 @@ from innovation.web_app import (
     get_dashboard_data, get_innovation_compare, export_statistics, toggle_favorite,
     add_favorite_category, innovation_react, innovation_update_comment, innovation_get_react_stats, like_image_file,
     add_innovation_star_content, delete_innovation_star_content, edit_innovation_star_content,
-    innovation_star_media_file, save_chuangxinxing_proposal_note
+    innovation_star_media_file, save_chuangxinxing_proposal_note,
+    innovation_meeting_draw_state, innovation_meeting_draw, innovation_meeting_new_round,
+    innovation_meeting_cancel_draw
 )
 
 # 创建创新系统蓝图，指定模板和静态文件路径
@@ -113,6 +115,30 @@ def innovation_edit_star_content(item_id):
 def innovation_save_chuangxinxing_proposal_note():
     """添加、编辑或清空创新星鉴提案描述。"""
     return save_chuangxinxing_proposal_note()
+
+
+@innovation_bp.route('/api/meeting_draw/state', methods=['GET'])
+def innovation_get_meeting_draw_state():
+    """读取两个创新会议各自的当前轮次和候选部门。"""
+    return innovation_meeting_draw_state()
+
+
+@innovation_bp.route('/api/meeting_draw/draw', methods=['POST'])
+def innovation_run_meeting_draw():
+    """为指定创新会议随机抽取两个部门。"""
+    return innovation_meeting_draw()
+
+
+@innovation_bp.route('/api/meeting_draw/new_round', methods=['POST'])
+def innovation_start_meeting_new_round():
+    """仅重置指定会议的候选池。"""
+    return innovation_meeting_new_round()
+
+
+@innovation_bp.route('/api/meeting_draw/cancel', methods=['POST'])
+def innovation_cancel_meeting_draw():
+    """撤销指定会议本轮最近一次抽签。"""
+    return innovation_meeting_cancel_draw()
 
 
 @innovation_bp.route('/api/get_innovations', methods=['GET'])

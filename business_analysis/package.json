@@ -14,12 +14,13 @@
     "start": "vinext start",
     "start:api": "node server/index.mjs",
     "snapshot:categories": "node scripts/refresh-category-snapshots.mjs",
-    "test": "npm run build && node --test tests/dashboard-metrics.test.mjs tests/formulas.test.mjs",
+    "test": "npm run build && node --test tests/dashboard-metrics.test.mjs tests/formulas.test.mjs tests/key-tasks.test.mjs",
     "test:formulas": "node --test tests/formulas.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern dist-flask --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "drizzle-orm": "0.45.2",
     "echarts": "^6.1.0",
     "mssql": "^12.7.0",

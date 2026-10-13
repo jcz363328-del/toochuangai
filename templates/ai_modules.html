@@ -335,9 +335,11 @@
                 <a href="{{ url_for('dashboard') }}">
                     <i class="fas fa-home"></i> 主页
                 </a>
-                <a href="{{ url_for('script_generator') }}">
-                    <i class="fas fa-file-alt"></i> 脚本生成器
-                </a>
+                {% if can_ai_full %}
+                    <a href="{{ url_for('script_generator') }}">
+                        <i class="fas fa-file-alt"></i> 脚本生成器
+                    </a>
+                {% endif %}
 
             </div>
         </div>
@@ -350,6 +352,78 @@
         </div>
 
         <div class="modules-grid">
+            {% if can_value_evaluation %}
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon"><i class="fas fa-people-arrows"></i></div>
+                <h3>360价值评价</h3>
+                <p>使用当前飞书用户名识别评价任务，在线完成价值表现评分与反馈。</p>
+                <ul class="feature-list">
+                    <li>自动加载本人待评价人员</li>
+                    <li>六项价值表现 1–5 分评价</li>
+                    <li>极端评分备注与一致性校验</li>
+                    <li>支持查看并覆盖本人历史评价</li>
+                </ul>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('value_evaluation.page') }}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-pen-to-square"></i> 开始评价</a></div>
+            </div>
+            {% endif %}
+            {% if can_daily_replenishment %}
+            <!-- 日常补货 -->
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon">
+                    <i class="fas fa-boxes-stacked"></i>
+                </div>
+                <h3>日常补货</h3>
+                <p>读取 Excel 的“日常补货”页，在网页中完成补货数据核对与输出</p>
+                <ul class="feature-list">
+                    <li>生成并筛选补货表数据</li>
+                    <li>编辑订货量和产品备注</li>
+                    <li>备注捕获文件自动保存</li>
+                    <li>支持上下午批次按运营拆分</li>
+                </ul>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{{ url_for('daily_replenishment.page') }}" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
+                        <i class="fas fa-table"></i> 打开日常补货
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if can_daily_replenishment_operation %}
+            <!-- 日常补货运营 -->
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon"><i class="fas fa-boxes-packing"></i></div>
+                <h3>日常补货运营</h3>
+                <p>独立复制运营版 Excel“生成日常补货表”按钮的完整调用链</p>
+                <ul class="feature-list">
+                    <li>库存明细、在途与补货主表同步</li>
+                    <li>FBA发货与每日库存同步</li>
+                    <li>海运即将到货与低毛利率筛选</li>
+                    <li>独立快照及完整工作簿下载</li>
+                </ul>
+                <div style="text-align:center;margin-top:20px">
+                    <a href="{{ url_for('daily_replenishment_operation.page') }}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开日常补货运营</a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if can_group_performance %}
+            <div class="module-card">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon"><i class="fas fa-chart-line"></i></div>
+                <h3>组别经营数据</h3>
+                <p>按月份和组别查询店铺经营表现，并自动与上月对比</p>
+                <ul class="feature-list">
+                    <li>组别列表实时读取</li><li>销售、目标、达成率及毛利分析</li>
+                    <li>店铺汇总与站点明细切换</li><li>仅 AI 部可查看和执行</li>
+                </ul>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('ai_group_performance.page') }}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开查询</a></div>
+            </div>
+            {% endif %}
+
+            {% if can_ai_full %}
             <!-- 更新 -->
             <div class="module-card">
                 <div class="coming-soon-badge">NEW</div>
@@ -370,7 +444,9 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
+            {% if can_business_analysis %}
             <!-- 经营分析 -->
             <div class="module-card">
                 <div class="coming-soon-badge">NEW</div>
@@ -391,7 +467,9 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
 
+            {% if can_ads_monitor %}
             <!-- MAGIC AD 广告监控 -->
             <div class="module-card">
                 <div class="coming-soon-badge">NEW</div>
@@ -412,7 +490,22 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
+            {% if can_video_claw %}
+            <div class="module-card">
+                <div class="module-icon"><i class="fas fa-film"></i></div>
+                <h3>VideoClaw AI视频创作</h3>
+                <p>从创意、剧本、分镜到视频成片的全流程 AI 创作工作台。</p>
+                <ul class="feature-list">
+                    <li>剧本与分镜自动生成</li>
+                    <li>参考图与视频片段生成</li>
+                    <li>项目资产和成片统一留存</li>
+                </ul>
+                <a href="{{ url_for('video_claw') }}" style="display:inline-block;background:linear-gradient(135deg,#0f766e,#2563eb);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开 VideoClaw</a>
+            </div>
+            {% endif %}
 
+            {% if can_ai_full %}
             <!-- 性能监控 -->
             <div class="module-card">
                 <div class="module-icon">
@@ -716,12 +809,14 @@
                     </button>
                 </div>
             </div>
+            {% endif %}
 
         </div>
 
 
     </div>
 
+    {% if can_ai_full %}
     <div id="versionUpdateModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999; align-items:center; justify-content:center;">
         <div style="background:#fff; border-radius:16px; max-width:620px; width:92%; padding:20px 22px; box-shadow:0 10px 30px rgba(15,23,42,0.25);">
             <h3 style="margin:0 0 10px 0; font-size:1.1rem;">发送版本更新通知</h3>
@@ -749,6 +844,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <script>
         function openVersionUpdateDialog(){
@@ -1089,7 +1185,7 @@
         });
         // 添加页面加载动画
         document.addEventListener('DOMContentLoaded', function() {
-            loadPermissionDebugStatus();
+            {% if can_ai_full %}loadPermissionDebugStatus();{% endif %}
             const cards = document.querySelectorAll('.module-card');
             cards.forEach((card, index) => {
                 card.style.opacity = '0';

@@ -129,7 +129,7 @@
         "2026-07",
         "2026-08"
       ],
-      "capturedAt": "2026-08-26T07:46:17.955Z",
+      "capturedAt": "2026-09-04T04:05:47.780Z",
       "source": "SQL Server category segment query",
       "departmentMapping": {
         "周雪": "运营一部",
@@ -2558,6 +2558,10 @@
           "previous": {
             "sales": 1451314.63,
             "usSales": 1211303.91
+          },
+          "yearAgo": {
+            "sales": 1840896.69,
+            "usSales": 1528130.15
           }
         },
         "industry": {
@@ -2578,36 +2582,46 @@
             "department": "运营一部",
             "currentSales": 268708.27,
             "previousSales": 273520.4,
+            "yearAgoSales": 379108.18,
             "currentUsSales": 229966.67,
-            "previousUsSales": 235460.94
+            "previousUsSales": 235460.94,
+            "yearAgoUsSales": 325588.1
           },
           {
             "department": "运营二部",
             "currentSales": 232116.17,
             "previousSales": 221077.67,
+            "yearAgoSales": 218214.72,
             "currentUsSales": 225100.84,
-            "previousUsSales": 213966.39
+            "previousUsSales": 213966.39,
+            "yearAgoUsSales": 204223
           },
           {
             "department": "运营三部",
             "currentSales": 278750.67,
             "previousSales": 272753.3,
+            "yearAgoSales": 365069.77,
             "currentUsSales": 185972.29,
-            "previousUsSales": 183648.43
+            "previousUsSales": 183648.43,
+            "yearAgoUsSales": 238625.36
           },
           {
             "department": "运营六部",
             "currentSales": 324114,
             "previousSales": 335860.66,
+            "yearAgoSales": 371111.55,
             "currentUsSales": 279916.37,
-            "previousUsSales": 290683.09
+            "previousUsSales": 290683.09,
+            "yearAgoUsSales": 329454.67
           },
           {
             "department": "运营七部",
             "currentSales": 342795.25,
             "previousSales": 348040.67,
+            "yearAgoSales": 456374.25,
             "currentUsSales": 280454.51,
-            "previousUsSales": 287483.13
+            "previousUsSales": 287483.13,
+            "yearAgoUsSales": 381661.24
           }
         ]
       },
@@ -2623,6 +2637,10 @@
           "previous": {
             "sales": 11393659.43,
             "usSales": 9895160.26
+          },
+          "yearAgo": {
+            "sales": 9871468.85,
+            "usSales": 8623920.51
           }
         },
         "industry": {
@@ -2643,36 +2661,46 @@
             "department": "运营一部",
             "currentSales": 3402707.69,
             "previousSales": 3176095.07,
+            "yearAgoSales": 1588079.39,
             "currentUsSales": 3000124.39,
-            "previousUsSales": 2802168.92
+            "previousUsSales": 2802168.92,
+            "yearAgoUsSales": 1327018.59
           },
           {
             "department": "运营二部",
             "currentSales": 1557351.13,
             "previousSales": 1456388.87,
+            "yearAgoSales": 1218587.89,
             "currentUsSales": 1372424.67,
-            "previousUsSales": 1305509.22
+            "previousUsSales": 1305509.22,
+            "yearAgoUsSales": 1036439.46
           },
           {
             "department": "运营三部",
             "currentSales": 2862724.82,
             "previousSales": 2752372.93,
+            "yearAgoSales": 2587693.21,
             "currentUsSales": 2349806.46,
-            "previousUsSales": 2265458.72
+            "previousUsSales": 2265458.72,
+            "yearAgoUsSales": 2240633.6
           },
           {
             "department": "运营六部",
             "currentSales": 1537728.99,
             "previousSales": 1529758.48,
+            "yearAgoSales": 1961864.85,
             "currentUsSales": 1354766.56,
-            "previousUsSales": 1339841.19
+            "previousUsSales": 1339841.19,
+            "yearAgoUsSales": 1812987.33
           },
           {
             "department": "运营七部",
             "currentSales": 2208938.34,
             "previousSales": 2242087.54,
+            "yearAgoSales": 2337210.4,
             "currentUsSales": 1919983.49,
-            "previousUsSales": 1950018.83
+            "previousUsSales": 1950018.83,
+            "yearAgoUsSales": 2036432.87
           }
         ]
       }
@@ -5263,6 +5291,10 @@
             "previous": {
               "sales": 1471324.09,
               "usSales": 1249724.67
+            },
+            "yearAgo": {
+              "sales": 2000799.96,
+              "usSales": 1684813.69
             }
           },
           "industry": {
@@ -5283,36 +5315,46 @@
               "department": "运营一部",
               "currentSales": 348019.14,
               "previousSales": 297321.21,
+              "yearAgoSales": 369775.91,
               "currentUsSales": 310401.29,
-              "previousUsSales": 262824.72
+              "previousUsSales": 262824.72,
+              "yearAgoUsSales": 318762.49
             },
             {
               "department": "运营二部",
               "currentSales": 210276.93,
               "previousSales": 179591.27,
+              "yearAgoSales": 221453.11,
               "currentUsSales": 201750.58,
-              "previousUsSales": 170220.73
+              "previousUsSales": 170220.73,
+              "yearAgoUsSales": 204742.25
             },
             {
               "department": "运营三部",
               "currentSales": 291848.51,
               "previousSales": 270125.56,
+              "yearAgoSales": 355828.45,
               "currentUsSales": 201053.77,
-              "previousUsSales": 188571.75
+              "previousUsSales": 188571.75,
+              "yearAgoUsSales": 232235.92
             },
             {
               "department": "运营六部",
               "currentSales": 365691.32,
               "previousSales": 342150.17,
+              "yearAgoSales": 463386.03,
               "currentUsSales": 319140.18,
-              "previousUsSales": 303730.12
+              "previousUsSales": 303730.12,
+              "yearAgoUsSales": 420856.54
             },
             {
               "department": "运营七部",
               "currentSales": 429151.9,
               "previousSales": 381742.46,
+              "yearAgoSales": 535682.11,
               "currentUsSales": 366195.66,
-              "previousUsSales": 323983.93
+              "previousUsSales": 323983.93,
+              "yearAgoUsSales": 455796.46
             }
           ]
         },
@@ -5328,6 +5370,10 @@
             "previous": {
               "sales": 10507674.35,
               "usSales": 9291815.57
+            },
+            "yearAgo": {
+              "sales": 7346711.28,
+              "usSales": 6234760.46
             }
           },
           "industry": {
@@ -5348,36 +5394,46 @@
               "department": "运营一部",
               "currentSales": 2967886.44,
               "previousSales": 2597017.54,
+              "yearAgoSales": 846897.88,
               "currentUsSales": 2640916.64,
-              "previousUsSales": 2318614.33
+              "previousUsSales": 2318614.33,
+              "yearAgoUsSales": 644740.34
             },
             {
               "department": "运营二部",
               "currentSales": 1438533.29,
               "previousSales": 1227138.69,
+              "yearAgoSales": 1182661.91,
               "currentUsSales": 1306981.46,
-              "previousUsSales": 1106495.69
+              "previousUsSales": 1106495.69,
+              "yearAgoUsSales": 987641.36
             },
             {
               "department": "运营三部",
               "currentSales": 3022094.7,
               "previousSales": 2665924.81,
+              "yearAgoSales": 1968116.09,
               "currentUsSales": 2578374.13,
-              "previousUsSales": 2281987.88
+              "previousUsSales": 2281987.88,
+              "yearAgoUsSales": 1678722.64
             },
             {
               "department": "运营六部",
               "currentSales": 1747714.87,
               "previousSales": 1581471.98,
+              "yearAgoSales": 1344652.14,
               "currentUsSales": 1555941.38,
-              "previousUsSales": 1411802.72
+              "previousUsSales": 1411802.72,
+              "yearAgoUsSales": 1218944.87
             },
             {
               "department": "运营七部",
               "currentSales": 2451736.1,
               "previousSales": 2261260.49,
+              "yearAgoSales": 1871716.09,
               "currentUsSales": 2166770.81,
-              "previousUsSales": 1998054.11
+              "previousUsSales": 1998054.11,
+              "yearAgoUsSales": 1577499.06
             }
           ]
         }
@@ -5397,6 +5453,10 @@
             "previous": {
               "sales": 1645037.73,
               "usSales": 1398591.41
+            },
+            "yearAgo": {
+              "sales": 1861614.88,
+              "usSales": 1549557.28
             }
           },
           "industry": {
@@ -5417,36 +5477,46 @@
               "department": "运营一部",
               "currentSales": 262932.18,
               "previousSales": 348019.14,
+              "yearAgoSales": 338283.57,
               "currentUsSales": 231018.34,
-              "previousUsSales": 310401.29
+              "previousUsSales": 310401.29,
+              "yearAgoUsSales": 289255.32
             },
             {
               "department": "运营二部",
               "currentSales": 223370.92,
               "previousSales": 210276.93,
+              "yearAgoSales": 195775.25,
               "currentUsSales": 216694.82,
-              "previousUsSales": 201750.58
+              "previousUsSales": 201750.58,
+              "yearAgoUsSales": 180370.08
             },
             {
               "department": "运营三部",
               "currentSales": 258098.51,
               "previousSales": 291848.51,
+              "yearAgoSales": 361112.21,
               "currentUsSales": 170492.08,
-              "previousUsSales": 201053.77
+              "previousUsSales": 201053.77,
+              "yearAgoUsSales": 239740.68
             },
             {
               "department": "运营六部",
               "currentSales": 289630.61,
               "previousSales": 365691.32,
+              "yearAgoSales": 435925.9,
               "currentUsSales": 248477.11,
-              "previousUsSales": 319140.18
+              "previousUsSales": 319140.18,
+              "yearAgoUsSales": 391679.12
             },
             {
               "department": "运营七部",
               "currentSales": 338326.58,
               "previousSales": 429151.9,
+              "yearAgoSales": 474228.07,
               "currentUsSales": 282103.35,
-              "previousUsSales": 366195.66
+              "previousUsSales": 366195.66,
+              "yearAgoUsSales": 394650.64
             }
           ]
         },
@@ -5462,6 +5532,10 @@
             "previous": {
               "sales": 11845745.71,
               "usSales": 10464274.2
+            },
+            "yearAgo": {
+              "sales": 6974948.36,
+              "usSales": 5861949.74
             }
           },
           "industry": {
@@ -5482,36 +5556,46 @@
               "department": "运营一部",
               "currentSales": 2890547.18,
               "previousSales": 2967886.44,
+              "yearAgoSales": 818477.49,
               "currentUsSales": 2557865.93,
-              "previousUsSales": 2640916.64
+              "previousUsSales": 2640916.64,
+              "yearAgoUsSales": 612019.68
             },
             {
               "department": "运营二部",
               "currentSales": 1335545.34,
               "previousSales": 1438533.29,
+              "yearAgoSales": 1077026.99,
               "currentUsSales": 1208723.32,
-              "previousUsSales": 1306981.46
+              "previousUsSales": 1306981.46,
+              "yearAgoUsSales": 887313.33
             },
             {
               "department": "运营三部",
               "currentSales": 2614922.03,
               "previousSales": 3022094.7,
+              "yearAgoSales": 1928826.69,
               "currentUsSales": 2201969.76,
-              "previousUsSales": 2578374.13
+              "previousUsSales": 2578374.13,
+              "yearAgoUsSales": 1625974.73
             },
             {
               "department": "运营六部",
               "currentSales": 1323148.26,
               "previousSales": 1747714.87,
+              "yearAgoSales": 1335851.81,
               "currentUsSales": 1146015.27,
-              "previousUsSales": 1555941.38
+              "previousUsSales": 1555941.38,
+              "yearAgoUsSales": 1210961.25
             },
             {
               "department": "运营七部",
               "currentSales": 2018512.37,
               "previousSales": 2451736.1,
+              "yearAgoSales": 1693433.27,
               "currentUsSales": 1771482.27,
-              "previousUsSales": 2166770.81
+              "previousUsSales": 2166770.81,
+              "yearAgoUsSales": 1409921.51
             }
           ]
         }
@@ -5531,6 +5615,10 @@
             "previous": {
               "sales": 1372375.46,
               "usSales": 1148785.7
+            },
+            "yearAgo": {
+              "sales": 2044142.18,
+              "usSales": 1722580
             }
           },
           "industry": {
@@ -5551,36 +5639,46 @@
               "department": "运营一部",
               "currentSales": 294875.72,
               "previousSales": 262932.18,
+              "yearAgoSales": 400350.24,
               "currentUsSales": 257797.78,
-              "previousUsSales": 231018.34
+              "previousUsSales": 231018.34,
+              "yearAgoUsSales": 347086.01
             },
             {
               "department": "运营二部",
               "currentSales": 242776.23,
               "previousSales": 223370.92,
+              "yearAgoSales": 231502.67,
               "currentUsSales": 234950.94,
-              "previousUsSales": 216694.82
+              "previousUsSales": 216694.82,
+              "yearAgoUsSales": 215725.17
             },
             {
               "department": "运营三部",
               "currentSales": 303179.33,
               "previousSales": 258098.51,
+              "yearAgoSales": 419827.46,
               "currentUsSales": 205713.61,
-              "previousUsSales": 170492.08
+              "previousUsSales": 170492.08,
+              "yearAgoUsSales": 295996.21
             },
             {
               "department": "运营六部",
               "currentSales": 373066.21,
               "previousSales": 289630.61,
+              "yearAgoSales": 430883.55,
               "currentUsSales": 325489.29,
-              "previousUsSales": 248477.11
+              "previousUsSales": 248477.11,
+              "yearAgoUsSales": 383215.39
             },
             {
               "department": "运营七部",
               "currentSales": 394828.89,
               "previousSales": 338326.58,
+              "yearAgoSales": 504100.89,
               "currentUsSales": 332225.42,
-              "previousUsSales": 282103.35
+              "previousUsSales": 282103.35,
+              "yearAgoUsSales": 425169.65
             }
           ]
         },
@@ -5596,6 +5694,10 @@
             "previous": {
               "sales": 10282950.36,
               "usSales": 8983190.54
+            },
+            "yearAgo": {
+              "sales": 7964369.01,
+              "usSales": 6842720.49
             }
           },
           "industry": {
@@ -5616,36 +5718,46 @@
               "department": "运营一部",
               "currentSales": 3181129.53,
               "previousSales": 2890547.18,
+              "yearAgoSales": 1144352.8,
               "currentUsSales": 2821101.56,
-              "previousUsSales": 2557865.93
+              "previousUsSales": 2557865.93,
+              "yearAgoUsSales": 931326.02
             },
             {
               "department": "运营二部",
               "currentSales": 1473667,
               "previousSales": 1335545.34,
+              "yearAgoSales": 1111631.4,
               "currentUsSales": 1333422.48,
-              "previousUsSales": 1208723.32
+              "previousUsSales": 1208723.32,
+              "yearAgoUsSales": 931666.36
             },
             {
               "department": "运营三部",
               "currentSales": 3016637.89,
               "previousSales": 2614922.03,
+              "yearAgoSales": 2125155.71,
               "currentUsSales": 2540110.26,
-              "previousUsSales": 2201969.76
+              "previousUsSales": 2201969.76,
+              "yearAgoUsSales": 1817137.53
             },
             {
               "department": "运营六部",
               "currentSales": 1668387.06,
               "previousSales": 1323148.26,
+              "yearAgoSales": 1433223.7,
               "currentUsSales": 1475454.84,
-              "previousUsSales": 1146015.27
+              "previousUsSales": 1146015.27,
+              "yearAgoUsSales": 1302013.55
             },
             {
               "department": "运营七部",
               "currentSales": 2421506.98,
               "previousSales": 2018512.37,
+              "yearAgoSales": 2020421.47,
               "currentUsSales": 2136879.53,
-              "previousUsSales": 1771482.27
+              "previousUsSales": 1771482.27,
+              "yearAgoUsSales": 1738049.09
             }
           ]
         }
@@ -5665,6 +5777,10 @@
             "previous": {
               "sales": 1608772.32,
               "usSales": 1356222.98
+            },
+            "yearAgo": {
+              "sales": 1831579.24,
+              "usSales": 1558733.71
             }
           },
           "industry": {
@@ -5685,36 +5801,46 @@
               "department": "运营一部",
               "currentSales": 273520.4,
               "previousSales": 294875.72,
+              "yearAgoSales": 380395.22,
               "currentUsSales": 235460.94,
-              "previousUsSales": 257797.78
+              "previousUsSales": 257797.78,
+              "yearAgoUsSales": 332581.78
             },
             {
               "department": "运营二部",
               "currentSales": 221077.67,
               "previousSales": 242776.23,
+              "yearAgoSales": 212229.54,
               "currentUsSales": 213966.39,
-              "previousUsSales": 234950.94
+              "previousUsSales": 234950.94,
+              "yearAgoUsSales": 199796.48
             },
             {
               "department": "运营三部",
               "currentSales": 272753.3,
               "previousSales": 303179.33,
+              "yearAgoSales": 365149.48,
               "currentUsSales": 183648.43,
-              "previousUsSales": 205713.61
+              "previousUsSales": 205713.61,
+              "yearAgoUsSales": 258876.93
             },
             {
               "department": "运营六部",
               "currentSales": 335860.66,
               "previousSales": 373066.21,
+              "yearAgoSales": 368989.62,
               "currentUsSales": 290683.09,
-              "previousUsSales": 325489.29
+              "previousUsSales": 325489.29,
+              "yearAgoUsSales": 329352.43
             },
             {
               "department": "运营七部",
               "currentSales": 348040.67,
               "previousSales": 394828.89,
+              "yearAgoSales": 454514.6,
               "currentUsSales": 287483.13,
-              "previousUsSales": 332225.42
+              "previousUsSales": 332225.42,
+              "yearAgoUsSales": 390202.37
             }
           ]
         },
@@ -5730,6 +5856,10 @@
             "previous": {
               "sales": 11977746.02,
               "usSales": 10519888.08
+            },
+            "yearAgo": {
+              "sales": 8411158.8,
+              "usSales": 7397137.21
             }
           },
           "industry": {
@@ -5750,36 +5880,46 @@
               "department": "运营一部",
               "currentSales": 3176095.07,
               "previousSales": 3181129.53,
+              "yearAgoSales": 1241623.45,
               "currentUsSales": 2802168.92,
-              "previousUsSales": 2821101.56
+              "previousUsSales": 2821101.56,
+              "yearAgoUsSales": 1046821.68
             },
             {
               "department": "运营二部",
               "currentSales": 1456388.87,
               "previousSales": 1473667,
+              "yearAgoSales": 1088600.21,
               "currentUsSales": 1305509.22,
-              "previousUsSales": 1333422.48
+              "previousUsSales": 1333422.48,
+              "yearAgoUsSales": 930042.87
             },
             {
               "department": "运营三部",
               "currentSales": 2752372.93,
               "previousSales": 3016637.89,
+              "yearAgoSales": 2296026.79,
               "currentUsSales": 2265458.72,
-              "previousUsSales": 2540110.26
+              "previousUsSales": 2540110.26,
+              "yearAgoUsSales": 2014533.18
             },
             {
               "department": "运营六部",
               "currentSales": 1529758.48,
               "previousSales": 1668387.06,
+              "yearAgoSales": 1538869.77,
               "currentUsSales": 1339841.19,
-              "previousUsSales": 1475454.84
+              "previousUsSales": 1475454.84,
+              "yearAgoUsSales": 1430662.76
             },
             {
               "department": "运营七部",
               "currentSales": 2242087.54,
               "previousSales": 2421506.98,
+              "yearAgoSales": 2104303.63,
               "currentUsSales": 1950018.83,
-              "previousUsSales": 2136879.53
+              "previousUsSales": 2136879.53,
+              "yearAgoUsSales": 1840431.14
             }
           ]
         }
@@ -5799,6 +5939,10 @@
             "previous": {
               "sales": 1451314.63,
               "usSales": 1211303.91
+            },
+            "yearAgo": {
+              "sales": 1840896.69,
+              "usSales": 1528130.15
             }
           },
           "industry": {
@@ -5819,36 +5963,46 @@
               "department": "运营一部",
               "currentSales": 268708.27,
               "previousSales": 273520.4,
+              "yearAgoSales": 379108.18,
               "currentUsSales": 229966.67,
-              "previousUsSales": 235460.94
+              "previousUsSales": 235460.94,
+              "yearAgoUsSales": 325588.1
             },
             {
               "department": "运营二部",
               "currentSales": 232116.17,
               "previousSales": 221077.67,
+              "yearAgoSales": 218214.72,
               "currentUsSales": 225100.84,
-              "previousUsSales": 213966.39
+              "previousUsSales": 213966.39,
+              "yearAgoUsSales": 204223
             },
             {
               "department": "运营三部",
               "currentSales": 278750.67,
               "previousSales": 272753.3,
+              "yearAgoSales": 365069.77,
               "currentUsSales": 185972.29,
-              "previousUsSales": 183648.43
+              "previousUsSales": 183648.43,
+              "yearAgoUsSales": 238625.36
             },
             {
               "department": "运营六部",
               "currentSales": 324114,
               "previousSales": 335860.66,
+              "yearAgoSales": 371111.55,
               "currentUsSales": 279916.37,
-              "previousUsSales": 290683.09
+              "previousUsSales": 290683.09,
+              "yearAgoUsSales": 329454.67
             },
             {
               "department": "运营七部",
               "currentSales": 342795.25,
               "previousSales": 348040.67,
+              "yearAgoSales": 456374.25,
               "currentUsSales": 280454.51,
-              "previousUsSales": 287483.13
+              "previousUsSales": 287483.13,
+              "yearAgoUsSales": 381661.24
             }
           ]
         },
@@ -5864,6 +6018,10 @@
             "previous": {
               "sales": 11393659.43,
               "usSales": 9895160.26
+            },
+            "yearAgo": {
+              "sales": 9871468.85,
+              "usSales": 8623920.51
             }
           },
           "industry": {
@@ -5884,36 +6042,46 @@
               "department": "运营一部",
               "currentSales": 3402707.69,
               "previousSales": 3176095.07,
+              "yearAgoSales": 1588079.39,
               "currentUsSales": 3000124.39,
-              "previousUsSales": 2802168.92
+              "previousUsSales": 2802168.92,
+              "yearAgoUsSales": 1327018.59
             },
             {
               "department": "运营二部",
               "currentSales": 1557351.13,
               "previousSales": 1456388.87,
+              "yearAgoSales": 1218587.89,
               "currentUsSales": 1372424.67,
-              "previousUsSales": 1305509.22
+              "previousUsSales": 1305509.22,
+              "yearAgoUsSales": 1036439.46
             },
             {
               "department": "运营三部",
               "currentSales": 2862724.82,
               "previousSales": 2752372.93,
+              "yearAgoSales": 2587693.21,
               "currentUsSales": 2349806.46,
-              "previousUsSales": 2265458.72
+              "previousUsSales": 2265458.72,
+              "yearAgoUsSales": 2240633.6
             },
             {
               "department": "运营六部",
               "currentSales": 1537728.99,
               "previousSales": 1529758.48,
+              "yearAgoSales": 1961864.85,
               "currentUsSales": 1354766.56,
-              "previousUsSales": 1339841.19
+              "previousUsSales": 1339841.19,
+              "yearAgoUsSales": 1812987.33
             },
             {
               "department": "运营七部",
               "currentSales": 2208938.34,
               "previousSales": 2242087.54,
+              "yearAgoSales": 2337210.4,
               "currentUsSales": 1919983.49,
-              "previousUsSales": 1950018.83
+              "previousUsSales": 1950018.83,
+              "yearAgoUsSales": 2036432.87
             }
           ]
         }
@@ -5927,12 +6095,16 @@
           "industryLabel": "对毛-化纤",
           "company": {
             "current": {
-              "sales": 1083825.78,
-              "usSales": 899709.66
+              "sales": 1389259.39,
+              "usSales": 1154654.02
             },
             "previous": {
               "sales": 1446533.29,
               "usSales": 1201459.61
+            },
+            "yearAgo": {
+              "sales": 1786620.32,
+              "usSales": 1488723.56
             }
           },
           "industry": {
@@ -5951,38 +6123,48 @@
           "departments": [
             {
               "department": "运营一部",
-              "currentSales": 196887.42,
+              "currentSales": 249955.92,
               "previousSales": 268708.27,
-              "currentUsSales": 169089.06,
-              "previousUsSales": 229966.67
+              "yearAgoSales": 355506.75,
+              "currentUsSales": 214847.53,
+              "previousUsSales": 229966.67,
+              "yearAgoUsSales": 304140.53
             },
             {
               "department": "运营二部",
-              "currentSales": 178216.75,
+              "currentSales": 234434.63,
               "previousSales": 232116.17,
-              "currentUsSales": 172886.4,
-              "previousUsSales": 225100.84
+              "yearAgoSales": 209614.37,
+              "currentUsSales": 227705.23,
+              "previousUsSales": 225100.84,
+              "yearAgoUsSales": 195852.99
             },
             {
               "department": "运营三部",
-              "currentSales": 203745.74,
+              "currentSales": 259513.91,
               "previousSales": 278750.67,
-              "currentUsSales": 132180.86,
-              "previousUsSales": 185972.29
+              "yearAgoSales": 352051.6,
+              "currentUsSales": 168236.55,
+              "previousUsSales": 185972.29,
+              "yearAgoUsSales": 233183.89
             },
             {
               "department": "运营六部",
-              "currentSales": 245695.59,
+              "currentSales": 316134.24,
               "previousSales": 324114,
-              "currentUsSales": 214191.99,
-              "previousUsSales": 279916.37
+              "yearAgoSales": 373649.97,
+              "currentUsSales": 275886.51,
+              "previousUsSales": 279916.37,
+              "yearAgoUsSales": 333448.93
             },
             {
               "department": "运营七部",
-              "currentSales": 259266.3,
+              "currentSales": 329206.71,
               "previousSales": 342795.25,
-              "currentUsSales": 211347.37,
-              "previousUsSales": 280454.51
+              "yearAgoSales": 453825.19,
+              "currentUsSales": 267964.22,
+              "previousUsSales": 280454.51,
+              "yearAgoUsSales": 380844.88
             }
           ]
         },
@@ -5992,12 +6174,16 @@
           "industryLabel": "簇毛",
           "company": {
             "current": {
-              "sales": 9590958.41,
-              "usSales": 8314885.35
+              "sales": 12294059.86,
+              "usSales": 10659349.03
             },
             "previous": {
               "sales": 11864355.81,
               "usSales": 10288080.08
+            },
+            "yearAgo": {
+              "sales": 10419785.27,
+              "usSales": 9233839.7
             }
           },
           "industry": {
@@ -6016,38 +6202,48 @@
           "departments": [
             {
               "department": "运营一部",
-              "currentSales": 2760301.34,
+              "currentSales": 3549151.73,
               "previousSales": 3402707.69,
-              "currentUsSales": 2434770.66,
-              "previousUsSales": 3000124.39
+              "yearAgoSales": 1837622.9,
+              "currentUsSales": 3131092.39,
+              "previousUsSales": 3000124.39,
+              "yearAgoUsSales": 1585130.72
             },
             {
               "department": "运营二部",
-              "currentSales": 1288354.88,
+              "currentSales": 1663584.02,
               "previousSales": 1557351.13,
-              "currentUsSales": 1126489.74,
-              "previousUsSales": 1372424.67
+              "yearAgoSales": 1292287.57,
+              "currentUsSales": 1452229.05,
+              "previousUsSales": 1372424.67,
+              "yearAgoUsSales": 1132867.34
             },
             {
               "department": "运营三部",
-              "currentSales": 2309004.44,
+              "currentSales": 2929286.75,
               "previousSales": 2862724.82,
-              "currentUsSales": 1895293.99,
-              "previousUsSales": 2349806.46
+              "yearAgoSales": 2634351.61,
+              "currentUsSales": 2402893.36,
+              "previousUsSales": 2349806.46,
+              "yearAgoUsSales": 2298915.87
             },
             {
               "department": "运营六部",
-              "currentSales": 1279723.82,
+              "currentSales": 1648491.94,
               "previousSales": 1537728.99,
-              "currentUsSales": 1143885.12,
-              "previousUsSales": 1354766.56
+              "yearAgoSales": 2045855.65,
+              "currentUsSales": 1475816.43,
+              "previousUsSales": 1354766.56,
+              "yearAgoUsSales": 1896050.2
             },
             {
               "department": "运营七部",
-              "currentSales": 1648043.68,
+              "currentSales": 2104053.63,
               "previousSales": 2208938.34,
-              "currentUsSales": 1412038.71,
-              "previousUsSales": 1919983.49
+              "yearAgoSales": 2405129.47,
+              "currentUsSales": 1801865.75,
+              "previousUsSales": 1919983.49,
+              "yearAgoUsSales": 2121832.54
             }
           ]
         }

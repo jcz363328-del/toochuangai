@@ -1,132 +1,95 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>洛可可培训 - 图创AI系统</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .folder-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 10px;
-            background: #fff;
-        }
-        .folder-title {
-            font-weight: 700;
-            color: #374151;
-            padding: 6px 8px;
-            border-bottom: 1px solid #f0f0f0;
-            margin-bottom: 8px;
-        }
-        .video-item {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 8px 10px;
-            cursor: pointer;
-            transition: all .2s ease;
-            margin-bottom: 6px;
-        }
-        .video-item:hover {
-            background: #f8f9ff;
-            border-color: #6366f1;
-        }
-        .video-item.active {
-            background: #eef2ff;
-            border-color: #6366f1;
-        }
-        .video-player-wrap {
-            background: #111827;
-            border-radius: 12px;
-            padding: 12px;
-            position: sticky;
-            top: 12px;
-        }
-        video {
-            width: 100%;
-            max-height: 70vh;
-            border-radius: 8px;
-            background: #000;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>洛可可培训 · 图创 AI 系统</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+  <style>
+    :root { --ink:#172033; --muted:#718096; --line:#e7ebf2; --blue:#2864f0; --blue-soft:#edf3ff; --panel:#fff; --bg:#f5f7fb; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font-family:Manrope,"Noto Sans SC",sans-serif; }
+    .topbar { height:68px; background:#111a2b; color:#fff; display:flex; align-items:center; padding:0 32px; justify-content:space-between; }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:-.02em; font-size:19px; }
+    .brand-mark { width:34px; height:34px; border-radius:10px; display:grid; place-items:center; background:#2864f0; box-shadow:0 8px 20px #0b173566; }
+    .topbar-meta { color:#aab6cb; font-size:12px; }
+    .shell { max-width:1600px; margin:0 auto; padding:28px 32px 40px; }
+    .back-row { display:flex; gap:10px; align-items:center; margin-bottom:24px; }
+    .btn { border:1px solid var(--line); border-radius:9px; background:#fff; color:#42516a; text-decoration:none; padding:10px 15px; font-size:13px; font-weight:600; transition:.2s; }
+    .btn:hover { color:var(--blue); border-color:#b9cdfd; background:var(--blue-soft); }
+    .crumb { display:flex; align-items:center; gap:12px; color:var(--muted); font-size:13px; margin-bottom:22px; }
+    .crumb i { color:#a8b3c4; font-size:11px; }
+    .page-head { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:20px; }
+    h1 { margin:0 0 7px; font-size:28px; letter-spacing:-.04em; }
+    .subtitle { color:var(--muted); font-size:13px; }
+    .stats { display:flex; gap:10px; }
+    .stat { border:1px solid var(--line); background:var(--panel); border-radius:12px; padding:11px 15px; min-width:110px; }
+    .stat b { display:block; font-size:20px; line-height:1; margin-bottom:5px; }
+    .stat span { color:var(--muted); font-size:11px; }
+    .workspace { display:grid; grid-template-columns:360px minmax(0,1fr); gap:18px; align-items:start; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 8px 30px #2635500b; }
+    .panel-head { padding:17px 18px 14px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
+    .panel-title { font-size:14px; font-weight:800; }
+    .panel-count { color:var(--muted); font-size:12px; }
+    .search { margin:14px 14px 6px; position:relative; }
+    .search i { position:absolute; left:12px; top:11px; color:#9aa6b9; font-size:13px; }
+    .search input { width:100%; border:1px solid var(--line); border-radius:9px; padding:9px 12px 9px 33px; outline:0; font:inherit; font-size:12px; color:var(--ink); }
+    .search input:focus { border-color:#9bb7fa; box-shadow:0 0 0 3px #2864f014; }
+    .playlist { max-height:calc(100vh - 300px); min-height:440px; overflow:auto; padding:8px 10px 14px; }
+    .folder { margin:7px 3px 12px; }
+    .folder-title { display:flex; align-items:center; gap:9px; padding:9px 9px; color:#37445b; font-size:12px; font-weight:800; cursor:pointer; user-select:none; border-radius:8px; transition:.18s; }
+    .folder-title:hover { background:#f7f9fe; color:#1c4fca; }
+    .folder-title .folder-chevron { margin-left:auto; color:#9aa8bd; font-size:10px; transition:transform .18s; }
+    .folder.is-collapsed .folder-chevron { transform:rotate(-90deg); }
+    .folder.is-collapsed .folder-items { display:none; }
+    .folder-title i { color:#f3ad29; }
+    .video-item { display:flex; align-items:center; gap:10px; width:100%; border:1px solid transparent; border-radius:9px; padding:10px 10px; margin:3px 0; background:#fff; color:#4b5870; font-size:12px; cursor:pointer; transition:.18s; }
+    .video-item i { color:#82a5ed; font-size:14px; }
+    .video-item:hover { background:#f7f9fe; border-color:#d7e2fb; }
+    .video-item.active { background:var(--blue-soft); border-color:#9fbbfb; color:#1c4fca; font-weight:700; }
+    .video-item.active i { color:var(--blue); }
+    .video-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .empty { padding:20px 10px; color:var(--muted); font-size:12px; }
+    .player-panel { background:#111a2b; border-radius:16px; padding:18px; box-shadow:0 14px 38px #18243b1f; }
+    .player-top { display:flex; justify-content:space-between; align-items:center; gap:14px; color:#fff; margin-bottom:14px; }
+    .now-playing { font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .playing-tag { color:#9fb7ec; font-size:11px; white-space:nowrap; }
+    video { width:100%; display:block; aspect-ratio:16/9; object-fit:contain; background:#050911; border-radius:10px; }
+    .player-foot { display:flex; justify-content:space-between; align-items:center; padding-top:13px; color:#98a8c3; font-size:11px; }
+    .hint { display:flex; align-items:center; gap:7px; }
+    @media (max-width:900px) { .topbar { padding:0 18px; } .shell { padding:20px 16px 30px; } .page-head { display:block; } .stats { margin-top:18px; } .workspace { grid-template-columns:1fr; } .playlist { max-height:380px; min-height:0; } }
+    @media (max-width:560px) { h1 { font-size:23px; } .topbar-meta { display:none; } .stats { width:100%; } .stat { flex:1; min-width:0; } .player-panel { padding:12px; } }
+  </style>
 </head>
 <body>
-<nav class="navbar navbar-dark bg-dark">
-    <div class="container-fluid">
-        <span class="navbar-brand mb-0 h1">图创AI系统 - 洛可可培训</span>
-    </div>
-</nav>
-<div class="container-fluid py-3">
-    <div class="d-flex gap-2 mb-3">
-        <a class="btn btn-outline-secondary" href="{{ url_for('training_videos') }}">
-            <i class="fas fa-arrow-left"></i> 返回视频教学
-        </a>
-        <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">返回主控台</a>
-    </div>
-    <div class="alert alert-light border mb-3">
-        当前目录：{{ folder_path }}
-    </div>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark"><i class="fa-solid fa-play"></i></span><span>图创 AI 系统</span><span style="color:#8190aa;font-weight:500">/</span><span style="color:#b9c8e3;font-weight:600">洛可可培训</span></div>
+    <div class="topbar-meta">培训中心 · 视频学习</div>
+  </header>
+  <main class="shell">
+    <div class="back-row"><a class="btn" href="{{ url_for('training_videos') }}"><i class="fa-solid fa-arrow-left"></i>&nbsp; 返回视频教学</a><a class="btn" href="{{ url_for('dashboard') }}">返回主控台</a></div>
+    <div class="crumb"><span>培训视频</span><i class="fa-solid fa-chevron-right"></i><span>洛可可培训</span><i class="fa-solid fa-chevron-right"></i><span>{{ folder_path }}</span></div>
     {% set ns = namespace(first_url='', first_name='') %}
-    {% for g in grouped_videos %}
-        {% if not ns.first_url and g.videos %}
-            {% set ns.first_url = g.videos[0].url %}
-            {% set ns.first_name = g.folder_name ~ ' / ' ~ g.videos[0].name %}
-        {% endif %}
-    {% endfor %}
+    {% for g in grouped_videos %}{% if not ns.first_url and g.videos %}{% set ns.first_url = g.videos[0].url %}{% set ns.first_name = g.folder_name ~ ' / ' ~ g.videos[0].name %}{% endif %}{% endfor %}
+    {% set video_ns = namespace(count=0) %}{% for g in grouped_videos %}{% set video_ns.count = video_ns.count + (g.videos|length) %}{% endfor %}
+    <section class="page-head"><div><h1>洛可可培训</h1><div class="subtitle">按文件夹浏览课程，选择视频后即可开始学习</div></div><div class="stats"><div class="stat"><b>{{ grouped_videos|length }}</b><span>课程文件夹</span></div><div class="stat"><b>{{ video_ns.count }}</b><span>培训视频</span></div></div></section>
     {% if grouped_videos %}
-    <div class="row g-3">
-        <div class="col-lg-4">
-            <div class="card h-100">
-                <div class="card-header">分类视频列表（{{ grouped_videos|length }}个文件夹）</div>
-                <div class="card-body" style="max-height:75vh;overflow:auto;">
-                    {% for g in grouped_videos %}
-                    <div class="folder-card mb-2">
-                        <div class="folder-title"><i class="fas fa-folder me-2 text-warning"></i>{{ g.folder_name }}</div>
-                        {% if g.videos %}
-                            {% for v in g.videos %}
-                            <div class="video-item{% if ns.first_url == v.url %} active{% endif %}" data-src="{{ v.url }}" data-name="{{ g.folder_name }} / {{ v.name }}">
-                                <i class="fas fa-play-circle text-primary"></i>
-                                <span class="ms-2">{{ v.name }}</span>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="text-muted small px-1 py-1">该分类暂无可播放视频</div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-8">
-            <div class="video-player-wrap">
-                <div class="text-white mb-2" id="currentVideoName">{{ ns.first_name or '请从左侧选择视频' }}</div>
-                <video id="videoPlayer" controls preload="metadata"{% if ns.first_url %} src="{{ ns.first_url }}"{% endif %}></video>
-            </div>
-        </div>
+    <div class="workspace">
+      <aside class="panel"><div class="panel-head"><span class="panel-title">课程目录</span><span class="panel-count">{{ grouped_videos|length }} 个文件夹</span></div><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="videoSearch" type="search" placeholder="搜索视频名称…"></div><div class="playlist" id="playlist">
+        {% for g in grouped_videos %}<div class="folder"><div class="folder-title" role="button" tabindex="0" aria-expanded="true"><i class="fa-solid fa-folder"></i><span>{{ g.folder_name }}</span><i class="fa-solid fa-chevron-down folder-chevron"></i></div><div class="folder-items">{% for v in g.videos %}<div class="video-item{% if ns.first_url == v.url %} active{% endif %}" data-src="{{ v.url }}" data-name="{{ g.folder_name }} / {{ v.name }}"><i class="fa-solid fa-circle-play"></i><span class="video-name">{{ v.name }}</span></div>{% else %}<div class="empty">该文件夹暂无可播放视频</div>{% endfor %}</div></div>{% endfor %}
+      </div></aside>
+      <section class="player-panel"><div class="player-top"><div class="now-playing" id="currentVideoName">{{ ns.first_name or '请从左侧选择视频' }}</div><div class="playing-tag"><i class="fa-solid fa-signal"></i>&nbsp; 正在播放</div></div><video id="videoPlayer" controls preload="metadata"{% if ns.first_url %} src="{{ ns.first_url }}"{% endif %}></video><div class="player-foot"><span class="hint"><i class="fa-regular fa-lightbulb"></i> 建议佩戴耳机观看培训内容</span><span>支持全屏播放</span></div></section>
     </div>
-    {% else %}
-    <div class="alert alert-warning">目录中未找到分类文件夹。</div>
-    {% endif %}
-</div>
-<script>
-    const items = document.querySelectorAll('.video-item');
-    const player = document.getElementById('videoPlayer');
-    const nameEl = document.getElementById('currentVideoName');
-    items.forEach(item => {
-        item.addEventListener('click', function () {
-            items.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            const src = item.getAttribute('data-src');
-            const name = item.getAttribute('data-name') || '';
-            if (player && src) {
-                player.src = src;
-                player.load();
-                player.play().catch(() => {});
-            }
-            if (nameEl) nameEl.textContent = name;
-        });
-    });
-</script>
+    {% else %}<div class="panel empty">目录中未找到分类文件夹。</div>{% endif %}
+  </main>
+  <script>
+    const items=[...document.querySelectorAll('.video-item')], player=document.getElementById('videoPlayer'), nameEl=document.getElementById('currentVideoName'), search=document.getElementById('videoSearch');
+    document.querySelectorAll('.folder-title').forEach(title=>{const toggle=()=>{const folder=title.closest('.folder');const collapsed=folder.classList.toggle('is-collapsed');title.setAttribute('aria-expanded',String(!collapsed));};title.addEventListener('click',toggle);title.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});});
+    items.forEach(item=>item.addEventListener('click',()=>{items.forEach(i=>i.classList.remove('active'));item.classList.add('active');const src=item.dataset.src;if(player&&src){player.src=src;player.load();player.play().catch(()=>{});}if(nameEl)nameEl.textContent=item.dataset.name||'';}));
+    search?.addEventListener('input',e=>{const q=e.target.value.trim().toLowerCase();document.querySelectorAll('.folder').forEach(folder=>{let visible=0;folder.querySelectorAll('.video-item').forEach(item=>{const match=!q||item.textContent.toLowerCase().includes(q);item.style.display=match?'flex':'none';if(match)visible++;});folder.style.display=visible?'block':'none';if(q&&visible)folder.classList.remove('is-collapsed');});});
+  </script>
 </body>
 </html>

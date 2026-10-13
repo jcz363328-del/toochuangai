@@ -14,6 +14,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -23,6 +24,12 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
+
+# Keep scheduled runs self-contained even when the project virtualenv is absent.
+_SCRIPT_ROOT = Path(__file__).resolve().parent
+_BUNDLED_DEPENDENCY_PATH = _SCRIPT_ROOT / ".python_deps"
+if _BUNDLED_DEPENDENCY_PATH.is_dir():
+    sys.path.insert(0, str(_BUNDLED_DEPENDENCY_PATH))
 
 from sellfox_import import (
     API_BASE_URL,
@@ -41,7 +48,7 @@ from sellfox_ads_bulk_report import (
 )
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = _SCRIPT_ROOT
 DEFAULT_CONFIG_PATH = ROOT / "ads_monitor_config.json"
 SHOP_LIST_PATH = "/api/shop/pageList.json"
 SP_CAMPAIGN_PATH = "/api/cpc/manageData/spCampaign.json"
@@ -503,7 +510,9 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
 
 
 @contextmanager
-def single_instance() -> Iterator[None]:
+def single_instance(wait_seconds: int = 0) -> Iterator[None]:
+    if wait_seconds < 0:
+        raise ValueError("广告监控锁等待秒数不能小于 0。")
     if os.name != "nt":
         yield
         return
@@ -517,28 +526,63 @@ def single_instance() -> Iterator[None]:
         wintypes.LPCWSTR,
     ]
     kernel32.CreateMutexW.restype = wintypes.HANDLE
+    kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
     kernel32.ReleaseMutex.argtypes = [wintypes.HANDLE]
+    kernel32.ReleaseMutex.restype = wintypes.BOOL
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-    mutex = kernel32.CreateMutexW(None, False, r"Global\SellfoxAdsMonitor")
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    mutex = kernel32.CreateMutexW(None, True, r"Global\SellfoxAdsMonitor")
     if not mutex:
         raise ctypes.WinError()
-    if kernel32.GetLastError() == 183:
-        kernel32.CloseHandle(mutex)
-        raise MonitorFailure("已有广告监控任务正在运行，本次安全退出。")
+    already_exists = kernel32.GetLastError() == 183
+    owns_mutex = not already_exists
+    if already_exists:
+        if wait_seconds <= 0:
+            kernel32.CloseHandle(mutex)
+            raise MonitorFailure("已有广告监控任务正在运行，本次安全退出。")
+        wait_milliseconds = min(wait_seconds * 1000, 0xFFFFFFFE)
+        wait_result = kernel32.WaitForSingleObject(mutex, wait_milliseconds)
+        if wait_result in (0x00000000, 0x00000080):
+            owns_mutex = True
+        elif wait_result == 0x00000102:
+            kernel32.CloseHandle(mutex)
+            raise MonitorFailure(
+                f"等待现有广告监控任务 {wait_seconds} 秒后仍未释放，本次安全退出。"
+            )
+        else:
+            kernel32.CloseHandle(mutex)
+            raise ctypes.WinError()
     try:
         yield
     finally:
-        kernel32.ReleaseMutex(mutex)
+        if owns_mutex:
+            kernel32.ReleaseMutex(mutex)
         kernel32.CloseHandle(mutex)
 
 
 class SellfoxAdsClient(SellfoxClient):
     """Thin ad-specific wrapper over the existing OAuth and signature client."""
 
+    _shared_token_lock = threading.Lock()
+    _shared_access_tokens: dict[str, str] = {}
+
     def __init__(self, client_id: str, client_secret: str, logger: logging.Logger):
         config = Config(client_id, client_secret, "", "", "", "")
         super().__init__(config, logger)
         self.session.headers["User-Agent"] = "SellfoxAdsMonitor/1.0"
+
+    def get_token(self) -> str:
+        if self._access_token:
+            return self._access_token
+        cache_key = self.config.client_id
+        with self._shared_token_lock:
+            shared_token = self._shared_access_tokens.get(cache_key, "")
+            if not shared_token:
+                shared_token = super().get_token()
+                self._shared_access_tokens[cache_key] = shared_token
+            self._access_token = shared_token
+        return self._access_token
 
     def post_data(
         self,
@@ -4199,6 +4243,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--as-of", help="分析日期 YYYY-MM-DD，默认今天")
     parser.add_argument("--no-workbook", action="store_true")
     parser.add_argument("--check-config", action="store_true", help="仅做定时任务预检")
+    parser.add_argument(
+        "--lock-wait-minutes",
+        type=int,
+        default=0,
+        help="已有广告采集任务运行时最多等待多少分钟；默认立即退出",
+    )
     parser.add_argument("--preview", action="store_true", help="同时渲染工作簿预览图")
     parser.add_argument("--verbose", action="store_true")
     return parser
@@ -4208,6 +4258,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logger = setup_logging(args.verbose)
     try:
+        if args.lock_wait_minutes < 0:
+            raise ValueError("--lock-wait-minutes 不能小于 0。")
         as_of = date.fromisoformat(args.as_of) if args.as_of else date.today()
         config = load_monitor_config(
             resolve_path(args.config),
@@ -4248,7 +4300,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             / f".{config.output_dir.name}.backup-{attempt_suffix}"
         )
         swap_state: OutputSwapState | None = None
-        with single_instance(), connect_store(config.database_path) as connection:
+        with single_instance(
+            wait_seconds=args.lock_wait_minutes * 60
+        ), connect_store(config.database_path) as connection:
             try:
                 if args.demo:
                     coverage = seed_demo_data(

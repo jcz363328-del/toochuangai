@@ -3,11 +3,13 @@ from __future__ import annotations
 import unittest
 
 from sellfox_ad_diagnostic_refresh import (
+    is_monitor_busy_error,
     select_diagnostic_shops,
     select_overview_campaign_id,
     select_rotating_shops,
 )
 from sellfox_ad_diagnostic_server import DiagnosticShop
+from sellfox_ads_monitor import MonitorFailure
 
 
 class ShopSelectionTests(unittest.TestCase):
@@ -21,6 +23,14 @@ class ShopSelectionTests(unittest.TestCase):
     def test_empty_selection_refreshes_all_discovered_shops(self):
         selected = select_diagnostic_shops(self.shops, [])
         self.assertEqual([shop.shop_id for shop in selected], ["1", "2", "3"])
+
+    def test_monitor_busy_is_an_expected_hourly_skip(self):
+        self.assertTrue(
+            is_monitor_busy_error(
+                MonitorFailure("已有广告监控任务正在运行，本次安全退出。")
+            )
+        )
+        self.assertFalse(is_monitor_busy_error(MonitorFailure("其他错误")))
 
     def test_explicit_selection_is_validated(self):
         self.assertEqual(
@@ -63,6 +73,25 @@ class ShopSelectionTests(unittest.TestCase):
             select_overview_campaign_id(catalog),
             "70540977760495",
         )
+
+    def test_overview_campaign_prefers_secondary_shop_campaign(self):
+        catalog = {
+            "shop": {"shop_id": "476221"},
+            "campaigns": [
+                {"campaignId": "300", "name": "actionable", "state": "enabled", "actionable_count": 1},
+                {"campaignId": "390041487563225", "name": "23-default", "state": "enabled"},
+            ],
+        }
+        self.assertEqual(select_overview_campaign_id(catalog), "390041487563225")
+
+    def test_overview_campaign_prefers_enabled_over_archived(self):
+        catalog = {
+            "campaigns": [
+                {"campaignId": "100", "name": "archived", "state": "archived", "mature_14d": {"spend": 999}},
+                {"campaignId": "200", "name": "enabled", "state": "enabled", "mature_14d": {"spend": 1}},
+            ]
+        }
+        self.assertEqual(select_overview_campaign_id(catalog), "200")
 
 
 if __name__ == "__main__":

@@ -166,6 +166,8 @@
             justify-content: flex-end;
             flex-wrap: wrap;
         }
+        .btn.export-primary { color:#fff; border-color:#6d5efc; background:linear-gradient(135deg,#6d5efc,#5847eb); box-shadow:0 8px 18px rgba(109,94,252,.22); }
+        .export-date-help { margin:8px 4px 0; color:#6d5efc; font-size:12px; font-weight:600; text-align:right; }
         .history-search-row {
             grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.2fr) minmax(140px, 0.85fr) 148px 24px 148px auto;
         }
@@ -1081,14 +1083,15 @@
                     <select id="filterDepartment" class="field">
                         <option value="">全部部门</option>
                     </select>
-                    <input id="filterDateStart" class="field" type="date">
+                    <input id="filterDateStart" class="field" type="date" aria-label="导出开始日期" title="开始日期">
                     <div class="range-split">~</div>
-                    <input id="filterDateEnd" class="field" type="date">
+                    <input id="filterDateEnd" class="field" type="date" aria-label="导出结束日期" title="结束日期">
                     <div class="history-filter-actions">
                         <button id="searchBtn" class="btn primary">查询</button>
-                        <button id="downloadHistoryBtn" class="btn" type="button"><i class="fas fa-download"></i>下载 HTML</button>
+                        <button id="downloadHistoryBtn" class="btn export-primary" type="button"><i class="fas fa-download"></i>按日期导出日报</button>
                     </div>
                 </div>
+                <div class="export-date-help"><i class="fas fa-circle-info"></i> 选择上方开始、结束日期后点击“按日期导出日报”；原格式和上传图片会一并保留。</div>
                 {% if history_debug_enabled %}
                 <div class="debug-tools">
                     <strong>权限测试</strong>
@@ -1976,6 +1979,10 @@
     function downloadHistoryRecords() {
         const dateStart = safeText(document.getElementById('filterDateStart').value).trim();
         const dateEnd = safeText(document.getElementById('filterDateEnd').value).trim();
+        if (!dateStart || !dateEnd) {
+            alert('请先选择开始日期和结束日期，再导出日报');
+            return;
+        }
         if (dateStart && dateEnd && dateEnd < dateStart) {
             alert('结束日期不能早于开始日期');
             return;

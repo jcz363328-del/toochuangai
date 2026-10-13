@@ -2,12 +2,19 @@ param(
     [string]$TaskName = "SellfoxAdsMonitorDaily",
     [ValidatePattern('^([01]\d|2[0-3]):[0-5]\d$')]
     [string]$At = "09:00",
-    [string]$ConfigPath = "ads_monitor_config.json"
+    [string]$ConfigPath = "ads_monitor_config.json",
+    [ValidateRange(0, 240)]
+    [int]$LockWaitMinutes = 90
 )
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
+$venvPython = Join-Path $projectRoot ".venv\Scripts\python.exe"
+$pythonPath = if (Test-Path -LiteralPath $venvPython -PathType Leaf) {
+    $venvPython
+} else {
+    (Get-Command python.exe -ErrorAction Stop).Source
+}
 $scriptPath = Join-Path $projectRoot "sellfox_ads_monitor.py"
 $scheduledOutputPath = Join-Path $projectRoot "outputs\ads_monitor_scheduled"
 $resolvedConfigPath = if ([IO.Path]::IsPathRooted($ConfigPath)) {
@@ -16,9 +23,6 @@ $resolvedConfigPath = if ([IO.Path]::IsPathRooted($ConfigPath)) {
     [IO.Path]::GetFullPath((Join-Path $projectRoot $ConfigPath))
 }
 
-if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
-    throw "Python not found: $pythonPath"
-}
 if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
     throw "Monitor script not found: $scriptPath"
 }
@@ -49,7 +53,7 @@ try {
 }
 
 $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-$arguments = '"{0}" --config "{1}" --output-dir "{2}" --once --no-workbook' -f $scriptPath, $resolvedConfigPath, $scheduledOutputPath
+$arguments = '"{0}" --config "{1}" --output-dir "{2}" --once --no-workbook --lock-wait-minutes {3}' -f $scriptPath, $resolvedConfigPath, $scheduledOutputPath, $LockWaitMinutes
 $action = New-ScheduledTaskAction `
     -Execute $pythonPath `
     -Argument $arguments `
@@ -60,7 +64,7 @@ $settings = New-ScheduledTaskSettingsSet `
     -WakeToRun `
     -RestartCount 3 `
     -RestartInterval (New-TimeSpan -Minutes 15) `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 3) `
+    -ExecutionTimeLimit (New-TimeSpan -Hours 6) `
     -MultipleInstances IgnoreNew `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries
@@ -73,12 +77,13 @@ $task = New-ScheduledTask `
     -Trigger $trigger `
     -Settings $settings `
     -Principal $principal `
-    -Description "Sellfox all-shop live ads dashboard refresh (read-only)"
+    -Description "Sellfox all-shop live ads dashboard refresh (read-only, waits for hourly snapshot lock)"
 Register-ScheduledTask -TaskName $TaskName -InputObject $task -Force | Out-Null
 
 Write-Host "Created daily live-dashboard task: $TaskName at $At"
 Write-Host "User context: $currentUser (must be signed in)"
 Write-Host "Config: $resolvedConfigPath"
 Write-Host "Scheduled output: $scheduledOutputPath"
+Write-Host "Lock wait: $LockWaitMinutes minutes"
 Write-Host "Run it now with:"
 Write-Host ('schtasks.exe /Run /TN "{0}"' -f $TaskName)

@@ -4,6 +4,7 @@ import os
 import re
 import time
 import json
+import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 from threading import Lock, Thread
@@ -321,7 +322,7 @@ def _format_elapsed(start_time, now_dt):
 
 
 def load_overdue_pending_projects(now_dt=None, query_fn=sf_db):
-    """只返回同一项目全部流转状态为“待承接”且已超过2天的记录。"""
+    """只返回全部待承接、全部委员会分为 -1 且已超过2天的项目。"""
     now = now_dt if isinstance(now_dt, datetime) else datetime.now()
     cutoff = (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")
     sql = f"""
@@ -333,6 +334,12 @@ def load_overdue_pending_projects(now_dt=None, query_fn=sf_db):
                AND SUM(
                     CASE
                         WHEN LTRIM(RTRIM(ISNULL([状态], ''))) = N'待承接' THEN 0
+                        ELSE 1
+                    END
+               ) = 0
+               AND SUM(
+                    CASE
+                        WHEN LTRIM(RTRIM(ISNULL(CAST([委员会打分] AS NVARCHAR(50)), ''))) = N'-1' THEN 0
                         ELSE 1
                     END
                ) = 0
@@ -388,6 +395,42 @@ def group_projects_by_assignee(projects):
     return dict(grouped)
 
 
+def claim_daily_assignee_reminder(day_key, assignee, execute_fn=None, query_fn=sf_db):
+    """跨进程抢占当天部门提醒；数据库唯一键确保只能有一个发送者。"""
+    from bjc import dui_db
+
+    execute = execute_fn or dui_db
+    safe_day = str(day_key or '').replace("'", "''")
+    safe_assignee = str(assignee or '').replace("'", "''")
+    claim_token = str(uuid.uuid4())
+    execute("""
+        IF OBJECT_ID(N'dbo.innovation_pending_reminder_claims', N'U') IS NULL
+        BEGIN
+            CREATE TABLE dbo.innovation_pending_reminder_claims (
+                reminder_date DATE NOT NULL,
+                assignee NVARCHAR(100) NOT NULL,
+                claim_token NVARCHAR(50) NOT NULL,
+                claimed_at DATETIME2 NOT NULL CONSTRAINT DF_innovation_reminder_claimed_at DEFAULT SYSDATETIME(),
+                CONSTRAINT PK_innovation_pending_reminder_claims PRIMARY KEY (reminder_date, assignee)
+            );
+        END
+    """)
+    execute(f"""
+        IF NOT EXISTS (
+            SELECT 1 FROM dbo.innovation_pending_reminder_claims WITH (UPDLOCK, HOLDLOCK)
+            WHERE reminder_date = '{safe_day}' AND assignee = N'{safe_assignee}'
+        )
+        INSERT INTO dbo.innovation_pending_reminder_claims
+            (reminder_date, assignee, claim_token)
+        VALUES ('{safe_day}', N'{safe_assignee}', N'{claim_token}')
+    """)
+    stored_token = query_fn(f"""
+        SELECT claim_token FROM dbo.innovation_pending_reminder_claims
+        WHERE reminder_date = '{safe_day}' AND assignee = N'{safe_assignee}'
+    """, single=True)
+    return str(stored_token or '').strip() == claim_token
+
+
 def build_pending_reminder_message(assignee, projects, now_dt=None):
     now = now_dt if isinstance(now_dt, datetime) else datetime.now()
     items = list(projects or [])
@@ -417,13 +460,14 @@ def build_pending_reminder_message(assignee, projects, now_dt=None):
 
 
 class InnovationPendingReminder:
-    def __init__(self, query_fn=sf_db, service_factory=None, enabled=None):
+    def __init__(self, query_fn=sf_db, service_factory=None, enabled=None, daily_claim_fn=None):
         self.query_fn = query_fn
         self.service_factory = service_factory or FeishuReminderMessageService
         if enabled is None:
             raw = str(os.environ.get("INNOVATION_PENDING_REMINDER_ENABLED", "1")).strip().lower()
             enabled = raw not in {"0", "false", "no", "off"}
         self.enabled = bool(enabled)
+        self.daily_claim_fn = daily_claim_fn or claim_daily_assignee_reminder
         self._lock = Lock()
         self._thread_started = False
         self._last_attempt_date = ""
@@ -434,7 +478,7 @@ class InnovationPendingReminder:
         with self._lock:
             return self._thread_started
 
-    def run_once(self, now_dt=None, send_messages=True, include_message_details=False):
+    def run_once(self, now_dt=None, send_messages=True, include_message_details=False, enforce_daily_once=False):
         now = now_dt if isinstance(now_dt, datetime) else datetime.now()
         projects = load_overdue_pending_projects(now_dt=now, query_fn=self.query_fn)
         grouped = group_projects_by_assignee(projects)
@@ -455,6 +499,12 @@ class InnovationPendingReminder:
 
         message_service = self.service_factory()
         for assignee, items in grouped.items():
+            if enforce_daily_once and not self.daily_claim_fn(now.strftime('%Y-%m-%d'), assignee):
+                result["assignees"][assignee] = {
+                    "project_count": len(items), "recipient_count": 0,
+                    "success": 0, "failed": 0, "skipped": "today_already_sent",
+                }
+                continue
             message = build_pending_reminder_message(assignee, items, now_dt=now)
             contacts = []
             try:
@@ -527,7 +577,7 @@ class InnovationPendingReminder:
                         should_run = True
             if should_run:
                 try:
-                    self.run_once(now_dt=now, send_messages=True)
+                    self.run_once(now_dt=now, send_messages=True, enforce_daily_once=True)
                 except Exception as exc:
                     self.last_result = {
                         "checked_at": now.strftime("%Y-%m-%d %H:%M:%S"),

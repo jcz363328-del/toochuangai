@@ -23,6 +23,7 @@ from sellfox_ads_monitor import (
     aggregate_campaigns,
     aggregate_targets,
     bulk_row_to_fact,
+    build_parser,
     build_payload,
     build_advertised_products,
     campaign_budget_matrix_status,
@@ -84,6 +85,31 @@ class AdsMonitorTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def test_parser_accepts_daily_lock_wait_minutes(self):
+        args = build_parser().parse_args(["--lock-wait-minutes", "90"])
+
+        self.assertEqual(args.lock_wait_minutes, 90)
+
+    def test_ad_clients_share_one_access_token_request(self):
+        logger = logging.getLogger("test-shared-token")
+        first = SellfoxAdsClient("client-id", "client-secret", logger)
+        second = SellfoxAdsClient("client-id", "client-secret", logger)
+        try:
+            with SellfoxAdsClient._shared_token_lock:
+                SellfoxAdsClient._shared_access_tokens.clear()
+            with mock.patch(
+                "sellfox_ads_monitor.SellfoxClient.get_token",
+                return_value="shared-token",
+            ) as fetch_token:
+                self.assertEqual(first.get_token(), "shared-token")
+                self.assertEqual(second.get_token(), "shared-token")
+            fetch_token.assert_called_once()
+        finally:
+            first.close()
+            second.close()
+            with SellfoxAdsClient._shared_token_lock:
+                SellfoxAdsClient._shared_access_tokens.clear()
 
     def demo(self) -> MonitorConfig:
         return demo_config(load_monitor_config(self.config_path))

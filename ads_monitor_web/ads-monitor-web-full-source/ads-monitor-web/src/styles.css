@@ -1877,6 +1877,20 @@ button:disabled {
   color: #596273;
 }
 
+.system-state.inline {
+  min-height: min(520px, calc(100vh - 190px));
+  border: 1px solid #e4e8ee;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.system-state.inline span {
+  max-width: 520px;
+  color: #7b8493;
+  font-size: 13px;
+  text-align: center;
+}
+
 .system-state button {
   padding: 10px 16px;
   color: #fff;
@@ -3020,16 +3034,23 @@ button:disabled {
   font-weight: 750;
 }
 
+.campaign-classification-row .performance.excellent {
+  color: #0b6b3a;
+  background: #dff8ea;
+}
+
 .campaign-classification-row .performance.good {
   color: #17663d;
   background: #e8f7ef;
 }
 
+.campaign-classification-row .performance.poor,
 .campaign-classification-row .performance.danger {
   color: #a12632;
   background: #fff0f1;
 }
 
+.campaign-classification-row .performance.average,
 .campaign-classification-row .performance.warning,
 .campaign-classification-row .performance.watch {
   color: #845c0e;

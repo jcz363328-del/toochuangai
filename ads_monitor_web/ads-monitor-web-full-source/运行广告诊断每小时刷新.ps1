@@ -5,13 +5,16 @@ param(
     [int]$DeepShopBatchSize = 8,
     [ValidateRange(1, 16)]
     [int]$CatalogWorkers = 3,
+    [ValidateRange(1, 1440)]
+    [int]$CatalogTtlMinutes = 45,
     [ValidateRange(1, 16)]
-    [int]$OverviewWorkers = 4,
+    [int]$OverviewWorkers = 2,
     [string]$SnapshotDir = "data\ad_diagnostic_snapshots",
     [ValidatePattern('^[0-9]{1,32}$')]
     [string]$PriorityShopId = "475394",
     [ValidatePattern('^[0-9]{1,32}$')]
     [string]$PriorityCampaignId = "70540977760495",
+    [switch]$SkipDeep,
     [switch]$CheckConfig
 )
 
@@ -50,8 +53,12 @@ $refreshArgs = @(
     "--batch-size", $BatchSize,
     "--deep-shop-batch-size", $DeepShopBatchSize,
     "--catalog-workers", $CatalogWorkers,
+    "--catalog-ttl-minutes", $CatalogTtlMinutes,
     "--overview-workers", $OverviewWorkers
 )
+if ($SkipDeep) {
+    $refreshArgs += "--skip-deep"
+}
 if ($CheckConfig) {
     $refreshArgs += "--check-config"
 }
@@ -60,7 +67,7 @@ Push-Location $projectRoot
 try {
     & $pythonPath @refreshArgs
     $catalogExitCode = $LASTEXITCODE
-    if ($CheckConfig) {
+    if ($CheckConfig -or $SkipDeep) {
         exit $catalogExitCode
     }
 

@@ -99,7 +99,16 @@ EXTRACTION_PROMPT = """你是 Amazon 假睫毛产品图片事实提取助手。
 - 每个可见内容物单独输出一个 fact，key 使用 "contents"。
 - 不要输出代码块、Markdown 或 JSON 之外的内容。"""
 
-LISTING_SYSTEM_PROMPT = """You are an Amazon listing copywriter for beauty products. Write compliant, specific English listing copy from confirmed product facts only. Never invent materials, certifications, safety claims, wear time, waterproof performance, reusable count, package contents, or medical claims. Never use any forbidden term supplied by the user. Follow Amazon's requirements effective July 27, 2026: non-media titles must be 75 characters or fewer, and Item Highlights must be 125 characters or fewer. Continue to follow the title quality rules: do not use !, $, ?, _, {, }, ^, ¬, or ¦ unless part of the brand name, and do not repeat the same substantive word more than twice. Item Highlights is a separate searchable customer-facing field for confirmed materials, specifications, or recommended use cases; it is not a bullet point. Respect bullet, description and backend-search-term limits. Return strict JSON only, with this shape:
+LISTING_SYSTEM_PROMPT = """You are an Amazon listing copywriter for beauty products. Write compliant, specific English listing copy from confirmed product facts only. Never invent materials, certifications, safety claims, wear time, waterproof performance, reusable count, package contents, or medical claims. Never use any forbidden term supplied by the user.
+
+Keyword placement is mandatory, not optional:
+1. Treat a smaller ABA rank number as higher priority. Use rankingPriority in ascending rank order.
+2. Put the highest-ranked relevant exact keyword phrase near the beginning of the title. Fit the next distinct high-ranked phrase naturally when space permits.
+3. Distribute remaining rankingPriority, conversionPriority and growthPriority phrases across different bullet points. Preserve exact phrase wording when grammatical.
+4. Put relevant backendPriority phrases not already used in customer-facing copy into Search Terms. Do not repeat phrases already present in the title, Item Highlights, bullets or description.
+5. Do not repeat the same product fact, benefit, specification or keyword phrase across multiple bullets. Each bullet must have a distinct job: primary benefit, specifications, design/use, scenario/audience, and package/decision information.
+
+Use the available character space efficiently. The title must be exactly 70 characters and the Item Highlight must be exactly 125 characters, counting spaces and punctuation. Reach those targets with distinct relevant ranked keywords and confirmed product facts; never use filler, broken phrases, invented claims or repetition. Write substantial bullets of roughly 180-350 characters each when enough confirmed information is available. Start Item Highlights, every internal highlight, and every bullet with an uppercase English letter. Follow Amazon's requirements effective July 27, 2026 and its title quality rules: do not use !, $, ?, _, {, }, ^, ¬, or ¦ unless part of the brand name, and do not repeat the same substantive word more than twice. Item Highlights is a separate searchable customer-facing field for confirmed materials, specifications, or recommended use cases; it is not a bullet point. Respect bullet, description and backend-search-term limits. Return strict JSON only, with this shape:
 {
   "variants": [
     {
@@ -677,7 +686,10 @@ def api_generate_listings():
     model_payload = {
         "model": _get_text_model(),
         "temperature": 0.65,
-        "max_tokens": 6200,
+        # Listing generation is a structured copywriting task. Qwen3 models may
+        # otherwise spend a large part of the request budget on hidden reasoning.
+        "enable_thinking": False,
+        "max_tokens": 4000,
         "messages": [
             {"role": "system", "content": LISTING_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps(prompt_payload, ensure_ascii=False)},
@@ -763,7 +775,7 @@ def api_sellfox_ranking_file():
             jsonify(
                 {
                     "ok": False,
-                    "message": "无法读取已绑定的赛虎 ABA 看板文件。",
+                    "message": "无法读取已绑定的赛狐 ABA 看板文件。",
                     "detail": _safe_detail(exc),
                 }
             ),
@@ -883,7 +895,7 @@ def api_sellfox_proxy(resource: str):
             jsonify(
                 {
                     "ok": False,
-                    "message": f"无法连接赛虎广告看板（{base_url}）。请先启动它的本地服务。",
+                    "message": f"无法连接赛狐广告看板（{base_url}）。请先启动它的本地服务。",
                     "detail": _safe_detail(exc),
                 }
             ),
@@ -979,7 +991,7 @@ def _normalize_listing_generation_input(data: dict[str, Any]) -> dict[str, Any]:
     skill = data.get("skill") if isinstance(data.get("skill"), dict) else {}
     limits = data.get("limits") if isinstance(data.get("limits"), dict) else {}
 
-    def terms(items: Any) -> list[dict[str, Any]]:
+    def terms(items: Any, *, priority: str = "rank") -> list[dict[str, Any]]:
         normalized = []
         for item in _object_list(items, 10):
             term = _clean(item.get("term"))
@@ -994,7 +1006,14 @@ def _normalize_listing_generation_input(data: dict[str, Any]) -> dict[str, Any]:
                     "conversionShare": _finite_number(item.get("conversionShare")),
                 }
             )
-        return normalized
+        if priority == "growth":
+            return sorted(normalized, key=lambda item: (-(item["growth"] or 0), item["rank"] or math.inf))
+        if priority == "conversion":
+            return sorted(
+                normalized,
+                key=lambda item: (-(item["conversionShare"] or 0), item["rank"] or math.inf),
+            )
+        return sorted(normalized, key=lambda item: (item["rank"] is None, item["rank"] or math.inf))
 
     return {
         "marketplace": _clean(data.get("marketplace")) or "US",
@@ -1016,8 +1035,8 @@ def _normalize_listing_generation_input(data: dict[str, Any]) -> dict[str, Any]:
             "t2": _string_list(keywords.get("t2"), 10),
             "t3": _string_list(keywords.get("t3"), 10),
             "rankingPriority": terms(keywords.get("rankingPriority")),
-            "growthPriority": terms(keywords.get("growthPriority")),
-            "conversionPriority": terms(keywords.get("conversionPriority")),
+            "growthPriority": terms(keywords.get("growthPriority"), priority="growth"),
+            "conversionPriority": terms(keywords.get("conversionPriority"), priority="conversion"),
             "backendPriority": terms(keywords.get("backendPriority")),
         },
         "compliance": {
@@ -1033,7 +1052,7 @@ def _normalize_listing_generation_input(data: dict[str, Any]) -> dict[str, Any]:
             "historicalReference": _clean(skill.get("historicalReference"))[:5000],
         },
         "limits": {
-            "title": _clamp(limits.get("title"), 75, 30, 75),
+            "title": 70,
             "itemHighlight": _clamp(limits.get("itemHighlight"), 125, 40, 125),
             "bullet": _clamp(limits.get("bullet"), 500, 100, 1000),
             "description": _clamp(limits.get("description"), 2000, 300, 4000),
@@ -1057,19 +1076,25 @@ def _normalize_generated_listing_variants(variants: Any) -> list[dict[str, Any]]
     for index, value in enumerate(_object_list(variants, 3)):
         candidate_id = _clean(value.get("id"))
         variant_id = candidate_id if candidate_id in expected_ids else expected_ids[index]
-        highlights = [_fit_copy_limit(item, 125) for item in _string_list(value.get("highlights"), 3)]
-        item_highlight = _fit_copy_limit(
+        highlights = [
+            _uppercase_first_letter(_fit_copy_limit(item, 125))
+            for item in _string_list(value.get("highlights"), 3)
+        ]
+        item_highlight = _uppercase_first_letter(_fit_copy_limit(
             value.get("itemHighlight") or value.get("itemHighlights") or value.get("subtitle"),
             125,
-        )
+        ))
         if not item_highlight and highlights:
             item_highlight = highlights[0]
         variant = {
             "id": variant_id,
-            "title": _fit_copy_limit(value.get("title"), 75),
+            "title": _fit_copy_limit(value.get("title"), 70),
             "itemHighlight": item_highlight,
             "highlights": highlights,
-            "bullets": _string_list(value.get("bullets"), 5),
+            "bullets": [
+                _uppercase_first_letter(_fit_copy_limit(item, 500))
+                for item in _string_list(value.get("bullets"), 5)
+            ],
             "description": _clean(value.get("description")),
             "searchTerms": _clean(value.get("searchTerms")),
             "reasons": _string_list(value.get("reasons"), 4),
@@ -1913,7 +1938,8 @@ def _get_text_model() -> str:
     return (
         _clean(ai_runtime_config().get("text_model"))
         or env("SILICONFLOW_TEXT_MODEL")
-        or _get_model()
+        # Do not silently run long-form copy generation on the vision model.
+        or DEFAULT_SILICONFLOW_TEXT_MODEL
     )
 
 
@@ -1972,6 +1998,14 @@ def _fit_copy_limit(value: Any, limit: int) -> str:
     if word_break >= int(limit * 0.6):
         clipped = clipped[:word_break]
     return clipped.rstrip(" ,.;:-")
+
+
+def _uppercase_first_letter(value: Any) -> str:
+    text = _clean(value)
+    for index, char in enumerate(text):
+        if char.isascii() and char.isalpha():
+            return f"{text[:index]}{char.upper()}{text[index + 1:]}"
+    return text
 
 
 def _safe_detail(value: Any) -> str:

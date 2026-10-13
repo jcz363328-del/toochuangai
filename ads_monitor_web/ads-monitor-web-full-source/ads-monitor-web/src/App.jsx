@@ -36,8 +36,9 @@ import {
   productListingStage,
 } from "./listingLifecycle.js";
 import { AdDiagnosticView } from "./AdDiagnosticView.jsx";
-import { fetchDiagnosticShops } from "./adDiagnosticApi.js";
+import { fetchDiagnostic, fetchDiagnosticShops } from "./adDiagnosticApi.js";
 import { DIAGNOSTIC_SHOPS, PILOT_SHOP, normalizeDiagnosticShops } from "./adDiagnosticModel.js";
+import { adaptDiagnosticMonitorData } from "./monitorDataAdapter.js";
 
 const APP_BASE_URL = import.meta.env?.BASE_URL || "/";
 const DATA_URL = `${APP_BASE_URL}data/ads-monitor.json`;
@@ -417,6 +418,14 @@ function actionClass(action) {
     : action === "INCREASE_BID" || action === "INCREASE_BUDGET"
       ? "increase"
       : "hold";
+}
+
+function campaignStatusLabel(campaign) {
+  const state = String(campaign?.state || campaign?.serving_status || "").toLowerCase();
+  if (state.includes("pause")) return "已暂停";
+  if (state.includes("archive")) return "已归档";
+  if (state.includes("enable") || state.includes("running")) return "运行中";
+  return "状态未知";
 }
 
 function isReviewableAction(item) {
@@ -1266,7 +1275,7 @@ function CampaignView({ data, showShop, shops }) {
             <span><ListingStageBadge lifecycle={campaignLifecycleFor(lifecycleIndex, item)} /></span>
             <span>{money(item.spend, shopCurrencyFor(shops, item))}</span><span>{money(item.sales, shopCurrencyFor(shops, item))}</span><span>{number(item.orders, 0)}</span>
             <span className={item.acos > 0.3 ? "negative" : "positive"}>{percentage(item.acos)}</span>
-            <span><i className="status-dot" />运行中</span>
+            <span><i className="status-dot" />{campaignStatusLabel(item)}</span>
           </div>
         ))}
         {!campaigns.length && <div className="table-empty">当前店铺与上架阶段下没有广告活动数据</div>}
@@ -1466,17 +1475,27 @@ export function App() {
   const [diagnosticShops, setDiagnosticShops] = useState(DIAGNOSTIC_SHOPS);
   const [diagnosticWindow, setDiagnosticWindow] = useState("14d");
   const [selectedShop, setSelectedShop] = useState(ALL_SHOPS);
+  const [dataSource, setDataSource] = useState("unknown");
+  const [loadedMonitorShopId, setLoadedMonitorShopId] = useState("");
 
-  async function loadData() {
+  async function loadData({ shopId = diagnosticShopId } = {}) {
     const hadData = Boolean(data);
     const hadRealtime = Boolean(realtime);
+    setStatus("loading");
     if (hadData) setRefreshing(true);
-    else setStatus("loading");
     const stamp = Date.now();
-    const matureRequest = fetch(`${DATA_URL}?t=${stamp}`).then(async (response) => {
-      if (!response.ok) throw new Error("mature data request failed");
-      return response.json();
-    });
+    const matureRequest = fetch(`${DATA_URL}?t=${stamp}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("mature data request failed");
+        return { payload: await response.json(), source: "published" };
+      })
+      .catch(async () => ({
+        payload: adaptDiagnosticMonitorData(
+          await fetchDiagnostic({ shopId, refresh: false }),
+          { windowDays: 14 },
+        ),
+        source: "diagnostic",
+      }));
     const realtimeRequest = fetch(`${REALTIME_DATA_URL}?t=${stamp}`).then(async (response) => {
       const contentType = response.headers.get("content-type") || "";
       if (response.status === 404 || response.status === 204) return null;
@@ -1488,10 +1507,10 @@ export function App() {
     try {
       const [matureResult, realtimeResult] = await Promise.allSettled([matureRequest, realtimeRequest]);
       if (matureResult.status === "rejected") {
-        if (!hadData) setStatus("error");
-        else setToast("成熟归因层刷新失败，已保留上一次成功数据。");
+        setStatus("error");
+        if (hadData) setToast("监控数据刷新失败，已保留上一次成功数据。");
       } else {
-        const payload = matureResult.value;
+        const { payload, source } = matureResult.value;
         setData({
           ...payload,
           campaigns: payload.campaigns || [],
@@ -1501,6 +1520,9 @@ export function App() {
           campaign_daily_trend: payload.campaign_daily_trend || [],
           source_data: payload.source_data || [],
         });
+        setDataSource(source);
+        setLoadedMonitorShopId(source === "diagnostic" ? String(shopId) : "");
+        if (source === "diagnostic") setSelectedShop(String(shopId));
         setStatus("ready");
       }
 
@@ -1527,8 +1549,11 @@ export function App() {
   }
 
   useEffect(() => {
-    if (activeNav !== "diagnostic" && status === "idle") loadData();
-  }, [activeNav, status]);
+    const needsInitialLoad = status === "idle";
+    const needsDiagnosticShop = status === "ready" && dataSource === "diagnostic"
+      && String(loadedMonitorShopId) !== String(diagnosticShopId);
+    if (needsInitialLoad || needsDiagnosticShop) loadData({ shopId: diagnosticShopId });
+  }, [status, dataSource, loadedMonitorShopId, diagnosticShopId]);
   useEffect(() => {
     const controller = new AbortController();
     fetchDiagnosticShops({ signal: controller.signal })
@@ -1574,22 +1599,29 @@ export function App() {
 
   const diagnosticActive = activeNav === "diagnostic";
   const diagnosticShop = diagnosticShops.find((shop) => shop.id === diagnosticShopId) || diagnosticShops[0] || PILOT_SHOP;
-
-  if (!diagnosticActive && (status === "idle" || status === "loading")) {
-    return <div className="system-state"><ArrowsClockwise className="spin" size={30} /><b>正在读取广告监控数据…</b></div>;
-  }
-  if (!diagnosticActive && (status === "error" || !data || !visibleData)) {
-    return <div className="system-state"><Info size={30} /><b>暂时无法读取监控数据</b><button type="button" onClick={loadData}>重新加载</button></div>;
-  }
+  const monitorLoading = !diagnosticActive && (status === "idle" || status === "loading");
+  const monitorReady = !diagnosticActive && status === "ready" && Boolean(data && visibleData);
+  const useDiagnosticShopSelector = dataSource === "diagnostic" || !shops.length;
+  const monitorShopOptions = useDiagnosticShopSelector ? diagnosticShops : shops;
+  const monitorShopValue = useDiagnosticShopSelector ? diagnosticShop.id : selectedShop;
 
   const pendingCount = (visibleData?.recommendations || []).filter(
     (item) => isReviewableAction(item) && !reviewValue(reviewState, item),
   ).length;
   const activeShop = shops.find((shop) => shop.id === selectedShop);
   const scopeShops = selectedShop === ALL_SHOPS ? shops : shops.filter((shop) => shop.id === selectedShop);
-  const scopeLabel = diagnosticActive ? diagnosticShop.name : selectedShop === ALL_SHOPS
-    ? `全部店铺（${shops.length}）`
-    : activeShop?.name || selectedShop;
+  const scopeLabel = diagnosticActive || useDiagnosticShopSelector
+    ? diagnosticShop.name
+    : selectedShop === ALL_SHOPS
+      ? `全部店铺（${shops.length}）`
+      : activeShop?.name || selectedShop;
+  const monitorSyncLabel = refreshing || status === "loading"
+    ? "正在同步"
+    : status === "error"
+      ? "重新加载"
+      : dataSource === "diagnostic"
+        ? "诊断快照"
+        : "数据已同步";
 
   return (
     <div className="app-shell">
@@ -1622,16 +1654,23 @@ export function App() {
               <Buildings size={18} weight="duotone" />
               <span className="sr-only">店铺范围</span>
               <select
-                value={selectedShop}
+                value={monitorShopValue}
                 onChange={(event) => {
-                  setSelectedShop(event.target.value);
-                  const nextShop = shops.find((shop) => shop.id === event.target.value);
-                  setToast(`已切换为${event.target.value === ALL_SHOPS ? "全部店铺" : nextShop?.name || event.target.value}数据。`);
+                  const nextValue = event.target.value;
+                  const nextShop = monitorShopOptions.find((shop) => shop.id === nextValue);
+                  if (useDiagnosticShopSelector) {
+                    setDiagnosticShopId(nextValue);
+                    setSelectedShop(nextValue);
+                    setStatus("idle");
+                  } else {
+                    setSelectedShop(nextValue);
+                  }
+                  setToast(`已切换为${nextValue === ALL_SHOPS ? "全部店铺" : nextShop?.name || nextValue}数据。`);
                 }}
                 aria-label="选择店铺范围"
               >
-                <option value={ALL_SHOPS}>全部店铺（{shops.length}）</option>
-                {shops.map((shop) => <option key={shop.id} value={shop.id}>{shop.name} · {currencyLabel(shop.currency)}</option>)}
+                {!useDiagnosticShopSelector && <option value={ALL_SHOPS}>全部店铺（{shops.length}）</option>}
+                {monitorShopOptions.map((shop) => <option key={shop.id} value={shop.id}>{shop.name} · {currencyLabel(shop.currency)}</option>)}
               </select>
               <CaretDown size={16} aria-hidden="true" />
             </label>
@@ -1643,19 +1682,19 @@ export function App() {
             </>
           ) : (
             <>
-              <span className="date-control"><small>数据来源</small>{compactDate(data.meta.source_start_date)}–{compactDate(data.meta.source_end_date)} <CalendarBlank size={18} /></span>
-              <span className="generated-time"><small>生成时间</small>{data.meta.generated_at.slice(0, 16).replace("T", " ")}</span>
+              <span className="date-control"><small>数据来源</small>{data?.meta?.source_start_date ? `${compactDate(data.meta.source_start_date)}–${compactDate(data.meta.source_end_date)}` : "正在加载"} <CalendarBlank size={18} /></span>
+              <span className="generated-time"><small>生成时间</small>{data?.meta?.generated_at ? data.meta.generated_at.slice(0, 16).replace("T", " ") : "—"}</span>
             </>
           )}
           <button
             className="sync-button"
             type="button"
-            onClick={diagnosticActive ? () => setDiagnosticRefreshVersion((value) => value + 1) : loadData}
+            onClick={diagnosticActive ? () => setDiagnosticRefreshVersion((value) => value + 1) : () => loadData({ shopId: diagnosticShopId })}
             disabled={diagnosticActive ? diagnosticRefreshing : refreshing}
             aria-label={diagnosticActive ? `实时刷新${diagnosticShop.name}诊断` : "刷新数据"}
           >
             <i className="status-dot" />
-            {diagnosticActive ? diagnosticRefreshing ? "正在直连API" : "实时刷新" : refreshing ? "正在同步" : "数据已同步"}
+            {diagnosticActive ? diagnosticRefreshing ? "正在直连API" : "实时刷新" : monitorSyncLabel}
             <ArrowsClockwise className={(diagnosticActive ? diagnosticRefreshing : refreshing) ? "spin" : ""} size={17} />
           </button>
           <span className="safety-pill"><Info size={17} weight="fill" />{diagnosticActive ? "人工确认后才会修改广告" : "只读建议 · 审核不会修改广告"}</span>
@@ -1679,7 +1718,24 @@ export function App() {
       <div className={`content-shell ${diagnosticActive ? "diagnostic-content-shell" : ""}`}>
         <div className="mobile-safety"><Info size={17} weight="fill" />{diagnosticActive ? "人工确认后才会修改广告" : "只读建议 · 审核不会修改广告"}</div>
         {diagnosticActive ? (
-          <AdDiagnosticView key={diagnosticShop.id} shop={diagnosticShop} refreshToken={diagnosticRefreshVersion} onLoadingChange={setDiagnosticRefreshing} onWindowChange={setDiagnosticWindow} />
+          <AdDiagnosticView
+            key={diagnosticShop.id}
+            shop={diagnosticShop}
+            refreshToken={diagnosticRefreshVersion}
+            onLoadingChange={setDiagnosticRefreshing}
+            onWindowChange={setDiagnosticWindow}
+            publishedCampaigns={data?.campaigns || []}
+            publishedCampaignDailyTrend={data?.campaign_daily_trend || []}
+          />
+        ) : monitorLoading ? (
+          <main className="system-state inline"><ArrowsClockwise className="spin" size={30} /><b>正在读取 {diagnosticShop.name} 的广告监控数据…</b></main>
+        ) : !monitorReady ? (
+          <main className="system-state inline">
+            <Info size={30} />
+            <b>暂时无法读取监控数据</b>
+            <span>当前店铺的诊断服务或已发布监控快照不可用。</span>
+            <button type="button" onClick={() => loadData({ shopId: diagnosticShopId })}>重新加载</button>
+          </main>
         ) : (
           <>
             <DataHealthNotice data={data} />

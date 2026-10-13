@@ -335,6 +335,60 @@ class DiagnosticServiceTests(unittest.TestCase):
         self.deep_patch.stop()
         self.temp.cleanup()
 
+    def test_short_lived_clients_share_one_access_token_request(self):
+        token_cache = diagnostic._DiagnosticAccessTokenCache()
+        logger = diagnostic.logging.getLogger("test-shared-token")
+        first = diagnostic._SharedTokenRealtimeAdsClient(
+            "client-id", "client-secret", logger, token_cache
+        )
+        second = diagnostic._SharedTokenRealtimeAdsClient(
+            "client-id", "client-secret", logger, token_cache
+        )
+        try:
+            with mock.patch.object(
+                diagnostic.RealtimeAdsClient,
+                "get_token",
+                autospec=True,
+                return_value="shared-token",
+            ) as upstream:
+                self.assertEqual(first.get_token(), "shared-token")
+                self.assertEqual(second.get_token(), "shared-token")
+            self.assertEqual(upstream.call_count, 1)
+        finally:
+            first.close()
+            second.close()
+
+    def test_empty_current_day_hourly_data_falls_back_to_previous_day(self):
+        class DelayedHourlyClient(FakeClient):
+            def post_data(self, path, body, purpose):
+                if path in {
+                    diagnostic.SP_HOUR_CAMPAIGN_PATH,
+                    diagnostic.SP_HOUR_GROUP_PATH,
+                    diagnostic.SP_HOUR_AD_PRODUCT_PATH,
+                    diagnostic.SP_HOUR_TARGET_PATH,
+                    diagnostic.SP_HOUR_PLACEMENT_PATH,
+                } and body.get("date") == "2026-08-21":
+                    self.calls.append((path, dict(body)))
+                    return {"itemList": [], "totalCount": "0"}
+                return super().post_data(path, body, purpose)
+
+        service = diagnostic.DiagnosticService(
+            client_factory=DelayedHourlyClient,
+            mature_payload_path=self.payload_path,
+            realtime_payload_path=self.root / "missing-realtime.json",
+            metrics_db_path=self.root / "missing.sqlite3",
+            clock=lambda: NOW,
+            monotonic=self.fake_clock,
+        )
+        payload = service.campaign_detail(CAMPAIGN_ID)
+
+        self.assertEqual(payload["performance"]["today"]["campaign"]["rows"], [])
+        recent = payload["performance"]["recent_hour"]
+        self.assertTrue(recent["is_fallback"])
+        self.assertEqual(recent["report_date"], "2026-08-20")
+        self.assertEqual(recent["campaign"]["rows"][0]["hour"], 3)
+        self.assertEqual(recent["placements"]["rows"][0]["date"], "2026-08-20")
+
     def test_campaign_list_is_fixed_shop_and_uses_live_sources(self):
         payload = self.service.campaigns()
         self.assertEqual(payload["shop"]["shop_id"], diagnostic.PILOT_SHOP_ID)
@@ -346,6 +400,8 @@ class DiagnosticServiceTests(unittest.TestCase):
         self.assertEqual(payload["campaigns"][0]["default_bid"], 0.8)
         self.assertEqual(payload["campaigns"][0]["total_target_count"], 1)
         self.assertEqual(payload["campaigns"][0]["advertised_product_count"], 1)
+        self.assertEqual(payload["campaigns"][0]["listing_stage"], "established")
+        self.assertEqual(payload["campaigns"][0]["performance_status"], "insufficient_sample")
 
     def test_campaign_list_uses_only_fresh_same_day_budget_progress(self):
         realtime_path = self.root / "ads-realtime.json"
@@ -363,13 +419,17 @@ class DiagnosticServiceTests(unittest.TestCase):
         self.assertEqual(campaign["today_budget_status"], "fresh")
         self.assertTrue(self.clients[0].closed)
         for path, body in self.clients[0].calls:
-            self.assertEqual(body.get("shopId"), diagnostic.PILOT_SHOP_ID)
+            if path == diagnostic.ONLINE_PRODUCT_PATH:
+                self.assertEqual(body.get("shopIdList"), [diagnostic.PILOT_SHOP_ID])
+            else:
+                self.assertEqual(body.get("shopId"), diagnostic.PILOT_SHOP_ID)
             self.assertIn(path, {
                 diagnostic.SP_CAMPAIGN_PATH,
                 diagnostic.SP_GROUP_PATH,
                 diagnostic.SP_AD_PRODUCT_PATH,
                 diagnostic.SP_KEYWORD_PATH,
                 diagnostic.SP_PRODUCT_TARGET_PATH,
+                diagnostic.ONLINE_PRODUCT_PATH,
             })
 
     def test_campaign_windows_include_purchase_rate(self):
@@ -453,6 +513,7 @@ class DiagnosticServiceTests(unittest.TestCase):
 
         with mock.patch.object(service, "_read_report", return_value=(list(rows[0]), rows)):
             windows, source = service._campaign_windows()
+            catalog_campaign = service.campaigns()["campaigns"][0]
 
         self.assertEqual(source["status"], "partial")
         self.assertEqual(source["error"], "30D_WINDOW_UNAVAILABLE")
@@ -462,6 +523,8 @@ class DiagnosticServiceTests(unittest.TestCase):
         self.assertEqual(windows[CAMPAIGN_ID]["14d"]["cvr"], 0.5)
         self.assertEqual(len(windows[CAMPAIGN_ID]["14d"]["daily_trend"]), 14)
         self.assertNotIn("30d", windows[CAMPAIGN_ID])
+        self.assertEqual(catalog_campaign["listing_stage"], "established")
+        self.assertEqual(catalog_campaign["performance_status"], "normal")
 
     def test_detail_joins_sku_aggregates_today_and_explains_conflict(self):
         payload = self.service.campaign_detail(CAMPAIGN_ID)

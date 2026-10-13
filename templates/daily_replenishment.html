@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日常补货 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --ink: #172033;
+            --muted: #667085;
+            --line: #dfe3ea;
+            --panel: rgba(255, 255, 255, 0.94);
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --warning: #f59e0b;
+            --danger: #dc2626;
+            --success: #138a5b;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+            background:
+                radial-gradient(circle at 12% 0%, rgba(99, 102, 241, 0.18), transparent 30%),
+                linear-gradient(160deg, #f8fafc 0%, #eef2ff 58%, #f8fafc 100%);
+        }
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            min-height: 66px;
+            padding: 12px clamp(18px, 3vw, 42px);
+            color: #fff;
+            background: linear-gradient(125deg, #312e81 0%, #4f46e5 55%, #7c3aed 100%);
+            box-shadow: 0 8px 24px rgba(49, 46, 129, 0.22);
+        }
+        .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .brand i { font-size: 22px; }
+        .brand h1 { margin: 0; font-size: 19px; font-weight: 700; }
+        .brand span { display: block; margin-top: 2px; color: #ddd6fe; font-size: 12px; }
+        .back-link {
+            flex: 0 0 auto;
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 13px;
+            border: 1px solid rgba(255, 255, 255, 0.32);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        main { width: 100%; padding: 16px 10px 36px; }
+        .hero, .toolbar, .table-panel {
+            width: 100%;
+        }
+        .hero {
+            display: grid;
+            grid-template-columns: minmax(260px, 1fr) repeat(4, minmax(125px, 170px));
+            gap: 14px;
+            align-items: stretch;
+            margin-bottom: 16px;
+        }
+        .intro, .metric, .toolbar, .table-panel {
+            border: 1px solid rgba(203, 213, 225, 0.85);
+            background: var(--panel);
+            box-shadow: 0 14px 34px rgba(30, 41, 59, 0.08);
+        }
+        .intro { padding: 20px 22px; border-radius: 18px; }
+        .intro h2 { margin: 0 0 7px; font-size: 24px; }
+        .intro p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+        .metric {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 16px;
+            border-radius: 16px;
+        }
+        .metric span { color: var(--muted); font-size: 12px; }
+        .metric strong { margin-top: 5px; font-size: 25px; }
+        .metric.morning strong { color: #b45309; }
+        .metric.afternoon strong { color: var(--danger); }
+        .metric.remark strong { color: var(--primary); }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            padding: 13px;
+            border-radius: 16px;
+            margin-bottom: 14px;
+        }
+        button, .file-label, select, input[type="search"] { font: inherit; }
+        button, .file-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            min-height: 40px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+        }
+        button:hover, .file-label:hover { transform: translateY(-1px); box-shadow: 0 7px 16px rgba(30, 41, 59, .12); }
+        button:disabled { cursor: wait; opacity: .58; transform: none; box-shadow: none; }
+        .file-label { border-color: #cbd5e1; color: #344054; background: #fff; }
+        .primary { color: #fff; background: linear-gradient(135deg, #4f46e5, #6d28d9); }
+        .remark-btn { color: #fff; background: linear-gradient(135deg, #0284c7, #4f46e5); }
+        .split-btn { color: #fff; background: linear-gradient(135deg, #d97706, #dc2626); }
+        #workbookInput { display: none; }
+        .file-name {
+            max-width: 250px;
+            overflow: hidden;
+            color: var(--muted);
+            font-size: 12px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .toolbar-divider { width: 1px; height: 30px; background: var(--line); margin: 0 2px; }
+        select, input[type="search"] {
+            height: 40px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            color: var(--ink);
+            background: #fff;
+            padding: 0 11px;
+            outline: none;
+        }
+        input[type="search"] { min-width: 230px; flex: 1 1 230px; }
+        select:focus, input[type="search"]:focus, .cell-input:focus, .remark-input:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, .13);
+        }
+        .sync-label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+        .save-path {
+            flex: 1 1 330px;
+            min-width: 220px;
+            color: var(--muted);
+            font-size: 12px;
+            text-align: right;
+            overflow-wrap: anywhere;
+        }
+        .status {
+            display: none;
+            width: 100%;
+            max-width: none;
+            margin: 0 0 14px;
+            padding: 11px 14px;
+            border-radius: 10px;
+            color: #344054;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            font-size: 13px;
+        }
+        .status.show { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .status.error { color: #991b1b; background: #fef2f2; border-color: #fecaca; }
+        .status.success { color: #065f46; background: #ecfdf5; border-color: #a7f3d0; }
+        .status a { color: inherit; font-weight: 700; }
+        .table-panel { overflow: hidden; border-radius: 16px; }
+        .table-tools {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .table-wrap { overflow: auto; max-height: calc(100vh - 310px); min-height: 360px; }
+        table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 8;
+            min-width: 36px;
+            max-width: 96px;
+            padding: 5px 4px;
+            color: #fff;
+            background: #3730a3;
+            border-right: 1px solid rgba(255, 255, 255, .25);
+            border-bottom: 1px solid #312e81;
+            text-align: center;
+            line-height: 1.2;
+            white-space: normal;
+        }
+        td {
+            position: relative;
+            min-width: 36px;
+            max-width: 110px;
+            height: 30px;
+            padding: 3px 4px;
+            border-right: 1px solid #eef0f4;
+            border-bottom: 1px solid #e5e7eb;
+            background: #fff;
+            text-align: center;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        th:nth-child(1), td:nth-child(1) { width: 54px; max-width: 54px; }
+        th:nth-child(2), td:nth-child(2) { width: 36px; max-width: 36px; }
+        th:nth-child(3), td:nth-child(3) { width: 38px; max-width: 38px; }
+        th:nth-child(4), td:nth-child(4) { width: 76px; max-width: 92px; }
+        th:nth-child(5), td:nth-child(5),
+        th:nth-child(6), td:nth-child(6),
+        th:nth-child(7), td:nth-child(7) { width: 54px; max-width: 58px; }
+        th:nth-child(8), td:nth-child(8) { width: 62px; max-width: 66px; }
+        th:nth-child(9), td:nth-child(9) { width: 50px; max-width: 54px; }
+        th:nth-child(10), td:nth-child(10) { width: 42px; max-width: 46px; }
+        th:nth-child(11), td:nth-child(11),
+        th:nth-child(12), td:nth-child(12),
+        th:nth-child(13), td:nth-child(13),
+        th:nth-child(15), td:nth-child(15) { width: 68px; max-width: 76px; }
+        th:nth-child(14), td:nth-child(14) { width: 62px; max-width: 66px; }
+        th:nth-child(16), td:nth-child(16) { width: 82px; max-width: 90px; }
+        th:nth-child(17), td:nth-child(17) { width: 40px; max-width: 44px; }
+        th:nth-child(18), td:nth-child(18) { width: 150px; max-width: 170px; }
+        th:nth-child(19), td:nth-child(19),
+        th:nth-child(20), td:nth-child(20) { width: 46px; max-width: 52px; }
+        th:nth-child(21), td:nth-child(21) { width: 82px; max-width: 96px; }
+        tbody tr:nth-child(even) td { background: #fafbff; }
+        tbody tr:hover td { background: #f1f5ff; }
+        th:nth-child(1), td:nth-child(1) { position: sticky; left: 0; z-index: 5; }
+        th:nth-child(1) { z-index: 10; }
+        td:nth-child(1) { background: #fff; }
+        tbody tr:nth-child(even) td:nth-child(1) { background: #fafbff; }
+        td.has-comment::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 0;
+            height: 0;
+            border-top: 6px solid #ef4444;
+            border-left: 6px solid transparent;
+            pointer-events: none;
+        }
+        .order-cell { background: #fef3c7 !important; }
+        .mark-clearance { background: #a6a6a6 !important; }
+        .mark-variation { background: #00b0f0 !important; }
+        .mark-surge { background: #d9eaf7 !important; }
+        .mark-half-finished,
+        .mark-shipping-transit,
+        .mark-overdue,
+        .mark-new-product,
+        .mark-reduced-order,
+        .mark-low-inventory-fee { background: #ffff00 !important; }
+        .mark-recent-sales { background: #00b050 !important; }
+        .mark-low-stock { background: #ff0000 !important; }
+        .mark-falling,
+        .mark-new-local { color: #fff !important; background: #000 !important; }
+        .mark-only-local,
+        .mark-expedite,
+        .mark-shipping-transit { color: #ff0000 !important; font-weight: 700; }
+        .mark-ocean { color: #0070c0 !important; font-weight: 700; }
+        .mark-sales-rise,
+        .mark-low-inventory-fee { color: #ff0000 !important; font-weight: 700; }
+        .mark-recent-plan { font-style: italic; }
+        .mark-falling,
+        .mark-new-local { color: #fff !important; background: #000 !important; }
+        .cell-input, .remark-input {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            color: var(--ink);
+            background: rgba(255, 255, 255, .92);
+            outline: none;
+        }
+        td[class*="mark-"] .cell-input,
+        td[class*="mark-"] .remark-input {
+            color: inherit;
+            background: transparent;
+            font-weight: inherit;
+            font-style: inherit;
+        }
+        .fast-tooltip {
+            position: fixed;
+            z-index: 10000;
+            width: max-content;
+            max-width: min(520px, calc(100vw - 16px));
+            max-height: min(360px, calc(100vh - 16px));
+            padding: 7px 9px;
+            overflow: auto;
+            border: 1px solid rgba(255, 255, 255, .16);
+            border-radius: 6px;
+            color: #fff;
+            background: rgba(17, 24, 39, .97);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .24);
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            pointer-events: none;
+            transition: none;
+        }
+        .fast-tooltip[hidden] { display: none !important; }
+        .cell-input { min-width: 0; height: 24px; padding: 2px 4px; text-align: right; }
+        .remark-input { min-width: 0; height: 26px; padding: 3px 5px; resize: vertical; line-height: 1.25; }
+        .empty-state { display: flex; min-height: 360px; align-items: center; justify-content: center; padding: 30px; color: var(--muted); }
+        @media (max-width: 1050px) {
+            .hero { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+            .intro { grid-column: 1 / -1; }
+            .save-path { text-align: left; }
+        }
+        @media (max-width: 640px) {
+            .brand span { display: none; }
+            .hero { grid-template-columns: repeat(2, 1fr); }
+            .intro { padding: 16px; }
+            .toolbar-divider { display: none; }
+            .toolbar > button, .toolbar > .file-label { flex: 1 1 42%; }
+            .file-name { flex: 1 1 100%; max-width: none; }
+            .table-wrap { max-height: calc(100vh - 360px); }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <i class="fas fa-boxes-stacked"></i>
+            <div>
+                <h1>日常补货</h1>
+                <span>补货表生成、备注捕获与按运营拆分</span>
+            </div>
+        </div>
+        <a class="back-link" href="{{ url_for('ai_modules') }}"><i class="fas fa-arrow-left"></i> 返回AI部功能</a>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="intro">
+                <h2>日常补货工作表</h2>
+                <p>按原表“生成”按钮规则从数据库生成：汇总本地与 FBA 库存、待到货和销量，再计算日均销量与可售天数；销量固定统计到前天。</p>
+            </div>
+            <div class="metric"><span>当前SKU</span><strong id="totalMetric">--</strong></div>
+            <div class="metric morning"><span>上午待拆分（≥10）</span><strong id="morningMetric">--</strong></div>
+            <div class="metric afternoon"><span>下午待拆分（&lt;-10）</span><strong id="afternoonMetric">--</strong></div>
+            <div class="metric remark"><span>已有备注</span><strong id="remarkMetric">--</strong></div>
+        </section>
+
+        <section class="toolbar">
+            <label class="file-label" for="workbookInput"><i class="fas fa-file-excel"></i> 参数表（可选）</label>
+            <input id="workbookInput" type="file" accept=".xlsx,.xlsm">
+            <span id="fileName" class="file-name">{{ source_name or '使用默认参数：付款 / 近15天' }}</span>
+            <button id="snapshotBtn" class="primary" type="button">
+                <i class="fas fa-database"></i> {{ '刷新今日补货表' if snapshot.available else '生成今日补货表' }}
+            </button>
+            <button id="remarkBtn" class="remark-btn" type="button"><i class="fas fa-note-sticky"></i> 备注</button>
+            <select id="batchSelect" aria-label="拆分批次">
+                <option value="1">批次1：上午 ≥10</option>
+                <option value="2">批次2：下午 &lt;-10</option>
+            </select>
+            <button id="splitBtn" class="split-btn" type="button"><i class="fas fa-code-branch"></i> 拆分</button>
+            <span id="snapshotInfo" class="save-path">销量区间：{{ generation_settings.sales_start }} 至 {{ generation_settings.sales_end }}（截止前天）</span>
+            <span class="save-path">备注保存位置：{{ output_dir }}</span>
+        </section>
+
+        <div id="status" class="status" role="status"><span id="statusText"></span><a id="downloadLink" href="#" hidden>下载最新捕获文件</a></div>
+
+        <section class="toolbar" aria-label="表格筛选">
+            <input id="searchInput" type="search" placeholder="搜索 SKU、店铺、备注或站点">
+            <select id="operatorFilter" aria-label="运营筛选"><option value="">全部运营</option></select>
+            <select id="orderFilter" aria-label="订货量筛选">
+                <option value="">全部订货量</option>
+                <option value="morning">上午待拆分 ≥10</option>
+                <option value="afternoon">下午待拆分 &lt;-10</option>
+                <option value="zero">未填写 / 0</option>
+            </select>
+        </section>
+
+        <section class="table-panel">
+            <div class="table-tools">
+                <span id="tableCount">尚未生成数据</span>
+            </div>
+            <div id="tableWrap" class="table-wrap">
+                <div class="empty-state"><span>请点击“生成今日补货表”；系统将按原 VBA 规则从数据库生成当天快照。</span></div>
+            </div>
+        </section>
+    </main>
+
+    <div id="fastTooltip" class="fast-tooltip" role="tooltip" hidden></div>
+
+    <script>
+        const snapshotAtLoad = {{ snapshot|tojson }};
+        const generationAtLoad = {{ generation_settings|tojson }};
+        const state = {
+            columns: [],
+            headerComments: {},
+            rows: [],
+            rowByNumber: new Map(),
+            filteredRows: [],
+            edits: new Map(),
+            source: null,
+        };
+
+        const els = {
+            workbookInput: document.getElementById('workbookInput'),
+            fileName: document.getElementById('fileName'),
+            snapshotBtn: document.getElementById('snapshotBtn'),
+            snapshotInfo: document.getElementById('snapshotInfo'),
+            remarkBtn: document.getElementById('remarkBtn'),
+            splitBtn: document.getElementById('splitBtn'),
+            batchSelect: document.getElementById('batchSelect'),
+            status: document.getElementById('status'),
+            statusText: document.getElementById('statusText'),
+            downloadLink: document.getElementById('downloadLink'),
+            searchInput: document.getElementById('searchInput'),
+            operatorFilter: document.getElementById('operatorFilter'),
+            orderFilter: document.getElementById('orderFilter'),
+            tableWrap: document.getElementById('tableWrap'),
+            tableCount: document.getElementById('tableCount'),
+            totalMetric: document.getElementById('totalMetric'),
+            morningMetric: document.getElementById('morningMetric'),
+            afternoonMetric: document.getElementById('afternoonMetric'),
+            remarkMetric: document.getElementById('remarkMetric'),
+            fastTooltip: document.getElementById('fastTooltip'),
+        };
+
+        let activeTooltipTarget = null;
+
+        function hideFastTooltip() {
+            activeTooltipTarget = null;
+            els.fastTooltip.hidden = true;
+        }
+
+        function showFastTooltip(target) {
+            const content = String(target?.dataset?.tooltip || '').trim();
+            if (!content) {
+                hideFastTooltip();
+                return;
+            }
+            activeTooltipTarget = target;
+            els.fastTooltip.textContent = content;
+            els.fastTooltip.hidden = false;
+            els.fastTooltip.style.left = '8px';
+            els.fastTooltip.style.top = '8px';
+
+            const rect = target.getBoundingClientRect();
+            const tooltipRect = els.fastTooltip.getBoundingClientRect();
+            const gap = 4;
+            const margin = 8;
+            const left = Math.min(
+                Math.max(margin, rect.left),
+                Math.max(margin, window.innerWidth - tooltipRect.width - margin)
+            );
+            let top = rect.bottom + gap;
+            if (top + tooltipRect.height > window.innerHeight - margin) {
+                top = Math.max(margin, rect.top - tooltipRect.height - gap);
+            }
+            els.fastTooltip.style.left = left + 'px';
+            els.fastTooltip.style.top = top + 'px';
+        }
+
+        function handleFastTooltipEnter(event) {
+            const target = event.target.closest('[data-tooltip]');
+            if (!target || !els.tableWrap.contains(target) || target === activeTooltipTarget) return;
+            showFastTooltip(target);
+        }
+        els.tableWrap.addEventListener('pointerover', handleFastTooltipEnter);
+        els.tableWrap.addEventListener('mouseover', handleFastTooltipEnter);
+        els.tableWrap.addEventListener('mousemove', handleFastTooltipEnter);
+        els.tableWrap.addEventListener('pointerout', event => {
+            if (!activeTooltipTarget) return;
+            const next = event.relatedTarget?.closest?.('[data-tooltip]');
+            if (next === activeTooltipTarget) return;
+            hideFastTooltip();
+        });
+        els.tableWrap.addEventListener('focusin', event => {
+            const target = event.target.closest('[data-tooltip]');
+            if (target) showFastTooltip(target);
+        });
+        els.tableWrap.addEventListener('focusout', hideFastTooltip);
+        window.addEventListener('blur', hideFastTooltip);
+        document.addEventListener('scroll', hideFastTooltip, true);
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function showStatus(message, type = '', downloadUrl = '') {
+            els.status.className = 'status show' + (type ? ' ' + type : '');
+            els.statusText.textContent = message;
+            if (downloadUrl) {
+                els.downloadLink.href = downloadUrl;
+                els.downloadLink.hidden = false;
+            } else {
+                els.downloadLink.hidden = true;
+                els.downloadLink.removeAttribute('href');
+            }
+        }
+
+        function setBusy(button, busy, busyText) {
+            if (!button.dataset.label) button.dataset.label = button.innerHTML;
+            button.disabled = busy;
+            button.innerHTML = busy ? '<i class="fas fa-spinner fa-spin"></i> ' + busyText : button.dataset.label;
+        }
+
+        function currentValue(row, columnIndex) {
+            const edit = state.edits.get(row.row_number);
+            if (edit && columnIndex === 13 && Object.hasOwn(edit, 'order_quantity')) return edit.order_quantity;
+            if (edit && columnIndex === 17 && Object.hasOwn(edit, 'remark')) return edit.remark;
+            return row.values[columnIndex];
+        }
+
+        function updateEdit(rowNumber, field, value) {
+            const row = state.rowByNumber.get(rowNumber);
+            if (!row) return;
+            const edit = state.edits.get(rowNumber) || { row_number: rowNumber, sku: String(row.values[3] || '') };
+            edit[field] = value;
+            state.edits.set(rowNumber, edit);
+        }
+
+        function collectEdits() {
+            return Array.from(state.edits.values());
+        }
+
+        function updateMetrics(summary) {
+            els.totalMetric.textContent = Number(summary.total || 0).toLocaleString('zh-CN');
+            els.morningMetric.textContent = Number(summary.morning || 0).toLocaleString('zh-CN');
+            els.afternoonMetric.textContent = Number(summary.afternoon || 0).toLocaleString('zh-CN');
+            els.remarkMetric.textContent = Number(summary.remarks || 0).toLocaleString('zh-CN');
+        }
+
+        function fillOperatorFilter(operators) {
+            const current = els.operatorFilter.value;
+            els.operatorFilter.innerHTML = '<option value="">全部运营</option>' + (operators || []).map(name =>
+                '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>'
+            ).join('');
+            if ([...els.operatorFilter.options].some(option => option.value === current)) els.operatorFilter.value = current;
+        }
+
+        function numberValue(value) {
+            if (value === '' || value == null) return null;
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function applyFilters() {
+            const query = els.searchInput.value.trim().toLowerCase();
+            const operator = els.operatorFilter.value;
+            const orderFilter = els.orderFilter.value;
+            state.filteredRows = state.rows.filter(row => {
+                if (operator && String(currentValue(row, 0) || '') !== operator) return false;
+                if (query) {
+                    const haystack = row.values.map((_, index) => String(currentValue(row, index) || '')).join('\n')
+                        + '\n' + Object.values(row.comments || {}).join('\n');
+                    if (!haystack.toLowerCase().includes(query)) return false;
+                }
+                if (orderFilter) {
+                    const quantity = numberValue(currentValue(row, 13));
+                    if (orderFilter === 'morning' && !(quantity !== null && quantity >= 10)) return false;
+                    if (orderFilter === 'afternoon' && !(quantity !== null && quantity < -10)) return false;
+                    if (orderFilter === 'zero' && !(quantity === null || quantity === 0)) return false;
+                }
+                return true;
+            });
+            renderTable();
+        }
+
+        function cellClass(row, index) {
+            const classes = Array.isArray((row.styles || {})[index])
+                ? [...row.styles[index]]
+                : [];
+            if (index === 13) classes.unshift('order-cell');
+            if (!classes.includes('mark-low-stock') && index >= 10 && index <= 12) {
+                const days = numberValue(currentValue(row, 10));
+                if (days !== null && days <= 30) classes.push('mark-low-stock');
+            }
+            return classes.join(' ');
+        }
+
+        function displayValue(row, index) {
+            const value = currentValue(row, index);
+            if (value == null || value === '') return '';
+            if (index === 15) return String(value).split(' ')[0];
+            const number = numberValue(value);
+            if (number === null) return value;
+            if ([4, 5, 6, 7, 10, 11, 12, 14].includes(index)) return Math.round(number).toLocaleString('zh-CN');
+            if (index === 8) return number.toFixed(1);
+            if (index === 9) return number.toFixed(2);
+            return value;
+        }
+
+        function cellComment(row, index) {
+            return String((row.comments || {})[index] || '').trim();
+        }
+
+        function cellTooltip(row, index, display) {
+            const column = state.columns[index] || ('第' + (index + 1) + '列');
+            const content = String(display == null || display === '' ? '空' : display);
+            const comment = cellComment(row, index);
+            return column + '：' + content + (comment ? '\n\n原表批注：\n' + comment : '');
+        }
+
+        function headerTooltip(column, index) {
+            const comment = String(state.headerComments[index] || '').trim();
+            return column + (comment ? '\n\n原表批注：\n' + comment : '\n\n完整列名：' + column);
+        }
+
+        function renderTable() {
+            if (!state.columns.length) return;
+            hideFastTooltip();
+            const head = state.columns.map((column, index) =>
+                '<th data-tooltip="' + escapeHtml(headerTooltip(column, index)) + '">' + escapeHtml(column) + '</th>'
+            ).join('');
+            const body = state.filteredRows.map(row => {
+                const cells = state.columns.map((_, index) => {
+                    const value = currentValue(row, index);
+                    const display = displayValue(row, index);
+                    const comment = cellComment(row, index);
+                    const klass = [cellClass(row, index), comment ? 'has-comment' : ''].filter(Boolean).join(' ');
+                    const tooltip = escapeHtml(cellTooltip(row, index, display));
+                    if (index === 13) {
+                        return '<td class="' + klass + '" data-tooltip="' + tooltip + '"><input class="cell-input order-input" type="number" step="any" aria-label="' + escapeHtml(state.columns[index] + '，SKU ' + (row.values[3] || '')) + '" data-row="' + row.row_number + '" value="' + escapeHtml(value) + '"></td>';
+                    }
+                    if (index === 17) {
+                        return '<td class="' + klass + '" data-tooltip="' + tooltip + '"><textarea class="remark-input" aria-label="' + escapeHtml(state.columns[index] + '，SKU ' + (row.values[3] || '')) + '" data-row="' + row.row_number + '">' + escapeHtml(value) + '</textarea></td>';
+                    }
+                    return '<td class="' + klass + '" data-tooltip="' + tooltip + '">' + escapeHtml(display) + '</td>';
+                }).join('');
+                return '<tr>' + cells + '</tr>';
+            }).join('');
+            els.tableWrap.innerHTML = '<table aria-rowcount="' + state.filteredRows.length + '"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>';
+            els.tableCount.textContent = '已一次性展示 ' + state.filteredRows.length.toLocaleString('zh-CN') + ' 行，共 ' + state.rows.length.toLocaleString('zh-CN') + ' 行（无分页）';
+        }
+
+        function renderPayload(data) {
+            state.columns = data.columns || [];
+            state.headerComments = data.header_comments || {};
+            state.rows = data.rows || [];
+            state.rowByNumber = new Map(state.rows.map(row => [Number(row.row_number), row]));
+            state.edits.clear();
+            state.source = data.source || null;
+            updateMetrics(data.summary || {});
+            fillOperatorFilter((data.summary || {}).operators || []);
+            applyFilters();
+        }
+
+        function generationText(generation) {
+            if (!generation || !generation.sales_end) return '';
+            return '销量区间：' + generation.sales_start + ' 至 ' + generation.sales_end
+                + '（' + generation.sales_source + '，近' + generation.recent_days + '天，截止前天）';
+        }
+
+        function updateSnapshotUi(snapshot, generation = null) {
+            if (!snapshot || !snapshot.available) return;
+            const refreshLabel = '<i class="fas fa-database"></i> 刷新今日补货表';
+            els.snapshotBtn.disabled = false;
+            els.snapshotBtn.innerHTML = refreshLabel;
+            els.snapshotBtn.dataset.label = refreshLabel;
+            els.workbookInput.disabled = false;
+            els.snapshotInfo.textContent = generationText(generation)
+                || ('今日快照：' + (snapshot.modified_at || snapshot.date || '已生成'));
+            if (snapshot.name) els.fileName.textContent = snapshot.name + (snapshot.size_mb != null ? ' · ' + snapshot.size_mb + ' MB' : '');
+        }
+
+        async function loadData() {
+            showStatus('正在读取今日快照…');
+            try {
+                const response = await fetch('/api/ai/daily-replenishment/generate', { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.message || '快照读取失败');
+                renderPayload(data);
+                updateSnapshotUi(data.snapshot, data.generation);
+                const cutoff = data.generation && data.generation.sales_end ? '，销量截止 ' + data.generation.sales_end : '';
+                showStatus('已从今日快照读取 ' + state.rows.length.toLocaleString('zh-CN') + ' 行数据' + cutoff + '。', 'success');
+            } catch (error) {
+                showStatus(error.message || String(error), 'error');
+            }
+        }
+
+        async function refreshSnapshot() {
+            const file = els.workbookInput.files[0] || null;
+            const defaultRange = generationText(generationAtLoad);
+            if (!window.confirm('确定按原表规则从数据库刷新今日补货表吗？\n' + defaultRange + '\n刷新次数不限，本次完成后会覆盖今天当前快照。')) return;
+            setBusy(els.snapshotBtn, true, '正在刷新');
+            showStatus('正在查询库存、待到货、销量及产品资料，数据量较大，请稍候…');
+            try {
+                const form = new FormData();
+                if (file) form.append('file', file);
+                const response = await fetch('/api/ai/daily-replenishment/snapshot/refresh', { method: 'POST', body: form });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    if (data.snapshot && data.snapshot.available) updateSnapshotUi(data.snapshot);
+                    throw new Error(data.message || '快照刷新失败');
+                }
+                renderPayload(data);
+                updateSnapshotUi(data.snapshot, data.generation);
+                showStatus(data.message + '；当天后续备注和拆分均使用该快照。', 'success');
+            } catch (error) {
+                showStatus(error.message || String(error), 'error');
+                setBusy(els.snapshotBtn, false, '');
+            }
+        }
+
+        async function saveRemarks() {
+            if (!state.rows.length) {
+                showStatus('请先生成日常补货数据。', 'error');
+                return;
+            }
+            setBusy(els.remarkBtn, true, '保存中');
+            showStatus('正在保存备注捕获文件并更新今日快照…');
+            try {
+                const response = await fetch('/api/ai/daily-replenishment/remarks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ edits: collectEdits() }),
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) throw new Error(data.message || '备注保存失败');
+                state.edits.clear();
+                showStatus(data.message + '；保存到：' + data.saved_path, 'success', data.download_url);
+                await loadData();
+                showStatus(data.message + '；保存到：' + data.saved_path, 'success', data.download_url);
+            } catch (error) {
+                showStatus(error.message || String(error), 'error');
+            } finally {
+                setBusy(els.remarkBtn, false, '');
+            }
+        }
+
+        function downloadBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = filename;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        async function splitRows() {
+            if (!state.rows.length) {
+                showStatus('请先生成日常补货数据。', 'error');
+                return;
+            }
+            const batch = Number(els.batchSelect.value || 1);
+            const rule = batch === 1 ? '订货量 >= 10' : '订货量 < -10';
+            if (!window.confirm('确定按“' + rule + '”拆分，并为每个运营生成独立工作表吗？')) return;
+            setBusy(els.splitBtn, true, '拆分中');
+            showStatus('正在按批次和运营拆分…');
+            try {
+                const response = await fetch('/api/ai/daily-replenishment/split', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ batch, edits: collectEdits() }),
+                });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.message || '拆分失败');
+                }
+                const count = response.headers.get('X-Daily-Replenishment-Rows') || '';
+                const blob = await response.blob();
+                const stamp = new Date().toISOString().slice(2, 10).replaceAll('-', '');
+                downloadBlob(blob, stamp + '日常补货_批次' + batch + '_按运营拆分.xlsx');
+                showStatus('拆分完成' + (count ? '，共 ' + count + ' 行' : '') + '，文件已开始下载。', 'success');
+            } catch (error) {
+                showStatus(error.message || String(error), 'error');
+            } finally {
+                setBusy(els.splitBtn, false, '');
+            }
+        }
+
+        els.workbookInput.addEventListener('change', () => {
+            const file = els.workbookInput.files[0];
+            els.fileName.textContent = file ? file.name : (state.source ? state.source.name : '未选择文件');
+        });
+        els.snapshotBtn.addEventListener('click', refreshSnapshot);
+        els.remarkBtn.addEventListener('click', saveRemarks);
+        els.splitBtn.addEventListener('click', splitRows);
+        let searchTimer = null;
+        els.searchInput.addEventListener('input', () => {
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(applyFilters, 180);
+        });
+        els.operatorFilter.addEventListener('change', applyFilters);
+        els.orderFilter.addEventListener('change', applyFilters);
+        els.tableWrap.addEventListener('input', event => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) return;
+            const rowNumber = Number(target.dataset.row);
+            const row = state.rowByNumber.get(rowNumber);
+            if (!row) return;
+            if (target.classList.contains('order-input')) {
+                updateEdit(rowNumber, 'order_quantity', target.value);
+                target.title = cellTooltip(row, 13, target.value);
+                target.parentElement.title = target.title;
+            } else if (target.classList.contains('remark-input')) {
+                updateEdit(rowNumber, 'remark', target.value);
+                target.title = cellTooltip(row, 17, target.value);
+                target.parentElement.title = target.title;
+            }
+        });
+
+        if (snapshotAtLoad.available) {
+            updateSnapshotUi(snapshotAtLoad);
+            loadData();
+        } else {
+            showStatus('今日补货表尚未生成。' + generationText(generationAtLoad) + '。');
+        }
+    </script>
+</body>
+</html>

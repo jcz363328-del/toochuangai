@@ -439,9 +439,6 @@
                                 导出全部评论
                             </button>
                         </div>
-                        <select id="attribute_filter_value" name="filter_value" hidden disabled>
-                            <option value="">请选择筛选值</option>
-                        </select>
                         <small class="text-muted" id="reviewFilterHelp">* 支持输入SKU或ASIN编号</small>
                     </div>
                 </div>
@@ -645,55 +642,29 @@
         const reviewFilterMeta = {
             sku: {
                 label: '产品标识符',
+                placeholder: '请输入产品SKU或ASIN编号',
                 help: '* 支持输入SKU或ASIN编号'
             },
             category: {
                 label: '分类',
-                help: '* 数据来源：zidian.fenlei1（已去重）'
+                placeholder: '请输入分类关键词',
+                help: '* 匹配分类中包含输入关键词的记录'
             },
             factory: {
                 label: '生产工厂',
-                help: '* 数据来源：zidian.gongyingshang（已去重）'
+                placeholder: '请输入生产工厂关键词',
+                help: '* 匹配生产工厂中包含输入关键词的记录'
             },
             remark: {
                 label: '毛型/备注',
-                help: '* 数据来源：zidian.shangpinbeizhu（已去重）'
+                placeholder: '请输入毛型或备注关键词',
+                help: '* 匹配 maoxing 字段中包含输入关键词的记录'
             }
         };
-        const reviewFilterOptionsCache = new Map();
-        let reviewFilterRequestId = 0;
-
-        async function readReviewFilterJson(response) {
-            const contentType = (response.headers.get('Content-Type') || '').toLowerCase();
-            if (!contentType.includes('application/json')) {
-                // 登录失效时 fetch 会跟随重定向并拿到登录页/首页 HTML。
-                if (response.redirected) {
-                    throw new Error('登录状态已失效，请刷新页面后重新登录');
-                }
-                if (response.status === 404) {
-                    throw new Error('筛选项接口尚未生效，请重启应用服务后刷新页面');
-                }
-                throw new Error(`筛选项接口返回异常（HTTP ${response.status}）`);
-            }
-
-            let result;
-            try {
-                result = await response.json();
-            } catch (error) {
-                throw new Error('筛选项接口返回的数据格式不正确');
-            }
-
-            if (!response.ok || !result.success) {
-                throw new Error(result.message || `加载筛选项失败（HTTP ${response.status}）`);
-            }
-            return result;
-        }
 
         function getSelectedReviewFilter() {
             const filterType = document.getElementById('review_filter_type').value || 'sku';
-            const value = filterType === 'sku'
-                ? (document.getElementById('product_identifier').value || '').trim()
-                : (document.getElementById('attribute_filter_value').value || '').trim();
+            const value = (document.getElementById('product_identifier').value || '').trim();
             return {
                 filterType,
                 value,
@@ -701,89 +672,23 @@
             };
         }
 
-        function renderReviewFilterOptions(options, selectedValue = '') {
-            const select = document.getElementById('attribute_filter_value');
-            select.innerHTML = '';
-
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = options.length ? '请选择筛选值' : '暂无可用选项';
-            select.appendChild(placeholder);
-
-            options.forEach(value => {
-                const option = document.createElement('option');
-                option.value = value;
-                option.textContent = value;
-                select.appendChild(option);
-            });
-
-            if (selectedValue && options.includes(selectedValue)) {
-                select.value = selectedValue;
-            }
-        }
-
-        async function loadReviewFilterOptions(filterType) {
-            const select = document.getElementById('attribute_filter_value');
-            const requestId = ++reviewFilterRequestId;
-            const previousValue = select.value;
-
-            if (reviewFilterOptionsCache.has(filterType)) {
-                renderReviewFilterOptions(reviewFilterOptionsCache.get(filterType), previousValue);
-                select.disabled = false;
-                return;
-            }
-
-            select.disabled = true;
-            select.innerHTML = '<option value="">正在加载筛选项...</option>';
-
-            try {
-                const url = new URL('/api/review_analysis/filter_options', window.location.origin);
-                url.searchParams.set('filter_type', filterType);
-                const response = await fetch(url, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const result = await readReviewFilterJson(response);
-
-                const options = Array.isArray(result.options) ? result.options : [];
-                reviewFilterOptionsCache.set(filterType, options);
-                if (requestId === reviewFilterRequestId) {
-                    renderReviewFilterOptions(options, previousValue);
-                }
-            } catch (error) {
-                if (requestId === reviewFilterRequestId) {
-                    renderReviewFilterOptions([]);
-                    showAlert(error.message || '加载筛选项失败', 'error');
-                }
-            } finally {
-                if (requestId === reviewFilterRequestId) {
-                    select.disabled = false;
-                }
-            }
-        }
-
         function updateReviewFilterControls() {
             const filterType = document.getElementById('review_filter_type').value || 'sku';
             const isSku = filterType === 'sku';
             const meta = reviewFilterMeta[filterType] || reviewFilterMeta.sku;
-            const skuControl = document.getElementById('skuFilterControl');
             const skuInput = document.getElementById('product_identifier');
-            const attributeSelect = document.getElementById('attribute_filter_value');
+            const exportButton = document.getElementById('exportProductReviewsBtn');
+
+            if (skuInput.dataset.filterType && skuInput.dataset.filterType !== filterType) {
+                skuInput.value = '';
+            }
+            skuInput.dataset.filterType = filterType;
 
             document.getElementById('reviewFilterValueLabel').textContent = meta.label;
-            document.getElementById('reviewFilterValueLabel').htmlFor = isSku
-                ? 'product_identifier'
-                : 'attribute_filter_value';
+            document.getElementById('reviewFilterValueLabel').htmlFor = 'product_identifier';
             document.getElementById('reviewFilterHelp').textContent = meta.help;
-            skuControl.hidden = !isSku;
-            skuInput.disabled = !isSku;
-            attributeSelect.hidden = isSku;
-            attributeSelect.disabled = isSku;
-
-            if (isSku) {
-                reviewFilterRequestId += 1;
-            } else {
-                loadReviewFilterOptions(filterType);
-            }
+            skuInput.placeholder = meta.placeholder;
+            exportButton.hidden = !isSku;
         }
 
         document.getElementById('review_filter_type').addEventListener('change', updateReviewFilterControls);
@@ -796,7 +701,7 @@
             const selectedFilter = getSelectedReviewFilter();
             
             if (!selectedFilter.value) {
-                showAlert(`请输入或选择${selectedFilter.label}`, 'error');
+                showAlert(`请输入${selectedFilter.label}`, 'error');
                 return;
             }
             
@@ -1140,7 +1045,7 @@
         async function analyzeWordFreq() {
             const selectedFilter = getSelectedReviewFilter();
             if (!selectedFilter.value) {
-                showAlert(`请输入或选择${selectedFilter.label}`, 'error');
+                showAlert(`请输入${selectedFilter.label}`, 'error');
                 return;
             }
             const monthsLimit = parseInt(document.getElementById('months_limit').value);

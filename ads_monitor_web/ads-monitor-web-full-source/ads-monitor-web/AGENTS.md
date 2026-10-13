@@ -20,6 +20,8 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 - Search-term tables use real 10-row pagination and fetch later pages only when requested.
 - For automatic campaigns, never describe a green search-term row as a direct CPC adjustment. Treat it as a high-quality term to move into new manual exact and broad targeting.
 - Campaign cards show status, default bid, target count, products, and complete mature performance. They switch between D-2 rolling 7/14/30-day windows and never invent missing values.
+- Campaign performance grades render for every card directly from the selected mature window without requiring detail selection. Keep lifecycle separate from the display-only grades: excellent, good, average, poor, insufficient sample, and unavailable.
+- Every campaign card must open immediately from its own published snapshot. Live Sellfox detail enriches the view when available, but a transient API failure must never blank the selected campaign or substitute another campaign's data.
 - On desktop, the campaign information rail is wider and flush with the left edge; Top conversion and Top waste stay side by side, with a stacked fallback on narrower screens.
 - Campaign-card metric labels and values stay on one line to reduce card height.
 - Do not show the campaign status filter tabs for All, Enabled, or Attention; keep search and sorting as the list controls.
@@ -32,6 +34,7 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 - Above the mature search-term tables, summarize converting-term orders, sales and order share; zero-order spend and spend share; the highest-click zero-order term; and counts for effective samples, attention, and insufficient samples. Use clicks >= 10 as the effective-sample threshold and show missing data as dashes instead of zero.
 - Extend the placement table with spend share, order share, CVR, ACoS percentage-point delta from the campaign total, current bid adjustment, and sample confidence.
 - Pace the unfinished US business day in the Amazon Ads account timezone, not by averaging US state clocks. Compare spend through the latest complete hour with yesterday at the same cutoff and the prior-7-day same-hour median; keep yesterday's full day and D-2 mature efficiency in a separate reference row, and avoid directional language before four complete hours.
+- When the current business day's hourly endpoints have not backfilled yet, show the previous day's available hourly rows with the actual report date and an explicit historical-fallback badge. Never feed those fallback rows into today's budget, pacing, or control decisions.
 - Use `MAGIC AD` as the product brand. Do not show the Sellfox fox avatar or call the product `赛狐广告监控`.
 
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.

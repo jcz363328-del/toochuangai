@@ -34,6 +34,7 @@ import {
   DEFAULT_CAMPAIGN_ID,
   PILOT_SHOP,
   acosState,
+  buildPublishedCampaignFallbackModel,
   campaignIdOf,
   campaignAdType,
   campaignAdTypeLabel,
@@ -43,6 +44,7 @@ import {
   campaignLifecycleLabel,
   campaignMetricValue,
   campaignNameOf,
+  campaignPerformanceGrade,
   campaignPerformanceLabel,
   campaignPerformanceStatus,
   campaignPlacementAdjustmentLabel,
@@ -57,10 +59,12 @@ import {
   focusProducts,
   freshnessLabel,
   grainLabel,
+  hourlyMetricDisplay,
   keywordPopoverPosition,
   missingValue,
   mergeDiagnosticModels,
   mergeCampaignDetailMetrics,
+  mergePublishedCampaignMetrics,
   normalizeDiagnosticPayload,
   paginateCampaigns,
   placementPerformanceRows,
@@ -374,6 +378,7 @@ function grainHelp(grain) {
 function freshnessHelp(value) {
   const key = String(value || "unknown").toLowerCase();
   if (["today", "hour", "hourly", "current_hour", "provisional"].includes(key)) return "当日小时层：站点当天已返回小时行的累计值，仍会延迟和回补，只用于监控与方向确认。";
+  if (["recent_hour", "recent_complete_hour"].includes(key)) return "当日小时接口尚未回填时，展示最近一个可用营业日的小时明细；标题会标注实际日期，不参与当天预算和调控判断。";
   if (["mature", "mature_14d", "d-2", "d2"].includes(key)) return "D-2成熟层：截至D-2的稳定归因数据，当前规则主要依据这一层判断。";
   if (["live", "configuration", "config"].includes(key)) return "当前活动、Listing或经营数据。";
   return "时间层未知：API未返回可验证的抓取时间或业务截止日期。";
@@ -503,7 +508,7 @@ function ScopeTag({ grain }) {
 function FreshnessTag({ value }) {
   if (["live", "configuration", "config"].includes(String(value || "").toLowerCase())) return null;
   const label = freshnessLabel(value);
-  const className = label.startsWith("当前小时") ? "provisional" : label.startsWith("D-2") ? "mature" : label.startsWith("实时读取") ? "live" : "unknown";
+  const className = label.startsWith("当前小时") || label.startsWith("最近可用小时") ? "provisional" : label.startsWith("D-2") ? "mature" : label.startsWith("实时读取") ? "live" : "unknown";
   return <FloatingHelp className={`freshness-tag ${className}`} label={label} text={freshnessHelp(value)} title={label} />;
 }
 
@@ -1127,7 +1132,7 @@ function CampaignCard({ campaign, selected, onSelect, window }) {
   const targetCount = valueOf(campaign, "total_target_count", "totalTargetCount");
   const coverage = Number(valueOf(metrics, "data_days", "dataDays") || 0);
   const windowDays = Number(valueOf(metrics, "window_days", "windowDays") || window.replace("d", ""));
-  const matrix = campaignBudgetMatrix(campaign);
+  const performanceGrade = campaignPerformanceGrade(campaign, window);
   const fullDays = valueOf(campaign, "budget_utilization_days_7d", "budgetUtilizationDays7d");
   const todayBudgetProgress = valueOf(campaign, "today_budget_progress", "todayBudgetProgress");
   const todayBudgetStatus = String(valueOf(campaign, "today_budget_status", "todayBudgetStatus") || "");
@@ -1154,7 +1159,7 @@ function CampaignCard({ campaign, selected, onSelect, window }) {
       </span>
       <span className="campaign-classification-row">
         <em className="lifecycle">{campaignLifecycleLabel(campaign)}</em>
-        <em className={`performance ${matrix.tone}`}>{campaignPerformanceLabel(campaign)}</em>
+        <em className={`performance ${performanceGrade.tone}`}>{performanceGrade.label}</em>
         <em className="ad-type">{campaignAdTypeLabel(campaign)}</em>
       </span>
       <b title={campaignNameOf(campaign)}>{campaignNameOf(campaign)}</b>
@@ -1616,6 +1621,12 @@ function OverviewTab({ shopId, model, catalogCampaign, selectedProduct, window =
   const today = currentHour.summary;
   const todayPlacements = campaignScopedRows(todayLayer.placements, campaignId);
   const todayTargets = campaignScopedRows(todayLayer.targets, campaignId);
+  const placementHour = hourlyMetricDisplay(performance, "placements");
+  const targetHour = hourlyMetricDisplay(performance, "targets");
+  const displayedHourPlacements = campaignScopedRows(placementHour.rows, campaignId);
+  const displayedHourTargets = campaignScopedRows(targetHour.rows, campaignId);
+  const placementHourTitle = placementHour.isFallback ? `最近可用小时广告位（${placementHour.reportDate}）` : "当前小时广告位";
+  const targetHourTitle = targetHour.isFallback ? `最近可用小时投放对象（${targetHour.reportDate}）` : "当前小时投放对象";
   const matureDailyTrend = campaignScopedRows(
     firstRows(windowMetrics?.daily_trend, windowMetrics?.dailyTrend, window === "14d" ? matureLayer.daily_trend || matureLayer.dailyTrend : []),
     campaignId,
@@ -1675,13 +1686,15 @@ function OverviewTab({ shopId, model, catalogCampaign, selectedProduct, window =
           { label: "样本可信度", keys: ["sample_confidence"] },
         ]} emptyCopy="未取得D-2成熟广告位报告。" />
         <div className="diagnostic-two-column">
-          <DataTable title="当前小时广告位" rows={todayPlacements} grain="placement" freshness="current_hour" columns={[
+          <DataTable title={placementHourTitle} rows={displayedHourPlacements} grain="placement" freshness={placementHour.freshness} columns={[
+            { label: "小时", keys: ["hour"], formatter: (value) => `${formatNumber(value, 0)}:00` },
             { label: "广告位", keys: ["placement", "placement_name", "name"] },
             { label: "花费", keys: ["spend", "costs"], formatter: formatMoney },
             { label: "点击", keys: ["clicks"], formatter: (value) => formatNumber(value, 0) },
             { label: "订单", keys: ["orders"], formatter: (value) => formatNumber(value, 0) },
           ]} emptyCopy="当前小时广告位数据尚未回填。" />
-          <DataTable title="当前小时投放对象" rows={todayTargets} grain="target" freshness="current_hour" columns={[
+          <DataTable title={targetHourTitle} rows={displayedHourTargets} grain="target" freshness={targetHour.freshness} columns={[
+            { label: "小时", keys: ["hour"], formatter: (value) => `${formatNumber(value, 0)}:00` },
             { label: "投放对象", keys: ["targeting", "keyword_text", "asin"] },
             { label: "花费", keys: ["spend", "costs"], formatter: formatMoney },
             { label: "点击", keys: ["clicks"], formatter: (value) => formatNumber(value, 0) },
@@ -1708,7 +1721,6 @@ function StructureTab({ model, selectedProduct, window = "14d" }) {
   const structure = model.structure || {};
   const campaignId = campaignIdOf(model.campaign);
   const matureLayer = model.performance?.mature_14d || {};
-  const todayLayer = model.performance?.today || {};
   const deepReports = matureDeepReports(model);
   const adGroups = relatedRows(structure.ad_groups || structure.groups, selectedProduct);
   const keywords = relatedRows(structure.keywords, selectedProduct);
@@ -1718,9 +1730,13 @@ function StructureTab({ model, selectedProduct, window = "14d" }) {
   const placements = relatedRows(firstRows(structure.placements, structure.placement_performance, deepReportRows(deepReports.placements)), selectedProduct);
   const searchTerms = relatedRows(deepReportRows(deepReports.search_terms || deepReports.searchTerms), selectedProduct);
   const purchasedItems = relatedRows(deepReportRows(deepReports.purchased_items || deepReports.purchasedItems), selectedProduct);
-  const todayAdGroups = relatedRows(campaignScopedRows(todayLayer.ad_groups, campaignId), selectedProduct);
-  const todayAdProducts = relatedRows(campaignScopedRows(todayLayer.ad_products, campaignId), selectedProduct);
-  const todayTargets = relatedRows(campaignScopedRows(todayLayer.targets, campaignId), selectedProduct);
+  const groupHour = hourlyMetricDisplay(model.performance, "ad_groups");
+  const productHour = hourlyMetricDisplay(model.performance, "ad_products");
+  const targetHour = hourlyMetricDisplay(model.performance, "targets");
+  const displayedHourGroups = relatedRows(campaignScopedRows(groupHour.rows, campaignId), selectedProduct);
+  const displayedHourProducts = relatedRows(campaignScopedRows(productHour.rows, campaignId), selectedProduct);
+  const displayedHourTargets = relatedRows(campaignScopedRows(targetHour.rows, campaignId), selectedProduct);
+  const hourTitle = (entry, noun) => entry.isFallback ? `最近可用小时${noun}（${entry.reportDate}）` : `当前小时${noun}`;
   const matureTargets = relatedRows(firstRows(matureLayer.targets, deepReportRows(deepReports.targets)), selectedProduct);
   const matureGroups = relatedRows(deepReportRows(deepReports.groups), selectedProduct);
   const matureRecommendations = campaignScopedRows(matureLayer.recommendations, campaignId);
@@ -1729,20 +1745,23 @@ function StructureTab({ model, selectedProduct, window = "14d" }) {
       <div className="granularity-note"><Info size={19} weight="fill" /><span>当前SKU只用于筛选同广告组的相关结构。若广告组包含多个SKU，关键词和商品投放表现仍是投放级上下文，不能直接归因给单个SKU。</span></div>
       {window !== "14d" && <div className="granularity-note"><Info size={19} weight="fill" /><span>当前选择近{campaignWindowDays(window)}天；经营趋势按所选周期展示，投放结构的成熟深度报告仍固定为14日D-2口径。</span></div>}
       <div className="diagnostic-two-column">
-        <DataTable title="当前小时广告组表现" rows={todayAdGroups} grain="ad_group" freshness="current_hour" columns={[
+        <DataTable title={hourTitle(groupHour, "广告组表现")} rows={displayedHourGroups} grain="ad_group" freshness={groupHour.freshness} columns={[
+          { label: "小时", keys: ["hour"], formatter: (value) => `${formatNumber(value, 0)}:00` },
           { label: "广告组", keys: ["group_name", "groupName", "group_id", "groupId", "广告组"] },
           { label: "花费", keys: ["spend", "costs"], formatter: formatMoney },
           { label: "点击", keys: ["clicks"], formatter: (value) => formatNumber(value, 0) },
           { label: "订单", keys: ["orders"], formatter: (value) => formatNumber(value, 0) },
         ]} emptyCopy="当前小时广告组数据尚未回填。" />
-        <DataTable title="当前小时广告商品表现" rows={todayAdProducts} grain="ad_product" freshness="current_hour" columns={[
+        <DataTable title={hourTitle(productHour, "广告商品表现")} rows={displayedHourProducts} grain="ad_product" freshness={productHour.freshness} columns={[
+          { label: "小时", keys: ["hour"], formatter: (value) => `${formatNumber(value, 0)}:00` },
           { label: "SKU / ASIN", value: (row) => `${valueOf(row, "sku", "msku") || "SKU未知"} / ${valueOf(row, "asin") || "ASIN未知"}` },
           { label: "花费", keys: ["spend", "costs"], formatter: formatMoney },
           { label: "点击", keys: ["clicks"], formatter: (value) => formatNumber(value, 0) },
           { label: "订单", keys: ["orders"], formatter: (value) => formatNumber(value, 0) },
         ]} emptyCopy="当前小时广告商品数据尚未回填。" />
       </div>
-      <DataTable title="当前小时投放表现" rows={todayTargets} grain="target" freshness="current_hour" columns={[
+      <DataTable title={hourTitle(targetHour, "投放表现")} rows={displayedHourTargets} grain="target" freshness={targetHour.freshness} columns={[
+        { label: "小时", keys: ["hour"], formatter: (value) => `${formatNumber(value, 0)}:00` },
         { label: "投放对象", keys: ["targeting", "keyword_text", "asin"] },
         { label: "匹配", keys: ["match_type", "matchType"] },
         { label: "花费", keys: ["spend", "costs"], formatter: formatMoney },
@@ -1948,7 +1967,7 @@ function DetailPanel({ shop, shopId, model, catalogCampaign, selectedCampaignId,
 
   return (
     <article className="detail-panel diagnostic-detail-panel">
-      {error && <div className="diagnostic-inline-error"><Warning size={18} weight="fill" />{error}；已保留上一次成功数据并标注更新时间。</div>}
+      {error && <div className="diagnostic-inline-error"><Warning size={18} weight="fill" />{error}</div>}
       <CampaignHeader shop={shop} model={model} catalogCampaign={catalogCampaign} selectedProduct={selectedProduct} onOpenControls={onOpenControls} />
       <nav className="diagnostic-detail-tabs" aria-label="广告诊断详情">
         {DETAIL_TABS.map((tab) => <button className={activeTab === tab.id ? "active" : ""} key={tab.id} type="button" onClick={() => onTabChange(tab.id)}>{tab.label}</button>)}
@@ -1962,8 +1981,16 @@ function DetailPanel({ shop, shopId, model, catalogCampaign, selectedCampaignId,
   );
 }
 
-export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadingChange, onWindowChange }) {
+export function AdDiagnosticView({
+  shop = PILOT_SHOP,
+  refreshToken = 0,
+  onLoadingChange,
+  onWindowChange,
+  publishedCampaigns = [],
+  publishedCampaignDailyTrend = [],
+}) {
   const shopId = shop.id;
+  const preferredCampaignId = shop.defaultCampaignId || DEFAULT_CAMPAIGN_ID;
   const [model, setModel] = useState(null);
   const [catalog, setCatalog] = useState([]);
   // Hydrate the campaign rail from the hourly shop snapshot before requesting
@@ -2003,8 +2030,8 @@ export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadin
         const catalogPayload = await fetchDiagnostic({ shopId, refresh: forceRefresh, signal: controller.signal });
         if (disposed) return;
         const catalogModel = normalizeDiagnosticPayload(catalogPayload);
-        const fallbackCampaignId = campaignIdOf(sortCampaigns(catalogModel.campaigns)[0]);
-        setCatalog(sortCampaigns(catalogModel.campaigns));
+        const fallbackCampaignId = campaignIdOf(sortCampaigns(catalogModel.campaigns, preferredCampaignId)[0]);
+        setCatalog(sortCampaigns(catalogModel.campaigns, preferredCampaignId));
         if (fallbackCampaignId) setSelectedCampaignId(fallbackCampaignId);
         return;
       }
@@ -2016,15 +2043,15 @@ export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadin
         if (!canFallback) throw requestError;
         const catalogPayload = await fetchDiagnostic({ shopId, signal: controller.signal });
         const catalogModel = normalizeDiagnosticPayload(catalogPayload);
-        const fallbackCampaignId = campaignIdOf(sortCampaigns(catalogModel.campaigns)[0]);
+        const fallbackCampaignId = campaignIdOf(sortCampaigns(catalogModel.campaigns, preferredCampaignId)[0]);
         if (!fallbackCampaignId) throw requestError;
-        if (!disposed) setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...catalogModel.campaigns])));
+        if (!disposed) setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...catalogModel.campaigns]), preferredCampaignId));
         payload = await fetchDiagnostic({ shopId, campaignId: fallbackCampaignId, section: "overview", refresh: forceRefresh, signal: controller.signal });
       }
       if (disposed) return;
       const next = normalizeDiagnosticPayload(payload);
       const responseCampaignId = campaignIdOf(next.campaign);
-      setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...next.campaigns])));
+      setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...next.campaigns]), preferredCampaignId));
       setModel(next);
       setLoading(false);
       if (responseCampaignId && responseCampaignId !== String(selectedCampaignId)) setSelectedCampaignId(responseCampaignId);
@@ -2033,14 +2060,14 @@ export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadin
       const catalogRequest = fetchDiagnostic({ shopId, signal: controller.signal }).then((catalogPayload) => {
         if (disposed) return;
         const catalogModel = normalizeDiagnosticPayload(catalogPayload);
-        setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...catalogModel.campaigns])));
+        setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...catalogModel.campaigns]), preferredCampaignId));
       });
       const fullRequest = fetchDiagnostic({ shopId, campaignId: responseCampaignId, section: "full", refresh: forceRefresh, signal: controller.signal }).then((fullPayload) => {
         if (disposed) return;
         const fullModel = normalizeDiagnosticPayload(fullPayload);
         if (campaignIdOf(fullModel.campaign) === String(responseCampaignId)) {
           setModel((current) => mergeDiagnosticModels(current, fullModel));
-          setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...fullModel.campaigns])));
+          setCatalog((current) => sortCampaigns(dedupeCampaigns([...current, ...fullModel.campaigns]), preferredCampaignId));
         }
       });
       const results = await Promise.allSettled([catalogRequest, fullRequest]);
@@ -2050,7 +2077,12 @@ export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadin
     }
 
     load().catch((requestError) => {
-      if (requestError?.name !== "AbortError" && !disposed) setError(requestError?.message || "本地诊断数据服务暂不可用。");
+      if (requestError?.name !== "AbortError" && !disposed) {
+        const showingPublishedFallback = campaignIdOf(model?.campaign) === String(selectedCampaignId);
+        setError(showingPublishedFallback
+          ? "实时详情暂不可用，当前展示该活动的已发布成熟快照；深层结构缺失项以“—”显示。"
+          : requestError?.message || "本地诊断数据服务暂不可用。");
+      }
     }).finally(() => {
       if (!disposed) {
         setLoading(false);
@@ -2061,13 +2093,38 @@ export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadin
       disposed = true;
       controller.abort();
     };
-  }, [shopId, selectedCampaignId, refreshToken]);
+  }, [shopId, preferredCampaignId, selectedCampaignId, refreshToken]);
+
+  const publishedCampaignById = useMemo(() => new Map(
+    publishedCampaigns
+      .filter((campaign) => String(valueOf(campaign, "shop_id", "shopId") || "") === String(shopId))
+      .map((campaign) => [campaignIdOf(campaign), campaign]),
+  ), [publishedCampaigns, shopId]);
+  const publishedTrendByCampaignId = useMemo(() => {
+    const grouped = new Map();
+    publishedCampaignDailyTrend.forEach((row) => {
+      if (String(valueOf(row, "shop_id", "shopId") || "") !== String(shopId)) return;
+      const campaignId = campaignIdOf(row);
+      if (!campaignId) return;
+      if (!grouped.has(campaignId)) grouped.set(campaignId, []);
+      grouped.get(campaignId).push(row);
+    });
+    return grouped;
+  }, [publishedCampaignDailyTrend, shopId]);
+  const hydratedCatalog = useMemo(() => catalog.map((campaign) => {
+    const campaignId = campaignIdOf(campaign);
+    return mergePublishedCampaignMetrics(
+      campaign,
+      publishedCampaignById.get(campaignId),
+      publishedTrendByCampaignId.get(campaignId) || [],
+    );
+  }), [catalog, publishedCampaignById, publishedTrendByCampaignId]);
 
   const orderedCampaigns = useMemo(() => (
     sortKey === "default"
-      ? sortCampaigns(catalog, DEFAULT_CAMPAIGN_ID, campaignWindow)
-      : sortCampaignsByMetric(catalog, sortKey, sortDirection, campaignWindow)
-  ), [catalog, campaignWindow, sortDirection, sortKey]);
+      ? sortCampaigns(hydratedCatalog, preferredCampaignId, campaignWindow)
+      : sortCampaignsByMetric(hydratedCatalog, sortKey, sortDirection, campaignWindow)
+  ), [hydratedCatalog, campaignWindow, preferredCampaignId, sortDirection, sortKey]);
   const filteredCampaigns = useMemo(
     () => filterCampaigns(orderedCampaigns, query, "all", matchTypeFilter),
     [matchTypeFilter, orderedCampaigns, query],
@@ -2075,7 +2132,7 @@ export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadin
   const pagination = paginateCampaigns(filteredCampaigns, page, CAMPAIGNS_PER_PAGE);
   const insightProducts = useMemo(() => focusProducts(model), [model]);
   const insightProduct = insightProducts.find((product) => product._key === selectedProductKey) || insightProducts[0] || null;
-  const rawSelectedCatalogCampaign = catalog.find((campaign) => campaignIdOf(campaign) === String(selectedCampaignId)) || model?.campaign || {};
+  const rawSelectedCatalogCampaign = hydratedCatalog.find((campaign) => campaignIdOf(campaign) === String(selectedCampaignId)) || model?.campaign || {};
   const selectedCatalogCampaign = mergeCampaignDetailMetrics(rawSelectedCatalogCampaign, model);
   const selectedWindowMetrics = campaignWindowMetrics(selectedCatalogCampaign, campaignWindow);
   const selectedToday = currentHourCampaign(model?.performance || {}).summary || {};
@@ -2098,7 +2155,7 @@ export function AdDiagnosticView({ shop = PILOT_SHOP, refreshToken = 0, onLoadin
   function selectCampaign(campaign) {
     const id = campaignIdOf(campaign);
     if (!id || id === String(selectedCampaignId)) return;
-    setModel(null);
+    setModel(buildPublishedCampaignFallbackModel(campaign));
     setSelectedCampaignId(id);
     setSelectedProductKey("");
     setActiveTab("overview");

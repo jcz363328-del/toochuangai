@@ -1,8 +1,10 @@
 import snapshot from "../app/data/workbook-data.json" with { type: "json" };
+import tierSnapshot from "../app/data/store-tiers.json" with { type: "json" };
 import { PartitionCache } from "./cache.mjs";
 import { toDisplayDepartment } from "./departments.mjs";
 import { buildFormulaTraces } from "./formulas/evaluate.mjs";
 import { buildQueryContext, daysInPeriod, queryCatalog } from "./queries/catalog.mjs";
+import { createDailyRefreshScheduler, localDateKey } from "./store-tiers.mjs";
 import {
   shapeCategorySegments,
   shapeMagnetDaily,
@@ -10,6 +12,7 @@ import {
   shapePerformance,
   shapeShipping,
   shapeSlowMoving,
+  shapeStoreTiers,
   shapeUnshipped,
 } from "./queries/shape-workbook.mjs";
 
@@ -81,6 +84,11 @@ function filterSnapshotPerformance(request) {
 
 function snapshotPartition(name, request) {
   if (name === "performance") return filterSnapshotPerformance(request);
+  if (name === "storeTiers") {
+    const rows = Array.isArray(tierSnapshot.rows) ? tierSnapshot.rows : [];
+    const scoped = filterRows(rows, request);
+    return shapeStoreTiers(scoped, null, tierSnapshot.effectiveDate || null);
+  }
   if (name === "categorySegments") {
     const cached = snapshot.categorySegmentsByPeriod?.[request.context.period];
     if (cached) return structuredClone(cached);
@@ -106,14 +114,72 @@ function source(mode, stale, fetchedAt, latencyMs = null, warning = null) {
   return { mode, stale, fetchedAt, lastSuccessAt: mode === "database" ? fetchedAt : null, latencyMs, warning };
 }
 
+function shapeStoreTierPartition(rows, fallbackDate) {
+  const value = shapeStoreTiers(rows, null, fallbackDate);
+  const asOf = value
+    .map((row) => row.effectiveDate)
+    .filter(Boolean)
+    .sort()
+    .at(-1) || fallbackDate;
+  return { value, effective: { asOf } };
+}
+
 export function createDashboardService({ adapter, cacheOptions, timezone, refreshAfterMs }) {
   const cache = new PartitionCache(cacheOptions);
+  const lastGoodStoreTiers = new Map();
   let lastSuccessAt = null;
+  let tierScheduler = null;
+
+  function tierScopeKey(request) {
+    return JSON.stringify({
+      department: request.context.department || null,
+      operator: request.context.operator || null,
+      store: request.context.store ?? null,
+    });
+  }
+
+  function rememberStoreTiers(request, shaped, fetchedAt) {
+    const key = tierScopeKey(request);
+    lastGoodStoreTiers.delete(key);
+    lastGoodStoreTiers.set(key, {
+      value: structuredClone(shaped.value),
+      effective: structuredClone(shaped.effective),
+      fetchedAt,
+    });
+    while (lastGoodStoreTiers.size > 80) {
+      lastGoodStoreTiers.delete(lastGoodStoreTiers.keys().next().value);
+    }
+  }
+
+  function findLastGoodStoreTiers(request) {
+    const exact = lastGoodStoreTiers.get(tierScopeKey(request));
+    if (exact) return structuredClone(exact);
+    const global = lastGoodStoreTiers.get(JSON.stringify({ department: null, operator: null, store: null }));
+    if (!global) return null;
+    return {
+      value: filterRows(global.value, request),
+      effective: structuredClone(global.effective),
+      fetchedAt: global.fetchedAt,
+    };
+  }
 
   async function loadDatabasePartition(name, request) {
     const categoryPartition = name === "categorySegments";
-    const cacheScope = categoryPartition ? { period: request.context.period } : request.cacheScope;
-    const cacheTtlMs = categoryPartition ? 300_000 : cache.ttlMs;
+    const tierPartition = name === "storeTiers";
+    const tierDate = tierPartition ? localDateKey(timezone) : null;
+    const cacheScope = categoryPartition
+      ? { period: request.context.period }
+      : tierPartition
+        ? {
+            department: request.context.department,
+            operator: request.context.operator,
+            store: request.context.store,
+            tierDate,
+          }
+        : request.cacheScope;
+    // The date is part of the key as well as the long TTL. This guarantees a
+    // new query after local midnight even when the API process stayed alive.
+    const cacheTtlMs = categoryPartition ? 300_000 : tierPartition ? 86_400_000 : cache.ttlMs;
     const key = `${name}:${JSON.stringify(cacheScope)}`;
     const fresh = request.force ? null : cache.get(key, { ttlMs: cacheTtlMs });
     if (fresh) {
@@ -122,7 +188,7 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
     if (!request.configured) {
       return {
         value: snapshotPartition(name, request),
-        effective: null,
+        effective: tierPartition ? { asOf: tierSnapshot.effectiveDate || tierDate } : null,
         source: source("workbook-snapshot", true, snapshot.meta.extractedAt, null, "DB_NOT_CONFIGURED"),
       };
     }
@@ -134,7 +200,9 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
           ? shapePerformance(rows, request.context, snapshot, timezone)
           : name === "categorySegments"
             ? { value: shapeCategorySegments(rows), effective: null }
-          : {
+            : name === "storeTiers"
+              ? shapeStoreTierPartition(rows, tierDate)
+            : {
               value: name === "shipping"
                 ? shapeShipping(rows, snapshot)
                 : name === "slowMoving"
@@ -146,8 +214,14 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
                     : shapeMagnetDaily(rows),
               effective: null,
             };
+        if (tierPartition && shaped.value.length === 0) {
+          const error = new Error("Store tier query returned no rows");
+          error.code = "STORE_TIERS_EMPTY";
+          throw error;
+        }
         const fetchedAt = new Date().toISOString();
         cache.set(key, shaped, fetchedAt);
+        if (tierPartition) rememberStoreTiers(request, shaped, fetchedAt);
         lastSuccessAt = fetchedAt;
         return {
           value: shaped.value,
@@ -165,12 +239,80 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
           source: { ...source("memory-cache", true, stale.fetchedAt, null, warning), lastSuccessAt: stale.fetchedAt },
         };
       }
+      const lastGoodTier = tierPartition ? findLastGoodStoreTiers(request) : null;
+      if (lastGoodTier) {
+        return {
+          value: lastGoodTier.value,
+          effective: lastGoodTier.effective,
+          source: {
+            ...source("memory-cache", true, lastGoodTier.fetchedAt, null, warning),
+            lastSuccessAt: lastGoodTier.fetchedAt,
+          },
+        };
+      }
       return {
         value: snapshotPartition(name, request),
-        effective: null,
+        effective: tierPartition ? { asOf: tierSnapshot.effectiveDate || tierDate } : null,
         source: { ...source("workbook-snapshot", true, snapshot.meta.extractedAt, null, warning), lastSuccessAt },
       };
     }
+  }
+
+  function mergePerformanceTiers(performance, tierRows) {
+    const byStore = new Map((tierRows || []).map((row) => [Number(row.store), row]));
+    return {
+      ...performance,
+      stores: (performance?.stores || []).map((row) => {
+        const tier = byStore.get(Number(row.store));
+        return {
+          ...row,
+          tier: tier?.tier ?? row.tier ?? null,
+          tierRank: tier?.tierRank ?? row.tierRank ?? null,
+          currentLevelDays: tier?.currentLevelDays ?? row.currentLevelDays ?? null,
+        };
+      }),
+    };
+  }
+
+  async function refreshStoreTiers(configured) {
+    if (!configured) return null;
+    const period = localDateKey(timezone).slice(0, 7);
+    const context = buildQueryContext({
+      period,
+      basis: "auto",
+      department: null,
+      operator: null,
+      store: null,
+    });
+    return loadDatabasePartition("storeTiers", {
+      configured,
+      context,
+      force: true,
+      department: null,
+      operator: null,
+      store: null,
+      cacheScope: {
+        period: context.period,
+        basis: context.basis,
+        department: null,
+        operator: null,
+        store: null,
+      },
+    });
+  }
+
+  function startDailyRefresh(configured) {
+    if (!configured || tierScheduler) return;
+    tierScheduler = createDailyRefreshScheduler({
+      timezone,
+      refresh: () => refreshStoreTiers(configured),
+    });
+    tierScheduler.start();
+  }
+
+  function stopDailyRefresh() {
+    tierScheduler?.stop();
+    tierScheduler = null;
   }
 
   async function dashboard(input, configured) {
@@ -187,19 +329,22 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
         store: context.store,
       },
     };
-    const [performance, categorySegments, slowMoving, shipping, newProductOrders, unshipped, magnetDaily] = await Promise.all([
+    const [performance, categorySegments, storeTiers, slowMoving, shipping, newProductOrders, unshipped, magnetDaily] = await Promise.all([
       loadDatabasePartition("performance", request),
       loadDatabasePartition("categorySegments", request),
+      loadDatabasePartition("storeTiers", request),
       loadDatabasePartition("slowMoving", request),
       loadDatabasePartition("shipping", request),
       loadDatabasePartition("newProductOrders", request),
       loadDatabasePartition("unshipped", request),
       loadDatabasePartition("magnetDaily", request),
     ]);
+    const performanceValue = mergePerformanceTiers(performance.value, storeTiers.value);
     const staticFetchedAt = snapshot.meta.extractedAt;
     const sources = {
       performance: performance.source,
       categorySegments: categorySegments.source,
+      storeTiers: storeTiers.source,
       slowMoving: slowMoving.source,
       shipping: shipping.source,
       newProductOrders: newProductOrders.source,
@@ -208,8 +353,9 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
     };
     const data = {
       ...structuredClone(snapshot),
-      performance: performance.value,
+      performance: performanceValue,
       categorySegments: categorySegments.value,
+      storeTiers: storeTiers.value,
       slowMoving: slowMoving.value,
       shipping: shipping.value,
       newProductOrders: newProductOrders.value,
@@ -256,10 +402,20 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
         departments: data.performance.departments.length,
         stores: data.performance.stores.length,
         periodRows: data.performance.periodRows.length,
+        storeTiers: data.storeTiers.length,
         categorySegments: data.categorySegments.categories.length,
         shipping: data.shipping.length,
         unshipped: data.unshipped.length,
         magnetDaily: data.magnetDaily.length,
+      },
+      storeTier: {
+        effectiveDate: storeTiers.effective?.asOf
+          || data.storeTiers.find((row) => row.effectiveDate)?.effectiveDate
+          || localDateKey(timezone),
+        updatedAt: storeTiers.source.fetchedAt,
+        source: storeTiers.source.mode,
+        stale: storeTiers.source.stale,
+        warning: storeTiers.source.warning,
       },
     };
     const effective = performance.effective || {
@@ -294,6 +450,13 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
 
   return {
     dashboard,
+    startDailyRefresh,
+    stopDailyRefresh,
+    tierRefreshStatus: () => ({
+      active: Boolean(tierScheduler?.active),
+      timezone,
+      businessDate: localDateKey(timezone),
+    }),
     lastSuccessAt: () => lastSuccessAt,
     newestCache: () => cache.newest(),
   };

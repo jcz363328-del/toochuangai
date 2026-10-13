@@ -39,7 +39,7 @@ class FakeMessageService:
         return True
 
 
-def test_query_requires_every_status_to_be_pending_and_older_than_two_days():
+def test_query_requires_every_status_pending_every_committee_score_minus_one_and_older_than_two_days():
     captured = []
 
     def query(sql):
@@ -50,6 +50,9 @@ def test_query_requires_every_status_to_be_pending_and_older_than_two_days():
     assert len(projects) == 3
     assert "SUM(" in captured[0]
     assert "ELSE 1" in captured[0]
+    assert "CAST([委员会打分] AS NVARCHAR(50))" in captured[0]
+    assert "= N'-1'" in captured[0]
+    assert captured[0].count("SUM(") == 2
     assert "2026-07-16 09:00:00" in captured[0]
     assert "MIN(flow.[流转时间]) <" in captured[0]
 
@@ -86,3 +89,29 @@ def test_one_grouped_message_is_sent_to_each_assignee_contact():
         {"id": "ou_ai_1", "name": "AI用户一", "success": True},
         {"id": "ou_ai_2", "name": "AI用户二", "success": True},
     ]
+
+
+def test_daily_claim_allows_only_one_scheduled_message_per_assignee():
+    claimed = set()
+
+    def claim(day_key, assignee):
+        key = (day_key, assignee)
+        if key in claimed:
+            return False
+        claimed.add(key)
+        return True
+
+    first_service = FakeMessageService()
+    second_service = FakeMessageService()
+    first = InnovationPendingReminder(query_fn=_rows, service_factory=lambda: first_service,
+                                      enabled=False, daily_claim_fn=claim)
+    second = InnovationPendingReminder(query_fn=_rows, service_factory=lambda: second_service,
+                                       enabled=False, daily_claim_fn=claim)
+
+    first.run_once(now_dt=NOW, send_messages=True, enforce_daily_once=True)
+    result = second.run_once(now_dt=NOW, send_messages=True, enforce_daily_once=True)
+
+    assert len(first_service.messages) == 3
+    assert second_service.messages == []
+    assert result["assignees"]["AI部"]["skipped"] == "today_already_sent"
+    assert result["assignees"]["技术部"]["skipped"] == "today_already_sent"
