@@ -4727,8 +4727,8 @@ def get_dashboard_data():
                 view_date_filter += f" AND 发起时间 <= '{end_date} 23:59:59'"
         # 如果没有日期范围但有月份参数，使用月份查询（向后兼容）
         elif month:
-            date_filter += f" AND FORMAT(t1.发起时间, 'yyyy-MM') = '{month}'"
-            view_date_filter += f" AND FORMAT(发起时间, 'yyyy-MM') = '{month}'"
+            date_filter += f" AND CONVERT(VARCHAR(7), t1.发起时间, 120) = '{month}'"
+            view_date_filter += f" AND CONVERT(VARCHAR(7), 发起时间, 120) = '{month}'"
 
         # 1. 基础统计
         total_sql = f"SELECT COUNT(*) FROM chuangxin_tibao1 t1 WHERE 1=1 {date_filter}"
@@ -4775,7 +4775,7 @@ def get_dashboard_data():
 
         # 3. 个人积分前三名
         person_sql = f"""
-            select top 3 发起人 name,
+            select top 3 with ties 发起人 name,
                 CASE WHEN 部门 IN ('TK项目', 'TK_离职', 'Tk_离职', 'TK')
                      THEN '内容生产工厂' ELSE 部门 END department,
                 sum(最高分) total_score
@@ -4821,21 +4821,21 @@ def get_dashboard_data():
         if month:
             monthly_sql = f"""
                 SELECT
-                    FORMAT(发起时间, 'yyyy-MM') as month,
+                    CONVERT(VARCHAR(7), 发起时间, 120) as month,
                     COUNT(*) as count
                 FROM chuangxin_tibao1 t1
-                WHERE FORMAT(t1.发起时间, 'yyyy-MM') = '{month}'
-                GROUP BY FORMAT(发起时间, 'yyyy-MM')
+                WHERE CONVERT(VARCHAR(7), t1.发起时间, 120) = '{month}'
+                GROUP BY CONVERT(VARCHAR(7), 发起时间, 120)
                 ORDER BY month
             """
         else:
             monthly_sql = f"""
                 SELECT
-                    FORMAT(发起时间, 'yyyy-MM') as month,
+                    CONVERT(VARCHAR(7), 发起时间, 120) as month,
                     COUNT(*) as count
                 FROM chuangxin_tibao1 t1
                 WHERE 发起时间 >= DATEADD(month, -6, GETDATE()) {date_filter}
-                GROUP BY FORMAT(发起时间, 'yyyy-MM')
+                GROUP BY CONVERT(VARCHAR(7), 发起时间, 120)
                 ORDER BY month
             """
         monthly_raw = sf_db(monthly_sql)

@@ -30,6 +30,7 @@ ai_runtime_config.json
 .dbg/
 _tmp*
 __tmp*
+/tmp/
 
 # Local databases and generated exports
 *.db

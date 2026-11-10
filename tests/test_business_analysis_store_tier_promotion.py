@@ -52,3 +52,35 @@ def test_higher_days_inside_window_still_qualify_at_window_floor():
     events = detect_promotions(rows_for(ranks), {START + timedelta(days=34)})
     assert len(events) == 1
     assert events[0].tier_rank == 2
+
+
+def test_consecutive_when_next_level_starts_exactly_30_days_after_confirmation():
+    ranks = [1] * 5 + [2] * 59 + [3] * 30
+    events = detect_promotions(rows_for(ranks))
+    second = [event for event in events if event.tier_rank == 3][0]
+    assert second.gap_days == 30
+    assert second.consecutive is True
+
+
+def test_not_consecutive_when_next_level_starts_31_days_after_confirmation():
+    ranks = [1] * 5 + [2] * 61 + [3] * 30
+    events = detect_promotions(rows_for(ranks))
+    second = [event for event in events if event.tier_rank == 3][0]
+    assert second.gap_days == 32
+    assert second.consecutive is False
+
+
+def test_fast_overlapping_climb_counts_as_consecutive():
+    ranks = [1] * 5 + [2] * 15 + [3] * 30
+    events = detect_promotions(rows_for(ranks))
+    second = [event for event in events if event.tier_rank == 3][0]
+    assert second.gap_days < 0
+    assert second.consecutive is True
+
+
+def test_first_observed_promotion_is_not_consecutive():
+    events = detect_promotions(rows_for([1] * 5 + [2] * 30))
+    assert len(events) == 1
+    assert events[0].consecutive is False
+    assert events[0].previous_qualified_on is None
+    assert events[0].gap_days is None

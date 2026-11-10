@@ -104,7 +104,7 @@ summary:focus-visible {
 .dashboard-tabs,
 .dashboard-section,
 .dashboard-footer {
-  width: min(1440px, calc(100% - 40px));
+  width: calc(100% - 40px);
   margin-inline: auto;
 }
 
@@ -1759,7 +1759,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
 .fiscal-person-head,
 .fiscal-person-list li {
   display: grid;
-  grid-template-columns: 52px minmax(260px, 340px) minmax(260px, 1fr) 100px 130px;
+  grid-template-columns: 52px minmax(260px, 340px) minmax(240px, 1fr) 110px 100px 130px;
   gap: 12px;
   align-items: center;
 }
@@ -1832,6 +1832,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   box-shadow: 0 0 0 1px var(--surface);
 }
 .fiscal-person-list li > strong { color: var(--accent); font-size: 11px; text-align: right; }
+.fiscal-person-actual { color: var(--ink); font-size: 10px; font-weight: 750; text-align: right; white-space: nowrap; }
 .fiscal-person-list li > span:last-child { font-size: 9px; text-align: right; }
 .fiscal-person-list .is-gap { color: var(--warning); }
 .fiscal-person-list .is-ahead { color: var(--positive); }
@@ -1899,7 +1900,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   .fiscal-department-content { grid-template-columns: 1fr; }
   .fiscal-ranking-chart { padding: 12px 0 0; border-top: 1px solid var(--line); border-left: 0; }
   .fiscal-person-head,
-  .fiscal-person-list li { grid-template-columns: 42px minmax(220px, 280px) minmax(160px, 1fr) 76px 98px; gap: 8px; }
+  .fiscal-person-list li { grid-template-columns: 42px minmax(220px, 280px) minmax(150px, 1fr) 90px 76px 98px; gap: 8px; }
 }
 
 @media (max-width: 680px) {
@@ -1961,7 +1962,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   .fiscal-person-list { margin: 2px -12px -10px; }
   .fiscal-detail-label { padding-inline: 1px; }
   .fiscal-person-head,
-  .fiscal-person-list li { grid-template-columns: 36px minmax(200px, 260px) minmax(100px, 1fr) 62px 86px; gap: 6px; }
+  .fiscal-person-list li { grid-template-columns: 36px minmax(190px, 250px) minmax(90px, 1fr) 84px 62px 86px; gap: 6px; }
 }
 
 @media (max-width: 720px) {
@@ -1996,7 +1997,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   .fiscal-person-head span:nth-child(3),
   .fiscal-person-progress { display: none; }
   .fiscal-person-head,
-  .fiscal-person-list li { grid-template-columns: 32px minmax(80px, 1fr) 58px 82px; gap: 5px; padding-inline: 8px; }
+  .fiscal-person-list li { grid-template-columns: 32px minmax(80px, 1fr) 70px 58px 82px; gap: 5px; padding-inline: 8px; }
   .fiscal-person-name { flex-wrap: wrap; gap: 2px 7px; }
   .fiscal-person-name b { width: 100%; }
 }
@@ -2007,3 +2008,221 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   *::before,
   *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- 公司大盘数据（手动导入） ---------- */
+.cm-shell { display: flex; flex-direction: column; gap: 18px; }
+
+.cm-toolbar { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+
+.cm-month-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+.cm-month-field select {
+  min-width: 160px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.cm-button {
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #f7f9ff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.cm-button:hover:not(:disabled) { filter: brightness(1.06); }
+.cm-button:disabled { opacity: 0.55; cursor: not-allowed; }
+.cm-button-ghost {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.cm-alert { margin: 0; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+.cm-alert-error { background: var(--negative-soft); color: var(--negative); }
+.cm-alert-success { background: var(--positive-soft); color: var(--positive); }
+
+.cm-hint { margin: 0; color: var(--muted); font-size: 13px; }
+
+.cm-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr)); gap: 14px; }
+
+.kpi-card p.cm-kpi-value {
+  margin: 10px 0 8px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-import-panel, .cm-history-panel, .cm-empty-panel { padding: 20px 22px; }
+
+.cm-import-body { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+
+.cm-file-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--line-strong);
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  width: fit-content;
+}
+.cm-file-field input { display: none; }
+
+.cm-month-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.cm-month-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.cm-month-chip.checked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.cm-month-chip input { accent-color: var(--accent); margin: 0; }
+
+.cm-import-actions { display: flex; gap: 10px; }
+
+.cm-growth { font-variant-numeric: tabular-nums; font-weight: 600; }
+.cm-growth-positive { color: var(--positive); }
+.cm-growth-negative { color: var(--negative); }
+.cm-growth-neutral { color: var(--muted); }
+
+.cm-history-table tbody tr { cursor: pointer; }
+.cm-row-active td { background: var(--accent-soft); font-weight: 600; }
+
+.cm-empty-panel { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.cm-empty-panel h3 { margin: 0; font-size: 18px; color: var(--ink); }
+.cm-empty-panel p { margin: 0; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 720px) {
+  .cm-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .kpi-card p.cm-kpi-value { font-size: 22px; }
+  .cm-toolbar { width: 100%; }
+  .cm-month-field select { width: 100%; }
+}
+
+.cm-compare-panel { padding: 20px 22px; }
+.cm-compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 14px; }
+.cm-compare-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+}
+.cm-compare-item span { font-size: 12px; color: var(--muted); }
+.cm-compare-item strong { font-size: 20px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cm-compare-item small { font-size: 11px; color: var(--faint); }
+
+.cm-history-scroll { overflow-x: auto; }
+.cm-history-table { min-width: max-content; }
+.cm-history-table th, .cm-history-table td { white-space: nowrap; }
+.cm-history-table th.cm-sticky-col, .cm-history-table td.cm-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+.cm-history-table th.cm-sticky-col { background: var(--surface-soft); }
+.cm-history-table tr.cm-row-active td.cm-sticky-col { background: var(--accent-soft); }
+
+/* ---------- 公司大盘数据：录入 + 图表 ---------- */
+.cm-entry-panel { padding: 20px 22px; }
+.cm-entry-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.cm-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px 16px;
+  margin-top: 16px;
+}
+.cm-entry-field { display: flex; flex-direction: column; gap: 6px; }
+.cm-entry-field > span { display: flex; align-items: baseline; gap: 6px; font-size: 12px; color: var(--muted); }
+.cm-entry-field > span em { font-style: normal; font-size: 11px; color: var(--faint); }
+.cm-entry-field input {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.cm-entry-field input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.cm-entry-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+
+.cm-chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+.cm-chart-grid .panel { padding: 18px 20px; }
+
+@media (max-width: 720px) {
+  .cm-chart-grid { grid-template-columns: 1fr; }
+  .cm-entry-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+
+/* ---------- 公司大盘数据：折叠录入 + 单行四图 ---------- */
+.cm-entry-title { align-items: flex-start; }
+.cm-entry-title-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cm-entry-collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--line-strong);
+  background: var(--surface-soft, rgba(127, 140, 165, 0.06));
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.cm-entry-collapsed:hover { border-color: var(--accent); }
+.cm-entry-collapsed-hint { color: var(--muted); font-size: 12px; }
+
+.cm-chart-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.cm-chart-grid .panel { padding: 16px 18px; }
+.cm-chart-grid .panel-title p { display: none; }
+
+@media (max-width: 1360px) {
+  .cm-chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .cm-chart-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- 公司大盘数据：自动计算列 ---------- */
+.cm-derived-block { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: var(--surface-soft, rgba(127,140,165,0.06)); border: 1px solid var(--line-soft, rgba(127,140,165,0.18)); }
+.cm-derived-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.cm-derived-title span { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--accent-strong, var(--accent)); }
+.cm-derived-title em { font-style: normal; font-size: 11px; color: var(--muted); }
+.cm-derived-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 16px; }
+.cm-derived-field { display: flex; flex-direction: column; gap: 4px; }
+.cm-derived-field span { font-size: 12px; color: var(--muted); }
+.cm-derived-field strong { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.cm-history-table tbody tr { cursor: default; }

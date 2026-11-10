@@ -78,7 +78,7 @@ class InfiniteCanvasImageFeatureTests(unittest.TestCase):
             recorded = site.record_infinite_canvas_usage(
                 account_name="测试账号",
                 feature_name="模特换场景",
-                model="google/gemini-3.1-flash-image",
+                model=site.NANO_BANANA_MODEL,
                 image_count=2,
             )
 
@@ -87,7 +87,7 @@ class InfiniteCanvasImageFeatureTests(unittest.TestCase):
         call_kwargs = insert_record.call_args.kwargs
         self.assertEqual(call_kwargs["account_name"], "测试账号")
         self.assertEqual(call_kwargs["feature_name"], "无限画布-模特换场景")
-        self.assertEqual(call_kwargs["model"], "google/gemini-3.1-flash-image")
+        self.assertEqual(call_kwargs["model"], site.NANO_BANANA_MODEL)
         self.assertEqual(call_kwargs["image_path"], "")
         self.assertEqual(call_kwargs["image_count"], 2)
 

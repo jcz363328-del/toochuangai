@@ -1,0 +1,38 @@
+.module-card,
+.dept-feature-card,
+.quick-card[data-href],
+.mini-card[data-href] {
+    position: relative;
+}
+
+.secondary-favorite-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #94a3b8;
+    box-shadow: 0 1px 5px rgba(15, 23, 42, 0.12);
+    cursor: pointer;
+}
+
+.secondary-favorite-toggle:hover {
+    color: #5b7cff;
+    background: #eef2ff;
+}
+
+.secondary-favorite-toggle.active {
+    color: #5b7cff;
+}
+
+/* AI部等功能页会把卡片内的按钮统一隐藏，收藏按钮需要单独放行 */
+.module-card > .secondary-favorite-toggle {
+    display: grid !important;
+}

@@ -1,10 +1,12 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI功能模块 - 图创AI系统</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dashboard_secondary_favorites.css') }}" rel="stylesheet">
+    <script defer src="{{ url_for('static', filename='js/dashboard_secondary_favorites.js') }}"></script>
     <style>
         * {
             margin: 0;
@@ -124,6 +126,26 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
         }
 
+        .module-card[data-allowed="false"],
+        .permission-group[data-allowed="false"] .module-card { filter: grayscale(0.35) saturate(0.55); }
+
+        .module-card[data-allowed="false"]::after,
+        .permission-group[data-allowed="false"] .module-card::after {
+            content: '🔒 暂无权限';
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            z-index: 3;
+            padding: 5px 10px;
+            border-radius: 14px;
+            background: #475569;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .permission-group { display: contents; }
+
         .module-icon {
             font-size: 4rem;
             margin-bottom: 20px;
@@ -173,6 +195,37 @@
             content: '✨';
             position: absolute;
             left: 0;
+        }
+
+        .danger-tool {
+            width: 100%;
+        }
+
+        .danger-tool summary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 4px;
+            padding: 9px 20px;
+            border: 1px solid #fecaca;
+            border-radius: 22px;
+            background: #fff7f7;
+            color: #dc2626;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+
+        .danger-tool summary::-webkit-details-marker { display: none; }
+        .danger-tool summary::before { content: '▸'; transition: transform .2s ease; }
+        .danger-tool[open] summary::before { transform: rotate(90deg); }
+        .danger-tool-content {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed #fecaca;
         }
 
         .progress-section {
@@ -322,6 +375,49 @@
                 font-size: 2rem;
             }
         }
+
+        /* 紧凑型功能目录：对齐内容生产工厂页面的卡片层级与密度 */
+        body { background: #f5f7fb; color: #111827; }
+        .header { background: #fff; color: #111827; padding: 14px 0; box-shadow: none; border-bottom: 1px solid #e7ebf3; }
+        .header-content, .container { max-width: 1440px; }
+        .logo-section { gap: 10px; }
+        .logo-section i { color: #5b7cff; font-size: 1.35rem; }
+        .logo-section h1 { font-size: 1.25rem; }
+        .nav-links a { color: #475569; background: #f3f5f9; border-radius: 8px; padding: 7px 12px; }
+        .nav-links a:hover { color: #3158d4; background: #eaf0ff; transform: none; }
+        .container { padding: 20px 18px 36px; }
+        .page-title { text-align: left; margin-bottom: 14px; }
+        .page-title h2 { font-size: 1.35rem; color: #111827; margin-bottom: 4px; }
+        .page-title p { font-size: .82rem; color: #94a3b8; }
+        .module-directory { background: #fff; border: 1px solid #e7ebf3; border-radius: 14px; padding: 14px 12px 18px; }
+        .directory-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 3px; font-size: 1rem; color: #172033; }
+        .directory-heading i { color: #5b7cff; }
+        .directory-copy { margin: 0 0 12px; color: #94a3b8; font-size: .78rem; }
+        .modules-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 0; }
+        .module-card { min-height: 88px; padding: 14px 14px 14px 54px; border: 1px solid #e2e8f2; border-radius: 11px; box-shadow: none; text-align: left; display: flex; flex-direction: column; justify-content: center; cursor: pointer; overflow: hidden; }
+        .module-card::before { display: none; }
+        .module-card:hover { transform: none; border-color: #b9c8ff; box-shadow: 0 5px 14px rgba(62, 91, 183, .09); background: #fbfcff; }
+        .module-card[data-allowed="false"], .permission-group[data-allowed="false"] .module-card { filter: none; }
+        .module-card[data-allowed="false"]::after, .permission-group[data-allowed="false"] .module-card::after { display: none; }
+        .module-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 31px; height: 31px; margin: 0; border-radius: 9px; display: grid; place-items: center; background: #eef2ff; color: #5b7cff; font-size: .95rem; -webkit-text-fill-color: currentColor; }
+        .module-card:nth-of-type(4n+1) .module-icon { background: #eeeaff; color: #7656ff; }
+        .module-card:nth-of-type(4n+2) .module-icon { background: #e8f0ff; color: #4f72ff; }
+        .module-card:nth-of-type(4n+3) .module-icon { background: #e5f8f7; color: #10b9b3; }
+        .module-card:nth-of-type(4n) .module-icon { background: #fff0df; color: #f28a0a; }
+        .module-card h3 { font-size: .9rem; color: #111827; margin: 0 0 3px; line-height: 1.25; }
+        .module-card p { color: #8a96a8; font-size: .75rem; line-height: 1.35; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .module-card .coming-soon-badge, .module-card .feature-list, .module-card > a, .module-card > button, .module-card > div:not(.module-icon) { display: none !important; }
+        .module-card.has-inline-controls { grid-column: 1 / -1; min-height: 180px; padding: 20px; cursor: default; }
+        .module-card.has-inline-controls .module-icon { display: none; }
+        .module-card.has-inline-controls > div:not(.module-icon), .module-card.has-inline-controls > button { display: block !important; }
+        .module-card.has-inline-controls .feature-list { display: none !important; }
+        @media (max-width: 1080px) { .modules-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 760px) {
+            .header-content { flex-direction: row; }
+            .modules-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .module-card { min-height: 82px; }
+        }
+        @media (max-width: 520px) { .modules-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -347,29 +443,49 @@
 
     <div class="container">
         <div class="page-title">
-            <h2>AI功能模块开发计划</h2>
-            <p>探索人工智能的无限可能，打造全方位的智能创作平台</p>
+            <h2><i class="fas fa-robot" style="color:#5b7cff;margin-right:7px"></i>AI部功能</h2>
+            <p>汇集智能工具与系统管理能力</p>
         </div>
 
+        <section class="module-directory">
+            <h3 class="directory-heading"><i class="fas fa-layer-group"></i>功能模块</h3>
+            <p class="directory-copy">按需选择功能，快速进入对应工作台</p>
         <div class="modules-grid">
-            {% if can_value_evaluation %}
-            <div class="module-card">
+            <div class="module-card" data-permission="ai_dept" data-allowed="{{ 'true' if can_ai_dept else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>
-                <div class="module-icon"><i class="fas fa-people-arrows"></i></div>
-                <h3>360价值评价</h3>
-                <p>使用当前飞书用户名识别评价任务，在线完成价值表现评分与反馈。</p>
-                <ul class="feature-list">
-                    <li>自动加载本人待评价人员</li>
-                    <li>六项价值表现 1–5 分评价</li>
-                    <li>极端评分备注与一致性校验</li>
-                    <li>支持查看并覆盖本人历史评价</li>
-                </ul>
-                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('value_evaluation.page') }}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-pen-to-square"></i> 开始评价</a></div>
+                <div class="module-icon"><i class="fas fa-box-open"></i></div>
+                <h3>我开发的产品销售</h3>
+                <p>按当前飞书用户名和输入的店铺号查询本人开发产品的销售与利润表现</p>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('developer_product_sales.page') }}">查看产品销售</a></div>
+            </div>
+            {% if can_historical_sales %}
+            <div class="module-card" data-permission="historical_sales" data-allowed="true">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon"><i class="fas fa-chart-line"></i></div>
+                <h3>历史销售数据曲线</h3>
+                <p>按日期查询销售额，并同步对比去年同时间段走势</p>
+                <div style="text-align:center;margin-top:20px">
+                    <a href="{{ url_for('historical_sales.page') }}">查看销售曲线</a>
+                </div>
             </div>
             {% endif %}
-            {% if can_daily_replenishment %}
+            {% if can_value_evaluation_admin %}
+            <div class="module-card" data-permission="value_evaluation_admin" data-allowed="true">
+                <div class="coming-soon-badge">管理员</div>
+                <div class="module-icon"><i class="fas fa-list-check"></i></div>
+                <h3>360价值评价管理</h3>
+                <p>上传评价安排明细，并维护评价维度、题目和评分说明。</p>
+                <ul class="feature-list">
+                    <li>Excel / CSV 明细预检与确认导入</li>
+                    <li>批次评价安排统一维护</li>
+                    <li>在线修改价值观评价内容</li>
+                    <li>仅韩雅俊和 AI 部全员可访问</li>
+                </ul>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('value_evaluation.admin_page') }}" style="display:inline-block;background:linear-gradient(135deg,#0f766e,#2563eb);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-gear"></i> 进入管理</a></div>
+            </div>
+            {% endif %}
             <!-- 日常补货 -->
-            <div class="module-card">
+            <div class="module-card" data-permission="daily_replenishment" data-allowed="{{ 'true' if can_daily_replenishment else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>
                 <div class="module-icon">
                     <i class="fas fa-boxes-stacked"></i>
@@ -388,14 +504,11 @@
                     </a>
                 </div>
             </div>
-            {% endif %}
-
-            {% if can_daily_replenishment_operation %}
-            <!-- 日常补货运营 -->
-            <div class="module-card">
+            <!-- 智能补货中心-运营 -->
+            <div class="module-card" data-permission="daily_replenishment_operation" data-allowed="{{ 'true' if can_daily_replenishment_operation else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>
                 <div class="module-icon"><i class="fas fa-boxes-packing"></i></div>
-                <h3>日常补货运营</h3>
+                <h3>智能补货中心-运营</h3>
                 <p>独立复制运营版 Excel“生成日常补货表”按钮的完整调用链</p>
                 <ul class="feature-list">
                     <li>库存明细、在途与补货主表同步</li>
@@ -404,13 +517,10 @@
                     <li>独立快照及完整工作簿下载</li>
                 </ul>
                 <div style="text-align:center;margin-top:20px">
-                    <a href="{{ url_for('daily_replenishment_operation.page') }}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开日常补货运营</a>
+                    <a href="{{ url_for('daily_replenishment_operation.page') }}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开智能补货中心-运营</a>
                 </div>
             </div>
-            {% endif %}
-
-            {% if can_group_performance %}
-            <div class="module-card">
+            <div class="module-card" data-permission="ai_group_performance" data-allowed="{{ 'true' if can_group_performance else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>
                 <div class="module-icon"><i class="fas fa-chart-line"></i></div>
                 <h3>组别经营数据</h3>
@@ -421,11 +531,8 @@
                 </ul>
                 <div style="text-align:center;margin-top:20px"><a href="{{ url_for('ai_group_performance.page') }}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开查询</a></div>
             </div>
-            {% endif %}
-
-            {% if can_ai_full %}
             <!-- 更新 -->
-            <div class="module-card">
+            <div class="module-card" data-permission="admin_functions" data-allowed="{{ 'true' if can_ai_full else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>
                 <div class="module-icon">
                     <i class="fas fa-arrows-rotate"></i>
@@ -444,34 +551,8 @@
                     </a>
                 </div>
             </div>
-            {% endif %}
-
-            {% if can_business_analysis %}
-            <!-- 经营分析 -->
-            <div class="module-card">
-                <div class="coming-soon-badge">NEW</div>
-                <div class="module-icon">
-                    <i class="fas fa-chart-pie"></i>
-                </div>
-                <h3>经营分析</h3>
-                <p>汇总销售、利润、库存与履约数据，按月份、部门、运营和店铺多维分析经营表现</p>
-                <ul class="feature-list">
-                    <li>核心 KPI、环比与同比趋势总览</li>
-                    <li>部门、店铺及品类经营表现分析</li>
-                    <li>滞销、未发货、运输与新品风险追踪</li>
-                    <li>实时 SQL 数据与计算公式追溯</li>
-                </ul>
-                <div style="text-align: center; margin-top: 20px;">
-                    <a href="{{ url_for('business_analysis') }}" style="display: inline-block; background: linear-gradient(135deg, #3158c9 0%, #203f9e 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
-                        <i class="fas fa-chart-line"></i> 进入经营分析
-                    </a>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if can_ads_monitor %}
             <!-- MAGIC AD 广告监控 -->
-            <div class="module-card">
+            <div class="module-card" data-permission="ads_monitor" data-allowed="{{ 'true' if can_ads_monitor else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>
                 <div class="module-icon">
                     <i class="fas fa-bullseye"></i>
@@ -490,9 +571,7 @@
                     </a>
                 </div>
             </div>
-            {% endif %}
-            {% if can_video_claw %}
-            <div class="module-card">
+            <div class="module-card" data-permission="video_claw" data-allowed="{{ 'true' if can_video_claw else 'false' }}">
                 <div class="module-icon"><i class="fas fa-film"></i></div>
                 <h3>VideoClaw AI视频创作</h3>
                 <p>从创意、剧本、分镜到视频成片的全流程 AI 创作工作台。</p>
@@ -503,9 +582,7 @@
                 </ul>
                 <a href="{{ url_for('video_claw') }}" style="display:inline-block;background:linear-gradient(135deg,#0f766e,#2563eb);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开 VideoClaw</a>
             </div>
-            {% endif %}
-
-            {% if can_ai_full %}
+            <div class="permission-group" data-permission="admin_functions" data-allowed="{{ 'true' if can_ai_full else 'false' }}">
             <!-- 性能监控 -->
             <div class="module-card">
                 <div class="module-icon">
@@ -577,22 +654,27 @@
                 </div>
                 <h3>创新项目删除</h3>
                 <p>输入项目编号，一键删除对应的流转记录和提案记录</p>
-                <ul class="feature-list">
-                    <li>根据项目编号删除 chuangxin_liuzhuan1 中的流转记录</li>
-                    <li>同时删除 chuangxin_tibao1 中对应的提案记录</li>
-                    <li>仅限 AI部 和 总经办人员使用</li>
-                    <li>操作不可撤销，请谨慎输入编号</li>
-                </ul>
-                <div style="margin-top: 10px;">
-                    <input id="deleteProjectId" type="text" placeholder="请输入要删除的项目编号" style="width: 100%; max-width: 260px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.9rem;">
-                    <div style="font-size: 0.8rem; color: #dc2626; margin-top: 6px;">确认编号无误后再执行，删除后无法恢复</div>
-                    <div id="deleteProjectStatus" style="font-size: 0.85rem; margin-top: 6px;"></div>
-                </div>
-                <div style="text-align: center; margin-top: 16px;">
-                    <button id="deleteProjectBtn" onclick="deleteInnovationProject()" style="display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 10px 26px; border-radius: 25px; border:none; font-weight:600; cursor:pointer;">
-                        <i class="fas fa-trash"></i> 执行删除
-                    </button>
-                </div>
+                <details class="danger-tool">
+                    <summary>展开删除工具</summary>
+                    <div class="danger-tool-content">
+                        <ul class="feature-list">
+                            <li>根据项目编号删除 chuangxin_liuzhuan1 中的流转记录</li>
+                            <li>同时删除 chuangxin_tibao1 中对应的提案记录</li>
+                            <li>仅限 AI部 和 总经办人员使用</li>
+                            <li>操作不可撤销，请谨慎输入编号</li>
+                        </ul>
+                        <div style="margin-top: 10px;">
+                            <input id="deleteProjectId" type="text" placeholder="请输入要删除的项目编号" style="width: 100%; max-width: 260px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.9rem;">
+                            <div style="font-size: 0.8rem; color: #dc2626; margin-top: 6px;">确认编号无误后再执行，删除后无法恢复</div>
+                            <div id="deleteProjectStatus" style="font-size: 0.85rem; margin-top: 6px;"></div>
+                        </div>
+                        <div style="text-align: center; margin-top: 16px;">
+                            <button id="deleteProjectBtn" onclick="deleteInnovationProject()" style="display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 10px 26px; border-radius: 25px; border:none; font-weight:600; cursor:pointer;">
+                                <i class="fas fa-trash"></i> 执行删除
+                            </button>
+                        </div>
+                    </div>
+                </details>
             </div>
 
             <!-- 全局权限管理 -->
@@ -779,39 +861,26 @@
                 </div>
                 <h3>权限身份切换（测试）</h3>
                 <p>仅用于 AI 部联调权限：可在当前会话模拟不同部门，验证功能卡片与接口权限是否生效</p>
-                <ul class="feature-list">
-                    <li>仅影响当前登录会话，不改飞书真实部门</li>
-                    <li>支持直接输入飞书用户名，按该用户的部门权限模拟</li>
-                    <li>切换后刷新首页即可看到权限变化</li>
-                    <li>支持一键恢复真实部门权限</li>
-                </ul>
-                <div style="margin-top: 8px; text-align: left;">
-                    <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">当前状态：</div>
-                    <div id="permissionDebugStatus" style="background:#f8fafc; border-radius:8px; padding:10px; font-size:0.85rem; color:#333; line-height:1.5;">加载中...</div>
-                </div>
-                <div style="margin-top: 10px; text-align: left;">
-                    <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">模拟用户：</div>
-                    <input id="permissionDebugUserName" type="text" placeholder="输入飞书用户名，优先按用户模拟" style="min-width: 220px; width: 100%; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db;">
-                    <div style="font-size: 0.78rem; color: #888; margin-top: 4px;">填写用户名后，将优先模拟该用户，仅展示其对应权限。</div>
-                </div>
-                <div style="margin-top: 10px; text-align: left;">
-                    <div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">模拟部门：</div>
-                    <select id="permissionDebugDept" style="min-width: 220px; width: 100%; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db;">
-                        <option value="">加载中...</option>
-                    </select>
-                </div>
-                <div style="text-align: center; margin-top: 16px;">
-                    <button id="permissionDebugApplyBtn" onclick="applyPermissionDebugDepartment()" style="display: inline-block; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); color: white; padding: 10px 22px; border-radius: 25px; border:none; font-weight:600; cursor:pointer; margin-right:8px;">
-                        <i class="fas fa-random"></i> 切换身份
-                    </button>
-                    <button id="permissionDebugClearBtn" onclick="clearPermissionDebugDepartment()" style="display: inline-block; background: #fff; color: #1f2937; padding: 10px 20px; border-radius: 25px; border:1px solid #d1d5db; font-weight:600; cursor:pointer;">
-                        恢复真实身份
-                    </button>
-                </div>
+                <details class="danger-tool">
+                    <summary style="color:#2563eb;border-color:#bfdbfe;background:#eff6ff">展开身份切换</summary>
+                    <div class="danger-tool-content" style="border-top-color:#bfdbfe">
+                        <ul class="feature-list">
+                            <li>仅影响当前登录会话，不改飞书真实部门</li>
+                            <li>支持直接输入飞书用户名，按该用户的部门权限模拟</li>
+                            <li>切换后刷新首页即可看到权限变化</li>
+                            <li>支持一键恢复真实部门权限</li>
+                        </ul>
+                        <div style="margin-top: 8px; text-align: left;"><div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">当前状态：</div><div id="permissionDebugStatus" style="background:#f8fafc; border-radius:8px; padding:10px; font-size:0.85rem; color:#333; line-height:1.5;">加载中...</div></div>
+                        <div style="margin-top: 10px; text-align: left;"><div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">模拟用户：</div><input id="permissionDebugUserName" type="text" placeholder="输入飞书用户名，优先按用户模拟" style="min-width: 220px; width: 100%; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db;"><div style="font-size: 0.78rem; color: #888; margin-top: 4px;">填写用户名后，将优先模拟该用户，仅展示其对应权限。</div></div>
+                        <div style="margin-top: 10px; text-align: left;"><div style="font-size: 0.85rem; color: #555; margin-bottom: 6px;">模拟部门：</div><select id="permissionDebugDept" style="min-width: 220px; width: 100%; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db;"><option value="">加载中...</option></select></div>
+                        <div style="text-align: center; margin-top: 16px;"><button id="permissionDebugApplyBtn" onclick="applyPermissionDebugDepartment()" style="display: inline-block; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%); color: white; padding: 10px 22px; border-radius: 25px; border:none; font-weight:600; cursor:pointer; margin-right:8px;"><i class="fas fa-random"></i> 切换身份</button><button id="permissionDebugClearBtn" onclick="clearPermissionDebugDepartment()" style="display: inline-block; background: #fff; color: #1f2937; padding: 10px 20px; border-radius: 25px; border:1px solid #d1d5db; font-weight:600; cursor:pointer;">恢复真实身份</button></div>
+                    </div>
+                </details>
             </div>
-            {% endif %}
+            </div>
 
         </div>
+        </section>
 
 
     </div>
@@ -1186,6 +1255,30 @@
         // 添加页面加载动画
         document.addEventListener('DOMContentLoaded', function() {
             {% if can_ai_full %}loadPermissionDebugStatus();{% endif %}
+            document.querySelectorAll('.module-card').forEach(function(card) {
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('role', 'link');
+                function openCard(event) {
+                    if (event && event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+                    if (event && event.target.closest('a, button, input, select, textarea, summary, details')) return;
+                    const link = card.querySelector('a[href]');
+                    const button = card.querySelector('button[onclick]');
+                    if (link) link.click();
+                    else if (button && !card.classList.contains('has-inline-controls')) button.click();
+                }
+                card.addEventListener('click', openCard);
+                card.addEventListener('keydown', openCard);
+            });
+            document.addEventListener('click', function(event) {
+                const card = event.target.closest('.module-card');
+                if (!card) return;
+                const group = card.closest('.permission-group');
+                const denied = card.dataset.allowed === 'false' || (group && group.dataset.allowed === 'false');
+                if (!denied) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                window.alert('暂无该功能权限，请联系管理员开通。');
+            }, true);
             const cards = document.querySelectorAll('.module-card');
             cards.forEach((card, index) => {
                 card.style.opacity = '0';

@@ -19,6 +19,14 @@ BUSINESS_ANALYSIS_DEPARTMENT_LEADERS = {
     "运营七部": {"侯瑞昕", "侯瑞欣"},
 }
 
+BUSINESS_ANALYSIS_ROTATION_LEADERS = {
+    "郭婷": "运营一部",
+    "王淑雯": "运营二部",
+    "柳琳": "运营三部",
+    "刘星辰": "运营六部",
+    "张彦微": "运营七部",
+}
+
 _DISPLAY_DEPARTMENTS = {
     "周雪": "运营一部",
     "王钰媛": "运营二部",
@@ -139,7 +147,23 @@ def resolve_business_analysis_scope(
             "categoryRatioVisible": True,
         }
     selected = None
+    delegated_department = BUSINESS_ANALYSIS_ROTATION_LEADERS.get(normalized_user_name)
+    if delegated_department:
+        delegated_row = next((
+            row for row in (department_rows or [])
+            if isinstance(row, dict)
+            and normalize_department_name(row.get("name")) == delegated_department
+        ), {})
+        selected = {
+            "department": delegated_department,
+            "departmentId": _text(
+                delegated_row.get("department_id")
+                or delegated_row.get("open_department_id")
+            ),
+        }
     for row in department_rows or []:
+        if selected:
+            break
         if not isinstance(row, dict):
             continue
         if _text(row.get("status")).lower() in {"invalid", "unmapped"}:
@@ -166,7 +190,7 @@ def resolve_business_analysis_scope(
         normalize_person_name(name)
         for name in BUSINESS_ANALYSIS_DEPARTMENT_LEADERS[selected["department"]]
     }
-    is_leader = normalized_user_name in leader_names
+    is_leader = bool(delegated_department) or normalized_user_name in leader_names
     if not is_leader and leader_id_getter and selected["departmentId"]:
         is_leader = _text(leader_id_getter(selected["departmentId"])) == uid
 
@@ -176,7 +200,9 @@ def resolve_business_analysis_scope(
         "departmentId": selected["departmentId"],
         "operator": None if is_leader else _text(user_name),
         "userName": _text(user_name),
-        "canViewAmounts": bool(is_leader),
+        # 普通成员的查询和返回行都会按本人运营姓名裁剪，因此可以查看
+        # 自己负责店铺的具体金额；部门负责人仍查看本部门完整金额。
+        "canViewAmounts": True,
         "categoryRatioVisible": True,
     }
 
@@ -280,6 +306,9 @@ def _hydrate_category_year_ago(category_root, fallback_root):
 
 
 def _sanitize_category_segments(data, period, scope, redact_amounts=True):
+    # 品类模块包含公司及跨部门汇总，普通成员即使可查看本人店铺金额，
+    # 也不能由此获得公司或其他部门的绝对金额。
+    can_view_category_amounts = bool(scope.get("canViewAmounts")) and scope.get("role") != "member"
     previous_period = ""
     year_ago_period = ""
     try:
@@ -310,12 +339,12 @@ def _sanitize_category_segments(data, period, scope, redact_amounts=True):
         year_ago_total = sum(float(row.get("yearAgoSales") or 0) for row in rows)
         category["ratios"] = {
             "company": {
-                "currentSales": float(company_current.get("sales") or 0) if scope.get("canViewAmounts") else None,
-                "previousSales": float(company_previous.get("sales") or 0) if scope.get("canViewAmounts") else None,
-                "yearAgoSales": float(company_year_ago.get("sales") or 0) if scope.get("canViewAmounts") else None,
-                "currentDailySales": _ratio(company_current.get("sales"), current_days) if scope.get("canViewAmounts") else None,
-                "previousDailySales": _ratio(company_previous.get("sales"), previous_days) if scope.get("canViewAmounts") else None,
-                "yearAgoDailySales": _ratio(company_year_ago.get("sales"), year_ago_days) if scope.get("canViewAmounts") else None,
+                "currentSales": float(company_current.get("sales") or 0) if can_view_category_amounts else None,
+                "previousSales": float(company_previous.get("sales") or 0) if can_view_category_amounts else None,
+                "yearAgoSales": float(company_year_ago.get("sales") or 0) if can_view_category_amounts else None,
+                "currentDailySales": _ratio(company_current.get("sales"), current_days) if can_view_category_amounts else None,
+                "previousDailySales": _ratio(company_previous.get("sales"), previous_days) if can_view_category_amounts else None,
+                "yearAgoDailySales": _ratio(company_year_ago.get("sales"), year_ago_days) if can_view_category_amounts else None,
                 "dailyMom": _daily_growth(
                     company_current.get("sales"),
                     company_previous.get("sales"),
@@ -349,7 +378,7 @@ def _sanitize_category_segments(data, period, scope, redact_amounts=True):
                     "department": normalize_department_name(row.get("department")),
                     "currentSales": (
                         float(row.get("currentSales") or 0)
-                        if scope.get("canViewAmounts") and (
+                        if can_view_category_amounts and (
                             scope.get("role") == "business_owner"
                             or normalize_department_name(row.get("department")) == normalize_department_name(scope.get("department"))
                         )
@@ -357,7 +386,7 @@ def _sanitize_category_segments(data, period, scope, redact_amounts=True):
                     ),
                     "currentDailySales": (
                         _ratio(row.get("currentSales"), current_days)
-                        if scope.get("canViewAmounts") and (
+                        if can_view_category_amounts and (
                             scope.get("role") == "business_owner"
                             or normalize_department_name(row.get("department")) == normalize_department_name(scope.get("department"))
                         )

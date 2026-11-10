@@ -35,5 +35,6 @@ export const MARKET_OVERVIEW_ROWS: MarketOverviewRow[] = [
   { period: "2026-06", salesVolume: 3044091, salesAmount: 33859538.05, monthOverMonthGrowth: -0.0059, averageOrderValue: 11.12 },
   { period: "2026-07", salesVolume: 2918223, salesAmount: 33002255.42, monthOverMonthGrowth: -0.0260, averageOrderValue: 11.31 },
   { period: "2026-08", salesVolume: 2975704, salesAmount: 33773954.08, monthOverMonthGrowth: 0.0228, averageOrderValue: 11.35 },
-  { period: "2026-09", salesVolume: 2874723, salesAmount: 32766075.25, monthOverMonthGrowth: -0.0308, averageOrderValue: 11.40 },
+  { period: "2026-09", salesVolume: 2874723, salesAmount: 32766075.25, monthOverMonthGrowth: -0.029842, averageOrderValue: 11.40 },
+  { period: "2026-10", salesVolume: 3208546, salesAmount: 36094147.0, monthOverMonthGrowth: 0.101571, averageOrderValue: 11.2494 },
 ];

@@ -1584,6 +1584,8 @@ function mergeAiListingResult(baseResult, aiResponse, data, skill) {
     baseResult.needsConfirmation
   );
   baseResult.selectedVariantId = baseResult.recommendedVariantId;
+  baseResult.riskAudit = aiResponse.riskAudit || {};
+  baseResult.riskLibraryCount = Number(aiResponse.riskLibraryCount) || 0;
   return baseResult;
 }
 
@@ -2288,6 +2290,13 @@ function renderResult(result) {
       html: renderVariantChoicesHtml(result, selected)
     },
     {
+      title: "风险词检查",
+      metric: (result.riskAudit?.[selected.id] || []).length ? "发布前必须复核" : "检查通过",
+      className: (result.riskAudit?.[selected.id] || []).length ? "risk-audit-block has-risk" : "risk-audit-block is-clear",
+      content: renderRiskAuditText(result, selected),
+      html: renderRiskAuditHtml(result, selected)
+    },
+    {
       title: "判断信息与推荐理由",
       metric: selected.name,
       content: renderDecisionText(result.decisionInfo, selected),
@@ -2440,6 +2449,27 @@ function renderVariantChoicesHtml(result, selected) {
     </section>`;
 }
 
+function renderRiskAuditText(result, selected) {
+  const matches = result.riskAudit?.[selected.id] || [];
+  if (!matches.length) return `已按内置 ${result.riskLibraryCount || 562} 条风险词检查，当前方案未发现命中。`;
+  return matches.map((item) => `${item.term}｜风险 ${item.level}｜${item.category}｜建议：${item.replacement || "删除或改写"}`).join("\n");
+}
+
+function renderRiskAuditHtml(result, selected) {
+  const matches = result.riskAudit?.[selected.id] || [];
+  const libraryCount = result.riskLibraryCount || 562;
+  if (!matches.length) {
+    return `<div class="risk-audit-summary clear"><strong>✓ 风险词检查通过</strong><span>已按内置 ${libraryCount} 条 Amazon 风险词检查当前方案，未发现命中。</span></div>`;
+  }
+  return `<div class="risk-audit-summary warning"><strong>⚠ 发现 ${matches.length} 个风险词</strong><span>已按内置 ${libraryCount} 条风险词检查，发布前必须复核并改写。</span></div><div class="risk-audit-list">${matches.map((item) => `
+    <article>
+      <div><strong>${escapeHtml(item.term)}</strong><b>风险 ${escapeHtml(item.level)}</b></div>
+      <p>${escapeHtml(item.category)}${item.meaning ? ` · ${escapeHtml(item.meaning)}` : ""}</p>
+      <small>${escapeHtml(item.reason || "该词可能触发平台审核")}</small>
+      ${item.replacement ? `<em>建议：${escapeHtml(item.replacement)}</em>` : ""}
+    </article>`).join("")}</div>`;
+}
+
 function renderVariantChoicesText(result) {
   return result.variants
     .map(
@@ -2489,7 +2519,7 @@ function renderBlocks(blocks) {
   area.innerHTML = "";
   blocks.forEach((block) => {
     const article = document.createElement("article");
-    article.className = "result-block";
+    article.className = `result-block ${block.className || ""}`.trim();
     const header = document.createElement("header");
     header.innerHTML = `<h3>${escapeHtml(block.title)}</h3><span class="metric">${escapeHtml(block.metric || "")}</span>`;
     const content = document.createElement("div");

@@ -4,13 +4,16 @@ import os
 import tempfile
 import hashlib
 import copy
-from datetime import date, datetime
+import uuid
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Lock
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from flask import Blueprint, current_app, g, has_request_context, jsonify, render_template, request, send_file, session
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font
 
 import daily_replenishment as base
 from department_permissions import require_permission
@@ -24,6 +27,9 @@ SHEET_ORDER = ("库存明细", "在途", "日常补货", "FBA发货", "每日库
 _refresh_lock = Lock()
 _snapshot_cache_lock = Lock()
 _snapshot_cache: dict[str, tuple[int, dict[str, Any]]] = {}
+_refresh_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="daily-replenishment-refresh")
+_refresh_jobs_lock = Lock()
+_refresh_jobs: dict[str, dict[str, Any]] = {}
 
 
 def _normalized_store(value: Any) -> str:
@@ -115,6 +121,15 @@ def scoped_query_executor(user_name: str, *, query_executor=base.sf_db):
             ]
         if "daily_replenishment:sheet_daily_inventory" in marker or "daily_replenishment:sheet_low_margin" in marker:
             return [row for row in rows if row and str(row[0] or "").strip() in visible_skus]
+        if "daily_replenishment:smart_sales_history" in marker or "daily_replenishment:smart_sites" in marker:
+            return [row for row in rows if row and str(row[0] or "").strip() in visible_skus]
+        if "daily_replenishment:smart_margins" in marker:
+            return [row for row in rows if row and str(row[0] or "").strip() in visible_skus]
+        if "daily_replenishment:smart_status" in marker:
+            return [
+                row for row in rows
+                if len(row) > 1 and str(row[1] or "").strip() in visible_skus
+            ]
         return rows
 
     return execute, access
@@ -241,6 +256,12 @@ def _scope_snapshot_payload(payload: dict[str, Any], access: dict[str, Any]) -> 
             for new_index, old_index in enumerate(kept_indexes)
             if str(old_index) in comments
         }
+        styles = sheet.get("styles") or {}
+        sheet["styles"] = {
+            str(new_index): styles[str(old_index)]
+            for new_index, old_index in enumerate(kept_indexes)
+            if str(old_index) in styles
+        }
     return scoped
 
 
@@ -251,7 +272,7 @@ def _resolve_snapshot_for_user(user_name: str) -> tuple[Path | None, bool]:
     return get_shared_today_snapshot(), True
 
 
-def _settings(source: Path | None = None) -> dict[str, Any]:
+def _settings(source: Path | None = None, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     settings = base.get_generation_settings(source)
     listing_days, recent_days, threshold = 60, 30, 0.1
     if source and source.is_file():
@@ -272,11 +293,44 @@ def _settings(source: Path | None = None) -> dict[str, Any]:
         low_margin_recent_days=recent_days,
         low_margin_threshold=threshold,
     )
+    if overrides:
+        for key in ("low_margin_listing_days", "low_margin_recent_days", "low_margin_threshold"):
+            if key in overrides and overrides[key] is not None:
+                settings[key] = overrides[key]
     return settings
 
 
-def generate_operation_dataset(source: Path | None = None, *, query_executor=base.sf_db) -> dict[str, Any]:
-    settings = _settings(source)
+# 销量来源 -> (逐日明细表, 销量列)，与 generate_database_dataset 的口径保持一致
+_SALES_SOURCE_TABLES: dict[str, tuple[str, str]] = {
+    "下单": ("GuangGao", "ShuLiang"),
+    "付款": ("v_XiaoShouLiang", "HeSuanXiaoLiang"),
+}
+
+
+def _trend_window(settings: dict[str, Any]) -> tuple[date, date]:
+    """走势区间：优先用前端传来的快照区间，缺省回退到当前生成参数。"""
+    start = settings["sales_start"]
+    end = settings["sales_end"]
+    raw_start = str(request.args.get("start") or "").strip()
+    raw_end = str(request.args.get("end") or "").strip()
+    if raw_start and raw_end:
+        try:
+            start = date.fromisoformat(raw_start)
+            end = date.fromisoformat(raw_end)
+        except ValueError as exc:
+            raise base.DailyReplenishmentError("日期参数应形如 YYYY-MM-DD") from exc
+        if start > end:
+            start, end = end, start
+    span = (end - start).days + 1
+    if span < 1 or span > 45:
+        raise base.DailyReplenishmentError("走势区间需在 1 到 45 天之间")
+    if end > date.today():
+        raise base.DailyReplenishmentError("走势区间的结束日期不能晚于今天")
+    return start, end
+
+
+def generate_operation_dataset(source: Path | None = None, *, query_executor=base.sf_db, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+    settings = _settings(source, overrides)
     main = base.generate_database_dataset(settings, query_executor=query_executor)
     related = base.generate_button_sheets(settings, query_executor=query_executor)
     return {
@@ -343,6 +397,11 @@ def _sheet_payload(dataset: dict[str, Any]) -> dict[str, Any]:
             for index, row in enumerate(main["rows"])
             if row.get("comments")
         },
+        "styles": {
+            str(index): dict(row.get("styles") or {})
+            for index, row in enumerate(main["rows"])
+            if row.get("styles")
+        },
         "purpose": "原运营版按钮生成的日常补货主表",
     }
     return {"sheets": sheets, "generation": main.get("generation") or {}}
@@ -369,7 +428,12 @@ def load_snapshot(path: Path) -> dict[str, Any]:
                         for index, row in enumerate(serialized.get("rows") or [])
                         if row.get("comments")
                     },
-                    "purpose": "日常补货运营快照",
+                    "styles": {
+                        str(index): dict(row.get("styles") or {})
+                        for index, row in enumerate(serialized.get("rows") or [])
+                        if row.get("styles")
+                    },
+                    "purpose": "智能补货中心-运营快照",
                 }
             else:
                 sheets[name] = {
@@ -377,7 +441,8 @@ def load_snapshot(path: Path) -> dict[str, Any]:
                     "rows": [[base._json_value(value) for value in row] for row in values[1:] if any(value not in (None, "") for value in row)],
                     "header_comments": {},
                     "comments": {},
-                    "purpose": "日常补货运营快照",
+                    "styles": {},
+                    "purpose": "智能补货中心-运营快照",
                 }
         generation: dict[str, Any] = {}
         if "_生成信息" in workbook.sheetnames:
@@ -428,6 +493,24 @@ def _snapshot_payload(path: Path | None = None, *, user_name: str = "") -> dict[
     }
 
 
+def _attach_client_cache_meta(
+    meta: dict[str, Any],
+    path: Path | None,
+    user_name: str,
+    access: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind browser cache data to the user, permission scope, and snapshot version."""
+    if path is None or not path.is_file():
+        return meta
+    stores = "\x1f".join(sorted(_normalized_store(value) for value in access.get("read_stores") or set()))
+    skus = "\x1f".join(sorted(str(value or "").strip() for value in access.get("visible_skus") or set()))
+    scope_hash = hashlib.sha256(f"{stores}|{skus}".encode("utf-8")).hexdigest()[:16]
+    prefix = f"daily-replenishment-operation:v2:{_snapshot_owner_key(user_name)}:"
+    meta["client_cache_prefix"] = prefix
+    meta["client_cache_key"] = f"{prefix}{path.stat().st_mtime_ns}:{scope_hash}"
+    return meta
+
+
 @daily_replenishment_operation_bp.get("/ai/daily-replenishment-operation")
 @require_permission(PERMISSION_NAME)
 def page():
@@ -437,27 +520,22 @@ def page():
     snapshot_path, is_shared = _resolve_snapshot_for_user(user_name)
     snapshot_meta = _snapshot_payload(snapshot_path, user_name=user_name)
     snapshot_meta["download_available"] = not is_shared
-    initial_data = None
-    if snapshot_path is not None:
-        initial_data = load_snapshot_cached(snapshot_path)
-        # Never trust the snapshot's owner directory as an authorization boundary.
-        # A snapshot may have been generated before permissions changed (or while an
-        # administrator was impersonating this user), so every read must be scoped
-        # again using the effective identity of the current request.
-        initial_data = _scope_snapshot_payload(initial_data, access)
-        initial_data.update(
-            success=True,
-            stores=sorted(stores),
+    _attach_client_cache_meta(snapshot_meta, snapshot_path, user_name, access)
+    response = current_app.make_response(
+        render_template(
+            "daily_replenishment_operation.html",
             snapshot=snapshot_meta,
-            message="今日快照已直接加载",
+            # Keep the first response small; the browser loads the scoped snapshot
+            # asynchronously from /data instead of parsing thousands of embedded rows.
+            initial_data=None,
+            operator_stores=sorted(stores),
+            can_write=bool(access["can_write"]),
         )
-    return render_template(
-        "daily_replenishment_operation.html",
-        snapshot=snapshot_meta,
-        initial_data=initial_data,
-        operator_stores=sorted(stores),
-        can_write=bool(access["can_write"]),
     )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/refresh")
@@ -470,23 +548,71 @@ def refresh():
             return jsonify({"success": False, "message": "当前用户在 DianQuanXian 中只有阅读权限，不能生成或刷新"}), 403
         stores = set(access["read_stores"])
         uploaded = request.files.get("file")
+        overrides = {}
+        for form_key, setting_key, caster in (
+            ("listingDays", "low_margin_listing_days", int),
+            ("recentDays", "low_margin_recent_days", int),
+            ("marginThreshold", "low_margin_threshold", float),
+        ):
+            raw = (request.form.get(form_key) or "").strip()
+            if raw:
+                try:
+                    overrides[setting_key] = caster(raw)
+                except ValueError:
+                    return jsonify({"success": False, "message": "参数格式不正确"}), 400
         source = None
         if uploaded and getattr(uploaded, "filename", ""):
             source = base.save_uploaded_workbook(uploaded)
         else:
             source = base.resolve_source_path()
-        with _refresh_lock:
-            dataset = generate_operation_dataset(source, query_executor=scoped_executor)
-            snapshot = save_operation_workbook(dataset, get_snapshot_path(user_name=user_name))
-        payload = _sheet_payload(dataset)
-        payload.update(success=True, stores=sorted(stores), snapshot=_snapshot_payload(snapshot, user_name=user_name), message="日常补货运营的 7 个工作表已按店铺权限同步刷新")
-        cache_snapshot_payload(snapshot, payload)
-        return jsonify(payload)
+        job_id = uuid.uuid4().hex
+        app = current_app._get_current_object()
+        with _refresh_jobs_lock:
+            _refresh_jobs[job_id] = {"status": "queued", "user": user_name}
+
+        def run_job():
+            try:
+                # 后台线程没有请求上下文，必须自己压入应用上下文，
+                # 否则 get_generation_settings 等读取 current_app.config 的调用会抛
+                # “Working outside of application context”。
+                with app.app_context():
+                    with _refresh_jobs_lock:
+                        _refresh_jobs[job_id]["status"] = "running"
+                    with _refresh_lock:
+                        dataset = generate_operation_dataset(source, query_executor=scoped_executor, overrides=overrides)
+                        snapshot = save_operation_workbook(dataset, get_snapshot_path(user_name=user_name))
+                    payload = _sheet_payload(dataset)
+                    snapshot_meta = _snapshot_payload(snapshot, user_name=user_name)
+                    _attach_client_cache_meta(snapshot_meta, snapshot, user_name, access)
+                    payload.update(success=True, stores=sorted(stores), snapshot=snapshot_meta)
+                    cache_snapshot_payload(snapshot, payload)
+                with _refresh_jobs_lock:
+                    _refresh_jobs[job_id].update(status="completed", payload=payload)
+            except Exception as exc:
+                app.logger.exception("Failed to refresh daily replenishment operation")
+                with _refresh_jobs_lock:
+                    _refresh_jobs[job_id].update(status="failed", message=str(exc))
+
+        _refresh_executor.submit(run_job)
+        return jsonify({"success": True, "jobId": job_id, "status": "queued", "message": "刷新任务已在后台开始，切换页面不会中断"}), 202
     except base.DailyReplenishmentError as exc:
         return jsonify({"success": False, "message": str(exc)}), 400
     except Exception as exc:
         current_app.logger.exception("Failed to refresh daily replenishment operation")
-        return jsonify({"success": False, "message": f"日常补货运营刷新失败：{exc}"}), 500
+        return jsonify({"success": False, "message": f"智能补货中心-运营刷新失败：{exc}"}), 500
+
+
+@daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/refresh/<job_id>")
+@require_permission(PERMISSION_NAME)
+def refresh_status(job_id):
+    with _refresh_jobs_lock:
+        job = _refresh_jobs.get(job_id)
+        if not job or job.get("user") != _current_user_name():
+            return jsonify({"success": False, "message": "刷新任务不存在"}), 404
+        result = dict(job)
+    if result.get("status") == "completed":
+        return jsonify(result["payload"])
+    return jsonify({"success": result.get("status") != "failed", "status": result.get("status"), "message": result.get("message", "")})
 
 
 @daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/data")
@@ -497,15 +623,104 @@ def data():
     stores = set(access["read_stores"])
     snapshot, is_shared = _resolve_snapshot_for_user(user_name)
     if snapshot is None:
-        return jsonify({"success": False, "message": "今日的日常补货运营快照尚未生成"}), 404
+        return jsonify({"success": False, "message": "今日的智能补货中心-运营快照尚未生成"}), 404
     payload = load_snapshot_cached(snapshot)
     # Apply authorization on every response, including a user's own snapshot.
     # File ownership only selects a cache candidate; it must not grant data scope.
     payload = _scope_snapshot_payload(payload, access)
     snapshot_meta = _snapshot_payload(snapshot, user_name=user_name)
     snapshot_meta["download_available"] = not is_shared
+    _attach_client_cache_meta(snapshot_meta, snapshot, user_name, access)
     payload.update(success=True, stores=sorted(stores), snapshot=snapshot_meta)
     return jsonify(payload)
+
+
+@daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/sales-trend")
+@require_permission(PERMISSION_NAME)
+def sales_trend():
+    """返回 SKU 在快照销量区间内的逐日销量：单 SKU 供抽屉，多 SKU 供行内迷你走势。"""
+    raw_skus = str(request.args.get("skus") or "").strip()
+    raw_sku = str(request.args.get("sku") or "").strip()
+    if raw_skus:
+        wanted = [item.strip() for item in raw_skus.split(",") if item.strip()]
+    elif raw_sku:
+        wanted = [raw_sku]
+    else:
+        return jsonify({"success": False, "message": "缺少 SKU 参数"}), 400
+    if len(wanted) > 200:
+        return jsonify({"success": False, "message": "一次最多查询 200 个 SKU"}), 400
+    user_name = _current_user_name()
+    execute, access = scoped_query_executor(user_name)
+    visible = access.get("visible_skus") or set()
+    allowed = [sku for sku in wanted if sku in visible]
+    if not allowed:
+        return jsonify({"success": False, "message": "该 SKU 不在当前账号的店铺权限范围内"}), 403
+    try:
+        settings = _settings()
+        start, end = _trend_window(settings)
+    except base.DailyReplenishmentError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    table, column = _SALES_SOURCE_TABLES[settings["sales_source"]]
+    in_list = ",".join(f"'{escape_sql_literal(sku, escape_percent=False)}'" for sku in allowed)
+    sql = f"""/* daily_replenishment:sales_trend */
+SELECT SKU,RiQi,SUM(CAST(ISNULL({column},0) AS FLOAT))
+  FROM {table}
+ WHERE SKU IN ({in_list})
+   AND RiQi BETWEEN '{start.isoformat()}' AND '{end.isoformat()}'
+ GROUP BY SKU,RiQi
+ ORDER BY SKU,RiQi"""
+    try:
+        rows = execute(sql) or []
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"读取逐日销量失败：{exc}"}), 500
+
+    by_sku: dict[str, dict[str, int]] = {}
+    for raw in rows:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 3:
+            continue
+        sku = str(raw[0] or "").strip()
+        day = base._coerce_date(raw[1])
+        if not sku or day is None:
+            continue
+        by_sku.setdefault(sku, {})[day.isoformat()] = int(round(base._as_number(raw[2]) or 0))
+
+    dates = []
+    cursor = start
+    while cursor <= end:
+        dates.append(cursor.isoformat())
+        cursor += timedelta(days=1)
+
+    def series_for(sku: str) -> list[dict[str, Any]]:
+        day_map = by_sku.get(sku, {})
+        return [{"date": key, "qty": day_map.get(key, 0)} for key in dates]
+
+    if raw_skus:
+        series = {sku: series_for(sku) for sku in wanted}
+        return jsonify(
+            {
+                "success": True,
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "series": series,
+                "source": settings["sales_source"],
+            }
+        )
+
+    sku = wanted[0]
+    days = series_for(sku)
+    total = sum(item["qty"] for item in days)
+    return jsonify(
+        {
+            "success": True,
+            "sku": sku,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "days": days,
+            "sum": total,
+            "avg": round(total / len(days), 1) if days else 0,
+            "source": settings["sales_source"],
+        }
+    )
 
 
 @daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/download")
@@ -517,3 +732,150 @@ def download():
     if snapshot is None:
         return jsonify({"success": False, "message": "今日快照尚未生成"}), 404
     return send_file(snapshot, as_attachment=True, download_name=snapshot.name)
+
+
+# ---------------------------------------------------------------- 采购计划导入模板
+# 复刻 Excel【日常补货】页「生成采购计划」按钮的口径：
+#   订货量 > 10 的行 -> *SKU（有【下单SKU】就用它，否则原 SKU）
+#   *计划采购量 = 订货量；备注 = "成品SKU：原SKU" +（需下单里该 SKU 的备注）
+PURCHASE_PLAN_HEADERS = ("*SKU", "店铺", "FNSKU", "专属类型", "仓库", "MSKU", "供应商", "*计划采购量", "备注")
+PURCHASE_PLAN_MIN_QTY = 10
+
+
+def _purchase_plan_items(sheet_payload: dict[str, Any]) -> list[tuple[str, int]]:
+    """从日常补货快照中挑出”订货量 > 10”的 (原 SKU, 订货量)。"""
+    columns = [str(value or "").strip() for value in sheet_payload.get("columns") or []]
+    try:
+        sku_index = columns.index("SKU")
+        qty_index = columns.index("订货量")
+    except ValueError as exc:
+        raise base.DailyReplenishmentError("快照缺少“SKU”或“订货量”列，无法生成采购计划") from exc
+    items: list[tuple[str, int]] = []
+    for row in sheet_payload.get("rows") or []:
+        if not isinstance(row, (list, tuple)) or len(row) <= max(sku_index, qty_index):
+            continue
+        source_sku = str(row[sku_index] or "").strip()
+        quantity = base._as_number(row[qty_index])
+        if not source_sku or quantity is None or quantity <= PURCHASE_PLAN_MIN_QTY:
+            continue
+        items.append((source_sku, int(round(quantity))))
+    return items
+
+
+def _purchase_plan_sku_map(skus: set[str]) -> dict[str, str]:
+    """读取 XiaDanSKU 的「SKU -> 下单SKU」映射，等价于 Excel 手工修正过的【下单SKU】列。"""
+    if not skus:
+        return {}
+    literals = ",".join(f"N'{escape_sql_literal(sku, escape_percent=False)}'" for sku in sorted(skus))
+    try:
+        rows = base.sf_db(
+            "/* daily_replenishment_operation:purchase_plan_sku_map */\n"
+            "SELECT SKU,XiaDanSKU FROM dbo.XiaDanSKU "
+            f"WHERE SKU IN ({literals})"
+        ) or []
+    except Exception:
+        current_app.logger.warning("读取 XiaDanSKU 映射失败，采购计划将直接使用原 SKU", exc_info=True)
+        return {}
+    mapping: dict[str, str] = {}
+    for raw in rows:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            continue
+        sku = str(raw[0] or "").strip()
+        target = str(raw[1] or "").strip()
+        if sku and target:
+            mapping[sku] = target
+    return mapping
+
+
+def _purchase_plan_notes(skus: set[str]) -> dict[str, str]:
+    """读取今天【需下单】的备注（MeiTianXiaDan.BeiZhu），等价于 Excel 的 VLOOKUP(需下单!E:J,6)。"""
+    if not skus:
+        return {}
+    literals = ",".join(f"N'{escape_sql_literal(sku, escape_percent=False)}'" for sku in sorted(skus))
+    today = date.today().isoformat()
+    try:
+        rows = base.sf_db(
+            "/* daily_replenishment_operation:purchase_plan_notes */\n"
+            "SELECT SKU,BeiZhu FROM dbo.MeiTianXiaDan "
+            f"WHERE RiQi='{today}' AND SKU IN ({literals})"
+        ) or []
+    except Exception:
+        current_app.logger.warning("读取需下单备注失败，采购计划备注只保留成品SKU", exc_info=True)
+        return {}
+    notes: dict[str, str] = {}
+    for raw in rows:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            continue
+        sku = str(raw[0] or "").strip()
+        note = str(raw[1] or "").strip()
+        if sku and note:
+            notes.setdefault(sku, note)
+    return notes
+
+
+def _purchase_plan_rows(sheet_payload: dict[str, Any]) -> list[list[Any]]:
+    """拼出采购导入模板的数据行：*SKU / 店铺 / FNSKU / 专属类型 / 仓库 / MSKU / 供应商 / *计划采购量 / 备注。"""
+    items = _purchase_plan_items(sheet_payload)
+    if not items:
+        return []
+    source_skus = {sku for sku, _ in items}
+    sku_map = _purchase_plan_sku_map(source_skus)
+    chosen_skus = {(sku_map.get(sku) or sku) for sku in source_skus}
+    notes = _purchase_plan_notes(chosen_skus)
+    rows: list[list[Any]] = []
+    for source_sku, quantity in items:
+        sku = sku_map.get(source_sku) or source_sku
+        remark = f"成品SKU：{source_sku}"
+        note = notes.get(sku)
+        if note:
+            remark = f"{remark} {note}"
+        # 店铺/FNSKU/专属类型/仓库/MSKU/供应商 与原 Excel 一致，留空由采购填写
+        rows.append([sku, "", "", "", "", "", "", quantity, remark])
+    return rows
+
+
+@daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/purchase-plan")
+@require_permission(PERMISSION_NAME)
+def purchase_plan():
+    """按 Excel【日常补货】页「生成采购计划」的逻辑，导出采购导入模板（下单导入.xlsx）。"""
+    try:
+        user_name = _current_user_name()
+        _, access = scoped_query_executor(user_name)
+        snapshot, _is_shared = _resolve_snapshot_for_user(user_name)
+        if snapshot is None:
+            return jsonify({"success": False, "message": "今日的智能补货中心-运营快照尚未生成，请先点“生成 / 刷新”"}), 404
+        payload = _scope_snapshot_payload(load_snapshot_cached(snapshot), access)
+        sheet_payload = (payload.get("sheets") or {}).get(base.SHEET_NAME) or {}
+        rows = _purchase_plan_rows(sheet_payload)
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = "下单导入"
+        worksheet.append(list(PURCHASE_PLAN_HEADERS))
+        for values in rows:
+            worksheet.append(values)
+        for cell in worksheet[1]:
+            cell.font = Font(bold=True)
+        worksheet.freeze_panes = "A2"
+        for column, width in (("A", 20), ("B", 12), ("C", 16), ("H", 14), ("I", 56)):
+            worksheet.column_dimensions[column].width = width
+
+        today = date.today()
+        download_name = f"{today.month}.{today.day}下单导入.xlsx"
+        output_dir = get_output_dir(create=True) / "_采购计划"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        destination = output_dir / f"{today.isoformat()}_{uuid.uuid4().hex[:8]}下单导入.xlsx"
+        try:
+            workbook.save(destination)
+        finally:
+            workbook.close()
+
+        response = send_file(destination, as_attachment=True, download_name=download_name, max_age=0)
+        response.headers["X-Purchase-Plan-Rows"] = str(len(rows))
+        response.headers["X-Purchase-Plan-Min-Qty"] = str(PURCHASE_PLAN_MIN_QTY)
+        return response
+    except base.DailyReplenishmentError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        current_app.logger.exception("Failed to build daily replenishment purchase plan")
+        return jsonify({"success": False, "message": f"生成采购计划失败：{exc}"}), 500

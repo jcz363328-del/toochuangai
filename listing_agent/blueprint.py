@@ -41,6 +41,7 @@ ACTIVE_RANKING_FILE = ABA_RANKING_STORAGE_DIR / "active-aba-ranking.json"
 LISTING_RECORD_TABLE = "dbo.Listing_ShengCheng"
 LISTING_DATABASE_TEXT_LIMIT = 60_000
 SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+RISK_WORDS_FILE = ROOT / "risk_words.json"
 
 DEFAULT_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_SILICONFLOW_MODEL = "Qwen/Qwen3-VL-8B-Instruct"
@@ -63,6 +64,17 @@ TEXT_MODEL_FALLBACKS = (
     "Qwen/Qwen3-32B",
     "deepseek-ai/DeepSeek-V3.2",
 )
+
+
+def _load_risk_words() -> list[dict[str, Any]]:
+    try:
+        payload = json.loads(RISK_WORDS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return []
+    return [item for item in payload if isinstance(item, dict) and str(item.get("term") or "").strip()]
+
+
+RISK_WORDS = _load_risk_words()
 
 DO_NOT_INFER = [
     "不要仅凭图片推断材质、成分、低敏、无乳胶、防水、佩戴时长、可复用次数、无刺激、无残留或敏感眼可用等声明。",
@@ -99,7 +111,7 @@ EXTRACTION_PROMPT = """你是 Amazon 假睫毛产品图片事实提取助手。
 - 每个可见内容物单独输出一个 fact，key 使用 "contents"。
 - 不要输出代码块、Markdown 或 JSON 之外的内容。"""
 
-LISTING_SYSTEM_PROMPT = """You are an Amazon listing copywriter for beauty products. Write compliant, specific English listing copy from confirmed product facts only. Never invent materials, certifications, safety claims, wear time, waterproof performance, reusable count, package contents, or medical claims. Never use any forbidden term supplied by the user.
+LISTING_SYSTEM_PROMPT = """You are an Amazon listing copywriter for beauty products. Write compliant, specific English listing copy from confirmed product facts only. Never invent materials, certifications, safety claims, wear time, waterproof performance, reusable count, package contents, or medical claims. Never use any forbidden term supplied by the user. The compliance.riskTerms array is the built-in risk-word library; do not use any of those terms in any customer-facing field.
 
 Keyword placement is mandatory, not optional:
 1. Treat a smaller ABA rank number as higher priority. Use rankingPriority in ascending rank order.
@@ -671,6 +683,43 @@ def api_extract_image():
     )
 
 
+def _audit_listing_risks(variants: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    audits: dict[str, list[dict[str, Any]]] = {}
+    for variant in variants:
+        variant_id = _clean(variant.get("id"))
+        text = " ".join(
+            [
+                _clean(variant.get("title")),
+                _clean(variant.get("itemHighlight")),
+                *_string_list(variant.get("bullets"), 5),
+                _clean(variant.get("description")),
+                _clean(variant.get("searchTerms")),
+            ]
+        )
+        matches = []
+        for item in RISK_WORDS:
+            term = _clean(item.get("term"))
+            if not term:
+                continue
+            pattern = re.escape(term)
+            if term[0].isalnum() and term[-1].isalnum():
+                pattern = rf"(?<![A-Za-z0-9]){pattern}(?![A-Za-z0-9])"
+            if not re.search(pattern, text, flags=re.IGNORECASE):
+                continue
+            matches.append(
+                {
+                    "term": term,
+                    "category": _clean(item.get("category")),
+                    "level": int(_finite_number(item.get("level")) or 3),
+                    "meaning": _clean(item.get("meaning")),
+                    "reason": _clean(item.get("reason")),
+                    "replacement": _clean(item.get("replacement")),
+                }
+            )
+        audits[variant_id] = sorted(matches, key=lambda match: (-match["level"], match["term"].lower()))
+    return audits
+
+
 @listing_agent_bp.post("/api/generate-listings")
 def api_generate_listings():
     api_key = _get_api_key()
@@ -680,6 +729,7 @@ def api_generate_listings():
     if payload is None:
         return jsonify({"error": "Invalid JSON request body."}), 400
     prompt_payload = _normalize_listing_generation_input(payload)
+    prompt_payload["compliance"]["riskTerms"] = [item["term"] for item in RISK_WORDS]
     if not prompt_payload["product"]["type"]:
         return jsonify({"error": "Confirmed product facts are required before generating listings."}), 400
 
@@ -735,6 +785,8 @@ def api_generate_listings():
             {
                 "ok": True,
                 "variants": variants,
+                "riskAudit": _audit_listing_risks(variants),
+                "riskLibraryCount": len(RISK_WORDS),
                 "warning": "Listing generated but persistence failed",
                 "storage": {
                     "storedAs": "unsaved",
@@ -743,7 +795,15 @@ def api_generate_listings():
                 },
             }
         )
-    return jsonify({"ok": True, "variants": variants, "storage": storage})
+    return jsonify(
+        {
+            "ok": True,
+            "variants": variants,
+            "storage": storage,
+            "riskAudit": _audit_listing_risks(variants),
+            "riskLibraryCount": len(RISK_WORDS),
+        }
+    )
 
 
 @listing_agent_bp.route("/api/sellfox/ranking-file", methods=["GET", "HEAD"])

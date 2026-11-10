@@ -5,15 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>财务部功能 - 图创AI系统</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dashboard_secondary_favorites.css') }}" rel="stylesheet">
+    <script defer src="{{ url_for('static', filename='js/dashboard_secondary_favorites.js') }}"></script>
     <style>
-        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); min-height: 100vh; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 0; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .header-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; display:flex; justify-content:space-between; align-items:center; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
-        .modules-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(350px,1fr)); gap:30px; }
-        .module-card { background:white; padding:30px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.1); transition:all .3s ease; text-align:center; position:relative; }
-        .module-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .module-icon { font-size:4rem; margin-bottom:20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        * { box-sizing:border-box; }
+        body { margin:0; font-family:'Microsoft YaHei', Arial, sans-serif; background:#f5f7fb; color:#182033; min-height:100vh; }
+        .header { background:#fff; color:#111827; padding:15px 0; box-shadow:none; border-bottom:1px solid #e6eaf2; }
+        .header-content { max-width:1440px; margin:0 auto; padding:0 24px; display:flex; justify-content:space-between; align-items:center; }
+        .logo-section { display:flex; align-items:center; }
+        .logo-section i { color:#5b7cff; }
+        .nav-links a { color:#475569 !important; background:#f3f4f6; padding:6px 10px; border-radius:8px; }
+        .container { max-width:1440px; margin:0 auto; padding:18px 24px 48px; }
+        .directory-head { margin-bottom:10px; }
+        .directory-head h2 { margin:0; font-size:16px; display:flex; align-items:center; gap:8px; }
+        .directory-head h2 i { color:#5b7cff; }
+        .directory-head p { margin:3px 0 0; color:#94a3b8; font-size:12px; }
+        .modules-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; background:#fff; border:1px solid #edf1f7; border-radius:12px; padding:12px; }
+        .module-card { background:#fff; padding:18px; border:1px solid #e2e8f2; border-radius:11px; box-shadow:none; transition:border-color .2s, box-shadow .2s; text-align:center; position:relative; }
+        .module-card:hover { border-color:#b9c8ff; box-shadow:0 5px 14px rgba(62,91,183,.09); }
+        .module-card::before { display:none; }
+        .module-icon { width:34px; height:34px; margin:0 auto 9px; border-radius:9px; display:grid; place-items:center; font-size:16px; background:#eef2ff; color:#5b7cff; -webkit-text-fill-color:currentColor; }
+        .module-card h3 { margin:0 0 5px; font-size:15px; }
+        .module-card p { margin:0; color:#8a96a8; font-size:12px; line-height:1.45; }
         .feature-list { text-align:left; margin-bottom:20px; }
         .feature-list li { color:#666; margin-bottom:8px; padding-left:20px; position:relative; }
         .feature-list li::before { content:'✨'; position:absolute; left:0; }
@@ -29,7 +42,8 @@
     </header>
 
     <div class="container">
-<!--        <div class="modules-grid">-->
+        <div class="directory-head"><h2><i class="fas fa-layer-group"></i>功能模块</h2><p>财务数据导入、导出与结算工具</p></div>
+        <div class="modules-grid">
 <!--            <div class="module-card">-->
 <!--                <div class="module-icon"><i class="fas fa-file-export"></i></div>-->
 <!--                <h3>审批金额导出</h3>-->

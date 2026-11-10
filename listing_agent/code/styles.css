@@ -1116,6 +1116,32 @@ button:disabled {
     0 8px 20px rgba(72, 35, 52, 0.045);
 }
 
+.result-block.risk-audit-block {
+  border-width: 2px;
+  box-shadow: 0 10px 28px rgba(123, 30, 58, 0.12);
+}
+
+.result-block.risk-audit-block.has-risk { border-color: #d93654; }
+.result-block.risk-audit-block.is-clear { border-color: #66b98b; }
+.result-block.risk-audit-block.has-risk header { background: #ffe7ec; }
+.result-block.risk-audit-block.is-clear header { background: #edf9f2; }
+.result-block.risk-audit-block.has-risk .metric { border-color: #d93654; background: #d93654; color: #fff; }
+.result-block.risk-audit-block.is-clear .metric { border-color: #66b98b; color: #24764a; }
+.risk-audit-summary { display: grid; gap: 4px; padding: 12px; border-radius: 9px; }
+.risk-audit-summary strong { font-size: 16px; }
+.risk-audit-summary span { color: var(--muted); font-size: 12px; }
+.risk-audit-summary.warning { background: #fff0f3; color: #ad1f3b; }
+.risk-audit-summary.clear { background: #eff9f3; color: #24764a; }
+.risk-audit-list { display: grid; gap: 8px; max-height: 320px; overflow: auto; margin-top: 10px; }
+.risk-audit-list article { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #efbcc6; border-radius: 8px; background: #fff; }
+.risk-audit-list article > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.risk-audit-list article strong { color: #aa1d39; font-size: 14px; }
+.risk-audit-list article b { padding: 3px 7px; border-radius: 999px; background: #ffe0e6; color: #b32440; font-size: 10px; }
+.risk-audit-list p, .risk-audit-list small, .risk-audit-list em { margin: 0; line-height: 1.5; }
+.risk-audit-list p { color: #49363f; font-weight: 800; }
+.risk-audit-list small { color: var(--muted); }
+.risk-audit-list em { color: #8b5918; font-style: normal; }
+
 .result-block header {
   display: flex;
   align-items: center;
@@ -2452,6 +2478,34 @@ span.recognition-upload-copy {
   align-self: center;
   color: var(--subtle);
 }
+
+.context-risk-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 10px 0;
+  padding: 13px 11px;
+  border: 1px solid #efb7c3;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fff0f3, #fff9fa);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 7px 18px rgba(138, 36, 67, .08);
+}
+
+.context-risk-card:hover { border-color: #cf4965; background: #ffe9ee; }
+.context-risk-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: #c73555; color: #fff; }
+.context-risk-icon svg { width: 18px; height: 18px; }
+.context-risk-copy { display: grid; gap: 4px; min-width: 0; }
+.context-risk-copy > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.context-risk-copy strong { font-size: 13px; }
+.context-risk-copy b { flex: 0 0 auto; padding: 2px 6px; border-radius: 999px; background: #c73555; color: #fff; font-size: 9px; }
+.context-risk-copy small { color: #9d2645; font-size: 10px; font-weight: 800; }
+.context-risk-copy em { color: var(--subtle); font-size: 9px; font-style: normal; line-height: 1.4; }
+.context-risk-card > svg { width: 15px; height: 15px; color: #bd4260; }
 
 .context-detail {
   margin-top: 12px;

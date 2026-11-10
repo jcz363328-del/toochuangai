@@ -7,11 +7,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class BusinessAnalysisIntegrationTests(unittest.TestCase):
-    def test_ai_department_has_business_analysis_card(self):
-        page = (ROOT / "templates" / "ai_modules.html").read_text(encoding="utf-8")
+    def test_main_dashboard_has_business_analysis_card(self):
+        page = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8")
+        ai_page = (ROOT / "templates" / "ai_modules.html").read_text(encoding="utf-8")
 
         self.assertIn("<h3>经营分析</h3>", page)
         self.assertIn("url_for('business_analysis')", page)
+        self.assertNotIn("<h3>经营分析</h3>", ai_page)
 
     def test_flask_bundle_and_protected_routes_are_wired(self):
         app_source = (ROOT / "app.py").read_text(encoding="utf-8")
@@ -39,6 +41,15 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
         flask_main = (ROOT / "business_analysis" / "flask" / "main.tsx").read_text(encoding="utf-8")
         self.assertIn("emptyWorkbookData", flask_main)
         self.assertNotIn("workbook-data.json", flask_main)
+
+    def test_daily_dashboard_snapshot_caches_current_and_previous_month(self):
+        refresh_script = (
+            ROOT / "business_analysis" / "scripts" / "refresh-dashboard-snapshot.mjs"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("const cachedPeriods = [period, previousPeriod];", refresh_script)
+        self.assertIn("schemaVersion: 2", refresh_script)
+        self.assertIn("periods[selectedPeriod]", refresh_script)
 
     def test_key_tasks_use_json_without_node_date(self):
         dashboard = (ROOT / "business_analysis" / "app" / "components" / "KeyTasksBoard.tsx").read_text(
@@ -72,6 +83,7 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
         self.assertNotIn("整体达成率", overview)
         self.assertIn('className="fiscal-kpi fiscal-kpi-main"', overview)
         self.assertIn('"财年总目标"', overview)
+        self.assertIn('data.scope.role === "member" && data.scope.operator', overview)
         self.assertIn("buildPeriodTimeline", overview)
         self.assertIn("<h2>{periodName}时间与目标完成对比</h2>", overview)
         self.assertNotIn('data.filters.periodType === "annual" ? buildFiscalTimeline', overview)

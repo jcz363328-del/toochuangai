@@ -26,27 +26,44 @@ FEISHU_CONFIG = dict(SECRET_FEISHU_CONFIG)
 DEPARTMENT_ID_MAPPING = {
     # 根据实际飞书组织架构配置部门ID和名称的映射关系
     # 格式: 'department_id': 'department_name'
+    'od-f652a036dd421ff38d25b92e423026df': 'AI部',
+    'od-82e136378bb07aeae74247dd78a08b18': 'TK直播部',
+    'od-e7b5654df37bd9375225e8fce462a408': '财务部',
+    'od-9929dd4f4d3b0be7c1f635d17e46ae22': '采购部',
+    'od-692236b3673407d6c0333c42fd6b01af': '仓储部',
+    'od-bca4e38e980226d367f7c501b3697e5a': '技术部',
     'od-c560effca33bf715c15f79a0670fe6ba': '内容生产工厂',
+    'od-f400f2b1de53f7303b589420f14b6c5a': '人力行政部',
+    'od-533088d36a43c281e0a2e99161e7e6a9': '摄影部',
+    'od-c6530027bce19f79a623f46dc9a57372': '深圳团队',
+    'od-791aa15d697bd40782942379363d4f21': '视觉设计部',
+    'od-7f3fe0bc0e3d40946363a85b07e4c1c9': '外部顾问',
+    'od-580f76720379d11ad66be30aaf7034a4': '新人组',
+    'od-364835a9f7cc1ad050046cd995f886e4': '研发部',
+    'od-9fca123ccde5fe9b2e8705d01365e754': '运营部',
+    'od-44dc61c250f0246d8d91bb606828cc15': '总经办',
     'od-1fd573a06618d5efc50558aa4c6c8fde': 'BD部',
+    'od-6fffe97f7129ad9bc85162ac5cabcb20': 'TK部门',
+    'od-996da0561bdfe1bfb6ddb42adaa3b0e3': '产品&店铺运营',
+    'od-85fabb3ca442f1f655e028732fda41b6': '独立站',
     'od-411009520c49cf4d96112d486356cacd': '短视频部',
     'od-3a5fdfc4a7c8a87f5f35b297dce74113': '客服',
-    'od-996da0561bdfe1bfb6ddb42adaa3b0e3': '产品&店铺运营',
-    'od-44dc61c250f0246d8d91bb606828cc15': '总经办',
-    'od-b07e2f864d107ce0a4b85b2b41fa4789': '运营一部',
-    'od-116119842dc8080c84f3136f53732d94': '运营二部',
-    'od-6fe88bb79ed3fce51ed344dfe7f57297': '运营三部',
-    'od-32e208044431366fa2d61f78176d88c8': '运营六部',
-    'od-9929dd4f4d3b0be7c1f635d17e46ae22': '采购部',
-    'od-364835a9f7cc1ad050046cd995f886e4': '研发部',
-    'od-bca4e38e980226d367f7c501b3697e5a': '技术部',
-    'od-791aa15d697bd40782942379363d4f21': '视觉设计部',
-    'od-533088d36a43c281e0a2e99161e7e6a9': '摄影部',
-    'od-f652a036dd421ff38d25b92e423026df': 'AI部',
-    'od-e7b5654df37bd9375225e8fce462a408': '财务部',
-    'od-f400f2b1de53f7303b589420f14b6c5a': '人力行政部',
-    'od-580f76720379d11ad66be30aaf7034a4': '新人组',
-    'od-692236b3673407d6c0333c42fd6b01af': '仓储部',
-    'od-6fffe97f7129ad9bc85162ac5cabcb20': 'TK部门',
+    'od-98dc240d6d8d96f5dddcdc865adbbb03': '库管',
+    'od-fc042116143e21654afa2dba4caf5d75': '人力行政',
+    'od-8b20d4711c627f81b0bf8b72a0cc53fa': '文员',
+    'od-b19ea8d2a8a9544921f0e437538f35e6': '沃尔玛',
+    'od-3588e87a8fd07c8765285f3b95616fb4': '亚马逊',
+    'od-89f78f0f72f3bfee4741b8aa1570b6c9': '运营二部',
+    'od-e5024d4f6711f478ce052274d5ce33ea': '运营六部',
+    'od-ee2a36f326f6cfad44ce06a80f2f07e8': '运营七部',
+    'od-5ad4b6e18c3734622dbdae8ba05d27fd': '运营三部',
+    'od-6d3c01c56d414c3b6ae96bc973b8ce70': '运营一部',
+    'od-98541a1b5223e1166c4dfe456110bc34': '质检',
+    'od-a96f3c9bcc41bf6e8d75ae7cf249c240': '桌长',
+    'od-9eac17d59c51684f90a0a6c78ffe21ef': 'BD二组',
+    'od-8e234df817e0707418b6fa50b1acd9c4': 'BD三组',
+    'od-d98b885bdc8ee6cc33b62707404e8a43': 'BD四组',
+    'od-884d568d0952416a876a77c087a1d15a': 'BD一组',
 }
 
 # 根部门权限按飞书父子部门链自动向下继承，无需逐个枚举子部门名称。
@@ -182,9 +199,9 @@ PERMISSION_CONFIG = {
         'description': 'AI功能卡片中的日常补货工作台，仅允许 AI部访问'
     },
     'daily_replenishment_operation': {
-        'name': '日常补货运营',
+        'name': '智能补货中心-运营',
         'allowed_departments': ['运营部', 'AI部', '总经办'],
-        'description': '日常补货运营版多工作表刷新功能，运营人员按 v_PinPaiDianPu.YunYing 查看本人店铺'
+        'description': '智能补货中心-运营版多工作表刷新功能，运营人员按 v_PinPaiDianPu.YunYing 查看本人店铺'
     },
     'ai_group_performance': {
         'name': '组别经营数据',
@@ -316,6 +333,8 @@ class FeishuPermissionManager:
         self._direct_http.trust_env = False
 
     def _feishu_request(self, method, url, **kwargs):
+        # 飞书或代理异常时不能让页面请求无限等待；调用方仍可传入更短的超时。
+        kwargs.setdefault('timeout', 8)
         try:
             return requests.request(method=method, url=url, **kwargs)
         except requests.exceptions.ProxyError as e:
@@ -1631,6 +1650,48 @@ class FeishuPermissionManager:
             user_departments = self.get_user_departments(user_id) or []
         except Exception:
             user_departments = []
+
+        # A Feishu contact lookup can briefly return no departments (for example
+        # while the tenant token is refreshing).  Do one bounded retry after
+        # dropping only this user's department cache; otherwise a transient
+        # empty result incorrectly denies every department based permission.
+        # Keep this retry local to the permission request and never broaden the
+        # database grant itself.
+        def _valid_department_names(rows):
+            names = []
+            for one in rows or []:
+                if not isinstance(one, dict):
+                    continue
+                status = str(one.get("status") or "").strip().lower()
+                name = str(one.get("name") or "").strip()
+                if status not in {"invalid", "unmapped"} and name:
+                    names.append(name)
+            return names
+
+        if not _valid_department_names(user_departments) and str(user_id or "").strip():
+            try:
+                self.clear_cache(str(user_id).strip())
+                user_departments = self.get_user_departments(user_id) or []
+            except Exception:
+                # The first result remains authoritative if the bounded retry
+                # also fails; personal permissions are still evaluated below.
+                pass
+
+        # Older sessions (and sessions restored after a token expires) may have
+        # a department hint captured at login even when the contact API is
+        # temporarily unavailable.  Use it only for the real session subject;
+        # identity-debug/switch state is still resolved separately below.
+        if not _valid_department_names(user_departments) and has_request_context():
+            session_user_id = str(session.get("feishu_user_id") or "").strip()
+            session_department = str(session.get("user_department") or "").strip()
+            if session_department and session_user_id == str(user_id or "").strip():
+                user_departments = [{
+                    "department_id": f"session:{session_department}",
+                    "name": session_department,
+                    "status": "active",
+                    "source": "session_fallback",
+                }]
+
         valid_names = []
         invalid_names = []
         unmapped_names = []
@@ -2093,16 +2154,21 @@ class FeishuPermissionManager:
     def search_user_by_id_or_email(self, search_value):
         """根据用户ID、邮箱或飞书姓名搜索用户信息。"""
         try:
-            # 首先尝试作为用户ID搜索
-            user_info = self.get_user_info_by_user_id(search_value)
-            if user_info:
-                departments = self.get_user_departments(search_value)
-                return {
-                    'user_id': search_value,
-                    'name': user_info.get('name', '未知'),
-                    'email': user_info.get('email', '未知'),
-                    'departments': [dept.get('name', '') for dept in departments]
-                }
+            search_value = str(search_value or '').strip()
+
+            # 只有真正像飞书 ID 的输入才请求用户详情接口。旧逻辑会先把中文姓名
+            # 当作 ID 请求飞书，必须等待该请求失败后才查询本地姓名映射。
+            looks_like_user_id = search_value.startswith(('ou_', 'ou-', 'on_', 'on-', 'u_'))
+            if looks_like_user_id:
+                user_info = self.get_user_info_by_user_id(search_value)
+                if user_info:
+                    departments = self.get_user_departments(search_value)
+                    return {
+                        'user_id': search_value,
+                        'name': user_info.get('name', '未知'),
+                        'email': user_info.get('email', '未知'),
+                        'departments': [dept.get('name', '') for dept in departments]
+                    }
 
             # 如果作为用户ID没找到，尝试作为邮箱搜索
             if '@' in search_value:  # 判断是否为邮箱格式
@@ -2138,12 +2204,12 @@ class FeishuPermissionManager:
             if matched:
                 matched_user_id = str(matched[0] or '').strip()
                 matched_name = str(matched[1] or search_value).strip()
-                user_info = self.get_user_info_by_user_id(matched_user_id) or {}
+                # 本地表已有姓名；部门查询会读取同一个飞书用户，无需再重复请求详情。
                 departments = self.get_user_departments(matched_user_id) or []
                 return {
                     'user_id': matched_user_id,
-                    'name': user_info.get('name') or matched_name or '未知',
-                    'email': user_info.get('email') or '未知',
+                    'name': matched_name or '未知',
+                    'email': '未知',
                     'departments': [dept.get('name', '') for dept in departments],
                 }
 

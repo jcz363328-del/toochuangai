@@ -1,6 +1,6 @@
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
@@ -326,6 +326,50 @@ class DailyReplenishmentTests(unittest.TestCase):
         self.assertEqual(20, values[11])
         self.assertEqual(22, values[12])
         self.assertEqual("1：美国", values[20])
+
+    def test_smart_replenishment_fills_order_quantity_and_days(self):
+        def fake_query(sql):
+            if "daily_replenishment:core" in sql:
+                return [
+                    (
+                        "王丽爽", 11, "A", "SKU-A", 500, 100, 50, 150, 0.2,
+                        date(2026, 9, 1), None, None, "52", "SKU-A", "簇毛", "59-1",
+                    )
+                ]
+            if "daily_replenishment:sites" in sql:
+                return [("SKU-A", "美国")]
+            if "daily_replenishment:comments_" in sql:
+                return []
+            if "daily_replenishment:smart_sales_history" in sql:
+                return [("SKU-A", date(2026, 9, 1) + timedelta(days=offset), 10) for offset in range(15)]
+            if "daily_replenishment:smart_sites" in sql:
+                return [("SKU-A", "美国", 0, 150, 10.0, 20.0)]
+            if "daily_replenishment:smart_margins" in sql:
+                return [("SKU-A", 0.15)]
+            if "daily_replenishment:smart_status" in sql:
+                return []
+            return []
+
+        with app_module.app.app_context():
+            settings = daily_module.get_generation_settings(
+                as_of_date=date(2026, 9, 9),
+                recent_days=15,
+                sales_source="付款",
+            )
+            dataset = daily_module.generate_database_dataset(
+                settings,
+                query_executor=fake_query,
+            )
+
+        row = dataset["rows"][0]
+        values = row["values"]
+        self.assertGreater(values[13], 0)
+        expected_days = daily_module._available_days(
+            values[4] + values[6] + values[13],
+            values[8],
+        )
+        self.assertEqual(expected_days, values[14])
+        self.assertIn("智能补货建议", row["comments"]["13"])
 
     def test_snapshot_round_trip_preserves_cell_comments(self):
         dataset = build_sample_dataset()

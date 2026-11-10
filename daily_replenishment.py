@@ -1378,6 +1378,9 @@ def generate_database_dataset(
     *,
     query_executor=sf_db,
 ) -> dict[str, Any]:
+    # 延迟导入：smart_replenishment 依赖本模块的取数与单元格工具
+    import smart_replenishment
+
     try:
         core_rows = query_executor(_generation_sql(settings)) or []
         site_rows = query_executor(
@@ -1478,6 +1481,17 @@ def generate_database_dataset(
         ]
         generated_rows.append({"row_number": 0, "values": values})
 
+    # 智能补货（可迁移包算法）：建议下单量写入「订货量」并重算「订货后可售天数」。
+    # 取数或计算异常时保持原行为（订货量 0），不影响主表生成。
+    try:
+        suggestions = smart_replenishment.attach_suggestions(
+            settings,
+            generated_rows,
+            query_executor=query_executor,
+        )
+    except Exception:
+        suggestions = {}
+
     def sort_key(row: dict[str, Any]):
         values = row["values"]
         store_number = _as_number(values[1])
@@ -1510,6 +1524,11 @@ def generate_database_dataset(
             str(index): list(tokens)
             for index, tokens in dict(styles_by_sku.get(sku) or {}).items()
         }
+        suggestion = suggestions.get(sku)
+        if suggestion:
+            note = smart_replenishment.order_comment(suggestion)
+            previous = row["comments"].get("13")
+            row["comments"]["13"] = f"{previous}\n\n{note}" if previous else note
 
     generation = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

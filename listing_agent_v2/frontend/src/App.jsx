@@ -132,6 +132,8 @@ export function App() {
   const [images, setImages] = useState([]);
   const [imageState, setImageState] = useState("idle");
   const [variants, setVariants] = useState([]);
+  const [riskAudit, setRiskAudit] = useState({});
+  const [riskLibraryCount, setRiskLibraryCount] = useState(0);
   const [activeId, setActiveId] = useState("balanced");
   const [loading, setLoading] = useState(false);
   const [editingKey, setEditingKey] = useState("");
@@ -240,6 +242,8 @@ export function App() {
       }));
       if (normalized.length !== 3) throw new Error("AI 未返回完整的三版 Listing");
       setVariants(normalized);
+      setRiskAudit(result.riskAudit || {});
+      setRiskLibraryCount(Number(result.riskLibraryCount) || 0);
       setActiveId(normalized.find((item) => item.id === "balanced")?.id || normalized[0].id);
       setTranslations({});
       setEditingKey("");
@@ -458,6 +462,10 @@ export function App() {
           ) : (
             <div className="result-scroll">
               <CoveragePanel coverage={coverage} />
+              <RiskPanel
+                matches={riskAudit[activeVariant.id] || []}
+                libraryCount={riskLibraryCount}
+              />
               <div className="content-stack">
                 <ListingField
                   label="Title"
@@ -755,6 +763,36 @@ function CoveragePanel({ coverage }) {
         <Metric label="高优先词覆盖" value={`${coverage.highCovered}/${coverage.highTotal}`} />
         <Metric label="Search Terms 字节" value={`${coverage.searchBytes}/249 bytes`} />
       </div>
+    </section>
+  );
+}
+
+function RiskPanel({ matches, libraryCount }) {
+  const hasRisk = matches.length > 0;
+  return (
+    <section className={`risk-panel ${hasRisk ? "has-risk" : "is-clear"}`} aria-live="polite">
+      <div className="risk-panel-heading">
+        <div className="risk-panel-title">
+          {hasRisk ? <WarningCircle weight="fill" /> : <CheckCircle weight="fill" />}
+          <div>
+            <strong>{hasRisk ? `发现 ${matches.length} 个风险词` : "风险词检查通过"}</strong>
+            <span>已按内置 {libraryCount || 562} 条 Amazon 风险词检查当前方案</span>
+          </div>
+        </div>
+        <b>{hasRisk ? "发布前必须复核" : "未发现命中"}</b>
+      </div>
+      {hasRisk && (
+        <div className="risk-match-list">
+          {matches.map((match) => (
+            <article className="risk-match" key={`${match.category}-${match.term}`}>
+              <div><strong>{match.term}</strong><span className={`risk-level level-${match.level}`}>风险 {match.level}</span></div>
+              <p>{match.category}{match.meaning ? ` · ${match.meaning}` : ""}</p>
+              <small>{match.reason || "该词可能触发平台审核"}</small>
+              {match.replacement && <em>建议：{match.replacement}</em>}
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

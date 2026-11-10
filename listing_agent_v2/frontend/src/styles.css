@@ -133,6 +133,29 @@ input::placeholder, textarea::placeholder { color: #aaa0a5; }
 .saved-status svg { width: 14px; height: 14px; }
 .result-scroll { min-height: 0; overflow-y: auto; padding: 12px; scrollbar-width: thin; scrollbar-color: #dbc4ce transparent; }
 .coverage-panel { border: 1px solid #e1b9c9; border-radius: 9px; background: #fffafb; overflow: hidden; }
+.risk-panel { margin-top: 10px; border: 2px solid; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 20px rgba(103, 34, 55, .08); }
+.risk-panel.is-clear { border-color: #9bcdb4; background: #f4fbf7; }
+.risk-panel.has-risk { border-color: #dc4961; background: #fff5f6; }
+.risk-panel-heading { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; }
+.risk-panel.has-risk .risk-panel-heading { background: #ffe7eb; }
+.risk-panel-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.risk-panel-title > svg { flex: 0 0 auto; width: 25px; height: 25px; color: var(--success); }
+.risk-panel.has-risk .risk-panel-title > svg { color: #c72f4c; }
+.risk-panel-title > div { display: grid; gap: 3px; }
+.risk-panel-title strong { font-size: 14px; }
+.risk-panel-title span { color: var(--muted); font-size: 10px; }
+.risk-panel-heading > b { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: #dff3e8; color: #21764d; font-size: 10px; }
+.risk-panel.has-risk .risk-panel-heading > b { background: #c72f4c; color: #fff; }
+.risk-match-list { display: grid; gap: 7px; max-height: 260px; overflow: auto; padding: 10px; border-top: 1px solid #efbac4; }
+.risk-match { display: grid; gap: 4px; padding: 9px 10px; border: 1px solid #efc6ce; border-radius: 7px; background: #fff; }
+.risk-match > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.risk-match strong { color: #a91f3b; font-size: 12px; }
+.risk-match p, .risk-match small, .risk-match em { margin: 0; font-size: 10px; line-height: 1.45; }
+.risk-match p { color: #594b50; font-weight: 600; }
+.risk-match small { color: var(--muted); }
+.risk-match em { color: #8f5b19; font-style: normal; }
+.risk-level { padding: 3px 6px; border-radius: 4px; background: #ffe4e8; color: #b5223e; font-size: 9px; font-weight: 700; }
+.risk-level.level-1, .risk-level.level-2 { background: #fff1cb; color: #8b5b00; }
 .coverage-heading { min-height: 45px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-bottom: 1px solid #eedce3; }
 .coverage-heading > div { display: grid; gap: 2px; }
 .coverage-heading strong { font-size: 13px; }

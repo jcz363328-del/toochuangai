@@ -1,0 +1,3067 @@
+{
+  "generatedAt": "2026-11-10T03:34:01.393Z",
+  "source": "original Jinja templates rendered in isolation, mocked GET APIs",
+  "browser": "isolated headless Microsoft Edge",
+  "assetNotes": [],
+  "mockData": {
+    "basic_stats": {
+      "total_count": 17,
+      "adopted_count": 2,
+      "effectiveness_rate": 11.76
+    },
+    "top_departments": [
+      {
+        "name": "产品研发部",
+        "score": 20
+      },
+      {
+        "name": "内容工厂",
+        "score": 10
+      },
+      {
+        "name": "销售一部",
+        "score": 8
+      }
+    ],
+    "top_persons": [
+      {
+        "name": "李欣纳",
+        "score": 10
+      },
+      {
+        "name": "周俊成",
+        "score": 10
+      },
+      {
+        "name": "李彩",
+        "score": 0
+      },
+      {
+        "name": "孙文杰",
+        "score": 0
+      },
+      {
+        "name": "王玉瑶",
+        "score": 0
+      }
+    ],
+    "top_proposal_counts": [
+      {
+        "name": "周俊成",
+        "count": 1,
+        "effective_count": 1
+      },
+      {
+        "name": "李欣纳",
+        "count": 1,
+        "effective_count": 1
+      },
+      {
+        "name": "崔燕妮",
+        "count": 2,
+        "effective_count": 0
+      },
+      {
+        "name": "张馨文",
+        "count": 2,
+        "effective_count": 0
+      },
+      {
+        "name": "林言",
+        "count": 2,
+        "effective_count": 0
+      },
+      {
+        "name": "刘佳",
+        "count": 1,
+        "effective_count": 0
+      },
+      {
+        "name": "孙佳榕",
+        "count": 1,
+        "effective_count": 0
+      },
+      {
+        "name": "孙文杰",
+        "count": 1,
+        "effective_count": 0
+      }
+    ],
+    "top_highest_scores": [
+      {
+        "name": "李欣纳",
+        "score": 10
+      },
+      {
+        "name": "周俊成",
+        "score": 10
+      }
+    ],
+    "categories": [
+      {
+        "name": "工作内容及流程创新",
+        "count": 13
+      },
+      {
+        "name": "产品改善及创新",
+        "count": 4
+      }
+    ],
+    "monthly_trend": [
+      {
+        "month": "2026-06",
+        "count": 2
+      },
+      {
+        "month": "2026-07",
+        "count": 5
+      },
+      {
+        "month": "2026-08",
+        "count": 3
+      },
+      {
+        "month": "2026-09",
+        "count": 8
+      },
+      {
+        "month": "2026-10",
+        "count": 10
+      },
+      {
+        "month": "2026-11",
+        "count": 17
+      }
+    ]
+  },
+  "errors": [],
+  "blockedWrites": [],
+  "results": [
+    {
+      "label": "viewport-375",
+      "viewportWidth": 375,
+      "pageWidth": 375,
+      "grid": {
+        "x": 41,
+        "y": 1857.453125,
+        "width": 293,
+        "height": 2552,
+        "right": 334,
+        "bottom": 4409.453125,
+        "trackCount": 1,
+        "trackWidths": "293px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "-1",
+          "x": 41,
+          "y": 1857.453125,
+          "width": 293,
+          "height": 431,
+          "right": 334,
+          "bottom": 2288.453125
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "-1",
+          "x": 41,
+          "y": 2306.453125,
+          "width": 293,
+          "height": 431,
+          "right": 334,
+          "bottom": 2737.453125
+        },
+        {
+          "title": "个人提案表现",
+          "span": "-1",
+          "x": 41,
+          "y": 2755.453125,
+          "width": 293,
+          "height": 409,
+          "right": 334,
+          "bottom": 3164.453125
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "-1",
+          "x": 41,
+          "y": 3182.453125,
+          "width": 293,
+          "height": 391,
+          "right": 334,
+          "bottom": 3573.453125
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 41,
+          "y": 3591.453125,
+          "width": 293,
+          "height": 391,
+          "right": 334,
+          "bottom": 3982.453125
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 41,
+          "y": 4000.453125,
+          "width": 293,
+          "height": 409,
+          "right": 334,
+          "bottom": 4409.453125
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 58,
+          "y": 1931.453125,
+          "width": 259,
+          "height": 340,
+          "right": 317,
+          "bottom": 2271.453125,
+          "canvasWidth": 259,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 58,
+          "y": 2380.453125,
+          "width": 259,
+          "height": 340,
+          "right": 317,
+          "bottom": 2720.453125,
+          "canvasWidth": 259,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 58,
+          "y": 2847.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 3147.453125,
+          "canvasWidth": 259,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 58,
+          "y": 3256.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 3556.453125,
+          "canvasWidth": 259,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 58,
+          "y": 3665.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 3965.453125,
+          "canvasWidth": 259,
+          "media": {
+            "legendOrient": "horizontal",
+            "labels": false
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 58,
+          "y": 4092.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 4392.453125,
+          "canvasWidth": 259,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-768",
+      "viewportWidth": 768,
+      "pageWidth": 768,
+      "grid": {
+        "x": 55,
+        "y": 339.359375,
+        "width": 658,
+        "height": 2516,
+        "right": 713,
+        "bottom": 2855.359375,
+        "trackCount": 1,
+        "trackWidths": "658px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "-1",
+          "x": 55,
+          "y": 339.359375,
+          "width": 658,
+          "height": 431,
+          "right": 713,
+          "bottom": 770.359375
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "-1",
+          "x": 55,
+          "y": 788.359375,
+          "width": 658,
+          "height": 431,
+          "right": 713,
+          "bottom": 1219.359375
+        },
+        {
+          "title": "个人提案表现",
+          "span": "-1",
+          "x": 55,
+          "y": 1237.359375,
+          "width": 658,
+          "height": 391,
+          "right": 713,
+          "bottom": 1628.359375
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "-1",
+          "x": 55,
+          "y": 1646.359375,
+          "width": 658,
+          "height": 391,
+          "right": 713,
+          "bottom": 2037.359375
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 55,
+          "y": 2055.359375,
+          "width": 658,
+          "height": 391,
+          "right": 713,
+          "bottom": 2446.359375
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 55,
+          "y": 2464.359375,
+          "width": 658,
+          "height": 391,
+          "right": 713,
+          "bottom": 2855.359375
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 72,
+          "y": 413.359375,
+          "width": 624,
+          "height": 340,
+          "right": 696,
+          "bottom": 753.359375,
+          "canvasWidth": 624,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 72,
+          "y": 862.359375,
+          "width": 624,
+          "height": 340,
+          "right": 696,
+          "bottom": 1202.359375,
+          "canvasWidth": 624,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 72,
+          "y": 1311.359375,
+          "width": 624,
+          "height": 300,
+          "right": 696,
+          "bottom": 1611.359375,
+          "canvasWidth": 624,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 72,
+          "y": 1720.359375,
+          "width": 624,
+          "height": 300,
+          "right": 696,
+          "bottom": 2020.359375,
+          "canvasWidth": 624,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 72,
+          "y": 2129.359375,
+          "width": 624,
+          "height": 300,
+          "right": 696,
+          "bottom": 2429.359375,
+          "canvasWidth": 624,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 72,
+          "y": 2538.359375,
+          "width": 624,
+          "height": 300,
+          "right": 696,
+          "bottom": 2838.359375,
+          "canvasWidth": 624,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-769",
+      "viewportWidth": 769,
+      "pageWidth": 769,
+      "grid": {
+        "x": 63,
+        "y": 84.96875,
+        "width": 643,
+        "height": 1524,
+        "right": 706,
+        "bottom": 1608.96875,
+        "trackCount": 12,
+        "trackWidths": "37.0781px 37.0781px 37.0781px 37.0781px 37.0781px 37.0781px 37.0781px 37.0781px 37.0781px 37.0781px 37.0781px 37.0781px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 84.96875,
+          "width": 312.5,
+          "height": 393,
+          "right": 375.5,
+          "bottom": 477.96875
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 393.5,
+          "y": 84.96875,
+          "width": 312.5,
+          "height": 393,
+          "right": 706,
+          "bottom": 477.96875
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 495.96875,
+          "width": 312.5,
+          "height": 371,
+          "right": 375.5,
+          "bottom": 866.96875
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 393.5,
+          "y": 495.96875,
+          "width": 312.5,
+          "height": 371,
+          "right": 706,
+          "bottom": 866.96875
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 63,
+          "y": 884.96875,
+          "width": 643,
+          "height": 353,
+          "right": 706,
+          "bottom": 1237.96875
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 1255.96875,
+          "width": 643,
+          "height": 353,
+          "right": 706,
+          "bottom": 1608.96875
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 146.96875,
+          "width": 290.5,
+          "height": 320,
+          "right": 364.5,
+          "bottom": 466.96875,
+          "canvasWidth": 291,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 404.5,
+          "y": 146.96875,
+          "width": 290.5,
+          "height": 320,
+          "right": 695,
+          "bottom": 466.96875,
+          "canvasWidth": 291,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 575.96875,
+          "width": 290.5,
+          "height": 280,
+          "right": 364.5,
+          "bottom": 855.96875,
+          "canvasWidth": 291,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 404.5,
+          "y": 557.96875,
+          "width": 290.5,
+          "height": 280,
+          "right": 695,
+          "bottom": 837.96875,
+          "canvasWidth": 291,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 74,
+          "y": 946.96875,
+          "width": 621,
+          "height": 280,
+          "right": 695,
+          "bottom": 1226.96875,
+          "canvasWidth": 621,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 1317.96875,
+          "width": 621,
+          "height": 280,
+          "right": 695,
+          "bottom": 1597.96875,
+          "canvasWidth": 621,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-900",
+      "viewportWidth": 900,
+      "pageWidth": 900,
+      "grid": {
+        "x": 63,
+        "y": 85.140625,
+        "width": 774,
+        "height": 1506,
+        "right": 837,
+        "bottom": 1591.140625,
+        "trackCount": 12,
+        "trackWidths": "48px 48px 48px 48px 48px 48px 48px 48px 48px 48px 48px 48px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.140625,
+          "width": 378,
+          "height": 393,
+          "right": 441,
+          "bottom": 478.140625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 459,
+          "y": 85.140625,
+          "width": 378,
+          "height": 393,
+          "right": 837,
+          "bottom": 478.140625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.140625,
+          "width": 378,
+          "height": 353,
+          "right": 441,
+          "bottom": 849.140625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 459,
+          "y": 496.140625,
+          "width": 378,
+          "height": 353,
+          "right": 837,
+          "bottom": 849.140625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 63,
+          "y": 867.140625,
+          "width": 774,
+          "height": 353,
+          "right": 837,
+          "bottom": 1220.140625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 1238.140625,
+          "width": 774,
+          "height": 353,
+          "right": 837,
+          "bottom": 1591.140625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.140625,
+          "width": 356,
+          "height": 320,
+          "right": 430,
+          "bottom": 467.140625,
+          "canvasWidth": 356,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 470,
+          "y": 147.140625,
+          "width": 356,
+          "height": 320,
+          "right": 826,
+          "bottom": 467.140625,
+          "canvasWidth": 356,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.140625,
+          "width": 356,
+          "height": 280,
+          "right": 430,
+          "bottom": 838.140625,
+          "canvasWidth": 356,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 470,
+          "y": 558.140625,
+          "width": 356,
+          "height": 280,
+          "right": 826,
+          "bottom": 838.140625,
+          "canvasWidth": 356,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 74,
+          "y": 929.140625,
+          "width": 752,
+          "height": 280,
+          "right": 826,
+          "bottom": 1209.140625,
+          "canvasWidth": 752,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 1300.140625,
+          "width": 752,
+          "height": 280,
+          "right": 826,
+          "bottom": 1580.140625,
+          "canvasWidth": 752,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-992",
+      "viewportWidth": 992,
+      "pageWidth": 992,
+      "grid": {
+        "x": 63,
+        "y": 85.125,
+        "width": 866,
+        "height": 1506,
+        "right": 929,
+        "bottom": 1591.125,
+        "trackCount": 12,
+        "trackWidths": "55.6562px 55.6562px 55.6562px 55.6562px 55.6562px 55.6562px 55.6562px 55.6562px 55.6562px 55.6562px 55.6562px 55.6562px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.125,
+          "width": 424,
+          "height": 393,
+          "right": 487,
+          "bottom": 478.125
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 505,
+          "y": 85.125,
+          "width": 424,
+          "height": 393,
+          "right": 929,
+          "bottom": 478.125
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.125,
+          "width": 424,
+          "height": 353,
+          "right": 487,
+          "bottom": 849.125
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 505,
+          "y": 496.125,
+          "width": 424,
+          "height": 353,
+          "right": 929,
+          "bottom": 849.125
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 63,
+          "y": 867.125,
+          "width": 866,
+          "height": 353,
+          "right": 929,
+          "bottom": 1220.125
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 1238.125,
+          "width": 866,
+          "height": 353,
+          "right": 929,
+          "bottom": 1591.125
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.125,
+          "width": 402,
+          "height": 320,
+          "right": 476,
+          "bottom": 467.125,
+          "canvasWidth": 402,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 516,
+          "y": 147.125,
+          "width": 402,
+          "height": 320,
+          "right": 918,
+          "bottom": 467.125,
+          "canvasWidth": 402,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.125,
+          "width": 402,
+          "height": 280,
+          "right": 476,
+          "bottom": 838.125,
+          "canvasWidth": 402,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 516,
+          "y": 558.125,
+          "width": 402,
+          "height": 280,
+          "right": 918,
+          "bottom": 838.125,
+          "canvasWidth": 402,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 74,
+          "y": 929.125,
+          "width": 844,
+          "height": 280,
+          "right": 918,
+          "bottom": 1209.125,
+          "canvasWidth": 844,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 1300.125,
+          "width": 844,
+          "height": 280,
+          "right": 918,
+          "bottom": 1580.125,
+          "canvasWidth": 844,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-993",
+      "viewportWidth": 993,
+      "pageWidth": 993,
+      "grid": {
+        "x": 63,
+        "y": 85.21875,
+        "width": 867,
+        "height": 1506,
+        "right": 930,
+        "bottom": 1591.21875,
+        "trackCount": 12,
+        "trackWidths": "55.75px 55.75px 55.75px 55.75px 55.75px 55.75px 55.75px 55.75px 55.75px 55.75px 55.75px 55.75px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.21875,
+          "width": 424.5,
+          "height": 393,
+          "right": 487.5,
+          "bottom": 478.21875
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 505.5,
+          "y": 85.21875,
+          "width": 424.5,
+          "height": 393,
+          "right": 930,
+          "bottom": 478.21875
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.21875,
+          "width": 424.5,
+          "height": 353,
+          "right": 487.5,
+          "bottom": 849.21875
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 505.5,
+          "y": 496.21875,
+          "width": 424.5,
+          "height": 353,
+          "right": 930,
+          "bottom": 849.21875
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 63,
+          "y": 867.21875,
+          "width": 867,
+          "height": 353,
+          "right": 930,
+          "bottom": 1220.21875
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 1238.21875,
+          "width": 867,
+          "height": 353,
+          "right": 930,
+          "bottom": 1591.21875
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.21875,
+          "width": 402.5,
+          "height": 320,
+          "right": 476.5,
+          "bottom": 467.21875,
+          "canvasWidth": 403,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 516.5,
+          "y": 147.21875,
+          "width": 402.5,
+          "height": 320,
+          "right": 919,
+          "bottom": 467.21875,
+          "canvasWidth": 403,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.21875,
+          "width": 402.5,
+          "height": 280,
+          "right": 476.5,
+          "bottom": 838.21875,
+          "canvasWidth": 403,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 516.5,
+          "y": 558.21875,
+          "width": 402.5,
+          "height": 280,
+          "right": 919,
+          "bottom": 838.21875,
+          "canvasWidth": 403,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 74,
+          "y": 929.21875,
+          "width": 845,
+          "height": 280,
+          "right": 919,
+          "bottom": 1209.21875,
+          "canvasWidth": 845,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 1300.21875,
+          "width": 845,
+          "height": 280,
+          "right": 919,
+          "bottom": 1580.21875,
+          "canvasWidth": 845,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-1024",
+      "viewportWidth": 1024,
+      "pageWidth": 1024,
+      "grid": {
+        "x": 63,
+        "y": 85.125,
+        "width": 898,
+        "height": 1506,
+        "right": 961,
+        "bottom": 1591.125,
+        "trackCount": 12,
+        "trackWidths": "58.3281px 58.3281px 58.3281px 58.3281px 58.3281px 58.3281px 58.3281px 58.3281px 58.3281px 58.3281px 58.3281px 58.3281px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.125,
+          "width": 440,
+          "height": 393,
+          "right": 503,
+          "bottom": 478.125
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 521,
+          "y": 85.125,
+          "width": 440,
+          "height": 393,
+          "right": 961,
+          "bottom": 478.125
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.125,
+          "width": 440,
+          "height": 353,
+          "right": 503,
+          "bottom": 849.125
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 521,
+          "y": 496.125,
+          "width": 440,
+          "height": 353,
+          "right": 961,
+          "bottom": 849.125
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 63,
+          "y": 867.125,
+          "width": 898,
+          "height": 353,
+          "right": 961,
+          "bottom": 1220.125
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 1238.125,
+          "width": 898,
+          "height": 353,
+          "right": 961,
+          "bottom": 1591.125
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.125,
+          "width": 418,
+          "height": 320,
+          "right": 492,
+          "bottom": 467.125,
+          "canvasWidth": 418,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 532,
+          "y": 147.125,
+          "width": 418,
+          "height": 320,
+          "right": 950,
+          "bottom": 467.125,
+          "canvasWidth": 418,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.125,
+          "width": 418,
+          "height": 280,
+          "right": 492,
+          "bottom": 838.125,
+          "canvasWidth": 418,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 532,
+          "y": 558.125,
+          "width": 418,
+          "height": 280,
+          "right": 950,
+          "bottom": 838.125,
+          "canvasWidth": 418,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 74,
+          "y": 929.125,
+          "width": 876,
+          "height": 280,
+          "right": 950,
+          "bottom": 1209.125,
+          "canvasWidth": 876,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 1300.125,
+          "width": 876,
+          "height": 280,
+          "right": 950,
+          "bottom": 1580.125,
+          "canvasWidth": 876,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-1200",
+      "viewportWidth": 1200,
+      "pageWidth": 1200,
+      "grid": {
+        "x": 63,
+        "y": 85.0625,
+        "width": 1074,
+        "height": 1506,
+        "right": 1137,
+        "bottom": 1591.0625,
+        "trackCount": 12,
+        "trackWidths": "73px 73px 73px 73px 73px 73px 73px 73px 73px 73px 73px 73px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.0625,
+          "width": 528,
+          "height": 393,
+          "right": 591,
+          "bottom": 478.0625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 609,
+          "y": 85.0625,
+          "width": 528,
+          "height": 393,
+          "right": 1137,
+          "bottom": 478.0625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.0625,
+          "width": 528,
+          "height": 353,
+          "right": 591,
+          "bottom": 849.0625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 609,
+          "y": 496.0625,
+          "width": 528,
+          "height": 353,
+          "right": 1137,
+          "bottom": 849.0625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 63,
+          "y": 867.0625,
+          "width": 1074,
+          "height": 353,
+          "right": 1137,
+          "bottom": 1220.0625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 1238.0625,
+          "width": 1074,
+          "height": 353,
+          "right": 1137,
+          "bottom": 1591.0625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.0625,
+          "width": 506,
+          "height": 320,
+          "right": 580,
+          "bottom": 467.0625,
+          "canvasWidth": 506,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 620,
+          "y": 147.0625,
+          "width": 506,
+          "height": 320,
+          "right": 1126,
+          "bottom": 467.0625,
+          "canvasWidth": 506,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.0625,
+          "width": 506,
+          "height": 280,
+          "right": 580,
+          "bottom": 838.0625,
+          "canvasWidth": 506,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 620,
+          "y": 558.0625,
+          "width": 506,
+          "height": 280,
+          "right": 1126,
+          "bottom": 838.0625,
+          "canvasWidth": 506,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 74,
+          "y": 929.0625,
+          "width": 1052,
+          "height": 280,
+          "right": 1126,
+          "bottom": 1209.0625,
+          "canvasWidth": 1052,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 1300.0625,
+          "width": 1052,
+          "height": 280,
+          "right": 1126,
+          "bottom": 1580.0625,
+          "canvasWidth": 1052,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-1201",
+      "viewportWidth": 1201,
+      "pageWidth": 1201,
+      "grid": {
+        "x": 63,
+        "y": 85.09375,
+        "width": 1075,
+        "height": 1135,
+        "right": 1138,
+        "bottom": 1220.09375,
+        "trackCount": 12,
+        "trackWidths": "73.0781px 73.0781px 73.0781px 73.0781px 73.0781px 73.0781px 73.0781px 73.0781px 73.0781px 73.0781px 73.0781px 73.0781px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.09375,
+          "width": 710.65625,
+          "height": 393,
+          "right": 773.65625,
+          "bottom": 478.09375
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 791.65625,
+          "y": 85.09375,
+          "width": 346.34375,
+          "height": 393,
+          "right": 1138,
+          "bottom": 478.09375
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.09375,
+          "width": 346.328125,
+          "height": 353,
+          "right": 409.328125,
+          "bottom": 849.09375
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 427.328125,
+          "y": 496.09375,
+          "width": 346.328125,
+          "height": 353,
+          "right": 773.65625,
+          "bottom": 849.09375
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 791.65625,
+          "y": 496.09375,
+          "width": 346.34375,
+          "height": 353,
+          "right": 1138,
+          "bottom": 849.09375
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 867.09375,
+          "width": 1075,
+          "height": 353,
+          "right": 1138,
+          "bottom": 1220.09375
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.09375,
+          "width": 688.65625,
+          "height": 320,
+          "right": 762.65625,
+          "bottom": 467.09375,
+          "canvasWidth": 689,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 802.65625,
+          "y": 147.09375,
+          "width": 324.34375,
+          "height": 320,
+          "right": 1127,
+          "bottom": 467.09375,
+          "canvasWidth": 324,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.09375,
+          "width": 324.328125,
+          "height": 280,
+          "right": 398.328125,
+          "bottom": 838.09375,
+          "canvasWidth": 324,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 438.328125,
+          "y": 558.09375,
+          "width": 324.328125,
+          "height": 280,
+          "right": 762.65625,
+          "bottom": 838.09375,
+          "canvasWidth": 324,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 802.65625,
+          "y": 558.09375,
+          "width": 324.34375,
+          "height": 280,
+          "right": 1127,
+          "bottom": 838.09375,
+          "canvasWidth": 324,
+          "media": {
+            "legendOrient": "horizontal",
+            "labels": false
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 929.09375,
+          "width": 1053,
+          "height": 280,
+          "right": 1127,
+          "bottom": 1209.09375,
+          "canvasWidth": 1053,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-1440",
+      "viewportWidth": 1440,
+      "pageWidth": 1440,
+      "grid": {
+        "x": 63,
+        "y": 85.4375,
+        "width": 1314,
+        "height": 1135,
+        "right": 1377,
+        "bottom": 1220.4375,
+        "trackCount": 12,
+        "trackWidths": "93px 93px 93px 93px 93px 93px 93px 93px 93px 93px 93px 93px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.4375,
+          "width": 870,
+          "height": 393,
+          "right": 933,
+          "bottom": 478.4375
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 951,
+          "y": 85.4375,
+          "width": 426,
+          "height": 393,
+          "right": 1377,
+          "bottom": 478.4375
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.4375,
+          "width": 426,
+          "height": 353,
+          "right": 489,
+          "bottom": 849.4375
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 507,
+          "y": 496.4375,
+          "width": 426,
+          "height": 353,
+          "right": 933,
+          "bottom": 849.4375
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 951,
+          "y": 496.4375,
+          "width": 426,
+          "height": 353,
+          "right": 1377,
+          "bottom": 849.4375
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 867.4375,
+          "width": 1314,
+          "height": 353,
+          "right": 1377,
+          "bottom": 1220.4375
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.4375,
+          "width": 848,
+          "height": 320,
+          "right": 922,
+          "bottom": 467.4375,
+          "canvasWidth": 848,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 962,
+          "y": 147.4375,
+          "width": 404,
+          "height": 320,
+          "right": 1366,
+          "bottom": 467.4375,
+          "canvasWidth": 404,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.4375,
+          "width": 404,
+          "height": 280,
+          "right": 478,
+          "bottom": 838.4375,
+          "canvasWidth": 404,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 518,
+          "y": 558.4375,
+          "width": 404,
+          "height": 280,
+          "right": 922,
+          "bottom": 838.4375,
+          "canvasWidth": 404,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 962,
+          "y": 558.4375,
+          "width": 404,
+          "height": 280,
+          "right": 1366,
+          "bottom": 838.4375,
+          "canvasWidth": 404,
+          "media": {
+            "legendOrient": "horizontal",
+            "labels": false
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 929.4375,
+          "width": 1292,
+          "height": 280,
+          "right": 1366,
+          "bottom": 1209.4375,
+          "canvasWidth": 1292,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-1920",
+      "viewportWidth": 1920,
+      "pageWidth": 1920,
+      "grid": {
+        "x": 63,
+        "y": 85.0625,
+        "width": 1794,
+        "height": 1135,
+        "right": 1857,
+        "bottom": 1220.0625,
+        "trackCount": 12,
+        "trackWidths": "133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.0625,
+          "width": 1190,
+          "height": 393,
+          "right": 1253,
+          "bottom": 478.0625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 1271,
+          "y": 85.0625,
+          "width": 586,
+          "height": 393,
+          "right": 1857,
+          "bottom": 478.0625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.0625,
+          "width": 586,
+          "height": 353,
+          "right": 649,
+          "bottom": 849.0625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 667,
+          "y": 496.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1253,
+          "bottom": 849.0625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 1271,
+          "y": 496.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1857,
+          "bottom": 849.0625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 867.0625,
+          "width": 1794,
+          "height": 353,
+          "right": 1857,
+          "bottom": 1220.0625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.0625,
+          "width": 1168,
+          "height": 320,
+          "right": 1242,
+          "bottom": 467.0625,
+          "canvasWidth": 1168,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 1282,
+          "y": 147.0625,
+          "width": 564,
+          "height": 320,
+          "right": 1846,
+          "bottom": 467.0625,
+          "canvasWidth": 564,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.0625,
+          "width": 564,
+          "height": 280,
+          "right": 638,
+          "bottom": 838.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 678,
+          "y": 558.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1242,
+          "bottom": 838.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 1282,
+          "y": 558.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1846,
+          "bottom": 838.0625,
+          "canvasWidth": 564,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 929.0625,
+          "width": 1772,
+          "height": 280,
+          "right": 1846,
+          "bottom": 1209.0625,
+          "canvasWidth": 1772,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "viewport-2211",
+      "viewportWidth": 2211,
+      "pageWidth": 2211,
+      "grid": {
+        "x": 63,
+        "y": 85.0625,
+        "width": 2085,
+        "height": 1135,
+        "right": 2148,
+        "bottom": 1220.0625,
+        "trackCount": 12,
+        "trackWidths": "157.25px 157.25px 157.25px 157.25px 157.25px 157.25px 157.25px 157.25px 157.25px 157.25px 157.25px 157.25px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.0625,
+          "width": 1384,
+          "height": 393,
+          "right": 1447,
+          "bottom": 478.0625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 1465,
+          "y": 85.0625,
+          "width": 683,
+          "height": 393,
+          "right": 2148,
+          "bottom": 478.0625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.0625,
+          "width": 683,
+          "height": 353,
+          "right": 746,
+          "bottom": 849.0625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 764,
+          "y": 496.0625,
+          "width": 683,
+          "height": 353,
+          "right": 1447,
+          "bottom": 849.0625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 1465,
+          "y": 496.0625,
+          "width": 683,
+          "height": 353,
+          "right": 2148,
+          "bottom": 849.0625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 867.0625,
+          "width": 2085,
+          "height": 353,
+          "right": 2148,
+          "bottom": 1220.0625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.0625,
+          "width": 1362,
+          "height": 320,
+          "right": 1436,
+          "bottom": 467.0625,
+          "canvasWidth": 1362,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 1476,
+          "y": 147.0625,
+          "width": 661,
+          "height": 320,
+          "right": 2137,
+          "bottom": 467.0625,
+          "canvasWidth": 661,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.0625,
+          "width": 661,
+          "height": 280,
+          "right": 735,
+          "bottom": 838.0625,
+          "canvasWidth": 661,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 775,
+          "y": 558.0625,
+          "width": 661,
+          "height": 280,
+          "right": 1436,
+          "bottom": 838.0625,
+          "canvasWidth": 661,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 1476,
+          "y": 558.0625,
+          "width": 661,
+          "height": 280,
+          "right": 2137,
+          "bottom": 838.0625,
+          "canvasWidth": 661,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 929.0625,
+          "width": 2063,
+          "height": 280,
+          "right": 2137,
+          "bottom": 1209.0625,
+          "canvasWidth": 2063,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "dynamic-1440",
+      "viewportWidth": 1440,
+      "pageWidth": 1440,
+      "grid": {
+        "x": 63,
+        "y": 85.4375,
+        "width": 1314,
+        "height": 1135,
+        "right": 1377,
+        "bottom": 1220.4375,
+        "trackCount": 12,
+        "trackWidths": "93px 93px 93px 93px 93px 93px 93px 93px 93px 93px 93px 93px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 85.4375,
+          "width": 870,
+          "height": 393,
+          "right": 933,
+          "bottom": 478.4375
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 951,
+          "y": 85.4375,
+          "width": 426,
+          "height": 393,
+          "right": 1377,
+          "bottom": 478.4375
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 496.4375,
+          "width": 426,
+          "height": 353,
+          "right": 489,
+          "bottom": 849.4375
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 507,
+          "y": 496.4375,
+          "width": 426,
+          "height": 353,
+          "right": 933,
+          "bottom": 849.4375
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 951,
+          "y": 496.4375,
+          "width": 426,
+          "height": 353,
+          "right": 1377,
+          "bottom": 849.4375
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 867.4375,
+          "width": 1314,
+          "height": 353,
+          "right": 1377,
+          "bottom": 1220.4375
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 147.4375,
+          "width": 848,
+          "height": 320,
+          "right": 922,
+          "bottom": 467.4375,
+          "canvasWidth": 848,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 962,
+          "y": 147.4375,
+          "width": 404,
+          "height": 320,
+          "right": 1366,
+          "bottom": 467.4375,
+          "canvasWidth": 404,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 558.4375,
+          "width": 404,
+          "height": 280,
+          "right": 478,
+          "bottom": 838.4375,
+          "canvasWidth": 404,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 518,
+          "y": 558.4375,
+          "width": 404,
+          "height": 280,
+          "right": 922,
+          "bottom": 838.4375,
+          "canvasWidth": 404,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 962,
+          "y": 558.4375,
+          "width": 404,
+          "height": 280,
+          "right": 1366,
+          "bottom": 838.4375,
+          "canvasWidth": 404,
+          "media": {
+            "legendOrient": "horizontal",
+            "labels": false
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 929.4375,
+          "width": 1292,
+          "height": 280,
+          "right": 1366,
+          "bottom": 1209.4375,
+          "canvasWidth": 1292,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "dynamic-375",
+      "viewportWidth": 375,
+      "pageWidth": 375,
+      "grid": {
+        "x": 41,
+        "y": 1064.453125,
+        "width": 293,
+        "height": 2552,
+        "right": 334,
+        "bottom": 3616.453125,
+        "trackCount": 1,
+        "trackWidths": "293px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "-1",
+          "x": 41,
+          "y": 1064.453125,
+          "width": 293,
+          "height": 431,
+          "right": 334,
+          "bottom": 1495.453125
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "-1",
+          "x": 41,
+          "y": 1513.453125,
+          "width": 293,
+          "height": 431,
+          "right": 334,
+          "bottom": 1944.453125
+        },
+        {
+          "title": "个人提案表现",
+          "span": "-1",
+          "x": 41,
+          "y": 1962.453125,
+          "width": 293,
+          "height": 409,
+          "right": 334,
+          "bottom": 2371.453125
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "-1",
+          "x": 41,
+          "y": 2389.453125,
+          "width": 293,
+          "height": 391,
+          "right": 334,
+          "bottom": 2780.453125
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 41,
+          "y": 2798.453125,
+          "width": 293,
+          "height": 391,
+          "right": 334,
+          "bottom": 3189.453125
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 41,
+          "y": 3207.453125,
+          "width": 293,
+          "height": 409,
+          "right": 334,
+          "bottom": 3616.453125
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 58,
+          "y": 1138.453125,
+          "width": 259,
+          "height": 340,
+          "right": 317,
+          "bottom": 1478.453125,
+          "canvasWidth": 259,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 58,
+          "y": 1587.453125,
+          "width": 259,
+          "height": 340,
+          "right": 317,
+          "bottom": 1927.453125,
+          "canvasWidth": 259,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 58,
+          "y": 2054.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 2354.453125,
+          "canvasWidth": 259,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 58,
+          "y": 2463.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 2763.453125,
+          "canvasWidth": 259,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 58,
+          "y": 2872.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 3172.453125,
+          "canvasWidth": 259,
+          "media": {
+            "legendOrient": "horizontal",
+            "labels": false
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 58,
+          "y": 3299.453125,
+          "width": 259,
+          "height": 300,
+          "right": 317,
+          "bottom": 3599.453125,
+          "canvasWidth": 259,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "dynamic-1920",
+      "viewportWidth": 1920,
+      "pageWidth": 1920,
+      "grid": {
+        "x": 63,
+        "y": 95.0625,
+        "width": 1794,
+        "height": 1135,
+        "right": 1857,
+        "bottom": 1230.0625,
+        "trackCount": 12,
+        "trackWidths": "133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 95.0625,
+          "width": 1190,
+          "height": 393,
+          "right": 1253,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 1271,
+          "y": 95.0625,
+          "width": 586,
+          "height": 393,
+          "right": 1857,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 649,
+          "bottom": 859.0625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 667,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1253,
+          "bottom": 859.0625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 1271,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1857,
+          "bottom": 859.0625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 877.0625,
+          "width": 1794,
+          "height": 353,
+          "right": 1857,
+          "bottom": 1230.0625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 157.0625,
+          "width": 1168,
+          "height": 320,
+          "right": 1242,
+          "bottom": 477.0625,
+          "canvasWidth": 1168,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 1282,
+          "y": 157.0625,
+          "width": 564,
+          "height": 320,
+          "right": 1846,
+          "bottom": 477.0625,
+          "canvasWidth": 564,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 638,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 678,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1242,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 1282,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1846,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 939.0625,
+          "width": 1772,
+          "height": 280,
+          "right": 1846,
+          "bottom": 1219.0625,
+          "canvasWidth": 1772,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "dynamic-900",
+      "viewportWidth": 900,
+      "pageWidth": 900,
+      "grid": {
+        "x": 63,
+        "y": 95.140625,
+        "width": 774,
+        "height": 1506,
+        "right": 837,
+        "bottom": 1601.140625,
+        "trackCount": 12,
+        "trackWidths": "48px 48px 48px 48px 48px 48px 48px 48px 48px 48px 48px 48px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 95.140625,
+          "width": 378,
+          "height": 393,
+          "right": 441,
+          "bottom": 488.140625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 459,
+          "y": 95.140625,
+          "width": 378,
+          "height": 393,
+          "right": 837,
+          "bottom": 488.140625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 506.140625,
+          "width": 378,
+          "height": 353,
+          "right": 441,
+          "bottom": 859.140625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 459,
+          "y": 506.140625,
+          "width": 378,
+          "height": 353,
+          "right": 837,
+          "bottom": 859.140625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "-1",
+          "x": 63,
+          "y": 877.140625,
+          "width": 774,
+          "height": 353,
+          "right": 837,
+          "bottom": 1230.140625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 1248.140625,
+          "width": 774,
+          "height": 353,
+          "right": 837,
+          "bottom": 1601.140625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 157.140625,
+          "width": 356,
+          "height": 320,
+          "right": 430,
+          "bottom": 477.140625,
+          "canvasWidth": 356,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 470,
+          "y": 157.140625,
+          "width": 356,
+          "height": 320,
+          "right": 826,
+          "bottom": 477.140625,
+          "canvasWidth": 356,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 568.140625,
+          "width": 356,
+          "height": 280,
+          "right": 430,
+          "bottom": 848.140625,
+          "canvasWidth": 356,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 470,
+          "y": 568.140625,
+          "width": 356,
+          "height": 280,
+          "right": 826,
+          "bottom": 848.140625,
+          "canvasWidth": 356,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 74,
+          "y": 939.140625,
+          "width": 752,
+          "height": 280,
+          "right": 826,
+          "bottom": 1219.140625,
+          "canvasWidth": 752,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 1310.140625,
+          "width": 752,
+          "height": 280,
+          "right": 826,
+          "bottom": 1590.140625,
+          "canvasWidth": 752,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "container-before",
+      "viewportWidth": 1920,
+      "pageWidth": 1920,
+      "grid": {
+        "x": 63,
+        "y": 95.0625,
+        "width": 1794,
+        "height": 1135,
+        "right": 1857,
+        "bottom": 1230.0625,
+        "trackCount": 12,
+        "trackWidths": "133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 95.0625,
+          "width": 1190,
+          "height": 393,
+          "right": 1253,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 1271,
+          "y": 95.0625,
+          "width": 586,
+          "height": 393,
+          "right": 1857,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 649,
+          "bottom": 859.0625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 667,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1253,
+          "bottom": 859.0625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 1271,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1857,
+          "bottom": 859.0625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 877.0625,
+          "width": 1794,
+          "height": 353,
+          "right": 1857,
+          "bottom": 1230.0625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 157.0625,
+          "width": 1168,
+          "height": 320,
+          "right": 1242,
+          "bottom": 477.0625,
+          "canvasWidth": 1168,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 1282,
+          "y": 157.0625,
+          "width": 564,
+          "height": 320,
+          "right": 1846,
+          "bottom": 477.0625,
+          "canvasWidth": 564,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 638,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 678,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1242,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 1282,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1846,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 939.0625,
+          "width": 1772,
+          "height": 280,
+          "right": 1846,
+          "bottom": 1219.0625,
+          "canvasWidth": 1772,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "container-narrowed-at-fixed-viewport",
+      "viewportWidth": 1920,
+      "pageWidth": 1920,
+      "grid": {
+        "x": 63,
+        "y": 95.0625,
+        "width": 1387.4375,
+        "height": 1135,
+        "right": 1450.4375,
+        "bottom": 1230.0625,
+        "trackCount": 12,
+        "trackWidths": "99.1094px 99.1094px 99.1094px 99.1094px 99.1094px 99.1094px 99.1094px 99.1094px 99.1094px 99.1094px 99.1094px 99.1094px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 95.0625,
+          "width": 918.953125,
+          "height": 393,
+          "right": 981.953125,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 999.953125,
+          "y": 95.0625,
+          "width": 450.46875,
+          "height": 393,
+          "right": 1450.421875,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 506.0625,
+          "width": 450.46875,
+          "height": 353,
+          "right": 513.46875,
+          "bottom": 859.0625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 531.46875,
+          "y": 506.0625,
+          "width": 450.484375,
+          "height": 353,
+          "right": 981.953125,
+          "bottom": 859.0625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 999.953125,
+          "y": 506.0625,
+          "width": 450.46875,
+          "height": 353,
+          "right": 1450.421875,
+          "bottom": 859.0625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 877.0625,
+          "width": 1387.421875,
+          "height": 353,
+          "right": 1450.421875,
+          "bottom": 1230.0625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 157.0625,
+          "width": 896.953125,
+          "height": 320,
+          "right": 970.953125,
+          "bottom": 477.0625,
+          "canvasWidth": 897,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 1010.953125,
+          "y": 157.0625,
+          "width": 428.46875,
+          "height": 320,
+          "right": 1439.421875,
+          "bottom": 477.0625,
+          "canvasWidth": 428,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 568.0625,
+          "width": 428.46875,
+          "height": 280,
+          "right": 502.46875,
+          "bottom": 848.0625,
+          "canvasWidth": 428,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 542.46875,
+          "y": 568.0625,
+          "width": 428.484375,
+          "height": 280,
+          "right": 970.953125,
+          "bottom": 848.0625,
+          "canvasWidth": 428,
+          "media": {
+            "axisRotation": 40
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 1010.953125,
+          "y": 568.0625,
+          "width": 428.46875,
+          "height": 280,
+          "right": 1439.421875,
+          "bottom": 848.0625,
+          "canvasWidth": 428,
+          "media": {
+            "legendOrient": "horizontal",
+            "labels": false
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 939.0625,
+          "width": 1365.421875,
+          "height": 280,
+          "right": 1439.421875,
+          "bottom": 1219.0625,
+          "canvasWidth": 1365,
+          "media": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "label": "container-restored-at-fixed-viewport",
+      "viewportWidth": 1920,
+      "pageWidth": 1920,
+      "grid": {
+        "x": 63,
+        "y": 95.0625,
+        "width": 1794,
+        "height": 1135,
+        "right": 1857,
+        "bottom": 1230.0625,
+        "trackCount": 12,
+        "trackWidths": "133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px 133px",
+        "gap": "18px"
+      },
+      "cards": [
+        {
+          "title": "部门积分贡献",
+          "span": "auto",
+          "x": 63,
+          "y": 95.0625,
+          "width": 1190,
+          "height": 393,
+          "right": 1253,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人积分排行榜",
+          "span": "auto",
+          "x": 1271,
+          "y": 95.0625,
+          "width": 586,
+          "height": 393,
+          "right": 1857,
+          "bottom": 488.0625
+        },
+        {
+          "title": "个人提案表现",
+          "span": "auto",
+          "x": 63,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 649,
+          "bottom": 859.0625
+        },
+        {
+          "title": "单项提案最高分",
+          "span": "auto",
+          "x": 667,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1253,
+          "bottom": 859.0625
+        },
+        {
+          "title": "创新类别分布",
+          "span": "auto",
+          "x": 1271,
+          "y": 506.0625,
+          "width": 586,
+          "height": 353,
+          "right": 1857,
+          "bottom": 859.0625
+        },
+        {
+          "title": "月度提案趋势",
+          "span": "-1",
+          "x": 63,
+          "y": 877.0625,
+          "width": 1794,
+          "height": 353,
+          "right": 1857,
+          "bottom": 1230.0625
+        }
+      ],
+      "charts": [
+        {
+          "id": "top-department",
+          "x": 74,
+          "y": 157.0625,
+          "width": 1168,
+          "height": 320,
+          "right": 1242,
+          "bottom": 477.0625,
+          "canvasWidth": 1168,
+          "media": null
+        },
+        {
+          "id": "top-person",
+          "x": 1282,
+          "y": 157.0625,
+          "width": 564,
+          "height": 320,
+          "right": 1846,
+          "bottom": 477.0625,
+          "canvasWidth": 564,
+          "media": null
+        },
+        {
+          "id": "top-proposal-counts",
+          "x": 74,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 638,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "top-highest-scores",
+          "x": 678,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1242,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "axisRotation": 0
+          }
+        },
+        {
+          "id": "category-distribution",
+          "x": 1282,
+          "y": 568.0625,
+          "width": 564,
+          "height": 280,
+          "right": 1846,
+          "bottom": 848.0625,
+          "canvasWidth": 564,
+          "media": {
+            "legendOrient": "vertical",
+            "labels": true
+          }
+        },
+        {
+          "id": "monthly-trend",
+          "x": 74,
+          "y": 939.0625,
+          "width": 1772,
+          "height": 280,
+          "right": 1846,
+          "bottom": 1219.0625,
+          "canvasWidth": 1772,
+          "media": null
+        }
+      ],
+      "failures": []
+    }
+  ]
+}

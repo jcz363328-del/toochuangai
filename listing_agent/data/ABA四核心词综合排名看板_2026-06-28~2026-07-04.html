@@ -422,7 +422,7 @@
 
       .filter-grid {
         display: grid;
-        grid-template-columns: 1.35fr 2fr repeat(5, minmax(130px, 1fr));
+        grid-template-columns: 1.35fr 2fr 1.6fr 1.25fr repeat(5, minmax(130px, 1fr));
         gap: 10px;
         align-items: end;
       }
@@ -1508,6 +1508,17 @@
             <input id="searchInput" type="search" placeholder="输入关键词" autocomplete="off" />
           </div>
           <div class="field">
+            <label for="excludeInput">公共排除词（逗号或分号分隔）</label>
+            <input id="excludeInput" type="text" placeholder="例如：glue, remover" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>排除词显示方式</label>
+            <div class="segmented" id="excludeSegment">
+              <button type="button" class="active" data-exclude-mode="all">全部</button>
+              <button type="button" data-exclude-mode="excluded">排除后</button>
+            </div>
+          </div>
+          <div class="field">
             <label for="coreFilter">命中核心词</label>
             <select id="coreFilter">
               <option value="all">全部核心词</option>
@@ -1881,6 +1892,9 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
       const state = {
         scope: 'top30000',
         query: '',
+        excludeQuery: '',
+        excludeTerms: [],
+        excludeMode: 'all',
         core: 'all',
         rankBand: 'all',
         coverage: 'all',
@@ -2024,10 +2038,25 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
         ].filter(Boolean).join(' ').toLowerCase();
       }
 
+      function exclusionTerms() {
+        return String(state.excludeQuery || '')
+          .split(/[,，;；\n\r]+/)
+          .map(function(value) { return value.trim().toLowerCase(); })
+          .filter(Boolean);
+      }
+
+      function matchesExclusion(row) {
+        const term = String(row[INDEX.term] || '').toLowerCase();
+        return state.excludeTerms.some(function(excluded) {
+          return term.indexOf(excluded) !== -1;
+        });
+      }
+
       function matchesFilters(row) {
         const rank = Number(row[INDEX.rank]);
         if (state.scope === 'top30000' && rank > 30000) return false;
         if (state.query && searchableText(row).indexOf(state.query) === -1) return false;
+        if (state.excludeMode === 'excluded' && state.excludeQuery && matchesExclusion(row)) return false;
         if (state.core !== 'all') {
           const bit = 1 << DATA.meta.coreOrder.indexOf(state.core);
           if ((Number(row[INDEX.sourceMask]) & bit) === 0) return false;
@@ -2474,8 +2503,22 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
           };
         }).filter(function(item) {
           return item.signals.length > 0;
-        }).sort(function(a, b) {
-          return b.score - a.score || b.gain - a.gain || a.rank - b.rank;
+        });
+
+        const opportunityComparators = {
+          rankAsc: function(a, b) { return a.rank - b.rank; },
+          rankDesc: function(a, b) { return b.rank - a.rank; },
+          gainDesc: function(a, b) { return b.gain - a.gain; },
+          momDesc: function(a, b) { return valueOrFloor(b.row[INDEX.mom]) - valueOrFloor(a.row[INDEX.mom]); },
+          momAsc: function(a, b) { return valueOrFloor(a.row[INDEX.mom]) - valueOrFloor(b.row[INDEX.mom]); },
+          clickDesc: function(a, b) { return b.clickShare - a.clickShare; },
+          conversionDesc: function(a, b) { return b.conversionShare - a.conversionShare; },
+          salesDesc: function(a, b) { return valueOrFloor(b.row[INDEX.sales1]) - valueOrFloor(a.row[INDEX.sales1]); }
+        };
+        const opportunityComparator = opportunityComparators[state.sort] || function(a, b) { return b.score - a.score; };
+        allOpportunities.sort(function(a, b) {
+          const result = opportunityComparator(a, b);
+          return result || b.score - a.score || String(a.row[INDEX.term]).localeCompare(String(b.row[INDEX.term]), 'en');
         });
 
         const opportunities = state.opportunityMode === 'all'
@@ -2659,6 +2702,7 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
       function renderFilterSummary() {
         const active = [];
         if (state.query) active.push('搜索');
+        if (state.excludeMode === 'excluded' && state.excludeTerms.length) active.push('排除词');
         if (state.core !== 'all') active.push(state.core);
         if (state.rankBand !== 'all') active.push('排名区间');
         if (state.coverage !== 'all') active.push(state.coverage === 'overlap' ? '跨核心词' : '单核心词');
@@ -2767,6 +2811,9 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
       function resetFilters() {
         state.scope = 'top30000';
         state.query = '';
+        state.excludeQuery = '';
+        state.excludeTerms = [];
+        state.excludeMode = 'all';
         state.core = 'all';
         state.rankBand = 'all';
         state.coverage = 'all';
@@ -2776,6 +2823,7 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
         state.pageSize = 100;
         state.opportunityMode = 'all';
         document.getElementById('searchInput').value = '';
+        document.getElementById('excludeInput').value = '';
         document.getElementById('coreFilter').value = 'all';
         document.getElementById('rankBandFilter').value = 'all';
         document.getElementById('coverageFilter').value = 'all';
@@ -2784,6 +2832,9 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
         document.getElementById('pageSizeSelect').value = '100';
         document.querySelectorAll('[data-scope]').forEach(function(button) {
           button.classList.toggle('active', button.dataset.scope === 'top30000');
+        });
+        document.querySelectorAll('[data-exclude-mode]').forEach(function(button) {
+          button.classList.toggle('active', button.dataset.excludeMode === 'all');
         });
         document.querySelectorAll('[data-opportunity-mode]').forEach(function(button) {
           button.classList.toggle('active', button.dataset.opportunityMode === 'all');
@@ -2810,6 +2861,23 @@ var yo={},mo={};var xo,_o=function(){function t(t,e,n){var i=this;this._sleepAft
         searchInput.addEventListener('input', updateSearch);
         searchInput.addEventListener('change', updateSearch);
         searchInput.addEventListener('search', updateSearch);
+        const excludeInput = document.getElementById('excludeInput');
+        const updateExclusions = function(event) {
+          state.excludeQuery = event.target.value;
+          state.excludeTerms = exclusionTerms();
+          applyFilters(true);
+        };
+        excludeInput.addEventListener('input', updateExclusions);
+        excludeInput.addEventListener('change', updateExclusions);
+        document.getElementById('excludeSegment').addEventListener('click', function(event) {
+          const button = event.target.closest('[data-exclude-mode]');
+          if (!button) return;
+          state.excludeMode = button.dataset.excludeMode;
+          document.querySelectorAll('[data-exclude-mode]').forEach(function(item) {
+            item.classList.toggle('active', item === button);
+          });
+          applyFilters(true);
+        });
         document.getElementById('coreFilter').addEventListener('change', function(event) {
           state.core = event.target.value;
           applyFilters(true);

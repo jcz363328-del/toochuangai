@@ -56,6 +56,7 @@
             background: #fff;
             border: 1px solid #e5e7eb;
             font-size: 12px;
+            table-layout: auto;
             color: #4b5563;
             text-decoration: none;
             text-align: center;
@@ -178,6 +179,18 @@
             max-width: 280px;
             overflow: hidden;
             text-overflow: ellipsis;
+            user-select: text;
+        }
+        .data-table td.logistics-cell {
+            min-width: 360px;
+            max-width: 520px;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-all;
+            user-select: text;
+            cursor: text;
         }
         .data-table tr:hover td { background: #f8fafc; }
         .data-table tr.is-warning td {
@@ -185,6 +198,17 @@
             color: #991b1b;
         }
         .data-table tr.is-warning:hover td { background: #ffe4e6; }
+        .data-table th:last-child,
+        .data-table td:last-child {
+            min-width: 420px;
+            max-width: none;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+            word-break: break-all;
+            user-select: text;
+        }
         .data-table td.is-warning-cell {
             font-weight: 900;
             color: #b91c1c;
@@ -254,6 +278,7 @@
             </div>
             <div class="toolbar">
                 <div class="controls">
+                    <button type="button" class="btn" id="opsFbaCopy"><i class="fas fa-copy"></i> 复制表格</button>
                     <div class="field">
                         <label for="opsFbaDian">按店铺筛选</label>
                         <select id="opsFbaDian" class="select">
@@ -369,7 +394,8 @@
                     const key = col.key;
                     const value = values[key] || '';
                     const warning = warningFields[key] || '';
-                    const cls = warning ? ' class="is-warning-cell"' : '';
+                    const logisticsClass = /wuliu|物流/i.test(String(key)) || /物流单号/i.test(String(col.label || '')) ? ' logistics-cell' : '';
+                    const cls = ` class="${warning ? 'is-warning-cell' : ''}${logisticsClass}"`;
                     const title = warning || value;
                     return `<td${cls} title="${opsFbaEscape(title)}">${opsFbaEscape(value)}</td>`;
                 }).join('');
@@ -422,6 +448,7 @@
             const sort = document.getElementById('opsFbaSort');
             const issue = document.getElementById('opsFbaIssue');
             const refresh = document.getElementById('opsFbaRefresh');
+            const copy = document.getElementById('opsFbaCopy');
             const prevBtn = document.getElementById('opsFbaPrev');
             const nextBtn = document.getElementById('opsFbaNext');
 
@@ -443,6 +470,16 @@
                 });
             }
             if (refresh) refresh.addEventListener('click', function () { opsFbaLoadData(opsFbaState.page || 1); });
+            if (copy) copy.addEventListener('click', async function () {
+                const table = document.querySelector('#opsFbaTableWrap .data-table');
+                if (!table) return;
+                const text = Array.from(table.rows).map(row => Array.from(row.cells).map(cell => cell.innerText.replace(/\s+/g, ' ').trim()).join('\t')).join('\n');
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copy.innerHTML = '<i class="fas fa-check"></i> 已复制';
+                    setTimeout(() => { copy.innerHTML = '<i class="fas fa-copy"></i> 复制表格'; }, 1400);
+                } catch (e) { window.prompt('请复制下面的表格内容：', text); }
+            });
             if (prevBtn) prevBtn.addEventListener('click', function () { opsFbaLoadData(Math.max(1, opsFbaState.page - 1)); });
             if (nextBtn) nextBtn.addEventListener('click', function () { opsFbaLoadData(Math.min(opsFbaState.totalPages, opsFbaState.page + 1)); });
 

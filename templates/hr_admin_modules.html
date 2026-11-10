@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>人力行政部功能 - 图创AI系统</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dashboard_secondary_favorites.css') }}" rel="stylesheet">
+    <script defer src="{{ url_for('static', filename='js/dashboard_secondary_favorites.js') }}"></script>
     <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
     <style>
         body { margin:0; font-family:'Microsoft YaHei', Arial, sans-serif; background:#f5f7fb; color:#182033; }
@@ -13,13 +15,20 @@
         .brand { display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; }
         .brand i { color:#2563eb; }
         .nav-links a { color:#2563eb; text-decoration:none; font-size:14px; }
-        .container { max-width:1200px; margin:0 auto; padding:28px 20px 48px; }
-        .modules-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px; }
-        .module-card { background:#fff; border:1px solid #e6eaf2; border-radius:8px; padding:22px; cursor:pointer; transition:box-shadow .2s, transform .2s; }
-        .module-card:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(15,23,42,.08); }
-        .module-icon { width:46px; height:46px; border-radius:8px; background:#eff6ff; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:14px; }
-        h3 { margin:0 0 8px; font-size:18px; }
-        p { margin:0; color:#64748b; line-height:1.6; font-size:14px; }
+        .container { max-width:1440px; margin:0 auto; padding:18px 24px 48px; }
+        .directory-panel { background:#fff; border:1px solid #edf1f7; border-radius:12px; padding:12px; }
+        .directory-head { margin-bottom:10px; }
+        .directory-head h2 { margin:0; font-size:16px; display:flex; align-items:center; gap:8px; }
+        .directory-head h2 i { color:#5b7cff; }
+        .directory-head p { margin:3px 0 0; color:#94a3b8; font-size:12px; }
+        .modules-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; }
+        .module-card { min-height:82px; background:#fff; border:1px solid #e2e8f2; border-radius:11px; padding:13px 13px 13px 52px; cursor:pointer; transition:box-shadow .2s, border-color .2s; position:relative; display:flex; flex-direction:column; justify-content:center; }
+        .module-card:hover { border-color:#b9c8ff; box-shadow:0 5px 14px rgba(62,91,183,.09); }
+        .module-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:30px; height:30px; border-radius:8px; background:#eef2ff; color:#5b7cff; display:flex; align-items:center; justify-content:center; font-size:14px; }
+        h3 { margin:0 0 3px; font-size:14px; }
+        p { margin:0; color:#8a96a8; line-height:1.3; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        @media(max-width:900px){.modules-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+        @media(max-width:520px){.container{padding:14px 10px}.modules-grid{grid-template-columns:1fr;}}
     </style>
 </head>
 <body>
@@ -29,15 +38,21 @@
             <div class="nav-links"><a href="{{ url_for('dashboard') }}">返回主页</a></div>
         </div>
     </header>
-    <main class="container">
+    <main class="container"><section class="directory-panel">
+        <div class="directory-head"><h2><i class="fas fa-layer-group"></i>功能模块</h2><p>按需选择功能，快速进入对应工作台</p></div>
         <div class="modules-grid">
             <div class="module-card" data-href="{{ url_for('hr_admin_innovation_data') }}" data-menu="人力行政部-创新数据">
                 <div class="module-icon"><i class="fas fa-chart-column"></i></div>
                 <h3>创新数据</h3>
                 <p>按月份、部门、有效提案、人员、分数和创新类别查看创新提案统计数据。</p>
             </div>
+            <div class="module-card" data-href="{{ url_for('feishu_video_card_test_page') }}" data-menu="人力行政部-视频推送">
+                <div class="module-icon"><i class="fas fa-photo-film"></i></div>
+                <h3>视频推送</h3>
+                <p>上传 MP4 视频并推送到飞书，接收方可直接查看和播放。</p>
+            </div>
         </div>
-    </main>
+    </section></main>
     <script>
         function logMenuClick(menu, href) {
             const payload = JSON.stringify({ menu: menu || '', href: href || '' });

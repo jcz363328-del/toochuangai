@@ -1,0 +1,502 @@
+{
+  "groups": [
+    {
+      "key": "operations",
+      "name": "运营部功能",
+      "total": 9,
+      "available": 2,
+      "features": [
+        {
+          "name": "差评分析系统",
+          "href": "/review_analysis",
+          "allowed": false,
+          "required_permissions": [
+            "review_analysis"
+          ]
+        },
+        {
+          "name": "模特排队",
+          "href": "/model/queue",
+          "allowed": true,
+          "required_permissions": [
+            "model_queue"
+          ]
+        },
+        {
+          "name": "90号店看板",
+          "href": "/tk/dashboard_90",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_90"
+          ]
+        },
+        {
+          "name": "客服",
+          "href": "/tk_customer_service",
+          "allowed": true,
+          "required_permissions": [
+            "tk_customer_service"
+          ]
+        },
+        {
+          "name": "FBA货件运输方式",
+          "href": "/operation/fba_shipping_methods",
+          "allowed": false,
+          "required_permissions": [
+            "operation_fba_shipping"
+          ]
+        },
+        {
+          "name": "亚马逊站内信回复智能体",
+          "href": "/amazon_reply_agent",
+          "allowed": false,
+          "required_permissions": [
+            "amazon_reply_agent"
+          ]
+        },
+        {
+          "name": "82号店看板",
+          "href": "/tk/dashboard_82",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_82"
+          ]
+        },
+        {
+          "name": "88号店看板",
+          "href": "/tk/dashboard_88",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_88"
+          ]
+        },
+        {
+          "name": "智能补货中心-运营",
+          "href": "/ai/daily-replenishment-operation",
+          "allowed": false,
+          "required_permissions": [
+            "daily_replenishment_operation"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tk_project_group",
+      "name": "内容生产工厂",
+      "total": 19,
+      "available": 15,
+      "features": [
+        {
+          "name": "实时视频数据",
+          "href": "/tk_video_realtime",
+          "allowed": true,
+          "required_permissions": [
+            "tk_video_realtime"
+          ]
+        },
+        {
+          "name": "OKAYLOVE数据看板",
+          "href": "/tk/dashboard_82",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_82"
+          ]
+        },
+        {
+          "name": "TK达人管理",
+          "href": "/influencer_management",
+          "allowed": true,
+          "required_permissions": [
+            "influencer_management"
+          ]
+        },
+        {
+          "name": "数据看板汇总",
+          "href": "/tk/dashboard",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_full"
+          ]
+        },
+        {
+          "name": "GMV未授权提醒",
+          "href": "/tk_gmv_authorization_notify",
+          "allowed": true,
+          "required_permissions": [
+            "tk_gmv_authorization"
+          ]
+        },
+        {
+          "name": "82号店看板",
+          "href": "/tk/dashboard_82",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_82"
+          ]
+        },
+        {
+          "name": "深圳数据看板",
+          "href": "/tk/dashboard_sz",
+          "allowed": true,
+          "required_permissions": [
+            "tk_total_dashboard"
+          ]
+        },
+        {
+          "name": "视频、商品卡、达人GMV占比",
+          "href": "/tk/gmv_ratio_card",
+          "allowed": true,
+          "required_permissions": [
+            "tk_gmv_ratio"
+          ]
+        },
+        {
+          "name": "BD指标",
+          "href": "/tk_bd_metrics",
+          "allowed": true,
+          "required_permissions": [
+            "tk_bd_metrics"
+          ]
+        },
+        {
+          "name": "BD月度目标导入",
+          "href": "/tk_bd_metrics_import",
+          "allowed": true,
+          "required_permissions": [
+            "tk_bd_metrics_import"
+          ]
+        },
+        {
+          "name": "月度目标导入",
+          "href": "/tk_monthly_target_import",
+          "allowed": true,
+          "required_permissions": [
+            "tk_monthly_target_import"
+          ]
+        },
+        {
+          "name": "Seedance 视频生成",
+          "href": "/tk_seedance",
+          "allowed": true,
+          "required_permissions": [
+            "tk_project_seedance"
+          ]
+        },
+        {
+          "name": "脚本生成器",
+          "href": "/script_generator",
+          "allowed": true,
+          "required_permissions": [
+            "script_generator"
+          ]
+        },
+        {
+          "name": "联营店铺看板",
+          "href": "/tk/dashboard_project",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_full / tk_joint_dashboard_all / tk_joint_shop_*"
+          ]
+        },
+        {
+          "name": "邀请ID实时监控",
+          "href": "/tk_invite_monitor",
+          "allowed": true,
+          "required_permissions": [
+            "tk_invite_monitor"
+          ]
+        },
+        {
+          "name": "12小时之内未检查的邀请码",
+          "href": "/tk_invite_monitor#unchecked_12h",
+          "allowed": true,
+          "required_permissions": [
+            "tk_invite_monitor"
+          ]
+        },
+        {
+          "name": "模特排队",
+          "href": "/model/queue",
+          "allowed": true,
+          "required_permissions": [
+            "model_queue"
+          ]
+        },
+        {
+          "name": "定时邮件",
+          "href": "/tk_email_register",
+          "allowed": true,
+          "required_permissions": [
+            "tk_email_register"
+          ]
+        },
+        {
+          "name": "客服",
+          "href": "/tk_customer_service",
+          "allowed": true,
+          "required_permissions": [
+            "tk_customer_service"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tech_dept",
+      "name": "技术部",
+      "total": 5,
+      "available": 3,
+      "features": [
+        {
+          "name": "差评分析系统",
+          "href": "/review_analysis",
+          "allowed": false,
+          "required_permissions": [
+            "review_analysis"
+          ]
+        },
+        {
+          "name": "模特排队",
+          "href": "/model/queue",
+          "allowed": true,
+          "required_permissions": [
+            "model_queue"
+          ]
+        },
+        {
+          "name": "模特库管理",
+          "href": "/model/library",
+          "allowed": false,
+          "required_permissions": [
+            "model_library"
+          ]
+        },
+        {
+          "name": "定时邮件",
+          "href": "/tk_email_register",
+          "allowed": true,
+          "required_permissions": [
+            "tk_email_register"
+          ]
+        },
+        {
+          "name": "定时邮件_技术部",
+          "href": "/tk_email_register_js",
+          "allowed": true,
+          "required_permissions": [
+            "tk_email_register"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "visual_design_dept",
+      "name": "视觉设计部",
+      "total": 1,
+      "available": 1,
+      "features": [
+        {
+          "name": "小哈",
+          "href": "/visual_design_dept/image_tool",
+          "allowed": true,
+          "required_permissions": [
+            "visual_design_dept"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "photography_dept",
+      "name": "摄影部",
+      "total": 1,
+      "available": 1,
+      "features": [
+        {
+          "name": "实时视频数据",
+          "href": "/tk_video_realtime",
+          "allowed": true,
+          "required_permissions": [
+            "tk_video_realtime"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "warehouse_group",
+      "name": "仓储部组",
+      "total": 0,
+      "available": 0,
+      "features": []
+    },
+    {
+      "key": "procurement_dept",
+      "name": "采购部",
+      "total": 3,
+      "available": 1,
+      "features": [
+        {
+          "name": "样板库存管理",
+          "href": "/procurement/yangban_inventory",
+          "allowed": false,
+          "required_permissions": [
+            "procurement_dept"
+          ]
+        },
+        {
+          "name": "差评分析系统",
+          "href": "/review_analysis",
+          "allowed": false,
+          "required_permissions": [
+            "review_analysis"
+          ]
+        },
+        {
+          "name": "模特排队",
+          "href": "/model/queue",
+          "allowed": true,
+          "required_permissions": [
+            "model_queue"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "general_office",
+      "name": "总经办",
+      "total": 2,
+      "available": 1,
+      "features": [
+        {
+          "name": "TK整体看板",
+          "href": "/tk/dashboard",
+          "allowed": false,
+          "required_permissions": [
+            "tk_dashboard_full"
+          ]
+        },
+        {
+          "name": "深圳看板",
+          "href": "/finance_sz_dashboard",
+          "allowed": true,
+          "required_permissions": [
+            "tk_total_dashboard"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "rd_dept",
+      "name": "研发部",
+      "total": 2,
+      "available": 1,
+      "features": [
+        {
+          "name": "差评分析系统",
+          "href": "/review_analysis",
+          "allowed": false,
+          "required_permissions": [
+            "review_analysis"
+          ]
+        },
+        {
+          "name": "模特排队",
+          "href": "/model/queue",
+          "allowed": true,
+          "required_permissions": [
+            "model_queue"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "finance_dept",
+      "name": "财务部",
+      "total": 4,
+      "available": 0,
+      "features": [
+        {
+          "name": "物流运费结算导出",
+          "href": "/finance_modules#workspace-feature-b3fe10e4",
+          "allowed": false,
+          "required_permissions": [
+            "finance_dept"
+          ]
+        },
+        {
+          "name": "费用表导入",
+          "href": "/finance_modules#workspace-feature-76119d07",
+          "allowed": false,
+          "required_permissions": [
+            "finance_dept"
+          ]
+        },
+        {
+          "name": "工资/房租导入",
+          "href": "/finance_modules#workspace-feature-44ccce3c",
+          "allowed": false,
+          "required_permissions": [
+            "finance_dept"
+          ]
+        },
+        {
+          "name": "分摊比例导入",
+          "href": "/finance_modules#workspace-feature-dfda19b7",
+          "allowed": false,
+          "required_permissions": [
+            "finance_dept"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "hr_admin_dept",
+      "name": "人力行政部",
+      "total": 2,
+      "available": 0,
+      "features": [
+        {
+          "name": "人力行政部-创新数据",
+          "href": "/hr_admin/innovation_data",
+          "allowed": false,
+          "required_permissions": [
+            "hr_admin_dept"
+          ]
+        },
+        {
+          "name": "人力行政部-视频推送",
+          "href": "/ai/feishu-video-card-test",
+          "allowed": false,
+          "required_permissions": [
+            "hr_admin_dept"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "shenzhen_dept",
+      "name": "深圳团队",
+      "total": 2,
+      "available": 1,
+      "features": [
+        {
+          "name": "差评分析系统",
+          "href": "/review_analysis",
+          "allowed": false,
+          "required_permissions": [
+            "review_analysis"
+          ]
+        },
+        {
+          "name": "模特排队",
+          "href": "/model/queue",
+          "allowed": true,
+          "required_permissions": [
+            "model_queue"
+          ]
+        }
+      ]
+    }
+  ],
+  "javascript_errors": [],
+  "additional_catalog_requests": 0,
+  "result": "passed"
+}

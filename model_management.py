@@ -12,6 +12,29 @@ model_management_bp = Blueprint('model_management', __name__)
 
 BASE_VIDEO_DIR = r"D:\tuchuangai\模特视频"
 
+# 模特库共享可见：key 为查看者，value 为额外可见的「上传人」
+MODEL_LIBRARY_EXTRA_VISIBLE_UPLOADERS = {
+    '郭云秋': ('曹丽霞',),
+}
+
+
+def _visible_uploaders(user_name):
+    """返回当前用户在模特库里可以看到的上传人列表（自己 + 共享给自己的人）。"""
+    normalized = (user_name or '').strip()
+    names = [normalized]
+    for extra in MODEL_LIBRARY_EXTRA_VISIBLE_UPLOADERS.get(normalized, ()):
+        extra = (extra or '').strip()
+        if extra and extra not in names:
+            names.append(extra)
+    return names
+
+
+def _uploader_filter_sql(column, user_name):
+    names = _visible_uploaders(user_name) or ['']
+    parts = [f"{column} = '{name.replace(chr(39), chr(39) * 2)}'" for name in names]
+    return '(' + ' OR '.join(parts) + ')'
+
+
 def get_user_name():
     return session.get('feishu_user_name', '')
 
@@ -86,7 +109,7 @@ def models():
         country_esc = country.replace("'", "''")
         level_esc = level.replace("'", "''")
 
-        where_clauses = [f"m.上传人 = '{user_name}'"]
+        where_clauses = [_uploader_filter_sql('m.上传人', get_user_name())]
         if name_esc:
             where_clauses.append(f"CHARINDEX('{name_esc}', ISNULL(CAST(m.模特姓名 AS NVARCHAR(200)), '')) > 0")
         if status_esc:
@@ -351,6 +374,13 @@ def model_queue_overview():
 def update_model(model_id):
     if request.method == 'DELETE':
         try:
+            owner = str(sf_db(f"SELECT 上传人 FROM [模特信息] WHERE 模特ID = {model_id}", single=True) or '').strip()
+            current_user = str(get_user_name() or '').strip()
+            if owner and current_user and owner != current_user:
+                return jsonify({
+                    'success': False,
+                    'message': '只能删除自己上传的模特，其他同事的模特仅供查看。'
+                }), 403
             vids = sf_db(f"SELECT 视频地址 FROM [模特信息] WHERE 模特ID = {model_id}", single=True) or ''
             if vids:
                 for v in [x for x in vids.split(';') if x]:

@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小哈 · 浅色界面 Demo</title>
+<style>
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface-2: #f8f9fc;
+  --surface-3: #f1f3f8;
+  --border: #e6e8ef;
+  --border-strong: #d6d9e3;
+  --text: #1d2129;
+  --text-2: #4e5969;
+  --text-3: #86909c;
+  --primary: #6b5bf5;
+  --primary-hover: #5a4ae6;
+  --primary-soft: #f1efff;
+  --primary-line: #d9d3ff;
+  --success: #12a66a;
+  --success-soft: #e8f7f0;
+  --warning: #e8890c;
+  --warning-soft: #fff4e5;
+  --danger: #e5484d;
+  --danger-soft: #fdeeee;
+  --radius-lg: 14px;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 20px rgba(16, 24, 40, 0.05);
+  --shadow-pop: 0 12px 32px rgba(16, 24, 40, 0.12);
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", Inter, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: var(--font); font-size: 13px; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+img { display: block; }
+svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---------- top bar ---------- */
+.topbar { position: sticky; top: 0; z-index: 30; height: 56px; display: flex; align-items: center; gap: 16px; padding: 0 20px; background: rgba(255,255,255,.86); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 10px; width: 224px; }
+.brand-logo { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; background: linear-gradient(135deg, #8b7bff, #6b5bf5 55%, #4f7cff); box-shadow: 0 4px 12px rgba(107,91,245,.28); }
+.brand-title { font-size: 15px; font-weight: 650; line-height: 1.1; }
+.brand-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.search { flex: 1; max-width: 440px; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: var(--radius); background: var(--surface-3); color: var(--text-3); border: 1px solid transparent; transition: .15s; }
+.search:hover { border-color: var(--border-strong); background: #fff; }
+.search span { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search .kbd { flex: none; }
+.kbd { font-size: 11px; padding: 1px 6px; border-radius: 5px; background: #fff; border: 1px solid var(--border); color: var(--text-3); }
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: #fff; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
+.chip.btn:hover { border-color: var(--border-strong); color: var(--text); }
+.badge-num { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--primary); color: #fff; font-size: 11px; display: inline-grid; place-items: center; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; font-weight: 600; font-size: 12px; border: 1px solid var(--primary-line); }
+
+/* ---------- layout ---------- */
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - 56px); }
+.app.collapsed { grid-template-columns: 64px minmax(0, 1fr); }
+.side { position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto; padding: 14px 12px 16px; border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 2px; }
+.side::-webkit-scrollbar { width: 6px; } .side::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.side-label { font-size: 11px; color: var(--text-3); padding: 10px 10px 6px; letter-spacing: .02em; }
+.group-head { display: flex; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 10px; border-radius: var(--radius-sm); color: var(--text-2); font-weight: 550; }
+.group-head:hover { background: var(--surface-3); color: var(--text); }
+.group-head .chev { margin-left: auto; transition: transform .2s; color: var(--text-3); width: 14px; height: 14px; }
+.group.open .group-head .chev { transform: rotate(90deg); }
+.group-count { font-size: 11px; color: var(--text-3); font-weight: 400; }
+.group-items { display: none; padding: 2px 0 6px 18px; position: relative; }
+.group-items::before { content: ""; position: absolute; left: 18px; top: 2px; bottom: 8px; width: 1px; background: var(--border); }
+.group.open .group-items { display: block; }
+.nav-item { position: relative; display: flex; align-items: center; width: 100%; height: 32px; padding: 0 10px 0 16px; margin: 1px 0; border-radius: var(--radius-sm); color: var(--text-2); text-align: left; white-space: nowrap; }
+.nav-item:hover { background: var(--surface-3); color: var(--text); }
+.nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.nav-item.active::before { content: ""; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--primary); }
+.nav-tag { margin-left: auto; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--warning-soft); color: var(--warning); font-weight: 500; }
+.side-bottom { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+.app.collapsed .side { padding: 14px 8px; }
+.app.collapsed .side-label, .app.collapsed .group-items, .app.collapsed .group-head .txt, .app.collapsed .group-head .chev, .app.collapsed .group-count { display: none !important; }
+.app.collapsed .group-head { justify-content: center; padding: 0; }
+
+.main { min-width: 0; padding: 20px 24px 40px; }
+.page { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---------- page header ---------- */
+.page-head { display: flex; align-items: flex-end; gap: 16px; }
+.crumb { font-size: 12px; color: var(--text-3); display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.page-title { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
+.page-sub { margin: 6px 0 0; color: var(--text-2); font-size: 13px; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.meta { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
+.meta b { color: var(--text); font-weight: 600; }
+.head-actions { margin-left: auto; display: flex; gap: 8px; }
+.tag-ai { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--primary-soft); color: var(--primary); }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: var(--radius-sm); font-weight: 550; transition: .15s; white-space: nowrap; }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 2px 6px rgba(107,91,245,.25); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-primary:disabled { background: #c9c3fb; box-shadow: none; cursor: not-allowed; }
+.btn-ghost { background: #fff; border: 1px solid var(--border); color: var(--text-2); }
+.btn-ghost:hover { border-color: var(--border-strong); color: var(--text); }
+.btn-text { color: var(--text-2); padding: 0 8px; height: 30px; }
+.btn-text:hover { color: var(--primary); }
+.btn-lg { height: 42px; padding: 0 22px; font-size: 14px; border-radius: var(--radius); }
+
+/* ---------- steps ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.step { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--radius); color: var(--text-3); }
+.step .n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600; background: var(--surface-3); color: var(--text-3); flex: none; }
+.step .t { font-weight: 550; color: var(--text-2); }
+.step .d { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+.step.done .n { background: var(--success-soft); color: var(--success); }
+.step.current { background: var(--primary-soft); }
+.step.current .n { background: var(--primary); color: #fff; }
+.step.current .t { color: var(--primary); }
+
+/* ---------- cards ---------- */
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+.card-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.card-title { font-size: 14px; font-weight: 600; }
+.card-hint { font-size: 12px; color: var(--text-3); }
+.card-head .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.card-body { padding: 16px 18px; }
+.section + .section { margin-top: 18px; }
+.label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.label { font-weight: 600; font-size: 13px; }
+.optional { font-size: 11px; color: var(--text-3); background: var(--surface-3); padding: 1px 6px; border-radius: 4px; }
+.label-row .count { margin-left: auto; font-size: 12px; color: var(--text-3); }
+
+.drop { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); background: var(--surface-2); transition: .15s; cursor: pointer; }
+.drop:hover { border-color: var(--primary); background: var(--primary-soft); }
+.drop-icon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: #fff; border: 1px solid var(--border); color: var(--primary); }
+.drop-title { font-weight: 600; }
+.drop-sub { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+.drop .btn { margin-left: auto; }
+
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; margin-top: 12px; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); background: var(--surface-3); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb .idx { position: absolute; left: 6px; top: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 5px; background: rgba(255,255,255,.92); font-size: 11px; font-weight: 600; display: grid; place-items: center; color: var(--text); }
+.thumb .rm { position: absolute; right: 6px; top: 6px; width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,.92); display: grid; place-items: center; opacity: 0; transition: .15s; color: var(--text-2); }
+.thumb:hover .rm { opacity: 1; }
+.thumb .rm:hover { color: var(--danger); }
+.thumb .rm svg { width: 12px; height: 12px; }
+.thumb.add { display: grid; place-items: center; border-style: dashed; color: var(--text-3); cursor: pointer; background: #fff; }
+.thumb.add:hover { color: var(--primary); border-color: var(--primary); }
+
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-label { font-size: 12px; color: var(--text-2); margin-bottom: 6px; display: block; }
+.select, .stepper { height: 36px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; display: flex; align-items: center; padding: 0 10px; gap: 8px; color: var(--text); width: 100%; }
+.select:hover, .stepper:hover { border-color: var(--border-strong); }
+.select .v { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select .sub { color: var(--text-3); font-size: 12px; }
+.stepper { padding: 0 4px; }
+.stepper button { width: 28px; height: 28px; border-radius: 6px; color: var(--text-2); display: grid; place-items: center; }
+.stepper button:hover { background: var(--surface-3); }
+.stepper .v { flex: 1; text-align: center; font-weight: 600; }
+
+.mini-ref { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.mini-ref img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+.mini-ref .t { font-weight: 550; }
+.mini-ref .s { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.mini-ref .btn { margin-left: auto; }
+
+.segment { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--surface-3); gap: 2px; }
+.segment button { height: 26px; padding: 0 10px; border-radius: 7px; font-size: 12px; color: var(--text-2); }
+.segment button.on { background: #fff; color: var(--text); font-weight: 600; box-shadow: var(--shadow-sm); }
+
+.submit-bar { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--border); background: linear-gradient(180deg, #fff, var(--surface-2)); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.estimate { font-size: 12px; color: var(--text-3); line-height: 1.6; }
+.estimate b { color: var(--text); font-weight: 600; }
+.submit-bar .btn-primary { margin-left: auto; }
+
+/* ---------- result ---------- */
+.result-empty { height: 440px; display: grid; place-items: center; text-align: center; color: var(--text-3); background: repeating-linear-gradient(45deg, var(--surface-2), var(--surface-2) 10px, #fff 10px, #fff 20px); border-radius: var(--radius); border: 1px dashed var(--border-strong); }
+.result-empty .ico { width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 14px; display: grid; place-items: center; background: #fff; border: 1px solid var(--border); color: var(--primary); box-shadow: var(--shadow-sm); }
+.result-empty .t { font-weight: 600; color: var(--text-2); font-size: 14px; }
+.result-empty .s { margin-top: 4px; font-size: 12px; }
+
+.running { height: 440px; display: flex; flex-direction: column; justify-content: center; gap: 18px; padding: 0 36px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); }
+.run-row { display: flex; align-items: center; gap: 12px; }
+.run-row img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; }
+.run-row .info { flex: 1; min-width: 0; }
+.run-row .name { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+.run-row .name span:last-child { color: var(--text-3); }
+.bar { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, #8b7bff, var(--primary)); transition: width .25s; }
+.run-head { text-align: center; }
+.run-head .t { font-size: 15px; font-weight: 600; }
+.run-head .s { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+.spinner { width: 34px; height: 34px; margin: 0 auto 10px; border-radius: 50%; border: 3px solid var(--primary-line); border-top-color: var(--primary); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.compare { position: relative; height: 440px; border-radius: var(--radius); overflow: hidden; background: var(--surface-3); user-select: none; }
+.compare img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+.compare .before { filter: blur(1.6px) saturate(.85) contrast(.9) brightness(1.03); }
+.compare .after { clip-path: inset(0 0 0 50%); }
+.compare .handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.06); pointer-events: none; }
+.compare .handle::after { content: "⇆"; position: absolute; top: 50%; left: 50%; width: 34px; height: 34px; transform: translate(-50%, -50%); border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 14px; color: var(--primary); box-shadow: var(--shadow-pop); }
+.compare input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+.compare .lab { position: absolute; top: 12px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,.9); }
+.compare .lab.l { left: 12px; color: var(--text-2); }
+.compare .lab.r { right: 12px; color: var(--primary); }
+.result-strip { display: flex; gap: 8px; margin-top: 12px; }
+.result-strip button { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; padding: 0; }
+.result-strip button.on { border-color: var(--primary); }
+.result-strip img { width: 100%; height: 100%; object-fit: cover; }
+.result-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 12px; font-size: 12px; color: var(--text-3); }
+.result-meta > span { white-space: nowrap; }
+.result-meta .ok { color: var(--success); display: inline-flex; align-items: center; gap: 4px; font-weight: 550; }
+.result-meta .acts { margin-left: auto; display: flex; gap: 6px; }
+
+/* ---------- history ---------- */
+.history { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.h-card { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #fff; transition: .15s; cursor: pointer; }
+.h-card:hover { border-color: var(--primary-line); box-shadow: var(--shadow); transform: translateY(-1px); }
+.h-imgs { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 2px; height: 132px; overflow: hidden; background: var(--surface-3); }
+.h-imgs img { width: 100%; height: 100%; min-height: 0; object-fit: cover; object-position: center 25%; }
+.h-imgs img:first-child { grid-row: span 2; }
+.h-body { padding: 10px 12px; }
+.h-title { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.h-sub { font-size: 12px; color: var(--text-3); margin-top: 4px; display: flex; justify-content: space-between; }
+.status { font-size: 11px; padding: 1px 7px; border-radius: 5px; font-weight: 550; }
+.status.ok { background: var(--success-soft); color: var(--success); }
+.status.run { background: var(--primary-soft); color: var(--primary); }
+.status.fail { background: var(--danger-soft); color: var(--danger); }
+
+/* ---------- popover ---------- */
+.pop { position: absolute; right: 64px; top: 52px; width: 340px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-pop); display: none; z-index: 40; }
+.pop.open { display: block; }
+.pop-head { display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.pop-head .btn-text { margin-left: auto; font-weight: 400; font-size: 12px; }
+.task { display: flex; gap: 10px; padding: 12px 14px; align-items: center; }
+.task + .task { border-top: 1px solid var(--border); }
+.task img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; }
+.task .info { flex: 1; min-width: 0; }
+.task .n { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+.task .n b { font-weight: 600; }
+.task .n span { color: var(--text-3); }
+
+/* ---------- dashboard ---------- */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.kpi { padding: 16px 18px; }
+.kpi .k { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+.kpi .v { font-size: 26px; font-weight: 650; margin-top: 8px; letter-spacing: -.02em; }
+.kpi .v small { font-size: 13px; color: var(--text-3); font-weight: 500; margin-left: 4px; }
+.kpi .delta { font-size: 12px; margin-top: 6px; color: var(--text-3); }
+.kpi .delta .up { color: var(--success); font-weight: 600; }
+.kpi .delta .down { color: var(--danger); font-weight: 600; }
+.kpi-ico { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; }
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
+.rank { display: flex; flex-direction: column; gap: 12px; }
+.rank-row .top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+.rank-row .top span:last-child { color: var(--text-3); }
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; font-weight: 500; font-size: 12px; color: var(--text-3); padding: 10px 18px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.table td { padding: 12px 18px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.table tr:last-child td { border-bottom: 0; }
+.table tr:hover td { background: var(--surface-2); }
+.table .user { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 550; }
+.table .user .avatar { width: 26px; height: 26px; font-size: 11px; }
+
+/* ---------- canvas teaser ---------- */
+.canvas-teaser { height: 560px; position: relative; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border); background-color: #fafbfd; background-image: radial-gradient(#d9dce5 1px, transparent 1px); background-size: 20px 20px; }
+.c-node { position: absolute; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.c-node .h { padding: 8px 10px; font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+.c-node img { width: 100%; height: calc(100% - 34px); object-fit: cover; }
+.c-node.sel { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft), var(--shadow); }
+.c-toolbar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 4px; padding: 6px; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-pop); }
+.c-toolbar button { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; color: var(--text-2); }
+.c-toolbar button.on, .c-toolbar button:hover { background: var(--primary-soft); color: var(--primary); }
+
+.hidden { display: none !important; }
+.toast { position: fixed; left: 50%; top: 72px; transform: translate(-50%, -8px); opacity: 0; padding: 10px 16px; border-radius: 10px; background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-pop); display: flex; gap: 8px; align-items: center; transition: .25s; z-index: 50; font-weight: 550; pointer-events: none; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast svg { color: var(--success); }
+
+@media (max-width: 1180px) {
+  .grid-2, .dash-grid { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .steps .d { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-logo">AI</div>
+    <div>
+      <div class="brand-title">小哈</div>
+      <div class="brand-sub">专业的 AI 图像处理工具</div>
+    </div>
+  </div>
+  <button class="search" id="searchBtn">
+    <svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <span>搜索功能，例如 高清 / 抠图 / A+</span>
+    <span class="kbd">Ctrl K</span>
+  </button>
+  <div class="top-actions">
+    <span class="chip"><span class="dot"></span>服务正常</span>
+    <button class="chip btn" id="taskBtn">
+      <svg class="i" viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>
+      后台任务 <span class="badge-num" id="taskCount">2</span>
+    </button>
+    <div class="avatar" title="admin">AD</div>
+  </div>
+  <div class="pop" id="taskPop">
+    <div class="pop-head">后台任务<button class="btn-text">查看全部</button></div>
+    <div class="task">
+      <img src="assets/cat-eye.jpg" alt="" />
+      <div class="info">
+        <div class="n"><b>批量去掉睫毛 · 6 张</b><span>4/6</span></div>
+        <div class="bar"><i style="width:66%"></i></div>
+      </div>
+    </div>
+    <div class="task">
+      <img src="assets/product.jpg" alt="" />
+      <div class="info">
+        <div class="n"><b>A+3.0 · 1 套</b><span>排队中</span></div>
+        <div class="bar"><i style="width:8%"></i></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="app" id="app">
+  <aside class="side" id="side"></aside>
+
+  <main class="main">
+    <!-- ===== feature workspace ===== -->
+    <div class="page" id="viewWorkspace">
+      <div class="page-head">
+        <div>
+          <div class="crumb"><span id="crumbGroup">图片处理</span><span>/</span><span id="crumbName">批量高清</span></div>
+          <h1 class="page-title"><span id="featureName">批量高清</span><span class="tag-ai">AI 增强</span></h1>
+          <p class="page-sub" id="featureSummary">保持原图尺寸与色彩，只提升清晰度与细节</p>
+          <div class="meta-row">
+            <span class="meta">模型 <b>Nano Banana 2.1</b></span>
+            <span class="meta">输出 <b>原图尺寸</b></span>
+            <span class="meta">单次最多 <b>20 张</b></span>
+            <span class="meta">预计 <b>约 45 秒 / 张</b></span>
+          </div>
+        </div>
+        <div class="head-actions">
+          <button class="btn btn-ghost"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17h.01"/></svg>使用说明</button>
+          <button class="btn btn-ghost"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>历史记录</button>
+        </div>
+      </div>
+
+      <div class="steps" id="steps">
+        <div class="step done"><span class="n">✓</span><div><div class="t">上传图片</div><div class="d">已上传 3 张</div></div></div>
+        <div class="step current"><span class="n">2</span><div><div class="t">补充参考</div><div class="d">肤质参考可选</div></div></div>
+        <div class="step"><span class="n">3</span><div><div class="t">开始处理</div><div class="d">后台并发执行</div></div></div>
+        <div class="step"><span class="n">4</span><div><div class="t">查看结果</div><div class="d">对比与下载</div></div></div>
+      </div>
+
+      <div class="grid-2">
+        <section class="card">
+          <div class="card-head">
+            <span class="card-title">上传与设置</span>
+            <span class="card-hint">支持拖拽、粘贴（Ctrl + V）</span>
+          </div>
+          <div class="card-body">
+            <div class="section">
+              <div class="label-row"><span class="label">原图</span><span class="count" id="thumbCount">3 / 20 张</span></div>
+              <div class="drop" id="drop">
+                <div class="drop-icon"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></div>
+                <div>
+                  <div class="drop-title">拖拽图片到这里，或点击选择</div>
+                  <div class="drop-sub">JPG / PNG / WEBP，单张不超过 30MB，可拖动排序</div>
+                </div>
+                <button class="btn btn-ghost">选择文件</button>
+              </div>
+              <div class="thumbs" id="thumbs"></div>
+            </div>
+
+            <div class="section">
+              <div class="label-row"><span class="label">肤质参考</span><span class="optional">可选</span></div>
+              <div class="mini-ref">
+                <img src="assets/eye.jpg" alt="" />
+                <div>
+                  <div class="t">使用参考图库 · 自然肤质</div>
+                  <div class="s">让高清结果的皮肤纹理更接近参考</div>
+                </div>
+                <button class="btn btn-text">更换</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="label-row">
+                <span class="label">参数</span>
+                <div class="segment" style="margin-left:auto"><button class="on">常用</button><button>高级</button></div>
+              </div>
+              <div class="row-2">
+                <div>
+                  <span class="field-label">模型</span>
+                  <button class="select"><span class="v">Nano Banana 2.1 · 模特高清</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+                </div>
+                <div>
+                  <span class="field-label">每张生成数量</span>
+                  <div class="stepper"><button id="minus">−</button><span class="v" id="qty">1</span><button id="plus">+</button></div>
+                </div>
+                <div>
+                  <span class="field-label">输出尺寸</span>
+                  <button class="select"><span class="v">与原图一致</span><span class="sub">自动</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+                </div>
+                <div>
+                  <span class="field-label">并发</span>
+                  <button class="select"><span class="v">自动（最多 4 路）</span><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="submit-bar">
+            <div class="estimate">共 <b id="estCount">3</b> 张 · 预计 <b id="estTime">约 1 分钟</b><br />提交后可切换到其他功能，完成后会通知你</div>
+            <button class="btn btn-primary btn-lg" id="runBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>开始处理</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <span class="card-title">结果预览</span>
+            <div class="right">
+              <div class="segment" id="stateSeg">
+                <button data-state="empty">空状态</button>
+                <button data-state="running">处理中</button>
+                <button data-state="done" class="on">已完成</button>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="result-empty hidden" id="stEmpty">
+              <div>
+                <div class="ico"><svg class="i" viewBox="0 0 24 24" style="width:22px;height:22px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></div>
+                <div class="t">处理完成后在这里查看结果</div>
+                <div class="s">支持原图 / 结果滑动对比，一键下载全部</div>
+              </div>
+            </div>
+            <div class="running hidden" id="stRunning">
+              <div class="run-head"><div class="spinner"></div><div class="t">正在处理 3 张图片</div><div class="s">实际并发 3 路 · 可以先切换到其他功能</div></div>
+              <div class="run-row"><img src="assets/portrait.jpg" alt="" /><div class="info"><div class="name"><span>IMG_1001.jpg</span><span class="p">0%</span></div><div class="bar"><i></i></div></div></div>
+              <div class="run-row"><img src="assets/portrait2.jpg" alt="" /><div class="info"><div class="name"><span>IMG_1002.jpg</span><span class="p">0%</span></div><div class="bar"><i></i></div></div></div>
+              <div class="run-row"><img src="assets/eye.jpg" alt="" /><div class="info"><div class="name"><span>IMG_1003.jpg</span><span class="p">0%</span></div><div class="bar"><i></i></div></div></div>
+            </div>
+            <div id="stDone">
+              <div class="compare" id="compare">
+                <img class="before" id="cmpBefore" src="assets/portrait.jpg" alt="原图" />
+                <img class="after" id="cmpAfter" src="assets/portrait.jpg" alt="结果" />
+                <div class="handle" id="cmpHandle"></div>
+                <span class="lab l">原图</span><span class="lab r">高清结果</span>
+                <input type="range" min="0" max="100" value="50" id="cmpRange" aria-label="对比滑块" />
+              </div>
+              <div class="result-strip" id="strip"></div>
+              <div class="result-meta">
+                <span class="ok"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M20 6 9 17l-5-5"/></svg>3 张全部成功</span>
+                <span>用时 52 秒 · 2048 × 2730</span>
+                <div class="acts">
+                  <button class="btn btn-ghost">送入画布</button>
+                  <button class="btn btn-ghost">重新生成</button>
+                  <button class="btn btn-primary"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>下载全部</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card-head">
+          <span class="card-title">最近记录</span>
+          <span class="card-hint">保留 7 天</span>
+          <div class="right">
+            <div class="segment"><button class="on">全部</button><button>当前功能</button><button>失败</button></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="history" id="history"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===== dashboard ===== -->
+    <div class="page hidden" id="viewDashboard">
+      <div class="page-head">
+        <div>
+          <div class="crumb"><span>状态与数据</span><span>/</span><span>数据看板</span></div>
+          <h1 class="page-title">今日数据看板</h1>
+          <p class="page-sub">查看当天各功能使用情况，以及最近 7 天的调用趋势</p>
+        </div>
+        <div class="head-actions">
+          <div class="segment"><button class="on">今天</button><button>近 7 天</button><button>近 30 天</button></div>
+          <button class="btn btn-ghost"><svg class="i" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>刷新数据</button>
+        </div>
+      </div>
+      <div class="kpis">
+        <div class="card kpi"><div class="k"><span class="kpi-ico" style="background:var(--primary-soft);color:var(--primary)"><svg class="i" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>今日调用</div><div class="v">1,284<small>次</small></div><div class="delta"><span class="up">↑ 12.4%</span> 较昨日</div></div>
+        <div class="card kpi"><div class="k"><span class="kpi-ico" style="background:var(--success-soft);color:var(--success)"><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>成功率</div><div class="v">97.6<small>%</small></div><div class="delta"><span class="up">↑ 0.8%</span> 较昨日</div></div>
+        <div class="card kpi"><div class="k"><span class="kpi-ico" style="background:#eaf2ff;color:#3b7cff"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></span>出图张数</div><div class="v">3,920<small>张</small></div><div class="delta"><span class="up">↑ 8.1%</span> 较昨日</div></div>
+        <div class="card kpi"><div class="k"><span class="kpi-ico" style="background:var(--warning-soft);color:var(--warning)"><svg class="i" viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>今日花费</div><div class="v">$46.20</div><div class="delta"><span class="down">↑ 4.3%</span> 较昨日</div></div>
+      </div>
+      <div class="dash-grid">
+        <section class="card">
+          <div class="card-head"><span class="card-title">近 7 天调用趋势</span><div class="right"><span class="card-hint">调用次数</span></div></div>
+          <div class="card-body"><svg id="trend" viewBox="0 0 640 240" style="width:100%;height:240px"></svg></div>
+        </section>
+        <section class="card">
+          <div class="card-head"><span class="card-title">功能使用排行</span><div class="right"><span class="card-hint">今日</span></div></div>
+          <div class="card-body"><div class="rank" id="rank"></div></div>
+        </section>
+      </div>
+      <section class="card">
+        <div class="card-head"><span class="card-title">最新使用记录</span><div class="right"><button class="btn btn-text">导出 CSV</button></div></div>
+        <table class="table">
+          <thead><tr><th>账号</th><th>功能</th><th>模型</th><th>张数</th><th>状态</th><th>时间</th></tr></thead>
+          <tbody id="records"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- ===== canvas ===== -->
+    <div class="page hidden" id="viewCanvas">
+      <div class="page-head">
+        <div>
+          <div class="crumb"><span>工作台</span><span>/</span><span>无限画布</span></div>
+          <h1 class="page-title">无限画布</h1>
+          <p class="page-sub">上传图片后自由组合已有功能，画布也使用同一套浅色风格</p>
+        </div>
+        <div class="head-actions"><button class="btn btn-ghost">新建项目</button><button class="btn btn-primary">全屏打开</button></div>
+      </div>
+      <div class="canvas-teaser">
+        <div class="c-node" style="left:60px;top:70px;width:200px;height:270px"><div class="h">原图</div><img src="assets/portrait.jpg" alt="" /></div>
+        <div class="c-node sel" style="left:330px;top:40px;width:220px;height:300px"><div class="h" style="color:var(--primary)">模特高清 · Nano Banana 2.1</div><img src="assets/portrait.jpg" alt="" /></div>
+        <div class="c-node" style="left:620px;top:120px;width:300px;height:120px"><div class="h">去睫毛结果</div><img src="assets/round-eye.jpg" alt="" /></div>
+        <div class="c-node" style="left:620px;top:280px;width:180px;height:230px"><div class="h">产品图精修</div><img src="assets/product.jpg" alt="" /></div>
+        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"><path d="M260 200 C 295 200, 295 190, 330 190" stroke="#b9b0ff" stroke-width="2" fill="none"/><path d="M550 190 C 585 190, 585 180, 620 180" stroke="#b9b0ff" stroke-width="2" fill="none"/></svg>
+        <div class="c-toolbar">
+          <button class="on" title="选择"><svg class="i" viewBox="0 0 24 24"><path d="m4 4 7 17 2-7 7-2z"/></svg></button>
+          <button title="图片"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></button>
+          <button title="文本"><svg class="i" viewBox="0 0 24 24"><path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/></svg></button>
+          <button title="生成"><svg class="i" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"><svg class="i" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg><span></span></div>
+
+<script>
+const ICONS = {
+  "设计检查": '<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
+  "图片处理": '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+  "模特编辑": '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  "A+": '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><path d="M9 21V9"/>',
+  "智能创作": '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17v4M17 19h4"/>',
+  "工作台": '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  "数据看板": '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
+  "收起": '<path d="m15 18-6-6 6-6"/>',
+};
+const GROUPS = [["设计检查",[["prepress_check","印前检查","上传 AI、PDF、截图或 ZIP，自动生成 19 项印前合规报告"]]],["图片处理",[["hd_batch","批量高清","保持原图尺寸与色彩，只提升清晰度与细节"],["jimeng_hd_upscale","即梦超清","火山引擎即梦智能超清，直接输出 8K 高清结果"],["image_resize","图片尺寸放大","按指定像素放大图片"],["product_retouch","产品图精修","保留产品真实细节，完成商业产品图级别的清晰度与瑕疵整理"],["product_retouch_local","局部瑕疵修复","只修复指定黑线、划痕、污渍等局部问题"],["background_cutout","智能抠图","只保留有睫毛的商品区域"],["background_texture","场景背景质感","只改变背景表面质感，人物、商品与构图不变"],["outpaint","模特扩图","扩展画面，优化构图"]]],["模特编辑",[["remove_eyelashes","批量去掉睫毛","自然去睫毛，保留眼部细节"],["pose_change","模特换姿势","只换姿势，场景人物不变"],["scene_change","模特换场景","只换场景，人物姿势不变"],["single_to_double","单眼变双眼","单眼图像智能补全"],["skin_tone","模特换肤色","自然替换肤色，真实细腻"],["pupil_color_change","换瞳孔颜色","只换瞳孔颜色"],["eye_shape_change","换眼型","只换眼型"],["three_view","模特侧面图生成","生成单张侧面图"]]],["A+",[["amazon_to_walmart_a_plus","亚马逊A+改沃尔玛A+","把一张亚马逊 A+ 长图重构为 4 张独立且连续的沃尔玛 16:9 A+ 页面"],["a_plus_style_model_replace","A+首屏风格复刻","参考首屏风格调性，把其中所有模特替换为指定模特"],["a_plus_first_screen_selling_points","A+首屏卖点融合","保留首屏核心元素，把多张主图中的真实卖点融合为完整 A+ 长图"],["a_plus_reference_lab","A+3.0","上传素材，生成统一、真实的商业 A+ 图片"],["main_image_a_plus","主图生A+","支持自由创作、首屏设计感、成品套版替换、整图测试与指定元素替换"],["amazon_a_plus","自由创作 PSD","自由生成商业 A+，导出 Photoshop 可编辑分层文件"]]],["智能创作",[["ai_qa_image","AI问答生图","上传图片问答生成图片"],["image_smart_analysis","图片智能分析","拖入一张主图，全面分析配色、装饰元素、构图与内容风格"]]],["工作台",[["infinite_canvas","无限画布","上传图片后自由组合已有功能"]]]];
+const NEW_TAGS = { a_plus_reference_lab: "新" };
+const svg = (path, size) => `<svg class="i" viewBox="0 0 24 24"${size ? ` style="width:${size}px;height:${size}px"` : ""}>${path}</svg>`;
+const chev = '<svg class="i chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>';
+let current = "hd_batch";
+
+function renderSide() {
+  const side = document.getElementById("side");
+  let html = '<div class="side-label">功能菜单</div>';
+  for (const [group, items] of GROUPS) {
+    const open = items.some(([key]) => key === current);
+    html += `<div class="group${open ? " open" : ""}"><button class="group-head" data-group>${svg(ICONS[group])}<span class="txt">${group}</span><span class="group-count">${items.length}</span>${chev}</button><div class="group-items">`;
+    for (const [key, name] of items) {
+      const tag = NEW_TAGS[key] ? `<span class="nav-tag">${NEW_TAGS[key]}</span>` : "";
+      html += `<button class="nav-item${key === current ? " active" : ""}" data-key="${key}">${name}${tag}</button>`;
+    }
+    html += "</div></div>";
+  }
+  html += `<div class="side-bottom"><div class="group${current === "dashboard" ? " open" : ""}"><button class="group-head${current === "dashboard" ? " " : ""}" data-key="dashboard" style="${current === "dashboard" ? "background:var(--primary-soft);color:var(--primary)" : ""}">${svg(ICONS["数据看板"])}<span class="txt">数据看板</span></button></div><button class="group-head" id="collapse">${svg(ICONS["收起"])}<span class="txt">收起菜单</span></button></div>`;
+  side.innerHTML = html;
+}
+
+function selectFeature(key) {
+  current = key;
+  renderSide();
+  const views = { viewWorkspace: key !== "dashboard" && key !== "infinite_canvas", viewDashboard: key === "dashboard", viewCanvas: key === "infinite_canvas" };
+  for (const [id, show] of Object.entries(views)) document.getElementById(id).classList.toggle("hidden", !show);
+  if (views.viewWorkspace) {
+    for (const [group, items] of GROUPS) {
+      const hit = items.find(([k]) => k === key);
+      if (!hit) continue;
+      document.getElementById("crumbGroup").textContent = group;
+      document.getElementById("crumbName").textContent = hit[1];
+      document.getElementById("featureName").textContent = hit[1];
+      document.getElementById("featureSummary").textContent = hit[2];
+    }
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+document.getElementById("side").addEventListener("click", (event) => {
+  const item = event.target.closest("[data-key]");
+  if (item) return selectFeature(item.dataset.key);
+  const head = event.target.closest("[data-group]");
+  if (head) {
+    if (document.getElementById("app").classList.contains("collapsed")) document.getElementById("app").classList.remove("collapsed");
+    head.parentElement.classList.toggle("open");
+  }
+  if (event.target.closest("#collapse")) document.getElementById("app").classList.toggle("collapsed");
+});
+
+/* thumbnails */
+const POOL = ["portrait.jpg", "portrait2.jpg", "eye.jpg", "cat-eye.jpg", "round-eye.jpg", "product.jpg"];
+let thumbs = ["portrait.jpg", "portrait2.jpg", "eye.jpg"];
+function renderThumbs() {
+  const box = document.getElementById("thumbs");
+  box.innerHTML = thumbs.map((src, index) => `<div class="thumb"><img src="assets/${src}" alt="" /><span class="idx">${index + 1}</span><button class="rm" data-rm="${index}" title="移除">${svg('<path d="M18 6 6 18M6 6l12 12"/>')}</button></div>`).join("") + `<div class="thumb add" id="addThumb">${svg('<path d="M12 5v14M5 12h14"/>', 20)}</div>`;
+  document.getElementById("thumbCount").textContent = `${thumbs.length} / 20 张`;
+  document.getElementById("estCount").textContent = thumbs.length * qty;
+  document.getElementById("estTime").textContent = `约 ${Math.max(1, Math.ceil((thumbs.length * qty * 45) / 4 / 60))} 分钟`;
+  document.getElementById("runBtn").disabled = thumbs.length === 0;
+}
+document.getElementById("thumbs").addEventListener("click", (event) => {
+  const rm = event.target.closest("[data-rm]");
+  if (rm) { thumbs.splice(Number(rm.dataset.rm), 1); renderThumbs(); }
+  if (event.target.closest("#addThumb")) addThumb();
+});
+document.getElementById("drop").addEventListener("click", addThumb);
+function addThumb() { if (thumbs.length < 20) { thumbs.push(POOL[thumbs.length % POOL.length]); renderThumbs(); } }
+let qty = 1;
+document.getElementById("minus").onclick = () => { qty = Math.max(1, qty - 1); document.getElementById("qty").textContent = qty; renderThumbs(); };
+document.getElementById("plus").onclick = () => { qty = Math.min(4, qty + 1); document.getElementById("qty").textContent = qty; renderThumbs(); };
+
+/* result states */
+function setState(state) {
+  document.getElementById("stEmpty").classList.toggle("hidden", state !== "empty");
+  document.getElementById("stRunning").classList.toggle("hidden", state !== "running");
+  document.getElementById("stDone").classList.toggle("hidden", state !== "done");
+  document.querySelectorAll("#stateSeg button").forEach((b) => b.classList.toggle("on", b.dataset.state === state));
+  const steps = document.querySelectorAll("#steps .step");
+  const stage = { empty: 1, running: 2, done: 3 }[state];
+  steps.forEach((step, index) => {
+    step.className = "step" + (index < stage ? " done" : index === stage ? " current" : "");
+    step.querySelector(".n").textContent = index < stage ? "✓" : index + 1;
+  });
+}
+document.getElementById("stateSeg").addEventListener("click", (event) => {
+  const b = event.target.closest("button");
+  if (b) setState(b.dataset.state);
+});
+let timer;
+document.getElementById("runBtn").onclick = () => {
+  setState("running");
+  const rows = [...document.querySelectorAll("#stRunning .run-row")];
+  const progress = rows.map(() => 0);
+  clearInterval(timer);
+  timer = setInterval(() => {
+    rows.forEach((row, index) => {
+      progress[index] = Math.min(100, progress[index] + Math.random() * 9 + (index === 0 ? 6 : 3));
+      row.querySelector(".bar i").style.width = progress[index] + "%";
+      row.querySelector(".p").textContent = progress[index] >= 100 ? "完成" : Math.round(progress[index]) + "%";
+    });
+    if (progress.every((p) => p >= 100)) {
+      clearInterval(timer);
+      setTimeout(() => { setState("done"); toast("3 张图片处理完成"); }, 400);
+    }
+  }, 180);
+};
+
+/* compare slider */
+const range = document.getElementById("cmpRange");
+range.addEventListener("input", () => {
+  document.getElementById("cmpAfter").style.clipPath = `inset(0 0 0 ${range.value}%)`;
+  document.getElementById("cmpHandle").style.left = range.value + "%";
+});
+const RESULTS = ["portrait.jpg", "portrait2.jpg", "eye.jpg"];
+function renderStrip(active = 0) {
+  document.getElementById("strip").innerHTML = RESULTS.map((src, index) => `<button class="${index === active ? "on" : ""}" data-i="${index}"><img src="assets/${src}" alt="" /></button>`).join("");
+  document.getElementById("cmpBefore").src = document.getElementById("cmpAfter").src = `assets/${RESULTS[active]}`;
+}
+document.getElementById("strip").addEventListener("click", (event) => {
+  const b = event.target.closest("button");
+  if (b) renderStrip(Number(b.dataset.i));
+});
+
+/* history */
+const HISTORY = [
+  ["批量高清", "14:22", "3 张 · 原图尺寸", "ok", ["portrait.jpg", "portrait2.jpg", "eye.jpg"]],
+  ["批量去掉睫毛", "13:48", "6 张 · 处理中 4/6", "run", ["eye.jpg", "cat-eye.jpg", "round-eye.jpg"]],
+  ["产品图精修", "11:05", "2 张 · 2048×2048", "ok", ["product.jpg", "product.jpg", "cat-eye.jpg"]],
+  ["A+首屏风格复刻", "昨天 18:30", "1 套 · 内容审核未通过", "fail", ["portrait2.jpg", "product.jpg", "portrait.jpg"]],
+];
+const STATUS_TEXT = { ok: "成功", run: "处理中", fail: "失败" };
+document.getElementById("history").innerHTML = HISTORY.map(([name, time, sub, status, imgs]) => `<div class="h-card"><div class="h-imgs">${imgs.map((src) => `<img src="assets/${src}" alt="" />`).join("")}</div><div class="h-body"><div class="h-title">${name}<span class="status ${status}">${STATUS_TEXT[status]}</span></div><div class="h-sub"><span>${sub}</span><span>${time}</span></div></div></div>`).join("");
+
+/* dashboard */
+(function renderTrend() {
+  const data = [820, 940, 870, 1100, 1040, 1145, 1284];
+  const labels = ["10-29", "10-30", "10-31", "11-01", "11-02", "11-03", "今天"];
+  const w = 640, h = 240, pl = 40, pr = 16, pt = 16, pb = 30, max = 1400;
+  const x = (i) => pl + (i * (w - pl - pr)) / (data.length - 1);
+  const y = (v) => pt + (1 - v / max) * (h - pt - pb);
+  let out = "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#6b5bf5' stop-opacity='.22'/><stop offset='1' stop-color='#6b5bf5' stop-opacity='0'/></linearGradient></defs>";
+  for (let v = 0; v <= max; v += 350) out += `<line x1="${pl}" x2="${w - pr}" y1="${y(v)}" y2="${y(v)}" stroke="#eef0f5"/><text x="${pl - 8}" y="${y(v) + 4}" font-size="11" fill="#86909c" text-anchor="end">${v}</text>`;
+  const line = data.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join(" ");
+  out += `<path d="${line} L${x(data.length - 1)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#g)"/><path d="${line}" fill="none" stroke="#6b5bf5" stroke-width="2.5" stroke-linejoin="round"/>`;
+  data.forEach((v, i) => {
+    out += `<circle cx="${x(i)}" cy="${y(v)}" r="${i === data.length - 1 ? 5 : 3.5}" fill="#fff" stroke="#6b5bf5" stroke-width="2"/><text x="${x(i)}" y="${h - 8}" font-size="11" fill="#86909c" text-anchor="middle">${labels[i]}</text>`;
+  });
+  out += `<g transform="translate(${x(6) - 96},${y(1284) + 12})"><rect width="84" height="30" rx="8" fill="#1d2129"/><text x="42" y="19" font-size="12" fill="#fff" text-anchor="middle">1,284 次</text></g>`;
+  document.getElementById("trend").innerHTML = out;
+})();
+const RANK = [["批量高清", 412], ["批量去掉睫毛", 286], ["产品图精修", 174], ["A+3.0", 126], ["智能抠图", 98], ["无限画布", 76]];
+document.getElementById("rank").innerHTML = RANK.map(([name, n], i) => `<div class="rank-row"><div class="top"><span>${name}</span><span>${n} 次</span></div><div class="bar"><i style="width:${(n / RANK[0][1]) * 100}%;${i > 2 ? "background:#c9c3fb" : ""}"></i></div></div>`).join("");
+const RECORDS = [["张敏", "批量高清", "Nano Banana 2.1", 3, "ok", "14:22"], ["李想", "批量去掉睫毛", "Nano Banana 2.1", 6, "run", "13:48"], ["王璐", "产品图精修", "即梦 5 Pro", 2, "ok", "11:05"], ["陈晨", "A+首屏风格复刻", "GPT Image 2", 1, "fail", "10:41"], ["admin", "无限画布-文生图", "Nano Banana 2.1", 4, "ok", "10:12"]];
+document.getElementById("records").innerHTML = RECORDS.map(([user, feature, model, n, status, time]) => `<tr><td><span class="user"><span class="avatar">${user.slice(0, 1).toUpperCase()}</span>${user}</span></td><td>${feature}</td><td>${model}</td><td>${n}</td><td><span class="status ${status}">${STATUS_TEXT[status]}</span></td><td>${time}</td></tr>`).join("");
+
+/* popover, search, toast */
+document.getElementById("taskBtn").onclick = (event) => { event.stopPropagation(); document.getElementById("taskPop").classList.toggle("open"); };
+document.addEventListener("click", (event) => { if (!event.target.closest("#taskPop")) document.getElementById("taskPop").classList.remove("open"); });
+function toast(text) {
+  const el = document.getElementById("toast");
+  el.querySelector("span").textContent = text;
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2200);
+}
+document.getElementById("searchBtn").onclick = () => toast("Demo：这里会弹出功能搜索面板");
+
+renderSide();
+renderThumbs();
+renderStrip();
+setState("done");
+</script>
+</body>
+</html>

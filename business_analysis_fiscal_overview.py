@@ -64,20 +64,20 @@ WITH TargetRows AS (
         DATEFROMPARTS(YEAR(ml.RiQi), MONTH(ml.RiQi), 1) AS PeriodStart,
         ml.Dian AS Store,
         SUM(CAST(ml.XiaoShouE AS decimal(28,4))) AS Actual
-    FROM dbo.v_MaoLiLv ml
+    FROM dbo.LiRun ml
     CROSS JOIN Bounds b
     WHERE ml.RiQi >= b.StartDate AND ml.RiQi < b.EndDate
       AND EXISTS (SELECT 1 FROM TargetRows t WHERE t.Store=ml.Dian)
     GROUP BY DATEFROMPARTS(YEAR(ml.RiQi), MONTH(ml.RiQi), 1), ml.Dian
 ), LatestActual AS (
     SELECT MAX(CAST(ml.RiQi AS date)) AS LatestActualDate
-    FROM dbo.v_MaoLiLv ml
+    FROM dbo.LiRun ml
     CROSS JOIN Bounds b
     WHERE ml.RiQi >= b.StartDate AND ml.RiQi < b.EndDate
       AND EXISTS (SELECT 1 FROM TargetRows t WHERE t.Store=ml.Dian)
 ), ActualStoreUniverse AS (
     SELECT DISTINCT ml.Dian AS Store
-    FROM dbo.v_MaoLiLv ml
+    FROM dbo.LiRun ml
     CROSS JOIN Bounds b
     WHERE ml.RiQi >= b.StartDate AND ml.RiQi < b.EndDate
 ), TargetStores AS (
@@ -659,7 +659,7 @@ def shape_fiscal_overview(rows, fiscal_year, scope, filters=None):
         },
         "source": {
             "target": "dbo.v_ZhiBiao.ZhiBiao",
-            "actual": "dbo.v_MaoLiLv.XiaoShouE",
+            "actual": "dbo.LiRun.XiaoShouE",
             "join": "Dian + calendar month",
             "fetchedAt": datetime.now().isoformat(timespec="seconds"),
         },

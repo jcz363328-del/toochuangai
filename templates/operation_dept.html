@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ dept_name }}功能 - 图创AI系统</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dashboard_secondary_favorites.css') }}" rel="stylesheet">
+    <script defer src="{{ url_for('static', filename='js/dashboard_secondary_favorites.js') }}"></script>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -333,7 +335,7 @@
         }
     </style>
 </head>
-<body class="{% if dept_id in ['operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'operation_dept_7', 'visual_design_dept', 'procurement_dept'] %}is-compact{% endif %}">
+<body class="is-compact">
     <div class="page">
         <div class="page-head">
             <h1 class="title"><i class="fas fa-list-check"></i>{{ dept_name }}功能中心</h1>

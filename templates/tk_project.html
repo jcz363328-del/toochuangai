@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>内容生产工厂 - 图创AI系统</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/dashboard_secondary_favorites.css') }}" rel="stylesheet">
+    <script defer src="{{ url_for('static', filename='js/dashboard_secondary_favorites.js') }}"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Microsoft YaHei', Arial, sans-serif; background: #f7f9fc; color: #111827; }
@@ -135,6 +137,8 @@
             <div class="mini-grid">
                 {% if has_dashboard_82 %}{{ mini_card('82号店看板', '实时数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-line') }}{% endif %}
                 {% if has_dashboard_full %}{{ mini_card('数据看板汇总', '汇总各类数据', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie') }}{% endif %}
+                {% if has_total %}{{ mini_card('深圳数据看板', '深圳团队数据汇总', url_for('tk_dashboard.tk_dashboard_sz_page'), 'fas fa-chart-line') }}{% endif %}
+                {% if has_total %}{{ mini_card('深圳数据看板', '深圳团队数据汇总', url_for('tk_dashboard.tk_dashboard_sz_page'), 'fas fa-chart-line') }}{% endif %}
                 {% if has_gmv_ratio %}{{ mini_card('视频、商品卡、达人GMV占比', 'GMV占比分析', url_for('tk_dashboard.tk_gmv_ratio_page'), 'fas fa-chart-pie') }}{% endif %}
                 {% if has_bd_metrics %}{{ mini_card('BD指标', 'BD核心指标', url_for('bd_metrics.tk_bd_metrics_page'), 'fas fa-bullseye') }}{% endif %}
             </div>

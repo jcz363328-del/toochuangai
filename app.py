@@ -1,4 +1,8 @@
 import asyncio
+FEISHU_NATIVE_VIDEO_MAX_BYTES = 30 * 1024 * 1024
+# 飞书原生视频消息接口的上传限制低于大文件上传需求，超过约 30MB 会被接口拒绝。
+FEISHU_NATIVE_VIDEO_MAX_BYTES = 30 * 1024 * 1024
+import asyncio
 import concurrent.futures
 import time
 from threading import Lock, Thread
@@ -18,6 +22,8 @@ import mimetypes
 import requests
 import importlib.util
 import subprocess
+import io
+import tempfile
 from functools import partial, wraps
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from secret_settings import TUCHUANGAI_STORAGE_ROOT, ai_runtime_config, env, env_int, relocate_storage_path, sql_server_config
@@ -46,6 +52,7 @@ from tk_customer_service_reminder import tk_customer_service_tracking_reminder
 from shenzhen_total import compute_shenzhen_expenses
 from knowledge_base_service import knowledge_base_bp, kb_service
 from feishu_skill_bridge import bootstrap_lark_cli_skills_env, get_skill_root_candidates
+import prepress_check_service
 from seedance_web import seedance_web_bp
 from yangban_inventory import yangban_inventory_bp
 from tk_gmv_authorization import tk_gmv_authorization_bp
@@ -54,13 +61,22 @@ from listing_agent_v2 import listing_agent_v2_bp
 from daily_replenishment import daily_replenishment_bp
 from daily_replenishment_operation import daily_replenishment_operation_bp
 from ai_group_performance import ai_group_performance_bp
+from historical_sales import historical_sales_bp
+from developer_product_sales import developer_product_sales_bp
 from value_evaluation import value_evaluation_bp
 from business_analysis_access import (
     BUSINESS_ANALYSIS_DEPARTMENT_LEADERS,
     force_business_analysis_query_params,
     merge_business_analysis_store_tier_snapshot,
+    normalize_person_name,
     prepare_business_analysis_payload,
     resolve_business_analysis_scope,
+)
+from business_analysis_company_market import (
+    CompanyMarketError,
+    get_company_market_overview,
+    get_market_overview_rows,
+    upsert_company_market_month,
 )
 from business_analysis_key_tasks import KeyTaskStore, KeyTaskStoreError
 from business_analysis_fiscal_overview import load_fiscal_overview, validate_fiscal_year
@@ -71,8 +87,19 @@ app = Flask(__name__)
 app.secret_key = env("FLASK_SECRET_KEY", "change-this-secret-key")  # 用于session加密
 app.config['JSON_AS_ASCII'] = False  # 支持中文JSON响应
 app.config['MAX_CONTENT_LENGTH'] = 512 * 1024 * 1024
-app.config.setdefault('MAX_FORM_MEMORY_SIZE', 50 * 1024 * 1024)
+app.config.setdefault('MAX_FORM_MEMORY_SIZE', 256 * 1024 * 1024)
 app.config.setdefault('MAX_FORM_PARTS', 5000)
+FEISHU_NATIVE_VIDEO_MAX_BYTES = 30_000_000
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_request_entity_too_large(error):
+    if request.path.startswith('/api/'):
+        return jsonify({
+            'success': False,
+            'message': '上传内容超过服务器允许的大小，请压缩视频后重试',
+        }), 413
+    return error
 
 _cloud_documents_agent = None
 _amazon_reply_service = None
@@ -154,6 +181,23 @@ _BUSINESS_ANALYSIS_DASHBOARD_SNAPSHOT_PATH = os.path.join(
     "data",
     "dashboard-snapshot.json",
 )
+_BUSINESS_ANALYSIS_TIER_HISTORY_SNAPSHOT_PATH = os.path.join(
+    _BUSINESS_ANALYSIS_ROOT,
+    "data",
+    "store-tier-history-snapshot.json",
+)
+_business_analysis_tier_history_cache = {
+    'mtime_ns': None,
+    'snapshot': None,
+    'promotion_events': None,
+}
+_business_analysis_tier_history_cache_lock = Lock()
+_dashboard_store_tier_cache = {
+    'mtime_ns': None,
+    'data_date': '',
+    'by_operator': {},
+}
+_dashboard_store_tier_cache_lock = Lock()
 _BUSINESS_ANALYSIS_API_PORT = env_int("SALES_API_PORT", 4311)
 _BUSINESS_ANALYSIS_HEALTH_URL = f"http://127.0.0.1:{_BUSINESS_ANALYSIS_API_PORT}/api/health"
 _business_analysis_start_lock = Lock()
@@ -184,16 +228,24 @@ _VIDEOCLAW_FRONTEND_URL = f'http://127.0.0.1:{_VIDEOCLAW_FRONTEND_PORT}'
 _VIDEOCLAW_BACKEND_URL = f'http://127.0.0.1:{_VIDEOCLAW_BACKEND_PORT}'
 _videoclaw_start_lock = Lock()
 _videoclaw_last_start_attempt = 0.0
+_INFINITE_CANVAS_OMNIAKEY_MODEL = "gemini-nano-banana-2.1"
+_INFINITE_CANVAS_OMNIAKEY_IMAGE_MODELS = (
+    "gemini-nano-banana-2.1",
+    "gpt-image-2.6-flare",
+    "gpt-image-2.5-flare",
+    "gpt-image-2",
+    "grok-imagine-image-quality",
+)
 _INFINITE_CANVAS_OPENROUTER_IMAGE_MODELS = (
-    "google/gemini-2.5-flash-image",
-    "google/gemini-3.1-flash-image",
-    "google/gemini-3-pro-image-preview",
+    "bytedance-seed/seedream-4.5",
+)
+_INFINITE_CANVAS_LEGACY_IMAGE_MODELS = (
     "openai/gpt-5.4-image-2",
     "openai/gpt-5-image-mini",
     "openai/gpt-5-image",
-    "bytedance-seed/seedream-4.5",
     "x-ai/grok-imagine-image-quality",
     "recraft/recraft-v4.1-utility-pro",
+    "bytedance-seed/seedream-4.5",
 )
 _INFINITE_CANVAS_OPENROUTER_TEXT_MODELS = (
     "google/gemini-2.5-flash",
@@ -294,6 +346,28 @@ def _current_user_has_permission(function_name, user_id=None):
     except Exception as exc:
         _safe_debug_print(f"权限表校验失败: {function_name} -> {exc}")
         return False
+
+
+def _can_access_ai_workspace():
+    cached = getattr(g, 'can_access_ai_workspace', None)
+    if cached is not None:
+        return cached
+    user_id = str(session.get('feishu_user_id') or '').strip()
+    allowed = False
+    if user_id:
+        try:
+            rows = permission_manager.get_user_departments(user_id) or []
+            names = [str(row.get('name') or '').strip() for row in rows if isinstance(row, dict)]
+            signed_state = getattr(g, 'permission_debug_state', None)
+            if isinstance(signed_state, dict):
+                names = signed_state.get('departments') or []
+            else:
+                names, _ = permission_manager._resolve_effective_departments(names, 'ai_dept')
+            allowed = 'AI部' in names
+        except Exception:
+            app.logger.exception('Failed to resolve AI workspace membership')
+    g.can_access_ai_workspace = allowed
+    return allowed
 
 
 def _xiaotu_report_history_can_view_all_uploads(user_name=None):
@@ -448,6 +522,8 @@ def _build_mobile_function_cards(accessible_functions):
     seen = set()
     for func in (accessible_functions or []):
         function_name = str(_get_func_field(func, 'function_name') or '').strip()
+        if function_name == 'ai_dept' and not _can_access_ai_workspace():
+            continue
         display_name = str(_get_func_field(func, 'name') or function_name or '功能').strip()
         if not function_name or function_name in seen:
             continue
@@ -489,6 +565,9 @@ def _build_mobile_function_cards(accessible_functions):
         elif function_name == 'ai_dept':
             href = url_for('ai_modules')
             icon = 'fa-solid fa-brain'
+        elif function_name == 'business_analysis':
+            href = url_for('business_analysis')
+            icon = 'fa-solid fa-chart-line'
         elif function_name == 'amazon_reply_agent':
             href = url_for('amazon_reply_agent')
             display_name = '亚马逊站内信回复智能体'
@@ -548,7 +627,7 @@ def _build_mobile_function_cards(accessible_functions):
         'icon': 'fa-solid fa-circle-play',
         'available': True
     })
-    if _is_ai_department_user(session.get('feishu_user_id')):
+    if _current_user_has_permission('video_claw'):
         cards.append({
             'name': 'VideoClaw AI视频创作',
             'href': url_for('video_claw'),
@@ -821,21 +900,6 @@ def _ensure_videoclaw_started():
             return False
 
 
-def _is_ai_department_user(user_id=''):
-    """Strictly limit VideoClaw to users whose current department is AI部."""
-    candidates = [session.get('user_department')]
-    if user_id:
-        try:
-            rows = permission_manager.get_user_departments(user_id) or []
-            candidates.extend(
-                item.get('name') if isinstance(item, dict) else item
-                for item in rows
-            )
-        except Exception:
-            pass
-    return any('AI部' in str(value or '').strip() for value in candidates)
-
-
 def _get_business_analysis_scope(resolve_leader=False):
     cache_key = "business_analysis_scope_with_leader" if resolve_leader else "business_analysis_scope"
     cached = getattr(g, cache_key, None)
@@ -854,7 +918,7 @@ def _get_business_analysis_scope(resolve_leader=False):
         user_id = effective_user_id
         user_name = effective_user_name
     identity_key = '|'.join((
-        'effective-identity-v2',
+        'effective-identity-v4-permission-grants',
         user_id,
         user_name,
         _permission_debug_identity_cache_key(),
@@ -921,6 +985,7 @@ def _require_business_analysis_access(view):
     def wrapped(*args, **kwargs):
         user_id = str(session.get('feishu_user_id') or '').strip()
         identity_key = '|'.join((
+            'permission-grants-v2',
             user_id,
             _permission_debug_identity_cache_key(),
         ))
@@ -957,6 +1022,33 @@ def _require_business_analysis_access(view):
 
 
 def _normalize_dashboard_functions(accessible_functions):
+    dashboard_catalog = [
+        ('innovation_proposals', '创新提案管理', '创新提案的提交、评审和管理系统'),
+        ('xiaotu_qa', '报告智能体', '日报、周报和月报提交与生成'),
+        ('business_analysis', '经营分析', '销售、利润、库存、履约与财年目标综合分析'),
+        ('tk_customer_service', '客服', '客服跟单信息与备注管理'),
+        ('tk_project_group', '内容生产工厂', '内容生产工厂专属功能模块'),
+        ('operation_dept_1', '运营一部功能', '运营一部专属功能模块'),
+        ('operation_dept_2', '运营二部功能', '运营二部专属功能模块'),
+        ('operation_dept_3', '运营三部功能', '运营三部专属功能模块'),
+        ('operation_dept_6', '运营六部功能', '运营六部专属功能模块'),
+        ('operation_dept_7', '运营七部功能', '运营七部专属功能模块'),
+        ('operation_fba_shipping', 'FBA货件运输方式', '查看FBA货件运输方式、店铺筛选和异常信息'),
+        ('amazon_reply_agent', '亚马逊站内信回复智能体', '亚马逊站内信回复工具'),
+        ('tech_dept', '技术部功能', '技术部专属功能模块'),
+        ('visual_design_dept', '视觉设计部功能', '视觉设计部功能模块'),
+        ('photography_dept', '摄影部功能', '摄影部专属功能模块'),
+        ('ai_dept', 'AI部功能', 'AI部功能入口'),
+        ('warehouse_group', '仓储部组功能', '仓储部组专属功能模块'),
+        ('procurement_dept', '采购部功能', '采购部专属功能模块'),
+        ('general_office', '总经办功能', '总经办专属功能模块'),
+        ('rd_dept', '研发部功能', '研发部专属功能模块'),
+        ('finance_dept', '财务部功能', '财务部专属功能模块'),
+        ('hr_admin_dept', '人力行政部功能', '人力行政部专属功能模块'),
+        ('newcomer_group', '新人组功能', '新人组专属功能模块'),
+        ('shenzhen_dept', '深圳团队功能', '深圳团队专属功能模块'),
+    ]
+    allowed_by_name = {}
     normalized = []
     for idx, func in enumerate(accessible_functions or []):
         if isinstance(func, dict):
@@ -974,24 +1066,23 @@ def _normalize_dashboard_functions(accessible_functions):
             if not desc:
                 one['description'] = '周报/月报提交与生成'
         one['_order_index'] = idx
+        one['is_allowed'] = True
+        allowed_by_name[fname] = one
+
+    # 首页始终展示完整功能目录，权限只控制入口是否可以点击。
+    for idx, (fname, name, description) in enumerate(dashboard_catalog):
+        one = dict(allowed_by_name.get(fname) or {})
+        one.update({
+            'function_name': fname,
+            'name': one.get('name') or name,
+            'description': one.get('description') or description,
+            # AI 部页面本身是完整目录页，所有登录用户都可进入；页面内功能继续逐项鉴权。
+            'is_allowed': fname == 'ai_dept' or fname in allowed_by_name,
+            '_order_index': idx,
+        })
         normalized.append(one)
 
-    # “日常补货运营”位于 AI 功能页内；运营人员只有子功能权限时，
-    # 在首页补充 AI 功能入口，不扩大 ai_dept 本身的后端权限。
-    function_names = {str(one.get('function_name') or '').strip() for one in normalized}
-    if 'daily_replenishment_operation' in function_names and 'ai_dept' not in function_names:
-        normalized.append({
-            'function_name': 'ai_dept',
-            'name': 'AI部功能',
-            'description': '日常补货运营入口',
-            '_order_index': len(normalized),
-        })
-
-    order_priority = {
-        'innovation_proposals': 10,
-        'xiaotu_qa': 11,
-    }
-    normalized.sort(key=lambda x: (order_priority.get(str(x.get('function_name') or '').strip(), 100), int(x.get('_order_index', 0))))
+    normalized.sort(key=lambda x: int(x.get('_order_index', 0)))
     for one in normalized:
         one.pop('_order_index', None)
     return normalized
@@ -1126,6 +1217,12 @@ def _bind_feishu_session(user_info, user_access_token=''):
     info = dict(user_info or {})
     token = str(user_access_token or info.get('user_access_token') or '').strip()
     open_id = str(info.get('open_id') or info.get('user_id') or '').strip()
+    # 身份重新绑定后，部门与权限结果必须从当前账号重新读取，不能复用旧会话缓存。
+    if open_id:
+        try:
+            permission_manager.clear_cache(open_id)
+        except Exception:
+            pass
     tenant_user_id = str(info.get('user_id') or '').strip()
     # `feishu_user_id` is the canonical permission subject and historically stores
     # open_id. Keep Feishu's tenant-scoped user_id separately so request headers are
@@ -1140,6 +1237,38 @@ def _bind_feishu_session(user_info, user_access_token=''):
     session['feishu_user_email'] = info.get('email', '') or info.get('enterprise_email', '')
     session['feishu_email'] = info.get('email', '') or info.get('enterprise_email', '')
     session['feishu_avatar'] = info.get('avatar_url', '') or info.get('avatar', '')
+
+    # Preserve a department hint returned by the identity provider.  It lets
+    # permission checks survive a short contact API/token outage while the
+    # canonical department lookup retries.  Never persist opaque Feishu IDs as
+    # names because they cannot match the department names in dbo.quanxian.
+    def _department_name_hint(value):
+        if isinstance(value, dict):
+            for key in ('name', 'department_name', 'departmentName', 'display_name'):
+                hinted = _department_name_hint(value.get(key))
+                if hinted:
+                    return hinted
+            return ''
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                hinted = _department_name_hint(item)
+                if hinted:
+                    return hinted
+            return ''
+        text = str(value or '').strip()
+        if not text or text.startswith(('od-', 'ou_', 'ou-')):
+            return ''
+        return text
+
+    session.pop('user_department', None)
+    department_hint = ''
+    for key in ('department', 'department_name', 'departmentName', 'departments'):
+        department_hint = _department_name_hint(info.get(key))
+        if department_hint:
+            break
+    if department_hint:
+        session['user_department'] = department_hint
+
     token_expires_in = int(info.get('user_token_expires_in') or 0)
     _set_feishu_user_access_token(token, token_expires_in)
     # Refresh tokens are not used by this app and can also be too large for a
@@ -4444,6 +4573,8 @@ app.register_blueprint(listing_agent_v2_bp)
 app.register_blueprint(daily_replenishment_bp)
 app.register_blueprint(daily_replenishment_operation_bp)
 app.register_blueprint(ai_group_performance_bp)
+app.register_blueprint(historical_sales_bp)
+app.register_blueprint(developer_product_sales_bp)
 app.register_blueprint(value_evaluation_bp)
 app.register_blueprint(bd_metrics_bp)
 app.register_blueprint(knowledge_base_bp)
@@ -9096,6 +9227,77 @@ def _async_generate_and_reply_with_skill(chat_id, question_text, skill_name, ski
             pass
 
 
+def _prepress_visual_review(render_path, chat_id):
+    with open(render_path, "rb") as handle:
+        image_bytes = handle.read()
+    prompt = (
+        "你是印前设计复核员。只根据这张高清渲染图观察并简洁列出："
+        "文字/重要内容是否过近裁切线、烫银细线风险、包装盒开盖与封口/糊边方向、"
+        "开窗安全距离、信息贴位、底卡旋转和圆角、信息贴白边。"
+        "看不清或无法从平面图确定的项目必须写‘需人工确认’，禁止猜测。最多180字。"
+    )
+    return _generate_ai_answer_with_image(prompt, image_bytes, "image/png", chat_id=chat_id)
+
+
+def _feishu_send_prepress_report(chat_id, report):
+    text = str(report or "").strip()
+    if not text:
+        return _feishu_send_text_to_chat(chat_id, "检查完成，但没有生成有效报告。")
+    # 飞书文本消息留出 JSON 编码余量，长报告按完整行分段发送。
+    chunks = []
+    current = []
+    current_length = 0
+    for line in text.splitlines():
+        line_length = len(line) + 1
+        if current and current_length + line_length > 3500:
+            chunks.append("\n".join(current))
+            current = []
+            current_length = 0
+        current.append(line)
+        current_length += line_length
+    if current:
+        chunks.append("\n".join(current))
+    ok = True
+    for index, chunk in enumerate(chunks):
+        prefix = f"印前检查报告（{index + 1}/{len(chunks)}）\n" if len(chunks) > 1 else ""
+        ok = _feishu_send_text_to_chat(chat_id, prefix + chunk) and ok
+    return ok
+
+
+def _async_stage_prepress_resource(chat_id, message_id, resource_key, resource_type, file_name, run_after=False):
+    try:
+        blob, _mime = _feishu_download_resource(message_id, resource_key, resource_type)
+        if not blob:
+            _feishu_send_text_to_chat(chat_id, "印前文件下载失败，请重新发送后再试。")
+            return
+        staged = prepress_check_service.stage_file(chat_id, blob, file_name)
+        if run_after:
+            _async_run_prepress_check(chat_id)
+            return
+        _feishu_send_text_to_chat(
+            chat_id,
+            f"已收集印前文件：{staged['name']}（当前 {staged['count']} 个）。"
+            "请继续发送 AI、PDF、截图；齐全后回复“检查印前合规”。"
+        )
+    except Exception as exc:
+        _safe_debug_print(f"印前文件暂存失败: {exc}")
+        _feishu_send_text_to_chat(chat_id, f"印前文件暂存失败：{exc}")
+
+
+def _async_run_prepress_check(chat_id):
+    try:
+        result = prepress_check_service.run_check(
+            chat_id,
+            vision_reviewer=lambda path: _prepress_visual_review(path, chat_id),
+        )
+        report = str(result.get("report") or "")
+        _feishu_append_chat_history(chat_id, "assistant", report[:12000])
+        _feishu_send_prepress_report(chat_id, report)
+    except Exception as exc:
+        _safe_debug_print(f"印前检查失败: {exc}")
+        _feishu_send_text_to_chat(chat_id, f"印前检查未完成：{exc}")
+
+
 def _async_generate_and_reply_image(chat_id, question_text, message_id, image_key):
     prompt = (question_text or "").strip()
     if not prompt:
@@ -9916,7 +10118,50 @@ def handle_feishu_message_event(data):
     question = _feishu_clean_question(user_text_for_memory)
     if question in {"清空记忆", "重置记忆", "/reset", "reset"}:
         _feishu_clear_chat_history(chat_id)
+        prepress_check_service.reset_session(chat_id)
         _feishu_send_text_to_chat(chat_id, "已清空本会话的上下文记忆。")
+        return jsonify({"msg": "ok"}), 200
+
+    prepress_trigger = prepress_check_service.is_trigger(question)
+    if msg_type == "file":
+        file_key = str(content_obj.get("file_key") or content_obj.get("fileKey") or "").strip()
+        file_name = str(content_obj.get("file_name") or content_obj.get("fileName") or "").strip()
+        extension = os.path.splitext(file_name)[1].lower()
+        should_stage = (
+            extension in {".ai", ".zip"}
+            or prepress_trigger
+            or (prepress_check_service.has_active_session(chat_id) and prepress_check_service.accepts_filename(file_name))
+        )
+        if file_key and should_stage and prepress_check_service.accepts_filename(file_name):
+            prepress_check_service.activate_session(chat_id)
+            _feishu_send_text_to_chat(chat_id, "收到，正在收集并校验印前文件…")
+            _feishu_submit_task(
+                _async_stage_prepress_resource,
+                chat_id,
+                message_id,
+                file_key,
+                "file",
+                file_name,
+                prepress_trigger,
+            )
+            return jsonify({"msg": "ok"}), 200
+    if msg_type == "image" and prepress_check_service.has_active_session(chat_id):
+        image_key = str(content_obj.get("image_key") or content_obj.get("imageKey") or "").strip()
+        if image_key:
+            _feishu_send_text_to_chat(chat_id, "收到，正在把截图加入印前文件组…")
+            _feishu_submit_task(
+                _async_stage_prepress_resource,
+                chat_id,
+                message_id,
+                image_key,
+                "image",
+                f"screenshot_{message_id or secrets.token_hex(8)}.png",
+                prepress_trigger,
+            )
+            return jsonify({"msg": "ok"}), 200
+    if prepress_trigger:
+        _feishu_send_text_to_chat(chat_id, "收到，正在执行印前检查并生成逐项报告…")
+        _feishu_submit_task(_async_run_prepress_check, chat_id)
         return jsonify({"msg": "ok"}), 200
     skill_cmd = _feishu_parse_skill_invocation(question)
     if skill_cmd.get("mode") == "list":
@@ -10053,6 +10298,73 @@ def index():
     return redirect(url_for('dashboard'))
 
 
+def _build_dashboard_store_tier_index(snapshot):
+    """Build a small latest-day lookup for the dashboard header."""
+    if not isinstance(snapshot, dict):
+        return '', {}
+
+    rows = snapshot.get('rows')
+    if not isinstance(rows, list):
+        return '', {}
+
+    data_date = str(snapshot.get('maxDate') or '').strip()
+    if not data_date:
+        data_date = max(
+            (str(row.get('date') or '').strip() for row in rows if isinstance(row, dict)),
+            default='',
+        )
+
+    by_operator = {}
+    seen = set()
+    for row in rows:
+        if not isinstance(row, dict) or str(row.get('date') or '').strip() != data_date:
+            continue
+        operator = normalize_person_name(row.get('operator'))
+        store = str(row.get('store') or '').strip()
+        tier = str(row.get('tier') or '').strip()
+        if not operator or not store or not tier:
+            continue
+        unique_key = (operator, store)
+        if unique_key in seen:
+            continue
+        seen.add(unique_key)
+        by_operator.setdefault(operator, []).append({'store': store, 'tier': tier})
+
+    def store_sort_key(item):
+        store = item.get('store', '')
+        return (0, int(store)) if store.isdigit() else (1, store)
+
+    for items in by_operator.values():
+        items.sort(key=store_sort_key)
+    return data_date, by_operator
+
+
+def _get_dashboard_store_tiers(user_name):
+    """Return only the signed-in operator's latest store tiers, cached by snapshot mtime."""
+    operator = normalize_person_name(user_name)
+    if not operator:
+        return '', []
+    try:
+        mtime_ns = os.stat(_BUSINESS_ANALYSIS_TIER_HISTORY_SNAPSHOT_PATH).st_mtime_ns
+        with _dashboard_store_tier_cache_lock:
+            if _dashboard_store_tier_cache['mtime_ns'] != mtime_ns:
+                with open(_BUSINESS_ANALYSIS_TIER_HISTORY_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
+                    snapshot = json.load(handle)
+                data_date, by_operator = _build_dashboard_store_tier_index(snapshot)
+                _dashboard_store_tier_cache.update({
+                    'mtime_ns': mtime_ns,
+                    'data_date': data_date,
+                    'by_operator': by_operator,
+                })
+            return (
+                _dashboard_store_tier_cache['data_date'],
+                list(_dashboard_store_tier_cache['by_operator'].get(operator, [])),
+            )
+    except (OSError, ValueError, TypeError) as exc:
+        _safe_debug_print(f"Dashboard store tier snapshot unavailable: {exc}")
+        return '', []
+
+
 @app.route('/dashboard')
 def dashboard():
     """主控制台"""
@@ -10169,6 +10481,16 @@ def dashboard():
         _safe_debug_print("🔄 Dashboard未检测到用户信息，跳转到授权页面")
         return redirect(url_for('feishu_auth'))
 
+    # 权限表或飞书部门接口短暂异常时，空结果会让整个控制台看起来没有权限。
+    # 清理一次当前用户缓存并重算，最终仍以权限表结果为准。
+    if not accessible_functions:
+        try:
+            permission_manager.clear_cache(user_id)
+            accessible_functions = permission_manager.get_user_accessible_functions(user_id)
+            _safe_debug_print(f"🔄 空权限结果已重算，可访问功能数量: {len(accessible_functions or [])}")
+        except Exception as e:
+            _safe_debug_print(f"⚠️ 空权限结果重算失败: {e}")
+
     _safe_debug_print(f"🎨 渲染dashboard模板...")
     _debug_log_elapsed(
         "dashboard_ready_to_render",
@@ -10179,17 +10501,49 @@ def dashboard():
     )
     _safe_debug_print("========================\n")
 
+    # Keep the raw permission names as well as the normalized dashboard
+    # catalog.  The catalog intentionally omits feature-hub children (for
+    # example ``daily_replenishment_operation``), but those names still need to
+    # be available when validating a favorite created on a hub page.
+    raw_accessible_function_names = {
+        str(item.get('function_name') or '').strip()
+        for item in (accessible_functions or [])
+        if isinstance(item, dict) and str(item.get('function_name') or '').strip()
+    }
+    workspace_accessible_functions = list(accessible_functions or [])
     accessible_functions = _normalize_dashboard_functions(accessible_functions)
+    can_access_ai_workspace = _can_access_ai_workspace()
+    if not can_access_ai_workspace:
+        accessible_functions = [item for item in accessible_functions if item.get('function_name') != 'ai_dept']
+    dashboard_allowed_functions = sorted(
+        raw_accessible_function_names
+        | {
+            str(item.get('function_name') or '').strip()
+            for item in accessible_functions
+            if item.get('is_allowed') and str(item.get('function_name') or '').strip()
+        }
+    )
     permission_debug_state = _permission_debug_session_state()
-    can_video_claw = _is_ai_department_user(user_id)
+    can_video_claw = _current_user_has_permission('video_claw', user_id)
+    can_business_analysis = _current_user_has_permission('business_analysis', user_id)
+    can_value_evaluation = _current_user_has_permission('value_evaluation', user_id)
+    tier_identity_name = permission_debug_state['current_user_name'] or user_name
+    dashboard_store_tier_date, dashboard_store_tiers = _get_dashboard_store_tiers(tier_identity_name)
 
     return render_template('dashboard.html',
+                           can_access_ai_workspace=can_access_ai_workspace,
+                           workspace_catalog=dashboard_workspace_catalog(workspace_accessible_functions).get_json() if user_id else {},
                            user_name=user_name,
                            user_id=user_id,
                            user_department=user_department,
                            accessible_functions=accessible_functions,
                            can_video_claw=can_video_claw,
+                           can_business_analysis=can_business_analysis,
+                           can_value_evaluation=can_value_evaluation,
                            can_switch_identity=_can_dashboard_switch_identity(),
+                           dashboard_allowed_functions=dashboard_allowed_functions,
+                           dashboard_store_tier_date=dashboard_store_tier_date,
+                           dashboard_store_tiers=dashboard_store_tiers,
                            permission_debug_departments=permission_debug_state['current_departments'],
                            permission_debug_user_name=permission_debug_state['current_user_name'])
 
@@ -13991,6 +14345,126 @@ def api_menu_click():
         return jsonify({'success': False, 'message': str(e)[:200]}), 500
 
 
+@app.route('/api/dashboard/favorites/context', methods=['GET'])
+def api_dashboard_favorites_context():
+    """Return the same identity key used by the dashboard's local favorites."""
+    debug_state = _permission_debug_effective_state()
+    user_key = (
+        str(debug_state.get('user_name') or '').strip()
+        or str(session.get('feishu_user_id') or '').strip()
+        or str(session.get('feishu_user_name') or '').strip()
+        or 'guest'
+    )
+    return jsonify({'success': True, 'user_key': user_key})
+
+
+@app.route('/api/dashboard/workspace/catalog')
+def dashboard_workspace_catalog(accessible=None):
+    import inspect
+    from urllib.parse import urlsplit
+    from dashboard_workspace import extract_features, template_catalog_context
+    user_id = session.get('feishu_user_id')
+    if not user_id:
+        return jsonify({'success': False}), 401
+    if accessible is None:
+        accessible = permission_manager.get_user_accessible_functions(user_id)
+    can_access_ai_workspace = _can_access_ai_workspace()
+    permission_names = {item['function_name'] for item in accessible}
+    catalog_functions = [{'function_name': key} for key in permission_manager.get_permission_records()]
+
+    def allowed(key):
+        return key in permission_names
+
+    routes = []
+    for rule in app.url_map.iter_rules():
+        if 'GET' not in rule.methods or rule.arguments - set((rule.defaults or {}).keys()):
+            continue
+        view = app.view_functions[rule.endpoint]
+        keys = []
+        while view:
+            closure = inspect.getclosurevars(view).nonlocals
+            key = closure.get('function_name')
+            if isinstance(key, str):
+                keys.append(key)
+            view = getattr(view, '__wrapped__', None)
+        if keys:
+            routes.append({'path': rule.rule, 'allowed': all(allowed(key) for key in keys), 'permissions': keys})
+    route_permissions = {route['path']: route['permissions'] for route in routes}
+    route_permissions[url_for('business_analysis')] = ['business_analysis']
+    route_permissions[url_for('tk_seedance')] = ['tk_project_seedance']
+    joint_allowed = allowed('tk_dashboard_full') or allowed('tk_joint_dashboard_all') or any(permission.startswith('tk_joint_shop_') for permission in permission_names)
+    operation_ids = sorted(_OPERATION_DEPT_FUNCTIONS) + ['newcomer_group']
+    groups = []
+    for key, name, description in [
+        ('operations', '运营部功能', ''),
+        *[(item['function_name'], item['name'], '') for item in _normalize_dashboard_functions([])
+          if item['function_name'] in {'tk_project_group', 'tech_dept', 'visual_design_dept', 'photography_dept', 'ai_dept', 'warehouse_group', 'procurement_dept', 'general_office', 'rd_dept', 'finance_dept', 'hr_admin_dept', 'shenzhen_dept'}],
+    ]:
+        if key == 'ai_dept' and not can_access_ai_workspace:
+            continue
+        items = []
+        errors = []
+        ids = operation_ids if key == 'operations' else [key]
+        for dept_id in ids:
+            endpoint = None
+            try:
+                if dept_id in operation_ids or dept_id in {'tech_dept', 'visual_design_dept', 'photography_dept', 'procurement_dept', 'general_office', 'rd_dept', 'shenzhen_dept'}:
+                    html = render_template('operation_dept.html', dept_id=dept_id, dept_name=name,
+                        user_id=user_id, user_name=session.get('feishu_user_name', ''),
+                        can_view_review_analysis=True, can_view_amazon_reply=True,
+                        can_view_tk_90=True, can_view_tk_82=True, can_view_tk_88=True)
+                    candidates = extract_features(html, '/' + dept_id)
+                else:
+                    endpoint = {'tk_project_group': 'tk_project', 'ai_dept': 'ai_modules', 'finance_dept': 'finance_modules', 'hr_admin_dept': 'hr_admin_modules'}.get(dept_id)
+                    if endpoint:
+                        template = {'tk_project_group': 'tk_project.html', 'ai_dept': 'ai_modules.html', 'finance_dept': 'finance_modules.html', 'hr_admin_dept': 'hr_admin_modules.html'}[dept_id]
+                        context = dict(user_id=user_id, user_name=session.get('feishu_user_name', ''), accessible_functions=catalog_functions,
+                            can_view_joint_dashboard=True)
+                        source = app.jinja_env.loader.get_source(app.jinja_env, template)[0]
+                        flags, template_permissions = template_catalog_context(source)
+                        context.update(flags)
+                        context['accessible_functions'] = catalog_functions + [{'function_name': permission} for permission in template_permissions]
+                        candidates = extract_features(render_template(template, **context), url_for(endpoint))
+                    else:
+                        candidates = []
+                for item in candidates:
+                    path = urlsplit(item['href']).path
+                    inline_action = dept_id in {'finance_dept', 'hr_admin_dept'} and '#' in item['href'] and path == url_for(endpoint)
+                    required = route_permissions.get(path, [])
+                    if item['permission'] and item['permission'] not in required:
+                        required = required + [item['permission']]
+                    inline_tool = '#' in item['href'] and dept_id not in operation_ids and endpoint and path == url_for(endpoint)
+                    if not required and inline_tool and item.get('scopePermission'):
+                        required = [item['scopePermission']]
+                    if dept_id == 'ai_dept' and path == url_for('listing_agent.index') and urlsplit(item['href']).fragment == 'abaRankingImport':
+                        required = ['listing_agent_aba_import']
+                    if inline_action and not required:
+                        required = [dept_id]
+                    item['required_permissions'] = required
+                    item['allowed'] = all(allowed(permission) for permission in required)
+                    if dept_id == 'tk_project_group' and path == url_for('tk_dashboard.tk_dashboard_project_page'):
+                        item['allowed'] = joint_allowed
+                        item['required_permissions'] = ['tk_dashboard_full / tk_joint_dashboard_all / tk_joint_shop_*']
+                    items.append(item)
+            except Exception:
+                app.logger.exception('Workspace catalog failed: %s', dept_id)
+                errors.append(dept_id)
+        groups.append({'key': key, 'name': name.replace('功能模块', '').replace('功能', '') if key != 'operations' else name, 'items': list({(item['menu'], item['href']): item for item in items}.values()), 'errors': errors,
+            'unavailable_reason': '原项目尚未配置仓储部功能页面，未虚构功能入口。' if key == 'warehouse_group' else ''})
+    operations = next(group for group in groups if group['key'] == 'operations')
+    operation_replenishment_href = url_for('daily_replenishment_operation.page')
+    operations['items'].append({'menu': '智能补货中心-运营', 'href': operation_replenishment_href,
+        'permission': 'daily_replenishment_operation', 'required_permissions': ['daily_replenishment_operation'],
+        'allowed': allowed('daily_replenishment_operation'), 'iconClass': 'fas fa-boxes-packing',
+        'id': '智能补货中心-运营::' + operation_replenishment_href})
+    operations['items'] = list({item['href']: item for item in operations['items']}.values())
+    debug_state = _permission_debug_effective_state()
+    user_key = str(debug_state.get('user_name') or user_id).strip()
+    response = jsonify({'success': True, 'groups': groups, 'routes': routes, 'user_key': user_key, 'can_access_ai_workspace': can_access_ai_workspace})
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route('/performance')
 @require_permission('performance_monitor')
 def performance_monitor():
@@ -17635,35 +18109,68 @@ def visual_design_image_tool_status():
 @require_permission('visual_design_dept')
 def api_infinite_canvas_bootstrap_config():
     api_key = str(env('OPENROUTER_API_KEY') or '').strip()
-    if not api_key:
+    omnia_api_key = str(env('OMNIAKEY_API_KEY') or '').strip()
+    omnia_base_url = str(env('OMNIAKEY_BASE_URL') or 'https://api.omniakey.com').strip().rstrip('/')
+    if omnia_base_url.lower().endswith('/v1'):
+        omnia_base_url = omnia_base_url[:-3]
+    if not api_key and not omnia_api_key:
         return jsonify({
             'success': False,
-            'message': 'OPENROUTER_API_KEY 未配置',
+            'message': 'OPENROUTER_API_KEY 与 OMNIAKEY_API_KEY 均未配置',
         }), 503
 
-    image_models = list(_INFINITE_CANVAS_OPENROUTER_IMAGE_MODELS)
+    legacy_nano_model = 'google/gemini-nano-banana-2.1'
+    legacy_image_models = [legacy_nano_model, *_INFINITE_CANVAS_LEGACY_IMAGE_MODELS]
+    omnia_image_models = list(_INFINITE_CANVAS_OMNIAKEY_IMAGE_MODELS)
+    openrouter_image_models = list(_INFINITE_CANVAS_OPENROUTER_IMAGE_MODELS)
     text_models = list(_INFINITE_CANVAS_OPENROUTER_TEXT_MODELS)
+    legacy_channel = {
+        'id': 'xiaoha-openrouter',
+        'name': '小哈 OpenRouter',
+        'baseUrl': 'https://openrouter.ai/api/v1',
+        'apiKey': api_key,
+        'apiFormat': 'openai',
+        'models': [*legacy_image_models, *text_models],
+    }
+    channels = [
+        {
+            'id': 'xiaoha-omnia',
+            'name': '小哈 OmniaKey',
+            'baseUrl': f'{omnia_base_url}/v1',
+            'apiKey': omnia_api_key,
+            'apiFormat': 'openai',
+            'models': omnia_image_models,
+        },
+        {
+            'id': 'xiaoha-openrouter',
+            'name': '小哈 OpenRouter',
+            'baseUrl': 'https://openrouter.ai/api/v1',
+            'apiKey': api_key,
+            'apiFormat': 'openai',
+            'models': openrouter_image_models + text_models,
+        },
+    ]
+    image_models = omnia_image_models + (openrouter_image_models if api_key else [])
+    available_text_models = text_models if api_key else []
     return jsonify({
         'success': True,
         'config': {
-            'channel': {
-                'id': 'xiaoha-openrouter',
-                'name': '小哈 OpenRouter',
-                'baseUrl': 'https://openrouter.ai/api/v1',
-                'apiKey': api_key,
-                'apiFormat': 'openai',
-                'models': image_models + text_models,
-            },
-            'imageModel': 'google/gemini-3.1-flash-image',
-            'textModel': text_models[0],
+            'configVersion': '2026-11-06-omnia-no-qwen',
+            'channel': legacy_channel,
+            'channels': channels,
+            'imageModel': legacy_nano_model,
+            'imageModelNext': _INFINITE_CANVAS_OMNIAKEY_MODEL,
+            'textModel': available_text_models[0] if available_text_models else '',
             'videoModel': '',
             'audioModel': '',
-            'imageModels': image_models,
-            'textModels': text_models,
+            'imageModels': legacy_image_models if api_key else [],
+            'imageModelsNext': image_models,
+            'textModels': available_text_models,
             'videoModels': [],
             'audioModels': [],
         },
     })
+
 
 @app.route('/shenzhen_dept')
 @require_permission('shenzhen_dept')
@@ -17836,6 +18343,8 @@ def generate_image():
 @app.route('/ai_modules')
 def ai_modules():
     """AI模块页面"""
+    if not _can_access_ai_workspace():
+        return '仅AI部成员可访问AI部功能。', 403
     user_id = session.get('feishu_user_id')
     user_name = session.get('feishu_user_name', '用户')
 
@@ -17846,33 +18355,28 @@ def ai_modules():
             _safe_debug_print(f"AI模块内部权限检查失败: {function_name} -> {exc}")
             return False
 
-    if not (has_permission('ai_dept') or has_permission('daily_replenishment_operation')):
-        return redirect(url_for('dashboard'))
-
-    # VideoClaw 是 AI 部专属卡片；即使权限种子尚未同步到数据库，也按实时部门身份兜底。
-    can_video_claw = _is_ai_department_user(user_id)
-
     return render_template(
         'ai_modules.html',
         user_id=user_id,
         user_name=user_name,
+        can_ai_dept=has_permission('ai_dept'),
         can_ai_full=has_permission('admin_functions'),
         can_daily_replenishment=has_permission('daily_replenishment'),
         can_daily_replenishment_operation=has_permission('daily_replenishment_operation'),
         can_group_performance=has_permission('ai_group_performance'),
         can_business_analysis=has_permission('business_analysis'),
         can_ads_monitor=has_permission('ads_monitor'),
-        can_video_claw=can_video_claw,
-        can_value_evaluation=has_permission('ai_dept'),
+        can_video_claw=has_permission('video_claw'),
+        can_value_evaluation=has_permission('value_evaluation'),
+        can_value_evaluation_admin=has_permission('value_evaluation_admin'),
+        can_historical_sales=has_permission('historical_sales'),
     )
 
 @app.route('/ai/video-claw', defaults={'subpath': ''}, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
 @app.route('/ai/video-claw/<path:subpath>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
-@require_permission('ai_dept')
+@require_permission('video_claw')
 def video_claw(subpath=''):
     """进入受 AI 部权限保护的 VideoClaw 部署。"""
-    if not _is_ai_department_user(session.get('feishu_user_id')):
-        return jsonify({'success': False, 'message': 'VideoClaw 仅限 AI部使用。'}), 403
     _ensure_videoclaw_started()
     upstream_path = '/ai/video-claw' + (('/' + str(subpath).lstrip('/')) if subpath else '')
     headers = {
@@ -17996,9 +18500,16 @@ def business_analysis():
 @app.route('/ai/business-analysis/assets/<path:filename>')
 @_require_business_analysis_access
 def business_analysis_asset(filename):
-    response = send_from_directory(_BUSINESS_ANALYSIS_DIST_DIR, filename)
-    response.headers['Cache-Control'] = 'private, max-age=31536000, immutable'
-    return response
+    candidates = [filename]
+    if not filename.startswith('assets/'):
+        candidates.append(f'assets/{filename}')
+    for candidate in candidates:
+        candidate_path = os.path.join(_BUSINESS_ANALYSIS_DIST_DIR, candidate)
+        if os.path.isfile(candidate_path):
+            response = send_from_directory(_BUSINESS_ANALYSIS_DIST_DIR, candidate)
+            response.headers['Cache-Control'] = 'private, max-age=31536000, immutable'
+            return response
+    return '', 404
 
 
 @app.route('/ai/ads-monitor')
@@ -18107,12 +18618,24 @@ def business_analysis_dashboard_api():
             }
         }), 403
 
+    requested_period = str(request.args.get('period') or '').strip()
     try:
         with open(_BUSINESS_ANALYSIS_DASHBOARD_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
             dashboard_snapshot = json.load(handle)
         snapshot_period = str(dashboard_snapshot.get('period') or '')
-        snapshot_payload = dashboard_snapshot.get('envelope')
-        if not isinstance(snapshot_payload, dict) or not isinstance(snapshot_payload.get('data'), dict):
+        selected_period = requested_period or snapshot_period
+        snapshot_periods = dashboard_snapshot.get('periods')
+        snapshot_payload = (
+            snapshot_periods.get(selected_period)
+            if isinstance(snapshot_periods, dict)
+            else None
+        )
+        if snapshot_payload is None and selected_period == snapshot_period:
+            snapshot_payload = dashboard_snapshot.get('envelope')
+        if selected_period == snapshot_period and (
+            not isinstance(snapshot_payload, dict)
+            or not isinstance(snapshot_payload.get('data'), dict)
+        ):
             raise ValueError('dashboard snapshot envelope is invalid')
     except (OSError, ValueError) as exc:
         app.logger.error('Business analysis daily snapshot unavailable: %s', exc)
@@ -18123,16 +18646,19 @@ def business_analysis_dashboard_api():
             }
         }), 503
 
-    payload = prepare_business_analysis_payload(
-        snapshot_payload,
-        scope,
-        snapshot_period,
-    )
-    response = jsonify(payload)
-    response.headers['Cache-Control'] = 'private, no-store'
-    response.headers['X-Business-Analysis-Source'] = 'daily-snapshot'
-    response.headers['X-Business-Analysis-Period'] = snapshot_period
-    return response
+    # The scheduled snapshot contains the current and previous month. Older
+    # periods continue to the live dashboard service below.
+    if isinstance(snapshot_payload, dict) and isinstance(snapshot_payload.get('data'), dict):
+        payload = prepare_business_analysis_payload(
+            snapshot_payload,
+            scope,
+            selected_period,
+        )
+        response = jsonify(payload)
+        response.headers['Cache-Control'] = 'private, no-store'
+        response.headers['X-Business-Analysis-Source'] = 'daily-snapshot'
+        response.headers['X-Business-Analysis-Period'] = selected_period
+        return response
 
     def category_fallback_for_period(period):
         try:
@@ -18165,6 +18691,9 @@ def business_analysis_dashboard_api():
         return False
 
     def snapshot_response(message):
+        # A current-month snapshot must never masquerade as historical data.
+        if requested_period and requested_period != snapshot_period:
+            return None
         try:
             with open(_BUSINESS_ANALYSIS_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
                 snapshot_data = json.load(handle)
@@ -18316,10 +18845,45 @@ def _business_analysis_store_tier_scope_condition(scope):
     return '1 = 0'
 
 
+def _load_business_analysis_tier_history_snapshot():
+    """Load and analyse the snapshot once per file version, not once per request."""
+    stat = os.stat(_BUSINESS_ANALYSIS_TIER_HISTORY_SNAPSHOT_PATH)
+    with _business_analysis_tier_history_cache_lock:
+        cached = _business_analysis_tier_history_cache
+        if cached['mtime_ns'] == stat.st_mtime_ns and cached['snapshot'] is not None:
+            return cached['snapshot'], cached['promotion_events']
+        with open(_BUSINESS_ANALYSIS_TIER_HISTORY_SNAPSHOT_PATH, 'r', encoding='utf-8') as handle:
+            snapshot = json.load(handle)
+        snapshot_rows = snapshot.get('rows')
+        if not isinstance(snapshot_rows, list):
+            raise ValueError('tier history snapshot rows are invalid')
+        saved_events = snapshot.get('promotionEvents')
+        if isinstance(saved_events, list):
+            promotion_events = [type('SnapshotPromotionEvent', (), {
+                'store': int(item.get('store')),
+                'tier': str(item.get('tier') or ''),
+                'tier_rank': int(item.get('tierRank') or 0),
+                'qualified_on': date.fromisoformat(str(item.get('qualifiedOn'))[:10]),
+            }) for item in saved_events if isinstance(item, dict)]
+        else:
+            promotion_rows = [
+                (item.get('date'), item.get('store'), item.get('tier'), item.get('tierRank'))
+                for item in snapshot_rows
+                if isinstance(item, dict) and item.get('tierRank') is not None
+            ]
+            promotion_events = detect_promotions(promotion_rows)
+        cached.update({
+            'mtime_ns': stat.st_mtime_ns,
+            'snapshot': snapshot,
+            'promotion_events': promotion_events,
+        })
+        return snapshot, promotion_events
+
+
 @app.route('/api/ai/business-analysis/store-tier-history')
 @_require_business_analysis_access
 def business_analysis_store_tier_history_api():
-    """Return daily CengJi rows, constrained to the effective dashboard scope."""
+    """Return the daily tier-history snapshot constrained to the viewer scope."""
     scope = _get_business_analysis_scope(resolve_leader=True)
     if not scope or scope.get('role') == 'ratio_viewer':
         return jsonify({'rows': [], 'total': 0})
@@ -18340,51 +18904,44 @@ def business_analysis_store_tier_history_api():
     if days not in {30, 90, 180, 365}:
         return jsonify({'error': {'code': 'INVALID_DAYS', 'message': '日期范围仅支持 30、90、180、365 天'}}), 400
 
-    conditions = [f"cj.RiQi >= DATEADD(day, -{days - 1}, (SELECT MAX(RiQi) FROM CengJi))"]
-    if store is not None:
-        conditions.append(f"cj.Dian = {store}")
-    scope_condition = _business_analysis_store_tier_scope_condition(scope)
-    if scope_condition:
-        conditions.append(scope_condition)
-
-    sql = f"""
-        SELECT CAST(cj.RiQi AS date), cj.Dian,
-               CONCAT(CONVERT(nvarchar(20), cj.CengJi1), CONVERT(nvarchar(10), cj.CengJi2)),
-               cj.CengJiID, dp.BuMen, dp.ZuZhang, dp.YunYing
-          FROM CengJi cj
-          LEFT JOIN v_PinPaiDianPu dp ON cj.Dian = dp.Dian
-         WHERE {' AND '.join(conditions)}
-         ORDER BY cj.RiQi DESC, cj.Dian
-    """
     try:
-        rows = sf_db(sql) or []
-        history_conditions = []
-        if store is not None:
-            history_conditions.append(f"cj.Dian = {store}")
-        if scope_condition:
-            history_conditions.append(scope_condition)
-        history_where = f"WHERE {' AND '.join(history_conditions)}" if history_conditions else ''
-        history_rows = sf_db(f"""
-            SELECT CAST(cj.RiQi AS date), cj.Dian,
-                   CONCAT(CONVERT(nvarchar(20), cj.CengJi1), CONVERT(nvarchar(10), cj.CengJi2)),
-                   cj.CengJiID
-              FROM CengJi cj
-              LEFT JOIN v_PinPaiDianPu dp ON cj.Dian = dp.Dian
-              {history_where}
-             ORDER BY cj.Dian, cj.RiQi
-        """) or []
-    except Exception as exc:
-        app.logger.exception('Failed to query business analysis store tier history')
-        return jsonify({'error': {'code': 'STORE_TIER_HISTORY_UNAVAILABLE', 'message': f'店铺等级历史查询失败：{exc}'}}), 503
-    payload = [{
-        'date': value[0].isoformat() if hasattr(value[0], 'isoformat') else str(value[0])[:10],
-        'store': int(value[1]),
-        'tier': str(value[2] or ''),
-        'tierRank': int(value[3]) if value[3] is not None else None,
-        'department': str(value[4] or ''),
-        'leader': str(value[5] or ''),
-        'operator': str(value[6] or ''),
-    } for value in rows]
+        snapshot, promotion_events = _load_business_analysis_tier_history_snapshot()
+        snapshot_rows = snapshot.get('rows')
+        max_date_text = str(snapshot.get('maxDate') or '')[:10]
+        max_date = date.fromisoformat(max_date_text)
+    except (OSError, ValueError, TypeError) as exc:
+        app.logger.error('Business analysis store-tier history snapshot unavailable: %s', exc)
+        return jsonify({'error': {
+            'code': 'STORE_TIER_HISTORY_SNAPSHOT_UNAVAILABLE',
+            'message': '店铺等级历史快照暂不可用，请等待每日刷新任务完成。',
+        }}), 503
+
+    allowed_departments = set()
+    if scope.get('role') == 'department_leader' and scope.get('department'):
+        department = str(scope['department']).strip()
+        allowed_departments.update(BUSINESS_ANALYSIS_DEPARTMENT_LEADERS.get(department, set()))
+        allowed_departments.add(department)
+
+    def is_visible(item):
+        if scope.get('role') == 'business_owner':
+            return True
+        if scope.get('role') == 'member' and scope.get('operator'):
+            return str(item.get('operator') or '').strip() == str(scope['operator']).strip()
+        if scope.get('role') == 'department_leader':
+            return str(item.get('department') or '').strip() in allowed_departments
+        return False
+
+    scoped_rows = [item for item in snapshot_rows if isinstance(item, dict) and is_visible(item)]
+    if store is not None:
+        scoped_rows = [item for item in scoped_rows if int(item.get('store') or 0) == store]
+    start_date = max_date - timedelta(days=days - 1)
+    payload = [item for item in scoped_rows if str(item.get('date') or '')[:10] >= start_date.isoformat()]
+    payload.sort(key=lambda item: (str(item.get('date') or ''), int(item.get('store') or 0)), reverse=True)
+    history_rows = [
+        (item.get('date'), item.get('store'), item.get('tier'), item.get('tierRank'))
+        for item in scoped_rows
+        if item.get('tierRank') is not None
+    ]
     by_store = {}
     for raw_day, raw_store, raw_tier, raw_rank in history_rows:
         by_store.setdefault(int(raw_store), []).append({
@@ -18412,7 +18969,10 @@ def business_analysis_store_tier_history_api():
             }
     except (OSError, ValueError, TypeError) as exc:
         app.logger.warning('Store tier official baseline unavailable: %s', exc)
-    for event in detect_promotions(history_rows):
+    visible_store_ids = set(by_store)
+    for event in promotion_events:
+        if event.store not in visible_store_ids:
+            continue
         current = official_by_store.get(event.store)
         if current is None or event.tier_rank > current['historicalOfficialTierRank']:
             official_by_store[event.store] = {
@@ -18443,8 +19003,16 @@ def business_analysis_store_tier_history_api():
                 'officialSource': None,
             }),
         })
-    response = jsonify({'rows': payload, 'storeMeta': store_meta, 'total': len(payload), 'days': days})
-    response.headers['Cache-Control'] = 'private, no-store'
+    response = jsonify({
+        'rows': payload,
+        'storeMeta': store_meta,
+        'total': len(payload),
+        'days': days,
+        'source': 'daily-snapshot',
+        'generatedAt': snapshot.get('generatedAt'),
+    })
+    response.headers['Cache-Control'] = 'private, max-age=300'
+    response.headers['X-Business-Analysis-Source'] = 'daily-snapshot'
     return response
 
 
@@ -18545,10 +19113,416 @@ def business_analysis_key_tasks_api(task_id):
     return response
 
 
+def _company_market_full_access_guard():
+    """美国站市场与大盘对比只对拥有经营分析全量数据权限的人开放。"""
+    scope = _get_business_analysis_scope(resolve_leader=True)
+    if not scope:
+        return jsonify({
+            'error': {
+                'code': 'BUSINESS_ANALYSIS_FORBIDDEN',
+                'message': '当前用户无权访问经营分析。',
+            }
+        }), 403
+    if str(scope.get('role') or '') != 'business_owner':
+        return jsonify({
+            'error': {
+                'code': 'COMPANY_MARKET_FORBIDDEN',
+                'message': '美国站市场与大盘对比只对拥有经营分析全量数据权限的用户开放。',
+            }
+        }), 403
+    return None
+
+
+@app.route('/api/ai/business-analysis/market-overview', methods=['GET'])
+@_require_business_analysis_access
+def business_analysis_market_overview_api():
+    """大盘趋势：返回美国站市场录入的类目销量/销售额（全体经营分析用户可见）。"""
+    try:
+        rows = get_market_overview_rows()
+    except CompanyMarketError as exc:
+        return jsonify({'error': {'code': exc.code, 'message': exc.message}}), exc.status
+    except Exception as exc:
+        app.logger.exception('market overview failed: %s', exc)
+        return jsonify({
+            'error': {
+                'code': 'MARKET_OVERVIEW_UNAVAILABLE',
+                'message': '大盘趋势数据暂时无法读取，请稍后重试。',
+            }
+        }), 503
+    response = jsonify({'rows': rows})
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/api/ai/business-analysis/company-market', methods=['GET'])
+@_require_business_analysis_access
+def business_analysis_company_market_api():
+    """返回手动导入的美国站市场与大盘对比数据（按月份）。"""
+    denied = _company_market_full_access_guard()
+    if denied is not None:
+        return denied
+    try:
+        payload = get_company_market_overview(request.args.get('month') or None)
+    except CompanyMarketError as exc:
+        return jsonify({'error': {'code': exc.code, 'message': exc.message}}), exc.status
+    except Exception as exc:
+        app.logger.exception('company market overview failed: %s', exc)
+        return jsonify({
+            'error': {
+                'code': 'COMPANY_MARKET_UNAVAILABLE',
+                'message': '公司大盘数据暂时无法读取，请稍后重试。',
+            }
+        }), 503
+    payload['canEdit'] = True
+    response = jsonify(payload)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/api/ai/business-analysis/company-market/entry', methods=['POST'])
+@_require_business_analysis_access
+def business_analysis_company_market_entry_api():
+    """按月手动录入/覆盖美国站市场与大盘对比数据。"""
+    denied = _company_market_full_access_guard()
+    if denied is not None:
+        return denied
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({
+            'error': {
+                'code': 'COMPANY_MARKET_INVALID_VALUES',
+                'message': '提交的数据格式不正确。',
+            }
+        }), 400
+    try:
+        payload = upsert_company_market_month(
+            body.get('month'),
+            body.get('values'),
+            body.get('date'),
+        )
+    except CompanyMarketError as exc:
+        return jsonify({'error': {'code': exc.code, 'message': exc.message}}), exc.status
+    except Exception as exc:
+        app.logger.exception('company market entry failed: %s', exc)
+        return jsonify({
+            'error': {
+                'code': 'COMPANY_MARKET_ENTRY_FAILED',
+                'message': f'保存失败：{exc}',
+            }
+        }), 503
+    payload['canEdit'] = True
+    response = jsonify(payload)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
 @app.route('/ai/innovation_pending_reminder_test')
 @require_permission('admin_functions')
 def innovation_pending_reminder_test_page():
     return render_template('innovation_pending_reminder_test.html')
+
+
+@app.route('/ai/feishu-video-card-test')
+@require_permission('hr_admin_dept')
+def feishu_video_card_test_page():
+    return render_template(
+        'feishu_video_card_test.html',
+        current_open_id=str(session.get('feishu_user_id') or '').strip(),
+        current_user_name=str(session.get('feishu_user_name') or '当前用户').strip(),
+    )
+
+
+def _upload_feishu_message_video(upload):
+    token = permission_manager.get_access_token()
+    if not token:
+        return False, '获取飞书访问令牌失败', {}
+    filename = secure_filename(str(getattr(upload, 'filename', '') or '')) or 'test-video.mp4'
+    try:
+        duration_ms = _get_video_duration_ms(upload)
+        upload.stream.seek(0)
+        upload_data = {'file_type': 'mp4', 'file_name': filename}
+        if duration_ms > 0:
+            upload_data['duration'] = str(duration_ms)
+        response = requests.post(
+            'https://open.feishu.cn/open-apis/im/v1/files',
+            headers={'Authorization': f'Bearer {token}'},
+            data=upload_data,
+            files={'file': (filename, upload.stream, upload.mimetype or 'video/mp4')},
+            timeout=120,
+        )
+        payload = response.json() if response.content else {}
+    except Exception as exc:
+        return False, f'上传视频失败：{exc}', {}
+    if response.status_code >= 400 or payload.get('code') != 0:
+        raw_message = str(payload.get('msg') or f'飞书上传接口返回 HTTP {response.status_code}')
+        return False, raw_message, payload
+    file_key = str((payload.get('data') or {}).get('file_key') or '').strip()
+    if not file_key:
+        return False, '飞书上传成功但未返回 file_key', payload
+    return True, file_key, payload
+
+
+def _get_video_duration_ms(upload):
+    """Read MP4 duration in milliseconds for Feishu's video metadata."""
+    temp_path = ''
+    try:
+        import cv2
+        upload.stream.seek(0)
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+            tmp.write(upload.stream.read())
+            temp_path = tmp.name
+        capture = cv2.VideoCapture(temp_path)
+        fps = float(capture.get(cv2.CAP_PROP_FPS) or 0)
+        frames = float(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        capture.release()
+        if fps <= 0 or frames <= 0:
+            return 0
+        return max(1, round(frames / fps * 1000))
+    except Exception:
+        return 0
+    finally:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
+
+def _upload_feishu_video_cover(upload):
+    """Extract and upload the first frame so the message has visible content before playback."""
+    token = permission_manager.get_access_token()
+    if not token:
+        return ""
+    temp_path = ""
+    try:
+        import cv2
+        upload.stream.seek(0)
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+            tmp.write(upload.stream.read())
+            temp_path = tmp.name
+        capture = cv2.VideoCapture(temp_path)
+        ok, frame = capture.read()
+        capture.release()
+        if not ok or frame is None:
+            return ""
+        ok, encoded = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+        if not ok:
+            return ""
+        response = requests.post(
+            'https://open.feishu.cn/open-apis/im/v1/images',
+            headers={'Authorization': f'Bearer {token}'},
+            files={'image': ('video-cover.jpg', io.BytesIO(encoded.tobytes()), 'image/jpeg')},
+            data={'image_type': 'message'},
+            timeout=30,
+        )
+        payload = response.json() if response.content else {}
+        if response.status_code >= 400 or payload.get('code') != 0:
+            return ""
+        return str((payload.get('data') or {}).get('image_key') or '').strip()
+    except Exception:
+        return ""
+    finally:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
+
+def _list_feishu_bot_chats():
+    """List chats visible to the app bot."""
+    token = permission_manager.get_access_token()
+    if not token:
+        return [], '获取飞书访问令牌失败'
+
+    chats = []
+    page_token = ''
+    try:
+        while True:
+            params = {'page_size': 100}
+            if page_token:
+                params['page_token'] = page_token
+            response = requests.get(
+                'https://open.feishu.cn/open-apis/im/v1/chats',
+                headers={'Authorization': f'Bearer {token}'},
+                params=params,
+                timeout=15,
+            )
+            payload = response.json() if response.content else {}
+            if response.status_code >= 400 or payload.get('code') != 0:
+                return [], str(payload.get('msg') or f'查询群聊失败（HTTP {response.status_code}）')
+            data = payload.get('data') if isinstance(payload.get('data'), dict) else {}
+            for item in data.get('items') or []:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get('name') or '').strip()
+                chat_id = str(item.get('chat_id') or '').strip()
+                if name and chat_id:
+                    chats.append({'name': name, 'chat_id': chat_id})
+            page_token = str(data.get('page_token') or '').strip()
+            if not page_token:
+                break
+    except Exception as exc:
+        return [], f'查询群聊失败：{exc}'
+    chats.sort(key=lambda item: item['name'].casefold())
+    return chats, ''
+
+
+def _resolve_feishu_chat_name(chat_name):
+    """Resolve a visible Feishu group name to a chat_id using the bot token."""
+    target = str(chat_name or '').strip()
+    if not target:
+        return '', '请选择群聊'
+    if target.startswith('oc_'):
+        return target, ''
+    chats, error = _list_feishu_bot_chats()
+    if error:
+        return '', error
+    matches = [(item['name'], item['chat_id']) for item in chats]
+
+    exact = [(name, cid) for name, cid in matches if name.casefold() == target.casefold()]
+    if len(exact) == 1:
+        return exact[0][1], ''
+    if len(exact) > 1:
+        return '', f'存在多个同名群聊“{target}”，请先修改群名以便区分'
+    suggestions = [name for name, _ in matches if target.casefold() in name.casefold()][:5]
+    suffix = f'，相近群聊：{"、".join(suggestions)}' if suggestions else ''
+    return '', f'未找到群聊“{target}”。请确认机器人已加入该群聊{suffix}'
+
+
+@app.route('/api/ai/feishu-video-card-test/chats')
+@require_permission('hr_admin_dept')
+def feishu_video_card_test_chats():
+    chats, error = _list_feishu_bot_chats()
+    if error:
+        return jsonify({'success': False, 'message': error, 'chats': []}), 502
+    return jsonify({'success': True, 'chats': chats})
+
+
+@app.route('/api/ai/feishu-video-card-test/send', methods=['POST'])
+@require_permission('hr_admin_dept')
+def feishu_video_card_test_send():
+    upload = request.files.get('video')
+    if not upload or not getattr(upload, 'filename', ''):
+        return jsonify({'success': False, 'message': '请选择 MP4 视频文件'}), 400
+    filename = str(upload.filename or '').strip()
+    if not filename.lower().endswith('.mp4'):
+        return jsonify({'success': False, 'message': '当前测试仅支持 MP4 视频'}), 400
+    upload.stream.seek(0, os.SEEK_END)
+    size = upload.stream.tell()
+    upload.stream.seek(0)
+    if size <= 0:
+        return jsonify({'success': False, 'message': '视频文件为空'}), 400
+    if size > FEISHU_NATIVE_VIDEO_MAX_BYTES:
+        return jsonify({'success': False, 'message': '飞书原生视频消息限制约 30MB，请压缩视频后再发送'}), 413
+
+    receive_id_type = str(request.form.get('receive_id_type') or 'open_id').strip()
+    if receive_id_type not in {'open_id', 'chat_id'}:
+        return jsonify({'success': False, 'message': '接收人类型无效'}), 400
+    receive_id = str(request.form.get('receive_id') or '').strip()
+    if receive_id_type == 'chat_id':
+        receive_id, resolve_error = _resolve_feishu_chat_name(receive_id)
+        if not receive_id:
+            return jsonify({'success': False, 'stage': 'resolve_chat', 'message': resolve_error}), 400
+    if not receive_id:
+        receive_id = str(session.get('feishu_user_id') or '').strip()
+        receive_id_type = 'open_id'
+    if not receive_id:
+        return jsonify({'success': False, 'message': '未找到接收人飞书 ID'}), 400
+
+    uploaded, file_key_or_error, upload_response = _upload_feishu_message_video(upload)
+    if not uploaded:
+        return jsonify({
+            'success': False,
+            'stage': 'upload',
+            'message': file_key_or_error,
+            'feishu_response': upload_response,
+        }), 502
+    file_key = file_key_or_error
+    cover_key = _upload_feishu_video_cover(upload)
+    title = str(request.form.get('title') or '视频推送').strip()[:80]
+    description = str(request.form.get('description') or '用于验证飞书消息卡片中的视频播放能力。').strip()[:1000]
+
+    # Card 1.0's media element is rendered by Feishu as a fixed small thumbnail
+    # and exposes no width/height option. Send the copy first, then use Feishu's
+    # native media message so the client renders its standard large player.
+    intro = {
+        'zh_cn': {
+            'title': title,
+            'content': [[{'tag': 'text', 'text': description}]],
+        }
+    }
+    intro_ok, intro_response = _feishu_send_message_detail(
+        receive_id, receive_id_type, 'post', intro
+    )
+    media_content = {'file_key': file_key}
+    if cover_key:
+        media_content['image_key'] = cover_key
+    media_ok, media_response = _feishu_send_message_detail(
+        receive_id, receive_id_type, 'media', media_content
+    )
+    if media_ok:
+        return jsonify({
+            'success': True,
+            'mode': 'native_media',
+            'message': '已使用飞书原生视频消息发送，视频将以标准大播放器展示',
+            'file_key': file_key,
+            'message_id': str((media_response.get('data') or {}).get('message_id') or ''),
+            'intro_sent': intro_ok,
+            'intro_message_id': str((intro_response.get('data') or {}).get('message_id') or ''),
+            'cover_key': cover_key,
+        })
+
+    card = {
+        'config': {'wide_screen_mode': True},
+        'header': {
+            'template': 'purple',
+            'title': {'tag': 'plain_text', 'content': title},
+        },
+        'elements': [
+            {'tag': 'markdown', 'content': description},
+            {'tag': 'media', 'file_key': file_key},
+            {'tag': 'note', 'elements': [{'tag': 'plain_text', 'content': f'视频文件：{filename}'}]},
+        ],
+    }
+    card_ok, card_response = _feishu_send_message_detail(receive_id, receive_id_type, 'interactive', card)
+    if card_ok:
+        return jsonify({
+            'success': True,
+            'mode': 'interactive',
+            'message': '互动消息卡片已发送，请在飞书中检查视频是否可播放',
+            'file_key': file_key,
+            'message_id': str((card_response.get('data') or {}).get('message_id') or ''),
+        })
+
+    post = {
+        'zh_cn': {
+            'title': title,
+            'content': [
+                [{'tag': 'text', 'text': description}],
+                [{'tag': 'media', 'file_key': file_key}],
+                [{'tag': 'text', 'text': f'视频文件：{filename}'}],
+            ],
+        }
+    }
+    post_ok, post_response = _feishu_send_message_detail(receive_id, receive_id_type, 'post', post)
+    if post_ok:
+        return jsonify({
+            'success': True,
+            'mode': 'post_fallback',
+            'message': '互动卡片视频组件未通过，已使用飞书官方富文本视频组件发送',
+            'file_key': file_key,
+            'interactive_error': card_response,
+            'message_id': str((post_response.get('data') or {}).get('message_id') or ''),
+        })
+    return jsonify({
+        'success': False,
+        'stage': 'send',
+        'message': '视频上传成功，但互动卡片和富文本视频均发送失败',
+        'file_key': file_key,
+        'interactive_error': card_response,
+        'post_error': post_response,
+    }), 502
 
 
 def _get_env_int(name, default):
@@ -19243,29 +20217,29 @@ def api_hr_innovation_data():
 def _load_hr_innovation_data():
     monthly_total = sf_db("""
         SELECT
-            FORMAT(发起时间, 'yyyy-MM') AS 月份,
+            CONVERT(VARCHAR(7), 发起时间, 120) AS 月份,
             COUNT(*) AS 数量
         FROM v_QuanYuanChuangXin
-        GROUP BY FORMAT(发起时间, 'yyyy-MM')
+        GROUP BY CONVERT(VARCHAR(7), 发起时间, 120)
         ORDER BY 月份
     """) or []
     monthly_department_total = sf_db("""
         SELECT
-            FORMAT(发起时间, 'yyyy-MM') AS 月份,
+            CONVERT(VARCHAR(7), 发起时间, 120) AS 月份,
             COUNT(*) AS 数量,
             CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
+        GROUP BY CONVERT(VARCHAR(7), 发起时间, 120), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
         ORDER BY 月份, 部门
     """) or []
     valid_department_total = sf_db("""
         SELECT
-            FORMAT(发起时间, 'yyyy-MM') AS 月份,
+            CONVERT(VARCHAR(7), 发起时间, 120) AS 月份,
             COUNT(*) AS 有效提案数量,
             CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
         WHERE 最高分 > 0
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
+        GROUP BY CONVERT(VARCHAR(7), 发起时间, 120), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
         ORDER BY 月份, 部门
     """) or []
     monthly_people = sf_db("""
@@ -19278,22 +20252,22 @@ def _load_hr_innovation_data():
     """) or []
     score_distribution = sf_db("""
         SELECT
-            FORMAT(发起时间, 'yyyy-MM') AS 月份,
+            CONVERT(VARCHAR(7), 发起时间, 120) AS 月份,
             COUNT(*) AS 数量,
             最高分 AS 分数,
             CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END, 最高分
+        GROUP BY CONVERT(VARCHAR(7), 发起时间, 120), CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END, 最高分
         ORDER BY 月份, 部门, 分数
     """) or []
     category_distribution = sf_db("""
         SELECT
-            FORMAT(发起时间, 'yyyy-MM') AS 月份,
+            CONVERT(VARCHAR(7), 发起时间, 120) AS 月份,
             COUNT(*) AS 数量,
             创新类别,
             CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END AS 部门
         FROM v_QuanYuanChuangXin
-        GROUP BY FORMAT(发起时间, 'yyyy-MM'), 创新类别, CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
+        GROUP BY CONVERT(VARCHAR(7), 发起时间, 120), 创新类别, CASE WHEN 部门 IN ('TK_离职','TK项目') THEN '内容生产工厂' ELSE 部门 END
         ORDER BY 月份, 创新类别, 部门
     """) or []
     return {
@@ -20728,3 +21702,5 @@ if __name__ == '__main__':
         innovation_pending_reminder.start()
         tk_customer_service_tracking_reminder.start()
     app.run(debug=debug_mode, host='0.0.0.0', port=8000, use_reloader=False)
+# 飞书原生视频消息接口的上传限制低于大文件上传需求，超过约 30MB 会被接口拒绝。
+FEISHU_NATIVE_VIDEO_MAX_BYTES = 30 * 1024 * 1024

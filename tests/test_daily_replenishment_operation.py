@@ -1,4 +1,5 @@
 import tempfile
+import time
 import unittest
 from datetime import date
 from pathlib import Path
@@ -42,8 +43,18 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         response = self.request("GET", "/ai/daily-replenishment-operation")
         self.assertEqual(200, response.status_code)
         html = response.get_data(as_text=True)
-        self.assertIn("日常补货运营", html)
+        self.assertIn("智能补货中心-运营", html)
         self.assertIn("/api/ai/daily-replenishment-operation/refresh", html)
+
+    def test_all_column_filters_support_multiple_values(self):
+        response = self.request("GET", "/ai/daily-replenishment-operation")
+        self.assertEqual(200, response.status_code)
+        html = response.get_data(as_text=True)
+        self.assertIn('class="filter-option"', html)
+        self.assertIn('type="checkbox"', html)
+        self.assertIn("selected.includes(String(x.row[i]??''))", html)
+        self.assertIn("已选 ${selected.length} 项", html)
+        self.assertNotIn('<select class="column-filter', html)
 
     def test_complete_sheet_chain_is_generated_and_saved(self):
         def fake_query(sql):
@@ -161,6 +172,30 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         self.assertEqual(403, response.status_code)
         self.assertIn("只有阅读权限", response.get_json()["message"])
 
+    def test_refresh_job_runs_in_background_thread_with_app_context(self):
+        with patch.object(base, "resolve_source_path", return_value=None):
+            response = self.request("POST", "/api/ai/daily-replenishment-operation/refresh")
+
+        self.assertEqual(202, response.status_code)
+        job_id = response.get_json()["jobId"]
+
+        payload = None
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            status = self.request("GET", f"/api/ai/daily-replenishment-operation/refresh/{job_id}")
+            body = status.get_json()
+            if body.get("status") == "failed":
+                self.fail(f"刷新任务在后台线程失败：{body.get('message')}")
+            # 任务完成时该接口直接返回 payload 本身，没有 status 字段
+            if body.get("generation") and body.get("sheets"):
+                payload = body
+                break
+            time.sleep(0.05)
+
+        self.assertIsNotNone(payload, "刷新任务未在超时时间内完成")
+        self.assertTrue(payload.get("success"))
+        self.assertIn("FBA发货", payload["sheets"])
+
     def test_main_sheet_payload_preserves_excel_comments(self):
         main = build_sample_dataset()
         main["header_comments"] = {"4": "库存表头批注"}
@@ -222,6 +257,106 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         rows = response.get_json()["sheets"][base.SHEET_NAME]["rows"]
         self.assertEqual([["周雪", "12", "A", "SKU-A"]], rows)
+
+
+    def test_sales_trend_returns_daily_series_for_visible_sku(self):
+        access = {"read_stores": {"12"}, "write_stores": set(), "can_write": False, "visible_skus": {"SKU-A"}}
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
+            with patch.object(
+                operation,
+                "scoped_query_executor",
+                return_value=(
+                    lambda sql: [
+                        ("SKU-A", date(2026, 9, 1), 3),
+                        ("SKU-A", date(2026, 9, 2), 5),
+                        ("SKU-B", date(2026, 9, 2), 7),
+                    ],
+                    access,
+                ),
+            ):
+                with patch.object(
+                    operation,
+                    "_settings",
+                    return_value={
+                        "sales_start": date(2026, 9, 1),
+                        "sales_end": date(2026, 9, 10),
+                        "sales_source": "付款",
+                        "recent_days": 15,
+                    },
+                ):
+                    response = self.client.get(
+                        "/api/ai/daily-replenishment-operation/sales-trend?sku=SKU-A&start=2026-09-01&end=2026-09-03"
+                    )
+
+        self.assertEqual(200, response.status_code)
+        body = response.get_json()
+        self.assertEqual(["2026-09-01", "2026-09-02", "2026-09-03"], [item["date"] for item in body["days"]])
+        self.assertEqual([3, 5, 0], [item["qty"] for item in body["days"]])
+        self.assertEqual(8, body["sum"])
+
+    def test_sales_trend_returns_series_for_multiple_skus(self):
+        access = {"read_stores": {"12"}, "write_stores": set(), "can_write": False, "visible_skus": {"SKU-A", "SKU-B"}}
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
+            with patch.object(
+                operation,
+                "scoped_query_executor",
+                return_value=(
+                    lambda sql: [
+                        ("SKU-A", date(2026, 9, 1), 3),
+                        ("SKU-B", date(2026, 9, 2), 7),
+                    ],
+                    access,
+                ),
+            ):
+                with patch.object(
+                    operation,
+                    "_settings",
+                    return_value={
+                        "sales_start": date(2026, 9, 1),
+                        "sales_end": date(2026, 9, 10),
+                        "sales_source": "付款",
+                        "recent_days": 15,
+                    },
+                ):
+                    response = self.client.get(
+                        "/api/ai/daily-replenishment-operation/sales-trend"
+                        "?skus=SKU-A,SKU-B&start=2026-09-01&end=2026-09-02"
+                    )
+
+        self.assertEqual(200, response.status_code)
+        series = response.get_json()["series"]
+        self.assertEqual({"SKU-A", "SKU-B"}, set(series))
+        self.assertEqual([3, 0], [item["qty"] for item in series["SKU-A"]])
+        self.assertEqual([0, 7], [item["qty"] for item in series["SKU-B"]])
+
+    def test_sales_trend_rejects_sku_outside_scope(self):
+        access = {"read_stores": {"12"}, "write_stores": set(), "can_write": False, "visible_skus": {"SKU-A"}}
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
+            with patch.object(operation, "scoped_query_executor", return_value=(lambda sql: [], access)):
+                response = self.client.get("/api/ai/daily-replenishment-operation/sales-trend?sku=SKU-B")
+
+        self.assertEqual(403, response.status_code)
+        self.assertIn("店铺权限", response.get_json()["message"])
+
+    def test_sales_trend_rejects_bad_date_range(self):
+        access = {"read_stores": {"12"}, "write_stores": set(), "can_write": False, "visible_skus": {"SKU-A"}}
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
+            with patch.object(operation, "scoped_query_executor", return_value=(lambda sql: [], access)):
+                with patch.object(
+                    operation,
+                    "_settings",
+                    return_value={
+                        "sales_start": date(2026, 9, 1),
+                        "sales_end": date(2026, 9, 10),
+                        "sales_source": "付款",
+                        "recent_days": 15,
+                    },
+                ):
+                    response = self.client.get(
+                        "/api/ai/daily-replenishment-operation/sales-trend?sku=SKU-A&start=2026-01-01&end=2026-03-01"
+                    )
+
+        self.assertEqual(400, response.status_code)
 
 
 if __name__ == "__main__":

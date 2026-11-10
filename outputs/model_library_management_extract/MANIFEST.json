@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-11-07",
+  "source_root": "E:\\Python项目\\toochuangai",
+  "files": [
+    {
+      "path": "config.example.env",
+      "size": 329,
+      "sha256": "4417274233c3bd1e2aa39bdb4361d9690b57d1cf065c1cf5dd5411c4b87656d8"
+    },
+    {
+      "path": "docs/api.md",
+      "size": 1423,
+      "sha256": "92f8bfa916f009567f835c5e445dea002a8b4f7f7aba009b998d8f6a1e83ffcc"
+    },
+    {
+      "path": "docs/database-schema.md",
+      "size": 1126,
+      "sha256": "46167e09419ccbc732dcc130ae9bdecadf4d7700dea3c08eef1ab0d88e3ea262"
+    },
+    {
+      "path": "integration_example.py",
+      "size": 629,
+      "sha256": "dc9367e93e9be8dec2d63a83e19ad5286c7b123980fbdd6d21eeef2353dc5baa"
+    },
+    {
+      "path": "MANIFEST.json",
+      "size": 1852,
+      "sha256": "2b7a8fd251213f187f968e725bab2d7722c5772b6d03ee947178e10073514768"
+    },
+    {
+      "path": "model_management.py",
+      "size": 33167,
+      "sha256": "1a5a476839be189284efbf8c1ea072fa38a429a5545a1110d59a960d3fb0294f"
+    },
+    {
+      "path": "README.md",
+      "size": 4818,
+      "sha256": "fa69a217b9f4ea8f1e256855b575c27ab045df7325bb2428a4e48019aa9a47a9"
+    },
+    {
+      "path": "requirements-model-library.txt",
+      "size": 75,
+      "sha256": "06b000e030f55b6f4d938598069273872d2b679616c87099548adca7b4b76966"
+    },
+    {
+      "path": "static/css/README.md",
+      "size": 202,
+      "sha256": "692e2d8069bcf4976850e8d9cc868f93627477c60675a4cb0a1a07e9dc9ae11d"
+    },
+    {
+      "path": "templates/model_library.html",
+      "size": 25522,
+      "sha256": "3d3b528acd136860272a4558fd8bb4670ae85a2216567e130ec7902044fcfbf1"
+    },
+    {
+      "path": "templates/model_queue.html",
+      "size": 45984,
+      "sha256": "714d4560014075b8114aab263131b18eb7d421b40423c7dd8d9b179d72a01f26"
+    }
+  ]
+}

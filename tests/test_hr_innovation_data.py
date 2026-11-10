@@ -67,6 +67,19 @@ class HrInnovationDataTests(unittest.TestCase):
         self.assertEqual(excel_value("+1+1"), "'+1+1")
         self.assertEqual(excel_value(12), 12)
 
+    def test_people_chart_shows_participation_rate(self) -> None:
+        self.assertIn("部门参与率", TEMPLATE_SOURCE)
+        self.assertIn("peopleRateByDepartment", TEMPLATE_SOURCE)
+        self.assertIn("participantDenominator", TEMPLATE_SOURCE)
+        self.assertNotIn("renderRankChart('peopleChart'", TEMPLATE_SOURCE)
+
+    def test_month_queries_avoid_clr_format_function(self) -> None:
+        loader_section = APP_SOURCE.split("def _load_hr_innovation_data", 1)[1].split(
+            "def _filter_hr_innovation_data", 1
+        )[0]
+        self.assertNotIn("FORMAT(", loader_section)
+        self.assertIn("CONVERT(VARCHAR(7)", loader_section)
+
     def test_template_has_multiselect_echarts_and_export(self) -> None:
         self.assertIn("echarts@5.5.1", TEMPLATE_SOURCE)
         self.assertIn('id="monthFilterTrigger"', TEMPLATE_SOURCE)

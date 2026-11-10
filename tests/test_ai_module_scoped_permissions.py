@@ -23,10 +23,10 @@ class AiModuleScopedPermissionTests(unittest.TestCase):
             app_module.permission_manager,
             "check_user_permission",
             side_effect=check_permission,
-        ):
+        ), patch.object(app_module.permission_manager, "get_user_departments", return_value=[{"name": "AI部"}]):
             return self.client.get("/ai_modules")
 
-    def test_scoped_user_only_sees_business_analysis_and_magic_ad(self):
+    def test_scoped_user_sees_all_cards_with_unavailable_cards_locked(self):
         response = self._open_ai_modules(
             {
                 "ai_dept",
@@ -40,12 +40,13 @@ class AiModuleScopedPermissionTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         page = response.get_data(as_text=True)
         self.assertIn("<h3>日常补货</h3>", page)
-        self.assertIn("<h3>经营分析</h3>", page)
+        self.assertNotIn("<h3>经营分析</h3>", page)
         self.assertIn("<h3>MAGIC AD 广告监控</h3>", page)
-        self.assertNotIn("<h3>更新</h3>", page)
-        self.assertNotIn("<h3>性能监控</h3>", page)
-        self.assertNotIn("<h3>管理员功能</h3>", page)
-        self.assertNotIn("<h3>权限身份切换（测试）</h3>", page)
+        self.assertIn("<h3>更新</h3>", page)
+        self.assertIn("<h3>性能监控</h3>", page)
+        self.assertIn("<h3>管理员功能</h3>", page)
+        self.assertIn('data-allowed="false"', page)
+        self.assertIn("暂无该功能权限", page)
 
     def test_ai_department_full_user_still_sees_all_cards(self):
         response = self._open_ai_modules(
@@ -60,17 +61,49 @@ class AiModuleScopedPermissionTests(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         page = response.get_data(as_text=True)
-        self.assertIn("<h3>经营分析</h3>", page)
+        self.assertNotIn("<h3>经营分析</h3>", page)
         self.assertIn("<h3>MAGIC AD 广告监控</h3>", page)
         self.assertIn("<h3>更新</h3>", page)
         self.assertIn("<h3>性能监控</h3>", page)
         self.assertIn("<h3>管理员功能</h3>", page)
 
-    def test_daily_replenishment_card_is_hidden_without_scoped_permission(self):
+    def test_daily_replenishment_card_is_visible_but_locked_without_permission(self):
         response = self._open_ai_modules({"ai_dept", "admin_functions"})
 
         self.assertEqual(200, response.status_code)
-        self.assertNotIn("<h3>日常补货</h3>", response.get_data(as_text=True))
+        page = response.get_data(as_text=True)
+        self.assertIn("<h3>日常补货</h3>", page)
+        self.assertIn('data-allowed="false"', page)
+
+    def test_value_evaluation_cards_are_hidden_without_table_permissions(self):
+        response = self._open_ai_modules({"ai_dept"})
+        page = response.get_data(as_text=True)
+
+        self.assertNotIn("<h3>360价值评价</h3>", page)
+        self.assertNotIn("<h3>360价值评价管理</h3>", page)
+
+    def test_only_value_evaluation_admin_card_remains_in_ai_modules(self):
+        response = self._open_ai_modules({
+            "ai_dept", "value_evaluation", "value_evaluation_admin"
+        })
+        page = response.get_data(as_text=True)
+
+        self.assertNotIn("<h3>360价值评价</h3>", page)
+        self.assertIn("<h3>360价值评价管理</h3>", page)
+
+    def test_value_evaluation_permissions_match_current_audience(self):
+        rows = {
+            row["gongneng"]: row
+            for row in build_permission_seed_rows(PERMISSION_CONFIG)
+        }
+
+        evaluation = rows["value_evaluation"]
+        self.assertEqual("all", evaluation["bumen"])
+        self.assertEqual("", evaluation["yonghu"])
+
+        admin = rows["value_evaluation_admin"]
+        self.assertEqual("AI部", admin["bumen"])
+        self.assertEqual("韩雅俊；蔡晶", admin["yonghu"])
 
     def test_daily_replenishment_permission_is_seeded_for_ai_department_only(self):
         rows = {
@@ -87,8 +120,8 @@ class AiModuleScopedPermissionTests(unittest.TestCase):
         response = self._open_ai_modules({"ai_dept", "daily_replenishment_operation"})
         page = response.get_data(as_text=True)
         self.assertEqual(200, response.status_code)
-        self.assertIn("<h3>日常补货运营</h3>", page)
-        self.assertNotIn("<h3>日常补货</h3>", page)
+        self.assertIn("<h3>智能补货中心-运营</h3>", page)
+        self.assertIn("<h3>日常补货</h3>", page)
 
         rows = {row["gongneng"]: row for row in build_permission_seed_rows(PERMISSION_CONFIG)}
         permission = rows["daily_replenishment_operation"]
@@ -97,10 +130,33 @@ class AiModuleScopedPermissionTests(unittest.TestCase):
 
     def test_operation_permission_adds_ai_modules_dashboard_entry(self):
         functions = app_module._normalize_dashboard_functions([
-            {"function_name": "daily_replenishment_operation", "name": "日常补货运营"}
+            {"function_name": "daily_replenishment_operation", "name": "智能补货中心-运营"}
         ])
 
         self.assertIn("ai_dept", {item["function_name"] for item in functions})
+        ai_entry = next(item for item in functions if item["function_name"] == "ai_dept")
+        self.assertTrue(ai_entry["is_allowed"])
+
+    def test_dashboard_catalog_keeps_unavailable_functions_visible(self):
+        functions = app_module._normalize_dashboard_functions([
+            {"function_name": "innovation_proposals", "name": "创新提案管理"}
+        ])
+        functions_by_name = {item["function_name"]: item for item in functions}
+
+        self.assertIn("operation_dept_2", functions_by_name)
+        self.assertIn("finance_dept", functions_by_name)
+        self.assertFalse(functions_by_name["operation_dept_2"]["is_allowed"])
+        self.assertFalse(functions_by_name["finance_dept"]["is_allowed"])
+        self.assertTrue(functions_by_name["innovation_proposals"]["is_allowed"])
+
+    def test_dashboard_catalog_exposes_fba_shipping_as_direct_entry(self):
+        functions = app_module._normalize_dashboard_functions([
+            {"function_name": "operation_fba_shipping", "name": "FBA货件运输方式"}
+        ])
+        functions_by_name = {item["function_name"]: item for item in functions}
+
+        self.assertIn("operation_fba_shipping", functions_by_name)
+        self.assertTrue(functions_by_name["operation_fba_shipping"]["is_allowed"])
 
     def test_magic_ad_permission_is_seeded_for_requested_users(self):
         rows = {row["gongneng"]: row for row in EXTRA_PERMISSION_ROWS}

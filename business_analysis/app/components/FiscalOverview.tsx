@@ -110,7 +110,7 @@ function StoreRankingGrid({ rows, canViewAmounts }: {
 
   return (
     <div className="fiscal-person-list" aria-label="店铺达成率完整排名">
-      <div className="fiscal-person-head"><span>排名</span><span>店铺 / 负责人 / 所属部门</span><span>达成进度（标线 100%）</span><span>达成率</span><span>缺口</span></div>
+      <div className="fiscal-person-head"><span>排名</span><span>店铺 / 负责人 / 所属部门</span><span>达成进度（标线 100%）</span><span>实际金额</span><span>达成率</span><span>缺口</span></div>
       <ol>
         {rows.map((row) => {
           const progressWidth = Math.min(Math.max(((row.achievementRate ?? 0) / progressScale) * 100, 0), 100);
@@ -126,6 +126,7 @@ function StoreRankingGrid({ rows, canViewAmounts }: {
                 <i style={{ width: `${progressWidth}%` }} />
                 <em style={{ left: `${goalPosition}%` }} aria-hidden="true" />
               </span>
+              <span className="fiscal-person-actual">{amountLabel(row.actual, canViewAmounts)}</span>
               <strong className={(row.achievementRate ?? 0) >= 1 ? "is-achieved" : "is-unmet"}>{percent(row.achievementRate, 1)}</strong>
               <span className={(row.gapRate ?? row.gap ?? 0) <= 0 ? "is-ahead" : "is-gap"}>{gapLabel(row.gap, canViewAmounts, row.gapRate)}</span>
             </li>
@@ -175,6 +176,11 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
     ? { text: "#aebbd0", line: "#34435c", target: "#92a8dd", actual: "#6da8ff", accent: "#80a2ff", achieved: "#5ec991", unmet: "#e1b84b" }
     : { text: "#65728a", line: "#e1e7f0", target: "#93a4c5", actual: "#315dc9", accent: "#496fdc", achieved: "#2f9b68", unmet: "#d9a323" };
   const statusColor = (data?.overall.achievementRate ?? 0) >= 1 ? chartColors.achieved : chartColors.unmet;
+  const departmentRows = useMemo(() => {
+    const rows = data?.departments ?? [];
+    if (data?.scope.role !== "member" || !data.scope.operator) return rows;
+    return rows.map((row) => ({ ...row, name: data.scope.operator || row.name }));
+  }, [data]);
 
   const progressOption = useMemo<EChartsOption>(() => {
     if (!data?.scope.canViewAmounts) return {};
@@ -365,7 +371,7 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
   }, [chartColors.accent, chartColors.line, chartColors.target, chartColors.text, data, statusColor]);
 
   const departmentOption = useMemo<EChartsOption>(() => {
-    const rows = [...(data?.departments ?? [])].reverse();
+    const rows = [...departmentRows].reverse();
     return {
       animationDuration: 500,
       grid: { left: 8, right: 52, top: 8, bottom: 8, containLabel: true },
@@ -403,10 +409,10 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
         })),
       }],
     };
-  }, [chartColors.achieved, chartColors.line, chartColors.target, chartColors.text, chartColors.unmet, data]);
+  }, [chartColors.achieved, chartColors.line, chartColors.target, chartColors.text, chartColors.unmet, departmentRows]);
 
   const departmentGapOption = useMemo<EChartsOption>(() => {
-    const rows = [...(data?.departments ?? [])]
+    const rows = [...departmentRows]
       .sort((left, right) => (right.gap ?? 0) - (left.gap ?? 0))
       .reverse();
     return {
@@ -457,7 +463,7 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
         })),
       }],
     };
-  }, [chartColors.achieved, chartColors.line, chartColors.text, chartColors.unmet, data]);
+  }, [chartColors.achieved, chartColors.line, chartColors.text, chartColors.unmet, departmentRows]);
 
   if (!data && loading) return <LoadingState />;
   if (!data && error) {
@@ -489,6 +495,11 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
     ? `截至 ${usesProratedTarget ? latest : latestMonth} 累计`
     : data.filters.periodLabel;
   const selectedDepartmentLabel = data.filters.department || (data.filters.departments.length > 1 ? "全部部门" : data.filters.departments[0] || "权限范围");
+  const scopeDisplayLabel = data.scope.role === "member" && data.scope.operator
+    ? data.scope.operator
+    : selectedDepartmentLabel;
+  const isMemberScope = data.scope.role === "member";
+  const scopeMetricLabel = isMemberScope ? scopeDisplayLabel : "部门";
   const canFilterDepartments = data.filters.departments.length > 1;
   const selectedPeriodValue = periodKey || (data.filters.periodType === periodType ? data.filters.period : "");
   const periodName = data.filters.periodType === "annual"
@@ -512,7 +523,7 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
         <div>
           <span className="eyebrow">Fiscal command center</span>
           <h1>2026-2027 财年目标总览</h1>
-          <p>{selectedDepartmentLabel} · {cumulativePeriodLabel} · {targetProgressNote}；数据日期 {latest}</p>
+          <p>{scopeDisplayLabel} · {cumulativePeriodLabel} · {targetProgressNote}；数据日期 {latest}</p>
         </div>
         <div className="fiscal-heading-visual">
           <span className="fiscal-cache-badge">{loading ? "筛选计算中" : "按月缓存 · 自动更新"}</span>
@@ -578,7 +589,7 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
         <article className="fiscal-kpi fiscal-kpi-main">
           <span>{canViewAmounts ? mainTargetLabel : "目标基准"}</span>
           <strong>{canViewAmounts ? amountLabel(data.overall.periodTarget, true) : "100.00%"}</strong>
-          <small>{selectedDepartmentLabel} · 完整{periodName}目标基准</small>
+          <small>{scopeDisplayLabel} · 完整{periodName}目标基准</small>
         </article>
         <article className="fiscal-kpi"><span>{canViewAmounts ? `${cumulativePeriodLabel}实绩` : "公司财年达成率"}</span><strong>{canViewAmounts ? amountLabel(data.overall.actual, true) : percent(data.overall.companyFiscalAchievementRate ?? data.overall.annualProgressRate, 1)}</strong><small>{canViewAmounts ? undefined : "财年累计实绩 ÷ 公司全年目标"}</small></article>
         <article className={`fiscal-kpi${(data.overall.gapRate ?? data.overall.gap ?? 0) <= 0 ? " is-ahead" : " is-gap"}`}><span>{canViewAmounts ? `${cumulativePeriodLabel}${usesProratedTarget ? "进度缺口" : "缺口"}` : "目标差额占比"}</span><strong>{gapLabel(data.overall.gap, canViewAmounts, data.overall.gapRate)}</strong></article>
@@ -638,26 +649,26 @@ export default function FiscalOverview({ visible, theme }: { visible: boolean; t
           </article>
         )}
         <article className="fiscal-panel">
-          <div className="fiscal-panel-title"><div><h2>{cumulativePeriodLabel}部门{rankingRateLabel}</h2><p>按{rankingRateLabel}从高到低 · {targetProgressNote}</p></div><span>绿色达标 · 黄色未达标</span></div>
-          <EChart option={departmentOption} theme={theme} height={286} ariaLabel={`${data.filters.periodLabel}部门达成率排名条形图`} />
+          <div className="fiscal-panel-title"><div><h2>{cumulativePeriodLabel}{scopeMetricLabel}{rankingRateLabel}</h2><p>{isMemberScope ? "本人指标" : `按${rankingRateLabel}从高到低`} · {targetProgressNote}</p></div><span>绿色达标 · 黄色未达标</span></div>
+          <EChart option={departmentOption} theme={theme} height={286} ariaLabel={`${data.filters.periodLabel}${scopeMetricLabel}达成率条形图`} />
         </article>
       </div>
 
       <div className="fiscal-ranking-grid">
         <article className="fiscal-panel fiscal-department-panel">
-          <div className="fiscal-panel-title"><div><h2>部门{rankingRateLabel}与缺口</h2><p>{cumulativePeriodLabel} · {targetProgressNote}</p></div><span>{data.departments.length} 个部门</span></div>
+          <div className="fiscal-panel-title"><div><h2>{scopeMetricLabel}{rankingRateLabel}与缺口</h2><p>{cumulativePeriodLabel} · {targetProgressNote}</p></div><span>{isMemberScope ? scopeDisplayLabel : `${departmentRows.length} 个部门`}</span></div>
           <div className="fiscal-department-content">
             <div className="fiscal-ranking-table">
-              <div className="fiscal-detail-label"><b>部门明细表</b><span>达成率与缺口完整数据</span></div>
-              <DepartmentRankingList rows={data.departments} canViewAmounts={canViewAmounts} periodLabel={cumulativePeriodLabel} targetProrated={usesProratedTarget} />
+              <div className="fiscal-detail-label"><b>{isMemberScope ? "个人指标明细" : "部门明细表"}</b><span>达成率与缺口完整数据</span></div>
+              <DepartmentRankingList rows={departmentRows} canViewAmounts={canViewAmounts} periodLabel={cumulativePeriodLabel} targetProrated={usesProratedTarget} />
             </div>
             <div className="fiscal-ranking-chart">
-              <div className="fiscal-detail-label"><b>{canViewAmounts ? `部门${isMonthView ? "月度" : usesProratedTarget ? "进度" : "累计"}缺口` : `部门${rankingRateLabel}`}</b><span>{canViewAmounts ? "正值为缺口，负值为超额" : "金额按权限隐藏"}</span></div>
+              <div className="fiscal-detail-label"><b>{canViewAmounts ? `${scopeMetricLabel}${isMonthView ? "月度" : usesProratedTarget ? "进度" : "累计"}缺口` : `${scopeMetricLabel}${rankingRateLabel}`}</b><span>{canViewAmounts ? "正值为缺口，负值为超额" : "金额按权限隐藏"}</span></div>
               <EChart
                 option={canViewAmounts ? departmentGapOption : departmentOption}
                 theme={theme}
                 height={246}
-                ariaLabel={canViewAmounts ? "部门累计缺口横向条形图" : "部门累计达成率横向条形图"}
+                ariaLabel={canViewAmounts ? `${scopeMetricLabel}累计缺口横向条形图` : `${scopeMetricLabel}累计达成率横向条形图`}
               />
             </div>
           </div>

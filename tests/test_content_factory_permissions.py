@@ -64,7 +64,7 @@ class ContentFactoryPermissionTests(unittest.TestCase):
 
     def test_unmapped_api_department_is_normalized_and_inherits_card(self):
         root_id = "od-c560effca33bf715c15f79a0670fe6ba"
-        child_id = "od-884d568d0952416a876a77c087a1d15a"
+        child_id = "od-unmapped-bd-group"
 
         class FakeResponse:
             status_code = 200

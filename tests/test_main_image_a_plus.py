@@ -2458,7 +2458,7 @@ class MainImageAPlusTests(unittest.TestCase):
             patch.object(site.time, "sleep") as retry_sleep,
         ):
             result = site.call_openrouter_images_api(
-                model=site.NANO_BANANA_MODEL,
+                model="bytedance-seed/seedream-4.5",
                 prompt="生成测试图片",
             )
 

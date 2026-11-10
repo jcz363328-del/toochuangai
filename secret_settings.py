@@ -189,10 +189,14 @@ def image_site_config_namespace() -> dict[str, Any]:
     openrouter_key = env("OPENROUTER_API_KEY")
     jimeng_access_key = env("JIMENG_ACCESS_KEY_ID") or env("VOLCENGINE_ACCESS_KEY_ID")
     jimeng_secret_key = env("JIMENG_SECRET_ACCESS_KEY") or env("VOLCENGINE_SECRET_ACCESS_KEY")
+    omnia_key = env("OMNIAKEY_API_KEY")
     return {
         "open_routher_api_key": openrouter_key,
         "openrouter_api_key": openrouter_key,
         "OPENROUTER_API_KEY": openrouter_key,
+        "omnia_api_key": omnia_key,
+        "OMNIAKEY_API_KEY": omnia_key,
+        "OMNIAKEY_BASE_URL": env("OMNIAKEY_BASE_URL", "https://api.omniakey.com"),
         "server_address": env("LASHFORGE_SERVER_ADDRESS", "0.0.0.0"),
         "server_port": env_int("LASHFORGE_SERVER_PORT", 8501),
         "public_app_url": env("LASHFORGE_PUBLIC_APP_URL"),

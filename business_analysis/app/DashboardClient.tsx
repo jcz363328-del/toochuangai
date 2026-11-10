@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ECElementEvent, EChartsOption } from "echarts";
 import EChart from "./components/EChart";
+import CompanyMarketPanel from "./components/CompanyMarketPanel";
 import FiscalOverview from "./components/FiscalOverview";
 import KeyTasksBoard from "./components/KeyTasksBoard";
-import { MARKET_OVERVIEW_ROWS } from "./data/marketOverview";
+import { MARKET_OVERVIEW_ROWS, type MarketOverviewRow } from "./data/marketOverview";
 import { useLiveDashboard } from "./hooks/useLiveDashboard";
 import {
   aggregateDepartments,
@@ -29,7 +30,7 @@ import {
 
 type Theme = "light" | "dark";
 type SortMode = "sales" | "growth" | "margin" | "slow" | "tier";
-type DashboardTab = "home" | "performance" | "market" | "categories" | "operations" | "stores" | "tasks";
+type DashboardTab = "home" | "performance" | "market" | "categories" | "operations" | "stores" | "tasks" | "company";
 type RiskTab = "inventory" | "fulfillment" | "shipping" | "new";
 type FormulaId = "sales.current" | "profit.current" | "margin.current" | "growth.daily_mom";
 
@@ -81,6 +82,12 @@ const riskTableLabels: Record<RiskTab, { primary: string; secondary: string; emp
 };
 
 const defaultFilters: Filters = { department: "", operator: "", store: "", tier: "" };
+
+const MARKET_OVERVIEW_ENDPOINT = "/api/ai/business-analysis/market-overview";
+
+type MarketOverviewResponse = {
+  rows?: MarketOverviewRow[];
+};
 
 const trendTone = (value: number | null) =>
   value === null ? "neutral" : value >= 0 ? "positive" : "negative";
@@ -239,7 +246,7 @@ function CategoryArena({
         <div>
           <span className="eyebrow">Category arena</span>
           <h3>{segment.label}</h3>
-          <p>{canViewAmounts ? "展示总体销售额、日均销售额、增长与美国口径占比" : "绝对金额已隐藏，仅展示增长、销售结构与美国口径占比"}</p>
+          <p>{canViewAmounts ? "展示总体结算销售额、日均结算销售额、增长与美国口径占比" : "绝对金额已隐藏，仅展示增长、销售结构与美国口径占比"}</p>
         </div>
         <span className={`trend-pill ${trendTone(companyMom)}`}>图创日均 {growthLabel(companyMom, 2)}</span>
       </header>
@@ -249,7 +256,7 @@ function CategoryArena({
           <div className="category-block-title"><b>图创公司{segment.label}</b><span>比例公开</span></div>
           <div className="table-scroll table-scroll-compact">
             <table className="compact-table category-metric-table company-category-table">
-              <thead><tr><th>期间</th><th>总体销售额</th><th>日均销售额</th><th>美国销售占比</th><th>占比变化</th></tr></thead>
+              <thead><tr><th>期间</th><th>总体结算销售额</th><th>日均结算销售额</th><th>美国销售占比</th><th>占比变化</th></tr></thead>
               <tbody>
                 <tr><td>{yearAgoLabel}</td><td>{categoryAmountLabel(companyRatios?.yearAgoSales ?? null, canViewAmounts)}</td><td>{categoryAmountLabel(companyRatios?.yearAgoDailySales ?? null, canViewAmounts)}</td><td>{percent(companyRatios?.yearAgoUsShare ?? null, 2)}</td><td>同比基期</td></tr>
                 <tr><td>{previousLabel}</td><td>{categoryAmountLabel(companyRatios?.previousSales ?? null, canViewAmounts)}</td><td>{categoryAmountLabel(companyRatios?.previousDailySales ?? null, canViewAmounts)}</td><td>{percent(companyRatios?.previousUsShare ?? null, 2)}</td><td>环比基期</td></tr>
@@ -276,7 +283,7 @@ function CategoryArena({
         <div className="category-block-title"><b>五部门{segment.label}比例</b><span>所有成员可见</span></div>
         <div className="table-scroll table-scroll-compact">
           <table className="compact-table category-department-table">
-            <thead><tr><th>部门</th><th>{currentLabel}总体销售额</th><th>{currentLabel}日均销售额</th><th>{yearAgoLabel}占比</th><th>{previousLabel}占比</th><th>{currentLabel}占比</th><th>占比变化</th><th>日均环比</th><th>日均同比</th><th>美国销售占比</th></tr></thead>
+            <thead><tr><th>部门</th><th>{currentLabel}总体结算销售额</th><th>{currentLabel}日均结算销售额</th><th>{yearAgoLabel}占比</th><th>{previousLabel}占比</th><th>{currentLabel}占比</th><th>占比变化</th><th>日均环比</th><th>日均同比</th><th>美国销售占比</th></tr></thead>
             <tbody>
               {departmentRows.map((row) => {
                 const shareChange = row.currentShare != null && row.previousShare != null
@@ -343,10 +350,6 @@ function FormulaDrawer({
             ))}
           </dl>
         </section>
-        <details className="query-detail">
-          <summary>查看数据库聚合</summary>
-          <pre>{detail.sql}</pre>
-        </details>
         <footer>计算于 {new Date(evaluatedAt).toLocaleString("zh-CN", { hour12: false })}</footer>
       </aside>
     </div>
@@ -430,6 +433,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
   const [activeTab, setActiveTab] = useState<DashboardTab>("home");
   const [riskTab, setRiskTab] = useState<RiskTab>("inventory");
   const [activeFormula, setActiveFormula] = useState<FormulaId | null>(null);
+  const [marketRows, setMarketRows] = useState<MarketOverviewRow[]>(MARKET_OVERVIEW_ROWS);
   const themeReady = useRef(false);
   const visibleTab: DashboardTab = activeTab;
 
@@ -440,7 +444,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
       const query = new URLSearchParams({ days: String(days) });
       if (store) query.set("store", store);
       const response = await fetch(`/api/ai/business-analysis/store-tier-history?${query}`, {
-        cache: "no-store",
+        cache: "default",
         headers: { Accept: "application/json" },
       });
       const payload = await response.json() as { rows?: StoreTierHistoryRow[]; storeMeta?: StoreTierHistoryMeta[]; error?: { message?: string } };
@@ -477,6 +481,29 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [activeFormula]);
+
+  useEffect(() => {
+    if (visibleTab !== "market") return;
+    let cancelled = false;
+    const loadMarketRows = async () => {
+      try {
+        const response = await fetch(MARKET_OVERVIEW_ENDPOINT, {
+          credentials: "include",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const payload = await response.json() as MarketOverviewResponse;
+        const rows = Array.isArray(payload.rows) ? payload.rows : [];
+        if (!cancelled && rows.length) setMarketRows(rows);
+      } catch {
+        // 接口不可用时保留内置快照，避免大盘趋势整页空白。
+      }
+    };
+    void loadMarketRows();
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleTab]);
 
   useEffect(() => {
     if (!showTierHistory) return;
@@ -715,8 +742,8 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
     [theme],
   );
 
-  const marketLatestComplete = MARKET_OVERVIEW_ROWS.findLast((row) => !row.partial && row.salesVolume !== null);
-  const marketLatest = MARKET_OVERVIEW_ROWS[MARKET_OVERVIEW_ROWS.length - 1];
+  const marketLatestComplete = marketRows.findLast((row) => !row.partial && row.salesVolume !== null);
+  const marketLatest = marketRows[marketRows.length - 1];
   const marketScaleOption = useMemo<EChartsOption>(() => ({
     animationDuration: 600,
     color: [colors.accent, colors.blue],
@@ -731,7 +758,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
     },
     xAxis: {
       type: "category",
-      data: MARKET_OVERVIEW_ROWS.map((row) => row.period.slice(2)),
+      data: marketRows.map((row) => row.period.slice(2)),
       axisTick: { show: false },
       axisLine: { lineStyle: { color: colors.line } },
       axisLabel: { color: colors.muted, interval: 2, rotate: 35 },
@@ -754,7 +781,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
       {
         name: "类目销售额",
         type: "bar",
-        data: MARKET_OVERVIEW_ROWS.map((row) => ({ value: row.salesAmount, itemStyle: row.partial ? { opacity: 0.5 } : undefined })),
+        data: marketRows.map((row) => ({ value: row.salesAmount, itemStyle: row.partial ? { opacity: 0.5 } : undefined })),
         barMaxWidth: 20,
         itemStyle: { borderRadius: [4, 4, 0, 0] },
         tooltip: { valueFormatter: (value: unknown) => money(Number(value)) },
@@ -763,7 +790,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         name: "类目销量",
         type: "line",
         yAxisIndex: 1,
-        data: MARKET_OVERVIEW_ROWS.map((row) => row.salesVolume),
+        data: marketRows.map((row) => row.salesVolume),
         connectNulls: false,
         showSymbol: false,
         smooth: 0.18,
@@ -771,7 +798,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         tooltip: { valueFormatter: (value: unknown) => `${integer(Number(value))}` },
       },
     ],
-  }), [colors]);
+  }), [colors, marketRows]);
 
   const marketEfficiencyOption = useMemo<EChartsOption>(() => ({
     animationDuration: 600,
@@ -782,7 +809,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
     tooltip: { trigger: "axis", backgroundColor: colors.tooltip, borderColor: colors.line, textStyle: { color: colors.text } },
     xAxis: {
       type: "category",
-      data: MARKET_OVERVIEW_ROWS.map((row) => row.period.slice(2)),
+      data: marketRows.map((row) => row.period.slice(2)),
       axisTick: { show: false },
       axisLine: { lineStyle: { color: colors.line } },
       axisLabel: { color: colors.muted, interval: 2, rotate: 35 },
@@ -792,10 +819,10 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
       { type: "value", name: "环比", axisLabel: { color: colors.muted, formatter: (value: number) => `${Math.round(value * 100)}%` }, splitLine: { show: false } },
     ],
     series: [
-      { name: "大盘客单价", type: "line", data: MARKET_OVERVIEW_ROWS.map((row) => row.averageOrderValue), showSymbol: false, smooth: 0.2, lineStyle: { width: 2.5 }, tooltip: { valueFormatter: (value: unknown) => Number(value).toFixed(2) } },
-      { name: "销售额环比", type: "line", yAxisIndex: 1, data: MARKET_OVERVIEW_ROWS.map((row) => row.monthOverMonthGrowth), showSymbol: false, smooth: 0.15, lineStyle: { width: 2, type: "dashed" }, tooltip: { valueFormatter: (value: unknown) => percent(Number(value), 2) } },
+      { name: "大盘客单价", type: "line", data: marketRows.map((row) => row.averageOrderValue), showSymbol: false, smooth: 0.2, lineStyle: { width: 2.5 }, tooltip: { valueFormatter: (value: unknown) => Number(value).toFixed(2) } },
+      { name: "销售额环比", type: "line", yAxisIndex: 1, data: marketRows.map((row) => row.monthOverMonthGrowth), showSymbol: false, smooth: 0.15, lineStyle: { width: 2, type: "dashed" }, tooltip: { valueFormatter: (value: unknown) => percent(Number(value), 2) } },
     ],
-  }), [colors]);
+  }), [colors, marketRows]);
 
   const departmentOption = useMemo<EChartsOption>(() => {
     const names = departments.map((row) => row.name);
@@ -886,12 +913,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         textStyle: { color: colors.text },
         formatter: (params: unknown) => {
           const point = (params as { data?: unknown[] }).data ?? [];
-          return `<strong>${point[2]}号店 · ${point[3]}</strong><br/>销售额：${displayMoney(Number(point[0]))}<br/>毛利率：${percent(Number(point[1]) / 100)}<br/>毛利润：${displayMoney(Number(point[4]))}`;
+          return `<strong>${point[2]}号店 · ${point[3]}</strong><br/>结算销售额：${displayMoney(Number(point[0]))}<br/>毛利率：${percent(Number(point[1]) / 100)}<br/>毛利润：${displayMoney(Number(point[4]))}`;
         },
       },
       xAxis: {
         type: "value",
-        name: "销售额（元）",
+        name: "结算销售额（元）",
         nameTextStyle: { color: colors.muted },
         axisLabel: { color: colors.muted },
         splitLine: { lineStyle: { color: colors.line, type: "dashed" } },
@@ -1175,9 +1202,9 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
   const formulaDetails = useMemo<Record<FormulaId, FormulaDetail>>(() => ({
     "sales.current": {
       id: "sales.current",
-      label: "销售额",
+      label: "结算销售额",
       value: displayMoney(current.sales),
-      expression: "销售额 = Σ 当前筛选店铺销售额",
+      expression: "结算销售额 = Σ 当前筛选店铺结算销售额",
       note: "与 Excel 的 DBTORS 汇总口径一致；切换部门、运营或店铺后立即重算。",
       inputs: [
         { label: currentPeriod?.label ?? "本期销售明细", value: displayMoney(current.sales), source: "v_MaoLiLv.XiaoShouE" },
@@ -1311,7 +1338,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
               : accessScope?.role === "ratio_viewer"
                 ? "全员比例视图"
               : accessScope?.operator
-                ? `${accessScope.department} · ${accessScope.operator}本人视角`
+                ? `${accessScope.department} · ${accessScope.operator}本人店铺视角`
                 : "正在校验权限"}
           </span>
           <i />
@@ -1323,7 +1350,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
 
       <section className="kpi-grid" aria-label="关键指标">
         <KpiCard
-          label="销售额"
+          label="结算销售额"
           value={displayCompactMoney(current.sales)}
           delta={`同比 ${growthLabel(yoy)}`}
           note={`${currentPeriod?.label ?? "本期"} · 日均 ${displayCompactMoney(current.sales / currentDays)}`}
@@ -1371,7 +1398,10 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
           ["operations", `运营风险 · ${integer(unshippedCount)}`],
           ["stores", `店铺层级 · ${performanceStores.length}`],
           ["tasks", "关键任务"],
-        ] as const).map(([id, label]) => (
+          ...(accessScope?.role === "business_owner"
+            ? ([["company", "美国站市场与大盘对比"]] as ReadonlyArray<readonly [DashboardTab, string]>)
+            : []),
+        ] as ReadonlyArray<readonly [DashboardTab, string]>).map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -1392,6 +1422,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         <FiscalOverview visible={visibleTab === "home"} theme={theme} />
       </section>
 
+      {accessScope?.role === "business_owner" ? (
+        <section className={`dashboard-section${visibleTab === "company" ? "" : " tab-hidden"}`} id="company" role="tabpanel">
+          <CompanyMarketPanel visible={visibleTab === "company"} theme={theme} />
+        </section>
+      ) : null}
+
       <section className={`dashboard-section${visibleTab === "performance" ? "" : " tab-hidden"}`} id="performance" role="tabpanel">
         <div className="section-bar">
           <div><span className="eyebrow">Performance</span><h2>增长与毛利</h2><p>三期同口径对比；点击部门或店铺可联动筛选。</p></div>
@@ -1403,7 +1439,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
             <PanelTitle
               title="整体业绩"
               copy="当前权限范围三期汇总；普通成员金额自动隐藏"
-              tag={accessScope?.role === "business_owner" ? "全公司口径" : accessScope?.role === "department_leader" ? "本部门口径" : "本人比例口径"}
+              tag={accessScope?.role === "business_owner" ? "全公司口径" : accessScope?.role === "department_leader" ? "本部门口径" : "本人店铺口径"}
             />
             <div className="performance-overview-grid">
               <div className="table-scroll table-scroll-compact">
@@ -1413,7 +1449,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                     <tr>
                       <th scope="col">年</th>
                       <th scope="col">月</th>
-                      <th scope="col">销售额</th>
+                      <th scope="col">结算销售额</th>
                       <th scope="col">日均销售</th>
                       <th scope="col">毛利率</th>
                     </tr>
@@ -1447,7 +1483,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                 </div>
                 <div className="performance-narrative">
                   <p>
-                    当前权限范围本期销售额 <strong>{displayCompactMoney(overallPerformance.current.sales)}</strong>，日均 <strong>{overallPerformance.current.dailySales === null ? "—" : displayCompactMoney(overallPerformance.current.dailySales)}</strong>；日均环比较上期
+                    当前权限范围本期结算销售额 <strong>{displayCompactMoney(overallPerformance.current.sales)}</strong>，日均 <strong>{overallPerformance.current.dailySales === null ? "—" : displayCompactMoney(overallPerformance.current.dailySales)}</strong>；日均环比较上期
                     <b className={`trend-text ${trendTone(overallPerformance.dailyMom)}`}>{movementLabel(overallPerformance.dailyMom)}</b>，同比
                     <b className={`trend-text ${trendTone(overallPerformance.dailyYoy)}`}>{movementLabel(overallPerformance.dailyYoy)}</b>。
                   </p>
@@ -1457,7 +1493,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                     <b className={`trend-text ${trendTone(overallPerformance.marginMom)}`}>{pointMovementLabel(overallPerformance.marginMom)}</b>。
                   </p>
                 </div>
-                <p className="performance-method">销售额与毛利率来自 v_MaoLiLv；日均按三期有效天数实时换算，毛利率按分子分母加权。</p>
+                <p className="performance-method">结算销售额（v_MaoLiLv.XiaoShouE）与毛利率来自 v_MaoLiLv；日均按三期有效天数实时换算，毛利率按分子分母加权。</p>
               </aside>
             </div>
           </article>
@@ -1465,13 +1501,13 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
 
         <div className="panel-grid">
           <article className="panel panel-span-8">
-            <PanelTitle title="部门业绩对比" copy="柱形为三期销售额，折线为本期毛利率" tag="可点击筛选" />
+            <PanelTitle title="部门业绩对比" copy="柱形为三期结算销售额，折线为本期毛利率" tag="可点击筛选" />
             {canViewAmounts && departments.length ? (
               <EChart
                 option={departmentOption}
                 theme={theme === "dark" ? "dark" : undefined}
                 height={304}
-                ariaLabel="部门三期销售额与本期毛利率图"
+                ariaLabel="部门三期结算销售额与本期毛利率图"
                 onClick={(event) => {
                   if (!event.name) return;
                   setFilters({ department: String(event.name), operator: "", store: "" });
@@ -1505,14 +1541,14 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
 
         <div className="panel-grid">
           <article className="panel panel-span-12 compact-table-panel">
-            <PanelTitle title="部门业绩明细" copy="5 个指定部门的销售、利润与增长口径对齐" tag="按销售额排序" />
+            <PanelTitle title="部门业绩明细" copy="5 个指定部门的结算销售、利润与增长口径对齐" tag="按结算销售额排序" />
             <div className="table-scroll table-scroll-compact">
               <table className="compact-table department-table">
                 <thead>
                   <tr>
                     <th>部门</th>
                     <th>店铺数</th>
-                    <th>本期销售额</th>
+                    <th>本期结算销售额</th>
                     <th>销售占比</th>
                     <th>毛利润</th>
                     <th>毛利率</th>
@@ -1541,12 +1577,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
 
         <div className="panel-grid">
           <article className="panel panel-span-12">
-            <PanelTitle title="店铺效率象限" copy="销售金额仅部门负责人可见" tag={canViewAmounts ? "点击气泡定位店铺" : "金额已隐藏"} />
+            <PanelTitle title="店铺效率象限" copy="仅展示权限范围内店铺的销售金额" tag={canViewAmounts ? "点击气泡定位店铺" : "金额已隐藏"} />
             {canViewAmounts ? <EChart
                 option={scatterOption}
                 theme={theme === "dark" ? "dark" : undefined}
                 height={256}
-                ariaLabel="店铺销售额和毛利率散点图"
+                ariaLabel="店铺结算销售额和毛利率散点图"
                 onClick={(event) => {
                   const store = metricFromEvent(event, 2);
                   if (store) selectStore(store);
@@ -1558,8 +1594,8 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
 
       <section className={`dashboard-section${visibleTab === "market" ? "" : " tab-hidden"}`} id="market" role="tabpanel">
         <div className="section-bar">
-          <div><span className="eyebrow">Market overview</span><h2>大盘趋势</h2><p>2024 年 6 月起的类目销量、销售额、环比与客单价。</p></div>
-          <span className="data-chip">所有成员可见 · 用户提供</span>
+          <div><span className="eyebrow">Market overview</span><h2>大盘趋势</h2><p>美国站市场月度录入的类目销量、销售额、环比与客单价，保存后自动同步到本页。</p></div>
+          <span className="data-chip">所有成员可见 · 美国站市场同步</span>
         </div>
 
         <div className="market-kpis">
@@ -1567,12 +1603,12 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
           <div><span>类目销量</span><strong>{marketLatestComplete?.salesVolume == null ? "—" : integer(marketLatestComplete.salesVolume)}</strong><small>{marketLatestComplete?.period ?? "—"}</small></div>
           <div><span>类目销售额</span><strong>{marketLatestComplete ? compactMoney(marketLatestComplete.salesAmount) : "—"}</strong><small>{marketLatestComplete?.monthOverMonthGrowth == null ? "暂无环比" : `环比 ${percent(marketLatestComplete.monthOverMonthGrowth, 2)}`}</small></div>
           <div><span>大盘客单价</span><strong>{marketLatestComplete?.averageOrderValue == null ? "—" : marketLatestComplete.averageOrderValue.toFixed(2)}</strong><small>{marketLatestComplete?.period ?? "—"}</small></div>
-          <div className="is-partial"><span>{marketLatest.period} 已有销售额</span><strong>{compactMoney(marketLatest.salesAmount)}</strong><small>其他指标待补充，不作零值处理</small></div>
+          {marketLatest?.partial ? <div className="is-partial"><span>{marketLatest.period} 已有销售额</span><strong>{compactMoney(marketLatest.salesAmount)}</strong><small>其他指标待补充，不作零值处理</small></div> : null}
         </div>
 
         <div className="panel-grid market-chart-grid">
           <article className="panel panel-span-7">
-            <PanelTitle title="类目规模趋势" copy="柱形为销售额，折线为销量" tag={`${MARKET_OVERVIEW_ROWS.length} 个月`} />
+            <PanelTitle title="类目规模趋势" copy="柱形为销售额，折线为销量" tag={`${marketRows.length} 个月`} />
             <EChart option={marketScaleOption} theme={theme === "dark" ? "dark" : undefined} height={310} ariaLabel="大盘类目销售额与销量月度趋势" />
           </article>
           <article className="panel panel-span-5">
@@ -1582,11 +1618,11 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
         </div>
 
         <article className="panel compact-table-panel market-table-panel">
-          <PanelTitle title="大盘月度明细" copy="按最新月份优先展示；空值表示原始数据未提供" tag="全量历史" />
+          <PanelTitle title="大盘月度明细" copy="与美国站市场录入数据同源；空值表示原始数据未提供" tag="全量历史" />
           <div className="table-scroll market-table-scroll">
             <table className="compact-table market-table">
               <thead><tr><th>日期</th><th>类目销量</th><th>类目销售额</th><th>类目环比上月增长率</th><th>大盘客单价</th><th>数据状态</th></tr></thead>
-              <tbody>{[...MARKET_OVERVIEW_ROWS].reverse().map((row) => (
+              <tbody>{[...marketRows].reverse().map((row) => (
                 <tr key={row.period} className={row.partial ? "is-partial" : ""}>
                   <td><b>{row.period}</b></td>
                   <td>{row.salesVolume == null ? "—" : integer(row.salesVolume)}</td>
@@ -1615,7 +1651,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                 currentLabel={currentPeriod?.label ?? period}
                 previousLabel={previousPeriod?.label ?? "上月"}
                 yearAgoLabel={yearAgoPeriod?.label ?? "去年同月"}
-                canViewAmounts={canViewAmounts}
+                canViewAmounts={canViewAmounts && accessScope?.role !== "member"}
               />
             ))}
           </div>
@@ -1719,7 +1755,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
             <label className="sort-control">
               <span>排序</span>
               <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                {canViewAmounts ? <option value="sales">销售额</option> : null}
+                {canViewAmounts ? <option value="sales">结算销售额</option> : null}
                 <option value="growth">日均环比</option>
                 <option value="margin">毛利率</option>
                 <option value="tier">店铺层级</option>
@@ -1794,7 +1830,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                   <th>部门 / 运营</th>
                   <th>店铺层级</th>
                   <th>当前等级满</th>
-                  <th>销售额</th>
+                  <th>结算销售额</th>
                   <th>毛利率</th>
                   <th>日均环比</th>
                   <th>同比</th>

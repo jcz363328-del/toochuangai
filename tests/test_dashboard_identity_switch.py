@@ -44,6 +44,109 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
         self.assertIn('id="identitySwitchModal"', allowed_html)
         self.assertNotIn('id="identitySwitchTrigger"', denied_html)
 
+    def test_default_favorites_can_be_removed_and_restored(self):
+        source = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("dashboard_hidden_default_favorites:${userKey}", source)
+        self.assertIn("card.classList.toggle('favorite-hidden'", source)
+        self.assertIn("hiddenDefaults = Array.from(new Set", source)
+        self.assertIn("if (defaultMenus.has(menu))", source)
+        self.assertNotIn("if (!menu || defaultMenus.has(menu)) return;", source)
+
+    def test_secondary_favorites_are_rendered_on_dashboard(self):
+        source = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("dashboard_favorite_items:${userKey}", source)
+        self.assertIn("secondaryItems.forEach(source =>", source)
+        self.assertIn("source.iconClass || 'fa-solid fa-star'", source)
+
+    def test_secondary_favorite_component_is_loaded_by_function_hubs(self):
+        for template_name in (
+            "ai_modules.html",
+            "operation_dept.html",
+            "tk_project.html",
+            "finance_modules.html",
+            "hr_admin_modules.html",
+        ):
+            source = (ROOT / "templates" / template_name).read_text(encoding="utf-8-sig")
+            self.assertIn("dashboard_secondary_favorites.css", source, template_name)
+            self.assertIn("dashboard_secondary_favorites.js", source, template_name)
+
+    def test_secondary_favorites_carry_and_validate_permission_keys(self):
+        dashboard = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8-sig")
+        secondary = (ROOT / "static" / "js" / "dashboard_secondary_favorites.js").read_text(encoding="utf-8-sig")
+        ai_modules = (ROOT / "templates" / "ai_modules.html").read_text(encoding="utf-8-sig")
+
+        self.assertIn("dashboard_allowed_functions", dashboard)
+        self.assertIn("permissionByMenu", dashboard)
+        self.assertIn("source.permission || permissionByMenu[source.menu]", dashboard)
+        self.assertIn("!currentSource || !currentSource.allowed", dashboard)
+        self.assertIn("dataset.permission", secondary)
+        self.assertIn('data-permission="daily_replenishment_operation"', ai_modules)
+
+    def test_favorite_context_uses_current_identity(self):
+        self._login("测试用户")
+
+        response = self.client.get("/api/dashboard/favorites/context")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["user_key"], "ou_real_operator")
+
+    def test_every_default_favorite_has_a_full_feature_entry(self):
+        environment = Environment(loader=FileSystemLoader(ROOT / "templates"))
+        environment.globals["url_for"] = lambda endpoint, **values: f"/{endpoint}"
+        environment.globals["get_flashed_messages"] = lambda **kwargs: []
+        template = environment.get_template("dashboard.html")
+        html = template.render(
+            user_id="ou_test",
+            user_name="测试用户",
+            accessible_functions=[
+                {
+                    "function_name": "innovation_proposals",
+                    "name": "创新提案管理",
+                    "description": "",
+                    "is_allowed": True,
+                },
+                {
+                    "function_name": "xiaotu_qa",
+                    "name": "报告智能体",
+                    "description": "",
+                    "is_allowed": True,
+                },
+                {
+                    "function_name": "business_analysis",
+                    "name": "经营分析",
+                    "description": "",
+                    "is_allowed": True,
+                },
+            ],
+            can_value_evaluation=True,
+            can_business_analysis=True,
+            can_video_claw=False,
+            can_switch_identity=False,
+            permission_debug_departments=[],
+            permission_debug_user_name="",
+        )
+
+        default_menus = (
+            "创新提案管理",
+            "报告智能体",
+            "360价值评价",
+            "经营分析",
+            "Seedance 视频生成",
+            "Listing 生成智能体",
+            "ABA 排名看板",
+            "年会精彩瞬间",
+            "培训视频",
+            "模特排队",
+        )
+        for menu in default_menus:
+            self.assertGreaterEqual(
+                html.count(f'data-menu="{menu}"'),
+                2,
+                f"{menu} 取消收藏后在全功能区找不到恢复入口",
+            )
+
     def test_member_search_is_forbidden_for_other_users(self):
         self._login("其他成员")
 

@@ -6,7 +6,7 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   root: fileURLToPath(new URL("./flask", import.meta.url)),
-  base: "/ai/business-analysis/assets/",
+  base: "/ai/business-analysis/",
   plugins: [react()],
   build: {
     outDir: fileURLToPath(new URL("./dist-flask", import.meta.url)),

@@ -87,7 +87,7 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         self.assertIn("开始 8K 超清", render_source)
         self.assertIn("即梦智能超清专用接口", render_source)
         self.assertIn("全局串行队列", render_source)
-        self.assertIn("JIMENG_HD_QUEUE_CAPACITY", render_source)
+        self.assertIn("所有任务依次执行", render_source)
 
     def test_portrait_hd_and_jimeng_upscale_are_two_features(self) -> None:
         portrait_feature = site.get_feature_by_key("hd_batch")
@@ -178,6 +178,24 @@ class PortraitHdSkinLockTests(unittest.TestCase):
             },
         )
         prepare_base64.assert_not_called()
+
+    def test_jimeng_poll_keeps_slot_during_transient_query_failure(self) -> None:
+        with (
+            patch.object(
+                site,
+                "jimeng_signed_post",
+                side_effect=[
+                    RuntimeError("Agent 请求失败：无法连接到火山引擎视觉服务。reset"),
+                    {"code": 10000, "data": {"status": "done", "image_urls": ["https://example.com/result.png"]}},
+                ],
+            ) as post,
+            patch.object(site.time, "sleep") as sleep,
+        ):
+            result = site.poll_jimeng_task_result(site.JIMENG_HD_UPSCALE_REQ_KEY, "task-queued")
+
+        self.assertEqual(result["images"], ["https://example.com/result.png"])
+        self.assertEqual(post.call_count, 2)
+        sleep.assert_called_once_with(site.JIMENG_RESULT_RETRY_DELAY_SECONDS)
 
     def test_jimeng_50400_has_actionable_authentication_message(self) -> None:
         message = site.format_user_facing_error_message(

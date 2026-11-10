@@ -460,10 +460,10 @@
 
             <article class="panel">
                 <div class="panel-title">
-                    <div><h2>部门参与人数</h2><p>按部门汇总去重后的创新参与者</p></div>
+                    <div><h2>部门参与率</h2><p>各部门创新参与者占全部参与人数的比例</p></div>
                     <span class="panel-tag">参与度</span>
                 </div>
-                <div id="peopleChart" class="chart-box" role="img" aria-label="部门参与人数图"></div>
+                <div id="peopleChart" class="chart-box" role="img" aria-label="部门参与率图"></div>
                 <details><summary>查看明细数据</summary><div class="table-wrap"><table id="peopleTable"></table></div></details>
             </article>
 
@@ -562,6 +562,26 @@
                 departments.get(department).add(text(row['发起人']));
             });
             return Array.from(departments, ([label, people]) => ({ label, value: people.size }));
+        }
+
+        function participantDenominator() {
+            const filters = currentFilters();
+            const rows = (rawData.monthly_people || []).filter(row => {
+                if (!filters.months.has(row['月份'])) return false;
+                if (filters.keyword) {
+                    const haystack = Object.values(row).map(text).join(' ').toLocaleLowerCase('zh-CN');
+                    if (!haystack.includes(filters.keyword)) return false;
+                }
+                return true;
+            });
+            return unique(rows.map(row => text(row['发起人']))).length;
+        }
+
+        function peopleRateByDepartment(rows, denominator) {
+            return uniquePeopleByDepartment(rows).map(item => {
+                const rate = denominator > 0 ? item.value / denominator * 100 : 0;
+                return { label: item.label, value: Number(rate.toFixed(1)), count: item.value, rate: `${rate.toFixed(1)}%` };
+            });
         }
 
         function sortRows(tableId, rows) {
@@ -716,6 +736,42 @@
             setChart(id, option, values.length > 0);
         }
 
+        function renderPeopleRateChart(items) {
+            const values = items.slice().sort((a, b) => b.value - a.value).slice(0, 16).reverse();
+            const base = baseChartOption();
+            const option = {
+                ...base,
+                tooltip: {
+                    ...base.tooltip,
+                    valueFormatter: value => `${value}%`
+                },
+                grid: { left: 18, right: 45, top: 45, bottom: 18, containLabel: true },
+                xAxis: {
+                    type: 'value',
+                    min: 0,
+                    minInterval: 0,
+                    axisLabel: { color: '#8491a5', formatter: '{value}%' },
+                    splitLine: { lineStyle: { color: '#edf1f6', type: 'dashed' } }
+                },
+                yAxis: {
+                    type: 'category',
+                    data: values.map(item => item.label),
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#536079', width: 92, overflow: 'truncate' }
+                },
+                series: [{
+                    name: '参与率',
+                    type: 'bar',
+                    barMaxWidth: 20,
+                    data: values.map(item => item.value),
+                    itemStyle: { color: '#7656c9', borderRadius: [0, 7, 7, 0] },
+                    label: { show: true, position: 'right', color: '#536079', fontWeight: 700, formatter: '{c}%' }
+                }]
+            };
+            setChart('peopleChart', option, values.length > 0);
+        }
+
         function renderScoreChart(rows) {
             const values = aggregate(rows, row => `${text(row['分数'])}分`, '数量').sort((a, b) => {
                 const left = Number.parseFloat(a.label);
@@ -810,25 +866,30 @@
             const data = buildFilteredData();
             const totalCount = data.monthly.reduce((sum, row) => sum + num(row['数量']), 0);
             const validCount = data.valid.reduce((sum, row) => sum + num(row['有效提案数量']), 0);
-            const peopleKeys = unique(data.people.map(row => `${row['月份']}|${row['部门']}|${row['发起人']}`));
+            const peopleTotal = unique(data.people.map(row => text(row['发起人']))).length;
+            const peopleRates = peopleRateByDepartment(data.people, participantDenominator());
             const departments = unique([].concat(data.department, data.valid, data.people, data.category).map(row => row['部门']));
 
             $('kpiTotal').textContent = totalCount.toLocaleString('zh-CN');
             $('kpiValid').textContent = validCount.toLocaleString('zh-CN');
-            $('kpiPeople').textContent = peopleKeys.length.toLocaleString('zh-CN');
+            $('kpiPeople').textContent = peopleTotal.toLocaleString('zh-CN');
             $('kpiDept').textContent = departments.length.toLocaleString('zh-CN');
 
             renderMonthlyChart(data.monthly);
             renderRankChart('deptChart', aggregate(data.department, '部门', '数量'), '提案数量', '#3157d5');
             renderRankChart('validChart', aggregate(data.valid, '部门', '有效提案数量'), '有效提案', '#0f9f74');
-            renderRankChart('peopleChart', uniquePeopleByDepartment(data.people), '参与人数', '#7656c9');
+            renderPeopleRateChart(peopleRates);
             renderScoreChart(data.score);
             renderCategoryChart(data.category);
 
             renderTable('monthlyTable', data.monthly, ['月份', '数量']);
             renderTable('deptTable', data.department, ['月份', '部门', '数量']);
             renderTable('validTable', data.valid, ['月份', '部门', '有效提案数量']);
-            renderTable('peopleTable', data.people, ['月份', '部门', '发起人']);
+            renderTable('peopleTable', peopleRates.map(item => ({
+                '部门': item.label,
+                '参与人数': item.count,
+                '参与率': item.rate
+            })), ['部门', '参与人数', '参与率']);
             renderTable('scoreTable', data.score, ['月份', '部门', '分数', '数量']);
             renderTable('categoryTable', data.category, ['月份', '部门', '创新类别', '数量']);
 

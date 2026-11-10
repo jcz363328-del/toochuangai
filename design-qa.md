@@ -325,3 +325,18 @@ final result: passed
 ## 最终结果
 
 final result: passed
+## 2026-10-20 日常补货字段筛选改为下拉选项
+
+- source visual truth path: `D:\系统TMP\codex-clipboard-99cda306-bad3-4421-923e-aa1f58f7569c.png`
+- implementation: `E:\Python项目\toochuangai\templates\daily_replenishment_operation.html`
+- viewport: reference crop 2022 × 74 px; desktop table header and filter-row state
+- density normalization: source inspected at original pixel dimensions; no implementation capture available
+- state: each table column renders a native select populated from that column's distinct non-empty values; default is `全部`; selected values use exact-match filtering
+- full-view comparison evidence: blocked because the installed in-app Browser package is missing `scripts/browser-client.mjs`
+- focused region comparison evidence: source filter row inspected directly; implementation could not be browser-captured
+- automated checks: `python -m unittest tests.test_daily_replenishment -v` passed 12/12; `git diff --check` passed
+- primary interactions intended: open a field dropdown, select one value, combine multiple field selections, and clear all field filters
+- console errors checked: blocked with browser capture
+- findings: no code-level P0/P1/P2 issue found; visual and interaction capture remains unavailable
+- comparison history: no visual iteration was possible because browser setup was blocked before capture
+- final result: blocked

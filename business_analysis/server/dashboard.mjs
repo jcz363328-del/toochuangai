@@ -395,6 +395,7 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
       dateRanges: {
         ...data.meta.dateRanges,
         shipping: { start: context.currentStart, end: context.currentEnd },
+        newProductOrders: { start: context.currentStart, end: context.currentEnd },
         unshipped: { start: context.currentStart, end: context.currentEnd },
       },
       rowCounts: {
@@ -405,6 +406,7 @@ export function createDashboardService({ adapter, cacheOptions, timezone, refres
         storeTiers: data.storeTiers.length,
         categorySegments: data.categorySegments.categories.length,
         shipping: data.shipping.length,
+        newProductOrders: data.newProductOrders.length,
         unshipped: data.unshipped.length,
         magnetDaily: data.magnetDaily.length,
       },

@@ -18,6 +18,10 @@ ROWS = [
 
 
 class FiscalOverviewTests(unittest.TestCase):
+    def test_fiscal_actual_uses_lirun_sales(self):
+        self.assertIn("FROM dbo.LiRun ml", fiscal_module.FISCAL_OVERVIEW_SQL)
+        self.assertNotIn("FROM dbo.v_MaoLiLv ml", fiscal_module.FISCAL_OVERVIEW_SQL)
+
     def test_owner_reconciles_ytd_target_actual_rate_and_gap(self):
         result = shape_fiscal_overview(ROWS, "2026-2027", {"role": "business_owner", "canViewAmounts": True})
 

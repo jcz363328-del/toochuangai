@@ -3,8 +3,8 @@ const sum = (values) => values.reduce((total, value) => total + value, 0);
 export const formulaRegistry = Object.freeze([
   {
     id: "sales.current",
-    label: "本期销售额",
-    expression: "SUM(本期销售额)",
+    label: "本期结算销售额",
+    expression: "SUM(本期结算销售额)",
     unit: "CNY",
     precision: 0,
     dependencies: ["salesCurrent"],
@@ -32,7 +32,7 @@ export const formulaRegistry = Object.freeze([
   {
     id: "growth.daily_mom",
     label: "日均环比",
-    expression: "(本期销售额 ÷ 本期天数) ÷ (上期销售额 ÷ 上期天数) − 1",
+    expression: "(本期结算销售额 ÷ 本期天数) ÷ (上期结算销售额 ÷ 上期天数) − 1",
     unit: "ratio",
     precision: 4,
     dependencies: ["salesCurrent", "daysCurrent", "salesPrevious", "daysPrevious"],
@@ -42,8 +42,8 @@ export const formulaRegistry = Object.freeze([
   },
   {
     id: "growth.yoy",
-    label: "销售额同比",
-    expression: "(本期销售额 ÷ 本期天数) ÷ (去年同期销售额 ÷ 同期天数) − 1",
+    label: "结算销售额同比",
+    expression: "(本期结算销售额 ÷ 本期天数) ÷ (去年同期结算销售额 ÷ 同期天数) − 1",
     unit: "ratio",
     precision: 4,
     dependencies: ["salesCurrent", "daysCurrent", "salesYearAgo", "daysYearAgo"],
@@ -84,11 +84,11 @@ export const formulaRegistry = Object.freeze([
 ]);
 
 export const inputLabels = Object.freeze({
-  salesCurrent: "本期销售额",
+  salesCurrent: "本期结算销售额",
   profitCurrent: "本期毛利润",
   marginBaseCurrent: "毛利率分母",
-  salesPrevious: "上期销售额",
-  salesYearAgo: "去年同期销售额",
+  salesPrevious: "上期结算销售额",
+  salesYearAgo: "去年同期结算销售额",
   daysCurrent: "本期有效天数",
   daysPrevious: "上期可比天数",
   daysYearAgo: "同期可比天数",

@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>小哈 · 前端优化 Demo（可交互）</title>
+<style>
+  :root{
+    --bg:#faf6f0; --bg-2:#f6f0e6; --panel:#fffdf8; --panel-2:#fdf8f0;
+    --line:rgba(126,96,255,.18); --line-soft:rgba(36,29,22,.07);
+    --text:#241d16; --muted:#6f6353; --muted-2:#857764;
+    --brand:#6b54e8; --brand-2:#5f45e0; --teal:#39d7c5; --warn:#ffb648; --danger:#ff6b81; --ok:#54d68a;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:radial-gradient(1200px 600px at 20% -10%,rgba(126,96,255,.10),transparent 60%),radial-gradient(900px 500px at 100% 0%,rgba(57,215,197,.07),transparent 55%),var(--bg);
+    color:var(--text); font:14px/1.55 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  ::selection{background:rgba(126,96,255,.4)}
+  mark{background:rgba(255,182,72,.28);color:#fff;border-radius:3px;padding:0 1px}
+
+  /* shell */
+  .topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;height:56px;padding:0 18px;
+    background:rgba(255,253,248,.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft)}
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo .mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--brand-2),var(--teal));font-weight:800;font-size:12px;color:#faf6f0;
+    box-shadow:0 6px 18px rgba(126,96,255,.35)}
+  .logo .name{font-weight:700;letter-spacing:.4px}
+  .logo .sub{color:var(--muted-2);font-size:11px;margin-top:-3px}
+  .spacer{flex:1}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(126,96,255,.08);font-size:12px}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .switch{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .switch .track{width:38px;height:21px;border-radius:999px;background:#ded4c4;position:relative;transition:.2s;border:1px solid var(--line-soft)}
+  .switch .track::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#9b8f7d;transition:.2s}
+  .switch.on .track{background:linear-gradient(135deg,var(--brand-2),#5f45e0)}
+  .switch.on .track::after{left:20px;background:#fff}
+  .switch.on{color:var(--text)}
+
+  .layout{display:grid;grid-template-columns:262px minmax(0,1fr) 312px;gap:16px;padding:16px 18px 28px;align-items:start;max-width:1560px;margin:0 auto}
+  .panel{background:linear-gradient(180deg,rgba(36,29,22,.025),transparent),var(--panel);border:1px solid var(--line-soft);border-radius:var(--r)}
+
+  /* sidebar */
+  .sidebar{position:sticky;top:72px;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .search{position:relative}
+  .search input{width:100%;height:36px;border-radius:10px;border:1px solid var(--line-soft);background:var(--bg-2);
+    color:var(--text);padding:0 12px 0 32px;font-size:13px;outline:none}
+  .search input:focus{border-color:rgba(126,96,255,.5);box-shadow:0 0 0 3px rgba(126,96,255,.12)}
+  .search svg{position:absolute;left:10px;top:10px;opacity:.5}
+  .nav-group{border:1px solid var(--line-soft);border-radius:11px;overflow:hidden;background:rgba(36,29,22,.015)}
+  .nav-head{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:12px;color:var(--muted);width:100%}
+  .nav-head .caret{transition:.2s;margin-left:auto;opacity:.6}
+  .nav-group.collapsed .caret{transform:rotate(-90deg)}
+  .nav-group.collapsed .nav-body{display:none}
+  .nav-body{padding:4px 6px 8px}
+  .nav-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 9px;border-radius:8px;font-size:13px;color:#43362a;text-align:left}
+  .nav-item:hover{background:rgba(36,29,22,.05);color:#fff}
+  .nav-item.active{background:linear-gradient(90deg,rgba(126,96,255,.22),rgba(126,96,255,.06));color:#fff;box-shadow:inset 0 0 0 1px rgba(126,96,255,.35)}
+  .nav-item .ico{width:18px;text-align:center;opacity:.85;font-size:13px}
+  .nav-item .tag{margin-left:auto;font-size:10px;color:var(--muted-2)}
+  .badge-new{font-size:9px;padding:1px 5px;border-radius:5px;background:rgba(57,215,197,.16);color:var(--teal);margin-left:auto}
+  .recent .nav-head{padding-left:2px}
+
+  /* main */
+  .main{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .head{padding:16px 18px}
+  .crumbs{font-size:12px;color:var(--muted-2);display:flex;gap:7px;align-items:center}
+  .crumbs b{color:var(--muted);font-weight:500}
+  h1{margin:8px 0 6px;font-size:22px;letter-spacing:.3px}
+  .desc{color:var(--muted);font-size:13px;max-width:70ch}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .pill{font-size:11px;color:var(--muted);border:1px solid var(--line-soft);border-radius:999px;padding:3px 9px;background:rgba(36,29,22,.02)}
+  .pill b{color:#4a3d2e;font-weight:600}
+
+  .stepper{display:flex;align-items:center;gap:0;padding:12px 18px;overflow:auto}
+  .step{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted-2);white-space:nowrap}
+  .step .n{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line-soft);font-size:11px}
+  .step.done{color:#43362a}
+  .step.done .n{background:rgba(57,215,197,.15);border-color:rgba(57,215,197,.4);color:var(--teal)}
+  .step.now{color:#fff}
+  .step.now .n{background:linear-gradient(135deg,var(--brand-2),#5f45e0);border-color:transparent;box-shadow:0 0 0 4px rgba(126,96,255,.10)}
+  .stepper .bar{flex:1;height:1px;background:var(--line-soft);margin:0 12px;min-width:18px}
+
+  .card{padding:16px 18px}
+  .card-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .card-h .t{font-weight:600;font-size:14px}
+  .card-h .hint{font-size:11px;color:var(--muted-2);margin-left:auto}
+
+  .drop{border:1.5px dashed rgba(126,96,255,.35);border-radius:12px;padding:22px;text-align:center;cursor:pointer;
+    background:radial-gradient(400px 160px at 50% 0%,rgba(126,96,255,.10),transparent 70%);transition:.2s}
+  .drop:hover,.drop.hot{border-color:var(--brand);background:radial-gradient(400px 160px at 50% 0%,rgba(126,96,255,.2),transparent 70%)}
+  .drop .big{font-size:13px;color:#4a3d2e}
+  .drop .small{font-size:11px;color:var(--muted-2);margin-top:6px}
+  .kbd{font-size:10px;padding:1px 6px;border:1px solid var(--line-soft);border-radius:5px;background:var(--bg-2);color:var(--muted)}
+
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:12px}
+  .thumb{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line-soft);aspect-ratio:3/4;background:#f1ebe0;cursor:grab}
+  .thumb.dragging{opacity:.4;border-color:var(--brand)}
+  .thumb.over{outline:2px dashed var(--teal);outline-offset:2px}
+  .thumb .img{position:absolute;inset:0;background-size:cover;background-position:center}
+  .thumb .x{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:6px;background:rgba(6,10,20,.75);display:grid;place-items:center;font-size:12px;color:#4a3d2e}
+  .thumb .x:hover{background:rgba(255,107,129,.8)}
+  .thumb .cap{position:absolute;left:0;right:0;bottom:0;padding:5px 7px;font-size:10px;color:#3c3225;background:linear-gradient(transparent,rgba(6,10,20,.85));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .thumb .ord{position:absolute;top:6px;left:6px;font-size:9px;padding:1px 5px;border-radius:5px;background:rgba(6,10,20,.75);color:#4a3d2e}
+
+  /* 参考图位 */
+  .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-top:12px}
+  .slot{position:relative;aspect-ratio:3/4;border-radius:11px;border:1.5px dashed rgba(126,96,255,.34);
+    background:rgba(126,96,255,.05);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:7px;padding:10px;text-align:center;cursor:pointer;transition:.15s}
+  .slot:hover,.slot.hot{border-color:var(--brand);background:rgba(126,96,255,.13)}
+  .slot .plus{width:27px;height:27px;border-radius:50%;border:1px solid rgba(126,96,255,.45);color:#5a46c8;
+    display:grid;place-items:center;font-size:15px;line-height:1}
+  .slot .role{font-size:11px;color:#3c3225;font-weight:600}
+  .slot .hint2{font-size:10px;color:var(--muted);line-height:1.45}
+  .slot.filled{padding:0;border:1px solid var(--line-soft);background:#f1ebe0;cursor:default;display:block}
+  .slot.filled .img{position:absolute;inset:0;background-size:cover;background-position:center}
+  .slot .badge{position:absolute;top:6px;left:6px;z-index:2;font-size:9px;padding:1px 5px;border-radius:5px;background:rgba(6,10,20,.78);color:#4a3d2e}
+  .slot .tagrole{position:absolute;left:6px;bottom:24px;z-index:2;font-size:9px;padding:1px 5px;border-radius:5px;background:rgba(126,96,255,.78);color:#fff}
+  .slot .x{position:absolute;top:5px;right:5px;z-index:3;width:19px;height:19px;border-radius:6px;background:rgba(6,10,20,.78);display:grid;place-items:center;font-size:12px;color:#4a3d2e}
+  .slot .x:hover{background:rgba(255,107,129,.85)}
+  .slot .cap{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:5px 7px;font-size:10px;color:#3c3225;background:linear-gradient(transparent,rgba(6,10,20,.85));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot-tip{margin-top:10px;font-size:11px;color:var(--muted)}
+
+  .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .field .lb{font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .field .lb .q{width:13px;height:13px;border-radius:50%;border:1px solid var(--line-soft);display:grid;place-items:center;font-size:9px;color:var(--muted-2);cursor:help}
+  .select,.input{width:100%;height:36px;border-radius:9px;border:1px solid var(--line-soft);background:var(--bg-2);color:var(--text);padding:0 10px;font-size:13px;outline:none}
+  .select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 15px,calc(100% - 11px) 15px;background-size:5px 5px;background-repeat:no-repeat}
+  .select:focus,.input:focus{border-color:rgba(126,96,255,.5);box-shadow:0 0 0 3px rgba(126,96,255,.12)}
+  .seg{display:inline-flex;padding:3px;border-radius:9px;background:var(--bg-2);border:1px solid var(--line-soft);gap:2px}
+  .seg button{padding:5px 11px;border-radius:7px;font-size:12px;color:var(--muted)}
+  .seg button.on{background:rgba(126,96,255,.2);color:#fff;box-shadow:inset 0 0 0 1px rgba(126,96,255,.35)}
+  .adv{display:none;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line-soft)}
+  .adv.show{display:block}
+
+  .runbar{display:flex;align-items:center;gap:12px;padding:14px 18px;flex-wrap:wrap;
+    background:linear-gradient(90deg,rgba(126,96,255,.12),rgba(57,215,197,.06));border:1px solid rgba(126,96,255,.25);border-radius:var(--r)}
+  .btn{height:38px;padding:0 16px;border-radius:10px;font-size:13px;font-weight:600;background:var(--bg-2);border:1px solid var(--line-soft);color:#3c3225;transition:.15s}
+  .btn:hover{border-color:rgba(126,96,255,.4)}
+  .btn.primary{background:linear-gradient(135deg,var(--brand-2),#5a46c8);border-color:transparent;color:#fff;box-shadow:0 8px 22px rgba(126,96,255,.3)}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.danger{border-color:rgba(255,107,129,.4);color:#b03b52;background:rgba(255,107,129,.1)}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none;filter:none}
+  .est{font-size:11px;color:var(--muted);line-height:1.5}
+  .est b{color:#3c3225}
+  .ghost{font-size:11px;color:var(--muted-2);text-decoration:underline dotted;text-underline-offset:3px}
+  .ghost:hover{color:var(--brand)}
+
+  .progress-wrap{display:none}
+  .progress-wrap.show{display:block}
+  .prog-line{display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:8px}
+  .prog-track{height:8px;border-radius:999px;background:#ebe3d6;overflow:hidden}
+  .prog-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--brand-2),var(--teal));transition:width .35s ease}
+  .prog-note{font-size:11px;color:var(--muted-2);margin-top:8px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .log{margin-top:10px;max-height:104px;overflow:auto;border:1px solid var(--line-soft);border-radius:9px;background:#efe8dc;padding:8px 10px;
+    font:11px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#7c6f5d}
+  .log .ok{color:var(--ok)} .log .warn{color:var(--warn)} .log .err{color:var(--danger)}
+
+  .err-card{display:none;border:1px solid rgba(255,107,129,.3);background:rgba(255,107,129,.07);border-radius:12px;padding:14px}
+  .err-card.show{display:block}
+  .err-card .et{font-size:13px;color:#b03b52;font-weight:600}
+  .err-card .ed{font-size:12px;color:#c98b98;margin-top:4px}
+  .err-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+
+  .results{display:none}
+  .results.show{display:block}
+  .res-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+  .res{position:relative;border-radius:11px;overflow:hidden;border:1px solid var(--line-soft);aspect-ratio:4/5;background:#f1ebe0;cursor:zoom-in}
+  .res .img{position:absolute;inset:0;background-size:cover;background-position:center;transition:.3s}
+  .res:hover .img{transform:scale(1.03)}
+  .res .ov{position:absolute;inset:auto 0 0 0;padding:8px;display:flex;gap:6px;background:linear-gradient(transparent,rgba(6,10,20,.9));opacity:0;transition:.2s;z-index:3}
+  .res:hover .ov{opacity:1}
+  .res .ov button{font-size:11px;padding:4px 8px;border-radius:7px;background:rgba(36,29,22,.08);border:1px solid rgba(36,29,22,.10)}
+  .res .ov button:hover{background:rgba(126,96,255,.35)}
+  .res .idx{position:absolute;top:7px;left:7px;font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(6,10,20,.7);color:#4a3d2e;z-index:3}
+
+  /* before / after compare */
+  .cmp{position:relative;overflow:hidden;background:#efe8dc;user-select:none;touch-action:none;--pct:50%}
+  .cmp .layer{position:absolute;inset:0;background-size:cover;background-position:center}
+  .cmp .before{filter:blur(1.6px) saturate(.92)}
+  .cmp .after{clip-path:inset(0 calc(100% - var(--pct)) 0 0);filter:contrast(1.08) saturate(1.06) brightness(1.02)}
+  .cmp .handle{position:absolute;top:0;bottom:0;left:var(--pct);width:2px;background:rgba(255,255,255,.85);box-shadow:0 0 12px rgba(36,29,22,.18);pointer-events:none}
+  .cmp .handle::after{content:"⇄";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:28px;height:28px;border-radius:50%;background:#fff;color:#fffdf8;display:grid;place-items:center;font-size:12px;
+    box-shadow:0 4px 14px rgba(36,29,22,.14)}
+  .cmp .tag{position:absolute;top:8px;font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(6,10,20,.72);color:#4a3d2e;z-index:2}
+  .cmp .tag.l{left:8px} .cmp .tag.r{right:8px}
+
+  /* lightbox */
+  .lb{position:fixed;inset:0;z-index:80;background:rgba(36,29,22,.55);backdrop-filter:blur(6px);display:none;visibility:hidden;align-items:center;justify-content:center;padding:28px}
+  .lb.show{display:flex;visibility:visible}
+  .lb-box{width:min(940px,94vw);max-height:88vh;display:flex;flex-direction:column;gap:10px}
+  .lb-bar{display:flex;align-items:center;gap:10px;font-size:12px;color:#4a3d2e}
+  .lb-bar .fname{color:var(--muted)}
+  .lb-bar .spacer{flex:1}
+  .lb-cmp{position:relative;width:100%;aspect-ratio:16/10;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  .lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(255,253,248,.95);
+    border:1px solid var(--line-soft);display:grid;place-items:center;font-size:14px;z-index:5}
+  .lb-nav.prev{left:10px} .lb-nav.next{right:10px}
+  .lb-nav:hover{background:rgba(126,96,255,.35)}
+
+  /* rail */
+  .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:72px}
+  .task{display:flex;gap:10px;padding:10px;border-radius:10px;background:rgba(36,29,22,.02);border:1px solid var(--line-soft);margin-bottom:8px;align-items:center}
+  .task .ring{width:34px;height:34px;border-radius:50%;position:relative;flex:0 0 34px;background:conic-gradient(var(--brand) var(--p,60%),#ebe3d6 0)}
+  .task .ring::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--panel)}
+  .task .ti{font-size:12px;color:#3c3225}
+  .task .ts{font-size:10px;color:var(--muted-2);margin-top:2px}
+  .task .cx{margin-left:auto;font-size:11px;color:var(--danger)}
+  .empty{font-size:11.5px;color:var(--muted-2);padding:6px 2px}
+  .hist-item{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;cursor:pointer}
+  .hist-item:hover{background:rgba(36,29,22,.035)}
+  .hist-item .th{width:42px;height:42px;border-radius:8px;background-size:cover;background-position:center;flex:0 0 42px}
+  .hist-item .hn{font-size:12px;color:#3c3225}
+  .hist-item .hd{font-size:10px;color:var(--muted-2)}
+  .hist-item .again{margin-left:auto;font-size:10px;color:var(--brand);opacity:0;transition:.2s}
+  .hist-item:hover .again{opacity:1}
+  .filter-chips{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .fchip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line-soft);color:var(--muted);background:rgba(36,29,22,.02)}
+  .fchip.on{border-color:rgba(126,96,255,.45);background:rgba(126,96,255,.10);color:#fff}
+
+  /* annotations */
+  .mark-badge{position:absolute;z-index:6;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;color:#faf6f0;
+    background:linear-gradient(135deg,var(--teal),#0f8f83);box-shadow:0 0 0 3px rgba(57,215,197,.22),0 4px 10px rgba(36,29,22,.12);cursor:pointer}
+  body.annot-on .mark-badge{animation:pulse 2.4s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(57,215,197,.22),0 4px 10px rgba(36,29,22,.12)}50%{box-shadow:0 0 0 6px rgba(57,215,197,.08),0 4px 10px rgba(36,29,22,.12)}}
+  body:not(.annot-on) .mark-badge{display:none}
+  body.annot-on .opt{outline:1.5px dashed rgba(57,215,197,.32);outline-offset:3px;border-radius:12px}
+
+  .drawer{position:fixed;right:0;top:0;bottom:0;width:min(430px,92vw);z-index:60;transform:translateX(102%);transition:.28s cubic-bezier(.2,.8,.2,1);
+    background:#f6f0e6;border-left:1px solid var(--line);display:flex;flex-direction:column;box-shadow:-20px 0 60px rgba(36,29,22,.16)}
+  .drawer.open{transform:none}
+  .drawer-h{padding:16px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:10px}
+  .drawer-h .t{font-weight:700}
+  .drawer-h .x{margin-left:auto;font-size:18px;color:var(--muted)}
+  .drawer-body{padding:14px 16px 24px;overflow:auto}
+  .anno{border:1px solid var(--line-soft);border-radius:11px;padding:12px;margin-bottom:10px;background:rgba(36,29,22,.02);cursor:pointer;transition:.15s}
+  .anno:hover{border-color:rgba(126,96,255,.4);background:rgba(126,96,255,.06)}
+  .anno.hl{border-color:var(--teal);box-shadow:0 0 0 1px rgba(57,215,197,.4)}
+  .anno .an{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+  .anno .num{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;color:#faf6f0;background:linear-gradient(135deg,var(--teal),#0f8f83)}
+  .anno .why{font-size:11.5px;color:var(--muted);margin-top:7px}
+  .anno .how{font-size:11px;color:#7c6f5d;margin-top:7px;padding-top:7px;border-top:1px dashed var(--line-soft)}
+  .anno .how code{background:rgba(126,96,255,.14);padding:1px 5px;border-radius:4px;color:#5a46c8;font-size:10.5px}
+  .cost{font-size:10px;padding:1px 6px;border-radius:5px;margin-left:auto;background:rgba(255,182,72,.14);color:var(--warn)}
+  .cost.low{background:rgba(84,214,138,.14);color:var(--ok)}
+
+  .fab{position:fixed;right:20px;bottom:20px;z-index:50;height:42px;padding:0 16px;border-radius:999px;
+    background:linear-gradient(135deg,var(--brand-2),#5a46c8);color:#fff;font-weight:600;font-size:13px;
+    box-shadow:0 12px 30px rgba(126,96,255,.4);display:flex;align-items:center;gap:8px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:90;opacity:0;transition:.25s;
+    background:#fffdf8;border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:12.5px;color:#3c3225;max-width:80vw}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.err{border-color:rgba(255,107,129,.5);color:#b03b52}
+
+  @media (max-width:1240px){ .layout{grid-template-columns:232px minmax(0,1fr)} .rail{display:none} }
+  @media (max-width:900px){ .layout{grid-template-columns:1fr;padding:12px} .sidebar{position:static;order:2} .res-grid{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+
+  /* light theme (warm paper) */
+  .logo .mark{color:#fff}
+  mark{color:#4a3200}
+  .topbar{box-shadow:0 1px 0 rgba(36,29,22,.05)}
+  .card,.panel{box-shadow:0 1px 2px rgba(36,29,22,.05)}
+  .res .ov button,.slot .x,.thumb .x,.res .idx,.slot .badge,.slot .tagrole,.slot .cap,.thumb .cap{color:#fdf8f0}
+</style>
+</head>
+<body class="annot-on">
+
+<div class="topbar">
+  <div class="logo">
+    <div class="mark">AI</div>
+    <div><div class="name">小哈</div><div class="sub">专业的 AI 图像处理工具</div></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="chip" id="statusChip"><span class="dot"></span><span id="statusText">服务正常</span></div>
+  <button class="switch on" id="annotSwitch"><span class="track"></span><span>优化标注</span></button>
+</div>
+
+<div class="layout">
+  <!-- sidebar -->
+  <aside class="panel sidebar">
+    <div class="search opt" data-anno="1">
+      <span class="mark-badge" data-anno="1" style="right:-6px;top:-6px">1</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="navSearch" placeholder="搜索功能，如 高清 / A+ / 抠图" />
+    </div>
+
+    <div class="recent">
+      <div class="nav-head" style="padding-left:2px">最近使用</div>
+      <button class="nav-item active" data-feature="模特图批量高清"><span class="ico">◈</span>模特图批量高清<span class="tag">刚用过</span></button>
+      <button class="nav-item" data-feature="印前检查"><span class="ico">◇</span>印前检查<span class="badge-new">新</span></button>
+    </div>
+
+    <div class="nav-group">
+      <button class="nav-head" data-toggle><span>设计检查</span><span class="caret">▾</span></button>
+      <div class="nav-body"><button class="nav-item" data-feature="印前检查"><span class="ico">✓</span>印前检查<span class="badge-new">新</span></button></div>
+    </div>
+
+    <div class="nav-group">
+      <button class="nav-head" data-toggle><span>图片处理</span><span class="caret">▾</span></button>
+      <div class="nav-body">
+        <button class="nav-item active" data-feature="模特图批量高清"><span class="ico">◈</span>模特图批量高清</button>
+        <button class="nav-item" data-feature="即梦超清"><span class="ico">◈</span>即梦超清</button>
+        <button class="nav-item" data-feature="图片尺寸放大"><span class="ico">◈</span>图片尺寸放大</button>
+        <button class="nav-item" data-feature="产品图精修"><span class="ico">◈</span>产品图精修</button>
+        <button class="nav-item" data-feature="局部瑕疵修复"><span class="ico">◈</span>局部瑕疵修复</button>
+        <button class="nav-item" data-feature="智能抠图"><span class="ico">◈</span>智能抠图</button>
+        <button class="nav-item" data-feature="场景背景质感"><span class="ico">◈</span>场景背景质感</button>
+        <button class="nav-item" data-feature="模特扩图"><span class="ico">◈</span>模特扩图</button>
+      </div>
+    </div>
+
+    <div class="nav-group collapsed">
+      <button class="nav-head" data-toggle><span>模特编辑</span><span class="caret">▾</span></button>
+      <div class="nav-body">
+        <button class="nav-item" data-feature="模特换姿势"><span class="ico">◇</span>模特换姿势</button>
+        <button class="nav-item" data-feature="模特换场景"><span class="ico">◇</span>模特换场景</button>
+        <button class="nav-item" data-feature="模特换肤色"><span class="ico">◇</span>模特换肤色</button>
+        <button class="nav-item" data-feature="模特侧面图生成"><span class="ico">◇</span>模特侧面图生成</button>
+        <button class="nav-item" data-feature="单眼变双眼"><span class="ico">◇</span>单眼变双眼</button>
+        <button class="nav-item" data-feature="批量去掉睫毛"><span class="ico">◇</span>批量去掉睫毛</button>
+        <button class="nav-item" data-feature="换瞳孔颜色"><span class="ico">◇</span>换瞳孔颜色</button>
+        <button class="nav-item" data-feature="换眼型"><span class="ico">◇</span>换眼型</button>
+      </div>
+    </div>
+
+    <div class="nav-group collapsed">
+      <button class="nav-head" data-toggle><span>A+ 与主图</span><span class="caret">▾</span></button>
+      <div class="nav-body">
+        <button class="nav-item" data-feature="主图生A+"><span class="ico">▤</span>主图生A+</button>
+        <button class="nav-item" data-feature="A+3.0"><span class="ico">▤</span>A+3.0</button>
+        <button class="nav-item" data-feature="A+首屏风格复刻"><span class="ico">▤</span>A+首屏风格复刻</button>
+        <button class="nav-item" data-feature="A+首屏卖点融合"><span class="ico">▤</span>A+首屏卖点融合</button>
+        <button class="nav-item" data-feature="亚马逊A+改沃尔玛A+"><span class="ico">▤</span>亚马逊A+改沃尔玛A+</button>
+        <button class="nav-item" data-feature="自由创作 PSD"><span class="ico">▤</span>自由创作 PSD</button>
+      </div>
+    </div>
+
+    <div class="nav-group collapsed">
+      <button class="nav-head" data-toggle><span>其他</span><span class="caret">▾</span></button>
+      <div class="nav-body">
+        <button class="nav-item" data-feature="AI问答生图"><span class="ico">◇</span>AI问答生图</button>
+        <button class="nav-item" data-feature="图片智能分析"><span class="ico">◇</span>图片智能分析</button>
+        <button class="nav-item" data-feature="无限画布"><span class="ico">◇</span>无限画布</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+    <section class="panel head opt" data-anno="2" style="position:relative">
+      <span class="mark-badge" data-anno="2">2</span>
+      <div class="crumbs"><b>图片处理</b><span>/</span><span id="crumb">模特图批量高清</span></div>
+      <h1 id="pageTitle">模特图批量高清</h1>
+      <p class="desc">保持人物、肤色、色温与构图不变，只提升清晰度与原图尺寸输出；支持一次上传多张，按张计费。</p>
+      <div class="meta" id="metaRow">
+        <span class="pill">模型 <b id="metaModel">Nano Banana 2.1</b></span>
+        <span class="pill">输出 <b id="metaSize">原图尺寸</b></span>
+        <span class="pill">单张 <b id="metaUnit">$0.035</b></span>
+        <span class="pill">单张耗时 <b id="metaDur">45s</b></span>
+      </div>
+    </section>
+
+    <section class="panel stepper" id="stepper">
+      <div class="step now" data-step="1"><span class="n">1</span>上传图片</div><div class="bar"></div>
+      <div class="step" data-step="2"><span class="n">2</span>设置参数</div><div class="bar"></div>
+      <div class="step" data-step="3"><span class="n">3</span>开始处理</div><div class="bar"></div>
+      <div class="step" data-step="4"><span class="n">4</span>下载结果</div>
+    </section>
+
+    <section class="panel card opt" data-anno="3" style="position:relative">
+      <span class="mark-badge" data-anno="3">3</span>
+      <div class="card-h"><span class="t">参考图与素材</span><span class="hint" id="uploadHint">原图 1–8 张 · 支持拖拽、粘贴 · 超过 13MB 自动压缩</span></div>
+      <div class="drop" id="drop">
+        <div class="big">拖拽图片到此处，或点击选择文件</div>
+        <div class="small">也可以把图片直接拖到下面的参考位 · <span class="kbd">Ctrl</span> + <span class="kbd">V</span> 粘贴</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none" />
+      <div class="slots" id="slots"></div>
+      <div class="slot-tip" id="slotTip">先上传参考图</div>
+    </section>
+
+    <section class="panel card opt" data-anno="4" style="position:relative">
+      <span class="mark-badge" data-anno="4">4</span>
+      <div class="card-h">
+        <span class="t">参数</span>
+        <div class="seg" style="margin-left:auto"><button class="on" data-tab="common">常用</button><button data-tab="adv">高级</button></div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <div class="lb">处理方式 <span class="q" title="不同模型效果与价格不同">?</span></div>
+          <select class="select" id="method"><option value="nb">Nano Banana 2.1 · 模特高清</option><option value="seedream">即梦 5 Pro · 模特高清</option></select>
+        </div>
+        <div class="field">
+          <div class="lb">输出尺寸</div>
+          <select class="select" id="size"><option value="origin">原图尺寸</option><option value="4k">4K（4096 长边）</option></select>
+        </div>
+        <div class="field">
+          <div class="lb">每张输出数量</div>
+          <select class="select" id="per"><option value="1">1 张</option><option value="2">2 张</option></select>
+        </div>
+        <div class="field">
+          <div class="lb">保存为预设</div>
+          <select class="select" id="preset"><option>不保存</option><option>保存为「模特高清-原尺寸」</option></select>
+        </div>
+      </div>
+      <div class="adv" id="advPanel">
+        <div class="grid2">
+          <div class="field">
+            <div class="lb">补充要求 <span class="q" title="会附加到默认提示词之后，不影响人物与构图约束">?</span></div>
+            <input class="input" id="prompt" placeholder="例如：保留发丝细节，不要磨皮" />
+          </div>
+          <div class="field">
+            <div class="lb">批量失败重试</div>
+            <select class="select" id="retry"><option value="1">自动重试 1 次</option><option value="0">不重试</option></select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="runbar opt" data-anno="5" style="position:relative">
+      <span class="mark-badge" data-anno="5">5</span>
+      <button class="btn primary" id="runBtn" disabled>开始处理</button>
+      <button class="btn" id="presetBtn">保存为预设</button>
+      <div class="est" id="estimate">先上传原图<br/>快捷键 <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> 直接运行</div>
+      <button class="ghost" id="simulateErr" style="margin-left:auto">模拟一个 413 错误</button>
+    </section>
+
+    <section class="panel card err-card" id="errCard" style="position:relative">
+      <span class="mark-badge" data-anno="8" style="right:-8px;top:-8px">8</span>
+      <div class="et">请求体过大（HTTP 413）</div>
+      <div class="ed">本次提交 3 张图片合计约 25.7MB，超过模型 20MB 上限。已自动降级：改为按总预算 13MB 分摊压缩后重试。</div>
+      <div class="err-actions">
+        <button class="btn" id="errCompress">自动压缩后重试</button>
+        <button class="btn" id="errFewer">只处理前 2 张</button>
+        <button class="btn" id="errDismiss">忽略</button>
+      </div>
+    </section>
+
+    <section class="panel card progress-wrap" id="progressCard" style="position:relative">
+      <span class="mark-badge" data-anno="10" style="right:-8px;top:-8px">10</span>
+      <div class="prog-line"><span id="progStage">准备中</span><span id="progPct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-note"><span id="progLeft">—</span><button class="btn danger" id="cancelBtn" style="height:26px;padding:0 10px;font-size:11px">取消任务</button></div>
+      <div class="log" id="log"></div>
+    </section>
+
+    <section class="panel card results" id="resultsCard" style="position:relative">
+      <span class="mark-badge" data-anno="11" style="right:-8px;top:-8px">11</span>
+      <div class="card-h">
+        <span class="t">处理结果</span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" id="dlAll" style="height:30px;padding:0 12px">全部下载</button>
+          <button class="btn" style="height:30px;padding:0 12px">打包 ZIP</button>
+        </div>
+      </div>
+      <div class="res-grid" id="resGrid"></div>
+      <div class="hint" style="font-size:11px;color:var(--muted-2);margin-top:10px">点结果图看大图，左右键切换 · 悬停可看前后对比</div>
+    </section>
+  </main>
+
+  <!-- rail -->
+  <aside class="rail">
+    <section class="panel card opt" data-anno="6" style="position:relative">
+      <span class="mark-badge" data-anno="6">6</span>
+      <div class="card-h"><span class="t">任务队列</span><span class="hint">跨功能常驻</span></div>
+      <div id="queueBox"></div>
+    </section>
+
+    <section class="panel card opt" data-anno="7" style="position:relative">
+      <span class="mark-badge" data-anno="7">7</span>
+      <div class="card-h"><span class="t">历史记录</span><span class="hint">懒加载</span></div>
+      <div class="filter-chips" id="histChips">
+        <button class="fchip on" data-f="all">全部</button><button class="fchip" data-f="高清">高清</button><button class="fchip" data-f="A+">A+</button>
+      </div>
+      <div id="histBox"></div>
+    </section>
+  </aside>
+</div>
+
+<button class="fab" id="fab">◎ 查看优化说明 (10)</button>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-h"><span class="t">前端优化建议</span><span class="chip" style="height:24px;font-size:11px">纯演示 · 真实前端未改动</span><button class="x" id="drawerX">×</button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<div class="lb" id="lightbox">
+  <div class="lb-box">
+    <div class="lb-bar">
+      <span class="fname" id="lbName">—</span>
+      <span class="spacer"></span>
+      <span id="lbIdx"></span>
+      <button class="x" id="lbClose" style="font-size:18px;color:var(--muted)">×</button>
+    </div>
+    <div class="lb-cmp" id="lbCmp"></div>
+    <div class="lb-bar" style="font-size:11px;color:var(--muted-2)">
+      <span>拖动中间的分割线看前后对比</span>
+      <span class="spacer"></span>
+      <span>← → 切换 · Esc 关闭</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- 数据 ---------------- */
+const ANNOS = [
+  {n:1,t:"侧栏加搜索 + 最近使用",why:"功能已有 22 个，全埋在折叠分组里，找一次要点开分组再翻。",
+   how:"顶部 <code>st.text_input</code> 过滤并高亮命中；「最近使用」用 <code>st.session_state</code> 记最近 3 个 key。",cost:"小"},
+  {n:2,t:"标题区显示模型、单价、耗时",why:"用户点运行前不知道要等多久、花多少钱，批量时尤其明显。",
+   how:"按「张数 × 单价/时长」估算渲染成 <code>st.caption</code>；价格读现有使用量接口。",cost:"小"},
+  {n:3,t:"上传区支持拖拽/粘贴/排序",why:"现在只能点选文件，超限直接报 413，用户不知道会自动压缩。",
+   how:"<code>st.file_uploader</code> 外挂 drop/paste 监听（已有 clipboard 注入可复用）；缩略图排序用已有的 reorder 机制。",cost:"中"},
+  {n:4,t:"参数拆「常用 / 高级」并联动",why:"参数全平铺，高级项挤占视线；改处理方式不会反映单价变化。",
+   how:"<code>st.tabs</code> 控制显隐；下拉变更即重算单价与预估，写回 session_state。",cost:"小"},
+  {n:5,t:"运行条前置预估 + 快捷键",why:"只有按钮，缺预估与运行中的中断入口。",
+   how:"按钮旁 caption 显示预估值；运行中把按钮换成「取消」，配合后台任务取消标记。",cost:"中"},
+  {n:6,t:"统一任务队列（常驻侧栏）",why:"长任务只在当前功能页显示，切功能就看不到进度，容易重复提交、重复扣费。",
+   how:"抽 <code>st.session_state['jobs']</code> 全局列表，右侧 rail 常驻渲染；已有 <code>sync_background_jobs</code> 可直接复用。",cost:"中"},
+  {n:7,t:"历史记录卡片化 + 筛选 + 再跑一次",why:"历史是列表堆叠，找某次结果要翻很久，也没法一键复用参数。",
+   how:"缩略图卡片 + 功能/日期 chip 过滤；卡片挂「再跑一次」直接回填参数。",cost:"中"},
+  {n:8,t:"错误提示改可操作",why:"现在是原始 HTTP 错误，用户不知道下一步做什么。",
+   how:"按错误码映射动作按钮（压缩重试 / 减少图片 / 重试），413、504、50430 都是高频。",cost:"小"},
+  {n:9,t:"窄屏折叠侧栏",why:"固定 0.55:4.45 双列，手机平板上内容区被压得很窄。",
+   how:"<code>st.columns</code> 窄屏退化为单列，侧栏用 expander 包住；已有 side_menu_visible 状态可延伸。",cost:"小"},
+  {n:10,t:"进度阶段化 + 日志流 + 可取消",why:"只有一根进度条，卡住时不知道在做什么，也不能停。",
+   how:"后台任务写阶段与日志到 session_state，前端用 <code>st.status</code>/占位滚动渲染；取消按钮置位停机标记。",cost:"中"},
+  {n:11,t:"结果前后对比滑块",why:"高清类功能的核心是「有没有变清晰」，现在只能下载后自己对比。",
+   how:"结果卡片内嵌 CSS <code>clip-path</code> 对比层，拖拽分割线；无需额外依赖。",cost:"小"}
+];
+
+const UNITS = {
+  nb:       {model:"Nano Banana 2.1", cost:0.035, dur:45},
+  seedream: {model:"即梦 5 Pro",       cost:0.048, dur:32}
+};
+
+const GRADS = [
+  "linear-gradient(160deg,#2a3550,#4a3b68 60%,#6d5bd0)",
+  "linear-gradient(160deg,#1f3a3a,#2f6f66 60%,#39d7c5)",
+  "linear-gradient(160deg,#3a2b3f,#7a4a5e 60%,#c46a86)",
+  "linear-gradient(160deg,#2b3348,#4b5a86 60%,#8d78ff)",
+  "linear-gradient(160deg,#332b2b,#6b5040 60%,#c9965f)"
+];
+
+// A real thumbnail is kept for the seeded A+ history entry so the card does
+// not fall back to an empty/gradient preview when no generation has run yet.
+const APLUS_HISTORY_IMAGE = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 180'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%231b2338'/%3E%3Cstop offset='1' stop-color='%237e63d8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='320' height='180' fill='url(%23g)'/%3E%3Ccircle cx='245' cy='78' r='42' fill='%23f2c6a0'/%3E%3Cpath d='M205 150c8-45 72-45 80 0' fill='%23d6e4f2'/%3E%3Crect x='22' y='28' width='118' height='8' rx='4' fill='%23fff' opacity='.9'/%3E%3Crect x='22' y='48' width='82' height='6' rx='3' fill='%23fff' opacity='.55'/%3E%3Ctext x='22' y='138' fill='%23fff' font-size='15' font-family='Arial'%3EA%2B HERO STYLE%3C/text%3E%3C/svg%3E\")";
+
+const state = {
+  images: [],       // {name,url,size,role}
+  results: [],
+  running: false,
+  cancelled: false,
+  queue: [],        // {id,title,pct,eta}
+  history: [],
+  filter: 'all',
+  step: 1,
+  feature: '模特图批量高清'
+};
+
+/* ---------------- 小工具 ---------------- */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const money = n => "$" + (Math.round(n * 1000) / 1000).toFixed(3).replace(/0+$/,'').replace(/\.$/,'');
+const dur = s => s >= 60 ? Math.floor(s/60) + " 分 " + Math.round(s%60) + " 秒" : Math.round(s) + " 秒";
+const bytes = b => b > 1048576 ? (b/1048576).toFixed(1) + "MB" : Math.round(b/1024) + "KB";
+
+let toastTimer;
+function toast(msg, kind){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast show" + (kind === "err" ? " err" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.className = "toast", 2200);
+}
+
+/* ---------------- 预估联动 ---------------- */
+function unit(){ return UNITS[$("#method").value]; }
+function perCount(){ return Number($("#per").value); }
+function outputCount(){
+  const meta = featureMeta();
+  return meta ? meta.out : state.images.length * perCount();
+}
+function totalCost(){
+  const meta = featureMeta();
+  return meta ? meta.cost : state.images.length * perCount() * unit().cost;
+}
+function totalDur(){
+  const meta = featureMeta();
+  return meta ? meta.dur : state.images.length * perCount() * unit().dur;
+}
+function runLabel(){
+  const meta = featureMeta();
+  return meta ? "开始生成" : "开始处理";
+}
+
+function renderEstimate(){
+  const n = state.images.length;
+  const u = unit();
+  const meta = featureMeta();
+  $("#metaModel").textContent = meta ? meta.model : u.model;
+  $("#metaSize").textContent = meta ? meta.size : ($("#size").value === "4k" ? "4K" : "原图尺寸");
+  $("#metaUnit").textContent = money(meta ? meta.cost : u.cost);
+  $("#metaDur").textContent = (meta ? meta.dur : u.dur) + "s";
+  const btn = $("#runBtn");
+  const est = $("#estimate");
+  const miss = missingRoles();
+  if(!n){
+    btn.disabled = true;
+    btn.textContent = runLabel();
+    est.innerHTML = '先上传参考图<br/>快捷键 <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> 直接运行';
+    return;
+  }
+  btn.disabled = state.running || miss.length > 0;
+  btn.textContent = state.running ? "处理中…" : (meta ? "开始生成" : "开始处理（" + (n * perCount()) + " 张）");
+  if(miss.length){
+    est.innerHTML = '<b style="color:#ffb648">还缺 ' + miss.join("、") + '</b><br/>补齐参考位后才能开始';
+    return;
+  }
+  est.innerHTML = "预计耗时 <b>" + dur(totalDur()) + "</b> · 预计费用 <b>" + money(totalCost()) + "</b><br/>生成前会先做一次真人风险检查，约 3 秒";
+}
+
+/* ---------------- 上传 ---------------- */
+/* ---------------- 参考图角色 ---------------- */
+const ROLE_SPECS = {
+  "A+首屏风格复刻": [
+    { role: "风格参考", hint: "第 1 张，决定风格调性", min: 1, max: 1 },
+    { role: "目标模特", hint: "同一人的正脸 / 半身 / 全身", min: 1, max: 5 }
+  ],
+  "A+首屏卖点融合": [
+    { role: "首屏参考", hint: "第 1 张，锁定首屏风格", min: 1, max: 1 },
+    { role: "卖点主图", hint: "商品细节 / 功能 / 卖点素材", min: 1, max: 9 }
+  ],
+  "模特换场景": [
+    { role: "模特图", hint: "待处理的模特图", min: 1, max: 1 },
+    { role: "场景参考", hint: "可选，场景风格参考", min: 0, max: 2 }
+  ],
+  __default: [
+    { role: "原图", hint: "待处理的图片，最多 8 张", min: 1, max: 8 }
+  ]
+};
+
+const FEATURE_META = {
+  "A+首屏风格复刻": { out: 1, cost: 0.16, dur: 95, model: "Nano Banana 2.1", size: "1464×1000" },
+  "A+首屏卖点融合": { out: 1, cost: 0.12, dur: 80, model: "Nano Banana 2.1", size: "1464×自适应高" }
+};
+
+function currentSpecs(){ return ROLE_SPECS[state.feature] || ROLE_SPECS.__default; }
+function featureMeta(){ return FEATURE_META[state.feature] || null; }
+function roleCount(role){ return state.images.filter(i => i.role === role).length; }
+function missingRoles(){
+  return currentSpecs().filter(s => roleCount(s.role) < s.min).map(s => s.role);
+}
+let pendingRole = null;
+
+function addFiles(files, role){
+  const list = Array.from(files || []).filter(f => f.type.startsWith("image/"));
+  if(!list.length) return;
+  const specs = currentSpecs();
+  const startRole = role ? Math.max(0, specs.findIndex(s => s.role === role)) : 0;
+  let added = 0, overflow = 0;
+  list.forEach(f => {
+    let idx = startRole;
+    while(idx < specs.length && roleCount(specs[idx].role) >= specs[idx].max) idx++;
+    if(idx >= specs.length){ overflow++; return; }
+    state.images.push({ name: f.name, url: URL.createObjectURL(f), size: f.size, role: specs[idx].role });
+    added++;
+  });
+  if(added) toast("已添加 " + added + " 张" + (overflow ? "，" + overflow + " 张超出上限被忽略" : ""));
+  else if(overflow) toast("参考位已满（" + specs.map(s => s.role + " " + s.max).join(" / ") + "）", "err");
+  renderThumbs(); renderEstimate(); updateStep();
+}
+
+function addDemoImage(role){
+  const specs = currentSpecs();
+  const target = role || (specs.find(s => roleCount(s.role) < s.max) || specs[specs.length - 1]).role;
+  const spec = specs.find(s => s.role === target);
+  if(!spec || roleCount(spec.role) >= spec.max){ toast("该参考位已满", "err"); return; }
+  state.images.push({
+    name: (target === "原图" ? "IMG_" : target + "_") + (1000 + state.images.length) + ".jpg",
+    url: null,
+    size: 1.4 * 1048576,
+    role: target
+  });
+  renderThumbs(); renderEstimate(); updateStep();
+}
+
+function renderThumbs(){
+  const box = $("#slots");
+  if(!box) return;
+  box.innerHTML = "";
+  const specs = currentSpecs();
+  const hint = $("#uploadHint");
+  if(hint) hint.textContent = specs.map(s => s.role + " " + s.min + "–" + s.max + " 张").join(" · ");
+  specs.forEach(spec => {
+    const items = state.images.filter(i => i.role === spec.role);
+    items.forEach((img, idx) => {
+      const d = document.createElement("div");
+      d.className = "slot filled";
+      const bg = img.url ? "url('" + img.url + "')" : GRADS[(idx + 2) % GRADS.length];
+      d.innerHTML =
+        '<div class="img" style="background-image:' + bg + '"></div>' +
+        '<span class="badge">' + (idx + 1) + '</span>' +
+        '<span class="tagrole">' + spec.role + '</span>' +
+        '<div class="x" data-rm="' + state.images.indexOf(img) + '">×</div>' +
+        '<div class="cap" title="' + img.name + '">' + img.name + '</div>';
+      box.appendChild(d);
+    });
+    if(items.length < spec.max){
+      const d = document.createElement("div");
+      d.className = "slot";
+      d.dataset.role = spec.role;
+      const required = spec.min > 0 && items.length === 0;
+      d.innerHTML =
+        '<div class="plus">＋</div>' +
+        '<div class="role">' + spec.role + (required ? '（必填）' : '') + '</div>' +
+        '<div class="hint2">' + spec.hint + '</div>';
+      box.appendChild(d);
+    }
+  });
+  const miss = missingRoles();
+  const tip = $("#slotTip");
+  if(tip){
+    tip.textContent = miss.length
+      ? "还缺：" + miss.join("、") + " · 点对应参考位上传"
+      : "参考位已齐 · 也可以把图片直接拖到对应参考位";
+    tip.style.color = miss.length ? "#ffb648" : "#6f6353";
+  }
+}
+
+$("#slots").addEventListener("click", e => {
+  const rm = e.target.closest("[data-rm]");
+  if(rm){
+    const i = Number(rm.dataset.rm);
+    if(state.images[i] && state.images[i].url) URL.revokeObjectURL(state.images[i].url);
+    state.images.splice(i, 1);
+    renderThumbs(); renderEstimate(); updateStep();
+    return;
+  }
+  const slot = e.target.closest(".slot:not(.filled)");
+  if(slot){
+    pendingRole = slot.dataset.role;
+    $("#fileInput").click();
+  }
+});
+
+/* 拖到具体参考位 */
+["dragenter","dragover"].forEach(ev => $("#slots").addEventListener(ev, e => {
+  const slot = e.target.closest(".slot:not(.filled)");
+  if(!slot) return;
+  e.preventDefault();
+  $$(".slot").forEach(x => x.classList.remove("hot"));
+  slot.classList.add("hot");
+}));
+$("#slots").addEventListener("dragleave", e => {
+  const slot = e.target.closest(".slot");
+  if(slot) slot.classList.remove("hot");
+});
+$("#slots").addEventListener("drop", e => {
+  const slot = e.target.closest(".slot:not(.filled)");
+  if(!slot) return;
+  e.preventDefault();
+  slot.classList.remove("hot");
+  const files = e.dataTransfer && e.dataTransfer.files;
+  if(files && files.length) addFiles(files, slot.dataset.role);
+  else addDemoImage(slot.dataset.role);
+});
+
+$("#drop").addEventListener("click", () => { pendingRole = null; $("#fileInput").click(); });
+$("#fileInput").addEventListener("change", e => { addFiles(e.target.files, pendingRole); pendingRole = null; e.target.value = ""; });
+
+["dragenter","dragover"].forEach(ev => $("#drop").addEventListener(ev, e => {
+  e.preventDefault(); $("#drop").classList.add("hot");
+}));
+["dragleave","drop"].forEach(ev => $("#drop").addEventListener(ev, e => {
+  e.preventDefault(); $("#drop").classList.remove("hot");
+}));
+$("#drop").addEventListener("drop", e => {
+  if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  else addDemoImage();
+});
+
+/* 粘贴 */
+document.addEventListener("paste", e => {
+  const items = Array.from((e.clipboardData && e.clipboardData.items) || []);
+  const files = items.filter(it => it.kind === "file" && it.type.startsWith("image/")).map(it => it.getAsFile()).filter(Boolean);
+  if(files.length) addFiles(files);
+});
+
+/* ---------------- 参数 ---------------- */
+["method","size","per"].forEach(id => $("#" + id).addEventListener("change", renderEstimate));
+$("#per").addEventListener("change", renderThumbs);
+
+$$("[data-tab]").forEach(b => b.addEventListener("click", () => {
+  $$("[data-tab]").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  $("#advPanel").classList.toggle("show", b.dataset.tab === "adv");
+}));
+
+$("#presetBtn").addEventListener("click", () => toast("已保存预设：模特高清 · " + unit().model));
+
+/* ---------------- 步骤 ---------------- */
+function updateStep(){
+  state.step = state.images.length ? (state.results.length ? 4 : 3) : 1;
+  if(state.running) state.step = 3;
+  $$("#stepper .step").forEach(el => {
+    const n = Number(el.dataset.step);
+    el.classList.toggle("done", n < state.step);
+    el.classList.toggle("now", n === state.step);
+    el.querySelector(".n").textContent = n < state.step ? "✓" : n;
+  });
+}
+
+/* ---------------- 运行 ---------------- */
+function logLine(text, kind){
+  const box = $("#log");
+  const line = document.createElement("div");
+  if(kind) line.className = kind;
+  const ts = new Date().toLocaleTimeString("zh-CN", {hour12:false});
+  line.textContent = "[" + ts + "] " + text;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function startRun(){
+  if(state.running) return;
+  if(!state.images.length){ toast("先上传原图再开始", "err"); return; }
+  state.running = true;
+  state.cancelled = false;
+  state.results = [];
+  $("#resultsCard").classList.remove("show");
+  $("#errCard").classList.remove("show");
+  $("#progressCard").classList.add("show");
+  $("#log").innerHTML = "";
+  $("#progFill").style.width = "0%";
+  $("#progPct").textContent = "0%";
+  updateStep();
+  renderEstimate();
+
+  const task = { id: "t" + Date.now(), title: state.feature, pct: 0, eta: totalDur() };
+  state.queue.unshift(task);
+  renderQueue();
+
+  const total = outputCount();
+  const meta = featureMeta();
+  logLine(meta
+    ? "提交 " + state.images.length + " 张参考图（" + currentSpecs().map(s => s.role + " " + roleCount(s.role)).join(" / ") + "）"
+    : "提交 " + state.images.length + " 张原图，共 " + total + " 张输出");
+  logLine("公众人物风险检查中…");
+
+  let p = 0;
+  const timer = setInterval(() => {
+    if(state.cancelled){ clearInterval(timer); return; }
+    p = Math.min(100, p + 2 + Math.random() * 4);
+    $("#progFill").style.width = p + "%";
+    $("#progPct").textContent = Math.round(p) + "%";
+    task.pct = p;
+    task.eta = Math.max(0, totalDur() * (100 - p) / 100);
+    renderQueue();
+
+    const idx = Math.min(total, Math.max(1, Math.ceil(p / 100 * total)));
+    let stage;
+    if(p < 8) stage = "公众人物检测通过 · 开始生成";
+    else if(p < 34) stage = "正在处理 " + idx + "/" + total + " · 生成中";
+    else if(p < 70) stage = "正在处理 " + idx + "/" + total + " · 生成中";
+    else if(p < 96) stage = "正在处理 " + idx + "/" + total + " · 回传结果";
+    else stage = "整理结果";
+    if(p >= 8 && p < 8 + 6 && !logLine._passed){ logLine._passed = true; logLine("公众人物检测通过（3.1s）", "ok"); }
+    $("#progStage").textContent = stage;
+    $("#progLeft").textContent = "剩余约 " + dur(Math.max(0, totalDur() * (100 - p) / 100));
+
+    if(p >= 100){
+      clearInterval(timer);
+      logLine._passed = false;
+      finishRun(total);
+    }
+  }, 200);
+}
+
+function finishRun(total){
+  state.running = false;
+  state.queue = state.queue.filter(t => t.pct < 100);
+  const task = state.queue[0];
+  state.queue = [];
+  renderQueue();
+
+  const meta = featureMeta();
+  state.results = [];
+  for(let i = 0; i < total; i++){
+    const src = state.images[i % state.images.length] || { name: state.feature };
+    state.results.push({
+      name: meta
+        ? state.feature + "_" + (i + 1) + ".png"
+        : (src.name || "IMG").replace(/\.[^.]+$/, "") + "_模特高清_" + (i + 1) + ".png",
+      url: src.url || null,
+      grad: GRADS[(i + state.images.length) % GRADS.length]
+    });
+  }
+  renderResults();
+  $("#resultsCard").classList.add("show");
+  $("#progStage").textContent = total + "/" + total + " 完成";
+  $("#progLeft").textContent = "结果已保存到历史记录";
+  $("#progPct").textContent = "100%";
+  $("#progFill").style.width = "100%";
+  logLine("全部完成，" + total + " 张结果已生成", "ok");
+  renderEstimate();
+  updateStep();
+  pushHistory(total);
+  toast("处理完成，" + total + " 张结果已生成");
+}
+
+$("#cancelBtn").addEventListener("click", () => {
+  if(!state.running) return;
+  state.cancelled = true;
+  state.running = false;
+  state.queue = [];
+  renderQueue();
+  logLine("任务已取消，已完成的结果会保留", "warn");
+  $("#progStage").textContent = "已取消";
+  renderEstimate();
+  toast("任务已取消", "err");
+});
+
+/* ---------------- 结果 ---------------- */
+function renderResults(){
+  const grid = $("#resGrid");
+  grid.innerHTML = "";
+  state.results.forEach((r, i) => {
+    const bg = r.url ? "url('" + r.url + "')" : r.grad;
+    const d = document.createElement("div");
+    d.className = "res";
+    d.dataset.i = i;
+    d.innerHTML =
+      '<div class="img" style="background-image:' + bg + '"></div>' +
+      '<span class="idx">' + (i + 1) + '</span>' +
+      '<div class="ov">' +
+        '<button data-act="dl" data-i="' + i + '">下载</button>' +
+        '<button data-act="cmp" data-i="' + i + '">前后对比</button>' +
+        '<button data-act="redo" data-i="' + i + '">重做</button>' +
+      '</div>';
+    grid.appendChild(d);
+  });
+}
+
+$("#resGrid").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  const card = e.target.closest(".res");
+  if(!card) return;
+  const i = Number(card.dataset.i);
+  if(btn){
+    e.stopPropagation();
+    if(btn.dataset.act === "dl") downloadResult(i);
+    if(btn.dataset.act === "cmp") openLightbox(i);
+    if(btn.dataset.act === "redo"){ toast("已重新提交第 " + (i + 1) + " 张"); startRun(); }
+    return;
+  }
+  openLightbox(i);
+});
+
+function downloadResult(i){
+  const r = state.results[i];
+  if(r.url){
+    const a = document.createElement("a");
+    a.href = r.url; a.download = r.name; a.click();
+    toast("已下载 " + r.name);
+    return;
+  }
+  const c = document.createElement("canvas");
+  c.width = 1200; c.height = 1500;
+  const ctx = c.getContext("2d");
+  const g = ctx.createLinearGradient(0, 0, 1200, 1500);
+  g.addColorStop(0, "#2a3550"); g.addColorStop(.6, "#6d5bd0"); g.addColorStop(1, "#39d7c5");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1200, 1500);
+  ctx.fillStyle = "rgba(255,255,255,.9)";
+  ctx.font = "600 54px system-ui";
+  ctx.fillText("模特高清 演示结果 " + (i + 1), 80, 760);
+  c.toBlob(b => {
+    const url = URL.createObjectURL(b);
+    const a = document.createElement("a");
+    a.href = url; a.download = r.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast("已下载 " + r.name);
+  }, "image/png");
+}
+
+$("#dlAll").addEventListener("click", () => {
+  state.results.forEach((r, i) => setTimeout(() => downloadResult(i), i * 350));
+});
+
+/* ---------------- 对比滑块 / 灯箱 ---------------- */
+function compareHTML(ratio, beforeBg, afterBg){
+  return '<div class="cmp" style="aspect-ratio:' + ratio + '">' +
+    '<div class="layer before" style="background-image:' + beforeBg + '"></div>' +
+    '<div class="layer after" style="background-image:' + afterBg + '"></div>' +
+    '<div class="handle"></div>' +
+    '<span class="tag l">原图</span><span class="tag r">高清后</span>' +
+  '</div>';
+}
+
+function bindCompare(root){
+  const cmp = root.querySelector(".cmp");
+  if(!cmp) return;
+  const set = clientX => {
+    const r = cmp.getBoundingClientRect();
+    const p = Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100));
+    cmp.style.setProperty("--pct", p + "%");
+  };
+  cmp.addEventListener("pointerdown", e => { set(e.clientX); cmp.setPointerCapture(e.pointerId); });
+  cmp.addEventListener("pointermove", e => { if(e.buttons === 1) set(e.clientX); });
+}
+
+let lbIndex = 0;
+function openLightbox(i){
+  lbIndex = i;
+  const r = state.results[i];
+  const bg = r.url ? "url('" + r.url + "')" : r.grad;
+  $("#lbName").textContent = r.name;
+  $("#lbIdx").textContent = (i + 1) + " / " + state.results.length;
+  $("#lbCmp").innerHTML = compareHTML("16/10", bg, bg) +
+    '<button class="lb-nav prev" data-nav="-1">‹</button>' +
+    '<button class="lb-nav next" data-nav="1">›</button>';
+  bindCompare($("#lbCmp"));
+  $("#lightbox").classList.add("show");
+}
+function closeLightbox(){ $("#lightbox").classList.remove("show"); }
+function navLightbox(delta){
+  if(!state.results.length) return;
+  lbIndex = (lbIndex + delta + state.results.length) % state.results.length;
+  openLightbox(lbIndex);
+}
+$("#lbClose").addEventListener("click", closeLightbox);
+$("#lightbox").addEventListener("click", e => {
+  if(e.target.id === "lightbox") return closeLightbox();
+  const nav = e.target.dataset.nav;
+  if(nav) navLightbox(Number(nav));
+});
+
+/* ---------------- 队列 / 历史 ---------------- */
+function renderQueue(){
+  const box = $("#queueBox");
+  if(!state.queue.length){
+    box.innerHTML = '<div class="empty">暂无运行中的任务</div>';
+  } else {
+    box.innerHTML = state.queue.map(t =>
+      '<div class="task">' +
+        '<div class="ring" style="--p:' + t.pct + '%"></div>' +
+        '<div><div class="ti">' + t.title + " · " + Math.round(t.pct) + '%</div>' +
+        '<div class="ts">剩余约 ' + dur(t.eta) + '</div></div>' +
+        '<button class="cx" data-cancel="1">取消</button>' +
+      '</div>').join("");
+  }
+  $("#statusText").textContent = state.queue.length ? "服务正常 · " + state.queue.length + " 个任务运行中" : "服务正常";
+}
+
+$("#queueBox").addEventListener("click", e => {
+  if(e.target.dataset.cancel){ $("#cancelBtn").click(); }
+});
+
+function seedHistory(){
+  state.history = [
+    { id:"h1", title:"模特高清 3 张", meta:"14:22 · 原图尺寸", tag:"高清", bg:GRADS[0], method:"nb", per:1 },
+    { id:"h2", title:"印前检查报告", meta:"13:05 · 19 项 · 2 项不合规", tag:"检查", bg:GRADS[1], method:"nb", per:1 },
+    { id:"h3", title:"A+首屏风格复刻", meta:"昨天 · 1 张", tag:"A+", bg:APLUS_HISTORY_IMAGE, method:"seedream", per:1, feature:"A+首屏风格复刻" }
+  ];
+}
+
+function pushHistory(n){
+  const first = state.results[0];
+  const meta = featureMeta();
+  state.history.unshift({
+    id:"h" + Date.now(),
+    title: meta ? state.feature : "模特高清 " + n + " 张",
+    meta:"刚刚 · " + (meta ? meta.size : (($("#size").value === "4k") ? "4K" : "原图尺寸")),
+    tag: meta ? "A+" : "高清",
+    bg: first ? (first.url ? "url('" + first.url + "')" : first.grad) : GRADS[0],
+    method: $("#method").value,
+    per: Number($("#per").value),
+    feature: state.feature
+  });
+  renderHistory();
+}
+
+function renderHistory(){
+  const box = $("#histBox");
+  const f = state.filter;
+  const list = state.history.filter(h => f === "all" || h.tag === f || (f === "高清" && h.tag === "高清"));
+  if(!list.length){ box.innerHTML = '<div class="empty">该分类暂无记录</div>'; return; }
+  box.innerHTML = list.map(h =>
+    '<div class="hist-item" data-id="' + h.id + '">' +
+      '<div class="th" style="background-image:' + h.bg + '"></div>' +
+      '<div><div class="hn">' + h.title + '</div><div class="hd">' + h.meta + '</div></div>' +
+      '<span class="again">再跑一次</span>' +
+    '</div>').join("");
+}
+
+$("#histBox").addEventListener("click", e => {
+  const item = e.target.closest(".hist-item");
+  if(!item) return;
+  const h = state.history.find(x => x.id === item.dataset.id);
+  if(!h) return;
+  $("#method").value = h.method;
+  $("#per").value = String(h.per);
+  renderEstimate();
+  toast("已回填参数：" + h.title + " · 点开始处理即可重跑");
+});
+
+$$("#histChips .fchip").forEach(c => c.addEventListener("click", () => {
+  $$("#histChips .fchip").forEach(x => x.classList.remove("on"));
+  c.classList.add("on");
+  state.filter = c.dataset.f;
+  renderHistory();
+}));
+
+/* ---------------- 413 演示 ---------------- */
+$("#simulateErr").addEventListener("click", () => {
+  $("#errCard").classList.add("show");
+  $("#errCard").scrollIntoView({ behavior:"smooth", block:"center" });
+  toast("模拟：OpenRouter 返回 HTTP 413", "err");
+});
+$("#errCompress").addEventListener("click", () => {
+  $("#errCard").classList.remove("show");
+  toast("已按 13MB 总预算压缩，重新提交");
+  startRun();
+});
+$("#errFewer").addEventListener("click", () => {
+  $("#errCard").classList.remove("show");
+  while(state.images.length > 2) state.images.pop();
+  renderThumbs(); renderEstimate();
+  toast("已保留前 2 张，重新提交");
+});
+$("#errDismiss").addEventListener("click", () => $("#errCard").classList.remove("show"));
+
+/* ---------------- 搜索 ---------------- */
+$("#navSearch").addEventListener("input", e => {
+  const q = e.target.value.trim();
+  $$(".nav-item").forEach(it => {
+    const lbl = it.querySelector(".lbl");
+    if(!lbl) return;
+    const raw = lbl.dataset.raw || lbl.textContent;
+    const hit = !q || raw.includes(q);
+    it.style.display = hit ? "" : "none";
+    if(!q) lbl.innerHTML = raw;
+    else if(hit) lbl.innerHTML = raw.split(q).join("<mark>" + q + "</mark>");
+  });
+  if(q) $$(".nav-group").forEach(g => g.classList.remove("collapsed"));
+});
+
+/* ---------------- 标注 / 抽屉 ---------------- */
+const drawer = $("#drawer");
+$("#fab").addEventListener("click", () => drawer.classList.add("open"));
+$("#drawerX").addEventListener("click", () => drawer.classList.remove("open"));
+
+$("#drawerBody").innerHTML = ANNOS.map(a =>
+  '<div class="anno" data-num="' + a.n + '">' +
+    '<div class="an"><span class="num">' + a.n + '</span>' + a.t +
+      '<span class="cost' + (a.cost === "小" ? " low" : "") + '">' + a.cost + '改动</span></div>' +
+    '<div class="why">现状：' + a.why + '</div>' +
+    '<div class="how">怎么做：' + a.how + '</div>' +
+  '</div>').join("");
+
+$("#fab").textContent = "◎ 查看优化说明 (" + ANNOS.length + ")";
+
+$("#drawerBody").addEventListener("click", e => {
+  const card = e.target.closest(".anno");
+  if(!card) return;
+  const n = card.dataset.num;
+  $$(".anno").forEach(x => x.classList.remove("hl"));
+  card.classList.add("hl");
+  const target = document.querySelector('.mark-badge[data-anno="' + n + '"]');
+  if(target){
+    drawer.classList.remove("open");
+    target.scrollIntoView({ behavior:"smooth", block:"center" });
+    const host = target.closest(".opt, .card, .panel");
+    if(host){
+      host.animate([{ boxShadow:"0 0 0 0 rgba(57,215,197,.7)" }, { boxShadow:"0 0 0 14px rgba(57,215,197,0)" }], { duration:900 });
+    }
+    setTimeout(() => drawer.classList.add("open"), 950);
+  } else {
+    toast("该条建议在当前宽度下没有对应区域");
+  }
+});
+
+const annotSwitch = $("#annotSwitch");
+annotSwitch.addEventListener("click", () => {
+  annotSwitch.classList.toggle("on");
+  document.body.classList.toggle("annot-on");
+  localStorage.setItem("xiaoha-demo-annot", document.body.classList.contains("annot-on") ? "1" : "0");
+});
+
+/* ---------------- 导航 ---------------- */
+$$(".nav-item").forEach(it => {
+  Array.from(it.childNodes).forEach(n => {
+    if(n.nodeType === 3 && n.nodeValue.trim()){
+      const span = document.createElement("span");
+      span.className = "lbl";
+      span.textContent = n.nodeValue.trim();
+      span.dataset.raw = n.nodeValue.trim();
+      it.replaceChild(span, n);
+    }
+  });
+});
+
+$$("[data-toggle]").forEach(b => b.addEventListener("click", () => b.closest(".nav-group").classList.toggle("collapsed")));
+
+$$(".nav-item").forEach(it => it.addEventListener("click", () => {
+  $$(".nav-item").forEach(x => x.classList.remove("active"));
+  it.classList.add("active");
+  const name = it.dataset.feature || it.textContent.trim();
+  const changed = state.feature !== name;
+  state.feature = name;
+  $("#pageTitle").textContent = name;
+  $("#crumb").textContent = name;
+  $("#progressCard").classList.remove("show");
+  $("#resultsCard").classList.remove("show");
+  $("#errCard").classList.remove("show");
+  if(changed){
+    /* 按新功能的参考位顺序重新分配已有图片，超出的丢弃 */
+    const specs = currentSpecs();
+    const next = [];
+    let cursor = 0;
+    specs.forEach(spec => {
+      state.images.slice(cursor, cursor + spec.max).forEach(img => next.push(Object.assign(img, { role: spec.role })));
+      cursor += spec.max;
+    });
+    state.images.slice(cursor).forEach(img => img.url && URL.revokeObjectURL(img.url));
+    state.images = next;
+    state.results = [];
+    renderResults();
+  }
+  renderThumbs(); renderEstimate(); updateStep();
+}));
+
+/* ---------------- 快捷键 ---------------- */
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape"){
+    closeLightbox();
+    drawer.classList.remove("open");
+  }
+  if($("#lightbox").classList.contains("show")){
+    if(e.key === "ArrowLeft"){ e.preventDefault(); navLightbox(-1); }
+    if(e.key === "ArrowRight"){ e.preventDefault(); navLightbox(1); }
+    return;
+  }
+  if((e.ctrlKey || e.metaKey) && e.key === "Enter"){
+    e.preventDefault();
+    if($("#runBtn").disabled) toast("先上传原图再开始", "err");
+    else startRun();
+  }
+});
+
+$("#runBtn").addEventListener("click", startRun);
+
+/* ---------------- 初始化 ---------------- */
+if(localStorage.getItem("xiaoha-demo-annot") === "0"){
+  document.body.classList.remove("annot-on");
+  annotSwitch.classList.remove("on");
+}
+seedHistory();
+renderHistory();
+renderQueue();
+renderThumbs();
+renderEstimate();
+updateStep();
+</script>
+</body>
+</html>

@@ -75,7 +75,7 @@ class RemoveEyelashesImagesApiTests(unittest.TestCase):
             patch.object(site.time, "sleep") as retry_sleep,
         ):
             result = site.call_openrouter_images_api(
-                model=site.NANO_BANANA_MODEL,
+                model="bytedance-seed/seedream-4.5",
                 prompt="remove eyelashes",
             )
 
@@ -98,9 +98,45 @@ class RemoveEyelashesImagesApiTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, r"HTTP 503.*provider_error"):
                 site.call_openrouter_images_api(
-                    model=site.NANO_BANANA_MODEL,
+                    model="bytedance-seed/seedream-4.5",
                     prompt="remove eyelashes",
                 )
+
+    def test_nano_banana_generate_routes_to_omnia_media_tasks(self) -> None:
+        created = Mock(status_code=202)
+        created.json.return_value = {"id": "task_test_1", "status": "queued"}
+        succeeded = Mock(status_code=200)
+        succeeded.json.return_value = {
+            "id": "task_test_1",
+            "status": "succeeded",
+            "assets": [
+                {
+                    "kind": "image",
+                    "mime_type": "image/jpeg",
+                    "url": "https://example.invalid/result.jpg",
+                }
+            ],
+        }
+        downloaded = Mock(status_code=200, content=b"fake-image-bytes")
+        downloaded.headers = {"Content-Type": "image/jpeg"}
+
+        with (
+            patch.object(site, "load_omnia_api_key", return_value="test-omnia-key"),
+            patch.object(site.requests, "post", return_value=created) as request_post,
+            patch.object(site.requests, "get", side_effect=[succeeded, downloaded]),
+            patch.object(site.time, "sleep"),
+        ):
+            result = site.call_openrouter_images_api(
+                model="google/gemini-nano-banana-2.1",
+                prompt="remove eyelashes",
+            )
+
+        self.assertTrue(result["images"][0].startswith("data:image/jpeg;base64,"))
+        self.assertEqual(result["channel"], "Nano Banana 2.1 · OmniaKey")
+        self.assertEqual(request_post.call_args.args[0], site.OMNIAKEY_MEDIA_TASKS_URL)
+        payload = request_post.call_args.kwargs["json"]
+        self.assertEqual(payload["model"], site.NANO_BANANA_MODEL)
+        self.assertEqual(payload["operation"], "generate")
 
     def test_user_error_identifies_source_and_http_reason(self) -> None:
         error = RuntimeError(

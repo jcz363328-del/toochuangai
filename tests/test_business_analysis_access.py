@@ -286,8 +286,47 @@ class BusinessAnalysisAccessTests(unittest.TestCase):
         self.assertTrue(leader["canViewAmounts"])
         self.assertIsNone(leader["operator"])
         self.assertEqual(member["role"], "member")
-        self.assertFalse(member["canViewAmounts"])
+        self.assertTrue(member["canViewAmounts"])
         self.assertEqual(member["operator"], "张三")
+
+    def test_member_can_view_amounts_only_for_own_stores(self):
+        payload = {
+            "data": {
+                "meta": {},
+                "performance": {
+                    "stores": [
+                        {"store": 1, "department": "运营一部", "operator": "张三", "sales": 1200},
+                        {"store": 2, "department": "运营一部", "operator": "别人", "sales": 9800},
+                    ],
+                    "periodRows": [],
+                    "departments": [],
+                },
+                "slowMoving": [], "shipping": [], "newProductOrders": [], "unshipped": [],
+                "storeTiers": [], "magnetDaily": [],
+                "categorySegments": {"categories": [{
+                    "company": {
+                        "current": {"sales": 11000, "usSales": 5000},
+                        "previous": {"sales": 10000, "usSales": 4000},
+                        "yearAgo": {"sales": 9000, "usSales": 3000},
+                    },
+                    "departments": [], "industry": {}, "shareDaily": [],
+                }]},
+            },
+            "formulas": [],
+        }
+        scope = {
+            "role": "member", "department": "运营一部", "operator": "张三",
+            "userName": "张三", "canViewAmounts": True,
+        }
+
+        result = prepare_business_analysis_payload(payload, scope, "2026-08")
+        stores = result["data"]["performance"]["stores"]
+        category = result["data"]["categorySegments"]["categories"][0]
+
+        self.assertEqual(stores, [{"store": 1, "department": "运营一部", "operator": "张三", "sales": 1200}])
+        self.assertTrue(result["data"]["meta"]["accessScope"]["canViewAmounts"])
+        self.assertIsNone(category["ratios"]["company"]["currentSales"])
+        self.assertEqual(category["company"]["current"]["sales"], 0)
 
     def test_dynamic_leader_and_operation_seven_alias(self):
         department = [{"department_id": "od-op7", "name": "运营七部", "status": "active"}]
@@ -302,6 +341,25 @@ class BusinessAnalysisAccessTests(unittest.TestCase):
 
         self.assertEqual(dynamic["role"], "department_leader")
         self.assertEqual(alias["role"], "department_leader")
+
+    def test_rotation_leaders_use_delegated_department_leader_scope(self):
+        cases = {
+            "郭婷": "运营一部",
+            "王淑雯": "运营二部",
+            "柳琳": "运营三部",
+            "刘星辰": "运营六部",
+            "张彦微": "运营七部",
+        }
+        for name, expected_department in cases.items():
+            with self.subTest(name=name):
+                scope = resolve_business_analysis_scope(
+                    f"ou-{name}", name,
+                    [{"department_id": "od-ai", "name": "AI部", "status": "active"}],
+                )
+                self.assertEqual(scope["role"], "department_leader")
+                self.assertEqual(scope["department"], expected_department)
+                self.assertIsNone(scope["operator"])
+                self.assertTrue(scope["canViewAmounts"])
 
     def test_query_scope_cannot_be_overridden_by_browser(self):
         scope = {"department": "运营二部", "operator": "李四"}

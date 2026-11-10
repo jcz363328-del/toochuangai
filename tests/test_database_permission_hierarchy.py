@@ -1,5 +1,7 @@
 import unittest
 
+from flask import Flask, session
+
 from department_permissions import FeishuPermissionManager
 
 
@@ -35,6 +37,48 @@ def row(function_name, *, users="", departments="", parent=""):
 
 
 class DatabasePermissionHierarchyTests(unittest.TestCase):
+    def test_empty_department_lookup_is_retried_once_before_denial(self):
+        records = {
+            "feature": row("feature", departments="运营部"),
+        }
+
+        class FlakyDepartmentManager(StubPermissionManager):
+            def __init__(self):
+                super().__init__(records)
+                self.department_calls = 0
+
+            def get_user_departments(self, user_id):
+                self.department_calls += 1
+                if self.department_calls == 1:
+                    return []
+                return [{
+                    "department_id": "test:operation-1",
+                    "name": "运营一部",
+                    "status": "active",
+                }]
+
+        manager = FlakyDepartmentManager()
+
+        allowed, reason = manager.check_user_permission("u1", "feature")
+
+        self.assertTrue(allowed, reason)
+        self.assertIn("部门权限通过", reason)
+        self.assertEqual(2, manager.department_calls)
+
+    def test_session_department_hint_is_used_when_contact_lookup_is_empty(self):
+        app = Flask(__name__)
+        app.secret_key = "test-secret"
+        manager = StubPermissionManager({"feature": row("feature", departments="AI部")})
+        manager.get_user_departments = lambda _user_id: []
+
+        with app.test_request_context("/"):
+            session["feishu_user_id"] = "u1"
+            session["user_department"] = "AI部"
+            allowed, reason = manager.check_user_permission("u1", "feature")
+
+        self.assertTrue(allowed, reason)
+        self.assertIn("部门权限通过", reason)
+
     def test_department_is_checked_before_personal_permission(self):
         records = {
             "feature": row(

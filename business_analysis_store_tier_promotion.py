@@ -13,7 +13,7 @@ from secret_settings import sql_server_config
 
 
 PROMOTION_DAYS = 30
-DEFAULT_RECIPIENTS = ("蔡晶", "王晓菁", "韩雅俊", "陈子烨", "周俊成")
+DEFAULT_RECIPIENTS = ("蔡晶", "王晓菁", "韩雅俊", "陈子烨", "周俊成", "崔晓晨")
 EXCLUDED_STORES = {55}
 
 
@@ -26,6 +26,10 @@ class PromotionEvent:
     streak_started_on: date
     previous_highest_rank: int | None
     consecutive: bool
+    previous_qualified_on: date | None = None
+    previous_tier: str | None = None
+    previous_tier_rank: int | None = None
+    gap_days: int | None = None
 
     @property
     def event_id(self) -> str:
@@ -47,6 +51,10 @@ def detect_promotions(rows: Iterable[tuple], target_dates: set[date] | None = No
     at the lowest rank seen in its trailing 30-day window. The window must have
     every calendar day, and that lowest rank must exceed every rank observed
     before the window began.
+
+    A promotion is flagged ``consecutive`` when the new level began its 30-day
+    streak no later than 30 days after the previous promotion's confirmed date.
+    A level reached before the previous confirmation (fast climbing) also counts.
     """
     histories: dict[int, dict[date, tuple[str, int]]] = defaultdict(dict)
     for raw_day, raw_store, raw_tier, raw_rank in rows:
@@ -62,7 +70,7 @@ def detect_promotions(rows: Iterable[tuple], target_dates: set[date] | None = No
         if store in EXCLUDED_STORES:
             continue
         days = sorted(by_day)
-        prior_events = 0
+        last_event: PromotionEvent | None = None
         for index, day in enumerate(days):
             start = day - timedelta(days=PROMOTION_DAYS - 1)
             window_days = [start + timedelta(days=offset) for offset in range(PROMOTION_DAYS)]
@@ -76,6 +84,7 @@ def detect_promotions(rows: Iterable[tuple], target_dates: set[date] | None = No
             # upgrade. A promotion needs a real historical level to exceed.
             if previous_highest is None or floor_rank <= previous_highest:
                 continue
+            gap_days = (start - last_event.qualified_on).days if last_event else None
             event = PromotionEvent(
                 store=store,
                 tier=tier,
@@ -83,9 +92,13 @@ def detect_promotions(rows: Iterable[tuple], target_dates: set[date] | None = No
                 qualified_on=day,
                 streak_started_on=start,
                 previous_highest_rank=previous_highest,
-                consecutive=prior_events > 0,
+                consecutive=gap_days is not None and gap_days <= PROMOTION_DAYS,
+                previous_qualified_on=last_event.qualified_on if last_event else None,
+                previous_tier=last_event.tier if last_event else None,
+                previous_tier_rank=last_event.tier_rank if last_event else None,
+                gap_days=gap_days,
             )
-            prior_events += 1
+            last_event = event
             if target_dates is None or day in target_dates:
                 events.append(event)
     return sorted(events, key=lambda item: (item.qualified_on, item.store, item.tier_rank))
@@ -94,12 +107,33 @@ def detect_promotions(rows: Iterable[tuple], target_dates: set[date] | None = No
 def _message(event: PromotionEvent, operator: str = "") -> str:
     heading = "🎉 店铺连续晋级喜报 🎉" if event.consecutive else "🎉 店铺晋级喜报 🎉"
     operator_line = f"店铺负责人：{operator}\n" if operator else ""
+    gap = event.gap_days
+    if gap is None:
+        gap_text = "首次晋级"
+        previous_line = "📅 上次晋级：无（首次晋级）\n"
+    else:
+        previous_tier = event.previous_tier or (
+            str(event.previous_tier_rank) if event.previous_tier_rank is not None else "—"
+        )
+        previous_line = (
+            f"📅 上次晋级：{event.previous_qualified_on.isoformat()}"
+            f"（晋级至 {previous_tier}）\n"
+        )
+        if gap < 0:
+            gap_text = f"距上次晋级提前 {abs(gap)} 天（等级重叠爬升）"
+        elif event.consecutive:
+            gap_text = f"距上次晋级 {gap} 天"
+        else:
+            gap_text = f"距上次晋级 {gap} 天，超过 {PROMOTION_DAYS} 天"
     return (
         f"【{heading}】\n"
         f"店铺：{event.store}号店\n"
         f"{operator_line}"
         f"🏆 晋级层级：{event.tier}\n"
-        f"📅 连续达标：{PROMOTION_DAYS}天（{event.streak_started_on.isoformat()} 至 {event.qualified_on.isoformat()}）"
+        f"{previous_line}"
+        f"📅 本次晋级：{event.qualified_on.isoformat()}（晋级至 {event.tier}）\n"
+        f"⏱ 30天保持：{event.streak_started_on.isoformat()} 至 {event.qualified_on.isoformat()}"
+        f"（起点{gap_text}）"
     )
 
 
@@ -149,6 +183,7 @@ def notify_store_tier_promotions(
     *,
     sender: Callable[[str, str], bool] | None = None,
     recipient: str | None = None,
+    retry_failed: bool = False,
 ) -> dict:
     connection = pytds.connect(**sql_server_config(), timeout=180)
     try:
@@ -184,30 +219,41 @@ def notify_store_tier_promotions(
         for event in events:
             message_key = event.event_id
             cursor.execute(
-                "SELECT XuHao FROM dbo.DianPuJinJi WHERE XiaoXiBiaoShi = %s",
+                "SELECT XuHao, FaSongZhuangTai FROM dbo.DianPuJinJi WHERE XiaoXiBiaoShi = %s",
                 (message_key,),
             )
             existing = cursor.fetchone()
             if existing:
-                skipped.append(message_key)
-                continue
-            cursor.execute(
-                """INSERT INTO dbo.DianPuJinJi
-                       (DianPu, RiQi, YuanDengJi, XinDengJi, YunYing, DianPuJiShu,
-                        FaSongDuiXiang, FaSongZhuangTai, XiaoXiBiaoShi)
-                     OUTPUT INSERTED.XuHao
-                     VALUES (%s, %s, %s, %s, %s, NULL, %s, N'发送中', %s)""",
-                (
-                    event.store,
-                    event.qualified_on,
-                    _tier_label_for_rank(rows, event.previous_highest_rank),
-                    event.tier,
-                    operators.get(event.store, ""),
-                    recipient_text,
-                    message_key,
-                ),
-            )
-            record_id = int(cursor.fetchone()[0])
+                existing_status = str(existing[1] or "").strip()
+                if not retry_failed or existing_status != "发送失败":
+                    skipped.append(message_key)
+                    continue
+                record_id = int(existing[0])
+                cursor.execute(
+                    """UPDATE dbo.DianPuJinJi
+                          SET FaSongDuiXiang=%s, FaSongShiJian=NULL,
+                              FaSongZhuangTai=N'发送中', FaSongBeiZhu=NULL
+                        WHERE XuHao=%s""",
+                    (recipient_text, record_id),
+                )
+            else:
+                cursor.execute(
+                    """INSERT INTO dbo.DianPuJinJi
+                           (DianPu, RiQi, YuanDengJi, XinDengJi, YunYing, DianPuJiShu,
+                            FaSongDuiXiang, FaSongZhuangTai, XiaoXiBiaoShi)
+                         OUTPUT INSERTED.XuHao
+                         VALUES (%s, %s, %s, %s, %s, NULL, %s, N'发送中', %s)""",
+                    (
+                        event.store,
+                        event.qualified_on,
+                        _tier_label_for_rank(rows, event.previous_highest_rank),
+                        event.tier,
+                        operators.get(event.store, ""),
+                        recipient_text,
+                        message_key,
+                    ),
+                )
+                record_id = int(cursor.fetchone()[0])
             connection.commit()
             event_failures = []
             for target_recipient in recipients:

@@ -23,6 +23,17 @@ class InnovationDashboardEchartsTests(unittest.TestCase):
         ):
             self.assertIn(f'id="{chart_id}" class="dashboard-chart', TEMPLATE)
 
+    def test_dashboard_uses_three_equal_chart_columns(self) -> None:
+        self.assertIn("grid-template-columns: repeat(12, minmax(0, 1fr))", TEMPLATE)
+        self.assertIn('dashboard-chart-card main', TEMPLATE)
+        self.assertIn('dashboard-chart-card side', TEMPLATE)
+        self.assertIn(".dashboard-chart-card.main {", TEMPLATE)
+        main_style = TEMPLATE.split('.innovation-dashboard .dashboard-chart-card.main {', 1)[1].split('}', 1)[0]
+        self.assertIn("grid-column: span 4;", main_style)
+        self.assertLess(TEMPLATE.index('id="top-person"'), TEMPLATE.index('id="monthly-trend"'))
+        self.assertLess(TEMPLATE.index('id="monthly-trend"'), TEMPLATE.index('id="top-proposal-counts"'))
+        self.assertEqual(TEMPLATE.count('id="monthly-trend"'), 1)
+
     def test_dashboard_has_chart_lifecycle_and_empty_state_handling(self) -> None:
         self.assertIn("const dashboardCharts = new Map()", TEMPLATE)
         self.assertIn("chart.showLoading", TEMPLATE)
@@ -45,6 +56,17 @@ class InnovationDashboardEchartsTests(unittest.TestCase):
     def test_category_api_returns_enough_slices_for_the_pie_chart(self) -> None:
         category_section = BACKEND.split("# 4. 创新类别分布", 1)[1].split("# 5. 月度趋势", 1)[0]
         self.assertIn("SELECT TOP 8", category_section)
+
+    def test_dashboard_month_buckets_avoid_clr_format_function(self) -> None:
+        dashboard_section = BACKEND.split("def get_dashboard_data", 1)[1].split(
+            "@app.route('/api/get_innovation_compare'", 1
+        )[0]
+        self.assertNotIn("FORMAT(", dashboard_section)
+        self.assertIn("CONVERT(VARCHAR(7)", dashboard_section)
+
+    def test_person_ranking_allows_third_place_ties(self) -> None:
+        person_section = BACKEND.split("# 3. 个人积分前三名", 1)[1].split("# 4.", 1)[0]
+        self.assertIn("top 3 with ties", person_section)
 
 
 if __name__ == "__main__":

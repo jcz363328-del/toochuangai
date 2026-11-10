@@ -13,6 +13,9 @@ class OperationDept1FullAccessTests(unittest.TestCase):
         for function_name in ("business_analysis", "operation_fba_shipping", "tk_dashboard_90"):
             self.assertIn("郭婷", rows[function_name]["yonghu"], function_name)
 
+        self.assertIn("曹园园", rows["operation_fba_shipping"]["yonghu"])
+        self.assertIn("曹园园", CORE_USER_OVERRIDES["operation_dept_1"])
+
 
 if __name__ == "__main__":
     unittest.main()

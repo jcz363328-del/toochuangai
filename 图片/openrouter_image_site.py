@@ -36,6 +36,7 @@ PROJECT_ROOT = APP_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 from secret_settings import relocate_storage_path, sql_server_config
+import prepress_check_service
 from 图片.a_plus_reference_lab import (
     A_PLUS_REFERENCE_LAB_FEATURE_KEY,
     A_PLUS_REFERENCE_LAB_MAX_PRODUCT_IMAGES,
@@ -58,8 +59,37 @@ OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
 ARK_IMAGES_URL = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
 ARK_SEEDREAM_5_PRO_MODEL = "doubao-seedream-5-0-pro-260628"
 ARK_SEEDREAM_5_PRO_SIZE = "2K"
-DEFAULT_MODEL = "google/gemini-3.1-flash-image"
-NANO_BANANA_MODEL = "google/gemini-3.1-flash-image"
+_OMNIAKEY_API_BASE_RAW = str(os.getenv("OMNIAKEY_BASE_URL") or "https://api.omniakey.com").strip().rstrip("/")
+OMNIAKEY_API_BASE = (
+    _OMNIAKEY_API_BASE_RAW[:-3]
+    if _OMNIAKEY_API_BASE_RAW.lower().endswith("/v1")
+    else _OMNIAKEY_API_BASE_RAW
+)
+OMNIAKEY_MEDIA_TASKS_URL = f"{OMNIAKEY_API_BASE}/v1/media/tasks"
+NANO_BANANA_MODEL = "gemini-nano-banana-2.1"
+DEFAULT_MODEL = NANO_BANANA_MODEL
+# 历史遗留的 Nano Banana 变体统一收敛到 NANO_BANANA_MODEL，且统一走 OmniaKey 媒体任务接口。
+NANO_BANANA_MODEL_ALIASES = (
+    "gemini-nano-banana",
+    "google/gemini-nano-banana",
+    "google/gemini-2.5-flash-image",
+    "google/gemini-3-pro-image-preview",
+)
+# 除 Seedream 外，所有可选生图模型都由 OmniaKey 提供。
+OMNIA_IMAGE_MODEL_LABELS = {
+    NANO_BANANA_MODEL: "Nano Banana 2.1",
+    "gpt-image-2.6-flare": "GPT Image 2.6 Flare",
+    "gpt-image-2.5-flare": "GPT Image 2.5 Flare",
+    "gpt-image-2": "GPT Image 2",
+    "grok-imagine-image-quality": "Grok Imagine Image Quality",
+}
+OMNIA_IMAGE_MODELS = tuple(OMNIA_IMAGE_MODEL_LABELS)
+OMNIA_IMAGE_MODEL_ALIASES = {
+    "openai/gpt-5.4-image-2": "gpt-image-2.6-flare",
+    "openai/gpt-5-image-mini": "gpt-image-2.5-flare",
+    "openai/gpt-5-image": "gpt-image-2",
+    "x-ai/grok-imagine-image-quality": "grok-imagine-image-quality",
+}
 DEFAULT_ASPECT_RATIO = "自动"
 REFERENCE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 MIN_OUTPUT_EDGE = 2000
@@ -139,14 +169,34 @@ JIMENG_I2I_MAX_EDGE = 4096
 # 增加约 1/3，故原始图片必须控制在约 20 MB 内，不能按 29 MiB 判断。
 OPENROUTER_MAX_INPUT_IMAGE_BYTES = 21 * 1024 * 1024
 OPENROUTER_SAFE_INPUT_TARGET_BYTES = 20 * 1024 * 1024
+# 部分上游（Google AI Studio）只接受 20000000 字节以内的请求体，而多张图会一起塞进
+# 同一个 JSON。这里按“原始图片总预算”分摊，给 base64 膨胀（约 4/3）和提示词留余量。
+OPENROUTER_REQUEST_IMAGE_BUDGET_BYTES = 13 * 1024 * 1024
+OPENROUTER_INPUT_MIN_BUDGET_BYTES = 3 * 1024 * 1024
 OPENROUTER_MAX_INPUT_IMAGE_EDGE = 4096
 OPENROUTER_IMAGES_CONNECT_TIMEOUT_SECONDS = 30
 OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS = 360
 OPENROUTER_IMAGES_MAX_ATTEMPTS = 2
 OPENROUTER_IMAGES_RETRY_DELAYS = (4,)
 OPENROUTER_IMAGES_TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+# OmniaKey 媒体任务接口要求整个请求（含 Base64）不超过 1 MiB，原始图片需要先压到预算内。
+OMNIAKEY_CONNECT_TIMEOUT_SECONDS = 30
+OMNIAKEY_READ_TIMEOUT_SECONDS = 120
+OMNIAKEY_TASK_TIMEOUT_SECONDS = 600
+OMNIAKEY_TASK_POLL_INTERVAL_SECONDS = 3
+OMNIAKEY_MEDIA_MAX_ATTEMPTS = 2
+OMNIAKEY_MEDIA_RETRY_DELAYS = (4,)
+OMNIAKEY_MEDIA_TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+OMNIAKEY_INPUT_TOTAL_BUDGET_BYTES = 620_000
+OMNIAKEY_INPUT_MIN_BUDGET_BYTES = 48_000
+OMNIAKEY_MAX_INPUT_IMAGE_EDGE = 4096
 REMOVE_EYELASHES_IMAGE_RESOLUTION = "2K"
 REMOVE_EYELASHES_MAX_API_CONCURRENCY = 1
+# 批量高清固定使用原生 4K，三路并发会把 OmniaKey 上游打到 CPU 过载/无可用渠道。
+# 降到 2 路并配合任务级重试，牺牲少量速度换取整批成功率。
+HD_BATCH_MAX_API_CONCURRENCY = 2
+HD_BATCH_TRANSIENT_MAX_ATTEMPTS = 3
+HD_BATCH_TRANSIENT_RETRY_DELAYS = (8, 20)
 REMOVE_EYELASHES_REMOVE_ALL_PROMPT = (
     "You are performing a local image edit only. The existing image is locked. "
     "Every pixel outside the eyelashes is read-only and must remain pixel-identical. "
@@ -261,15 +311,8 @@ INFINITE_CANVAS_BUILD_DIR = Path(
 DEFAULT_LOGIN_ACCOUNTS = {}
 MODEL_OPTIONS = [
     JIMENG_MODEL_NAME,
-    "google/gemini-2.5-flash-image",
-    "google/gemini-3.1-flash-image",
-    "google/gemini-3-pro-image-preview",
-    "openai/gpt-5.4-image-2",
-    "openai/gpt-5-image-mini",
-    "openai/gpt-5-image",
+    *OMNIA_IMAGE_MODELS,
     "bytedance-seed/seedream-4.5",
-    "x-ai/grok-imagine-image-quality",
-    "recraft/recraft-v4.1-utility-pro",
 ]
 OUTPAINT_MODEL_OPTIONS = [
     NANO_BANANA_MODEL,
@@ -337,23 +380,30 @@ OUTPAINT_MULTISCALE_SEAM_RATIO_THRESHOLD = 1.65
 MAX_BATCH_API_CONCURRENCY = 4
 DEFAULT_BATCH_API_CONCURRENCY = 4
 JIMENG_MAX_API_CONCURRENCY = 1
-JIMENG_HD_QUEUE_CAPACITY = 10
 JIMENG_HD_GLOBAL_QUEUE_KEY = "__jimeng_hd_global_queue__"
 JIMENG_CONCURRENT_LIMIT_RETRY_COUNT = 6
 JIMENG_CONCURRENT_LIMIT_RETRY_DELAYS = (5, 10, 20, 30, 45, 60)
+JIMENG_RESULT_RETRY_DELAY_SECONDS = 5
 AMAZON_A_PLUS_MAX_EDGE = 10_000
 AMAZON_A_PLUS_MAX_PIXELS = 40_000_000
 AMAZON_A_PLUS_NATIVE_IMAGE_SIZE = "4K"
 AMAZON_A_PLUS_FEATURE_KEY = "amazon_a_plus"
+AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY = "amazon_to_walmart_a_plus"
+AMAZON_TO_WALMART_PAGE_COUNT = 4
+AMAZON_TO_WALMART_PAGE_SIZE = (1920, 1080)
 MAIN_IMAGE_A_PLUS_FEATURE_KEY = "main_image_a_plus"
 A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY = "a_plus_style_model_replace"
+A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY = "a_plus_first_screen_selling_points"
+A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY = "a_plus_hero_style_reverse"
 MAIN_IMAGE_A_PLUS_FEATURE_KEYS = {
     MAIN_IMAGE_A_PLUS_FEATURE_KEY,
     A_PLUS_REFERENCE_LAB_FEATURE_KEY,
 }
 A_PLUS_IMAGES_API_FEATURE_KEYS = {
     AMAZON_A_PLUS_FEATURE_KEY,
+    AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
     A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,
+    A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY,
     *MAIN_IMAGE_A_PLUS_FEATURE_KEYS,
 }
 MAIN_IMAGE_A_PLUS_MAX_FILES = 10
@@ -406,6 +456,14 @@ MAIN_IMAGE_A_PLUS_MOBILE_REFERENCE_PAIRS = (
 )
 IMAGE_SMART_ANALYSIS_FEATURE_KEY = "image_smart_analysis"
 IMAGE_SMART_ANALYSIS_MODEL = "google/gemini-2.5-flash"
+PUBLIC_FIGURE_DETECTION_MODELS = (IMAGE_SMART_ANALYSIS_MODEL, "openai/gpt-4.1-mini")
+# 无限画布在生成前调用本服务做公众人物风险检测，走服务器代理以避开浏览器直连的地区限制。
+PUBLIC_FIGURE_DETECTION_PROMPT = (
+    "检查所有参考图片中是否出现真实存在的知名公众人物，例如明星、网红、政治人物、企业家。\n"
+    "普通真人、模特、普通顾客或无法确认身份的写实人像都不算公众人物，必须返回 detected=false。\n"
+    "能认出具体身份时把姓名放进 names；强烈怀疑是公众人物但说不准名字时返回 detected=true、names 留空。\n"
+    '只输出一行 JSON，不要输出 Markdown：{"detected":true|false,"names":[]}。'
+)
 BACKGROUND_TEXTURE_FEATURE_KEY = "background_texture"
 BACKGROUND_TEXTURE_PRESETS: dict[str, str] = {
     "高级哑光": "细腻、均匀的高级哑光表面，低反射、无塑料感，保留自然明暗层次",
@@ -693,6 +751,10 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         if request_path == bootstrap_path:
             self.serve_infinite_canvas_bootstrap(request_url.query)
             return
+        omnia_asset_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/omnia-asset"
+        if request_path == omnia_asset_path:
+            self.serve_infinite_canvas_omnia_asset(request_url.query)
+            return
         super().do_GET()
 
     def do_POST(self) -> None:
@@ -705,6 +767,10 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         image_feature_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/image-feature"
         if request_path == image_feature_path:
             self.serve_infinite_canvas_image_feature(request_url.query)
+            return
+        detect_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/detect-public-figures"
+        if request_path == detect_path:
+            self.serve_infinite_canvas_detect_public_figures(request_url.query)
             return
         usage_record_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/usage-record"
         if request_path == usage_record_path:
@@ -732,6 +798,51 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{encoded_name}")
         super().end_headers()
 
+    def serve_infinite_canvas_omnia_asset(self, query_text: str) -> None:
+        query = urllib.parse.parse_qs(query_text)
+        username = str((query.get(AUTH_QUERY_USER_KEY) or [""])[0]).strip()
+        auth_token = str((query.get(AUTH_QUERY_TOKEN_KEY) or [""])[0]).strip()
+        expected_token = build_auth_token(username) if username else ""
+        if not username or not auth_token or not hmac.compare_digest(auth_token, expected_token):
+            self.send_json({"success": False, "message": "无效的画布访问凭证"}, status=403)
+            return
+
+        asset_url = str((query.get("url") or [""])[0]).strip()
+        parsed = urllib.parse.urlsplit(asset_url)
+        host = str(parsed.hostname or "").lower()
+        allowed_host = (
+            host == "omniakey.com"
+            or host.endswith(".omniakey.com")
+            or host.endswith(".r2.cloudflarestorage.com")
+            or host.endswith(".r2.dev")
+        )
+        if parsed.scheme != "https" or not allowed_host:
+            self.send_json({"success": False, "message": "无效的图片地址"}, status=400)
+            return
+        try:
+            response = requests.get(
+                asset_url,
+                allow_redirects=False,
+                proxies={"http": None, "https": None},
+                **get_external_request_kwargs(timeout=60, use_proxy=False),
+            )
+            response.raise_for_status()
+            content_type = str(response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if not content_type.startswith("image/"):
+                self.send_json({"success": False, "message": "返回内容不是图片"}, status=502)
+                return
+            if len(response.content) > 40 * 1024 * 1024:
+                self.send_json({"success": False, "message": "图片超过 40MB 限制"}, status=413)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(response.content)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(response.content)
+        except requests.RequestException as exc:
+            self.send_json({"success": False, "message": f"图片下载失败：{exc}"}, status=502)
+
     def serve_infinite_canvas_bootstrap(self, query_text: str) -> None:
         query = urllib.parse.parse_qs(query_text)
         username = str((query.get(AUTH_QUERY_USER_KEY) or [""])[0]).strip()
@@ -742,30 +853,74 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             return
 
         api_key = load_api_key()
-        if not api_key:
-            self.send_json({"success": False, "message": "OPENROUTER_API_KEY 未配置"}, status=503)
+        omnia_api_key = load_omnia_api_key()
+        if not api_key and not omnia_api_key:
+            self.send_json(
+                {"success": False, "message": "OPENROUTER_API_KEY 与 OMNIAKEY_API_KEY 均未配置"},
+                status=503,
+            )
             return
 
-        image_models = list(INFINITE_CANVAS_IMAGE_MODELS)
+        legacy_nano_model = "google/gemini-nano-banana-2.1"
+        legacy_image_models = [
+            legacy_nano_model,
+            "openai/gpt-5.4-image-2",
+            "openai/gpt-5-image-mini",
+            "openai/gpt-5-image",
+            "x-ai/grok-imagine-image-quality",
+            "recraft/recraft-v4.1-utility-pro",
+            "bytedance-seed/seedream-4.5",
+        ]
+        omnia_image_models = [
+            model for model in INFINITE_CANVAS_IMAGE_MODELS if model in OMNIA_IMAGE_MODELS
+        ]
+        openrouter_image_models = [
+            model for model in INFINITE_CANVAS_IMAGE_MODELS if model not in OMNIA_IMAGE_MODELS
+        ]
         text_models = list(INFINITE_CANVAS_TEXT_MODELS)
+        legacy_channel = {
+            "id": "xiaoha-openrouter",
+            "name": "小哈 OpenRouter",
+            "baseUrl": "https://openrouter.ai/api/v1",
+            "apiKey": api_key,
+            "apiFormat": "openai",
+            "models": [*legacy_image_models, *text_models],
+        }
+        channels = [
+            {
+                "id": "xiaoha-omnia",
+                "name": "小哈 OmniaKey",
+                "baseUrl": f"{OMNIAKEY_API_BASE}/v1",
+                "apiKey": omnia_api_key,
+                "apiFormat": "openai",
+                "models": omnia_image_models,
+            },
+            {
+                "id": "xiaoha-openrouter",
+                "name": "小哈 OpenRouter",
+                "baseUrl": "https://openrouter.ai/api/v1",
+                "apiKey": api_key,
+                "apiFormat": "openai",
+                "models": openrouter_image_models + text_models,
+            },
+        ]
+        image_models = omnia_image_models + (openrouter_image_models if api_key else [])
+        available_text_models = text_models if api_key else []
         self.send_json(
             {
                 "success": True,
                 "config": {
-                    "channel": {
-                        "id": "xiaoha-openrouter",
-                        "name": "小哈 OpenRouter",
-                        "baseUrl": "https://openrouter.ai/api/v1",
-                        "apiKey": api_key,
-                        "apiFormat": "openai",
-                        "models": image_models + text_models,
-                    },
-                    "imageModel": "google/gemini-3.1-flash-image",
-                    "textModel": text_models[0],
+                    "configVersion": "2026-11-06-omnia-no-qwen",
+                    "channel": legacy_channel,
+                    "channels": channels,
+                    "imageModel": legacy_nano_model,
+                    "imageModelNext": NANO_BANANA_MODEL,
+                    "textModel": available_text_models[0] if available_text_models else "",
                     "videoModel": "",
                     "audioModel": "",
-                    "imageModels": image_models,
-                    "textModels": text_models,
+                    "imageModels": legacy_image_models if api_key else [],
+                    "imageModelsNext": image_models,
+                    "textModels": available_text_models,
                     "videoModels": [],
                     "audioModels": [],
                 },
@@ -865,11 +1020,94 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
                     ),
                     "width": width,
                     "height": height,
-                    "channel": str(result.get("channel") or "Nano Banana 2 模特高清"),
+                    "channel": str(result.get("channel") or "Nano Banana 2.1 模特高清"),
                 }
             )
         except Exception as exc:
             print(f"[infinite-canvas-model-hd] {exc}", file=sys.stderr)
+            self.send_json(
+                {
+                    "success": False,
+                    "message": format_user_facing_error_message(exc),
+                },
+                status=502,
+            )
+
+    def serve_infinite_canvas_detect_public_figures(self, query_text: str) -> None:
+        query = urllib.parse.parse_qs(query_text)
+        username = str((query.get(AUTH_QUERY_USER_KEY) or [""])[0]).strip()
+        auth_token = str((query.get(AUTH_QUERY_TOKEN_KEY) or [""])[0]).strip()
+        expected_token = build_auth_token(username) if username else ""
+        if not username or not auth_token or not hmac.compare_digest(auth_token, expected_token):
+            self.send_json({"success": False, "message": "无效的画布访问凭证"}, status=403)
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            content_length = 0
+        if content_length <= 0 or content_length > INFINITE_CANVAS_MODEL_HD_MAX_REQUEST_BYTES:
+            self.send_json({"success": False, "message": "检测图片为空或超过 50MB"}, status=413)
+            return
+
+        try:
+            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            raw_images = payload.get("images")
+            if not isinstance(raw_images, list) or not raw_images:
+                raise ValueError("请至少提供 1 张待检测图片")
+            uploaded_files: list[dict[str, Any]] = []
+            for index, data_url in enumerate(list(raw_images)[:8]):
+                decoded_image = decode_data_url(str(data_url or "").strip())
+                if not decoded_image:
+                    continue
+                image_bytes, mime_type = decoded_image
+                uploaded_files.append(
+                    {
+                        "data": image_bytes,
+                        "name": f"public_figure_check_{index + 1}.png",
+                        "type": mime_type or "image/png",
+                    }
+                )
+            if not uploaded_files:
+                raise ValueError("检测图片解析失败")
+            parsed: dict[str, Any] | None = None
+            for detection_model in PUBLIC_FIGURE_DETECTION_MODELS:
+                try:
+                    answer = call_openrouter(
+                        model=detection_model,
+                        prompt=PUBLIC_FIGURE_DETECTION_PROMPT,
+                        uploaded_files=uploaded_files,
+                        output_mode="text",
+                    )
+                except RuntimeError as exc:
+                    if "上游返回空结果" not in str(exc):
+                        raise
+                    print(f"[infinite-canvas-detect] {detection_model}: {exc}", file=sys.stderr)
+                    continue
+                text = str(answer.get("text") or "").strip()
+                matched = re.search(r"\{[\s\S]*\}", text)
+                try:
+                    candidate = json.loads(matched.group(0)) if matched else None
+                except json.JSONDecodeError:
+                    candidate = None
+                if isinstance(candidate, dict):
+                    parsed = candidate
+                    break
+                print(f"[infinite-canvas-detect] {detection_model}: 未返回有效 JSON：{text[:300]}", file=sys.stderr)
+            if parsed is None:
+                # Every model refused to judge the images; fall back to the manual confirmation dialog.
+                self.send_json({"success": True, "detected": True, "names": [], "uncertain": True})
+                return
+            names = [str(name).strip() for name in list(parsed.get("names") or []) if str(name).strip()]
+            self.send_json(
+                {
+                    "success": True,
+                    "detected": bool(parsed.get("detected")),
+                    "names": names[:5],
+                }
+            )
+        except Exception as exc:
+            print(f"[infinite-canvas-detect] {exc}", file=sys.stderr)
             self.send_json(
                 {
                     "success": False,
@@ -1033,7 +1271,12 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
 
             result_image = next(iter(list(result.get("images") or [])[:1]), "")
             if not result_image:
-                raise RuntimeError(f"{str(feature.get('name') or '图片功能')}没有返回图片")
+                result_detail = str(result.get("text") or "").strip()
+                result_detail = result_detail[:160].strip()
+                raise RuntimeError(
+                    f"{str(feature.get('name') or '图片功能')}没有返回图片"
+                    + (f"：{result_detail}" if result_detail else "，请调整参数后重试")
+                )
             result_bytes, result_mime_type = load_image_bytes_from_url(str(result_image))
             width, height = get_uploaded_input_dimensions(
                 {
@@ -1221,6 +1464,17 @@ def ensure_jimeng_static_server() -> dict[str, Any]:
 
 
 FEATURES = [
+    {
+        "key": "prepress_check",
+        "name": "印前检查",
+        "summary": "上传 AI、PDF、截图或 ZIP，自动生成 19 项印前合规报告",
+        "mode": "prepress_check",
+        "output_mode": "report",
+        "min_images": 0,
+        "max_output_images": 0,
+        "description": "检查 CMYK、2mm 出血、300dpi、字体转曲、文件名、页面尺寸及包装视觉规范。",
+        "default_prompt": "按设计部印前检查流程生成逐项合规报告。",
+    },
     {
         "key": "infinite_canvas",
         "name": "无限画布",
@@ -1550,9 +1804,34 @@ FEATURES = [
         ),
     },
     {
+        "key": AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
+        "name": "亚马逊A+改沃尔玛A+",
+        "summary": "把一张亚马逊 A+ 长图重构为 4 张独立且连续的沃尔玛 16:9 A+ 页面",
+        "mode": "openrouter",
+        "output_mode": "image",
+        "min_images": 1,
+        "max_input_images": 1,
+        "max_output_images": AMAZON_TO_WALMART_PAGE_COUNT,
+        "fixed_output_count": AMAZON_TO_WALMART_PAGE_COUNT,
+        "target_size": AMAZON_TO_WALMART_PAGE_SIZE,
+        "target_size_text": "1920*1080",
+        "description": "上传 1 张由 4 个 1464×600 内容段组成的亚马逊 A+；系统按顺序重构为 4 张 1920×1080 沃尔玛 A+，单张成立，纵向拼接仍保持统一连贯。",
+        "default_prompt": (
+            "请把上传的亚马逊 A+ 长图转换为沃尔玛 A+ 内容组。"
+            "完整保留原图中真实存在的商品、人物、包装、品牌、Logo、可读文案、参数、卖点和阅读顺序，不得编造或替换商品事实。"
+            "输出固定为 4 张独立的 1920×1080 横版页面；每页必须拥有明确主题、完整主体、完整文案和独立可用的商业构图。"
+            "必须对四页文案做全局去重：同一标题、宣传句、卖点、参数说明、功能说明和行动语在整组四页中只能出现一次，不得原句重复，也不得改写成近义句后重复表达。"
+            "按照原图从上到下把文案分配给第 1 至第 4 页；当前页只使用属于当前内容段且尚未在前页出现的文案。若原稿自身存在重复文案，只保留第一次出现，后续页面删除重复项并用商品细节、场景或自然留白重新平衡版式，绝对不能编造替代文案。"
+            "品牌 Logo 可以为品牌识别而保留，但品牌口号、宣传标题和卖点仍然不得跨页重复。"
+            "四页必须共享同一套品牌色、字体气质、光影、背景材质、装饰语言、留白规则和视觉层级。"
+            "按第 1 至第 4 页顺序纵向排列时，背景、色块、纹理、光线或装饰动线应自然延续，不能出现突兀换色、风格跳变、重复内容、硬接缝或四张无关海报的拼凑感。"
+            "适配 16:9 时必须重新排版和扩展场景，不得拉伸、压扁、简单裁切或用模糊边框补齐；商品、人物、Logo 和文字均不得被画布边缘截断。"
+        ),
+    },
+    {
         "key": A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,
-        "name": "A+风格换模复刻",
-        "summary": "复刻参考图风格与版式，并用上传的指定模特完成换模",
+        "name": "A+首屏风格复刻",
+        "summary": "参考首屏风格调性，把其中所有模特替换为指定模特",
         "mode": "openrouter",
         "output_mode": "image",
         "min_images": 2,
@@ -1560,15 +1839,39 @@ FEATURES = [
         "max_output_images": 1,
         "target_size": (1464, 1000),
         "target_size_text": "1464*1000",
-        "description": "第 1 张上传完整 A+ 参考图，后续上传同一位目标模特的身份参考图；输出固定为 1464×1000。",
+        "description": "第 1 张上传 A+ 首屏参考图，只作为风格与调性参考；后续上传同一位目标模特的身份参考图。版式允许在合理范围内重新组织，输出固定 1464×1000。",
         "default_prompt": (
-            "请执行电商 A+ 参考图风格复刻与指定模特替换。输入图片中的第 1 张是完整的 A+ 成品参考图，后续图片全部是同一位目标模特的身份参考图。"
-            "严格复刻第 1 张图的整体艺术风格、画布比例、版式结构、构图层级、人物数量、人物位置、裁切范围、姿势关系、景别、色彩、光影、纹理、装饰、字体气质和视觉节奏；不要把第 1 张图原样贴回画布。"
-            "将参考图中出现的所有原模特统一替换为后续图片提供的同一位目标模特。必须稳定保持目标模特的身份、脸型、五官、肤色、发型和人物辨识度，不得混入原模特面部特征，不得生成多个不同身份的人物。"
-            "允许目标模特适配参考图中的姿势、视线、表情、服装氛围、光线方向和裁切方式，但不能改变目标模特的核心身份特征。"
-            "参考图中的商品、Logo、可读文案、排版位置和品牌视觉如未被用户明确要求替换，必须完整保留；不得改写文字、编造卖点、参数、认证或品牌信息。"
+            "请执行电商 A+ 首屏的风格复刻与指定模特替换。输入图片中的第 1 张是 A+ 首屏参考图，只提供风格与整体调性；后续图片全部是同一位目标模特的身份参考图。"
+            "请参考第 1 张图的整体视觉风格，包括配色倾向、光影氛围、质感与材质表现、字体气质、装饰语言和版面节奏，输出一张风格接近的 A+ 首屏。"
+            "不需要逐像素复刻原版式：允许在保证商业设计合理、信息层级清晰的前提下重新组织版面，调整元素的位置、大小和疏密关系，让画面更自然协调。"
+            "把参考图中出现的所有模特统一替换为后续图片提供的同一位目标模特。必须稳定保持目标模特的身份、脸型、五官、肤色、发型和辨识度，不得混入原模特的面部特征，不得出现多个不同身份的人物。"
+            "目标模特必须自然融入新画面：光线方向、色温、反差、景深、透视比例、服装质感和背景氛围要与画面一致，边缘过渡自然，不得出现抠图感、拼贴感、生硬贴脸或悬浮的边缘。"
+            "目标模特可以适配原图的姿势、视线、景别和裁切方式，但姿势和构图要符合人体结构与透视关系，不要求与原图完全一致。"
+            "参考图中的商品、Logo、可读文案、排版位置和品牌视觉，如未被用户明确要求替换，必须完整保留；不得改写文字、编造卖点、参数、认证或品牌信息。"
             "最终只输出一张完整成品图，精确尺寸为 1464×1000 像素。画面必须覆盖四边，无白边、黑边、截图界面、对话框、水印、拼贴接缝或候选方案。"
             "使用高清商业修图质量，人物面部、发丝、商品、文字和细节清晰锐利，禁止模糊、畸形、重复肢体、乱码、低分辨率和过度磨皮。"
+        ),
+    },
+    {
+        "key": A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY,
+        "name": "A+首屏卖点融合",
+        "summary": "保留首屏核心元素，把多张主图中的真实卖点融合为完整 A+ 长图",
+        "mode": "openrouter",
+        "output_mode": "image",
+        "min_images": 2,
+        "max_input_images": 10,
+        "max_output_images": 1,
+        "target_size": (1464, 2400),
+        "target_size_text": "1464*2400",
+        "description": "第 1 张上传首屏风格参考图，后续上传多张包含商品细节与卖点的主图；首屏高度在 600–1200px 内自适应，总高度可选 2400、3000 或 3600px。",
+        "default_prompt": (
+            "请生成一张完整连续的电商 A+ 长图。输入图片中的第 1 张是首屏风格与元素参考图，后续图片是同一商品的主图、细节图和卖点素材图。"
+            "首屏必须尽量保留第 1 张图中真实存在的核心元素，包括商品、人物、包装、Logo、可读文案、主色、背景氛围、装饰语言、构图关系与视觉层级；但用户补充要求明确指定删除或修改的文字、文案及其他可编辑元素除外。允许为了融合新卖点进行专业重排，但不得随意删除未被用户指定的关键识别元素、改变商品身份或照搬截图界面。"
+            "从后续多张主图中识别并提取真实可见的产品卖点、功能细节、材质、结构、配件、使用方式、规格与可读文案，把它们自然融合到首屏及后续内容区；优先保留证据清晰、信息价值高且互不重复的卖点。"
+            "只能使用上传图片中明确存在的信息，禁止编造功效、参数、认证、折扣、承诺、配件或品牌文案；相同卖点只表达一次。"
+            "首屏宽度固定为 1464px，高度必须根据首屏元素密度和构图需要在 600–1200px 之间自适应，形成强主视觉且不拥挤；首屏之后自然承接卖点、细节证据、使用场景和规格信息。"
+            "整张 A+ 必须是一张连续设计，不得出现硬切分、拼贴接缝、重复背景、独立海报堆叠或白边黑边。保持统一品牌色、字体气质、光影、材质、留白和阅读节奏。"
+            "商品外观、包装、Logo、颜色、比例、结构和可读文字必须准确清晰；任何标题、正文、商品和 Logo 都不能被画布边缘截断。"
         ),
     },
     {
@@ -1589,6 +1892,25 @@ FEATURES = [
             "先建立统一品牌视觉系统，再组织主视觉、核心卖点、细节证据、使用说明和品牌收尾；结果必须具有清晰焦点、尺度对比、前中后景和商业设计层级。"
             "严格保持被采用元素的身份、外观、品牌、包装、颜色、比例和结构，不能融合不同对象或猜测补全缺失部分。"
             + A_PLUS_PRODUCT_LOCK_RULES
+        ),
+    },
+    {
+        "key": A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY,
+        "name": "A+首屏风格逆向",
+        "summary": "上传参考图，逆向拆解风格并批量生成同风格创意图",
+        "mode": "openrouter",
+        "output_mode": "image",
+        "min_images": 1,
+        "max_input_images": 1,
+        "max_output_images": 4,
+        "target_size": (1464, 1098),
+        "description": (
+            "上传 1 张首屏风格参考图，AI 从主体内容、构图布局、色彩搭配、光影效果、设计风格、细节元素六个维度拆解，"
+            "反写中文生图提示词；提示词可直接修改，再批量生成同风格创意图，最后筛选最优方案做二次优化。"
+        ),
+        "default_prompt": (
+            "请基于参考图的视觉风格，生成一张同风格的电商 A+ 首屏创意图片。"
+            "只借鉴参考图的构图节奏、色调关系、光影氛围、材质质感与设计语言，不照搬其中的品牌、文字和商品。"
         ),
     },
     {
@@ -5122,6 +5444,19 @@ def load_api_key() -> str:
     return ""
 
 
+def load_omnia_api_key() -> str:
+    env_key = os.getenv("OMNIAKEY_API_KEY", "").strip()
+    if env_key:
+        return env_key
+
+    namespace = load_config_namespace()
+    for key_name in ("omnia_api_key", "omnia_key_api_key", "OMNIAKEY_API_KEY"):
+        value = str(namespace.get(key_name, "")).strip()
+        if value:
+            return value
+    return ""
+
+
 def load_ark_api_key() -> str:
     env_key = os.getenv("ARK_API_KEY", "").strip()
     if env_key:
@@ -5663,6 +5998,8 @@ def ensure_state() -> None:
         st.session_state.local_history_records = {}
     if "background_jobs" not in st.session_state:
         st.session_state.background_jobs = {}
+    if "a_plus_first_screen_hero_results" not in st.session_state:
+        st.session_state.a_plus_first_screen_hero_results = {}
     if "background_job_queue" not in st.session_state:
         migrated_jobs: list[dict[str, Any]] = []
         for feature_key, job_info in dict(st.session_state.background_jobs).items():
@@ -5859,10 +6196,14 @@ def normalize_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
     }
 
 
-def prepare_openrouter_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
+def prepare_openrouter_uploaded_input(
+    uploaded_file: Any,
+    max_bytes: int = OPENROUTER_SAFE_INPUT_TARGET_BYTES,
+) -> dict[str, Any]:
     normalized = normalize_uploaded_input(uploaded_file)
     image_bytes = bytes(normalized.get("data") or b"")
-    if not image_bytes or len(image_bytes) <= OPENROUTER_SAFE_INPUT_TARGET_BYTES:
+    limit = max(OPENROUTER_INPUT_MIN_BUDGET_BYTES, int(max_bytes or 0))
+    if not image_bytes or len(image_bytes) <= limit:
         return normalized
 
     original_name = sanitize_file_name(str(normalized.get("name") or "openrouter_input.png"))
@@ -5893,13 +6234,13 @@ def prepare_openrouter_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
                     output = io.BytesIO()
                     working.save(output, format="JPEG", quality=quality, optimize=True)
                     output_bytes = output.getvalue()
-                    if len(output_bytes) <= OPENROUTER_SAFE_INPUT_TARGET_BYTES:
+                    if len(output_bytes) <= limit:
                         return {
                             "data": output_bytes,
                             "name": f"{sanitize_file_name(stem)}_openrouter.jpg",
                             "type": "image/jpeg",
                         }
-                if len(output_bytes) <= OPENROUTER_MAX_INPUT_IMAGE_BYTES:
+                if len(output_bytes) <= limit:
                     return {
                         "data": output_bytes,
                         "name": f"{sanitize_file_name(stem)}_openrouter.jpg",
@@ -5917,7 +6258,22 @@ def prepare_openrouter_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
             "OpenRouter 输入图片超过 30MB，自动压缩失败，请换一张更小的图片或降低上一步输出尺寸。"
         ) from exc
 
-    raise RuntimeError("OpenRouter 输入图片超过 30MB，自动压缩后仍然太大，请降低图片尺寸后重试。")
+    raise RuntimeError("OpenRouter 输入图片过大，自动压缩后仍然超过请求体上限，请降低图片尺寸后重试。")
+
+
+def prepare_openrouter_request_inputs(uploaded_files: list[Any]) -> list[dict[str, Any]]:
+    """按请求体总预算分摊压缩所有输入图，避免多张图叠加后触发 413。"""
+    files = list(uploaded_files or [])
+    if not files:
+        return []
+    per_image_budget = max(
+        OPENROUTER_INPUT_MIN_BUDGET_BYTES,
+        OPENROUTER_REQUEST_IMAGE_BUDGET_BYTES // len(files),
+    )
+    return [
+        prepare_openrouter_uploaded_input(uploaded_file, max_bytes=per_image_budget)
+        for uploaded_file in files
+    ]
 
 
 def prepare_ark_seedream_uploaded_input(uploaded_file: Any) -> dict[str, Any]:
@@ -9121,6 +9477,30 @@ def is_ark_seedream_model(model_name: str) -> bool:
     return str(model_name or "").strip() == ARK_SEEDREAM_5_PRO_MODEL
 
 
+def is_nano_banana_model(model_name: str) -> bool:
+    normalized = str(model_name or "").strip().lower()
+    return normalized.startswith(NANO_BANANA_MODEL_ALIASES)
+
+
+def resolve_nano_banana_model(model_name: str) -> str:
+    """Nano Banana 的任意变体都映射到唯一的 NANO_BANANA_MODEL。"""
+    if is_nano_banana_model(model_name):
+        return NANO_BANANA_MODEL
+    return str(model_name or "").strip()
+
+
+def resolve_omnia_image_model(model_name: str) -> str:
+    """把旧模型名和 OmniaKey 模型名统一收敛到 OmniaKey 的生图模型。"""
+    normalized = str(model_name or "").strip()
+    if normalized in OMNIA_IMAGE_MODELS:
+        return normalized
+    if normalized in OMNIA_IMAGE_MODEL_ALIASES:
+        return OMNIA_IMAGE_MODEL_ALIASES[normalized]
+    if is_nano_banana_model(normalized):
+        return NANO_BANANA_MODEL
+    return ""
+
+
 def get_model_display_name(model_name: str) -> str:
     normalized_name = str(model_name or "").strip()
     if is_ark_seedream_model(normalized_name):
@@ -9131,8 +9511,8 @@ def get_model_display_name(model_name: str) -> str:
         return "即梦 Seedream 4.6"
     if normalized_name == IMAGE_SMART_ANALYSIS_MODEL:
         return "Gemini 2.5 Flash 视觉分析"
-    if normalized_name == NANO_BANANA_MODEL:
-        return "Nano Banana 2 生图"
+    if normalized_name in OMNIA_IMAGE_MODEL_LABELS:
+        return OMNIA_IMAGE_MODEL_LABELS[normalized_name]
     return normalized_name
 
 
@@ -9145,6 +9525,69 @@ def is_jimeng_concurrent_limit_error(message: str) -> bool:
         or "concurrent limit" in normalized_message
         or "exceededconcurrentquota" in normalized_message
     )
+
+
+def is_hd_batch_transient_error(error: Any) -> bool:
+    normalized = str(error or "").strip().lower()
+    if not normalized:
+        return False
+    if any(
+        marker in normalized
+        for marker in ("invalid_input", "content not allowed", "not supported")
+    ):
+        return False
+    return any(
+        marker in normalized
+        for marker in (
+            "no available channel",
+            "no_available_channel",
+            "system_cpu_overloaded",
+            "cpu overloaded",
+            "generation service is busy",
+            "service is busy",
+            "provider_submit_rejected",
+            "http 502",
+            "http 503",
+            "http 504",
+            "http 429",
+            "timed out",
+            "timeout",
+            "连接失败",
+        )
+    )
+
+
+def run_hd_batch_generate_with_retry(
+    generate_once,
+    prompt_text: str,
+    retry_offset_seconds: int = 0,
+) -> dict[str, Any]:
+    last_error: Exception | None = None
+    for attempt_index in range(HD_BATCH_TRANSIENT_MAX_ATTEMPTS):
+        try:
+            return generate_once(prompt_text)
+        except Exception as exc:
+            last_error = exc
+            if (
+                attempt_index + 1 >= HD_BATCH_TRANSIENT_MAX_ATTEMPTS
+                or not is_hd_batch_transient_error(exc)
+            ):
+                raise
+            delay = (
+                HD_BATCH_TRANSIENT_RETRY_DELAYS[
+                    min(attempt_index, len(HD_BATCH_TRANSIENT_RETRY_DELAYS) - 1)
+                ]
+                + max(int(retry_offset_seconds or 0), 0)
+            )
+            print(
+                f"⚠️ 批量高清第 {attempt_index + 1} 次生成遇到临时故障，"
+                f"{delay} 秒后自动重试：{exc}",
+                file=sys.stderr,
+            )
+            time.sleep(delay)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("批量高清生成失败，请稍后重试。")
 
 
 def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], group_index: int) -> dict[str, Any]:
@@ -9336,7 +9779,14 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
         }
     else:
         try:
-            batch_result = generate_once(request_prompt)
+            if feature_key == "hd_batch" and str(job_context.get("output_mode") or "") == "image":
+                batch_result = run_hd_batch_generate_with_retry(
+                    generate_once,
+                    request_prompt,
+                    retry_offset_seconds=(max(group_index, 1) - 1) * 4,
+                )
+            else:
+                batch_result = generate_once(request_prompt)
         except Exception as exc:
             if feature_key == "remove_eyelashes":
                 source_label = f"第 {group_index} 张"
@@ -9374,6 +9824,7 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                 )
                 return normalized_candidate, candidate_measurements
 
+            rejected_fallbacks: list[str] = []
             for image_url in (batch_result.get("images") or []):
                 corrected_image, seam_measurements = normalize_and_measure_outpaint(
                     str(image_url)
@@ -9432,11 +9883,20 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                                 seam_measurements = retry_measurements
                 if has_outpaint_rectangular_join(seam_measurements):
                     rejected_join_count += 1
+                    rejected_fallbacks.append(corrected_image)
                     continue
                 corrected_images.append(corrected_image)
+            fallback_notice = ""
+            if not corrected_images and rejected_fallbacks:
+                corrected_images = [rejected_fallbacks[-1]]
+                fallback_notice = (
+                    f"已自动拦截 {rejected_join_count} 张有矩形拼接痕迹的扩图候选；"
+                    "为避免本次完全没有结果，已保留其中最接近的一张供你判断。"
+                    "建议减少扩图方向或降低扩图像素后重试。"
+                )
             batch_result["images"] = corrected_images
             if rejected_join_count:
-                rejection_notice = (
+                rejection_notice = fallback_notice or (
                     f"已自动拦截 {rejected_join_count} 张仍存在矩形拼接或重复人物的扩图候选，"
                     "这些坏图不会进入结果和下载。"
                 )
@@ -11204,7 +11664,12 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
         job_context.get("main_image_a_plus_text_edit")
         or job_context.get("main_image_a_plus_adapt_mobile")
     )
-    if output_mode != "image" or requested_output_count <= 1 or is_internal_a_plus_action:
+    if (
+        output_mode != "image"
+        or requested_output_count <= 1
+        or is_internal_a_plus_action
+        or feature_key == AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY
+    ):
         return _run_feature_job_once(job_context)
 
     job_id = str(job_context.get("job_id") or "")
@@ -11250,11 +11715,215 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
     return finalize_feature_job_result(job_context, merged_result, job_id)
 
 
+def _amazon_a_plus_row_profile(source: Image.Image) -> tuple[list[float], list[float], int]:
+    """Return per-row brightness mean/std profiles for section boundary detection."""
+    sample_width = 320
+    sample_height = max(120, min(1200, int(source.height * sample_width / max(source.width, 1))))
+    sample = source.convert("L").resize((sample_width, sample_height), Image.Resampling.BILINEAR)
+    pixels = list(sample.getdata())
+    means: list[float] = []
+    stds: list[float] = []
+    for row_index in range(sample_height):
+        row = pixels[row_index * sample_width : (row_index + 1) * sample_width]
+        mean = sum(row) / sample_width
+        variance = sum((value - mean) ** 2 for value in row) / sample_width
+        means.append(mean)
+        stds.append(math.sqrt(variance))
+    return means, stds, sample_height
+
+
+def detect_amazon_a_plus_section_boundaries(source: Image.Image) -> list[int]:
+    """Find the four content-section cuts instead of slicing the canvas into equal quarters."""
+    count = AMAZON_TO_WALMART_PAGE_COUNT
+    nominal = [round(source.height * index / count) for index in range(count + 1)]
+    try:
+        means, stds, sample_height = _amazon_a_plus_row_profile(source)
+    except Exception:
+        return nominal
+    if len(means) < count * 2:
+        return nominal
+    max_std = max(stds) or 1.0
+    jumps = [0.0]
+    for index in range(1, len(means)):
+        jumps.append(abs(means[index] - means[index - 1]))
+    max_jump = max(jumps) or 1.0
+    scores = [
+        0.55 * (1.0 - stds[index] / max_std) + 0.45 * (jumps[index] / max_jump)
+        for index in range(len(means))
+    ]
+    section = source.height / count
+    boundaries = [0]
+    for index in range(1, count):
+        center = nominal[index]
+        window = section * 0.08
+        low = max(int(boundaries[-1] + section * 0.45), int(center - window))
+        high = min(int(source.height - section * 0.45 * (count - index)), int(center + window))
+        if low >= high:
+            boundaries.append(center)
+            continue
+        sample_low = max(1, int(low * sample_height / source.height))
+        sample_high = min(len(scores) - 1, int(high * sample_height / source.height))
+        if sample_high <= sample_low:
+            boundaries.append(center)
+            continue
+        best_index = max(range(sample_low, sample_high), key=lambda row: scores[row])
+        if scores[best_index] < 0.5:
+            boundaries.append(center)
+            continue
+        boundaries.append(int(round(best_index * source.height / sample_height)))
+    boundaries.append(source.height)
+    return boundaries
+
+
+def split_amazon_a_plus_source(uploaded_input: Any) -> tuple[list[dict[str, Any]], bool]:
+    """Return four ordered source sections when the upload is a long A+ canvas."""
+    image_bytes = get_uploaded_file_bytes(uploaded_input)
+    if not image_bytes:
+        raise RuntimeError("上传的亚马逊 A+ 图片为空，请重新上传。")
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as opened:
+            source = ImageOps.exif_transpose(opened).convert("RGB")
+            is_long_canvas = source.height >= source.width * 1.2
+            if not is_long_canvas:
+                normalized = prepare_openrouter_uploaded_input(uploaded_input)
+                return [normalized for _index in range(AMAZON_TO_WALMART_PAGE_COUNT)], False
+            boundaries = detect_amazon_a_plus_section_boundaries(source)
+            sections: list[dict[str, Any]] = []
+            for index in range(AMAZON_TO_WALMART_PAGE_COUNT):
+                crop = source.crop((0, boundaries[index], source.width, boundaries[index + 1]))
+                output = io.BytesIO()
+                crop.save(output, format="PNG", optimize=True)
+                sections.append(
+                    prepare_openrouter_uploaded_input(
+                        {
+                            "data": output.getvalue(),
+                            "name": f"amazon_a_plus_section_{index + 1}.png",
+                            "type": "image/png",
+                        }
+                    )
+                )
+            return sections, True
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"无法读取亚马逊 A+ 图片：{exc}") from exc
+
+
+def image_url_as_uploaded_input(image_url: str, name: str) -> dict[str, Any]:
+    image_bytes, mime_type = load_image_bytes_from_url(image_url)
+    return prepare_openrouter_uploaded_input(
+        {"data": image_bytes, "name": name, "type": mime_type or "image/png"}
+    )
+
+
+AMAZON_TO_WALMART_PAGE_PROMPT = (
+    "请把上传的亚马逊 A+ 长图重构为沃尔玛 A+ 内容组中的一页。"
+    "完整保留本页内容来源区域中真实存在的商品、人物、包装、品牌、Logo、可读文案、参数、卖点和阅读顺序，不得编造或替换商品事实。"
+    "输出单张 1920×1080 横版页面；本页必须拥有明确主题、完整主体、完整文案和独立可用的商业构图。"
+    "四页共享同一套品牌色、字体气质、光影、背景材质、装饰语言、留白规则和视觉层级。"
+    "本页顶部应自然承接上一页、底部为下一页预留视觉延续，不出现突兀换色、风格跳变或硬接缝。"
+    "适配 16:9 时必须重新排版和扩展场景，不得拉伸、压扁、简单裁切或用模糊边框补齐；商品、人物、Logo 和文字均不得被画布边缘截断。"
+)
+
+
+def run_amazon_to_walmart_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
+    uploaded_files = list(job_context.get("uploaded_files") or [])
+    if len(uploaded_files) != 1:
+        raise RuntimeError("亚马逊A+改沃尔玛A+需要且只能上传 1 张完整亚马逊 A+ 图片。")
+    job_id = str(job_context.get("job_id") or "")
+    source = prepare_openrouter_uploaded_input(uploaded_files[0])
+    sections, source_was_split = split_amazon_a_plus_source(source)
+    page_purposes = (
+        "品牌与商品主视觉，建立第一视觉焦点",
+        "核心卖点与关键产品细节，信息完整且易读",
+        "使用场景、功能表现或工艺证据",
+        "规格、包装、组合信息与品牌收尾",
+    )
+    output_images: list[str] = []
+    previous_page: dict[str, Any] | None = None
+    custom_prompt = str(job_context.get("custom_prompt") or "").strip()
+    for page_index, (section, purpose) in enumerate(zip(sections, page_purposes), start=1):
+        if job_id:
+            set_task_progress(
+                job_id,
+                12 + (page_index - 1) * 18,
+                f"正在重构沃尔玛 A+ 第 {page_index}/{AMAZON_TO_WALMART_PAGE_COUNT} 页",
+            )
+        if previous_page is None:
+            request_inputs = [source, section]
+            reference_roles = (
+                "输入图第 1 张是完整亚马逊 A+，只用于核对品牌视觉系统、商品外观、Logo 与全局配色，不作为本页内容来源；"
+                + (
+                    "第 2 张是当前页对应的原始内容区域，是本页唯一的内容来源。"
+                    if source_was_split
+                    else "原图不是长图，第 2 张与第 1 张相同；本页只取与页面职责相关的内容，其余内容留给其他页。"
+                )
+                + "当前是第 1 页，需要建立后续三页共同遵循的视觉系统，并让底部可自然延续。"
+            )
+        else:
+            request_inputs = [section, previous_page]
+            reference_roles = (
+                "输入图第 1 张是当前页对应的原始内容区域，是本页唯一的内容来源；"
+                "第 2 张是已经完成的上一页，只用于承接背景边缘、配色、字体气质、光影和装饰动线。"
+                "上一页的任何标题、宣传句、卖点、参数、场景或主体都不得在本页重复出现。"
+            )
+        page_prompt = "\n\n".join(
+            part
+            for part in (
+                AMAZON_TO_WALMART_PAGE_PROMPT,
+                custom_prompt and f"用户补充要求：{custom_prompt}",
+                reference_roles,
+                f"当前只生成第 {page_index}/4 页，本页职责：{purpose}。",
+                "本页是单张 1920×1080 独立页面：禁止四宫格、禁止多页拼贴、禁止把原图多段内容缩略进本页、禁止边框和说明文字。"
+                "本页内容只能来自第 1 张当前内容区域，禁止把其他内容区域的标题、宣传句、卖点、参数、场景或画面搬入本页。"
+                "本页内同一标题、宣传句、卖点、参数说明、功能说明和行动语只能出现一次，同一画面中同一视觉元素最多出现一次，不得近义改写后重复表达。"
+                "本页文案只能取当前内容区域中尚未在前页出现的部分；若与前页重复则整条省略，并用商品细节、场景或自然留白重新平衡版式，不得编造新句填补。"
+                "Brand Logo 可保留，品牌口号不得跨页重复。",
+            )
+            if part
+        )
+        page_result = call_openrouter_images_api(
+            model=str(job_context.get("model") or NANO_BANANA_MODEL),
+            prompt=page_prompt,
+            uploaded_files=request_inputs,
+            aspect_ratio="16:9",
+            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+        )
+        page_images = list(page_result.get("images") or [])
+        if not page_images:
+            raise RuntimeError(f"沃尔玛 A+ 第 {page_index} 页没有返回图片，请重试。")
+        exact_page = resize_image_to_exact_size(
+            page_images[0],
+            AMAZON_TO_WALMART_PAGE_SIZE[0],
+            AMAZON_TO_WALMART_PAGE_SIZE[1],
+        )
+        output_images.append(exact_page)
+        previous_page = image_url_as_uploaded_input(exact_page, f"walmart_a_plus_page_{page_index}.png")
+    if job_id:
+        set_task_progress(job_id, 88, "正在整理 4 张沃尔玛 A+ 页面")
+    return {
+        "images": output_images,
+        "source_images": [uploaded_input_to_data_url(source)] * AMAZON_TO_WALMART_PAGE_COUNT,
+        "captions": [f"沃尔玛 A+ 第 {index}/4 页 · 1920×1080" for index in range(1, 5)],
+        "text": (
+            "已按原内容顺序生成 4 张 1920×1080 沃尔玛 A+ 页面。"
+            "每页均为独立完整构图，并通过统一品牌色、字体气质、光影和边缘过渡保持整组连贯。"
+        ),
+        "channel": "Images API 原生 4K · 沃尔玛 A+ 四页连续重构",
+        "target_size": AMAZON_TO_WALMART_PAGE_SIZE,
+        "page_count": AMAZON_TO_WALMART_PAGE_COUNT,
+        "source_was_split": source_was_split,
+    }
+
+
 def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
     job_id = str(job_context.get("job_id") or "")
     if job_id:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
+    if feature_key == AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY:
+        result = run_amazon_to_walmart_a_plus_job(job_context)
+        return finalize_feature_job_result(job_context, result, job_id)
     if feature_key == "image_resize":
         uploaded_files = list(job_context.get("uploaded_files") or [])
         target_size = tuple(job_context.get("target_size") or ())
@@ -11366,6 +12035,11 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
             requested_batch_concurrency = min(
                 requested_batch_concurrency,
                 REMOVE_EYELASHES_MAX_API_CONCURRENCY,
+            )
+        if feature_key == "hd_batch":
+            requested_batch_concurrency = min(
+                requested_batch_concurrency,
+                HD_BATCH_MAX_API_CONCURRENCY,
             )
         effective_batch_concurrency = min(requested_batch_concurrency, total_groups)
         completed_results: dict[int, dict[str, Any]] = {}
@@ -11619,7 +12293,9 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
             job_id,
             run_queued_feature_job,
             job_context,
-            max_outstanding_jobs=(JIMENG_HD_QUEUE_CAPACITY if is_jimeng_hd_job else None),
+            # 即梦超清账号没有并发额度；所有任务进入同一个无容量上限的
+            # FIFO，由唯一 worker 串行处理，不能因为队列较长而绕过排队。
+            max_outstanding_jobs=None,
         )
     except Exception:
         clear_task_progress(job_id)
@@ -11635,7 +12311,7 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
         "queue_key": queue_key,
         "queue_ahead": ahead_count,
         "queue_position": max(int(queue_state.get("queue_position") or 0), 0),
-        "queue_capacity": JIMENG_HD_QUEUE_CAPACITY if is_jimeng_hd_job else 0,
+        "queue_capacity": 0,
         "submitted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "error": "",
         "progress": 1,
@@ -11645,6 +12321,9 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
             else (f"排队中，前面还有 {ahead_count} 个任务" if ahead_count else "排队中，等待执行")
         ),
     }
+    workflow_stage = str(job_context.get("a_plus_first_screen_workflow_stage") or "").strip()
+    if workflow_stage:
+        job_info["a_plus_first_screen_workflow_stage"] = workflow_stage
     queue_records = list(st.session_state.get("background_job_queue") or [])
     queue_records.append(job_info)
     st.session_state.background_job_queue = queue_records
@@ -11726,6 +12405,14 @@ def store_completed_background_job_result(
     job_info.pop("completion_start_progress", None)
     frontend_result = prepare_result_for_frontend(result)
     st.session_state.feature_results[feature_key] = frontend_result
+    if (
+        feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
+        and str(job_info.get("a_plus_first_screen_workflow_stage") or "") == "hero"
+        and list(frontend_result.get("images") or [])
+    ):
+        hero_results = dict(st.session_state.get("a_plus_first_screen_hero_results") or {})
+        hero_results[feature_key] = frontend_result
+        st.session_state.a_plus_first_screen_hero_results = hero_results
     account_name = str(frontend_result.get("history_account_name") or st.session_state.get("auth_username") or "admin")
     history_records = list(frontend_result.get("history_records") or [])
     if history_records:
@@ -13951,6 +14638,29 @@ def inject_upload_reorder_support() -> None:
     )
 
 
+def build_a_plus_first_screen_user_override(custom_prompt: str) -> str:
+    """Make the user's editable A+ goal win over preservation defaults."""
+    normalized = str(custom_prompt or "").strip()
+    if not normalized:
+        return ""
+    sections = [
+        "【用户编辑目标｜最高优先级】以下要求是本次生成必须执行的最终编辑指令；若与前文关于保留参考图文案、文字或版式细节的要求冲突，以本段为准。",
+        normalized,
+    ]
+    remove_text_pattern = re.compile(
+        r"(?:去掉|去除|删除|移除|不要|不保留|清除|抹掉|擦除).{0,12}(?:文字|文案|文本|字幕|字样|标语)"
+        r"|(?:文字|文案|文本|字幕|字样|标语).{0,12}(?:去掉|去除|删除|移除|不要|不保留|清除|抹掉|擦除)",
+        re.IGNORECASE,
+    )
+    if remove_text_pattern.search(normalized):
+        sections.append(
+            "已识别为去文字任务：必须删除用户所指参考图中的全部目标文字，不得照抄、重绘、近似复刻或换一种字体保留；"
+            "删除后用周围背景、纹理、光影和材质自然补全原文字区域，最终对应区域不得残留可读字符、乱码、文字轮廓或水印痕迹。"
+        )
+    sections.append("完成生成前必须逐项核对上述用户要求，不能只执行默认模板规则。")
+    return "\n".join(sections)
+
+
 def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str, extra_notes: str) -> str:
     sections = [
         f"当前执行功能：{feature['name']}",
@@ -14017,7 +14727,12 @@ def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str,
     }:
         sections.append(f"目标画幅比例：{aspect_ratio}")
     if custom_prompt.strip():
-        sections.append(f"补充要求：{custom_prompt.strip()}")
+        if feature.get("key") == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY:
+            user_override = build_a_plus_first_screen_user_override(custom_prompt)
+            sections.insert(0, user_override)
+            sections.append(user_override)
+        else:
+            sections.append(f"补充要求：{custom_prompt.strip()}")
     if extra_notes.strip():
         sections.append(f"附加说明：{extra_notes.strip()}")
     sections.append("请输出适合商业修图/电商展示的高质量结果。")
@@ -14293,15 +15008,38 @@ def extract_jimeng_result_images(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def poll_jimeng_task_result(req_key: str, task_id: str, timeout: int = 120) -> dict[str, Any]:
-    deadline = time.time() + JIMENG_RESULT_TIMEOUT_SECONDS
+    """Keep the single vendor slot until the submitted task reaches a terminal state.
+
+    Releasing the process lock after a local timeout is unsafe: the upstream task
+    can remain in ``generating`` and the next queued submit then violates the
+    account's zero-concurrency allowance.  Once a task_id exists we therefore
+    retry transient query failures and wait for an explicit terminal state.
+    """
     last_status = "in_queue"
-    while time.time() < deadline:
+    while True:
         result_body = {
             "req_key": req_key,
             "task_id": task_id,
             "req_json": json.dumps({"return_url": True}, ensure_ascii=False, separators=(",", ":")),
         }
-        result_data = jimeng_signed_post(JIMENG_GET_RESULT_ACTION, result_body, timeout=timeout)
+        try:
+            result_data = jimeng_signed_post(JIMENG_GET_RESULT_ACTION, result_body, timeout=timeout)
+        except RuntimeError as exc:
+            error_text = str(exc)
+            retryable = any(
+                marker in error_text
+                for marker in (
+                    "无法连接到火山引擎视觉服务",
+                    "请求超时",
+                    "错误码 50430",
+                    "Concurrent Limit",
+                )
+            )
+            if not retryable:
+                raise
+            last_status = "query_retry"
+            time.sleep(JIMENG_RESULT_RETRY_DELAY_SECONDS)
+            continue
         code = int(result_data.get("code") or 0)
         if code == 50500:
             last_status = "transient_internal_error"
@@ -14317,7 +15055,6 @@ def poll_jimeng_task_result(req_key: str, task_id: str, timeout: int = 120) -> d
         if status in {"not_found", "expired"}:
             raise RuntimeError(f"Agent 查询结果失败：任务状态为 {status}。")
         time.sleep(JIMENG_RESULT_POLL_INTERVAL_SECONDS)
-    raise RuntimeError(f"Agent 处理超时：任务长时间处于 {last_status} 状态。")
 
 
 def call_jimeng_hd_upscale(uploaded_files: list[Any] | None = None) -> dict[str, Any]:
@@ -14419,7 +15156,7 @@ def call_openrouter_portrait_hd(
         return result
     except Exception as exc:
         raise RuntimeError(
-            "OpenRouter Images API 原生 4K 调用失败。为避免画质降级，本次未使用聊天兼容通道或本地放大。"
+            "OmniaKey 原生 4K 调用失败。为避免画质降级，本次未使用聊天兼容通道或本地放大。"
             f"原因：{exc}"
         ) from exc
 
@@ -14552,6 +15289,35 @@ def format_openrouter_error_message(error_message: Any) -> str:
     return with_source("OpenRouter 请求失败，详细信息已记录在服务器，请稍后重试或联系管理员。")
 
 
+def format_omnia_error_message(error_message: Any) -> str:
+    raw_message = str(error_message or "").strip()
+    normalized_message = raw_message.lower()
+    if "omniakey_api_key" in normalized_message or "未配置" in raw_message:
+        return "OmniaKey 未配置 OMNIAKEY_API_KEY，请联系管理员完成配置。"
+    if "http 401" in normalized_message or "unauthorized" in normalized_message or "invalid api key" in normalized_message:
+        return "OmniaKey 鉴权失败（HTTP 401），请联系管理员检查 OMNIAKEY_API_KEY。"
+    if "http 402" in normalized_message or "insufficient" in normalized_message or "余额" in raw_message:
+        return "OmniaKey 账户余额不足（HTTP 402），请充值后重试。"
+    if "http 429" in normalized_message or "rate limit" in normalized_message or "限流" in raw_message:
+        return "OmniaKey 当前请求过于频繁（HTTP 429），请稍等一会儿再提交。"
+    if "system_cpu_overloaded" in normalized_message or "cpu overloaded" in normalized_message:
+        return "OmniaKey 上游负载过高（CPU 过载），批量高清已自动降低并发并重试；请稍后重新提交。"
+    if "generation service is busy" in normalized_message or "service is busy" in normalized_message:
+        return "OmniaKey 上游生成服务繁忙，系统已自动重试；请稍后重新提交。"
+    if "http 503" in normalized_message or "no_available_channel" in normalized_message or "no available channel" in normalized_message:
+        return "OmniaKey 当前没有可用渠道服务该模型，系统已自动降低并发并重试；请稍后重新提交。"
+    if "http 413" in normalized_message or "request body too large" in normalized_message or "1mb" in normalized_message:
+        return "OmniaKey 请求体超过 1MB 上限，请降低输入图片尺寸后重试。"
+    if "safety" in normalized_message or "blocked" in normalized_message or "审核" in raw_message:
+        return "图片或文字要求触发了模型安全审核，请更换合规图片或调整要求后重试。"
+    if "timeout" in normalized_message or "timed out" in normalized_message or "超时" in raw_message:
+        return "OmniaKey 任务等待超时，请稍后重新提交。"
+    cleaned_message = re.sub(r"https?://\S+", "", raw_message).strip()
+    if len(cleaned_message) > 600:
+        return "OmniaKey 任务未成功，详细信息已记录在服务器，请稍后重试或联系管理员。"
+    return cleaned_message or "OmniaKey 任务失败，请稍后重试。"
+
+
 def format_user_facing_error_message(error_message: Any) -> str:
     raw_message = str(error_message or "").strip()
     if not raw_message:
@@ -14602,6 +15368,8 @@ def format_user_facing_error_message(error_message: Any) -> str:
             "火山引擎鉴权或授权失败：请确认 AK/SK 是同一组有效的 AccessKey，"
             "并确认其所属账号已开通“即梦AI-智能超清”；方舟模型 API Key 不能替代这里的 AK/SK。"
         )
+    if "omnia" in normalized_message:
+        return format_omnia_error_message(raw_message)
     if "openrouter" in normalized_message or "key limit exceeded" in normalized_message or "daily limit" in normalized_message:
         if "key limit exceeded" in normalized_message or "daily limit" in normalized_message:
             return "OpenRouter 今日额度已用完，请更换可用的 API Key，或等待每日额度重置后再试。"
@@ -14617,6 +15385,243 @@ def format_user_facing_error_message(error_message: Any) -> str:
     return cleaned_message
 
 
+def prepare_omnia_media_uploaded_input(
+    uploaded_file: Any,
+    max_bytes: int = OMNIAKEY_INPUT_TOTAL_BUDGET_BYTES,
+) -> dict[str, Any]:
+    normalized = normalize_uploaded_input(uploaded_file)
+    image_bytes = bytes(normalized.get("data") or b"")
+    if not image_bytes:
+        raise RuntimeError("OmniaKey 输入图片为空，请重新上传。")
+    limit = max(OMNIAKEY_INPUT_MIN_BUDGET_BYTES, int(max_bytes or 0))
+    if len(image_bytes) <= limit:
+        return normalized
+
+    original_name = sanitize_file_name(str(normalized.get("name") or "omnia_input.png"))
+    stem = Path(original_name).stem or "omnia_input"
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            working = ImageOps.exif_transpose(image)
+            has_alpha = working.mode in {"RGBA", "LA"} or "transparency" in working.info
+            working = working.convert("RGBA") if has_alpha else working.convert("RGB")
+            if has_alpha:
+                background = Image.new("RGB", working.size, (255, 255, 255))
+                background.paste(working, mask=working.getchannel("A"))
+                working = background
+            else:
+                working = working.convert("RGB")
+            if max(working.size) > OMNIAKEY_MAX_INPUT_IMAGE_EDGE:
+                ratio = OMNIAKEY_MAX_INPUT_IMAGE_EDGE / float(max(working.size))
+                working = working.resize(
+                    (
+                        max(1, int(round(working.size[0] * ratio))),
+                        max(1, int(round(working.size[1] * ratio))),
+                    ),
+                    Image.Resampling.LANCZOS,
+                )
+
+            for _attempt in range(10):
+                for quality in (92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52):
+                    output = io.BytesIO()
+                    working.save(output, format="JPEG", quality=quality, optimize=True)
+                    output_bytes = output.getvalue()
+                    if len(output_bytes) <= limit:
+                        return {
+                            "data": output_bytes,
+                            "name": f"{sanitize_file_name(stem)}_omnia.jpg",
+                            "type": "image/jpeg",
+                        }
+                next_size = (
+                    max(1, int(round(working.size[0] * 0.85))),
+                    max(1, int(round(working.size[1] * 0.85))),
+                )
+                if next_size == working.size:
+                    break
+                working = working.resize(next_size, Image.Resampling.LANCZOS)
+    except Exception as exc:
+        raise RuntimeError(f"OmniaKey 输入图片自动压缩失败：{exc}") from exc
+
+    raise RuntimeError("OmniaKey 输入图片压缩后仍然超过 1MB 请求体上限，请降低图片尺寸后重试。")
+
+
+def prepare_omnia_media_request_inputs(uploaded_files: list[Any]) -> list[dict[str, Any]]:
+    files = list(uploaded_files or [])
+    if not files:
+        return []
+    per_image_budget = max(
+        OMNIAKEY_INPUT_MIN_BUDGET_BYTES,
+        OMNIAKEY_INPUT_TOTAL_BUDGET_BYTES // len(files),
+    )
+    return [
+        prepare_omnia_media_uploaded_input(uploaded_file, max_bytes=per_image_budget)
+        for uploaded_file in files
+    ]
+
+
+def build_omnia_task_error_message(payload: dict[str, Any]) -> str:
+    error_payload = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(error_payload, dict):
+        code = str(error_payload.get("code") or "").strip()
+        message = str(error_payload.get("message") or error_payload.get("reason") or "").strip()
+        if code and message:
+            return f"{code}：{message}"
+        return message or code or "未提供具体错误信息"
+    return str(error_payload or "").strip() or "未提供具体错误信息"
+
+
+def call_omnia_image_api(
+    model: str,
+    prompt: str,
+    uploaded_files: list[Any] | None = None,
+    aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+    resolution: str = "",
+    max_attempts: int | None = None,
+) -> dict[str, Any]:
+    omnia_model = resolve_omnia_image_model(model)
+    if not omnia_model:
+        raise RuntimeError(f"OmniaKey 不支持该生图模型：{model}")
+    api_key = load_omnia_api_key()
+    if not api_key:
+        raise RuntimeError("OmniaKey 未配置 OMNIAKEY_API_KEY，请先在环境变量或 config.py 中配置。")
+
+    prepared_files = prepare_omnia_media_request_inputs(list(uploaded_files or []))
+    operation = "edit" if prepared_files else "generate"
+    parameters: dict[str, Any] = {}
+    normalized_aspect_ratio = str(aspect_ratio or "").strip()
+    if normalized_aspect_ratio in GEMINI_IMAGE_ASPECT_RATIOS:
+        parameters["aspect_ratio"] = normalized_aspect_ratio
+    normalized_resolution = str(resolution or "").strip().upper()
+    if normalized_resolution in GEMINI_IMAGE_SIZES:
+        parameters["image_size"] = normalized_resolution
+
+    task_input: dict[str, Any] = {
+        "prompt": enforce_global_no_distortion_rules(prompt),
+    }
+    if prepared_files:
+        task_input["images"] = [file_to_data_url(prepared_file) for prepared_file in prepared_files]
+    payload = {
+        "model": omnia_model,
+        "type": "image",
+        "operation": operation,
+        "input": task_input,
+        "parameters": parameters,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"xiaoha-{uuid4().hex}",
+    }
+    normalized_max_attempts = max(int(max_attempts or OMNIAKEY_MEDIA_MAX_ATTEMPTS), 1)
+    response = None
+    last_request_error: requests.RequestException | None = None
+    for attempt_index in range(normalized_max_attempts):
+        try:
+            response = requests.post(
+                OMNIAKEY_MEDIA_TASKS_URL,
+                headers=headers,
+                json=payload,
+                **get_external_request_kwargs(
+                    timeout=(OMNIAKEY_CONNECT_TIMEOUT_SECONDS, OMNIAKEY_READ_TIMEOUT_SECONDS),
+                    use_proxy=False,
+                ),
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_request_error = exc
+            if attempt_index + 1 >= normalized_max_attempts:
+                raise RuntimeError(f"OmniaKey 连接失败，已自动尝试 {normalized_max_attempts} 次：{exc}") from exc
+            time.sleep(OMNIAKEY_MEDIA_RETRY_DELAYS[min(attempt_index, len(OMNIAKEY_MEDIA_RETRY_DELAYS) - 1)])
+            continue
+        except requests.RequestException as exc:
+            raise RuntimeError(f"OmniaKey 连接失败：{exc}") from exc
+        if (
+            response.status_code in OMNIAKEY_MEDIA_TRANSIENT_STATUS_CODES
+            and attempt_index + 1 < normalized_max_attempts
+        ):
+            time.sleep(OMNIAKEY_MEDIA_RETRY_DELAYS[min(attempt_index, len(OMNIAKEY_MEDIA_RETRY_DELAYS) - 1)])
+            continue
+        break
+
+    if response is None:
+        raise RuntimeError(f"OmniaKey 连接失败：{last_request_error or '未收到响应'}")
+    try:
+        create_data = response.json()
+    except Exception as exc:
+        raise RuntimeError(f"OmniaKey 返回了无法解析的内容（HTTP {response.status_code}）。") from exc
+    if response.status_code >= 400:
+        raise RuntimeError(
+            f"OmniaKey 创建图片任务失败（HTTP {response.status_code}）：{build_omnia_task_error_message(create_data)}"
+        )
+
+    task_id = str((create_data or {}).get("id") or "").strip()
+    if not task_id:
+        raise RuntimeError("OmniaKey 创建图片任务失败：返回结果里没有任务 ID。")
+
+    deadline = time.monotonic() + OMNIAKEY_TASK_TIMEOUT_SECONDS
+    task_data: dict[str, Any] = dict(create_data or {})
+    while time.monotonic() < deadline:
+        status = str(task_data.get("status") or "").strip().lower()
+        if status == "succeeded":
+            break
+        if status in {"failed", "canceled", "cancelled"}:
+            raise RuntimeError(f"OmniaKey 图片任务失败：{build_omnia_task_error_message(task_data)}")
+        time.sleep(OMNIAKEY_TASK_POLL_INTERVAL_SECONDS)
+        try:
+            poll_response = requests.get(
+                f"{OMNIAKEY_MEDIA_TASKS_URL}/{urllib.parse.quote(task_id)}",
+                headers={"Authorization": f"Bearer {api_key}"},
+                **get_external_request_kwargs(
+                    timeout=(OMNIAKEY_CONNECT_TIMEOUT_SECONDS, OMNIAKEY_READ_TIMEOUT_SECONDS),
+                    use_proxy=False,
+                ),
+            )
+        except requests.RequestException as exc:
+            raise RuntimeError(f"OmniaKey 查询图片任务失败：{exc}") from exc
+        if poll_response.status_code >= 400:
+            try:
+                poll_error = poll_response.json()
+            except Exception:
+                poll_error = poll_response.text
+            raise RuntimeError(
+                f"OmniaKey 查询图片任务失败（HTTP {poll_response.status_code}）："
+                f"{build_omnia_task_error_message(poll_error if isinstance(poll_error, dict) else {'error': {'message': poll_error}})}"
+            )
+        try:
+            task_data = poll_response.json()
+        except Exception as exc:
+            raise RuntimeError("OmniaKey 查询图片任务返回了无法解析的内容。") from exc
+    else:
+        raise RuntimeError(f"OmniaKey 图片任务等待超时（{OMNIAKEY_TASK_TIMEOUT_SECONDS} 秒）。")
+
+    assets = [asset for asset in list(task_data.get("assets") or []) if isinstance(asset, dict)]
+    image_assets = [asset for asset in assets if str(asset.get("kind") or "image").strip() == "image"]
+    first_asset = next(iter(image_assets), None)
+    if not first_asset:
+        raise RuntimeError("OmniaKey 图片任务没有返回可用图片。")
+    asset_url = str(first_asset.get("url") or "").strip()
+    if not asset_url:
+        raise RuntimeError("OmniaKey 图片任务没有返回图片下载地址。")
+    try:
+        image_response = requests.get(
+            asset_url,
+            **get_external_request_kwargs(timeout=(OMNIAKEY_CONNECT_TIMEOUT_SECONDS, OMNIAKEY_READ_TIMEOUT_SECONDS), use_proxy=False),
+        )
+        image_response.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"OmniaKey 生成图片下载失败：{exc}") from exc
+    mime_type = (
+        str(first_asset.get("mime_type") or "").strip()
+        or image_response.headers.get("Content-Type", "").split(";", 1)[0].strip()
+        or "image/jpeg"
+    )
+    return {
+        "images": [image_bytes_to_data_url(image_response.content, mime_type)],
+        "text": "",
+        "raw": task_data,
+        "requested_resolution": normalized_resolution,
+        "channel": f"{OMNIA_IMAGE_MODEL_LABELS.get(omnia_model, omnia_model)} · OmniaKey",
+    }
+
+
 def call_openrouter_images_api(
     model: str,
     prompt: str,
@@ -14625,14 +15630,23 @@ def call_openrouter_images_api(
     resolution: str = "",
     max_attempts: int | None = None,
 ) -> dict[str, Any]:
-    """Call OpenRouter's dedicated Images API with correctly shaped references."""
+    """Call OmniaKey for non-Seedream models, otherwise OpenRouter's Images API."""
+    omnia_model = resolve_omnia_image_model(model)
+    if omnia_model:
+        return call_omnia_image_api(
+            model=omnia_model,
+            prompt=prompt,
+            uploaded_files=uploaded_files,
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            max_attempts=max_attempts,
+        )
     api_key = load_api_key()
     if not api_key:
         raise RuntimeError("未找到 OPENROUTER_API_KEY，请先完成配置。")
 
     input_references: list[dict[str, Any]] = []
-    for uploaded_file in list(uploaded_files or []):
-        safe_uploaded_file = prepare_openrouter_uploaded_input(uploaded_file)
+    for safe_uploaded_file in prepare_openrouter_request_inputs(uploaded_files):
         input_references.append(
             {
                 "type": "image_url",
@@ -14849,18 +15863,27 @@ def call_openrouter(
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
     image_size: str = "",
 ) -> dict[str, Any]:
-    api_key = load_api_key()
-    if not api_key:
-        raise RuntimeError("未找到 OPENROUTER_API_KEY，请先在环境变量或 config.py 中配置。")
-
     request_prompt = (
         enforce_global_no_distortion_rules(prompt)
         if output_mode == "image"
         else str(prompt or "").strip()
     )
+    if output_mode == "image":
+        omnia_model = resolve_omnia_image_model(model)
+        if omnia_model:
+            return call_omnia_image_api(
+                model=omnia_model,
+                prompt=request_prompt,
+                uploaded_files=list(uploaded_files or []),
+                aspect_ratio=aspect_ratio,
+                resolution=image_size,
+            )
+
+    api_key = load_api_key()
+    if not api_key:
+        raise RuntimeError("未找到 OPENROUTER_API_KEY，请先在环境变量或 config.py 中配置。")
     content: list[dict[str, Any]] = [{"type": "text", "text": request_prompt}]
-    for uploaded_file in uploaded_files:
-        safe_uploaded_file = prepare_openrouter_uploaded_input(uploaded_file)
+    for safe_uploaded_file in prepare_openrouter_request_inputs(list(uploaded_files or [])):
         content.append(
             {
                 "type": "image_url",
@@ -14876,7 +15899,7 @@ def call_openrouter(
     }
 
     if output_mode == "text":
-        modality_candidates = [["text"]]
+        modality_candidates = [["text"], ["text"]]
     elif model.startswith(IMAGE_ONLY_OUTPUT_MODEL_PREFIXES):
         modality_candidates = [["image"], ["image", "text"]]
     else:
@@ -14939,6 +15962,25 @@ def call_openrouter(
             )
             continue
 
+        if not (isinstance(data, dict) and data.get("choices")):
+            error_payload = data.get("error") if isinstance(data, dict) else None
+            error_code: Any = ""
+            if isinstance(error_payload, dict):
+                error_message = error_payload.get("message") or "上游模型未返回结果"
+                error_code = error_payload.get("code") or ""
+            else:
+                error_message = error_payload or "上游模型未返回结果"
+            print(
+                f"[openrouter-empty-response] model={model} "
+                f"{redact_background_error_text(json.dumps(data, ensure_ascii=False)[:2000])}",
+                file=sys.stderr,
+            )
+            status_text = f"HTTP {error_code}" if re.fullmatch(r"\d{3}", str(error_code).strip()) else "HTTP 502"
+            last_error = RuntimeError(
+                f"OpenRouter 请求失败（{status_text}，上游返回空结果）：{redact_background_error_text(error_message)}"
+            )
+            continue
+
         parsed = extract_response_payload(data)
         if output_mode == "image" and not (parsed.get("images") or []):
             last_error = RuntimeError(
@@ -14989,6 +16031,9 @@ def load_image_bytes_from_url(image_url: str) -> tuple[bytes, str]:
             or "imagex" in normalized_url
             or ":8502/" in normalized_url
             or "toochuangai.com/jimeng_uploads" in normalized_url
+            or "omniakey" in normalized_url
+            or "cloudflarestorage.com" in normalized_url
+            or "r2.dev" in normalized_url
         )
         response = requests.get(image_url, **get_external_request_kwargs(timeout=120, use_proxy=use_proxy))
         response.raise_for_status()
@@ -19245,7 +20290,7 @@ def call_ai_lash_tray_cutout(uploaded_input: Any, prompt: str) -> dict[str, Any]
         return result
     except Exception as exc:
         raise RuntimeError(
-            "OpenRouter Images API 原生 4K 调用失败。为避免画质降级，本次未使用聊天兼容通道。"
+            "OmniaKey 原生 4K 调用失败。为避免画质降级，本次未使用聊天兼容通道。"
             f"原因：{exc}"
         ) from exc
 
@@ -19722,6 +20767,589 @@ def render_background_cutout_feature(feature: dict[str, Any]) -> None:
     render_history_records(feature)
 
 
+
+
+# ---- A+ 首屏风格逆向 ----
+HERO_STYLE_REVERSE_FIELD_LABELS: tuple[tuple[str, str], ...] = (
+    ("subject", "主体内容"),
+    ("composition", "构图布局"),
+    ("color", "色彩搭配"),
+    ("lighting", "光影效果"),
+    ("style", "设计风格"),
+    ("details", "细节元素"),
+)
+
+HERO_STYLE_REVERSE_ASPECT_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("A+ 首屏 4:3", "4:3"),
+    ("A+ 首屏 16:9", "16:9"),
+    ("方图 1:1", "1:1"),
+    ("竖版 4:5", "4:5"),
+    ("竖版 9:16", "9:16"),
+)
+
+HERO_STYLE_REVERSE_MAX_COUNT = 4
+
+
+def build_hero_style_reverse_analysis_prompt(extra_requirements: str = "") -> str:
+    """让视觉模型按固定六个维度拆解参考图，并直接反写中文生图提示词。"""
+    parts = [
+        "你是资深电商视觉设计总监，擅长视觉风格逆向工程。",
+        "请仔细观察这张参考图，从主体内容、构图布局、色彩搭配、光影效果、设计风格、细节元素六个维度做专业拆解，"
+        "并据此反写一条可以直接用于 AI 生图的中文提示词。",
+        "拆解要求：写清主体是谁、在什么场景、占画面什么位置与比例；构图要说明视角、镜头、景别、视觉焦点、分区与留白；"
+        "色彩要说清主色、辅色、点缀色和冷暖关系；光影要说清光位、光质、明暗对比与投影；"
+        "风格要说明设计语言、质感、氛围与情绪；细节要列出可复用的装饰、字体气质、图标、材质与局部特写。",
+        "提示词要求：具体到主体、场景、构图、镜头、光线、色调、材质、字体气质、装饰语言和画面比例；"
+        "不要出现品牌名、店铺名和真实人物姓名，不要照抄图中的全部文案；用自然中文分句描述，不要编号、不要分点符号。",
+        "只返回严格 JSON，不要 Markdown、不要解释，字段固定为：",
+        '{"subject":"","composition":"","color":"","lighting":"","style":"","details":"","prompt":""}',
+        "其中六个拆解字段各 40-120 字，prompt 为 180-320 字。",
+    ]
+    normalized_extra = str(extra_requirements or "").strip()
+    if normalized_extra:
+        parts.append(f"用户补充要求：{normalized_extra}")
+    return "".join(parts)
+
+
+def parse_hero_style_reverse_analysis(response_text: str) -> dict[str, str]:
+    raw_text = str(response_text or "").strip()
+    if not raw_text:
+        raise RuntimeError("参考图分析没有返回结果，请重试。")
+    candidates = [raw_text]
+    fenced_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw_text, re.IGNORECASE)
+    if fenced_match:
+        candidates.insert(0, fenced_match.group(1).strip())
+    object_start, object_end = raw_text.find("{"), raw_text.rfind("}")
+    if object_start >= 0 and object_end > object_start:
+        candidates.append(raw_text[object_start : object_end + 1])
+    parsed: dict[str, Any] | None = None
+    for candidate in candidates:
+        try:
+            loaded = json.loads(candidate)
+        except Exception:
+            continue
+        if isinstance(loaded, dict):
+            parsed = loaded
+            break
+    analysis: dict[str, str] = {}
+    for field_key, _label in HERO_STYLE_REVERSE_FIELD_LABELS:
+        value = parsed.get(field_key) if parsed else ""
+        if isinstance(value, (list, tuple)):
+            value = "；".join(str(item).strip() for item in value if str(item).strip())
+        analysis[field_key] = str(value or "").strip()
+    prompt_text = str(parsed.get("prompt") or "").strip() if parsed else raw_text
+    if not prompt_text:
+        raise RuntimeError("参考图分析结果里没有可用的提示词，请重试。")
+    analysis["prompt"] = prompt_text
+    return analysis
+
+
+def analyze_hero_style_reverse_reference(
+    uploaded_input: Any,
+    extra_requirements: str = "",
+) -> dict[str, str]:
+    response = call_openrouter(
+        model=IMAGE_SMART_ANALYSIS_MODEL,
+        prompt=build_hero_style_reverse_analysis_prompt(extra_requirements),
+        uploaded_files=[uploaded_input],
+        output_mode="text",
+        aspect_ratio=DEFAULT_ASPECT_RATIO,
+    )
+    return parse_hero_style_reverse_analysis(str(response.get("text") or ""))
+
+
+def optimize_hero_style_reverse_prompt(
+    prompt_text: str,
+    analysis: dict[str, str] | None = None,
+    extra_requirements: str = "",
+) -> str:
+    """对提示词做专业化扩写与补充，只返回优化后的提示词正文。"""
+    base_prompt = str(prompt_text or "").strip()
+    if not base_prompt:
+        raise RuntimeError("请先生成或填写提示词。")
+    breakdown = "；".join(
+        f"{label}：{str((analysis or {}).get(field_key) or '').strip()}"
+        for field_key, label in HERO_STYLE_REVERSE_FIELD_LABELS
+        if str((analysis or {}).get(field_key) or "").strip()
+    )
+    instruction = (
+        "你是电商 A+ 生图提示词优化师。请在保留原意的前提下，把下面这条中文提示词改写得专业、具体、可直接执行。"
+        "需要补充：镜头焦段与视角、景别与构图比例、主体位置与留白、主光与补光方向、色温与色彩关系、"
+        "材质与纹理、质感与氛围、画面比例和输出用途；删除空泛形容词、重复表述和互相冲突的要求。"
+        "只输出优化后的提示词正文，不要解释、不要编号、不要加引号或 Markdown。\n"
+        + (f"参考图拆解：{breakdown}\n" if breakdown else "")
+        + (f"用户补充要求：{str(extra_requirements or '').strip()}\n" if str(extra_requirements or "").strip() else "")
+        + f"原始提示词：{base_prompt}"
+    )
+    response = call_openrouter(
+        model=IMAGE_SMART_ANALYSIS_MODEL,
+        prompt=instruction,
+        uploaded_files=[],
+        output_mode="text",
+        aspect_ratio=DEFAULT_ASPECT_RATIO,
+    )
+    optimized = str(response.get("text") or "").strip()
+    fenced_match = re.search(r"```(?:[a-zA-Z]*)?\s*([\s\S]*?)```", optimized, re.IGNORECASE)
+    if fenced_match:
+        optimized = fenced_match.group(1).strip()
+    optimized = optimized.strip().strip('"').strip("“”").strip()
+    return optimized or base_prompt
+
+
+def build_hero_style_reverse_image_input(image_source: str) -> dict[str, Any] | None:
+    """把上一版结果图（URL）取回为可继续提交的输入图。"""
+    normalized_source = str(image_source or "").strip()
+    if not normalized_source.startswith(("http://", "https://")):
+        return None
+    try:
+        response = requests.get(
+            normalized_source,
+            **get_external_request_kwargs(timeout=90),
+        )
+    except Exception:
+        return None
+    if not getattr(response, "ok", False):
+        return None
+    image_bytes = response.content or b""
+    if not image_bytes:
+        return None
+    return {
+        "data": image_bytes,
+        "name": "hero_style_reverse_parent.png",
+        "type": "image/png",
+    }
+
+
+def generate_hero_style_reverse_images(
+    prompt_text: str,
+    reference_files: list[Any] | None = None,
+    count: int = 2,
+    aspect_ratio: str = "4:3",
+    progress_callback: Any = None,
+) -> list[str]:
+    """按提示词批量生成同风格图片，逐张返回结果 URL。"""
+    cleaned_prompt = str(prompt_text or "").strip()
+    if not cleaned_prompt:
+        raise RuntimeError("请先填写生图提示词。")
+    total = max(int(count or 1), 1)
+    images: list[str] = []
+    for index in range(total):
+        result = call_openrouter_images_api(
+            model=NANO_BANANA_MODEL,
+            prompt=cleaned_prompt,
+            uploaded_files=list(reference_files or []),
+            aspect_ratio=aspect_ratio,
+        )
+        for image_url in result.get("images") or []:
+            normalized_url = str(image_url or "").strip()
+            if normalized_url:
+                images.append(normalized_url)
+        if callable(progress_callback):
+            progress_callback(index + 1, total, len(images))
+    if not images:
+        raise RuntimeError("没有拿到可用图片，请调整提示词后重试。")
+    return images
+
+
+def hero_style_reverse_nearest_aspect_ratio(width: int, height: int) -> str:
+    """按目标宽高选取最接近的可用画面比例。"""
+    target_ratio = float(width) / float(height or 1)
+    return min(
+        (ratio for _label, ratio in HERO_STYLE_REVERSE_ASPECT_OPTIONS),
+        key=lambda ratio: abs(
+            float(ratio.split(":")[0]) / float(ratio.split(":")[1]) - target_ratio
+        ),
+    )
+
+
+def resize_hero_style_reverse_output(
+    image_source: str,
+    target_width: int,
+    target_height: int | None = None,
+) -> str:
+    """把结果图等比缩放到指定宽度；给出高度时适配到精确宽高画布。"""
+    safe_width = max(int(target_width), 1)
+    safe_height = max(int(target_height or 0), 1) if target_height else 0
+    if safe_height and safe_width * safe_height > 64_000_000:
+        raise RuntimeError("目标图片不能超过 6400 万像素，请调小宽度或高度。")
+    image_bytes, _mime_type = load_image_bytes_from_url(image_source)
+    with Image.open(io.BytesIO(image_bytes)) as image:
+        source = ImageOps.exif_transpose(image).convert("RGB")
+        if target_height:
+            resized = fit_image_to_canvas_without_distortion(
+                source,
+                safe_width,
+                max(int(target_height), 1),
+            )
+        else:
+            proportional_height = max(1, int(round(source.height * safe_width / float(source.width))))
+            resized = source.resize((safe_width, proportional_height), Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        resized.save(output, format="PNG")
+    return image_bytes_to_data_url(output.getvalue(), "image/png")
+
+
+def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
+    feature_key = str(feature.get("key") or A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY)
+    if "hero_style_reverse_state" not in st.session_state:
+        st.session_state.hero_style_reverse_state = {}
+    state = st.session_state.hero_style_reverse_state
+    prompt_key = f"hero_style_reverse_prompt_{feature_key}"
+    extra_key = f"hero_style_reverse_extra_{feature_key}"
+    refine_key = f"hero_style_reverse_refine_{feature_key}"
+    count_key = f"hero_style_reverse_count_{feature_key}"
+    width_key = f"hero_style_reverse_width_{feature_key}"
+    height_key = f"hero_style_reverse_height_{feature_key}"
+    use_ref_key = f"hero_style_reverse_use_ref_{feature_key}"
+    batch_key = f"batch_select_{feature_key}"
+
+    if prompt_key not in st.session_state:
+        st.session_state[prompt_key] = str(state.get("prompt") or "")
+    pending_prompt = state.pop("pending_prompt", None)
+    if pending_prompt is not None:
+        st.session_state[prompt_key] = str(pending_prompt)
+    if state.pop("pending_refine_clear", False):
+        st.session_state.pop(refine_key, None)
+    if state.pop("pending_batch_reset", False):
+        st.session_state.pop(batch_key, None)
+
+    st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="feature-title">{feature["name"]}<span class="feature-badge">参考图 → 风格拆解 → 提示词 → 批量创作</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "上传一张首屏风格参考图，AI 先拆解主体、构图、色彩、光影、风格与细节，反写中文生图提示词；"
+        "提示词可直接修改，再批量生成同风格创意图，最后挑出最优方案做二次优化。"
+    )
+
+    left_col, right_col = st.columns([0.92, 1.08], gap="medium")
+
+    with left_col:
+        st.markdown('<div class="result-block-title">① 上传参考图</div>', unsafe_allow_html=True)
+        reference_file = render_single_image_uploader(
+            "上传首屏风格参考图",
+            key=f"uploader_{feature_key}",
+            help_text="支持 A+ 首屏截图、竞品海报或任意风格参考图；建议主体清晰、最长边不小于 800px。",
+        )
+        st.text_area(
+            "补充要求（可选）",
+            key=extra_key,
+            height=86,
+            placeholder="例如：保留人物姿势只换背景；希望更高级、更冷色调；必须出现大理石台面。",
+        )
+        analyze_clicked = st.button(
+            "① 逆向分析参考图",
+            key=f"analyze_{feature_key}",
+            type="primary",
+            use_container_width=True,
+        )
+        if analyze_clicked:
+            if reference_file is None:
+                st.warning("请先上传 1 张参考图。")
+            else:
+                with st.spinner("AI 正在识别主体、构图、色彩、光影、风格与细节…"):
+                    try:
+                        analysis_result = analyze_hero_style_reverse_reference(
+                            reference_file,
+                            str(st.session_state.get(extra_key) or ""),
+                        )
+                    except Exception as exc:
+                        st.error(f"参考图分析失败：{format_user_facing_error_message(exc)}")
+                    else:
+                        state["analysis"] = analysis_result
+                        state["prompt"] = str(analysis_result.get("prompt") or "")
+                        state["pending_prompt"] = state["prompt"]
+                        state["source_name"] = get_uploaded_input_name(reference_file)
+                        state["pending_refine_clear"] = True
+                        st.rerun()
+
+        analysis = dict(state.get("analysis") or {})
+        if analysis:
+            st.markdown('<div class="result-block-title">② 风格拆解</div>', unsafe_allow_html=True)
+            breakdown_lines = [
+                f"- **{label}**：{str(analysis.get(field_key) or '—')}"
+                for field_key, label in HERO_STYLE_REVERSE_FIELD_LABELS
+            ]
+            st.markdown("\n".join(breakdown_lines))
+        else:
+            st.caption("分析完成后，这里会显示六个维度的风格拆解。")
+
+        st.markdown('<div class="result-block-title">③ 生图提示词</div>', unsafe_allow_html=True)
+        st.text_area(
+            "生图提示词（可编辑）",
+            key=prompt_key,
+            height=230,
+            placeholder="分析完成后自动填入，也可以手动编写或调整。",
+        )
+        optimize_clicked = st.button(
+            "智能优化与补充提示词",
+            key=f"optimize_{feature_key}",
+            use_container_width=True,
+        )
+        if optimize_clicked:
+            current_prompt = str(st.session_state.get(prompt_key) or "").strip()
+            if not current_prompt:
+                st.warning("请先完成参考图分析或手动填写提示词。")
+            else:
+                with st.spinner("正在优化提示词…"):
+                    try:
+                        optimized_prompt = optimize_hero_style_reverse_prompt(
+                            current_prompt,
+                            analysis,
+                            str(st.session_state.get(extra_key) or ""),
+                        )
+                    except Exception as exc:
+                        st.error(f"提示词优化失败：{format_user_facing_error_message(exc)}")
+                    else:
+                        state["prompt"] = optimized_prompt
+                        state["pending_prompt"] = optimized_prompt
+                        st.rerun()
+
+        st.markdown('<div class="result-block-title">④ 批量生成</div>', unsafe_allow_html=True)
+        output_count = int(
+            st.select_slider(
+                "生成张数",
+                options=list(range(1, HERO_STYLE_REVERSE_MAX_COUNT + 1)),
+                value=2,
+                key=count_key,
+            )
+        )
+        aspect_ratio = "4:3"
+        size_col_width, size_col_height = st.columns(2, gap="small")
+        with size_col_width:
+            target_width = st.number_input(
+                "输出宽度（px）",
+                min_value=100,
+                max_value=8000,
+                value=1464,
+                step=1,
+                key=width_key,
+            )
+        with size_col_height:
+            target_height = st.number_input(
+                "输出高度（px，可留空）",
+                min_value=0,
+                max_value=9000,
+                value=None,
+                step=1,
+                key=height_key,
+                placeholder="留空则自动计算",
+            )
+        if target_width and target_height:
+            aspect_ratio = hero_style_reverse_nearest_aspect_ratio(
+                int(target_width),
+                int(target_height),
+            )
+            st.caption(
+                f"已按目标尺寸 {int(target_width)}×{int(target_height)} 自动匹配画面比例 {aspect_ratio}。"
+            )
+        use_reference = st.checkbox(
+            "把参考图作为风格参考一起提交（更贴近原图的质感与色调）",
+            value=True,
+            key=use_ref_key,
+        )
+        generate_clicked = st.button(
+            f"② 批量生成 {output_count} 张",
+            key=f"generate_{feature_key}",
+            type="primary",
+            use_container_width=True,
+        )
+        if generate_clicked:
+            prompt_to_use = str(st.session_state.get(prompt_key) or "").strip()
+            if not prompt_to_use:
+                st.warning("请先完成参考图分析或手动填写提示词。")
+            elif reference_file is None and use_reference:
+                st.warning("参考图已被清空，请重新上传，或取消“把参考图作为风格参考”后再生成。")
+            else:
+                reference_files = [reference_file] if (use_reference and reference_file is not None) else []
+                progress_bar = st.progress(0.0, text="准备生成…")
+
+                def _report_progress(done: int, total: int, produced: int) -> None:
+                    progress_bar.progress(
+                        min(max(done / max(total, 1), 0.0), 1.0),
+                        text=f"已生成 {done}/{total} 张，共拿到 {produced} 张结果…",
+                    )
+
+                with st.spinner("正在批量生成，请稍候…（每张约 30-90 秒）"):
+                    try:
+                        generated_images = generate_hero_style_reverse_images(
+                            prompt_to_use,
+                            reference_files,
+                            output_count,
+                            aspect_ratio,
+                            _report_progress,
+                        )
+                        if target_width:
+                            generated_images = [
+                                resize_hero_style_reverse_output(
+                                    image_url,
+                                    int(target_width),
+                                    int(target_height) if target_height else None,
+                                )
+                                for image_url in generated_images
+                            ]
+                    except Exception as exc:
+                        st.error(f"批量生成失败：{format_user_facing_error_message(exc)}")
+                    else:
+                        batches = list(state.get("batches") or [])
+                        batches.append(
+                            {
+                                "label": f"第 {len(batches) + 1} 批 · {datetime.now().strftime('%m-%d %H:%M')}",
+                                "images": generated_images,
+                                "prompt": prompt_to_use,
+                                "aspect_ratio": aspect_ratio,
+                                "target_size": [
+                                    int(target_width or 0),
+                                    int(target_height or 0),
+                                ],
+                                "created_at": datetime.now().isoformat(timespec="seconds"),
+                                "parent": "",
+                            }
+                        )
+                        state["batches"] = batches
+                        state["pending_refine_clear"] = True
+                        state["pending_batch_reset"] = True
+                        st.rerun()
+
+    with right_col:
+        st.markdown('<div class="result-block-title">⑤ 生成结果</div>', unsafe_allow_html=True)
+        batches = list(state.get("batches") or [])
+        if not batches:
+            render_result_preview([], show_title=False)
+            st.caption("完成分析与批量生成后，这里会出现同风格结果图，可按批次回看与筛选。")
+        else:
+            batch_labels = [
+                str(batch.get("label") or f"第 {index + 1} 批")
+                for index, batch in enumerate(batches)
+            ]
+            batch_label = str(
+                st.selectbox(
+                    "查看批次",
+                    batch_labels,
+                    index=len(batch_labels) - 1,
+                    key=batch_key,
+                )
+            )
+            batch_index = batch_labels.index(batch_label)
+            current_batch = batches[batch_index]
+            batch_images = [
+                str(image_url).strip()
+                for image_url in (current_batch.get("images") or [])
+                if str(image_url).strip()
+            ]
+            if batch_images:
+                render_zoomable_image_gallery(
+                    batch_images,
+                    columns=2,
+                    thumb_height=240,
+                    component_key=f"hero_style_reverse_gallery_{feature_key}_{batch_index}_{len(batch_images)}",
+                    fit_mode="cover",
+                    include_full_src=True,
+                    compress_preview=False,
+                )
+            else:
+                render_result_preview([], show_title=False)
+
+            st.markdown('<div class="result-block-title">⑥ 效果筛选与二次优化</div>', unsafe_allow_html=True)
+            parent_label = str(current_batch.get("parent") or "").strip()
+            if parent_label:
+                st.caption(f"本批次基于「{parent_label}」二次优化生成。")
+            if len(batch_images) > 1:
+                option_labels = [f"方案 {index + 1}" for index in range(len(batch_images))]
+                selected_label = str(
+                    st.radio(
+                        "选为最优方案",
+                        option_labels,
+                        horizontal=True,
+                        key=f"hero_style_reverse_pick_{feature_key}_{batch_index}_{len(batch_images)}",
+                    )
+                )
+                selected_index = option_labels.index(selected_label)
+            else:
+                selected_index = 0
+                st.caption("本批次只有 1 张结果，已自动作为最优方案。")
+            st.text_area(
+                "二次优化要求",
+                key=refine_key,
+                height=96,
+                placeholder="例如：光影更通透、色温偏冷、背景换成大理石台面、人物表情更自然。",
+            )
+            refine_clicked = st.button(
+                "③ 以选中方案为基础二次优化生成",
+                key=f"refine_{feature_key}",
+                use_container_width=True,
+            )
+            if refine_clicked:
+                refine_requirement = str(st.session_state.get(refine_key) or "").strip()
+                if not refine_requirement:
+                    st.warning("请先填写二次优化要求。")
+                else:
+                    base_prompt = str(
+                        current_batch.get("prompt") or st.session_state.get(prompt_key) or ""
+                    ).strip()
+                    parent_image_source = batch_images[selected_index] if batch_images else ""
+                    refine_reference = build_hero_style_reverse_image_input(parent_image_source)
+                    if refine_reference is None:
+                        refine_reference = reference_file
+                    refined_prompt = (
+                        f"{base_prompt}\n\n二次优化要求：{refine_requirement}\n"
+                        "请以参考图中的上一版结果作为风格基底，保持主体身份、构图骨架、色调关系与整体质感一致，"
+                        "只针对二次优化要求做定向调整，输出一张更成熟的同风格新方案。"
+                    )
+                    refine_count = int(st.session_state.get(count_key) or 2)
+                    refine_ratio = str(current_batch.get("aspect_ratio") or aspect_ratio or "4:3")
+                    refine_target_size = list(current_batch.get("target_size") or [target_width or 0, target_height or 0])
+                    refine_target_width = int(refine_target_size[0] or 0)
+                    refine_target_height = int(refine_target_size[1] or 0) if len(refine_target_size) > 1 else 0
+                    refine_progress = st.progress(0.0, text="准备二次优化…")
+
+                    def _report_refine_progress(done: int, total: int, produced: int) -> None:
+                        refine_progress.progress(
+                            min(max(done / max(total, 1), 0.0), 1.0),
+                            text=f"已优化生成 {done}/{total} 张，共拿到 {produced} 张结果…",
+                        )
+
+                    with st.spinner("正在按二次优化要求生成…"):
+                        try:
+                            refined_images = generate_hero_style_reverse_images(
+                                refined_prompt,
+                                [refine_reference] if refine_reference is not None else [],
+                                refine_count,
+                                refine_ratio,
+                                _report_refine_progress,
+                            )
+                            if refine_target_width:
+                                refined_images = [
+                                    resize_hero_style_reverse_output(
+                                        image_url,
+                                        refine_target_width,
+                                        refine_target_height or None,
+                                    )
+                                    for image_url in refined_images
+                                ]
+                        except Exception as exc:
+                            st.error(f"二次优化生成失败：{format_user_facing_error_message(exc)}")
+                        else:
+                            batches.append(
+                                {
+                                    "label": f"第 {len(batches) + 1} 批 · 二次优化 · {datetime.now().strftime('%m-%d %H:%M')}",
+                                    "images": refined_images,
+                                    "prompt": refined_prompt,
+                                    "aspect_ratio": refine_ratio,
+                                    "target_size": [refine_target_width, refine_target_height],
+                                    "created_at": datetime.now().isoformat(timespec="seconds"),
+                                    "parent": current_batch.get("label") or "",
+                                    "parent_index": selected_index,
+                                }
+                            )
+                            state["batches"] = batches
+                            state["pending_batch_reset"] = True
+                            st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_replacement_infinite_canvas_feature(feature: dict[str, Any]) -> None:
     runtime_settings = load_runtime_settings()
     try:
@@ -20086,6 +21714,7 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
             st.warning(storage_error)
 
     if submitted:
+        a_plus_first_screen_locked_hero_ready = True
         if not canvas_source_files:
             st.warning("请先上传至少 1 张图片。")
         elif not selected_steps:
@@ -21003,12 +22632,107 @@ def render_a_plus_reference_lab_empty_results(slot_count: int = FEATURE_OUTPUT_C
     st.markdown(f'<div class="a-plus-lab-empty-grid">{slots}</div>', unsafe_allow_html=True)
 
 
+def render_prepress_check_feature(feature: dict[str, Any]) -> None:
+    st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="feature-title">{feature["name"]}<span class="feature-badge">设计质检</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(f'<div class="feature-desc">{feature["summary"]}</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="meta-row">'
+        '<span class="meta-pill">AI / PDF / ZIP / 截图</span>'
+        '<span class="meta-pill">19 项逐项检查</span>'
+        '<span class="meta-pill">自动证据与修改建议</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="workflow-strip">'
+        '<div class="workflow-step"><span class="workflow-step-number">1</span><span>上传文件包</span></div>'
+        '<div class="workflow-step"><span class="workflow-step-number">2</span><span>自动解析</span></div>'
+        '<div class="workflow-step"><span class="workflow-step-number">3</span><span>查看报告</span></div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    st.info("建议一次上传完整的转曲 AI、PDF 和截图；也可以直接上传包含这些文件的 ZIP。")
+    uploaded_files = st.file_uploader(
+        "上传印前源文件",
+        type=["ai", "pdf", "zip", "png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"],
+        accept_multiple_files=True,
+        key="prepress_check_uploads",
+        help="单个文件不超过 200MB；ZIP 解压后不超过 500MB。",
+    )
+    material_type = st.selectbox(
+        "物料类型",
+        options=["自动识别 / 其他", "包装盒", "底卡", "信息贴"],
+        key="prepress_material_type",
+    )
+    run_clicked = st.button(
+        "开始印前检查",
+        type="primary",
+        use_container_width=True,
+        disabled=not bool(uploaded_files),
+        key="run_prepress_check",
+    )
+    if run_clicked:
+        session_key = f"web-{uuid4().hex}"
+        try:
+            with st.spinner("正在解析 AI/PDF 并生成逐项报告，请稍候…"):
+                for uploaded in uploaded_files or []:
+                    prepress_check_service.stage_file(
+                        session_key,
+                        uploaded.getvalue(),
+                        str(uploaded.name or "upload"),
+                    )
+                result = prepress_check_service.run_check(session_key)
+                report = str(result.get("report") or "")
+                if material_type != "自动识别 / 其他":
+                    report = report.replace(
+                        "# 印前检查报告",
+                        f"# 印前检查报告\n\n物料类型：{material_type}",
+                        1,
+                    )
+                st.session_state.prepress_check_report = report
+                st.session_state.prepress_check_summary = {
+                    "sources": int(result.get("scan_count") or 0),
+                    "screenshots": int(result.get("image_count") or 0),
+                }
+            st.success("印前检查完成。")
+        except Exception as exc:
+            prepress_check_service.reset_session(session_key)
+            st.error(f"印前检查失败：{exc}")
+    report = str(st.session_state.get("prepress_check_report") or "").strip()
+    if report:
+        summary = st.session_state.get("prepress_check_summary") or {}
+        st.caption(
+            f"已解析 {int(summary.get('sources') or 0)} 个 AI/PDF 文件，"
+            f"收集 {int(summary.get('screenshots') or 0)} 张截图。"
+        )
+        st.markdown(report)
+        st.download_button(
+            "下载 Markdown 报告",
+            data=report.encode("utf-8"),
+            file_name=f"印前检查报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+            mime="text/markdown",
+            use_container_width=True,
+            key="download_prepress_report",
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
+    if feature.get("key") == "prepress_check":
+        render_prepress_check_feature(feature)
+        return
     if feature.get("key") == "infinite_canvas":
         render_replacement_infinite_canvas_feature(feature)
         return
     if feature.get("key") == "background_cutout":
         render_background_cutout_feature(feature)
+        return
+    if feature.get("key") == A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY:
+        render_a_plus_hero_style_reverse_feature(feature)
         return
     default_model_for_feature = str(feature.get("model") or model)
     feature_mode = str(feature.get("mode") or "openrouter")
@@ -21035,8 +22759,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         default_model_for_feature = model_options_for_feature[0] if model_options_for_feature else DEFAULT_MODEL
     min_images = int(feature.get("min_images", 0))
     max_output_images = int(feature.get("max_output_images", 0))
+    fixed_output_count = int(feature.get("fixed_output_count") or 0)
     default_output_count = (
-        normalize_feature_output_count(max_output_images, default=1)
+        normalize_feature_output_count(fixed_output_count or max_output_images, default=1)
         if str(feature.get("output_mode") or "") == "image"
         else 0
     )
@@ -21051,13 +22776,17 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     supports_ai_qa_image = feature["key"] == "ai_qa_image"
     supports_image_smart_analysis = feature["key"] == IMAGE_SMART_ANALYSIS_FEATURE_KEY
     supports_amazon_a_plus = feature["key"] == AMAZON_A_PLUS_FEATURE_KEY
+    supports_amazon_to_walmart_a_plus = feature["key"] == AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY
     supports_a_plus_style_model_replace = feature["key"] == A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY
+    supports_a_plus_first_screen_selling_points = feature["key"] == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
     supports_main_image_a_plus = feature["key"] in MAIN_IMAGE_A_PLUS_FEATURE_KEYS
     supports_a_plus_reference_lab = feature["key"] == A_PLUS_REFERENCE_LAB_FEATURE_KEY
     supports_a_plus_images_api = (
         supports_amazon_a_plus
+        or supports_amazon_to_walmart_a_plus
         or supports_main_image_a_plus
         or supports_a_plus_style_model_replace
+        or supports_a_plus_first_screen_selling_points
     )
     supports_pose_references = feature["key"] == "pose_change"
     supports_scene_references = feature["key"] == "scene_change"
@@ -21070,7 +22799,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     job_info = st.session_state.background_jobs.get(feature["key"]) or {}
     help_text = "可上传 JPG / PNG / WEBP。"
     if min_images > 0:
-        help_text += f" 当前功能至少需要上传 {min_images} 张参考图。"
+        help_text += (
+            " 请上传 1 张待转换的完整亚马逊 A+ 原图，不需要额外参考图。"
+            if supports_amazon_to_walmart_a_plus
+            else f" 当前功能至少需要上传 {min_images} 张参考图。"
+        )
     active_model = default_model_for_feature
 
     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
@@ -21115,8 +22848,18 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items.append('<span class="meta-pill">3 种 A+ 规格</span>')
         meta_items.append('<span class="meta-pill">背景与视觉元素自动拆层</span>')
         meta_items.append('<span class="meta-pill">一键导出 Photoshop PSD</span>')
+    elif supports_amazon_to_walmart_a_plus:
+        meta_items.append('<span class="meta-pill">上传 1 张完整亚马逊 A+</span>')
+        meta_items.append('<span class="meta-pill">固定输出 4 张 1920×1080</span>')
+        meta_items.append('<span class="meta-pill">单页独立 · 四页连续</span>')
+        meta_items.append('<span class="meta-pill">原生 4K 重构 · 非拉伸裁切</span>')
+    elif supports_a_plus_first_screen_selling_points:
+        meta_items.append('<span class="meta-pill">首屏 1464×600–1200 自适应</span>')
+        meta_items.append('<span class="meta-pill">A+ 总高度 2400 / 3000 / 3600</span>')
+        meta_items.append('<span class="meta-pill">最多 10 张 · 多主图卖点融合</span>')
+        meta_items.append('<span class="meta-pill">真实元素保留 · 卖点自动去重</span>')
     elif supports_outpaint:
-        meta_items.append('<span class="meta-pill">Nano Banana 2 / 即梦 5 Pro 可选</span>')
+        meta_items.append('<span class="meta-pill">Nano Banana 2.1 / 即梦 5 Pro 可选</span>')
         meta_items.append('<span class="meta-pill">画布宽高最大可扩至原图 3 倍</span>')
         meta_items.append('<span class="meta-pill">自动匹配扩展画幅</span>')
         meta_items.append('<span class="meta-pill">整图一次生成 · 无矩形拼接</span>')
@@ -21124,7 +22867,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
         meta_items.append('<span class="meta-pill">即梦智能超清 · 原生 8K · scale 50</span>')
         meta_items.append(
-            f'<span class="meta-pill">全局串行队列 · 最多 {JIMENG_HD_QUEUE_CAPACITY} 个任务</span>'
+            '<span class="meta-pill">全局串行队列 · 所有任务依次执行</span>'
         )
     elif feature.get("key") == "hd_batch":
         meta_items.append('<span class="meta-pill">输出尺寸与原图完全一致 · 无补边 · 无拉伸</span>')
@@ -21176,6 +22919,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
 
     submitted = False
     active_batch_concurrency = DEFAULT_BATCH_API_CONCURRENCY if supports_batch_multi_upload else 1
+    if feature.get("key") == "hd_batch":
+        active_batch_concurrency = min(active_batch_concurrency, HD_BATCH_MAX_API_CONCURRENCY)
 
     column_ratio = [1, 1]
     left_col, right_col = st.columns(column_ratio, gap="medium")
@@ -21188,7 +22933,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             st.markdown('<div class="batch-left-column-marker"></div>', unsafe_allow_html=True)
         left_panel_title = (
             "创作设置"
-            if supports_main_image_a_plus or supports_amazon_a_plus or supports_a_plus_style_model_replace
+            if supports_main_image_a_plus or supports_amazon_a_plus or supports_a_plus_style_model_replace or supports_a_plus_first_screen_selling_points
             else "上传待分析主图"
             if supports_image_smart_analysis
             else "上传与设置"
@@ -21210,6 +22955,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         amazon_size_text = "1464*600"
         amazon_a_plus_prompt = ""
         a_plus_style_model_replace_prompt = ""
+        a_plus_first_screen_selling_points_prompt = ""
+        a_plus_first_screen_total_height = 2400
+        a_plus_first_screen_workflow_mode = "combined"
+        a_plus_first_screen_workflow_stage = "combined"
+        a_plus_first_screen_hero_height = 900
         main_image_a_plus_prompt = ""
         main_image_a_plus_mode = MAIN_IMAGE_A_PLUS_MODE_FREE
         main_image_a_plus_template_file = None
@@ -21226,6 +22976,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         scene_reference_files: list[Any] = []
         background_texture_presets: list[str] = ["高级哑光"]
         background_texture_prompt = ""
+        local_retouch_prompt = ""
         batch_source_files: list[Any] = []
         hd_skin_reference_file = None
         hd_skin_texture_reference_file: Path | None = None
@@ -21578,24 +23329,98 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 label_visibility="collapsed",
             )
         elif supports_a_plus_style_model_replace:
-            st.markdown('<div class="panel-subtitle">A+ 版式参考图 + 目标模特图（2–6 张）</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-subtitle">A+ 首屏风格参考图 + 目标模特图（2–6 张）</div>', unsafe_allow_html=True)
             amazon_source_files = render_multi_image_uploader(
                 "上传 A+ 参考图与目标模特图",
                 key=f"a_plus_style_model_replace_uploader_{feature['key']}",
-                help_text="第 1 张必须是完整 A+ 成品参考图；第 2–6 张上传同一位目标模特的正脸、半身或全身参考图。",
+                help_text="第 1 张上传 A+ 首屏参考图，只作风格参考；第 2–6 张上传同一位目标模特的正脸、半身或全身参考图。",
                 max_files=6,
                 allow_reorder=True,
             )
             st.markdown(
-                '<div class="slot-helper">图片顺序非常重要：第 1 张锁定风格和版式；后续图片只锁定目标模特身份。</div>',
+                '<div class="slot-helper">图片顺序很重要：第 1 张决定风格调性；后续图片只锁定目标模特身份。</div>',
                 unsafe_allow_html=True,
             )
-            st.info("固定输出 1464×1000 px；参考图中的原模特会被替换，其他版式、色彩与品牌视觉保持一致。")
+            st.info("固定输出 1464×1000 px；版式允许在合理范围内重新组织，参考图中的原模特会被替换为目标模特。")
             st.markdown('<div class="panel-subtitle">补充要求（可选）</div>', unsafe_allow_html=True)
             a_plus_style_model_replace_prompt = st.text_area(
                 "输入 A+ 换模补充要求",
                 key=f"a_plus_style_model_replace_prompt_{feature['key']}",
                 placeholder="例如：保持参考图服装氛围，目标模特长发和五官必须与上传图一致；保留原文案。",
+                height=110,
+                label_visibility="collapsed",
+            )
+        elif supports_a_plus_first_screen_selling_points:
+            a_plus_first_screen_workflow_mode = st.radio(
+                "生成方式",
+                options=("combined", "staged"),
+                format_func=lambda value: "一键生成首屏＋卖点" if value == "combined" else "分两步生成",
+                horizontal=True,
+                key=f"a_plus_first_screen_workflow_mode_{feature['key']}",
+            )
+            hero_result = dict(
+                (st.session_state.get("a_plus_first_screen_hero_results") or {}).get(feature["key"])
+                or {}
+            )
+            if a_plus_first_screen_workflow_mode == "combined":
+                st.markdown('<div class="panel-subtitle">首屏参考图 + 卖点主图（2–10 张）</div>', unsafe_allow_html=True)
+                amazon_source_files = render_multi_image_uploader(
+                    "上传首屏参考图与卖点主图",
+                    key=f"a_plus_first_screen_selling_points_uploader_{feature['key']}",
+                    help_text="第 1 张是首屏参考图；第 2–10 张是包含商品细节、功能和真实卖点的主图。",
+                    max_files=10,
+                    allow_reorder=True,
+                )
+                st.markdown('<div class="slot-helper">第 1 张锁定首屏；后续图片提取真实卖点，一次生成完整连续 A+。</div>', unsafe_allow_html=True)
+            else:
+                step_options = ("hero", "selling_points") if hero_result.get("images") else ("hero",)
+                a_plus_first_screen_workflow_stage = st.radio(
+                    "当前步骤",
+                    options=step_options,
+                    format_func=lambda value: "第 1 步 · 生成首屏" if value == "hero" else "第 2 步 · 续写下方卖点",
+                    horizontal=True,
+                    key=f"a_plus_first_screen_workflow_stage_{feature['key']}",
+                )
+                if a_plus_first_screen_workflow_stage == "hero":
+                    st.markdown('<div class="panel-subtitle">首屏参考图（1 张）</div>', unsafe_allow_html=True)
+                    amazon_source_files = render_multi_image_uploader(
+                        "上传首屏参考图",
+                        key=f"a_plus_first_screen_hero_uploader_{feature['key']}",
+                        help_text="先生成并锁定首屏。完成后切换到第 2 步上传主图和卖点图。",
+                        max_files=1,
+                        allow_reorder=False,
+                    )
+                    a_plus_first_screen_hero_height = st.selectbox(
+                        "首屏尺寸",
+                        options=(600, 900, 1200),
+                        format_func=lambda height: f"1464×{height}",
+                        index=1,
+                        key=f"a_plus_first_screen_hero_height_{feature['key']}",
+                    )
+                else:
+                    st.success("已锁定上一步生成的首屏；本步骤只续写下方卖点区。")
+                    amazon_source_files = render_multi_image_uploader(
+                        "上传主图与卖点图",
+                        key=f"a_plus_first_screen_selling_only_uploader_{feature['key']}",
+                        help_text="上传 1–9 张商品主图、细节图或卖点图；系统会自动带入已生成首屏。",
+                        max_files=9,
+                        allow_reorder=True,
+                    )
+            if a_plus_first_screen_workflow_stage != "hero":
+                st.markdown('<div class="panel-subtitle">A+ 总尺寸</div>', unsafe_allow_html=True)
+                a_plus_first_screen_total_height = st.selectbox(
+                    "选择 A+ 总尺寸",
+                    options=(2400, 3000, 3600),
+                    format_func=lambda height: f"1464×{height}",
+                    key=f"a_plus_first_screen_total_height_{feature['key']}",
+                    label_visibility="collapsed",
+                )
+                st.info("首屏保持在顶部，其余高度用于承载卖点与细节；相同元素和卖点只出现一次。")
+            st.markdown('<div class="panel-subtitle">补充要求（可选）</div>', unsafe_allow_html=True)
+            a_plus_first_screen_selling_points_prompt = st.text_area(
+                "输入首屏与卖点融合补充要求",
+                key=f"a_plus_first_screen_selling_points_prompt_{feature['key']}",
+                placeholder="例如：首屏保留模特、产品与品牌色；优先融合防水、轻量和三步使用方法。",
                 height=110,
                 label_visibility="collapsed",
             )
@@ -21657,6 +23482,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         max_value=FEATURE_OUTPUT_COUNT_MAX,
                         value=default_output_count,
                         step=1,
+                        disabled=bool(fixed_output_count),
                         key=f"output_count_{feature['key']}",
                         label_visibility="collapsed",
                     )
@@ -22395,10 +24221,19 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 st.markdown('<div class="slot-helper">直接在方框中上传场景参考图</div>', unsafe_allow_html=True)
         else:
             uploaded_file = render_single_image_uploader(
-                "上传参考图",
+                "上传完整亚马逊 A+ 原图" if supports_amazon_to_walmart_a_plus else "上传参考图",
                 key=f"uploader_{feature['key']}",
                 help_text=help_text,
             )
+            if feature.get("key") == "product_retouch_local":
+                st.markdown('<div class="panel-subtitle">修复要求</div>', unsafe_allow_html=True)
+                local_retouch_prompt = st.text_area(
+                    "输入要修复的区域和瑕疵",
+                    key=f"local_retouch_prompt_{feature['key']}",
+                    placeholder="例如：清除左上角的浅黑线，保持包装文字、材质和光泽不变。",
+                    height=110,
+                    label_visibility="collapsed",
+                )
             if supports_image_resize:
                 source_width, source_height = (2000, 2000)
                 if uploaded_file is not None:
@@ -22470,6 +24305,14 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 )
             )
         )
+        if supports_a_plus_first_screen_selling_points:
+            process_button_label = (
+                "生成首屏"
+                if a_plus_first_screen_workflow_stage == "hero"
+                else "完成整张 A+"
+                if a_plus_first_screen_workflow_stage == "selling_points"
+                else "生成首屏＋卖点 A+"
+            )
         has_active_job = str(job_info.get("status") or "").strip().lower() in {"queued", "running"}
         if has_active_job:
             process_button_label = f"{process_button_label}（加入队列）"
@@ -22503,6 +24346,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                             max_value=FEATURE_OUTPUT_COUNT_MAX,
                             value=default_output_count,
                             step=1,
+                            disabled=bool(fixed_output_count),
                             key=f"output_count_{feature['key']}",
                         )
                     )
@@ -22942,15 +24786,45 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             files = list(batch_source_files)
         elif supports_ai_qa_image:
             files = list(ai_qa_source_files)
+        elif supports_amazon_to_walmart_a_plus:
+            files = [uploaded_file] if uploaded_file is not None else []
         elif supports_a_plus_images_api:
             files = list(amazon_source_files)
         else:
             files = [uploaded_file] if uploaded_file is not None else []
+        if (
+            supports_a_plus_first_screen_selling_points
+            and a_plus_first_screen_workflow_stage == "selling_points"
+        ):
+            hero_result = dict(
+                (st.session_state.get("a_plus_first_screen_hero_results") or {}).get(feature["key"])
+                or {}
+            )
+            hero_images = list(hero_result.get("images") or [])
+            if hero_images:
+                try:
+                    hero_bytes, hero_mime_type = load_image_bytes_from_url(str(hero_images[0]))
+                    hero_extension = mimetypes.guess_extension(hero_mime_type) or ".png"
+                    files.insert(
+                        0,
+                        {
+                            "data": hero_bytes,
+                            "name": f"locked_first_screen{hero_extension}",
+                            "type": hero_mime_type,
+                        },
+                    )
+                except Exception as exc:
+                    a_plus_first_screen_locked_hero_ready = False
+                    st.warning(f"无法读取已生成首屏，请重新生成首屏后再试：{format_user_facing_error_message(exc)}")
+            else:
+                a_plus_first_screen_locked_hero_ready = False
         custom_prompt = (
             ai_qa_prompt
             if supports_ai_qa_image
             else a_plus_style_model_replace_prompt
             if supports_a_plus_style_model_replace
+            else a_plus_first_screen_selling_points_prompt
+            if supports_a_plus_first_screen_selling_points
             else main_image_a_plus_prompt
             if supports_main_image_a_plus
             else amazon_a_plus_prompt
@@ -22960,6 +24834,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 background_texture_prompt,
             )
             if supports_background_texture
+            else local_retouch_prompt
+            if feature.get("key") == "product_retouch_local"
             else ""
         )
         main_image_a_plus_template_layout_error = ""
@@ -22986,12 +24862,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             if supports_main_image_a_plus and selected_main_image_a_plus_layout is not None
             else tuple(feature.get("target_size") or (1464, 1000))
             if supports_a_plus_style_model_replace
+            else (1464, int(a_plus_first_screen_total_height))
+            if supports_a_plus_first_screen_selling_points
             else parse_size_text(amazon_size_text)
             if supports_amazon_a_plus
             else (resize_target_width, resize_target_height)
             if supports_image_resize
             else None
         )
+        if supports_a_plus_first_screen_selling_points and a_plus_first_screen_workflow_stage == "hero":
+            target_size = (1464, int(a_plus_first_screen_hero_height))
         using_jimeng_for_request = (
             feature_mode == "jimeng_upscale"
             or is_jimeng_model(active_model)
@@ -23022,12 +24902,37 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             and not main_image_a_plus_element_review_confirmed
         ):
             st.warning("请先逐项校对自动填充结果，并勾选确认后再开始替换。")
-        elif len(files) < min_images:
-            st.warning(f"当前功能至少需要上传 {min_images} 张参考图。")
+        elif (
+            supports_a_plus_first_screen_selling_points
+            and a_plus_first_screen_workflow_stage == "hero"
+            and len(files) < 1
+        ):
+            st.warning("请先上传 1 张首屏参考图。")
+        elif (
+            supports_a_plus_first_screen_selling_points
+            and a_plus_first_screen_workflow_stage == "selling_points"
+            and (not a_plus_first_screen_locked_hero_ready or len(files) < 2)
+        ):
+            st.warning(
+                "已生成首屏不可用，请先重新生成首屏。"
+                if not a_plus_first_screen_locked_hero_ready
+                else "请至少上传 1 张主图或卖点图；已生成首屏会自动作为第 1 张参考图。"
+            )
+        elif len(files) < min_images and not (
+            supports_a_plus_first_screen_selling_points
+            and a_plus_first_screen_workflow_stage == "hero"
+        ):
+            st.warning(
+                "请上传 1 张待转换的完整亚马逊 A+ 原图。"
+                if supports_amazon_to_walmart_a_plus
+                else f"当前功能至少需要上传 {min_images} 张参考图。"
+            )
         elif supports_ai_qa_image and len(files) > 3:
             st.warning("AI问答生图功能最多只能上传 3 张参考图。")
         elif supports_ai_qa_image and not ai_qa_prompt.strip():
             st.warning("请输入你的文字要求。")
+        elif feature.get("key") == "product_retouch_local" and not local_retouch_prompt.strip():
+            st.warning("请输入要修复的区域和瑕疵。")
         elif (
             supports_background_texture
             and not background_texture_presets
@@ -23239,6 +25144,20 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     part for part in (extra_notes.strip(), active_layout_skill_prompt) if part
                 )
             feature_for_request = dict(feature)
+            if supports_a_plus_first_screen_selling_points:
+                if a_plus_first_screen_workflow_stage == "hero":
+                    feature_for_request["default_prompt"] = (
+                        "只生成电商 A+ 的首屏主视觉，不生成下方卖点区。严格保留上传图中真实存在的商品、人物、包装、Logo、可读文案、品牌色和核心识别元素，但用户补充要求明确指定删除或修改的文字和元素除外。"
+                        "重新组织为清晰、有焦点的商业首屏。禁止编造商品、功效、参数、认证或文案；相同元素只出现一次。"
+                        "画面必须铺满画布，无白边黑边，所有商品、文字和 Logo 完整可见，不得被边缘截断。"
+                    )
+                elif a_plus_first_screen_workflow_stage == "selling_points":
+                    feature_for_request["default_prompt"] = (
+                        "输入图片中的第 1 张是已经生成的 A+ 首屏，默认完整保留在最终长图顶部，不得重新设计、删减、裁切、改字或重复其中的任何元素；但用户补充要求明确指定删除或修改的文字和元素必须按要求处理。"
+                        "从第 2 张开始是同一商品的主图、细节图和卖点图。只在首屏下方续写卖点内容，并延续首屏的品牌色、字体气质、光影、材质、留白和视觉节奏，形成一张无接缝的连续 A+ 长图。"
+                        "只使用上传图片中真实可见的信息；禁止编造功效、参数、认证、承诺、配件或品牌文案。相同商品视角、元素、文案和卖点在整张图中只能出现一次。"
+                        "优先展示证据清晰且互不重复的卖点、材质、结构、使用方式和规格；所有商品、文字和 Logo 必须完整清晰，不得被画布边缘截断。"
+                    )
             if supports_remove_eyelashes:
                 feature_for_request["default_prompt"] = (
                     REMOVE_EYELASHES_PRESERVE_BASIC_PROMPT
@@ -23301,6 +25220,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "feature": feature_for_request,
                     "model": active_model,
                     "prompt": final_prompt,
+                    "custom_prompt": custom_prompt,
                     "uploaded_files": [prepare_uploaded_input(item) for item in files] if not supports_batch_multi_upload else [],
                     "batch_groups": (
                         [
@@ -23333,6 +25253,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     ),
                     "main_image_a_plus_mode": (
                         main_image_a_plus_mode if supports_main_image_a_plus else None
+                    ),
+                    "a_plus_first_screen_workflow_stage": (
+                        a_plus_first_screen_workflow_stage
+                        if supports_a_plus_first_screen_selling_points
+                        else None
                     ),
                     "main_image_a_plus_template": (
                         prepare_uploaded_input(main_image_a_plus_template_file)
@@ -23379,7 +25304,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             if supports_batch_multi_upload:
                 effective_submit_concurrency = min(len(batch_groups) if batch_groups else len(files), active_batch_concurrency)
                 st.info(
-                    f"已提交 {len(files)} 张图片到后台批量处理，最多 4 路并发，当前实际按 {effective_submit_concurrency} 路执行，你可以先切换到其他功能。"
+                    f"已提交 {len(files)} 张图片到后台批量处理，最多 {active_batch_concurrency} 路并发，当前实际按 {effective_submit_concurrency} 路执行，你可以先切换到其他功能。"
                 )
             else:
                 st.info("任务已提交到后台处理，你可以先切换到其他功能。")
@@ -23395,6 +25320,7 @@ def render_login_page() -> None:
 
 
 SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("设计检查", ("prepress_check",)),
     (
         "图片处理",
         (
@@ -23422,9 +25348,12 @@ SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
     (
-        "A+ 电商设计",
+        "A+",
         (
+            A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY,
+            AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
             A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,
+            A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY,
             A_PLUS_REFERENCE_LAB_FEATURE_KEY,
             MAIN_IMAGE_A_PLUS_FEATURE_KEY,
             AMAZON_A_PLUS_FEATURE_KEY,
