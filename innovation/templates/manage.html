@@ -46,6 +46,7 @@
 }
 @keyframes meetingDrawShimmer { to { background-position-x: -220%; } }
 </style>
+<link href="{{ url_for('innovation.static', filename='css/manage.css') }}?v=20261110-responsive" rel="stylesheet">
 <div class="row">
     <div class="col-12">
         <div class="card innovation-management-surface">
@@ -57,17 +58,17 @@
                     <!-- 创新提案管理选项卡 -->
                     <div class="tab-pane fade{{ ' show active' if management_section == 'innovations' else '' }}" id="innovations" role="region" aria-label="{{ management_title }}">
                         <div class="mt-3">
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h5>创新提案管理</h5>
-    <div class="d-flex gap-2 flex-wrap justify-content-end">
+<div class="d-flex justify-content-between align-items-center mb-3 innovation-manage-toolbar">
+    <h5 class="innovation-manage-title">创新提案管理</h5>
+    <div class="d-flex gap-2 flex-wrap justify-content-end innovation-manage-tools">
         <!-- 快捷导出区域 -->
-        <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="d-flex align-items-center gap-2 flex-wrap innovation-export-controls">
             <label class="form-label mb-0 text-muted small">快捷导出:</label>
-            <div class="d-flex align-items-center gap-1">
+            <div class="d-flex align-items-center gap-1 innovation-export-date">
                 <label for="quickStartDate" class="form-label mb-0 small">从</label>
                 <input type="date" class="form-control form-control-sm" id="quickStartDate" style="width: 140px;" title="开始日期">
             </div>
-            <div class="d-flex align-items-center gap-1">
+            <div class="d-flex align-items-center gap-1 innovation-export-date">
                 <label for="quickEndDate" class="form-label mb-0 small">到</label>
                 <input type="date" class="form-control form-control-sm" id="quickEndDate" style="width: 140px;" title="结束日期">
             </div>
@@ -198,8 +199,9 @@
     </div>
 </div>
                             <!-- 筛选器 -->
-                            <div class="row mb-3">
+                            <div class="row mb-3 innovation-filter-grid innovation-filter-primary">
                                 <div class="col-md-2">
+                                    <label class="form-label" for="statusFilter">提案状态</label>
                                     <select class="form-select" id="statusFilter" onchange="filterInnovations()">
                                         <option value="">全部状态</option>
                                         <option value="待承接">待承接</option>
@@ -210,6 +212,7 @@
                                     </select>
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label" for="departmentFilter">承接部门</label>
                                     <select class="form-select" id="departmentFilter" onchange="filterInnovations()">
                                         <option value="">承接部门</option>
                                         <option value="内容生产工厂">内容生产工厂</option>
@@ -233,6 +236,7 @@
                                     </select>
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label" for="initiatorDepartmentFilter">发起部门</label>
                                     <select class="form-select" id="initiatorDepartmentFilter" onchange="filterInnovations()">
                                         <option value="">发起部门</option>
                                         <option value="AI">AI</option>
@@ -254,20 +258,24 @@
                                     </select>
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label" for="startDateFilter">发起开始日期</label>
                                     <input type="date" class="form-control" id="startDateFilter"
                                            placeholder="开始日期" onchange="filterInnovations()" title="发起开始日期">
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label" for="endDateFilter">发起结束日期</label>
                                     <input type="date" class="form-control" id="endDateFilter"
                                            placeholder="结束日期" onchange="filterInnovations()" title="发起结束日期">
                                 </div>
-                                <div class="col-md-2">
+                                <div class="col-md-2 innovation-filter-search">
+                                    <label class="form-label" for="searchInput">搜索提案</label>
                                     <input type="text" class="form-control" id="searchInput"
                                            placeholder="搜索编号、标题或发起人..." onkeyup="filterInnovations()">
                                 </div>
                             </div>
-                            <div class="row mb-3">
+                            <div class="row mb-3 innovation-filter-grid innovation-filter-secondary">
                                 <div class="col-md-2">
+                                    <label class="form-label" for="operationTypeFilter">操作类型</label>
                                     <select class="form-select" id="operationTypeFilter" onchange="filterInnovations()">
                                         <option value="">全部操作类型</option>
                                         <option value="adopted">采纳</option>
@@ -278,6 +286,7 @@
                                     </select>
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label" for="scoreFilterBtn">提案分数</label>
                                     <div class="dropdown w-100">
                                         <button class="form-select text-start" type="button" id="scoreFilterBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">分数</button>
                                         <div class="dropdown-menu p-2" style="min-width: 100%;">
@@ -305,6 +314,7 @@
                                     </div>
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label" for="favoriteFilter">提案范围</label>
                                     <select class="form-select" id="favoriteFilter" onchange="filterInnovations()">
                                         <option value="">全部提案</option>
                                         <option value="mine">我的收藏</option>
@@ -312,7 +322,7 @@
                                         <option value="暂未有解决方案">暂未有有效解决方案</option>
                                     </select>
                                 </div>
-                                <div class="col-md-6 d-flex gap-1 justify-content-end">
+                                <div class="col-md-6 d-flex gap-1 justify-content-end innovation-filter-actions">
                                     <button class="btn btn-outline-secondary"
                                             onclick="clearFilters()">清除筛选</button>
                                     <button class="btn btn-outline-secondary"
@@ -1583,10 +1593,10 @@ function renderInnovations() {
         }
 
         html += `
-            <div class="card mb-3">
+            <div class="card mb-3 innovation-proposal-card">
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-8">
+                    <div class="row innovation-proposal-layout">
+                        <div class="col-md-8 innovation-proposal-content">
                             <h5 class="card-title">
                                 <span class="text-muted me-2">#${innovation.bianhao || innovation.id}</span>
                                 ${innovation.title || '无标题'}
@@ -1613,7 +1623,7 @@ function renderInnovations() {
                                 ${departmentStatusHtml}
                             </div>
 
-                            <div class="row text-muted small">
+                            <div class="row text-muted small innovation-proposal-meta">
                                 <div class="col-sm-6">
                                     <i class="bi bi-person"></i> 发起人：${innovation.initiator || '未知'}
                                 </div>
@@ -1660,7 +1670,7 @@ function renderInnovations() {
                                 <div class="bg-light p-2 rounded small">${innovation.handler_notes}</div>
                             </div>
                             ` : ''}
-                            <div class="border-top pt-2 mt-2">
+                            <div class="border-top pt-2 mt-2 innovation-proposal-reactions">
                                 <div class="d-flex align-items-center">
                                     <button class="btn btn-outline-danger btn-sm" onclick="toggleLike(${String(innovation.id).replace(/[^0-9]/g,'')})"><i class="bi bi-heart"></i> 点赞</button>
                                     <span class="ms-2 small text-muted">点赞数：<span id="like-count-${String(innovation.id).replace(/[^0-9]/g,'')}">0</span></span>
@@ -1669,7 +1679,7 @@ function renderInnovations() {
                                 <div class="mt-2">
                                     <button class="btn btn-outline-secondary btn-sm" id="comment-toggle-${String(innovation.id).replace(/[^0-9]/g,'')}" onclick="toggleComments(${String(innovation.id).replace(/[^0-9]/g,'')})"><i class="bi bi-chat"></i> 折叠评论</button>
                                 </div>
-                                <div id="comments-panel-${String(innovation.id).replace(/[^0-9]/g,'')}" class="mt-2" style="display:block;border:1px solid #e9ecef;border-radius:8px;padding:10px;">
+                                <div id="comments-panel-${String(innovation.id).replace(/[^0-9]/g,'')}" class="mt-2 innovation-comment-panel" style="display:block;border:1px solid #e9ecef;border-radius:8px;padding:10px;">
                                     <div id="comments-${String(innovation.id).replace(/[^0-9]/g,'')}"></div>
                                     <div class="mt-2">
                                         <div class="input-group input-group-sm">
@@ -1684,7 +1694,7 @@ function renderInnovations() {
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4 text-end">
+                        <div class="col-md-4 text-end innovation-proposal-actions">
                             <div class="btn-group-vertical innovation-action-group" role="group">
                                 <button class="btn btn-outline-primary btn-sm"
                                         onclick="openHandleModal(${innovation.id})">

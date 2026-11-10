@@ -1,0 +1,271 @@
+/* Proposal management layout. Control IDs, events and visibility remain in the template. */
+.innovation-management-surface:has(#innovations.active) {
+    background: transparent;
+}
+.innovation-manage-toolbar {
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--innovation-line);
+    border-radius: 12px;
+    background: #fff;
+}
+.innovation-manage-title {
+    margin: 0;
+    color: #192238;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+.innovation-manage-tools {
+    min-width: 0;
+    align-items: center;
+    margin-left: auto;
+}
+.innovation-manage-tools > .btn,
+.innovation-export-controls .btn {
+    min-height: 36px;
+    white-space: nowrap;
+}
+.innovation-export-controls {
+    min-width: 0;
+    padding-right: 12px;
+    border-right: 1px solid var(--innovation-line);
+}
+.innovation-export-date { min-width: 0; }
+.innovation-export-date .form-control {
+    min-width: 0;
+    min-height: 36px;
+    border-radius: 7px;
+    font-size: 13px;
+}
+.innovation-filter-grid.row {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: end;
+    gap: 12px;
+    margin: 0 0 12px !important;
+}
+.innovation-filter-grid > [class*="col-"] {
+    width: auto;
+    min-width: 0;
+    padding: 0;
+}
+.innovation-filter-grid .form-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.innovation-filter-grid .form-control,
+.innovation-filter-grid .form-select {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    border-color: #dce3ee;
+    border-radius: 8px;
+    background-color: #fff;
+    font-size: 13px;
+}
+.innovation-filter-grid .form-control:focus,
+.innovation-filter-grid .form-select:focus {
+    border-color: #8b9cec;
+    box-shadow: 0 0 0 3px #4664df14;
+}
+.innovation-filter-grid .innovation-filter-actions {
+    grid-column: span 3;
+    flex-wrap: wrap;
+    gap: 8px !important;
+}
+.innovation-filter-actions .btn {
+    min-height: 40px;
+    padding: 8px 14px;
+    border-color: #d4dce8;
+    border-radius: 8px;
+    background: #fff;
+    color: #58657c;
+    font-size: 13px;
+    white-space: nowrap;
+}
+.innovation-filter-actions .btn:hover { background: #f0f3fa; }
+.innovation-filter-secondary { padding-bottom: 6px; }
+#innovationsList {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+#innovationsList > .innovation-proposal-card {
+    margin-bottom: 0 !important;
+    border: 1px solid var(--innovation-line);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 2px 6px #19223803;
+}
+.innovation-proposal-card > .card-body { padding: 20px; }
+.innovation-proposal-layout.row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 144px;
+    gap: 24px;
+    margin: 0;
+}
+.innovation-proposal-layout > [class*="col-"] {
+    width: auto;
+    min-width: 0;
+    padding: 0;
+}
+.innovation-proposal-content {
+    color: #334155;
+    overflow-wrap: anywhere;
+}
+.innovation-proposal-content .card-title {
+    margin-bottom: 10px;
+    color: #192238;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.7;
+}
+.innovation-proposal-content .card-title > .text-muted {
+    color: #8793a8 !important;
+    font-size: 14px;
+    font-weight: 500;
+}
+.innovation-proposal-content .card-title > .badge { vertical-align: middle; }
+.innovation-proposal-content .card-text {
+    margin-bottom: 14px;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.8;
+}
+.innovation-proposal-content .badge {
+    max-width: 100%;
+    padding: 5px 8px;
+    border-radius: 5px;
+    line-height: 1.4;
+    white-space: normal;
+}
+.innovation-proposal-meta.row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px 16px;
+    margin: 14px 0 12px;
+    color: #738096 !important;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.innovation-proposal-meta > [class*="col-"] {
+    min-width: 0;
+    width: auto;
+    padding: 0;
+}
+.innovation-proposal-actions .innovation-action-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+}
+.innovation-proposal-actions .innovation-action-group > .btn {
+    min-height: 38px;
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 8px !important;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.innovation-proposal-actions .btn-outline-primary {
+    background: #f2f5ff;
+    color: #4664df;
+    border-color: #cad5fb;
+}
+.innovation-proposal-actions .btn-outline-primary:hover { background: #e6ecff; }
+.innovation-proposal-reactions { border-color: #edf0f5 !important; }
+.innovation-proposal-reactions > .d-flex { flex-wrap: wrap; gap: 6px; }
+.innovation-proposal-reactions > .small { line-height: 1.7; }
+.innovation-proposal-reactions > .mt-2 > .btn { border-radius: 6px; }
+.innovation-proposal-reactions .btn-sm { min-height: 34px; font-size: 12px; }
+.innovation-comment-panel {
+    padding: 12px !important;
+    background: #fafbfe;
+    border-color: #e8edf5 !important;
+    border-radius: 8px !important;
+    font-size: 13px;
+}
+.innovation-comment-panel .form-control { min-width: 0; font-size: 13px; }
+.innovation-comment-panel .input-group > .form-control { min-height: 38px; }
+.innovation-comment-panel .input-group > .btn { min-height: 38px; padding-inline: 14px; }
+.innovation-proposal-content img,
+.innovation-proposal-content video { max-width: 100%; height: auto; }
+#innovations #paginationContainer { flex-wrap: wrap; gap: 14px; font-size: 13px; }
+#innovations #paginationContainer .pagination { flex-wrap: wrap; gap: 4px; }
+#innovations #paginationContainer .page-link { border-radius: 6px; }
+
+@media (max-width: 1399px) {
+    .innovation-filter-grid.row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .innovation-proposal-meta.row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .innovation-manage-tools { justify-content: flex-start !important; }
+}
+@media (min-width: 768px) and (max-width: 1099px) {
+    .innovation-app:has(#innovations.active) .innovation-topbar {
+        height: auto;
+        min-height: 64px;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-block: 12px;
+    }
+    .innovation-app:has(#innovations.active) .innovation-global-search {
+        flex: 1 1 140px;
+        min-width: 0;
+    }
+    .innovation-app:has(#innovations.active) .innovation-global-search input {
+        width: 100%;
+        min-width: 0;
+    }
+    .innovation-app:has(#innovations.active) .innovation-topbar > .btn { flex-shrink: 0; }
+}
+@media (min-width: 768px) and (max-width: 991px) {
+    .innovation-filter-grid.row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .innovation-filter-grid .innovation-filter-actions { grid-column: span 1; }
+    .innovation-proposal-layout.row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .innovation-proposal-actions .innovation-action-group { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .innovation-proposal-actions .innovation-action-group > .btn { padding-inline: 4px; }
+}
+@media (max-width: 767px) {
+    .innovation-app:has(#innovations.active) .innovation-topbar { gap: 10px; padding-inline: 12px; }
+    .innovation-app:has(#innovations.active) .innovation-breadcrumb { min-width: 0; font-size: 12px; }
+    .innovation-app:has(#innovations.active) .innovation-breadcrumb > span { margin-inline: 4px; }
+    .innovation-app:has(#innovations.active) .innovation-topbar > .btn { flex-shrink: 0; font-size: 12px; }
+    .innovation-manage-toolbar { align-items: flex-start !important; gap: 12px; padding: 14px; }
+    .innovation-manage-title { font-size: 18px; }
+    .innovation-manage-tools { width: 100%; margin-left: 0; }
+    .innovation-export-controls { width: 100%; padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--innovation-line); }
+    .innovation-filter-grid.row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .innovation-filter-search { grid-column: 1 / -1; }
+    .innovation-filter-grid .innovation-filter-actions { grid-column: span 1; }
+    .innovation-filter-actions .btn { flex: 1; padding-inline: 10px; }
+    .innovation-proposal-card > .card-body { padding: 16px; }
+    .innovation-proposal-layout.row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .innovation-proposal-actions { border-top: 1px solid #edf0f5; padding-top: 14px !important; }
+    .innovation-proposal-actions .innovation-action-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .innovation-proposal-actions .innovation-action-group > .btn { min-height: 42px; }
+    .innovation-proposal-meta.row { column-gap: 12px; }
+    .innovation-comment-panel { padding: 10px !important; }
+}
+@media (max-width: 575px) {
+    .innovation-export-controls { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px !important; }
+    .innovation-export-controls > label { grid-column: 1 / -1; }
+    .innovation-export-date .form-control { width: 100% !important; flex: 1; padding-inline: 6px; }
+    .innovation-export-controls > .btn-group { grid-column: 1 / -1; }
+    .innovation-manage-tools > .btn { flex: 1; padding-inline: 8px; font-size: 12px; }
+    .innovation-filter-grid .innovation-filter-actions { grid-column: 1 / -1; }
+    .innovation-proposal-meta.row { grid-template-columns: minmax(0, 1fr); }
+    .innovation-proposal-content .card-title { font-size: 16px; }
+    .innovation-proposal-content .card-title > .badge { margin-left: 4px !important; }
+    .innovation-comment-panel .input-group { flex-wrap: wrap; gap: 8px; }
+    .innovation-comment-panel .input-group > .form-control { flex-basis: 100%; border-radius: 6px !important; }
+    .innovation-comment-panel .input-group > .btn { width: 100%; margin: 0; border-radius: 6px !important; }
+    .innovation-comment-panel input[type="file"] { width: 100%; max-width: 100% !important; }
+    #innovations #paginationContainer nav { max-width: 100%; }
+}
+@media (max-width: 359px) {
+    .innovation-filter-grid.row { grid-template-columns: minmax(0, 1fr); }
+}
