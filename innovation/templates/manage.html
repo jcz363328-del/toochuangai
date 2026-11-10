@@ -2,6 +2,10 @@
 
 {% block title %}管理中心 - 团队创新奖励管理系统{% endblock %}
 
+{% set management_section = request.args.get('section', 'innovations') if request.args.get('section', 'innovations') in ['innovations', 'rewards', 'meeting-draw'] else 'innovations' %}
+{% set management_title = {'innovations': '创新提案管理', 'rewards': '奖品管理', 'meeting-draw': '会议抽签'}[management_section] %}
+{% block page_label %}{{ management_title }}{% endblock %}
+
 {% block content %}
 <style>
 .innovation-action-group {
@@ -44,37 +48,14 @@
 </style>
 <div class="row">
     <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="mb-0">
-                    <i class="bi bi-gear"></i> 管理中心
-                </h4>
-            </div>
+        <div class="card innovation-management-surface">
             <div class="card-body">
-                <!-- 选项卡导航 -->
-                <ul class="nav nav-tabs" id="manageTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="innovations-tab" data-bs-toggle="tab" data-bs-target="#innovations" type="button" role="tab">
-                            <i class="bi bi-lightbulb"></i> 创新提案管理
-                        </button>
-                    </li>
-                    <!-- 奖品管理选项卡 - 所有用户可见 -->
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="rewards-tab" data-bs-toggle="tab" data-bs-target="#rewards" type="button" role="tab">
-                            <i class="bi bi-gift"></i> 奖品管理
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="meeting-draw-tab" data-bs-toggle="tab" data-bs-target="#meeting-draw" type="button" role="tab">
-                            <i class="bi bi-shuffle"></i> 会议抽签
-                        </button>
-                    </li>
-                </ul>
+
 
                 <!-- 选项卡内容 -->
                 <div class="tab-content" id="manageTabsContent">
                     <!-- 创新提案管理选项卡 -->
-                    <div class="tab-pane fade show active" id="innovations" role="tabpanel">
+                    <div class="tab-pane fade{{ ' show active' if management_section == 'innovations' else '' }}" id="innovations" role="region" aria-label="{{ management_title }}">
                         <div class="mt-3">
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h5>创新提案管理</h5>
@@ -381,7 +362,7 @@
                     </div>
 
                     <!-- 奖品管理选项卡 -->
-                    <div class="tab-pane fade" id="rewards" role="tabpanel">
+                    <div class="tab-pane fade{{ ' show active' if management_section == 'rewards' else '' }}" id="rewards" role="region" aria-label="{{ management_title }}">
                         <div class="mt-3">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5>奖品管理</h5>
@@ -399,7 +380,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="tab-pane fade" id="meeting-draw" role="tabpanel">
+                    <div class="tab-pane fade{{ ' show active' if management_section == 'meeting-draw' else '' }}" id="meeting-draw" role="region" aria-label="{{ management_title }}">
                         <div class="mt-3">
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <div>
@@ -940,18 +921,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化委员会权限控制
     initCommitteePermissions();
 
-    loadInnovations(1);
-
-    // 监听选项卡切换事件
-    const rewardsTab = document.getElementById('rewards-tab');
-    if (rewardsTab) {
-        rewardsTab.addEventListener('shown.bs.tab', function() {
-            loadRewardsManage();
-        });
-    }
-    const meetingDrawTab = document.getElementById('meeting-draw-tab');
-    if (meetingDrawTab) {
-        meetingDrawTab.addEventListener('shown.bs.tab', loadMeetingDrawState);
+    const initialSearch = new URLSearchParams(window.location.search).get('search');
+    if (initialSearch) document.getElementById('searchInput').value = initialSearch;
+    const managementSection = {{ management_section | tojson }};
+    if (managementSection === 'rewards') {
+        loadRewardsManage();
+    } else if (managementSection === 'meeting-draw') {
+        loadMeetingDrawState();
+    } else {
+        loadInnovations(1);
     }
 });
 

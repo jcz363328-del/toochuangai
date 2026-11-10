@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block page_label %}数据总览{% endblock %}
+
 {% block content %}
 <style>
 /* 创新首页使用全宽工作台，避免 Bootstrap .container 在大屏上留下两侧空白。 */
@@ -628,54 +630,6 @@
 </style>
 <div class="row">
     <div class="col-12">
-        <div class="hero-section bg-light rounded mb-4">
-            <img class="hero-corner-bg"
-                 src="{{ url_for('innovation.innovation_uploaded_file', filename='20260416-181432.png') }}?v=20260416"
-                 alt="">
-            <div class="hero-title-wrap">
-                <h1 class="display-4">创新奖励管理系统</h1>
-                <p class="lead">激发团队创新活力，建立高效的创新提案管理和奖励机制</p>
-            </div>
-            <hr class="my-4 hero-content-wrap">
-            <div class="row hero-content-wrap">
-                 <div class="col-md-3 mb-3">
-                    <div class="card h-100 feature-card clickable-card" onclick="logMenuClickAndGo('发起创新', '{{ url_for('innovation.innovation_submit') }}')">
-                        <div class="card-body text-center">
-                            <i class="bi bi-plus-circle display-4 text-primary"></i>
-                            <h5 class="card-title mt-3">发起创新</h5>
-                            <p class="card-text">提交您的创新想法和建议</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card h-100 feature-card" onclick="logMenuClickAndGo('承接管理', '{{ url_for('innovation.innovation_manage') }}')">
-                        <div class="card-body text-center">
-                            <i class="bi bi-gear display-4 text-success"></i>
-                            <h5 class="card-title mt-3">承接管理</h5>
-                            <p class="card-text">处理和跟进创新项目</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card h-100 feature-card" onclick="logMenuClickAndGo('个人积分', '{{ url_for('innovation.innovation_points') }}')">
-                        <div class="card-body text-center">
-                            <i class="bi bi-star-fill display-4 text-warning"></i>
-                            <h5 class="card-title mt-3">个人积分</h5>
-                            <p class="card-text">查看积分和兑换奖品</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card h-100 feature-card" onclick="logMenuClickAndGo('创新星主场', '{{ url_for('innovation.innovation_excellent_cases') }}')">
-                        <div class="card-body text-center">
-                            <i class="bi bi-award-fill display-4 text-danger"></i>
-                            <h5 class="card-title mt-3">创新星主场</h5>
-                            <p class="card-text">聚创新星光，筑思享主场</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 <!-- 积分排行榜 -->
 {#<div class="row mb-4">#}
 {#    <div class="col-12">#}
@@ -722,14 +676,7 @@
 <div class="row mb-4">
     <div class="col-12">
         <section class="innovation-dashboard" aria-labelledby="dashboardTitle">
-            <div class="dashboard-heading">
-                <div>
-                    <h5 id="dashboardTitle"><i class="bi bi-bar-chart-fill text-primary me-2"></i>创新数据看板</h5>
-                    <p>从提案规模、有效率、积分贡献、人员表现和创新方向查看团队创新活力。</p>
-                </div>
-                <span class="dashboard-data-status loading" id="dashboardDataStatus" aria-live="polite">正在加载数据</span>
-            </div>
-
+            <h2 id="dashboardTitle" class="visually-hidden">创新数据看板</h2>
             <div class="dashboard-filterbar" aria-label="看板日期筛选">
                 <div class="dashboard-date-fields">
                     <div class="dashboard-field">
@@ -741,6 +688,7 @@
                         <input type="date" id="endDateFilter" class="form-control form-control-sm">
                     </div>
                 </div>
+                <span class="dashboard-data-status loading" id="dashboardDataStatus" aria-live="polite">正在加载数据</span>
                 <div class="dashboard-actions">
                     <button class="btn btn-primary btn-sm" type="button" onclick="filterByDateRange()">
                         <i class="bi bi-search"></i> 查询
@@ -756,6 +704,10 @@
 
             <div class="dashboard-body">
                 <div class="dashboard-kpis" aria-label="核心指标">
+                    <article class="dashboard-kpi" style="--kpi-color:#d68a20;--kpi-tint:rgba(214,138,32,.1);">
+                        <div class="dashboard-kpi-head"><span class="dashboard-kpi-label">待承接 · 全部日期</span><span class="dashboard-kpi-icon"><i class="bi bi-clock"></i></span></div>
+                        <div class="dashboard-kpi-value" id="pending-count">—</div>
+                    </article>
                     <article class="dashboard-kpi">
                         <div class="dashboard-kpi-head">
                             <span class="dashboard-kpi-label">总提案数</span>
@@ -849,9 +801,61 @@
 </div>
 
 
+<section class="innovation-recent" aria-labelledby="recentProposalsTitle">
+    <div class="innovation-recent-heading">
+        <h2 id="recentProposalsTitle">最新提案</h2>
+        <a href="{{ url_for('innovation.innovation_manage') }}">查看全部 <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th scope="col">提案名称</th><th scope="col">提案人</th><th scope="col">提交时间</th><th scope="col">操作</th></tr></thead>
+            <tbody id="recentProposalsBody"><tr><td colspan="4" class="text-muted py-4" role="status">正在加载提案…</td></tr></tbody>
+        </table>
+    </div>
+</section>
 {% endblock %}
 
 {% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+    const body = document.getElementById('recentProposalsBody');
+    function showState(message) {
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.className = 'text-muted py-4';
+        cell.setAttribute('role', 'status');
+        cell.textContent = message;
+        const row = document.createElement('tr');
+        row.appendChild(cell);
+        body.replaceChildren(row);
+    }
+    try {
+        const response = await fetch('/innovation/api/get_innovations?page=1&per_page=5');
+        if (!response.ok) throw new Error('request failed');
+        const payload = await response.json();
+        if (!payload.success || !Array.isArray(payload.data)) throw new Error('invalid response');
+        if (!payload.data.length) { showState('暂无提案'); return; }
+        body.replaceChildren();
+        payload.data.forEach(function (proposal) {
+            const row = document.createElement('tr');
+            [proposal.title, proposal.initiator, proposal.initiation_time].forEach(function (value) {
+                const cell = document.createElement('td');
+                cell.textContent = value || '—';
+                row.appendChild(cell);
+            });
+            const action = document.createElement('td');
+            const link = document.createElement('a');
+            link.href = {{ url_for('innovation.innovation_manage') | tojson }};
+            link.textContent = '进入管理';
+            action.appendChild(link);
+            row.appendChild(action);
+            body.appendChild(row);
+        });
+    } catch (error) {
+        showState('提案暂时加载失败，请刷新重试或进入承接管理查看');
+    }
+});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>
 // 加载统计数据

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}创新星榜 - 创新提案{% endblock %}
+{% block page_label %}创新星主场 / 创新星榜{% endblock %}
+{% block content %}
+<section class="innovation-leaderboard" aria-labelledby="leaderboardTitle">
+    <div class="leaderboard-heading">
+        <div><h1 id="leaderboardTitle"><i class="bi bi-trophy" aria-hidden="true"></i> 创新星榜 <span>TOP 20</span></h1><p>历史累计获得积分 · 不扣除兑换消费 · 同分同名次</p></div>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('innovation.innovation_leaderboard') }}">刷新榜单</a>
+    </div>
+    {% if leaderboard_error %}
+    <div class="alert alert-warning" role="alert">排行榜暂时加载失败，请稍后刷新重试。</div>
+    {% elif not leaders %}
+    <div class="leaderboard-empty" role="status">暂无获得积分的人员</div>
+    {% else %}
+    <div class="leaderboard-podium">
+        {% for leader in leaders[:3] if leader.rank <= 3 %}
+        <article class="leaderboard-honor tier-{{ leader.tier }}">
+            <img class="leaderboard-rank-icon" src="{{ url_for('innovation.static', filename='images/rank-icons/' ~ {'gold': 'first', 'silver': 'second', 'bronze': 'third'}[leader.tier] ~ '.png') }}" alt="第 {{ leader.rank }} 名荣誉徽章" width="140" height="140" decoding="async">
+            <span class="leaderboard-rank">第 {{ leader.rank }} 名</span>
+            <h2>{{ leader.name }}</h2>
+            <strong>{{ '{:g}'.format(leader.score) }} <small>积分</small></strong>
+        </article>
+        {% endfor %}
+    </div>
+    <div class="leaderboard-list">
+        {% for leader in leaders %}
+        <article class="leaderboard-row tier-{{ leader.tier }}">
+            <span class="leaderboard-position">{{ leader.rank }}</span>
+            <span class="leaderboard-name">{{ leader.name }}</span>
+            <strong>{{ '{:g}'.format(leader.score) }} <small>积分</small></strong>
+        </article>
+        {% endfor %}
+    </div>
+    <p class="leaderboard-note">只展示前 20 人，同分按姓名排序截取。</p>
+    {% endif %}
+</section>
+{% endblock %}

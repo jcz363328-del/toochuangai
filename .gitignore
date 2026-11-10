@@ -57,6 +57,7 @@ innovation/static/uploads/rewards/
 
 # Binary media assets; this upload is intended for code files
 *.png
+!innovation/static/images/rank-icons/*.png
 *.jpg
 *.jpeg
 *.gif

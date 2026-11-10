@@ -1,4 +1,5 @@
 from secret_settings import relocate_storage_path
+from innovation.leaderboard import load_points_leaderboard
 from werkzeug.utils import secure_filename  # 用于安全处理上传文件名
 from bjc import sf_db, dui_db  # 导入数据库相关操作
 from datetime import datetime  # 处理日期和时间
@@ -777,12 +778,26 @@ def points():
     return render_template('points.html', feishu_user_name=_get_current_feishu_user_name())
 
 
+@app.route('/leaderboard', endpoint='innovation.innovation_leaderboard')
+def points_leaderboard():
+    if not session.get('feishu_user_id'):
+        return redirect(url_for('feishu_auth'))
+    try:
+        leaders = load_points_leaderboard(sf_db)
+    except Exception:
+        return render_template('leaderboard.html', leaders=[], leaderboard_error=True), 503
+    return render_template('leaderboard.html', leaders=leaders, leaderboard_error=False)
+
+
 @app.route('/excellent_cases', endpoint='innovation.excellent_cases')
 def excellent_cases():
     """优秀案例页面：展示最高分50分提案全部字段和创新榜单"""
     user_id = session.get('feishu_user_id')
     if not user_id:
         return redirect(url_for('feishu_auth'))
+
+    if request.args.get('tab') == 'rank':
+        return redirect(url_for('innovation.innovation_leaderboard'))
 
     query_sql = """
         SELECT

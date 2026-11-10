@@ -9,8 +9,9 @@
     {% endif %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('innovation.static', filename='css/workspace.css') }}?v=20261110-rank-clean" rel="stylesheet">
 </head>
-<body>
+<body class="innovation-app">
     <style>
         .identity-rebind-link {
             display: inline-flex;
@@ -29,38 +30,84 @@
             background: rgba(255, 255, 255, 0.12);
         }
     </style>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid px-4 innovation-nav-shell">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="bi bi-lightbulb"></i> 团队创新奖励管理
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">首页</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('innovation.innovation_submit') }}" onclick="return logMenuClickAndGo('发起创新', this.href);">发起创新</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('innovation.innovation_manage') }}" onclick="return logMenuClickAndGo('承接管理', this.href);">承接管理</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('innovation.innovation_points') }}" onclick="return logMenuClickAndGo('个人积分', this.href);">个人积分</a>
-                    </li>
-                    <li class="nav-item ms-lg-2">
-                        <a class="identity-rebind-link" href="{{ url_for('reauth') }}">
-                            <i class="bi bi-arrow-repeat"></i>
-                            <span>重新绑定身份</span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
+    {% set current_endpoint = request.endpoint or '' %}
+    {% set management_sections = [('innovations', '创新提案管理', 'lightbulb'), ('rewards', '奖品管理', 'gift'), ('meeting-draw', '会议抽签', 'shuffle')] %}
+    {% set selected_section = request.args.get('section', 'innovations') if request.args.get('section', 'innovations') in ['innovations', 'rewards', 'meeting-draw'] else 'innovations' %}
+    {% set navigation = [
+        ('工作台', [
+            ('innovation.innovation_index', '数据总览', 'bar-chart', ''),
+            ('innovation.innovation_submit', '新建提案', 'plus-lg', '发起创新')
+        ]),
+        ('提案协作', [
+            ('innovation.innovation_manage', '承接管理', 'clipboard-check', '承接管理')
+        ]),
+        ('创新星主场', [
+            ('innovation.innovation_excellent_cases', '创新星主场', 'award', '创新星主场')
+        ]),
+        ('积分与激励', [
+            ('innovation.innovation_points', '个人积分与兑换', 'gift', '个人积分'),
+            ('innovation.innovation_manage', '奖品管理', 'gift', '奖品管理')
+        ])
+    ] %}
+    <aside class="innovation-sidebar" id="innovationSidebar" aria-label="创新提案导航">
+        <a class="innovation-brand" href="{{ url_for('innovation.innovation_index') }}">
+            <i class="bi bi-lightbulb" aria-hidden="true"></i>
+            <span><strong>图创AI系统</strong><small>创新提案管理</small></span>
+        </a>
+        <nav class="innovation-menu">
+            {% for heading, links in navigation %}
+            <section class="innovation-nav-group">
+                <h2>{{ heading }}</h2>
+                {% for endpoint, label, icon, tracking in links %}
+                {% if endpoint == 'innovation.innovation_manage' %}
+                {% for section, section_label, section_icon in management_sections %}
+                {% if (heading == '积分与激励' and section == 'rewards') or (heading == '提案协作' and section != 'rewards') %}
+                <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint and selected_section == section else '' }}"
+                   href="{{ url_for(endpoint, section=section, desktop=1) }}"
+                   {% if current_endpoint == endpoint and selected_section == section %}aria-current="page"{% endif %}
+                   onclick="return logMenuClickAndGo('{{ section_label }}', this.href);">
+                    <i class="bi bi-{{ section_icon }}" aria-hidden="true"></i><span>{{ section_label }}</span>
+                </a>
+                {% endif %}
+                {% endfor %}
+                {% elif endpoint == 'innovation.innovation_excellent_cases' %}
+                {% set star_section = request.args.get('tab', 'excellent') if request.args.get('tab', 'excellent') in ['excellent', 'rank', 'share', 'talk'] else 'excellent' %}
+                <div class="innovation-star-navigation">
+                    {% for star_key, star_label in [('excellent', '创新星鉴'), ('rank', '创新星榜'), ('share', '创新星享'), ('talk', '创新星说')] %}
+                    {% set star_active = (star_key == 'rank' and current_endpoint == 'innovation.innovation_leaderboard') or (current_endpoint == endpoint and star_section == star_key) %}
+                    <a class="innovation-nav-item innovation-star-link{{ ' is-active' if star_active else '' }}"
+                       data-star-section="{{ star_key }}" href="{{ url_for('innovation.innovation_leaderboard') if star_key == 'rank' else url_for(endpoint, tab=star_key) }}"
+                       {% if star_active %}aria-current="page"{% endif %}
+                       onclick="return logMenuClickAndGo('{{ star_label }}', this.href);">{{ star_label }}</a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint else '' }}"
+                   href="{{ url_for(endpoint) }}"
+                   {% if current_endpoint == endpoint %}aria-current="page"{% endif %}
+                   {% if tracking %}onclick="return logMenuClickAndGo('{{ tracking }}', this.href);"{% endif %}>
+                    <i class="bi bi-{{ icon }}" aria-hidden="true"></i><span>{{ label }}</span>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </section>
+            {% endfor %}
+        </nav>
+        <div class="innovation-sidebar-footer">
+            <a class="innovation-nav-item" href="{{ url_for('index') }}"><i class="bi bi-house-door" aria-hidden="true"></i>返回系统首页</a>
+            <a class="innovation-nav-item" href="{{ url_for('reauth') }}"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>重新绑定身份</a>
+            <div class="innovation-account"><i class="bi bi-person-circle" aria-hidden="true"></i><span>{{ feishu_user_name or session.get('feishu_user_name') or session.get('user_name') or '当前用户' }}</span></div>
         </div>
-    </nav>
+    </aside>
+    <header class="innovation-topbar">
+        <button class="innovation-menu-toggle" type="button" aria-controls="innovationSidebar" aria-expanded="false" aria-label="展开导航"><i class="bi bi-list" aria-hidden="true"></i></button>
+        <span class="innovation-breadcrumb">创新提案 <span>/</span> {% block page_label %}工作台{% endblock %}</span>
+        <form class="innovation-global-search" action="{{ url_for('innovation.innovation_manage') }}" method="get" role="search">
+            <i class="bi bi-search" aria-hidden="true"></i><input name="search" type="search" aria-label="搜索提案" placeholder="搜索提案" value="{{ request.args.get('search', '') }}">
+        </form>
+        {% block topbar_actions %}{% endblock %}
+        <a class="btn btn-primary btn-sm" href="{{ url_for('innovation.innovation_submit') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> 新建提案</a>
+    </header>
 
     <main class="container-fluid mt-4 innovation-shell">
         {% block content %}{% endblock %}
@@ -106,6 +153,21 @@
             window.location.href = href;
             return false;
         }
+    </script>
+    <script>
+        const menuToggle = document.querySelector('.innovation-menu-toggle');
+        menuToggle.addEventListener('click', function () {
+            const expanded = this.getAttribute('aria-expanded') !== 'true';
+            this.setAttribute('aria-expanded', String(expanded));
+            this.setAttribute('aria-label', expanded ? '收起导航' : '展开导航');
+            document.body.classList.toggle('innovation-menu-open', expanded);
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                document.body.classList.remove('innovation-menu-open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

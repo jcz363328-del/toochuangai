@@ -14466,11 +14466,14 @@ def dashboard_workspace_catalog(accessible=None):
         groups.append({'key': key, 'name': name.replace('功能模块', '').replace('功能', '') if key != 'operations' else name, 'items': list({(item['menu'], item['href']): item for item in items}.values()), 'errors': errors,
             'unavailable_reason': '原项目尚未配置仓储部功能页面，未虚构功能入口。' if key == 'warehouse_group' else ''})
     operations = next(group for group in groups if group['key'] == 'operations')
-    operation_replenishment_href = url_for('daily_replenishment_operation.page')
-    operations['items'].append({'menu': '智能补货中心-运营', 'href': operation_replenishment_href,
-        'permission': 'daily_replenishment_operation', 'required_permissions': ['daily_replenishment_operation'],
-        'allowed': allowed('daily_replenishment_operation'), 'iconClass': 'fas fa-boxes-packing',
-        'id': '智能补货中心-运营::' + operation_replenishment_href})
+    for menu, endpoint, permission, icon in [
+        ('我开发的产品销售', 'developer_product_sales.page', 'ai_dept', 'fas fa-box-open'),
+        ('智能补货中心-运营', 'daily_replenishment_operation.page', 'daily_replenishment_operation', 'fas fa-warehouse'),
+    ]:
+        href = url_for(endpoint)
+        operations['items'].append({'menu': menu, 'href': href,
+            'permission': permission, 'required_permissions': [permission],
+            'allowed': allowed(permission), 'iconClass': icon, 'id': menu + '::' + href})
     operations['items'] = list({item['href']: item for item in operations['items']}.values())
     debug_state = _permission_debug_effective_state()
     user_key = str(debug_state.get('user_name') or user_id).strip()
@@ -18373,10 +18376,8 @@ def ai_modules():
         'ai_modules.html',
         user_id=user_id,
         user_name=user_name,
-        can_ai_dept=has_permission('ai_dept'),
         can_ai_full=has_permission('admin_functions'),
         can_daily_replenishment=has_permission('daily_replenishment'),
-        can_daily_replenishment_operation=has_permission('daily_replenishment_operation'),
         can_group_performance=has_permission('ai_group_performance'),
         can_business_analysis=has_permission('business_analysis'),
         can_ads_monitor=has_permission('ads_monitor'),

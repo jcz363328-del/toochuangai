@@ -451,13 +451,6 @@
             <h3 class="directory-heading"><i class="fas fa-layer-group"></i>功能模块</h3>
             <p class="directory-copy">按需选择功能，快速进入对应工作台</p>
         <div class="modules-grid">
-            <div class="module-card" data-permission="ai_dept" data-allowed="{{ 'true' if can_ai_dept else 'false' }}">
-                <div class="coming-soon-badge">NEW</div>
-                <div class="module-icon"><i class="fas fa-box-open"></i></div>
-                <h3>我开发的产品销售</h3>
-                <p>按当前飞书用户名和输入的店铺号查询本人开发产品的销售与利润表现</p>
-                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('developer_product_sales.page') }}">查看产品销售</a></div>
-            </div>
             {% if can_historical_sales %}
             <div class="module-card" data-permission="historical_sales" data-allowed="true">
                 <div class="coming-soon-badge">NEW</div>
@@ -502,22 +495,6 @@
                     <a href="{{ url_for('daily_replenishment.page') }}" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: 600; transition: all 0.3s ease;">
                         <i class="fas fa-table"></i> 打开日常补货
                     </a>
-                </div>
-            </div>
-            <!-- 智能补货中心-运营 -->
-            <div class="module-card" data-permission="daily_replenishment_operation" data-allowed="{{ 'true' if can_daily_replenishment_operation else 'false' }}">
-                <div class="coming-soon-badge">NEW</div>
-                <div class="module-icon"><i class="fas fa-boxes-packing"></i></div>
-                <h3>智能补货中心-运营</h3>
-                <p>独立复制运营版 Excel“生成日常补货表”按钮的完整调用链</p>
-                <ul class="feature-list">
-                    <li>库存明细、在途与补货主表同步</li>
-                    <li>FBA发货与每日库存同步</li>
-                    <li>海运即将到货与低毛利率筛选</li>
-                    <li>独立快照及完整工作簿下载</li>
-                </ul>
-                <div style="text-align:center;margin-top:20px">
-                    <a href="{{ url_for('daily_replenishment_operation.page') }}" style="display:inline-block;background:linear-gradient(135deg,#1d4ed8,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开智能补货中心-运营</a>
                 </div>
             </div>
             <div class="module-card" data-permission="ai_group_performance" data-allowed="{{ 'true' if can_group_performance else 'false' }}">

@@ -2,22 +2,12 @@
 
 {% block title %}积分 - 团队创新奖励管理系统{% endblock %}
 
+{% block page_label %}个人积分与奖励{% endblock %}
+{% block topbar_actions %}
+<button class="btn btn-outline-primary btn-sm" type="button" onclick="loadUserPoints(); loadRewards();"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> 刷新</button>
+{% endblock %}
+
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3><i class="bi bi-star-fill"></i> 积分中心</h3>
-            <div>
-<!--                <button class="btn btn-outline-success me-2" onclick="updateUserPointsSummary()">-->
-<!--                    <i class="bi bi-calculator"></i> 更新积分统计-->
-<!--                </button>-->
-                <button class="btn btn-outline-primary" onclick="loadUserPoints()">
-                    <i class="bi bi-arrow-clockwise"></i> 刷新
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- 积分概览 -->
 <div class="row mb-4">
@@ -316,11 +306,11 @@ if (reward.image_path && reward.image_path.trim() !== '') {
     }
 
     imageHtml = `
-        <div class="reward-image-container mb-2" style="height: 120px; overflow: hidden; border-radius: 8px;">
+        <div class="reward-image-container mb-2" style="height: clamp(180px, 18vw, 260px); overflow: hidden; border-radius: 8px; background: #f8fafc;">
             <img src="${imagePath}"
                  alt="${reward.name}"
                  class="img-fluid w-100 h-100"
-                 style="object-fit: cover;"
+                 style="object-fit: contain; object-position: center;"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
             <div class="text-center" style="display: none; padding: 40px 0;">
                 <i class="bi bi-gift display-4 text-primary"></i>

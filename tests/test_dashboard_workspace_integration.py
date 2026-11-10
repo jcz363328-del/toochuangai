@@ -79,12 +79,60 @@ class WorkspaceIntegrationTests(unittest.TestCase):
         self.assertEqual(imported['required_permissions'], ['listing_agent_aba_import'])
 
     def test_non_ai_member_catalog_does_not_contain_ai_features(self):
-        body = self.catalog(['ai_dept', 'admin_functions'], ai_member=False)
+        body = self.catalog(['ai_dept', 'admin_functions', 'historical_sales'], ai_member=False)
         self.assertFalse(body['can_access_ai_workspace'])
         self.assertNotIn('ai_dept', {group['key'] for group in body['groups']})
+        self.assertNotIn('日常补货', {item['menu'] for group in body['groups'] for item in group['items']})
         self.assertNotIn('历史销售数据曲线', {item['menu'] for group in body['groups'] for item in group['items']})
-        operations = next(group for group in body['groups'] if group['key'] == 'operations')
-        self.assertIn('智能补货中心-运营', {item['menu'] for item in operations['items']})
+
+    def test_moved_features_keep_stable_operations_entries_for_all_members(self):
+        expected_targets = {
+            '我开发的产品销售': '/ai/developer-product-sales',
+            '智能补货中心-运营': '/ai/daily-replenishment-operation',
+        }
+        for ai_member in (True, False):
+            body = self.catalog([], ai_member=ai_member)
+            for menu, href in expected_targets.items():
+                with self.subTest(ai_member=ai_member, menu=menu):
+                    entries = [(group['key'], item) for group in body['groups']
+                               for item in group['items'] if item['href'] == href]
+                    self.assertEqual(len(entries), 1)
+                    group_key, entry = entries[0]
+                    self.assertEqual(group_key, 'operations')
+                    self.assertEqual(entry['menu'], menu)
+                    self.assertEqual(entry['id'], menu + '::' + href)
+                    if menu == '智能补货中心-运营':
+                        self.assertEqual(entry['iconClass'], 'fas fa-warehouse')
+
+    def test_operations_entries_keep_independent_permissions_without_ai_membership(self):
+        required_permissions = {
+            '我开发的产品销售': 'ai_dept',
+            '智能补货中心-运营': 'daily_replenishment_operation',
+        }
+        for grants in ([], *[[permission] for permission in required_permissions.values()]):
+            body = self.catalog(grants, ai_member=False)
+            operations = next(group for group in body['groups'] if group['key'] == 'operations')
+            entries = {item['menu']: item for item in operations['items']}
+            for menu, permission in required_permissions.items():
+                with self.subTest(grants=grants, menu=menu):
+                    self.assertIn(menu, entries)
+                    self.assertEqual(entries[menu]['allowed'], permission in grants)
+                    self.assertEqual(entries[menu]['required_permissions'], [permission])
+
+    def test_historical_sales_is_only_in_ai_catalog_with_its_own_permission(self):
+        href = '/ai/historical-sales'
+        for grants in ([], ['ai_dept'], ['historical_sales']):
+            body = self.catalog(grants)
+            with self.subTest(grants=grants):
+                entries = [(group['key'], item) for group in body['groups']
+                           for item in group['items'] if item['href'] == href]
+                self.assertEqual(len(entries), 1)
+                group_key, entry = entries[0]
+                self.assertEqual(group_key, 'ai_dept')
+                self.assertEqual(entry['menu'], '历史销售数据曲线')
+                self.assertEqual(entry['id'], '历史销售数据曲线::' + href)
+                self.assertEqual(entry['allowed'], 'historical_sales' in grants)
+                self.assertEqual(entry['required_permissions'], ['historical_sales'])
 
     def test_ai_page_denies_non_members_despite_individual_ai_permission(self):
         with site.app.test_request_context('/ai_modules'):

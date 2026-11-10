@@ -2,6 +2,8 @@
 
 {% block title %}创新星主场 - 团队创新奖励管理系统{% endblock %}
 
+{% set star_section = request.args.get('tab', 'excellent') if request.args.get('tab', 'excellent') in ['excellent', 'rank', 'share', 'talk'] else 'excellent' %}
+{% block page_label %}创新星主场 / {{ {'excellent': '创新星鉴', 'rank': '创新星榜', 'share': '创新星享', 'talk': '创新星说'}[star_section] }}{% endblock %}
 {% block content %}
 <style>
 .case-page-title {
@@ -458,14 +460,7 @@
         </div>
     </div>
 
-    <div class="innovation-tabs" role="tablist">
-        <button class="innovation-tab active" type="button" data-tab="excellent">创新星鉴</button>
-        <button class="innovation-tab" type="button" data-tab="rank">创新星榜</button>
-        <button class="innovation-tab" type="button" data-tab="share">创新星享</button>
-        <button class="innovation-tab" type="button" data-tab="talk">创新星说</button>
-    </div>
-
-    <section id="tab-excellent" class="tab-panel active">
+    <section id="tab-excellent" class="tab-panel{{ ' active' if star_section == 'excellent' else '' }}">
     <div class="d-flex justify-content-end mb-2">
         <span class="badge bg-danger">共 {{ total_count }} 条</span>
     </div>
@@ -574,7 +569,7 @@
     {% endif %}
     </section>
 
-    <section id="tab-rank" class="tab-panel">
+    <section id="tab-rank" class="tab-panel{{ ' active' if star_section == 'rank' else '' }}">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h4 class="mb-0 fw-bold">创新星榜</h4>
             <span class="badge bg-primary">2025-07-01 至 2026-05-31</span>
@@ -628,7 +623,7 @@
         {% endif %}
     </section>
 
-    <section id="tab-share" class="tab-panel">
+    <section id="tab-share" class="tab-panel{{ ' active' if star_section == 'share' else '' }}">
         {% if not star_share_items %}
         <div class="empty-panel">暂无创新星享内容</div>
         {% else %}
@@ -694,7 +689,7 @@
         {% endif %}
     </section>
 
-    <section id="tab-talk" class="tab-panel">
+    <section id="tab-talk" class="tab-panel{{ ' active' if star_section == 'talk' else '' }}">
         {% if not star_talk_items %}
         <div class="empty-panel">暂无创新星说内容</div>
         {% else %}
@@ -837,24 +832,27 @@
 <script>
 function activateInnovationTab(key) {
     const validKey = ['excellent', 'rank', 'share', 'talk'].includes(key) ? key : 'excellent';
-    document.querySelectorAll('.innovation-tab').forEach((button) => {
-        button.classList.toggle('active', button.getAttribute('data-tab') === validKey);
+    if (validKey === 'rank') {
+        window.location.replace({{ url_for('innovation.innovation_leaderboard') | tojson }});
+        return;
+    }
+    document.querySelectorAll('.innovation-star-link').forEach((link) => {
+        const active = link.dataset.starSection === validKey;
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
     });
     document.querySelectorAll('.tab-panel').forEach((panel) => {
         panel.classList.toggle('active', panel.id === 'tab-' + validKey);
     });
 }
 
-document.querySelectorAll('.innovation-tab').forEach((button) => {
-    button.addEventListener('click', () => {
-        const key = button.getAttribute('data-tab') || 'excellent';
-        activateInnovationTab(key);
-        window.history.replaceState(null, '', '#tab-' + key);
-    });
-});
-
 const storedStarTab = window.sessionStorage.getItem('innovationStarTab');
-if (storedStarTab) {
+const explicitStarTab = new URLSearchParams(window.location.search).get('tab');
+if (explicitStarTab) {
+    window.sessionStorage.removeItem('innovationStarTab');
+    activateInnovationTab(explicitStarTab);
+} else if (storedStarTab) {
     window.sessionStorage.removeItem('innovationStarTab');
     activateInnovationTab(storedStarTab);
 } else if (window.location.hash.startsWith('#tab-')) {

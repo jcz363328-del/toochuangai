@@ -340,3 +340,20 @@ final result: passed
 - findings: no code-level P0/P1/P2 issue found; visual and interaction capture remains unavailable
 - comparison history: no visual iteration was possible because browser setup was blocked before capture
 - final result: blocked
+
+## 创新提案侧栏改版 · 2026-11-10
+
+- Target: approved generated sidebar mockup `exec-0f08797d-cb3c-4bb7-b06d-18696ce25a84.png`.
+- Evidence: Chromium desktop 1584 × 1000, mobile 390 × 844; captures in `tmp/innovation-sidebar-desktop.png` and `tmp/innovation-sidebar-mobile.png`.
+- Existing backend routes, permissions, six statistical charts and identity rebind retained. Demo-only workflows and fictitious metrics are not introduced; navigation uses real existing features.
+- Browser uses isolated mocked API responses, including empty charts and an HTML-like proposal title; no production database access, notifications or writes.
+- First review: chart panels were unnecessarily tall. Reduced chart height to 230px; second capture confirms compact three-column cards, fixed left navigation, legible mobile layout and no horizontal overflow.
+- Interaction checks: current navigation marker, actual link targets, top search form target, mobile toggle and Escape, six chart canvases, empty states, safe proposal text insertion; no JavaScript page errors.
+- Retained differences: six real charts rather than the demo's three; four metrics use existing definitions rather than mock data; latest-list actions enter the existing management screen.
+- Automated checks: 3 focused rendering/safety tests and 8 existing dashboard regressions pass.
+- Compact-layout follow-up: moved update status into the date-filter bar, removed the empty dashboard heading row, matched brand/header height at 64px and normalized content gutters. Browser geometry assertions confirm matching heights and filter/list edges; desktop/mobile captures re-inspected with no overflow.
+- Management-navigation follow-up: proposal management, reward management and meeting draw now have independent sidebar links. Removed horizontal tab controls; query selection is allowlisted, one content panel is active and only its data loader runs. Four focused unit tests and isolated browser checks cover all three sections, active sidebar state and missing tab controls; no draw/write request is executed.
+- Star-navigation follow-up: four nested links under the expandable 创新星主场 group replace horizontal controls. All four isolated browser states show exactly one panel and one matching highlighted child; empty state captured at `tmp/innovation-star-sidebar.png`. Five focused tests pass, including invalid-tab fallback; legacy stored/hash selection is retained and explicit navigation takes precedence. Content editing and permission handlers are unchanged.
+- Points follow-up: removed the points-center title row and moved refresh into the top bar. Reward previews use a responsive 180–260px viewport and centered `object-fit: contain` rather than cropped 120px banners. Six focused tests pass; isolated desktop/mobile browser checks verify landscape and portrait image loading, contain mode, content top position and no overflow. Evidence: `tmp/innovation-points-desktop.png`, `tmp/innovation-points-mobile.png`; fixture images only, no redemption executed.
+- Compact workspace and leaderboard: workspace inset reduced to 8px; redundant management card heading removed. Navigation regrouped into 工作台 / 提案协作 / 创新交流 / 积分与激励, with reward administration in the last group. A dedicated authenticated leaderboard displays historical earned points (no consumption subtraction), deterministic top 20 and tied ranks, podium/colored rank tiers and reduced-motion-aware sheen. Ten focused unit tests pass; isolated desktop/mobile browser checks pass with 20 fixture users. Read-only production SQL verification returned 20 rows without exposing user details. Evidence: `tmp/innovation-leaderboard-desktop.png`, `tmp/innovation-leaderboard-mobile.png`.
+- final result: passed (layout, mocked interactions and read-only query scope; real-user authorization not represented as browser verified).

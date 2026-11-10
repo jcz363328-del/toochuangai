@@ -116,26 +116,30 @@ class AiModuleScopedPermissionTests(unittest.TestCase):
         self.assertEqual("", permission["yonghu"])
         self.assertEqual("ai_dept", permission["fujigongneng"])
 
-    def test_daily_replenishment_operation_is_a_separate_card_and_permission(self):
-        response = self._open_ai_modules({"ai_dept", "daily_replenishment_operation"})
-        page = response.get_data(as_text=True)
-        self.assertEqual(200, response.status_code)
-        self.assertIn("<h3>智能补货中心-运营</h3>", page)
-        self.assertIn("<h3>日常补货</h3>", page)
-
+    def test_operation_replenishment_keeps_its_separate_permission(self):
         rows = {row["gongneng"]: row for row in build_permission_seed_rows(PERMISSION_CONFIG)}
         permission = rows["daily_replenishment_operation"]
         self.assertEqual("运营部；AI部；总经办", permission["bumen"])
         self.assertEqual("", permission["fujigongneng"])
 
-    def test_operation_permission_adds_ai_modules_dashboard_entry(self):
-        functions = app_module._normalize_dashboard_functions([
-            {"function_name": "daily_replenishment_operation", "name": "智能补货中心-运营"}
-        ])
+    def test_moved_operations_cards_are_absent_from_ai_page_even_with_permissions(self):
+        response = self._open_ai_modules({
+            "ai_dept", "historical_sales", "daily_replenishment_operation", "daily_replenishment"
+        })
 
-        self.assertIn("ai_dept", {item["function_name"] for item in functions})
-        ai_entry = next(item for item in functions if item["function_name"] == "ai_dept")
-        self.assertTrue(ai_entry["is_allowed"])
+        self.assertEqual(200, response.status_code)
+        page = response.get_data(as_text=True)
+        for title in ("我开发的产品销售", "智能补货中心-运营"):
+            with self.subTest(title=title):
+                self.assertNotIn("<h3>" + title + "</h3>", page)
+        self.assertIn("<h3>日常补货</h3>", page)
+        self.assertIn("<h3>历史销售数据曲线</h3>", page)
+
+    def test_historical_sales_card_is_hidden_without_its_permission(self):
+        response = self._open_ai_modules({"ai_dept"})
+
+        self.assertEqual(200, response.status_code)
+        self.assertNotIn("<h3>历史销售数据曲线</h3>", response.get_data(as_text=True))
 
     def test_dashboard_catalog_keeps_unavailable_functions_visible(self):
         functions = app_module._normalize_dashboard_functions([
