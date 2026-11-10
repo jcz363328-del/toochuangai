@@ -1,0 +1,1 @@
+import{o as e}from"./rolldown-runtime.BCiCTKAo.js";import{_ as t,i as n}from"./emotion-styled.browser.esm.DdOkyKg_.js";import{I as r,V as i}from"./index.DormvYxC.js";var a=e(t(),1),o=e=>{let t=t=>{let{width:a,elementRef:o}=r();return n(i,{ref:o,children:n(e,{...t,width:a})})};return t.displayName=`withCalculatedWidth(${e.displayName||e.name})`,(0,a.default)(t,e)};export{o as t};

@@ -1,0 +1,1 @@
+function e(e,t,n){return e&&t&&n?`This field is required.`:null}function t(e){return e===null||e.trim()===``}export{e as n,t};

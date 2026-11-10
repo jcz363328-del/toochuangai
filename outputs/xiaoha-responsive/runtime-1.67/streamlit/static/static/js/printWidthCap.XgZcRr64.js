@@ -1,0 +1,1 @@
+var e={maxWidth:`100%`,minWidth:0,overflow:`visible`},t={"@media print":e},n={"@media print":{display:`block`,maxWidth:`100%`,objectFit:`contain`}};export{e as n,t as r,n as t};

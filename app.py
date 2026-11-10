@@ -42,7 +42,7 @@ from innovation_proposals import innovation_proposals_bp
 from innovation_blueprint import innovation_bp
 from innovation.config import APP_CONFIG as INNOVATION_APP_CONFIG
 from tk_total_dashboard import tk_dashboard_bp, get_joint_dashboard_allowed_shops
-from TK_BD_ZhiBiao import bd_metrics_bp
+from tk_bd_metrics import bd_metrics_bp
 from department_permissions import permission_manager, require_permission, get_feishu_auth_url, FEISHU_CONFIG, \
     handle_feishu_event
 from bjc import sf_db, dui_db
@@ -256,7 +256,7 @@ def _get_cloud_documents_agent():
     global _cloud_documents_agent
     if _cloud_documents_agent is not None:
         return _cloud_documents_agent
-    file_path = os.path.join(os.path.dirname(__file__), "Cloud documents.py")
+    file_path = os.path.join(os.path.dirname(__file__), "cloud_documents.py")
     spec = importlib.util.spec_from_file_location("cloud_documents_module", file_path)
     if spec is None or spec.loader is None:
         _cloud_documents_agent = None
@@ -9813,7 +9813,7 @@ def _feishu_extract_cloud_doc_url_from_event(event_obj):
 def _generate_cloud_doc_scoring(prompt_text, doc_url):
     agent = _get_cloud_documents_agent()
     if agent is None:
-        return "", "云文档评分模块未加载成功，请检查服务器文件是否存在：Cloud documents.py"
+        return "", "云文档评分模块未加载成功，请检查服务器文件是否存在：cloud_documents.py"
     prompt_norm = str(prompt_text or "").strip()
     cache_key = f"{str(doc_url or '').strip()}|{prompt_norm}"
     now_ts = datetime.now().timestamp()

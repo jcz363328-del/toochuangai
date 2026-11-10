@@ -35,7 +35,7 @@ function Stop-OwnedProcess($Process, [string]$ExpectedScript) {
 
 $previewHealth = & docker inspect --format '{{.State.Health.Status}}' toochuangai-single-app-1
 if ($LASTEXITCODE -ne 0 -or $previewHealth -ne 'healthy') { throw 'Single-container preview is not healthy.' }
-Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env.single.production','config','--quiet')
+Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env','config','--quiet')
 $mainProcess = Get-OwnedListener 8000 'app.py' $true
 $xiaohaProcess = Get-OwnedListener 8501 'openrouter_image_site.py' $false
 $xiaohaWatchdogs = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe' OR Name='pwsh.exe'" | Where-Object {
@@ -50,8 +50,8 @@ $tasks = @('TuChuangAI-Main','SellfoxAdDiagnosticSnapshotHourly','SellfoxAdsMoni
 $tasks | ConvertTo-Json | Set-Content -LiteralPath 'docker-data/cutover-task-state.json' -Encoding UTF8
 $oldStopped = $false
 try {
-    Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env.single','stop','app')
-    Invoke-DockerChecked @('compose','-f','compose.multi.yaml','--env-file','.env.docker','down')
+    Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env','stop','app')
+    Invoke-DockerChecked @('compose','-f','compose.multi.yaml','--env-file','.env','down')
     $oldStopped = $true
     foreach ($task in $tasks) {
         Disable-ScheduledTask -TaskName $task.Name | Out-Null
@@ -69,7 +69,7 @@ try {
     Stop-OwnedProcess $xiaohaProcess 'openrouter_image_site.py'
     Stop-OwnedProcess $mainProcess 'app.py'
     if (@(Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue).Count) { throw 'Port 8000 is still occupied.' }
-    $storageLine = Get-Content -LiteralPath '.env.single.production' -Encoding UTF8 | Where-Object { $_.StartsWith('DOCKER_STORAGE_PATH=') } | Select-Object -Last 1
+    $storageLine = Get-Content -LiteralPath '.env' -Encoding UTF8 | Where-Object { $_.StartsWith('DOCKER_STORAGE_PATH=') } | Select-Object -Last 1
     $storageRoot = $storageLine.Substring('DOCKER_STORAGE_PATH='.Length)
     foreach ($stateName in @('xiaotu_report_card_messages.json','ai_runtime_config.json')) {
         $sourceState = Join-Path $projectRoot $stateName
@@ -78,12 +78,12 @@ try {
             Copy-Item -LiteralPath $sourceState -Destination $targetState
         }
     }
-    Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env.single.production','up','-d','--no-build','--force-recreate','--wait','--wait-timeout','240')
-    Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env.single.production','exec','-T','app','python','/app/docker/healthcheck.py')
+    Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env','up','-d','--no-build','--force-recreate','--wait','--wait-timeout','240')
+    Invoke-DockerChecked @('compose','-f','compose.single.yaml','--env-file','.env','exec','-T','app','python','/app/docker/healthcheck.py')
     Write-Output 'CUTOVER_SUCCEEDED'
 } catch {
     Write-Warning 'Cutover failed; stopping the new container before restoring Windows services.'
-    & docker compose -f compose.single.yaml --env-file .env.single.production stop app
+    & docker compose -f compose.single.yaml --env-file .env stop app
     if ($LASTEXITCODE -ne 0) { throw 'New container could not be stopped; automatic Windows restore is withheld to prevent concurrent writes.' }
     if ($oldStopped) {
         foreach ($task in $tasks) {

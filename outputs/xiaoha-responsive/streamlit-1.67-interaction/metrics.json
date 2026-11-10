@@ -1,0 +1,1969 @@
+{
+  "observations": [
+    {
+      "width": 1385,
+      "feature": "hd_batch",
+      "viewport": 1385,
+      "documentWidth": 1385,
+      "bodyWidth": 1385,
+      "app": {
+        "x": 0,
+        "y": 0,
+        "width": 1385,
+        "height": 825.33,
+        "right": 1385,
+        "bottom": 825.33,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 1385,
+        "clientWidth": 1385
+      },
+      "sidebar": {
+        "x": 16,
+        "y": 6.72,
+        "width": 176,
+        "height": 747.94,
+        "right": 192,
+        "bottom": 754.66,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 176,
+        "clientWidth": 176
+      },
+      "left": {
+        "x": 201.91,
+        "y": 105.22,
+        "width": 578.59,
+        "height": 639.89,
+        "right": 780.5,
+        "bottom": 745.11,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 579,
+        "clientWidth": 579
+      },
+      "right": {
+        "x": 790.41,
+        "y": 105.22,
+        "width": 578.59,
+        "height": 639.89,
+        "right": 1369,
+        "bottom": 745.11,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 579,
+        "clientWidth": 579
+      },
+      "select": {
+        "x": 496.16,
+        "y": 527.02,
+        "width": 270.23,
+        "height": 40,
+        "right": 766.39,
+        "bottom": 567.02,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgb(10, 19, 38)",
+        "border": "rgba(255, 255, 255, 0.12)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 268,
+        "clientWidth": 268
+      },
+      "number": {
+        "x": 242.92,
+        "y": 614.5,
+        "width": 160,
+        "height": 68,
+        "right": 402.92,
+        "bottom": 682.5,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 160,
+        "clientWidth": 160
+      },
+      "numberInput": {
+        "x": 243.92,
+        "y": 644.7,
+        "width": 94,
+        "height": 35.59,
+        "right": 337.92,
+        "bottom": 680.3,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(244, 246, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 74,
+        "clientWidth": 74
+      },
+      "numberLabel": {
+        "x": 242.92,
+        "y": 616.78,
+        "width": 48.64,
+        "height": 19.44,
+        "right": 291.56,
+        "bottom": 636.22,
+        "color": "rgba(225, 229, 255, 0.82)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(225, 229, 255, 0.82)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 49,
+        "clientWidth": 49
+      },
+      "numberButtons": [
+        {
+          "x": 337.92,
+          "y": 643.5,
+          "width": 32,
+          "height": 38,
+          "right": 369.92,
+          "bottom": 681.5,
+          "color": "rgb(135, 144, 170)",
+          "background": "rgb(17, 28, 51)",
+          "border": "rgb(135, 144, 170)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 32,
+          "clientWidth": 32
+        },
+        {
+          "x": 369.92,
+          "y": 643.5,
+          "width": 32,
+          "height": 38,
+          "right": 401.92,
+          "bottom": 681.5,
+          "color": "rgb(244, 246, 255)",
+          "background": "rgb(17, 28, 51)",
+          "border": "rgb(244, 246, 255)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 32,
+          "clientWidth": 32
+        }
+      ],
+      "actionRow": {
+        "x": 242.92,
+        "y": 607.44,
+        "width": 496.56,
+        "height": 75.06,
+        "right": 739.48,
+        "bottom": 682.5,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "grid",
+        "scrollWidth": 497,
+        "clientWidth": 497
+      },
+      "actionButton": {
+        "x": 619.48,
+        "y": 642.5,
+        "width": 120,
+        "height": 40,
+        "right": 739.48,
+        "bottom": 682.5,
+        "color": "rgb(255, 255, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(255, 255, 255)",
+        "borderWidth": "0px",
+        "display": "inline-flex",
+        "scrollWidth": 120,
+        "clientWidth": 120
+      },
+      "modelField": {
+        "x": 412.83,
+        "y": 644.11,
+        "width": 196.75,
+        "height": 38.39,
+        "right": 609.58,
+        "bottom": 682.5,
+        "color": "rgb(243, 245, 255)",
+        "background": "rgba(255, 255, 255, 0.035)",
+        "border": "rgba(255, 255, 255, 0.08)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 195,
+        "clientWidth": 195
+      },
+      "modelLabel": {
+        "x": 412.83,
+        "y": 612.23,
+        "width": 196.75,
+        "height": 21,
+        "right": 609.58,
+        "bottom": 633.23,
+        "color": "rgba(214, 219, 255, 0.82)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(214, 219, 255, 0.82)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 197,
+        "clientWidth": 197
+      },
+      "countField": {
+        "x": 242.92,
+        "y": 642.5,
+        "width": 160,
+        "height": 40,
+        "right": 402.92,
+        "bottom": 682.5,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgb(10, 19, 38)",
+        "border": "rgba(255, 255, 255, 0.12)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 158,
+        "clientWidth": 158
+      },
+      "actionColumns": [
+        {
+          "x": 242.92,
+          "y": 614.5,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160,
+          "alignSelf": "auto",
+          "minHeight": "auto",
+          "children": [
+            {
+              "x": 242.92,
+              "y": 614.5,
+              "width": 160,
+              "height": 68,
+              "right": 402.92,
+              "bottom": 682.5,
+              "color": "rgb(245, 247, 255)",
+              "background": "rgba(0, 0, 0, 0)",
+              "border": "rgb(245, 247, 255)",
+              "borderWidth": "0px",
+              "display": "flex",
+              "scrollWidth": 160,
+              "clientWidth": 160,
+              "testid": "stVerticalBlock",
+              "alignSelf": "auto",
+              "minHeight": "0px",
+              "justifyContent": "start",
+              "children": [
+                {
+                  "x": 242.92,
+                  "y": 614.5,
+                  "width": 160,
+                  "height": 68,
+                  "right": 402.92,
+                  "bottom": 682.5,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 160,
+                  "clientWidth": 160,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "x": 412.83,
+          "y": 609.05,
+          "width": 196.75,
+          "height": 73.45,
+          "right": 609.58,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 197,
+          "clientWidth": 197,
+          "alignSelf": "auto",
+          "minHeight": "auto",
+          "children": [
+            {
+              "x": 412.83,
+              "y": 609.05,
+              "width": 196.75,
+              "height": 73.45,
+              "right": 609.58,
+              "bottom": 682.5,
+              "color": "rgb(245, 247, 255)",
+              "background": "rgba(0, 0, 0, 0)",
+              "border": "rgb(245, 247, 255)",
+              "borderWidth": "0px",
+              "display": "flex",
+              "scrollWidth": 197,
+              "clientWidth": 197,
+              "testid": "stVerticalBlock",
+              "alignSelf": "auto",
+              "minHeight": "0px",
+              "justifyContent": "start",
+              "children": [
+                {
+                  "x": 412.83,
+                  "y": 609.05,
+                  "width": 196.75,
+                  "height": 28.34,
+                  "right": 609.58,
+                  "bottom": 637.39,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 197,
+                  "clientWidth": 197,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                },
+                {
+                  "x": 412.83,
+                  "y": 644.11,
+                  "width": 196.75,
+                  "height": 38.39,
+                  "right": 609.58,
+                  "bottom": 682.5,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 197,
+                  "clientWidth": 197,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "x": 619.48,
+          "y": 607.44,
+          "width": 120,
+          "height": 75.06,
+          "right": 739.48,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 120,
+          "clientWidth": 120,
+          "alignSelf": "auto",
+          "minHeight": "auto",
+          "children": [
+            {
+              "x": 619.48,
+              "y": 607.44,
+              "width": 120,
+              "height": 75.06,
+              "right": 739.48,
+              "bottom": 682.5,
+              "color": "rgb(245, 247, 255)",
+              "background": "rgba(0, 0, 0, 0)",
+              "border": "rgb(245, 247, 255)",
+              "borderWidth": "0px",
+              "display": "flex",
+              "scrollWidth": 120,
+              "clientWidth": 120,
+              "testid": "stVerticalBlock",
+              "alignSelf": "auto",
+              "minHeight": "0px",
+              "justifyContent": "start",
+              "children": [
+                {
+                  "x": 619.48,
+                  "y": 607.44,
+                  "width": 120,
+                  "height": 28.34,
+                  "right": 739.48,
+                  "bottom": 635.78,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 120,
+                  "clientWidth": 120,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                },
+                {
+                  "x": 619.48,
+                  "y": 642.5,
+                  "width": 120,
+                  "height": 40,
+                  "right": 739.48,
+                  "bottom": 682.5,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 120,
+                  "clientWidth": 120,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "actionAncestors": [
+        {
+          "testid": "stNumberInput",
+          "className": "stNumberInput",
+          "x": 242.92,
+          "y": 614.5,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stElementContainer",
+          "className": "stElementContainer element-container st-key-output_count_hd_batch st-emotion-cache-188psdo e399r291",
+          "x": 242.92,
+          "y": 614.5,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stVerticalBlock",
+          "className": "stVerticalBlock st-emotion-cache-1p8n0nm e399r293",
+          "x": 242.92,
+          "y": 614.5,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stColumn",
+          "className": "stColumn st-emotion-cache-kqry5b e399r292",
+          "x": 242.92,
+          "y": 614.5,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stHorizontalBlock",
+          "className": "stHorizontalBlock st-emotion-cache-1vhiue3 e399r293",
+          "x": 242.92,
+          "y": 607.44,
+          "width": 496.56,
+          "height": 75.06,
+          "right": 739.48,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "grid",
+          "scrollWidth": 497,
+          "clientWidth": 497
+        },
+        {
+          "testid": "stLayoutWrapper",
+          "className": "st-emotion-cache-1vfi2s9 e399r295",
+          "x": 242.92,
+          "y": 607.44,
+          "width": 496.56,
+          "height": 75.06,
+          "right": 739.48,
+          "bottom": 682.5,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 497,
+          "clientWidth": 497
+        },
+        {
+          "testid": "stVerticalBlock",
+          "className": "stVerticalBlock st-emotion-cache-11mifpt e399r293",
+          "x": 226.92,
+          "y": 591.44,
+          "width": 528.56,
+          "height": 113.78,
+          "right": 755.48,
+          "bottom": 705.22,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgba(132, 111, 255, 0.18)",
+          "borderWidth": "1px",
+          "display": "flex",
+          "scrollWidth": 527,
+          "clientWidth": 527
+        }
+      ],
+      "workspaceContainers": [
+        {
+          "name": "xiaoha-workspace",
+          "width": 1167
+        }
+      ],
+      "expanders": [
+        {
+          "x": 17,
+          "y": 123.34,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 157.34,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 172.14,
+          "width": 174,
+          "height": 337.53,
+          "right": 191,
+          "bottom": 509.67,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 524.47,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 558.47,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 573.27,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 607.27,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 622.06,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 656.06,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 670.86,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 704.86,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 719.66,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 753.66,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        }
+      ],
+      "bright": [],
+      "overflow": [],
+      "audit": {
+        "title": "小哈 · 响应式离线回归 · Streamlit 1.67.0",
+        "widgets": [
+          {
+            "testid": "stFileUploader",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stFileUploader",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stFileUploader",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stSelectbox",
+            "comboboxes": 1
+          },
+          {
+            "testid": "stVerticalBlock",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stNumberInput",
+            "comboboxes": 0
+          }
+        ],
+        "surfaces": [
+          {
+            "tag": "SECTION",
+            "testid": "stFileUploaderDropzone",
+            "role": "presentation",
+            "className": "st-emotion-cache-9532iv euud7oh0",
+            "background": "rgba(10, 19, 38, 0.92)"
+          },
+          {
+            "tag": "SECTION",
+            "testid": "stFileUploaderDropzone",
+            "role": "presentation",
+            "className": "st-emotion-cache-9532iv euud7oh0",
+            "background": "rgba(10, 19, 38, 0.92)"
+          },
+          {
+            "tag": "SECTION",
+            "testid": "stFileUploaderDropzone",
+            "role": "presentation",
+            "className": "st-emotion-cache-9532iv euud7oh0",
+            "background": "rgba(10, 19, 38, 0.92)"
+          },
+          {
+            "tag": "DIV",
+            "role": "group",
+            "className": "st-emotion-cache-1aj2c3i equpb2c0",
+            "background": "rgb(10, 19, 38)"
+          },
+          {
+            "tag": "DIV",
+            "testid": "stNumberInputContainer",
+            "role": null,
+            "className": "st-emotion-cache-oku7x6 e579mqo0",
+            "background": "rgb(10, 19, 38)"
+          },
+          {
+            "tag": "BUTTON",
+            "testid": "stNumberInputStepDown",
+            "role": null,
+            "className": "st-emotion-cache-1dv05k2 e579mqo2",
+            "background": "rgb(17, 28, 51)"
+          },
+          {
+            "tag": "BUTTON",
+            "testid": "stNumberInputStepUp",
+            "role": null,
+            "className": "st-emotion-cache-1dv05k2 e579mqo2",
+            "background": "rgb(17, 28, 51)"
+          }
+        ],
+        "text": [
+          {
+            "tag": "INPUT",
+            "role": "combobox",
+            "className": "st-emotion-cache-nxw8e2 equpb2c4",
+            "text": "不使用",
+            "color": "rgb(244, 246, 255)",
+            "background": [
+              10,
+              19,
+              38
+            ],
+            "contrast": 17.17
+          },
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "生成数量",
+            "color": "rgba(225, 229, 255, 0.82)",
+            "background": [
+              8,
+              16,
+              34
+            ],
+            "contrast": 10.38
+          },
+          {
+            "tag": "INPUT",
+            "testid": "stNumberInputField",
+            "role": null,
+            "className": "st-emotion-cache-1am7me1 e579mqo3",
+            "text": "1",
+            "color": "rgb(244, 246, 255)",
+            "background": [
+              10,
+              19,
+              38
+            ],
+            "contrast": 17.17
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "className": "panel-subtitle",
+            "text": "当前模型",
+            "color": "rgba(214, 219, 255, 0.82)",
+            "background": [
+              8,
+              16,
+              34
+            ],
+            "contrast": 9.55
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "className": "a-plus-inline-model-card",
+            "text": "Nano Banana 2.1",
+            "color": "rgb(243, 245, 255)",
+            "background": [
+              17,
+              24,
+              42
+            ],
+            "contrast": 16.23
+          },
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "开始处理",
+            "color": "rgb(255, 255, 255)",
+            "background": [
+              93,
+              68,
+              246
+            ],
+            "contrast": 5.8
+          }
+        ],
+        "whiteSurfaces": [],
+        "whiteBorders": [],
+        "unreadableText": []
+      }
+    },
+    {
+      "feature": "hd_batch",
+      "interactions": {
+        "popup": {
+          "options": [
+            "不使用",
+            "fixture-reference.png"
+          ],
+          "selected": "fixture-reference.png",
+          "whiteSurfaces": [],
+          "unreadableText": []
+        },
+        "countEditable": true,
+        "menuCollapse": true,
+        "menuHide": true,
+        "navigation": true
+      }
+    },
+    {
+      "width": 1385,
+      "feature": "remove_eyelashes",
+      "viewport": 1385,
+      "documentWidth": 1385,
+      "bodyWidth": 1385,
+      "app": {
+        "x": 0,
+        "y": 0,
+        "width": 1385,
+        "height": 811.03,
+        "right": 1385,
+        "bottom": 811.03,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 1385,
+        "clientWidth": 1385
+      },
+      "sidebar": {
+        "x": 16,
+        "y": 6.72,
+        "width": 176,
+        "height": 747.94,
+        "right": 192,
+        "bottom": 754.66,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 176,
+        "clientWidth": 176
+      },
+      "left": {
+        "x": 201.91,
+        "y": 105.22,
+        "width": 578.59,
+        "height": 625.59,
+        "right": 780.5,
+        "bottom": 730.81,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 579,
+        "clientWidth": 579
+      },
+      "right": {
+        "x": 790.41,
+        "y": 105.22,
+        "width": 578.59,
+        "height": 625.59,
+        "right": 1369,
+        "bottom": 730.81,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 579,
+        "clientWidth": 579
+      },
+      "select": {
+        "x": 412.83,
+        "y": 615.53,
+        "width": 196.75,
+        "height": 40,
+        "right": 609.58,
+        "bottom": 655.53,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgb(10, 19, 38)",
+        "border": "rgba(255, 255, 255, 0.12)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 195,
+        "clientWidth": 195
+      },
+      "number": {
+        "x": 242.92,
+        "y": 587.53,
+        "width": 160,
+        "height": 68,
+        "right": 402.92,
+        "bottom": 655.53,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 160,
+        "clientWidth": 160
+      },
+      "numberInput": {
+        "x": 243.92,
+        "y": 617.73,
+        "width": 94,
+        "height": 35.59,
+        "right": 337.92,
+        "bottom": 653.33,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(244, 246, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 74,
+        "clientWidth": 74
+      },
+      "numberLabel": {
+        "x": 242.92,
+        "y": 589.81,
+        "width": 48.64,
+        "height": 19.44,
+        "right": 291.56,
+        "bottom": 609.25,
+        "color": "rgba(225, 229, 255, 0.82)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgba(225, 229, 255, 0.82)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 49,
+        "clientWidth": 49
+      },
+      "numberButtons": [
+        {
+          "x": 337.92,
+          "y": 616.53,
+          "width": 32,
+          "height": 38,
+          "right": 369.92,
+          "bottom": 654.53,
+          "color": "rgb(135, 144, 170)",
+          "background": "rgb(17, 28, 51)",
+          "border": "rgb(135, 144, 170)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 32,
+          "clientWidth": 32
+        },
+        {
+          "x": 369.92,
+          "y": 616.53,
+          "width": 32,
+          "height": 38,
+          "right": 401.92,
+          "bottom": 654.53,
+          "color": "rgb(244, 246, 255)",
+          "background": "rgb(17, 28, 51)",
+          "border": "rgb(244, 246, 255)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 32,
+          "clientWidth": 32
+        }
+      ],
+      "actionRow": {
+        "x": 242.92,
+        "y": 580.47,
+        "width": 496.56,
+        "height": 75.06,
+        "right": 739.48,
+        "bottom": 655.53,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "grid",
+        "scrollWidth": 497,
+        "clientWidth": 497
+      },
+      "actionButton": {
+        "x": 619.48,
+        "y": 615.53,
+        "width": 120,
+        "height": 40,
+        "right": 739.48,
+        "bottom": 655.53,
+        "color": "rgb(255, 255, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(255, 255, 255)",
+        "borderWidth": "0px",
+        "display": "inline-flex",
+        "scrollWidth": 120,
+        "clientWidth": 120
+      },
+      "modelField": {
+        "x": 412.83,
+        "y": 615.53,
+        "width": 196.75,
+        "height": 40,
+        "right": 609.58,
+        "bottom": 655.53,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgb(10, 19, 38)",
+        "border": "rgba(255, 255, 255, 0.12)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 195,
+        "clientWidth": 195
+      },
+      "modelLabel": null,
+      "countField": {
+        "x": 242.92,
+        "y": 615.53,
+        "width": 160,
+        "height": 40,
+        "right": 402.92,
+        "bottom": 655.53,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgb(10, 19, 38)",
+        "border": "rgba(255, 255, 255, 0.12)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 158,
+        "clientWidth": 158
+      },
+      "actionColumns": [
+        {
+          "x": 242.92,
+          "y": 587.53,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160,
+          "alignSelf": "auto",
+          "minHeight": "auto",
+          "children": [
+            {
+              "x": 242.92,
+              "y": 587.53,
+              "width": 160,
+              "height": 68,
+              "right": 402.92,
+              "bottom": 655.53,
+              "color": "rgb(245, 247, 255)",
+              "background": "rgba(0, 0, 0, 0)",
+              "border": "rgb(245, 247, 255)",
+              "borderWidth": "0px",
+              "display": "flex",
+              "scrollWidth": 160,
+              "clientWidth": 160,
+              "testid": "stVerticalBlock",
+              "alignSelf": "auto",
+              "minHeight": "0px",
+              "justifyContent": "start",
+              "children": [
+                {
+                  "x": 242.92,
+                  "y": 587.53,
+                  "width": 160,
+                  "height": 68,
+                  "right": 402.92,
+                  "bottom": 655.53,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 160,
+                  "clientWidth": 160,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "x": 412.83,
+          "y": 587.53,
+          "width": 196.75,
+          "height": 68,
+          "right": 609.58,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 197,
+          "clientWidth": 197,
+          "alignSelf": "auto",
+          "minHeight": "auto",
+          "children": [
+            {
+              "x": 412.83,
+              "y": 587.53,
+              "width": 196.75,
+              "height": 68,
+              "right": 609.58,
+              "bottom": 655.53,
+              "color": "rgb(245, 247, 255)",
+              "background": "rgba(0, 0, 0, 0)",
+              "border": "rgb(245, 247, 255)",
+              "borderWidth": "0px",
+              "display": "flex",
+              "scrollWidth": 197,
+              "clientWidth": 197,
+              "testid": "stVerticalBlock",
+              "alignSelf": "auto",
+              "minHeight": "0px",
+              "justifyContent": "start",
+              "children": [
+                {
+                  "x": 412.83,
+                  "y": 587.53,
+                  "width": 196.75,
+                  "height": 68,
+                  "right": 609.58,
+                  "bottom": 655.53,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 197,
+                  "clientWidth": 197,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "x": 619.48,
+          "y": 580.47,
+          "width": 120,
+          "height": 75.06,
+          "right": 739.48,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 120,
+          "clientWidth": 120,
+          "alignSelf": "auto",
+          "minHeight": "auto",
+          "children": [
+            {
+              "x": 619.48,
+              "y": 580.47,
+              "width": 120,
+              "height": 75.06,
+              "right": 739.48,
+              "bottom": 655.53,
+              "color": "rgb(245, 247, 255)",
+              "background": "rgba(0, 0, 0, 0)",
+              "border": "rgb(245, 247, 255)",
+              "borderWidth": "0px",
+              "display": "flex",
+              "scrollWidth": 120,
+              "clientWidth": 120,
+              "testid": "stVerticalBlock",
+              "alignSelf": "auto",
+              "minHeight": "0px",
+              "justifyContent": "start",
+              "children": [
+                {
+                  "x": 619.48,
+                  "y": 580.47,
+                  "width": 120,
+                  "height": 28.34,
+                  "right": 739.48,
+                  "bottom": 608.81,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 120,
+                  "clientWidth": 120,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                },
+                {
+                  "x": 619.48,
+                  "y": 615.53,
+                  "width": 120,
+                  "height": 40,
+                  "right": 739.48,
+                  "bottom": 655.53,
+                  "color": "rgb(245, 247, 255)",
+                  "background": "rgba(0, 0, 0, 0)",
+                  "border": "rgb(245, 247, 255)",
+                  "borderWidth": "0px",
+                  "display": "block",
+                  "scrollWidth": 120,
+                  "clientWidth": 120,
+                  "testid": "stElementContainer",
+                  "margin": "0px"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "actionAncestors": [
+        {
+          "testid": "stNumberInput",
+          "className": "stNumberInput",
+          "x": 242.92,
+          "y": 587.53,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stElementContainer",
+          "className": "stElementContainer element-container st-key-output_count_remove_eyelashes st-emotion-cache-188psdo e399r291",
+          "x": 242.92,
+          "y": 587.53,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stVerticalBlock",
+          "className": "stVerticalBlock st-emotion-cache-1p8n0nm e399r293",
+          "x": 242.92,
+          "y": 587.53,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stColumn",
+          "className": "stColumn st-emotion-cache-kqry5b e399r292",
+          "x": 242.92,
+          "y": 587.53,
+          "width": 160,
+          "height": 68,
+          "right": 402.92,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 160,
+          "clientWidth": 160
+        },
+        {
+          "testid": "stHorizontalBlock",
+          "className": "stHorizontalBlock st-emotion-cache-1vhiue3 e399r293",
+          "x": 242.92,
+          "y": 580.47,
+          "width": 496.56,
+          "height": 75.06,
+          "right": 739.48,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "grid",
+          "scrollWidth": 497,
+          "clientWidth": 497
+        },
+        {
+          "testid": "stLayoutWrapper",
+          "className": "st-emotion-cache-1vfi2s9 e399r295",
+          "x": 242.92,
+          "y": 580.47,
+          "width": 496.56,
+          "height": 75.06,
+          "right": 739.48,
+          "bottom": 655.53,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "flex",
+          "scrollWidth": 497,
+          "clientWidth": 497
+        },
+        {
+          "testid": "stVerticalBlock",
+          "className": "stVerticalBlock st-emotion-cache-11mifpt e399r293",
+          "x": 226.92,
+          "y": 564.47,
+          "width": 528.56,
+          "height": 113.78,
+          "right": 755.48,
+          "bottom": 678.25,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgba(132, 111, 255, 0.18)",
+          "borderWidth": "1px",
+          "display": "flex",
+          "scrollWidth": 527,
+          "clientWidth": 527
+        }
+      ],
+      "workspaceContainers": [
+        {
+          "name": "xiaoha-workspace",
+          "width": 1167
+        }
+      ],
+      "expanders": [
+        {
+          "x": 17,
+          "y": 123.34,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 157.34,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 172.14,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 206.14,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 220.94,
+          "width": 174,
+          "height": 337.53,
+          "right": 191,
+          "bottom": 558.47,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 573.27,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 607.27,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 622.06,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 656.06,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 670.86,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 704.86,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 719.66,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 753.66,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        }
+      ],
+      "bright": [],
+      "overflow": [],
+      "audit": {
+        "title": "小哈 · 响应式离线回归 · Streamlit 1.67.0",
+        "widgets": [
+          {
+            "testid": "stFileUploader",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stFileUploader",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stVerticalBlock",
+            "comboboxes": 1
+          },
+          {
+            "testid": "stNumberInput",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stSelectbox",
+            "comboboxes": 1
+          }
+        ],
+        "surfaces": [
+          {
+            "tag": "SECTION",
+            "testid": "stFileUploaderDropzone",
+            "role": "presentation",
+            "className": "st-emotion-cache-9532iv euud7oh0",
+            "background": "rgba(10, 19, 38, 0.92)"
+          },
+          {
+            "tag": "SECTION",
+            "testid": "stFileUploaderDropzone",
+            "role": "presentation",
+            "className": "st-emotion-cache-9532iv euud7oh0",
+            "background": "rgba(10, 19, 38, 0.92)"
+          },
+          {
+            "tag": "DIV",
+            "testid": "stNumberInputContainer",
+            "role": null,
+            "className": "st-emotion-cache-oku7x6 e579mqo0",
+            "background": "rgb(10, 19, 38)"
+          },
+          {
+            "tag": "BUTTON",
+            "testid": "stNumberInputStepDown",
+            "role": null,
+            "className": "st-emotion-cache-1dv05k2 e579mqo2",
+            "background": "rgb(17, 28, 51)"
+          },
+          {
+            "tag": "BUTTON",
+            "testid": "stNumberInputStepUp",
+            "role": null,
+            "className": "st-emotion-cache-1dv05k2 e579mqo2",
+            "background": "rgb(17, 28, 51)"
+          },
+          {
+            "tag": "DIV",
+            "role": "group",
+            "className": "st-emotion-cache-1aj2c3i equpb2c0",
+            "background": "rgb(10, 19, 38)"
+          }
+        ],
+        "text": [
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "生成数量",
+            "color": "rgba(225, 229, 255, 0.82)",
+            "background": [
+              8,
+              16,
+              34
+            ],
+            "contrast": 10.38
+          },
+          {
+            "tag": "INPUT",
+            "testid": "stNumberInputField",
+            "role": null,
+            "className": "st-emotion-cache-1am7me1 e579mqo3",
+            "text": "1",
+            "color": "rgb(244, 246, 255)",
+            "background": [
+              10,
+              19,
+              38
+            ],
+            "contrast": 17.17
+          },
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "当前模型",
+            "color": "rgba(225, 229, 255, 0.82)",
+            "background": [
+              8,
+              16,
+              34
+            ],
+            "contrast": 10.38
+          },
+          {
+            "tag": "INPUT",
+            "role": "combobox",
+            "className": "st-emotion-cache-nxw8e2 equpb2c4",
+            "text": "Nano Banana 2.1",
+            "color": "rgb(244, 246, 255)",
+            "background": [
+              10,
+              19,
+              38
+            ],
+            "contrast": 17.17
+          },
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "开始处理",
+            "color": "rgb(255, 255, 255)",
+            "background": [
+              93,
+              68,
+              246
+            ],
+            "contrast": 5.8
+          }
+        ],
+        "whiteSurfaces": [],
+        "whiteBorders": [],
+        "unreadableText": []
+      }
+    },
+    {
+      "feature": "remove_eyelashes",
+      "interactions": {
+        "options": [
+          "即梦 Seedream 4.6",
+          "Nano Banana 2.1",
+          "GPT Image 2.6 Flare",
+          "GPT Image 2.5 Flare",
+          "GPT Image 2",
+          "Grok Imagine Image Quality",
+          "bytedance-seed/seedream-4.5"
+        ],
+        "selected": "Nano Banana 2.1",
+        "whiteSurfaces": [],
+        "unreadableText": []
+      }
+    },
+    {
+      "width": 1385,
+      "feature": "prepress_check",
+      "viewport": 1385,
+      "documentWidth": 1385,
+      "bodyWidth": 1385,
+      "app": {
+        "x": 0,
+        "y": 0,
+        "width": 1385,
+        "height": 512.22,
+        "right": 1385,
+        "bottom": 512.22,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 1385,
+        "clientWidth": 1385
+      },
+      "sidebar": {
+        "x": 16,
+        "y": 6.72,
+        "width": 176,
+        "height": 483.91,
+        "right": 192,
+        "bottom": 490.63,
+        "color": "rgb(245, 247, 255)",
+        "background": "rgba(0, 0, 0, 0)",
+        "border": "rgb(245, 247, 255)",
+        "borderWidth": "0px",
+        "display": "block",
+        "scrollWidth": 176,
+        "clientWidth": 176
+      },
+      "left": null,
+      "right": null,
+      "select": {
+        "x": 201.91,
+        "y": 266.66,
+        "width": 1167.09,
+        "height": 40,
+        "right": 1369,
+        "bottom": 306.66,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgb(10, 19, 38)",
+        "border": "rgba(255, 255, 255, 0.12)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 1165,
+        "clientWidth": 1165
+      },
+      "number": null,
+      "numberInput": null,
+      "numberLabel": null,
+      "numberButtons": [],
+      "actionRow": null,
+      "actionButton": null,
+      "modelField": {
+        "x": 201.91,
+        "y": 266.66,
+        "width": 1167.09,
+        "height": 40,
+        "right": 1369,
+        "bottom": 306.66,
+        "color": "rgb(244, 246, 255)",
+        "background": "rgb(10, 19, 38)",
+        "border": "rgba(255, 255, 255, 0.12)",
+        "borderWidth": "1px",
+        "display": "flex",
+        "scrollWidth": 1165,
+        "clientWidth": 1165
+      },
+      "modelLabel": null,
+      "countField": null,
+      "actionColumns": [],
+      "actionAncestors": [],
+      "workspaceContainers": [
+        {
+          "name": "xiaoha-workspace",
+          "width": 1167
+        }
+      ],
+      "expanders": [
+        {
+          "x": 17,
+          "y": 123.34,
+          "width": 174,
+          "height": 73.5,
+          "right": 191,
+          "bottom": 196.84,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 211.64,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 245.64,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 260.44,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 294.44,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 309.23,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 343.23,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 358.03,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 392.03,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 406.83,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 440.83,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        },
+        {
+          "x": 17,
+          "y": 455.63,
+          "width": 174,
+          "height": 34,
+          "right": 191,
+          "bottom": 489.63,
+          "color": "rgb(245, 247, 255)",
+          "background": "rgba(0, 0, 0, 0)",
+          "border": "rgb(245, 247, 255)",
+          "borderWidth": "0px",
+          "display": "block",
+          "scrollWidth": 174,
+          "clientWidth": 174
+        }
+      ],
+      "bright": [],
+      "overflow": [],
+      "audit": {
+        "title": "小哈 · 响应式离线回归 · Streamlit 1.67.0",
+        "widgets": [
+          {
+            "testid": "stAlertContainer",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stFileUploader",
+            "comboboxes": 0
+          },
+          {
+            "testid": "stSelectbox",
+            "comboboxes": 1
+          }
+        ],
+        "surfaces": [
+          {
+            "tag": "DIV",
+            "testid": "stAlertContainer",
+            "role": "status",
+            "className": "stAlertContainer st-emotion-cache-80dlyy ep9twe70",
+            "background": "rgb(16, 33, 59)"
+          },
+          {
+            "tag": "SECTION",
+            "testid": "stFileUploaderDropzone",
+            "role": "presentation",
+            "className": "st-emotion-cache-9532iv euud7oh0",
+            "background": "rgba(10, 19, 38, 0.92)"
+          },
+          {
+            "tag": "DIV",
+            "role": "group",
+            "className": "st-emotion-cache-1aj2c3i equpb2c0",
+            "background": "rgb(10, 19, 38)"
+          }
+        ],
+        "text": [
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "建议一次上传完整的转曲 AI、PDF 和截图；也可以直接上传包含这些文件的 ZIP。",
+            "color": "rgb(200, 221, 255)",
+            "background": [
+              16,
+              33,
+              59
+            ],
+            "contrast": 11.7
+          },
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "上传印前源文件",
+            "color": "rgba(225, 229, 255, 0.82)",
+            "background": [
+              8,
+              21,
+              45
+            ],
+            "contrast": 10.03
+          },
+          {
+            "tag": "P",
+            "role": null,
+            "className": "",
+            "text": "物料类型",
+            "color": "rgba(225, 229, 255, 0.82)",
+            "background": [
+              8,
+              21,
+              45
+            ],
+            "contrast": 10.03
+          },
+          {
+            "tag": "INPUT",
+            "role": "combobox",
+            "className": "st-emotion-cache-nxw8e2 equpb2c4",
+            "text": "自动识别 / 其他",
+            "color": "rgb(244, 246, 255)",
+            "background": [
+              10,
+              19,
+              38
+            ],
+            "contrast": 17.17
+          }
+        ],
+        "whiteSurfaces": [],
+        "whiteBorders": [],
+        "unreadableText": []
+      }
+    },
+    {
+      "feature": "prepress_check",
+      "interactions": {
+        "options": [
+          "自动识别 / 其他",
+          "包装盒",
+          "底卡",
+          "信息贴"
+        ],
+        "selected": "包装盒",
+        "whiteSurfaces": [],
+        "unreadableText": []
+      }
+    }
+  ],
+  "failures": []
+}

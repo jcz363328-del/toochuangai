@@ -1,0 +1,1 @@
+export{t as FileSystemFileHandle,t as default}from"./es6.DrDKel3t.js";

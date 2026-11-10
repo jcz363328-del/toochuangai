@@ -1,4 +1,4 @@
-本文件是多容器方案的历史说明。需要使用旧方案时，所有 Compose 命令显式添加 `-f compose.multi.yaml`，不要直接照抄默认命令。
+本文件是多容器方案的历史说明，不是当前启动指南。当前根目录 `.env` 使用正式数据路径和 8000 端口，不能据此并行启动旧方案；旧方案仅用于组件镜像构建，回滚运行需先停正式服务并单独审核端口和挂载。所有旧方案命令显式添加 `-f compose.multi.yaml`。
 
 # Windows Docker Desktop 运行说明
 
@@ -10,16 +10,16 @@
 - 默认访问 `http://localhost:18080`，不停止、不替换当前 Windows 上的 8000 服务。
 - 默认关闭主站定时提醒，避免测试和原服务重复发送消息；经营分析仍会刷新自己的读取缓存。
 - 数据库仍使用环境文件中的 SQL Server。测试站的正常业务操作仍可能修改这个数据库；需要完全隔离时请配置测试数据库。
-- `.env.docker` 仅运行时注入，已被 Git 和 Docker 构建排除。不要发送、提交此文件，也不要将包含密钥的 `docker inspect` / `docker compose config` 完整输出发给别人。
+- `.env` 仅运行时注入，已被 Git 和 Docker 构建排除。不要发送、提交此文件，也不要将包含密钥的 `docker inspect` / `docker compose config` 完整输出发给别人。
 
 ## 首次配置
 
-在项目目录打开 PowerShell。当前电脑已生成独立 `.env.docker`，从原 `.env` 复制配置并使用独立端口、独立存储目录，原 `.env` 未改动。
+环境文件现已统一为根目录 `.env`，原独立预览配置存放在 `docker-data/env-backups/` 中。以下保留历史方案操作示例，不代表当前环境隔离；不要覆盖现有 `.env`。
 其他电脑首次部署时运行：
 
 ```powershell
-Copy-Item .env.docker.example .env.docker
-notepad .env.docker
+Copy-Item .env.example .env
+notepad .env
 python docker/prepare_runtime.py
 ```
 
@@ -35,9 +35,9 @@ SQL Server 在当前 Windows 电脑时，`DB_SERVER=host.docker.internal`，不�
 要求 Docker Desktop 已启动，使用 Linux containers，Docker Compose 支持 `env_file.format: raw`（Compose 2.30+）。
 
 ```powershell
-docker compose --env-file .env.docker config --quiet
-docker compose --env-file .env.docker up -d --build
-docker compose --env-file .env.docker ps
+docker compose --env-file .env config --quiet
+docker compose --env-file .env up -d --build
+docker compose --env-file .env ps
 Invoke-WebRequest http://localhost:18080/_container/health
 ```
 
@@ -46,9 +46,9 @@ Invoke-WebRequest http://localhost:18080/_container/health
 查看日志、停止、更新：
 
 ```powershell
-docker compose --env-file .env.docker logs --tail 100 web sales-api
-docker compose --env-file .env.docker down
-docker compose --env-file .env.docker up -d --build --force-recreate
+docker compose --env-file .env logs --tail 100 web sales-api
+docker compose --env-file .env down
+docker compose --env-file .env up -d --build --force-recreate
 ```
 
 更新时一起重建两个服务，因为经营分析共享 web 的网络命名空间。不要只重建 web 后留下旧的 sales-api。
@@ -79,7 +79,7 @@ FEISHU_PRODUCTION_DOMAIN=https://你的测试域名
 
 ## 统一服务清单
 
-全部由相同的 `docker compose --env-file .env.docker up -d --build` 管理，统一自动重启、健康检查和持久化，不再依靠 Windows 启动脚本。
+全部由相同的 `docker compose --env-file .env up -d --build` 管理，统一自动重启、健康检查和持久化，不再依靠 Windows 启动脚本。
 
 | Compose 服务 | 内容 | 访问方式 |
 | --- | --- | --- |
@@ -93,9 +93,9 @@ FEISHU_PRODUCTION_DOMAIN=https://你的测试域名
 
 无限画布由小哈的静态/API 服务提供，不再额外启动另一个前端开发服务器。VideoClaw 流式接口使用同源流式代理，不将用户浏览器请求发往用户自己的 localhost，也不绕过主站权限直接暴露后端。
 
-- 小哈与主站共用 `.env.docker` 中的模型平台配置和 `LASHFORGE_LOGIN_ACCOUNTS_JSON`，不会把原 `图片/config.py` 密钥打入镜像。
+- 小哈与主站共用 `.env` 中的模型平台配置和 `LASHFORGE_LOGIN_ACCOUNTS_JSON`，不会把原 `图片/config.py` 密钥打入镜像。
 - VideoClaw 配置在 `docker-data/videoclaw/config.yaml`，初次从现有配置复制；会话、任务、生成视频及临时文件分别持久化。复制配置不等于迁移历史任务文件，历史文件需另行备份导入。
-- 广告配置在 `docker-data/ads/ads_monitor_config.json`，平台凭据使用 `SELLFOX_CLIENT_ID` 和 `SELLFOX_CLIENT_SECRET`；不依赖 Windows DPAPI 密文。在现有电脑已复制可读取的凭据到独立 `.env.docker`，其他电脑需自行填写。
+- 广告配置在 `docker-data/ads/ads_monitor_config.json`，平台凭据使用 `SELLFOX_CLIENT_ID` 和 `SELLFOX_CLIENT_SECRET`；不依赖 Windows DPAPI 密文。在现有电脑已复制可读取的凭据到独立 `.env`，其他电脑需自行填写。
 - 广告数据和输出使用独立卷，不会直接挂载、修改当前 Windows 服务的历史 SQLite 文件。镜像包含 ODBC Driver 17；首次安装按微软驱动条款接受 EULA，详见[微软安装说明](https://learn.microsoft.com/en-us/sql/connect/odbc/linux/installing-the-microsoft-odbc-driver-for-sql-server)。
 - 经营分析缓存刷新保留；原 Windows 广告计划任务和其他自动采集任务不会自动复制为 Linux 定时任务，避免在测试阶段重复采集或操作广告。
 - 初次部署的历史图片、生成任务和广告快照默认不迁移；页面可用不代表历史资料已自动同步，也不代表已验证全部收费模型生成流程。
@@ -112,7 +112,7 @@ FEISHU_PRODUCTION_DOMAIN=https://你的测试域名
 
 ## 本机验收记录
 
-2026-11-10：7 项服务构建成功并达到 healthy；主站健康接口返回 ok；SQL Server `SELECT 1` 通过；前端产物存在；镜像内不存在 `.env`、`.env.docker`；原 Windows 8000 监听进程未改变。
+2026-11-10：7 项服务构建成功并达到 healthy；主站健康接口返回 ok；SQL Server `SELECT 1` 通过；前端产物存在；镜像内不存在 `.env`、`.env`；原 Windows 8000 监听进程未改变。
 VideoClaw 浏览器加载和 API 地址前缀验证通过，JavaScript 异常数为 0；进程内测试身份联调主站前端、后端代理均返回 200，非 AI 身份返回 403。小哈首次页面渲染异常数为 0；广告容器检测到 ODBC Driver 17。
 补货测试已补充真实的 AI 部门测试身份，14 项通过，其中包含“其他部门即便有功能权限也不能进入 AI 部门入口”的反向测试；没有放宽生产权限。新增 Docker 与 VideoClaw 流式代理测试 6 项通过，小哈稳定性相关测试 8 项通过。
 无限画布现有测试另有 2 项功能枚举断言不包含已存在的 product_retouch / product_retouch_local，未在本次部署中更改功能范围或删除功能来迎合旧断言。

@@ -31,6 +31,7 @@ __tmp*
 logs
 outputs
 demo
+tests
 ads_monitor_web/ads-monitor-web-full-source/data
 ads_monitor_web/ads-monitor-web-full-source/ads-monitor-web/public/data
 ads_monitor_web/ads-monitor-web-full-source/.local

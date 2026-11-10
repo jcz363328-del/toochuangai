@@ -1,0 +1,1 @@
+function e(e){let{keyCode:t,key:n}=e;return(n===`Enter`||t===13||t===10)&&!e.nativeEvent.isComposing}export{e as t};

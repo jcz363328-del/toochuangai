@@ -1,0 +1,186 @@
+{
+  "title": "小哈 · 响应式离线回归 · Streamlit 1.67.0",
+  "selects": [
+    {
+      "tag": "DIV",
+      "testid": "stSelectbox",
+      "role": null,
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 247, 255)",
+      "border": "rgb(245, 247, 255)",
+      "html": "<div class=\"stSelectbox\" data-testid=\"stSelectbox\"><label data-testid=\"stWidgetLabel\" class=\"st-emotion-cache-1q7ru4x eyxlljl0\"><span aria-hidden=\"true\"><div class=\"st-emotion-cache-1nks7d2 e1yqkw3v0\" data-testid=\"stMarkdownContainer\"><p>当前模型</p></div></span></label><template><div class=\"st-emotion-cache-1aj2c3i equpb2c0\" data-rac=\"\" role=\"group\"></div></template><div class=\"react-aria-ComboBox\" data-rac=\"\"><div class=\"st-emotion-cache-1aj2c3i equpb2c0\" data-rac=\"\" role=\"group\"><input aria-label=\"当前模型\" type=\"text\" aria-autocomplete=\"list\" autocomplete=\"off\" placeholder=\"Choose an option\" autocorrect=\"off\" spellcheck=\"false\" tabindex=\"0\" id=\"react-aria1056709476-:rl:\" role=\"combobox\" aria-expanded=\"false\" class=\"st-emotion-cache-nxw8e2 equpb2c4\" data-rac=\"\" value=\"Nano Banana 2.1\"><button id=\"react-aria1056709476-:rh:\" class=\"st-emotion-cache-1v3jgis equpb2c5\" data-rac=\"\" type=\"button\" tabindex=\"-1\" data-react-aria-pressable=\"true\" aria-label=\"Open\" aria-haspopup=\"listbox\" aria-expanded=\"false\"><svg viewBox=\"0 0 24 24\" height=\"1.25rem\" width=\"1.25rem\" aria-hidden=\"true\" focusable=\"false\" fill=\"currentColor\" xmlns=\"http://www.w3.org/2000/svg\" class=\"st-emotion-cache-1eamic5 ex0cdmw0\"><path fill=\"none\" d=\"M0 0h24v24H0V0z\"></path><path d=\"M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z\"></path></svg></button></div></div></div>"
+    }
+  ],
+  "number": [
+    {
+      "tag": "DIV",
+      "testid": "stNumberInput",
+      "role": null,
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 247, 255)",
+      "border": "rgb(245, 247, 255)",
+      "html": "<div class=\"stNumberInput\" data-testid=\"stNumberInput\"><label data-testid=\"stWidgetLabel\" for=\":r9:\" class=\"st-emotion-cache-1q7ru4x eyxlljl0\"><span aria-hidden=\"true\"><div class=\"st-emotion-cache-1nks7d2 e1yqkw3v0\" data-testid=\"stMarkdownContainer\"><p>生成数量</p></div></span></label><div class=\"react-aria-TextField\" data-rac=\"\"><div data-testid=\"stNumberInputContainer\" class=\"st-emotion-cache-oku7x6 e579mqo0\"><input aria-label=\"生成数量\" type=\"number\" placeholder=\"\" tabindex=\"0\" id=\":r9:\" data-testid=\"stNumberInputField\" step=\"1\" min=\"1\" max=\"4\" class=\"st-emotion-cache-1am7me1 e579mqo3\" data-rac=\"\" value=\"1\"><div class=\"st-emotion-cache-1k5fi8b e579mqo1\"><button type=\"button\" data-testid=\"stNumberInputStepDown\" aria-label=\"Decrement\" disabled=\"\" tabindex=\"-1\" class=\"st-emotion-cache-1dv05k2 e579mqo2\"><svg viewBox=\"0 0 8 8\" aria-hidden=\"true\" focusable=\"false\" fill=\"currentColor\" xmlns=\"http://www.w3.org/2000/svg\" color=\"rgba(47, 45, 43, 0.4)\" class=\"e1s3hou1 st-emotion-cache-1yplebj ex0cdmw0\"><path d=\"M0 3v2h8V3H0z\"></path></svg></button><button type=\"button\" data-testid=\"stNumberInputStepUp\" aria-label=\"Increment\" tabindex=\"-1\" class=\"st-emotion-cache-1dv05k2 e579mqo2\"><svg viewBox=\"0 0 8 8\" aria-hidden=\"true\" focusable=\"false\" fill=\"currentColor\" xmlns=\"http://www.w3.org/2000/svg\" color=\"inherit\" class=\"e1s3hou1 st-emotion-cache-5sveu0 ex0cdmw0\"><path d=\"M3 0v3H0v2h3v3h2V5h3V3H5V0H3z\"></path></svg></button></div></div></div></div>"
+    }
+  ],
+  "uploaders": [
+    {
+      "tag": "DIV",
+      "testid": "stFileUploader",
+      "role": null,
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 247, 255)",
+      "border": "rgb(245, 247, 255)",
+      "html": "<div class=\"stFileUploader st-emotion-cache-u3ixe3 euud7oh8\" data-testid=\"stFileUploader\" width=\"102.140625\"><label data-testid=\"stWidgetLabel\" class=\"st-emotion-cache-1v44329 eyxlljl0\"><span aria-hidden=\"true\"><div class=\"st-emotion-cache-1nks7d2 e1yqkw3v0\" data-testid=\"stMarkdownContainer\"><p>替换图片</p></div></span></label><section role=\"presentation\" tabindex=\"-1\" data-testid=\"stFileUploaderDropzone\" aria-label=\"替换图片\" aria-disabled=\"false\" class=\"st-emotion-cache-9532iv euud7oh0\"><input data-testid=\"stFileUploaderDropzoneInput\" accept=\"application/streamlit,.png,.jpg,.jpeg,.webp\" type=\"file\" aria-label=\"file upload\" tabindex=\"-1\" style=\"border: 0px; display: block; height: 0px; margin: 0px; max-width: 0px; opacity: 0; overflow: hidden; padding: 0px; width: 0px; position: absolute;\"><span class=\"st-emotion-cache-epvm6 euud7oh6\"><button kind=\"secondary\" data-testid=\"stBaseButton-secondary\" class=\"st-emotion-cache-1q1t6cq e1aouyeq2\"><div class=\"st-emotion-cache-1lads1q e1aouyeq22\"><span data-has-shortcut=\"false\" class=\"st-emotion-cache-1kl7f1u e1aouyeq23\"><span class=\"st-emotion-cache-28gi3v e1s3hou2\"><span color=\"inherit\" data-testid=\"stIconMaterial\" aria-hidden=\"true\" translate=\"no\" class=\"st-emotion-cache-1dkvzay e1vmumty0\">upload</span></span><span style=\"display: contents;\"><div class=\"st-emotion-cache-1nks7d2 e1yqkw3v0\" data-testid=\"stMarkdownContainer\"><p>Upload</p></div></span></span></div></button></span><div data-testid=\"stFileUploaderDropzoneInstructions\" class=\"st-emotion-cache-1ykwuyz euud7oh3\"><div class=\"st-emotion-cache-kt79cc euud7oh5\"><span class=\"st-emotion-cache-tkh6uw euud7oh4\">200MB per file • PNG, JPG, WEBP</span></div></div></section></div>"
+    },
+    {
+      "tag": "DIV",
+      "testid": "stFileUploader",
+      "role": null,
+      "background": "rgba(0, 0, 0, 0)",
+      "color": "rgb(245, 247, 255)",
+      "border": "rgb(245, 247, 255)",
+      "html": "<div class=\"stFileUploader st-emotion-cache-1ayvbbd euud7oh8\" data-testid=\"stFileUploader\" width=\"380.296875\"><label data-testid=\"stWidgetLabel\" class=\"st-emotion-cache-1v44329 eyxlljl0\"><span aria-hidden=\"true\"><div class=\"st-emotion-cache-1nks7d2 e1yqkw3v0\" data-testid=\"stMarkdownContainer\"><p>继续上传</p></div></span><div class=\"st-emotion-cache-7e7wz2 eyxlljl1\"><span class=\"stTooltipIcon st-emotion-cache-18ymrf2 ef3bkur1\" data-testid=\"stTooltipIcon\"><span data-testid=\"stTooltipHoverTarget\" class=\"stTooltipHoverTarget\" style=\"display: flex; flex-direction: row; justify-content: flex-end; width: auto;\"><button type=\"button\" aria-label=\"Help for 继续上传\" class=\"st-emotion-cache-1reb8d8 ef3bkur0\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"icon\" aria-hidden=\"true\" focusable=\"false\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"></path><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"></line></svg></button></span></span></div></label><section role=\"presentation\" tabindex=\"-1\" data-testid=\"stFileUploaderDropzone\" aria-label=\"继续上传\" aria-disabled=\"false\" class=\"st-emotion-cache-9532iv euud7oh0\"><input data-testid=\"stFileUploaderDropzoneInput\" accept=\"application/streamlit,.png,.jpg,.jpeg,.webp\" multiple=\"\" type=\"file\" aria-label=\"file upload\" tabindex=\"-1\" style=\"border: 0px; display: block; height: 0px; margin: 0px; max-width: 0px; opacity: 0; overflow: hidden; padding: 0px; width: 0px; position: absolute;\"><span class=\"st-emotion-cache-epvm6 euud7oh6\"><button kind=\"secondary\" data-testid=\"stBaseButton-secondary\" class=\"st-emotion-cache-1q1t6cq e1aouyeq2\"><div class=\"st-emotion-cache-1lads1q e1aouyeq22\"><span data-has-shortcut=\"false\" class=\"st-emotion-cache-1kl7f1u e1aouyeq23\"><span class=\"st-emotion-cache-28gi3v e1s3hou2\"><span color=\"inherit\" data-testid=\"stIconMaterial\" aria-hidden=\"true\" translate=\"no\" class=\"st-emotion-cache-1dkvzay e1vmumty0\">upload</span></span><span style=\"display: contents;\"><div class=\"st-emotion-cache-1nks7d2 e1yqkw3v0\" data-testid=\"stMarkdownContainer\"><p>Upload</p></div></span></span></div></button></span><div data-testid=\"stFileUploaderDropzoneInstructions\" class=\"st-emotion-cache-1ykwuyz euud7oh3\"><div class=\"st-emotion-cache-kt79cc euud7oh5\"><span class=\"st-emotion-cache-tkh6uw euud7oh4\">200MB per file • PNG, JPG, WEBP</span></div></div></section></div>"
+    }
+  ],
+  "alerts": [],
+  "bordered": [],
+  "audit": {
+    "title": "小哈 · 响应式离线回归 · Streamlit 1.67.0",
+    "widgets": [
+      {
+        "testid": "stFileUploader",
+        "comboboxes": 0
+      },
+      {
+        "testid": "stFileUploader",
+        "comboboxes": 0
+      },
+      {
+        "testid": "stVerticalBlock",
+        "comboboxes": 1
+      },
+      {
+        "testid": "stNumberInput",
+        "comboboxes": 0
+      },
+      {
+        "testid": "stSelectbox",
+        "comboboxes": 1
+      }
+    ],
+    "surfaces": [
+      {
+        "tag": "SECTION",
+        "testid": "stFileUploaderDropzone",
+        "role": "presentation",
+        "className": "st-emotion-cache-9532iv euud7oh0",
+        "background": "rgba(10, 19, 38, 0.92)"
+      },
+      {
+        "tag": "SECTION",
+        "testid": "stFileUploaderDropzone",
+        "role": "presentation",
+        "className": "st-emotion-cache-9532iv euud7oh0",
+        "background": "rgba(10, 19, 38, 0.92)"
+      },
+      {
+        "tag": "DIV",
+        "testid": "stNumberInputContainer",
+        "role": null,
+        "className": "st-emotion-cache-oku7x6 e579mqo0",
+        "background": "rgb(10, 19, 38)"
+      },
+      {
+        "tag": "BUTTON",
+        "testid": "stNumberInputStepDown",
+        "role": null,
+        "className": "st-emotion-cache-1dv05k2 e579mqo2",
+        "background": "rgb(17, 28, 51)"
+      },
+      {
+        "tag": "BUTTON",
+        "testid": "stNumberInputStepUp",
+        "role": null,
+        "className": "st-emotion-cache-1dv05k2 e579mqo2",
+        "background": "rgb(17, 28, 51)"
+      },
+      {
+        "tag": "DIV",
+        "role": "group",
+        "className": "st-emotion-cache-1aj2c3i equpb2c0",
+        "background": "rgb(10, 19, 38)"
+      }
+    ],
+    "text": [
+      {
+        "tag": "P",
+        "role": null,
+        "className": "",
+        "text": "生成数量",
+        "color": "rgba(225, 229, 255, 0.82)",
+        "background": [
+          110,
+          115,
+          124
+        ],
+        "contrast": 3.14
+      },
+      {
+        "tag": "INPUT",
+        "testid": "stNumberInputField",
+        "role": null,
+        "className": "st-emotion-cache-1am7me1 e579mqo3",
+        "text": "1",
+        "color": "rgb(244, 246, 255)",
+        "background": [
+          10,
+          19,
+          38
+        ],
+        "contrast": 17.17
+      },
+      {
+        "tag": "P",
+        "role": null,
+        "className": "",
+        "text": "当前模型",
+        "color": "rgba(225, 229, 255, 0.82)",
+        "background": [
+          110,
+          115,
+          124
+        ],
+        "contrast": 3.14
+      },
+      {
+        "tag": "INPUT",
+        "role": "combobox",
+        "className": "st-emotion-cache-nxw8e2 equpb2c4",
+        "text": "Nano Banana 2.1",
+        "color": "rgb(244, 246, 255)",
+        "background": [
+          10,
+          19,
+          38
+        ],
+        "contrast": 17.17
+      },
+      {
+        "tag": "P",
+        "role": null,
+        "className": "",
+        "text": "开始处理",
+        "color": "rgb(255, 255, 255)",
+        "background": [
+          110,
+          115,
+          124
+        ],
+        "contrast": 4.78
+      }
+    ],
+    "whiteSurfaces": [],
+    "whiteBorders": [],
+    "unreadableText": []
+  }
+}

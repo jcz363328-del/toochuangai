@@ -1,0 +1,108 @@
+# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""LRU cache supporting TTL and max entry count, as well as release hooks for cleanup."""
+
+from collections.abc import Callable
+from typing import TypeVar
+
+# override is in typing after Python 3.12 and can be imported from there after 3.11
+# support is retired.
+from typing_extensions import override
+
+from streamlit.runtime.caching.cache_utils import OnRelease
+from streamlit.runtime.caching.ttl_cache import (
+    OnEvict,
+    TTLCache,
+    TTLCacheEvictionReason,
+)
+
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+class TTLCleanupCache(TTLCache[K, V]):
+    """A TTLCache that supports hooks called when items are released.
+
+    Note that item release only happens reliably when done automatically due to TTL
+    or maxsize expiration - and specifically does not happen when using ``del``. To
+    remove an item and have on_release be called, use safe_del.
+    """
+
+    def __init__(
+        self,
+        maxsize: float,
+        ttl: float,
+        timer: Callable[[], float],
+        on_release: OnRelease,
+        on_evict: OnEvict | None = None,
+    ) -> None:
+        """Create a cache with the given size, TTL, and release hook.
+
+        Parameters
+        ----------
+        maxsize : float
+            The maximum number of elements this cache should hold.
+        ttl : float
+            The amount of time a cache entry should remain valid, in seconds.
+        timer : Callable[[], float]
+            The timer function to use to fetch the current time.
+        on_release : OnRelease
+            The function to call with cache entries when they are removed from the
+            cache.
+        on_evict : OnEvict | None
+            The function to call with a reason and an entry count when the cache
+            evicts entries on its own. See ``TTLCache``.
+        """
+        super().__init__(maxsize=maxsize, ttl=ttl, timer=timer, on_evict=on_evict)
+        self._on_release = on_release
+
+    @override
+    def popitem(self) -> tuple[K, V]:
+        key, value = super().popitem()
+        self._on_release(value)
+        return key, value
+
+    @override
+    def _evict_lru(self, reason: TTLCacheEvictionReason) -> V:
+        value = super()._evict_lru(reason)
+        self._on_release(value)
+        return value
+
+    @override
+    def expire(self, at_time: float | None = None) -> list[tuple[K, V]]:
+        items = super().expire(at_time)
+        for _, value in items:
+            self._on_release(value)
+
+        return items
+
+    @override
+    def clear(self) -> None:
+        # Base clear() removes entries through _remove() and bypasses popitem(),
+        # so it would skip release hooks. Clear via popitem() instead.
+        while True:
+            try:
+                self.popitem()
+            except KeyError:
+                break
+
+    def safe_del(self, key: K) -> None:
+        """Delete that calls _on_release."""
+        has_value = key in self
+        old_value = self.get(key)
+        del self[key]
+        # Check has_value, not None, to allow for None values.
+        if has_value:
+            self._on_release(old_value)

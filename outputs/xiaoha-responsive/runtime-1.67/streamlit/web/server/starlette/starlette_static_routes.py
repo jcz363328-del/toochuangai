@@ -1,0 +1,238 @@
+# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Static file handling for the Starlette server.
+
+This is for serving the core Streamlit static assets (HTML/JS/CSS)
+not related to the app static file serving feature.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+from typing import TYPE_CHECKING, Any, Final
+
+from streamlit import file_util
+from streamlit.path_security import is_unsafe_path_pattern
+from streamlit.url_util import make_url_path
+from streamlit.web.server.starlette.starlette_server_config import (
+    STATIC_ASSET_CACHE_MAX_AGE_SECONDS,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import MutableMapping
+
+    from starlette.routing import BaseRoute
+    from starlette.staticfiles import StaticFiles
+    from starlette.types import Receive, Scope, Send
+
+# Pattern for files that should not be cached (HTML and manifest.json)
+_NO_CACHE_PATTERN: Final = re.compile(r"(?:\.html$|^manifest\.json$)")
+
+# Reserved paths that return 404 instead of falling back to index.html. They
+# include the agent API routes, so a client that appends one to a page's URL
+# (such as `/page2/_stcore/agent/mcp`) gets a 404 rather than the app's HTML
+# and a 200, which would read as success.
+_RESERVED_STATIC_PATH_SUFFIXES: Final = (
+    "_stcore/health",
+    "_stcore/host-config",
+    "_stcore/agent/interact",
+    "_stcore/agent/openapi.json",
+    "_stcore/agent/mcp",
+)
+
+# Every other path under the agent API's prefix is reserved too, so a path the
+# API does not serve, such as `/_stcore/agent/foo`, is a 404 for every method
+# instead of the app's HTML.
+_RESERVED_STATIC_PATH_SEGMENT: Final = "/_stcore/agent/"
+
+
+def create_streamlit_static_handler(
+    directory: str, base_url: str | None
+) -> StaticFiles:
+    """Create a static file handler used for serving Streamlit's static assets.
+
+    This also handles:
+    - SPA fallback (serving index.html on 404s for client-side routing)
+    - Long-term caching of hashed assets
+    - No-cache for HTML/manifest files
+    - Trailing slash redirect (301 for GET and HEAD, 308 for other methods)
+    - Double-slash protection (400 for protocol-relative URL security)
+    """
+    from starlette.exceptions import HTTPException
+    from starlette.responses import FileResponse, RedirectResponse, Response
+    from starlette.staticfiles import StaticFiles
+
+    class _StreamlitStaticFiles(StaticFiles):
+        def __init__(self, directory: str, base_url: str | None) -> None:
+            # follow_symlink=True restores Tornado parity for Bazel/Nix-style deployments
+            # where the static directory may contain or be a symlink. The static dir is
+            # read-only package content, not user-controlled, so this is safe.
+            super().__init__(directory=directory, html=True, follow_symlink=True)
+            self._base_url = (base_url or "").strip("/")
+            self._index_path = os.path.join(directory, "index.html")
+
+        async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+            """Handle incoming requests with security checks and redirects."""
+            if scope["type"] != "http":
+                await super().__call__(scope, receive, send)
+                return
+
+            path = scope.get("path", "")
+
+            # Security check: Block paths starting with double slash (protocol-relative
+            # URL protection). A path like //example.com could be misinterpreted as a
+            # protocol-relative URL if redirected, which is a security risk.
+            if path.startswith("//"):
+                response = Response(content="Bad Request", status_code=400)
+                await response(scope, receive, send)
+                return
+
+            # Security check: Block UNC paths, absolute paths, drive-qualified paths,
+            # and path traversal patterns BEFORE any filesystem operations.
+            # See is_unsafe_path_pattern() docstring for details.
+            # Strip the leading slash since paths come in as "/filename" but we check
+            # the relative portion.
+            relative_path = path.lstrip("/")
+            if relative_path and is_unsafe_path_pattern(relative_path):
+                response = Response(content="Bad Request", status_code=400)
+                await response(scope, receive, send)
+                return
+
+            # Handle trailing slash redirect: Redirects paths with trailing
+            # slashes (except root "/" or mount root) to the path without them.
+            # We replicate this for consistent URL handling and to avoid duplicate
+            # content issues. When mounted (e.g., at "/app"), scope["path"] is the
+            # full path "/app/" and scope["root_path"] is "/app", so we must not
+            # redirect the mount root to avoid infinite redirect loops.
+            root_path = scope.get("root_path", "")
+            if len(path) > 1 and path.endswith("/"):
+                redirect_path = path.rstrip("/")
+                # Don't redirect if we're at the mount root (path without slash equals root_path)
+                if redirect_path == root_path:
+                    await super().__call__(scope, receive, send)
+                    return
+                query_string = scope.get("query_string", b"")
+                query = "?" + query_string.decode("latin-1") if query_string else ""
+                if scope["method"] in {"GET", "HEAD"}:
+                    response = RedirectResponse(
+                        url=redirect_path + query,
+                        status_code=301,
+                        headers={"Cache-Control": "no-cache"},
+                    )
+                else:
+                    # A 308 keeps the method and body, so a pasted MCP URL with a
+                    # trailing slash (`/_stcore/agent/mcp/`) still connects;
+                    # clients turn a POST redirected with a 301 into a bodiless
+                    # GET. The Location is relative (`../mcp`) so it survives a
+                    # proxy that strips a path prefix.
+                    trailing_slashes = len(path) - len(redirect_path)
+                    last_segment = redirect_path.rsplit("/", 1)[-1]
+                    response = RedirectResponse(
+                        url="../" * trailing_slashes + last_segment + query,
+                        status_code=308,
+                        headers={"Cache-Control": "no-cache"},
+                    )
+                await response(scope, receive, send)
+                return
+
+            await super().__call__(scope, receive, send)
+
+        async def get_response(
+            self, path: str, scope: MutableMapping[str, Any]
+        ) -> Response:
+            served_path = path
+            try:
+                response = await super().get_response(path, scope)
+            except HTTPException as exc:
+                if self._is_reserved(scope["path"], path):
+                    if path.replace("\\", "/") in _RESERVED_STATIC_PATH_SUFFIXES:
+                        # `path` is relative to the static mount, so an exact
+                        # match is a reserved path at the app's root. There
+                        # the static files' own answer stands, such as a 405
+                        # for a `POST` to the health check.
+                        raise
+                    # Otherwise a reserved path is never a static file, so it
+                    # is a 404 for every method:
+                    # - a route's path appended to a page's URL, such as
+                    #   `/page2/_stcore/agent/mcp`
+                    # - an unknown path under the agent prefix, such as
+                    #   `/_stcore/agent/foo`
+                    # Without this, a `POST` from an MCP client gets the static
+                    # files' 405.
+                    raise HTTPException(status_code=404) from exc
+                if exc.status_code != 404:
+                    raise
+                # Serve index.html for 404s (existing behavior):
+                response = FileResponse(self._index_path)
+                served_path = "index.html"
+
+            self._apply_cache_headers(response, served_path)
+            return response
+
+        def _is_reserved(self, request_path: str, relative_path: str) -> bool:
+            """Check if the request path is reserved and should not fallback."""
+            # Anything under the agent prefix is reserved, matched by path
+            # segment. It is checked on the mount-relative path, so a base URL
+            # that contains the prefix does not reserve every page. The other
+            # reserved paths match by suffix, so "/my_stcore/health" also
+            # matches "_stcore/health" (TODO: make that path-segment-aware too).
+            relative_url_path = relative_path.replace("\\", "/").strip("/")
+            if _RESERVED_STATIC_PATH_SEGMENT in f"/{relative_url_path}/":
+                return True
+            url_path = request_path.split("?", 1)[0]
+            return any(url_path.endswith(x) for x in _RESERVED_STATIC_PATH_SUFFIXES)
+
+        def _apply_cache_headers(self, response: Response, served_path: str) -> None:
+            """Apply cache headers for static files."""
+            if response.status_code in {301, 302, 303, 304, 307, 308}:
+                return
+
+            normalized = served_path.replace("\\", "/").lstrip("./")
+            # Mark HTML/manifest assets as no-cache but let hashed bundles
+            # live in cache. Keep that contract to avoid churning snapshots or CDNs.
+            cache_value = (
+                "no-cache"
+                if not normalized or _NO_CACHE_PATTERN.search(normalized)
+                else f"public, immutable, max-age={STATIC_ASSET_CACHE_MAX_AGE_SECONDS}"
+            )
+            response.headers["Cache-Control"] = cache_value
+
+    return _StreamlitStaticFiles(directory=directory, base_url=base_url)
+
+
+def create_streamlit_static_assets_routes(base_url: str | None) -> list[BaseRoute]:
+    """Create the static assets mount for serving Streamlit's core assets."""
+    from starlette.routing import Mount
+
+    static_dir = file_util.get_static_dir()
+    if not os.path.isdir(static_dir):
+        return []
+
+    static_assets = create_streamlit_static_handler(
+        directory=static_dir, base_url=base_url
+    )
+    # Strip trailing slash from the path because Starlette's Mount with a trailing
+    # slash (e.g., "/myapp/") won't match requests without it (e.g., "/myapp").
+    # Mount without trailing slash handles both cases by redirecting "/myapp" to
+    # "/myapp/". Use "/" as fallback for root path.
+    mount_path = make_url_path(base_url or "", "").rstrip("/") or "/"
+    return [
+        Mount(
+            mount_path,
+            app=static_assets,
+            name="static-assets",
+        )
+    ]

@@ -14,26 +14,26 @@
 在项目根目录的 PowerShell 中运行：
 
 ```powershell
-docker compose --env-file .env.single up -d --no-build --wait
-docker compose --env-file .env.single ps
-docker compose --env-file .env.single exec -T app supervisorctl status
-docker compose --env-file .env.single exec -T app python /app/docker/healthcheck.py
-docker compose --env-file .env.single logs --tail 100 app
+docker compose --env-file .env up -d --no-build --wait
+docker compose --env-file .env ps
+docker compose --env-file .env exec -T app supervisorctl status
+docker compose --env-file .env exec -T app python /app/docker/healthcheck.py
+docker compose --env-file .env logs --tail 100 app
 ```
 
 需要重建镜像时先构建组件镜像，再打包成一个运行镜像；构建过程不会启动七个运行容器：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File docker/build_single.ps1
-docker compose --env-file .env.single up -d --no-build --force-recreate --wait
+docker compose --env-file .env up -d --no-build --force-recreate --wait
 ```
 
-`docker compose --env-file .env.single stop app` 停止整个系统。不要使用 `down -v` 或 Docker Desktop 的删除数据卷选项。
+`docker compose --env-file .env stop app` 停止整个系统。不要使用 `down -v` 或 Docker Desktop 的删除数据卷选项。
 镜像和主机绑定目录分离。已有数据不应通过删除卷来“刷新”。Docker Desktop 启动后，容器按 `unless-stopped` 策略恢复；不要同时重新启用旧 Windows 服务。
 
 ## 配置与现有数据
 
-- `.env.single` 是当前运行配置，已被 Git 和镜像构建排除；`.env` 原配置未修改。不要提交、发送密钥或公开完整的 inspect/config 输出。
+- `.env` 是唯一的根目录运行配置，沿用原单容器生产配置，已被 Git 和镜像构建排除。不要提交、发送密钥或公开完整的 inspect/config 输出。
 - 当前正式配置挂载原 `D:/tuchuangai` 素材目录，以及项目中现有知识库、Listing、经营分析、导出、VideoClaw 任务/结果、广告数据目录，没有用空测试卷替换正式数据。
 - VideoClaw 配置：`docker-data/production-videoclaw/config.yaml`；广告配置：`docker-data/production-ads/ads_monitor_config.json`。初始从原配置复制，不将密钥打进镜像。
 - 原 SQL Server 保持不变。`DB_*` 为主站连接参数，`TK_SQL_*` 为原广告脚本使用的同一数据库别名；数据库在本机时容器地址使用 `host.docker.internal`，不能用容器自己的 localhost。
@@ -51,7 +51,7 @@ docker compose --env-file .env.single up -d --no-build --force-recreate --wait
 ## 新电脑部署
 
 先取得子模块源码：`git submodule update --init --recursive`。VideoClaw 子模块包含本次 API/媒体地址适配，发布时需要同步保存子模块修改。
-复制 `.env.single.example` 为 `.env.single`，填写数据库、随机会话密钥、飞书和模型平台密钥，再运行构建脚本和启动命令。
+复制 `.env.example` 为 `.env`，填写数据库、随机会话密钥、飞书和模型平台密钥，再运行构建脚本和启动命令。
 新电脑默认配置使用独立数据目录/数据卷，不会自动取得这台电脑的历史资料；应先恢复数据库和文件备份，再配置 `DOCKER_*_PATH` 挂载。
 测试时保持两项定时任务开关为 0，防止与正式系统重复采集或发消息。
 
@@ -59,12 +59,12 @@ docker compose --env-file .env.single up -d --no-build --force-recreate --wait
 
 切换步骤是：先在 18081 隔离验收，正式目录只读核验；停止旧 Docker 测试环境、Windows 服务和旧采集任务后，才将正式目录以读写方式接入 8000。
 `docker/cutover.ps1` 对原端口和进程路径做身份检查，并在新服务健康失败时先停止新容器，再恢复 Windows 服务。它只用于从原 Windows 服务迁入，不要对已经运行的单容器重复执行。
-原多容器配置保留在 `compose.multi.yaml`，历史说明在 `DOCKER_MULTI.md`。原临时配置备份为 `.env.single.before-cutover`，所有配置备份也包含密钥，必须保密。
+原多容器配置保留在 `compose.multi.yaml`，历史说明在 `DOCKER_MULTI.md`。旧配置已移入 `docker-data/env-backups/` 的时间戳目录，所有备份也包含密钥，必须保密。
 
 手工回滚必须先确认新容器完全停止，不能让 Windows 与容器同时写正式目录：
 
 ```powershell
-docker compose --env-file .env.single stop app
+docker compose --env-file .env stop app
 ```
 
 然后按 `docker-data/cutover-task-state.json` 恢复原计划任务启用状态，并通过 `start_tuchuangai.ps1` 恢复主站、通过 `图片/xiaoha_watchdog.ps1` 恢复小哈。只启用一套采集和提醒任务。

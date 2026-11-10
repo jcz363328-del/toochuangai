@@ -12883,8 +12883,11 @@ def inject_app_styles() -> None:
             padding-top: 0 !important;
             margin-top: 0 !important;
         }
-        .main .block-container {
-            max-width: 1540px;
+        .main .block-container,
+        [data-testid="stMainBlockContainer"] {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 1920px;
             padding-top: 0.72rem !important;
             margin-top: 0 !important;
             padding-left: 1rem;
@@ -12894,6 +12897,25 @@ def inject_app_styles() -> None:
         [data-testid="stMainBlockContainer"] {
             padding-top: 0 !important;
             margin-top: 0 !important;
+        }
+        /* Let the workspace shrink inside both standalone and embedded views. */
+        :is(div[data-testid="column"], div[data-testid="stColumn"]) {
+            min-width: 0;
+        }
+        div[data-testid="stHorizontalBlock"]:has(> :is(div[data-testid="column"], div[data-testid="stColumn"]) .side-menu-shell) {
+            flex-wrap: nowrap;
+            align-items: flex-start;
+        }
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) {
+            flex: 0 0 176px !important;
+            width: 176px !important;
+            min-width: 0 !important;
+        }
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell)
+            + :is(div[data-testid="column"], div[data-testid="stColumn"]) {
+            flex: 1 1 0 !important;
+            width: 0 !important;
+            min-width: 0 !important;
         }
         [data-testid="stSidebar"] {
             display: none !important;
@@ -13076,6 +13098,11 @@ def inject_app_styles() -> None:
             background: rgba(6, 14, 30, 0.56);
             overflow: hidden;
         }
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details {
+            border: 0 !important;
+            border-radius: inherit;
+            background: transparent;
+        }
         :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary {
             min-height: 34px;
             padding: 0.28rem 0.5rem;
@@ -13101,6 +13128,13 @@ def inject_app_styles() -> None:
         :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details[open] > summary {
             color: #ffffff !important;
             background: rgba(28, 35, 57, 0.98) !important;
+        }
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] summary:focus-visible {
+            outline: 2px solid #9b85ff !important;
+            outline-offset: -2px;
+        }
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpanderDetails"] {
+            border-color: rgba(255, 255, 255, 0.08) !important;
         }
         :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary * {
             color: inherit !important;
@@ -13156,6 +13190,9 @@ def inject_app_styles() -> None:
             box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
             padding: 0.86rem 0.94rem 0.92rem;
             margin-top: 0;
+        }
+        .workspace-panel:empty {
+            display: none;
         }
         .login-shell {
             min-height: calc(100vh - 2rem);
@@ -13350,44 +13387,46 @@ def inject_app_styles() -> None:
             font-size: 0.74rem;
             line-height: 1.55;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-lab-page-marker)
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-lab-page-marker)
             > div[data-testid="stHorizontalBlock"]:has(.a-plus-lab-left-marker):has(.a-plus-lab-right-marker) {
             align-items: stretch;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-lab-page-marker)
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-lab-page-marker)
             > div[data-testid="stHorizontalBlock"]:has(.a-plus-lab-left-marker):has(.a-plus-lab-right-marker)
-            > div[data-testid="column"] {
+            > :is(div[data-testid="column"], div[data-testid="stColumn"]) {
             min-width: 0;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-lab-left-marker),
-        div[data-testid="stVerticalBlock"]:has(.a-plus-lab-right-marker) {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-lab-left-marker),
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-lab-right-marker) {
             min-height: 760px;
             padding: 0.72rem 0.8rem 0.8rem;
             border: 1px solid rgba(132, 111, 255, 0.22);
             border-radius: 14px;
             background: rgba(7, 15, 31, 0.38);
         }
-        div[data-testid="stVerticalBlock"]:has(.feature-workbench-left-marker),
-        div[data-testid="stVerticalBlock"]:has(.feature-workbench-right-marker) {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-left-marker),
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-right-marker) {
+            box-sizing: border-box;
+            min-width: 0;
             min-height: 620px;
             padding: 0.7rem 0.78rem 0.82rem;
             border: 1px solid rgba(132, 111, 255, 0.18);
             border-radius: 14px;
             background: rgba(7, 15, 31, 0.32);
         }
-        div[data-testid="stVerticalBlock"]:has(.feature-workbench-right-marker)
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-right-marker)
             .result-empty {
             min-height: 420px;
             margin-top: 0.25rem;
         }
-        div[data-testid="stVerticalBlock"]:has(.feature-workbench-left-marker)
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-left-marker)
             div[data-testid="stAlert"],
-        div[data-testid="stVerticalBlock"]:has(.feature-workbench-right-marker)
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-right-marker)
             div[data-testid="stAlert"] {
             margin-top: 0.35rem;
             margin-bottom: 0.35rem;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-lab-left-marker)
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-lab-left-marker)
             div[data-testid="stFileUploader"] {
             margin-bottom: 0.1rem;
         }
@@ -13596,8 +13635,8 @@ def inject_app_styles() -> None:
         .upload-more-marker {
             display: none !important;
         }
-        div[data-testid="column"]:has(.batch-left-column-marker),
-        div[data-testid="column"]:has(.batch-right-column-marker) {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .batch-left-column-marker),
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .batch-right-column-marker) {
             align-self: stretch !important;
             min-width: 0 !important;
             padding: 0.78rem 0.82rem 0.82rem !important;
@@ -13608,12 +13647,12 @@ def inject_app_styles() -> None:
                 rgba(5, 13, 29, 0.58);
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
         }
-        div[data-testid="column"]:has(.batch-right-column-marker) .result-empty {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .batch-right-column-marker) .result-empty {
             min-height: 390px;
             margin-bottom: 0;
         }
-        div[data-testid="column"]:has(.batch-left-column-marker) .result-block-title,
-        div[data-testid="column"]:has(.batch-right-column-marker) .result-block-title {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .batch-left-column-marker) .result-block-title,
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .batch-right-column-marker) .result-block-title {
             margin-bottom: 0.62rem;
         }
         .upload-summary-row {
@@ -13699,8 +13738,8 @@ def inject_app_styles() -> None:
             background: rgba(99, 72, 222, 0.72);
             transform: scale(1.025);
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker),
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker) {
             position: sticky;
             top: 0.55rem;
             z-index: 42;
@@ -13716,27 +13755,27 @@ def inject_app_styles() -> None:
                 inset 0 1px 0 rgba(255, 255, 255, 0.055);
             backdrop-filter: blur(16px);
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker) .fixed-model-card,
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) .fixed-model-card {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker) .fixed-model-card,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker) .fixed-model-card {
             margin-top: 0 !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker) .inline-action-row,
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) .inline-action-row {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker) .inline-action-row,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker) .inline-action-row {
             display: none !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) > .stElementContainer:has(.stRadio) {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-mode-selector-marker) > .stElementContainer:has(.stRadio) {
             width: 100% !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-mode-selector-marker) .stRadio {
             width: 100% !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio [role="radiogroup"] {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-mode-selector-marker) .stRadio [role="radiogroup"] {
             display: grid !important;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.34rem !important;
             width: 100% !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio [role="radiogroup"] label {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-mode-selector-marker) .stRadio [role="radiogroup"] label {
             min-width: 0 !important;
             min-height: 34px !important;
             padding: 0.18rem 0.36rem !important;
@@ -13744,16 +13783,16 @@ def inject_app_styles() -> None:
             border-radius: 10px;
             background: rgba(8, 16, 34, 0.72);
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-template-card-marker),
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-template-card-marker) {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker) {
             min-height: 272px;
             padding: 0.62rem 0.68rem 0.52rem !important;
             border: 1px solid rgba(255, 255, 255, 0.06) !important;
             border-radius: 14px !important;
             background: rgba(7, 15, 31, 0.52) !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-analysis-card-marker),
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-analysis-card-marker) {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-analysis-card-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-analysis-card-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-analysis-card-marker) {
             min-height: 178px;
             padding: 0.62rem 0.68rem 0.52rem !important;
             border: 1px solid rgba(132, 111, 255, 0.18) !important;
@@ -13761,8 +13800,8 @@ def inject_app_styles() -> None:
             border-color: rgba(132, 111, 255, 0.18) !important;
             background: rgba(10, 18, 38, 0.68) !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-auto-fill-card-marker),
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-auto-fill-card-marker) {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-auto-fill-card-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-auto-fill-card-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-auto-fill-card-marker) {
             min-height: 210px;
             padding: 0.62rem 0.68rem 0.52rem !important;
             border: 1px solid rgba(132, 111, 255, 0.18) !important;
@@ -13770,14 +13809,14 @@ def inject_app_styles() -> None:
             border-color: rgba(132, 111, 255, 0.18) !important;
             background: rgba(10, 18, 38, 0.68) !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-analysis-card-marker) .stButton,
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-analysis-card-marker) .stButton,
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-auto-fill-card-marker) .stButton,
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-auto-fill-card-marker) .stButton {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-analysis-card-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-analysis-card-marker) .stButton,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-analysis-card-marker) .stButton,
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-auto-fill-card-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-auto-fill-card-marker) .stButton,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-auto-fill-card-marker) .stButton {
             min-height: 34px;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.image-smart-analysis-report-marker),
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .image-smart-analysis-report-marker) {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker),
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker) {
             min-height: 520px;
             padding: 0.9rem 1rem 0.8rem !important;
             border: 1px solid rgba(132, 111, 255, 0.2) !important;
@@ -13786,60 +13825,76 @@ def inject_app_styles() -> None:
                 radial-gradient(circle at top right, rgba(132, 111, 255, 0.09), transparent 28%),
                 rgba(7, 15, 31, 0.64) !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.image-smart-analysis-report-marker) h1,
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .image-smart-analysis-report-marker) h1 {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker) h1,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker) h1 {
             font-size: 1.32rem !important;
             margin: 0 0 0.72rem !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"]:has(.image-smart-analysis-report-marker) h2,
-        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .image-smart-analysis-report-marker) h2 {
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker) h2,
+        div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .image-smart-analysis-report-marker) h2 {
             color: #f2efff !important;
             font-size: 1rem !important;
             margin: 1rem 0 0.38rem !important;
             padding-bottom: 0.28rem;
             border-bottom: 1px solid rgba(132, 111, 255, 0.16);
         }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
-            div[data-testid="stHorizontalBlock"]:has(.panel-subtitle) {
+        :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+            + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"]) {
             align-items: start !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
-            > div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+            + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"]) :is(div[data-testid="column"], div[data-testid="stColumn"]) {
             min-width: 0 !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
-            div[data-testid="column"]:has(.upload-preview-root) {
+        :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+            + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"])
+            :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.upload-preview-root) {
             min-height: 154px !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
-            div[data-testid="column"]:has(.upload-preview-root) div[data-testid="stVerticalBlock"]:has(.upload-preview-root) {
+        :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+            + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"])
+            :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.upload-preview-root) div[data-testid="stVerticalBlock"]:has(.upload-preview-root) {
             width: min(136px, 100%) !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
-            div[data-testid="column"]:has(.upload-preview-root) iframe {
+        :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+            + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"])
+            :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.upload-preview-root) iframe {
             max-height: 122px !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
+        :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+            + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"])
             div[data-testid="stCaptionContainer"] {
             display: none !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
-            > div[data-testid="stHorizontalBlock"] {
-            align-items: start !important;
-        }
-        div[data-testid="stVerticalBlock"]:has(.skin-reference-grid-marker):has(.skin-reference-grid-end)
+        :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+            + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"])
             .stSelectbox {
             margin-top: 0 !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.inline-action-row) > div[data-testid="stHorizontalBlock"]:has(.stSelectbox):has(.stButton) {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .inline-action-row)
+            div[data-testid="stHorizontalBlock"]:has(.stButton) {
             align-items: end !important;
             display: grid !important;
-            grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.72fr) !important;
+            grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.95fr) !important;
         }
-        div[data-testid="stVerticalBlock"]:has(.inline-action-row) > div[data-testid="stHorizontalBlock"]:has(.stSelectbox):has(.stButton)
-            > div[data-testid="column"] {
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .inline-action-row)
+            div[data-testid="stHorizontalBlock"]:has(.stNumberInput) {
+            grid-template-columns: minmax(160px, 0.68fr) minmax(0, 1.42fr) minmax(120px, 0.82fr) !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .inline-action-row)
+            div[data-testid="stHorizontalBlock"]:has(.stButton)
+            > :is(div[data-testid="column"], div[data-testid="stColumn"]) {
             width: 100% !important;
             min-width: 0 !important;
+        }
+        /* Streamlit compensates Markdown paragraph margins by -16px. These
+           authored HTML labels/cards have no paragraph margin to compensate. */
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .inline-action-row)
+            [data-testid="stMarkdown"] [data-testid="stMarkdownContainer"] {
+            margin-bottom: 0 !important;
+        }
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker) {
+            border-color: rgba(132, 111, 255, 0.18) !important;
         }
         .stRadio [role="radiogroup"] {
             gap: 0.18rem !important;
@@ -13956,11 +14011,119 @@ def inject_app_styles() -> None:
             border-radius: 14px !important;
             border: 1px solid rgba(255, 255, 255, 0.08) !important;
         }
-        div[data-baseweb="select"] > div {
+        /* Streamlit uses BaseWeb in older releases and React Aria in newer
+           ones. Style each control shell as well as its text input. */
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) [data-baseweb="select"] > div {
             background: rgba(7, 15, 31, 0.92) !important;
             color: #f4f6ff !important;
-            border-radius: 14px !important;
+            border-radius: 10px !important;
             border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) [role="group"]:has(input[role="combobox"]) {
+            background: #0a1326 !important;
+            color: #f4f6ff !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 10px !important;
+            min-width: 0;
+            max-width: 100%;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) input[role="combobox"] {
+            background: transparent !important;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) input::placeholder {
+            color: #cbd3ec !important;
+            -webkit-text-fill-color: #cbd3ec !important;
+            opacity: 1;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) [role="group"]:has(input[role="combobox"]) button {
+            background: transparent !important;
+            color: #d6dbff !important;
+            border: 0 !important;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) [data-baseweb="select"] {
+            min-width: 0;
+            max-width: 100%;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) [data-baseweb="select"] :is(div, span) {
+            color: #f4f6ff !important;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) :is([role="combobox"], input),
+        [data-testid="stNumberInput"] input {
+            color: #f4f6ff !important;
+            -webkit-text-fill-color: #f4f6ff !important;
+            caret-color: #b9adff;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) svg {
+            color: #d6dbff !important;
+            fill: currentColor;
+        }
+        [data-testid="stNumberInputContainer"] {
+            background: #0a1326 !important;
+            color: #f4f6ff !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            border-radius: 10px !important;
+            overflow: hidden;
+        }
+        [data-testid="stNumberInput"] input {
+            min-width: 0;
+            background: transparent !important;
+        }
+        [data-testid="stNumberInput"] [data-baseweb="input"],
+        [data-testid="stNumberInput"] [data-baseweb="base-input"] {
+            background: transparent !important;
+            color: #f4f6ff !important;
+            border: 0 !important;
+        }
+        [data-testid="stNumberInput"] button {
+            flex-shrink: 0;
+            color: #f4f6ff !important;
+            background: #111c33 !important;
+            border: 0 !important;
+        }
+        [data-testid="stNumberInput"] button:hover:not(:disabled) {
+            background: #282448 !important;
+        }
+        [data-testid="stNumberInput"] button:disabled {
+            color: #8790aa !important;
+        }
+        [data-testid="stNumberInput"] button svg {
+            color: inherit !important;
+            fill: currentColor;
+        }
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) [data-baseweb="select"]:focus-within > div,
+        :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) [role="group"]:has(input[role="combobox"]):focus-within,
+        [data-testid="stNumberInputContainer"]:focus-within {
+            border-color: #9b85ff !important;
+            box-shadow: 0 0 0 2px rgba(132, 111, 255, 0.22) !important;
+        }
+        /* Select menus are mounted in a portal outside the widget itself. */
+        [data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]) {
+            background: #0d172d !important;
+            border-color: rgba(132, 111, 255, 0.34) !important;
+        }
+        [data-baseweb="popover"] [role="listbox"],
+        [data-baseweb="popover"]:has([data-testid="stSelectboxVirtualDropdown"]) > div,
+        [data-testid="stSelectboxVirtualDropdown"],
+        [data-testid="stMultiSelectDropdown"],
+        [data-testid="stSelectboxVirtualDropdown"] > div {
+            background: #0d172d !important;
+            color: #f4f6ff !important;
+        }
+        :is([data-testid="stSelectboxVirtualDropdown"], [data-testid="stMultiSelectDropdown"]) {
+            border-color: rgba(132, 111, 255, 0.34) !important;
+        }
+        [role="listbox"] [role="option"],
+        :is([data-testid="stSelectboxVirtualDropdown"], [data-testid="stMultiSelectDropdown"]) [role="option"] {
+            background: #0d172d !important;
+            color: #f4f6ff !important;
+        }
+        [role="listbox"] [role="option"]:is(:hover, [aria-selected="true"], [data-focused], [data-hovered]),
+        :is([data-testid="stSelectboxVirtualDropdown"], [data-testid="stMultiSelectDropdown"]) [role="option"]:is(:hover, [aria-selected="true"], [data-focused], [data-hovered]) {
+            background: #302653 !important;
+        }
+        :is([data-testid="stSelectboxVirtualDropdown"], [data-testid="stMultiSelectDropdown"]) [data-item-hl] {
+            background: inherit !important;
+            color: inherit !important;
         }
         .stForm {
             border: none !important;
@@ -14011,7 +14174,7 @@ def inject_app_styles() -> None:
             padding: 0 0.35rem;
             box-sizing: border-box;
         }
-        div[data-testid="stHorizontalBlock"]:has([data-testid="stFileUploader"]):has(.stButton) > div[data-testid="column"] {
+        div[data-testid="stHorizontalBlock"]:has([data-testid="stFileUploader"]):has(.stButton) > :is(div[data-testid="column"], div[data-testid="stColumn"]) {
             width: 100% !important;
             min-width: 0 !important;
         }
@@ -14218,7 +14381,7 @@ def inject_app_styles() -> None:
             font-size: 0.72rem;
             line-height: 1.3;
         }
-        div[data-testid="column"]:has(.canvas-right-column-marker) {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .canvas-right-column-marker) {
             align-self: flex-start !important;
             border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -14241,9 +14404,37 @@ def inject_app_styles() -> None:
             padding-top: 0 !important;
             padding-bottom: 0.12rem !important;
         }
+        [data-testid="stWidgetLabel"],
+        [data-testid="stWidgetLabel"] :is(p, span),
+        [data-testid="stWidgetLabel"] [data-testid="stTooltipIcon"] button {
+            color: rgba(225, 229, 255, 0.82) !important;
+        }
+        [data-testid="stAlertContainer"] {
+            background: #10213b !important;
+            color: #c8ddff !important;
+            border: 1px solid rgba(118, 162, 255, 0.24);
+        }
+        [data-testid="stAlertContainer"]:has([data-testid="stAlertContentSuccess"]) {
+            background: #102d29 !important;
+            color: #b6ebce !important;
+        }
+        [data-testid="stAlertContainer"]:has([data-testid="stAlertContentWarning"]) {
+            background: #302719 !important;
+            color: #ffe2a3 !important;
+        }
+        [data-testid="stAlertContainer"]:has([data-testid="stAlertContentError"]) {
+            background: #331d2b !important;
+            color: #ffc5ce !important;
+        }
+        [data-testid="stAlertContainer"] [data-testid^="stAlertContent"] {
+            color: inherit !important;
+        }
         .stSlider label p,
         .stTextArea label p,
         .stSelectbox label p,
+        [data-testid="stNumberInput"] label p,
+        [data-testid="stTextInput"] label p,
+        [data-testid="stMultiSelect"] label p,
         .stRadio label p {
             color: rgba(225, 229, 255, 0.82) !important;
             font-size: 0.76rem !important;
@@ -14257,8 +14448,79 @@ def inject_app_styles() -> None:
             font-size: 0.72rem !important;
             line-height: 1.35 !important;
         }
+        /* Use the available workspace width, including when the app is framed. */
+        div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .workspace-panel) {
+            container-type: inline-size;
+            container-name: xiaoha-workspace;
+            min-width: 0;
+        }
+        @container xiaoha-workspace (max-width: 960px) {
+            div[data-testid="stHorizontalBlock"]:is(:has(.feature-workbench-left-marker), :has(.a-plus-lab-left-marker)) {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            div[data-testid="stHorizontalBlock"]:is(:has(.feature-workbench-left-marker), :has(.a-plus-lab-left-marker))
+                > :is(div[data-testid="column"], div[data-testid="stColumn"]) {
+                flex: 1 1 auto !important;
+                width: 100% !important;
+                min-width: 0 !important;
+            }
+            div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-left-marker),
+            div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-right-marker) {
+                min-height: 0;
+            }
+        }
+        @container xiaoha-workspace (max-width: 560px) {
+            :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+                + div[data-testid="stHorizontalBlock"],
+            :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+                + div[data-testid="stLayoutWrapper"] > div[data-testid="stHorizontalBlock"] {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            :is([data-testid="stElementContainer"], [data-testid="element-container"]):has(.skin-reference-grid-marker)
+                + :is(div[data-testid="stHorizontalBlock"], div[data-testid="stLayoutWrapper"])
+                :is(div[data-testid="column"], div[data-testid="stColumn"]) {
+                flex: 1 1 auto !important;
+                width: 100% !important;
+            }
+            div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .inline-action-row)
+                div[data-testid="stHorizontalBlock"]:has(.stNumberInput) {
+                grid-template-columns: minmax(160px, 0.68fr) minmax(0, 1.42fr) !important;
+            }
+            div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .inline-action-row)
+                div[data-testid="stHorizontalBlock"]:has(.stNumberInput)
+                > :is(div[data-testid="column"], div[data-testid="stColumn"]):last-child {
+                grid-column: 1 / -1;
+            }
+            div[data-testid="stHorizontalBlock"]:has(> :is(div[data-testid="column"], div[data-testid="stColumn"]) [data-testid="stSelectbox"]):not(:has(.stNumberInput)) {
+                flex-wrap: wrap;
+            }
+            .workflow-step {
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+        }
+        @container xiaoha-workspace (max-width: 380px) {
+            div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .inline-action-row)
+                div[data-testid="stHorizontalBlock"]:has(.stButton) {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+        }
+        @media (max-width: 768px) {
+            div[data-testid="stHorizontalBlock"]:has(> :is(div[data-testid="column"], div[data-testid="stColumn"]) .side-menu-shell) {
+                flex-wrap: wrap;
+            }
+            :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell),
+            :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell)
+                + :is(div[data-testid="column"], div[data-testid="stColumn"]) {
+                flex: 1 1 100% !important;
+                width: 100% !important;
+            }
+        }
         @media (max-width: 900px) {
-            .main .block-container {
+            .main .block-container,
+            [data-testid="stMainBlockContainer"] {
                 padding-left: 0.55rem;
                 padding-right: 0.55rem;
             }
@@ -14277,19 +14539,19 @@ def inject_app_styles() -> None:
             .workflow-step::after {
                 display: none !important;
             }
-            div[data-testid="column"]:has(.batch-right-column-marker) .result-empty {
+            :is(div[data-testid="column"], div[data-testid="stColumn"]):has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .batch-right-column-marker) .result-empty {
                 min-height: 250px;
             }
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.main-action-dock-marker),
-            div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .main-action-dock-marker) {
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker),
+            div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .main-action-dock-marker) {
                 position: relative;
                 top: auto;
             }
-            div[data-testid="stVerticalBlock"]:has(.a-plus-mode-selector-marker) .stRadio [role="radiogroup"] {
+            div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-mode-selector-marker) .stRadio [role="radiogroup"] {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
-            div[data-testid="stVerticalBlockBorderWrapper"]:has(.a-plus-template-card-marker),
-            div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] .a-plus-template-card-marker) {
+            div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker),
+            div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker) {
                 min-height: 224px;
             }
         }

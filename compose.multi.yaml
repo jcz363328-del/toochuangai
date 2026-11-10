@@ -5,7 +5,7 @@ services:
       context: .
       target: web
     env_file:
-      - path: .env.docker
+      - path: .env
         format: raw
     environment:
       TC_CONTAINER_MODE: "1"
@@ -32,7 +32,7 @@ services:
       context: .
       target: sales-api
     env_file:
-      - path: .env.docker
+      - path: .env
         format: raw
     environment:
       SALES_API_HOST: "127.0.0.1"
@@ -58,7 +58,7 @@ services:
       additional_contexts:
         web_image: service:web
     env_file:
-      - path: .env.docker
+      - path: .env
         format: raw
     environment: &xiaoha-environment
       TC_CONTAINER_MODE: "1"
@@ -87,7 +87,7 @@ services:
   xiaoha-static:
     build: *xiaoha-build
     env_file:
-      - path: .env.docker
+      - path: .env
         format: raw
     environment: *xiaoha-environment
     command: ["python", "/app/docker/xiaoha_static.py"]
@@ -111,7 +111,7 @@ services:
       additional_contexts:
         web_image: service:web
     env_file:
-      - path: .env.docker
+      - path: .env
         format: raw
     network_mode: service:web
     depends_on:
@@ -155,7 +155,7 @@ services:
       additional_contexts:
         web_image: service:web
     env_file:
-      - path: .env.docker
+      - path: .env
         format: raw
     network_mode: service:web
     depends_on:

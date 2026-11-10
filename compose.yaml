@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile.single
     env_file:
-      - path: "${SINGLE_ENV_FILE:-.env.single}"
+      - path: "${SINGLE_ENV_FILE:-.env}"
         format: raw
     environment:
       TC_CONTAINER_MODE: "1"

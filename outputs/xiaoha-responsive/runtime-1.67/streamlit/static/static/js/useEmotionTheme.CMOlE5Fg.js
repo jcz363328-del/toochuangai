@@ -1,0 +1,1 @@
+import{f as e}from"./emotion-styled.browser.esm.DdOkyKg_.js";var t=()=>e();export{t};
