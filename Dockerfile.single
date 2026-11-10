@@ -1,0 +1,26 @@
+FROM toochuangai-docker-web:latest AS web-runtime
+FROM toochuangai-docker-xiaoha:latest AS xiaoha-runtime
+FROM toochuangai-docker-videoclaw-backend:latest AS video-runtime
+FROM toochuangai-docker-videoclaw-frontend:latest AS video-ui-runtime
+FROM toochuangai-docker-sales-api:latest AS sales-runtime
+FROM toochuangai-docker-ads-api:latest AS single
+WORKDIR /app
+RUN python -m venv --without-pip /opt/web && python -m venv --without-pip /opt/xiaoha && python -m venv --without-pip /opt/video
+COPY --from=web-runtime /usr/local/lib/python3.12/site-packages /opt/web/lib/python3.12/site-packages
+COPY --from=xiaoha-runtime /usr/local/lib/python3.12/site-packages /opt/xiaoha/lib/python3.12/site-packages
+COPY --from=video-runtime /usr/local/lib/python3.12/site-packages /opt/video/lib/python3.12/site-packages
+COPY --from=video-runtime /app/backend /app/backend
+COPY --from=video-runtime /root/.cache/ms-playwright /root/.cache/ms-playwright
+COPY --from=video-ui-runtime /video/frontend /opt/video-frontend
+COPY --from=sales-runtime /app/business_analysis /app/business_analysis
+COPY --from=xiaoha-runtime /opt/infinite-canvas /opt/infinite-canvas
+RUN apt-get update && apt-get install -y --no-install-recommends nginx supervisor libatomic1 && /opt/video/bin/python -m playwright install-deps chromium && rm -rf /var/lib/apt/lists/*
+COPY *.py ./
+COPY 图片/ ./图片/
+COPY docker/ ./docker/
+COPY docker/nginx.single.conf /etc/nginx/nginx.conf
+COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
+ENV TC_SINGLE_PORT=1 TC_WEB_HOST=127.0.0.1 TC_WEB_PORT=8100 INFINITE_CANVAS_BUILD_DIR=/opt/infinite-canvas LASHFORGE_SERVER_ADDRESS=127.0.0.1 LASHFORGE_SERVER_PORT=8501 JIMENG_STATIC_PORT=8502 LOCALAPPDATA=/ads-state
+EXPOSE 8000
+HEALTHCHECK --interval=20s --timeout=15s --start-period=180s CMD python /app/docker/healthcheck.py
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

@@ -30,7 +30,7 @@ MODEL_ALLOWED_RESOLUTIONS = {
 model = MODEL_SEEDANCE_2
 seedance_web_bp = Blueprint("seedance_web", __name__, template_folder="templates")
 PROJECT_ROOT = Path(__file__).resolve().parent
-SEEDANCE_STORAGE_ROOT = Path(r"D:\tuchuangai\Seedance")
+SEEDANCE_STORAGE_ROOT = Path(relocate_storage_path(r"D:\tuchuangai\Seedance"))
 SEEDANCE_GENERATED_DIR = SEEDANCE_STORAGE_ROOT / "Seedance生成视频"
 SEEDANCE_REFERENCE_DIR = SEEDANCE_STORAGE_ROOT / "Seedance参考视频图片"
 JOBS = {}

@@ -5,6 +5,7 @@ and commit the database upsert in one transaction.
 """
 
 from __future__ import annotations
+from secret_settings import relocate_storage_path
 
 import argparse
 from collections import Counter
@@ -25,7 +26,7 @@ BASE_TOKEN = "V8V3bwPnLaJVWysvfIqcE4SWnJc"
 TABLE_ID = "tbl86KdGXl2QvkrV"
 VIEW_ID = "vewhq7Nqmi"
 ATTACHMENT_FIELD = "样品图片"
-IMAGE_DIR = Path(r"D:\tuchuangai\样板图")
+IMAGE_DIR = Path(relocate_storage_path(r"D:\tuchuangai\样板图"))
 PAGE_SIZE = 200
 ALLOWED_IMAGE_EXTENSIONS = {
     ".jpg",

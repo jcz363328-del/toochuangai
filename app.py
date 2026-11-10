@@ -6,7 +6,7 @@ import asyncio
 import concurrent.futures
 import time
 from threading import Lock, Thread
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory, send_file, g
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory, send_file, g, stream_with_context
 from openai import OpenAI
 from datetime import datetime, timedelta, date
 from collections import Counter
@@ -114,16 +114,16 @@ _feishu_http.trust_env = False
 _TAVILY_API_KEY = env("TAVILY_API_KEY")
 _GOOGLE_CSE_API_KEY = env("GOOGLE_CSE_API_KEY")
 _GOOGLE_CSE_CX = env("GOOGLE_CSE_CX")
-_STRATEGY_TRAINING_VIDEO_DIR = r"D:\tuchuangai\3.17-战略分解培训"
-_ROCOCO_TRAINING_VIDEO_DIR = r"D:\tuchuangai\洛可可培训"
-_CHUANSHI_TRAINING_ROOT_DIR = r"D:\tuchuangai\2026-7-9传世启动仪式"
+_STRATEGY_TRAINING_VIDEO_DIR = relocate_storage_path(r"D:\tuchuangai\3.17-战略分解培训")
+_ROCOCO_TRAINING_VIDEO_DIR = relocate_storage_path(r"D:\tuchuangai\洛可可培训")
+_CHUANSHI_TRAINING_ROOT_DIR = relocate_storage_path(r"D:\tuchuangai\2026-7-9传世启动仪式")
 _CHUANSHI_TRAINING_IMAGE_DIR = os.path.join(_CHUANSHI_TRAINING_ROOT_DIR, "图片")
 _CHUANSHI_TRAINING_VIDEO_DIR = os.path.join(_CHUANSHI_TRAINING_ROOT_DIR, "视频")
-_ANNUAL_MOMENTS_IMAGE_DIR = r"D:\tuchuangai\2026-06-18年会图片"
-_ANNUAL_MOMENTS_VIDEO_DIR = r"D:\tuchuangai\2026-06-18年会视频"
+_ANNUAL_MOMENTS_IMAGE_DIR = relocate_storage_path(r"D:\tuchuangai\2026-06-18年会图片")
+_ANNUAL_MOMENTS_VIDEO_DIR = relocate_storage_path(r"D:\tuchuangai\2026-06-18年会视频")
 _VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"}
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".avif", ".heic", ".heif"}
-_PUBLIC_DOWNLOAD_APR16_VIDEO = r"D:\tuchuangai\4月16日.mp4"
+_PUBLIC_DOWNLOAD_APR16_VIDEO = relocate_storage_path(r"D:\tuchuangai\4月16日.mp4")
 _XIAOTU_SHARED_DOCS = []
 _xiaotu_doc_list_cache = {}
 _xiaotu_doc_list_cache_ttl_seconds = 300
@@ -646,6 +646,8 @@ def _build_lashforge_auth_token(user_name):
 
 
 def _get_lashforge_public_base_url():
+    if env("TC_SINGLE_PORT") == "1":
+        return '/lashforge'
     env_url = str(os.environ.get("LASHFORGE_PUBLIC_URL") or "").strip().rstrip('/')
     if env_url:
         return env_url
@@ -692,6 +694,8 @@ def _is_lashforge_reachable(timeout=1.5):
 
 def _ensure_lashforge_watchdog_started():
     global _lashforge_watchdog_last_attempt
+    if env("TC_CONTAINER_MODE") == "1":
+        return _is_lashforge_reachable()
     if _is_lashforge_reachable():
         return True
 
@@ -745,6 +749,8 @@ def _is_business_analysis_api_reachable(timeout=2.0):
 def _ensure_business_analysis_api_started():
     """Start the localhost-only dashboard API when the AI page first needs it."""
     global _business_analysis_last_start_attempt
+    if env("TC_CONTAINER_MODE") == "1":
+        return _is_business_analysis_api_reachable(timeout=0.8)
     if _is_business_analysis_api_reachable(timeout=0.8):
         return True
 
@@ -797,6 +803,8 @@ def _is_ads_monitor_api_reachable(timeout=2.0):
 
 
 def _ensure_ads_monitor_api_started():
+    if env("TC_CONTAINER_MODE") == "1":
+        return _is_ads_monitor_api_reachable(timeout=0.8)
     """Start the localhost-only Sellfox diagnostic API on first use."""
     global _ads_monitor_last_start_attempt
     if _is_ads_monitor_api_reachable(timeout=0.8):
@@ -852,6 +860,8 @@ def _is_videoclaw_frontend_reachable(timeout=1.0):
 def _ensure_videoclaw_started():
     """Start VideoClaw's local API and Next frontend on first AI-page visit."""
     global _videoclaw_last_start_attempt
+    if env("TC_CONTAINER_MODE") == "1":
+        return _is_videoclaw_frontend_reachable(timeout=0.4)
     if _is_videoclaw_frontend_reachable(timeout=0.4):
         return True
     with _videoclaw_start_lock:
@@ -3712,7 +3722,7 @@ def _xiaotu_render_period_source_text(rows):
     return "\n\n".join(chunks).strip()
 
 
-_XIAOTU_REPORT_HISTORY_ANALYSIS_DIR = r"D:\tuchuangai\日报历史分析"
+_XIAOTU_REPORT_HISTORY_ANALYSIS_DIR = relocate_storage_path(r"D:\tuchuangai\日报历史分析")
 
 
 def _xiaotu_parse_date_value(value, fallback=None):
@@ -4078,7 +4088,7 @@ def _xiaotu_save_doc_images_and_ocr(agent, doc_token, doc_url="", specific_token
         info = _xiaotu_classify_image_debug(msg, 0, 0)
         debug.update(info)
         return [], msg, debug
-    root_dir = os.path.join(r"D:\tuchuangai\报告图片", token)
+    root_dir = os.path.join(relocate_storage_path(r"D:\tuchuangai\报告图片"), token)
     os.makedirs(root_dir, exist_ok=True)
     image_paths = []
     ocr_inputs = []
@@ -4123,12 +4133,12 @@ def _xiaotu_save_doc_images_and_ocr(agent, doc_token, doc_url="", specific_token
     return image_paths, image_ocr_text, debug
 
 
-def _xiaotu_save_uploaded_images_and_ocr(files, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
+def _xiaotu_save_uploaded_images_and_ocr(files, report_token="", root_base_dir=relocate_storage_path(r"D:\tuchuangai\报告图片")):
     items = files if isinstance(files, list) else []
     if not items:
         return [], "", {"reason_code": "no_upload", "reason_text": "未上传图片", "saved_image_count": 0}
     token = str(report_token or datetime.now().strftime("%Y%m%d%H%M%S")).strip() or datetime.now().strftime("%Y%m%d%H%M%S")
-    base_dir = os.path.abspath(str(root_base_dir or r"D:\tuchuangai\报告图片"))
+    base_dir = os.path.abspath(str(root_base_dir or relocate_storage_path(r"D:\tuchuangai\报告图片")))
     root_dir = os.path.join(base_dir, f"upload_{token}")
     os.makedirs(root_dir, exist_ok=True)
 
@@ -4168,13 +4178,13 @@ def _xiaotu_save_uploaded_images_and_ocr(files, report_token="", root_base_dir=r
     return image_paths, str(image_ocr_text or "").strip(), debug
 
 
-def _xiaotu_save_inline_html_images_and_ocr(html_text, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
+def _xiaotu_save_inline_html_images_and_ocr(html_text, report_token="", root_base_dir=relocate_storage_path(r"D:\tuchuangai\报告图片")):
     src = str(html_text or "")
     if not src:
         return src, [], "", {"reason_code": "no_inline_image", "reason_text": "富文本中无内嵌图片", "saved_image_count": 0}
 
     token = str(report_token or datetime.now().strftime("%Y%m%d%H%M%S")).strip() or datetime.now().strftime("%Y%m%d%H%M%S")
-    base_dir = os.path.abspath(str(root_base_dir or r"D:\tuchuangai\报告图片"))
+    base_dir = os.path.abspath(str(root_base_dir or relocate_storage_path(r"D:\tuchuangai\报告图片")))
     root_dir = os.path.join(base_dir, f"upload_{token}_inline")
     os.makedirs(root_dir, exist_ok=True)
 
@@ -4273,13 +4283,13 @@ def _xiaotu_extract_feishu_file_token_from_fragment(fragment_text):
     return ""
 
 
-def _xiaotu_save_remote_html_images_and_ocr(html_text, report_token="", agent=None, root_base_dir=r"D:\tuchuangai\报告图片"):
+def _xiaotu_save_remote_html_images_and_ocr(html_text, report_token="", agent=None, root_base_dir=relocate_storage_path(r"D:\tuchuangai\报告图片")):
     src = str(html_text or "")
     if not src:
         return src, [], "", {"reason_code": "no_remote_image", "reason_text": "富文本中无远程图片", "saved_image_count": 0}
 
     token = str(report_token or datetime.now().strftime("%Y%m%d%H%M%S")).strip() or datetime.now().strftime("%Y%m%d%H%M%S")
-    base_dir = os.path.abspath(str(root_base_dir or r"D:\tuchuangai\报告图片"))
+    base_dir = os.path.abspath(str(root_base_dir or relocate_storage_path(r"D:\tuchuangai\报告图片")))
     root_dir = os.path.join(base_dir, f"upload_{token}_remote")
     os.makedirs(root_dir, exist_ok=True)
 
@@ -4478,21 +4488,21 @@ def _xiaotu_image_debug(reason_code, reason_text, saved_count=0):
     }
 
 
-def _xiaotu_save_uploaded_images_and_ocr_safe(files, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
+def _xiaotu_save_uploaded_images_and_ocr_safe(files, report_token="", root_base_dir=relocate_storage_path(r"D:\tuchuangai\报告图片")):
     try:
         return _xiaotu_save_uploaded_images_and_ocr(files, report_token=report_token, root_base_dir=root_base_dir)
     except Exception as exc:
         return [], "", _xiaotu_image_debug("upload_image_failed", exc, 0)
 
 
-def _xiaotu_save_inline_html_images_and_ocr_safe(html_text, report_token="", root_base_dir=r"D:\tuchuangai\报告图片"):
+def _xiaotu_save_inline_html_images_and_ocr_safe(html_text, report_token="", root_base_dir=relocate_storage_path(r"D:\tuchuangai\报告图片")):
     try:
         return _xiaotu_save_inline_html_images_and_ocr(html_text, report_token=report_token, root_base_dir=root_base_dir)
     except Exception as exc:
         return _xiaotu_compact_report_body_for_storage(html_text), [], "", _xiaotu_image_debug("inline_image_failed", exc, 0)
 
 
-def _xiaotu_save_remote_html_images_and_ocr_safe(html_text, report_token="", agent=None, root_base_dir=r"D:\tuchuangai\报告图片"):
+def _xiaotu_save_remote_html_images_and_ocr_safe(html_text, report_token="", agent=None, root_base_dir=relocate_storage_path(r"D:\tuchuangai\报告图片")):
     try:
         return _xiaotu_save_remote_html_images_and_ocr(html_text, report_token=report_token, agent=agent, root_base_dir=root_base_dir)
     except Exception as exc:
@@ -4925,18 +4935,19 @@ def dev_login():
 def check_feishu_user():
     """在每个请求前检查飞书用户身份"""
     middleware_started_at = time.perf_counter()
-    try:
-        _start_xiaotu_report_reminder_thread_once()
-    except Exception:
-        pass
-    try:
-        innovation_pending_reminder.start()
-    except Exception:
-        pass
-    try:
-        tk_customer_service_tracking_reminder.start()
-    except Exception:
-        pass
+    if env("TC_BACKGROUND_JOBS", "1") == "1":
+        try:
+            _start_xiaotu_report_reminder_thread_once()
+        except Exception:
+            pass
+        try:
+            innovation_pending_reminder.start()
+        except Exception:
+            pass
+        try:
+            tk_customer_service_tracking_reminder.start()
+        except Exception:
+            pass
     _safe_debug_print(f"\n=== 请求中间件检查 ===")
     _safe_debug_print(f"请求路径: {request.path}")
     _safe_debug_print(f"请求端点: {request.endpoint}")
@@ -5065,7 +5076,10 @@ def _seedance_access_allowed():
 
 
 # AI的API密钥和配置
-_AI_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "ai_runtime_config.json")
+_AI_CONFIG_PATH = os.path.join(
+    str(TUCHUANGAI_STORAGE_ROOT) if env("TC_CONTAINER_MODE") == "1" else os.path.dirname(__file__),
+    "ai_runtime_config.json",
+)
 _DEFAULT_AI_CONFIG = {
     "provider": ai_runtime_config().get("provider") or "siliconflow",
     "api_key": ai_runtime_config().get("api_key") or "",
@@ -5154,7 +5168,7 @@ _xiaotu_report_reminder_logs = []
 _xiaotu_report_reminder_logs_limit = 200
 _feishu_chat_memory_max_messages = 40
 _XIAOTU_REPORT_CARD_MESSAGE_STORE_PATH = os.path.join(
-    os.path.dirname(__file__),
+    str(TUCHUANGAI_STORAGE_ROOT) if env("TC_CONTAINER_MODE") == "1" else os.path.dirname(__file__),
     "xiaotu_report_card_messages.json"
 )
 _xiaotu_report_card_message_map = {}
@@ -11366,7 +11380,7 @@ def api_xiaotu_report_draft():
 
         uploaded_files = request.files.getlist('images') if is_multipart else []
         draft_token = f"draft_{user_id}_{int(datetime.now().timestamp())}"
-        draft_root_dir = r"D:\tuchuangai\报告缓存图片"
+        draft_root_dir = relocate_storage_path(r"D:\tuchuangai\报告缓存图片")
         draft_html = rich_content_html
         image_paths = _xiaotu_extract_report_image_paths_from_html(draft_html)
         if uploaded_files:
@@ -12724,8 +12738,8 @@ def _xiaotu_history_export_image_data_uri(source, image_cache=None):
         return ""
 
     allowed_base_dirs = [
-        os.path.abspath(r"D:\tuchuangai\报告图片"),
-        os.path.abspath(r"D:\tuchuangai\报告缓存图片"),
+        os.path.abspath(relocate_storage_path(r"D:\tuchuangai\报告图片")),
+        os.path.abspath(relocate_storage_path(r"D:\tuchuangai\报告缓存图片")),
     ]
     normalized = str(relocate_storage_path(raw) or "").replace("/", os.sep)
     if not normalized:
@@ -13158,8 +13172,8 @@ def api_xiaotu_report_image():
         if not raw_path:
             return jsonify({'success': False, 'message': '缺少图片路径'}), 400
         allowed_base_dirs = [
-            os.path.abspath(r"D:\tuchuangai\报告图片"),
-            os.path.abspath(r"D:\tuchuangai\报告缓存图片")
+            os.path.abspath(relocate_storage_path(r"D:\tuchuangai\报告图片")),
+            os.path.abspath(relocate_storage_path(r"D:\tuchuangai\报告缓存图片"))
         ]
         base_dir = allowed_base_dirs[0]
         normalized = unquote(raw_path).strip().strip('"').strip("'")
@@ -18377,6 +18391,8 @@ def ai_modules():
 @require_permission('video_claw')
 def video_claw(subpath=''):
     """进入受 AI 部权限保护的 VideoClaw 部署。"""
+    if not _can_access_ai_workspace():
+        return '仅AI部成员可访问AI部功能。', 403
     _ensure_videoclaw_started()
     upstream_path = '/ai/video-claw' + (('/' + str(subpath).lstrip('/')) if subpath else '')
     headers = {
@@ -18407,6 +18423,41 @@ def video_claw(subpath=''):
     for key, value in upstream.headers.items():
         if key.lower() not in excluded and key.lower() != 'content-type':
             response.headers[key] = value
+    return response
+
+
+@app.route('/ai/video-claw/backend/<path:subpath>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
+@require_permission('video_claw')
+def video_claw_backend(subpath):
+    if not _can_access_ai_workspace():
+        return jsonify({'error': '仅AI部成员可访问AI部功能。'}), 403
+    headers = {key: value for key, value in request.headers.items() if key.lower() not in {'host', 'content-length', 'connection'}}
+    try:
+        upstream = requests.request(
+            request.method,
+            _VIDEOCLAW_BACKEND_URL + '/' + subpath,
+            params=list(request.args.items(multi=True)),
+            data=request.get_data() or None,
+            headers=headers,
+            stream=True,
+            timeout=(5, 300),
+        )
+    except requests.RequestException:
+        return jsonify({'error': 'VideoClaw 后端暂不可用。'}), 503
+
+    def chunks():
+        try:
+            yield from upstream.iter_content(chunk_size=1024)
+        finally:
+            upstream.close()
+
+    response = app.response_class(stream_with_context(chunks()), status=upstream.status_code)
+    excluded = {'content-encoding', 'content-length', 'transfer-encoding', 'connection'}
+    for key, value in upstream.headers.items():
+        if key.lower() not in excluded:
+            response.headers[key] = value
+    response.call_on_close(upstream.close)
+    response.headers['X-Accel-Buffering'] = 'no'
     return response
 
 
@@ -21697,7 +21748,7 @@ def reauth():
 
 if __name__ == '__main__':
     debug_mode = str(os.environ.get("TC_FLASK_DEBUG", "")).strip().lower() in {"1", "true", "yes", "on"}
-    if (not debug_mode) or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    if env("TC_BACKGROUND_JOBS", "1") == "1" and ((not debug_mode) or os.environ.get('WERKZEUG_RUN_MAIN') == 'true'):
         _start_xiaotu_report_reminder_thread_once()
         innovation_pending_reminder.start()
         tk_customer_service_tracking_reminder.start()

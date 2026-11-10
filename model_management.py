@@ -1,3 +1,4 @@
+from secret_settings import relocate_storage_path
 from flask import Blueprint, render_template, request, jsonify, session, send_from_directory
 from bjc import sf_db, dui_db
 from department_permissions import require_permission
@@ -10,7 +11,7 @@ from innovation.message_service import MessageService
 
 model_management_bp = Blueprint('model_management', __name__)
 
-BASE_VIDEO_DIR = r"D:\tuchuangai\模特视频"
+BASE_VIDEO_DIR = relocate_storage_path(r"D:\tuchuangai\模特视频")
 
 # 模特库共享可见：key 为查看者，value 为额外可见的「上传人」
 MODEL_LIBRARY_EXTRA_VISIBLE_UPLOADERS = {

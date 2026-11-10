@@ -35,7 +35,7 @@ APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-from secret_settings import relocate_storage_path, sql_server_config
+from secret_settings import image_site_config_namespace, relocate_storage_path, sql_server_config
 import prepress_check_service
 from 图片.a_plus_reference_lab import (
     A_PLUS_REFERENCE_LAB_FEATURE_KEY,
@@ -97,7 +97,7 @@ HD_MIN_OUTPUT_EDGE = 4096
 HD_MODEL_REFERENCE_FILE = APP_DIR / "__pycache__" / "model_reference" / "模特参考图.png"
 OUTPUTS_HD_REFERENCE_DIR = APP_DIR / "outputs" / "reference"
 OUTPUTS_HD_DEFAULT_REFERENCE_FILE = OUTPUTS_HD_REFERENCE_DIR / "参考1.png"
-SKIN_TEXTURE_REFERENCE_DIR = Path(r"D:\tuchuangai\肌肤质感参考")
+SKIN_TEXTURE_REFERENCE_DIR = Path(relocate_storage_path(r"D:\tuchuangai\肌肤质感参考"))
 PORTRAIT_HD_DEFAULT_IMAGE_SIZE = "4K"
 PORTRAIT_HD_SKIN_LOCK_RULES = (
     "肤色与肤质锁定是本次高清处理的最高优先级。"
@@ -228,8 +228,8 @@ ARK_MAX_INPUT_IMAGE_EDGE = 6000
 ARK_MAX_INPUT_IMAGE_PIXELS = 36_000_000
 JIMENG_HD_API_RESOLUTION = "8k"
 JIMENG_HD_API_SCALE = 50
-DB_IMAGE_DIR = Path(r"D:\tuchuangai\视觉图片")
-CUTOUT_OUTPUT_DIR = Path(r"D:\tuchuangai\视觉图片")
+DB_IMAGE_DIR = Path(relocate_storage_path(r"D:\tuchuangai\视觉图片"))
+CUTOUT_OUTPUT_DIR = Path(relocate_storage_path(r"D:\tuchuangai\视觉图片"))
 DB_HISTORY_LIMIT = MAX_HISTORY_RECORDS
 DB_HISTORY_THUMB_DIR_NAME = "_thumbs"
 DB_HISTORY_THUMB_MAX_EDGE = 640
@@ -237,7 +237,7 @@ DB_HISTORY_THUMB_TARGET_BYTES = 140 * 1024
 DB_HISTORY_PATH_MAX_LENGTH = 50
 GALLERY_PREVIEW_MAX_EDGE = 1600
 GALLERY_PREVIEW_TARGET_BYTES = 220 * 1024
-UPLOAD_CACHE_DIR = Path(r"D:\tuchuangai\图片上传缓存")
+UPLOAD_CACHE_DIR = Path(relocate_storage_path(r"D:\tuchuangai\图片上传缓存"))
 AUTH_QUERY_USER_KEY = "auth_user"
 AUTH_QUERY_TOKEN_KEY = "auth_token"
 FEATURE_QUERY_KEY = "feature"
@@ -747,6 +747,9 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         request_url = urllib.parse.urlsplit(self.path)
         request_path = urllib.parse.unquote(request_url.path or "/").rstrip("/")
+        if request_path == "/_xiaoha_static_health":
+            self.send_json({"service": "xiaoha-static", "canvas_ready": (Path(self.canvas_directory) / "index.html").exists()})
+            return
         bootstrap_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/bootstrap-config"
         if request_path == bootstrap_path:
             self.serve_infinite_canvas_bootstrap(request_url.query)
@@ -1373,37 +1376,46 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
 
 
 def build_jimeng_static_base_url(public_app_url: str, static_port: int) -> str:
+    static_port = int(os.getenv("JIMENG_PUBLIC_PORT") or static_port)
     raw_url = str(public_app_url or "").strip() or DEFAULT_PUBLIC_APP_URL
     parsed = urllib.parse.urlsplit(raw_url)
     scheme = parsed.scheme or "http"
     hostname = parsed.hostname or "www.toochuangai.com"
     netloc = hostname
     default_port = 443 if scheme == "https" else 80
-    if static_port and static_port != default_port:
+    if os.getenv("TC_SINGLE_PORT") == "1":
+        netloc = parsed.netloc
+    elif static_port and static_port != default_port:
         netloc = f"{hostname}:{static_port}"
     return urllib.parse.urlunsplit((scheme, netloc, JIMENG_UPLOAD_ROUTE_PREFIX, "", ""))
 
 
 def build_history_static_base_url(public_app_url: str, static_port: int) -> str:
+    static_port = int(os.getenv("JIMENG_PUBLIC_PORT") or static_port)
     raw_url = str(public_app_url or "").strip() or DEFAULT_PUBLIC_APP_URL
     parsed = urllib.parse.urlsplit(raw_url)
     scheme = parsed.scheme or "http"
     hostname = parsed.hostname or "www.toochuangai.com"
     netloc = hostname
     default_port = 443 if scheme == "https" else 80
-    if static_port and static_port != default_port:
+    if os.getenv("TC_SINGLE_PORT") == "1":
+        netloc = parsed.netloc
+    elif static_port and static_port != default_port:
         netloc = f"{hostname}:{static_port}"
     return urllib.parse.urlunsplit((scheme, netloc, HISTORY_STATIC_ROUTE_PREFIX, "", ""))
 
 
 def build_infinite_canvas_url(public_app_url: str, static_port: int, username: str) -> str:
+    static_port = int(os.getenv("JIMENG_PUBLIC_PORT") or static_port)
     raw_url = str(public_app_url or "").strip() or DEFAULT_PUBLIC_APP_URL
     parsed = urllib.parse.urlsplit(raw_url)
     scheme = parsed.scheme or "http"
     hostname = parsed.hostname or "www.toochuangai.com"
     netloc = hostname
     default_port = 443 if scheme == "https" else 80
-    if static_port and static_port != default_port:
+    if os.getenv("TC_SINGLE_PORT") == "1":
+        netloc = parsed.netloc
+    elif static_port and static_port != default_port:
         netloc = f"{hostname}:{static_port}"
     normalized_username = str(username or "访客").strip() or "访客"
     try:
@@ -1423,8 +1435,32 @@ def build_infinite_canvas_url(public_app_url: str, static_port: int, username: s
     )
 
 
+def ensure_jimeng_static_server(*, owner: bool = False) -> dict[str, Any]:
+    if os.getenv("TC_SINGLE_PORT") != "1" or owner:
+        return start_jimeng_static_server()
+    runtime_settings = load_runtime_settings()
+    static_port = int(runtime_settings.get("jimeng_static_port") or DEFAULT_JIMENG_STATIC_PORT)
+    status = {
+        "started": False,
+        "bind_address": "127.0.0.1",
+        "port": static_port,
+        "base_url": str(runtime_settings.get("jimeng_public_upload_base_url") or "").strip(),
+        "canvas_ready": False,
+    }
+    try:
+        response = requests.get(f"http://127.0.0.1:{static_port}/_xiaoha_static_health", timeout=2)
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("service") != "xiaoha-static":
+            raise ValueError("端口上的服务不是小哈素材服务")
+        status.update(started=True, canvas_ready=bool(payload.get("canvas_ready")))
+    except (requests.RequestException, ValueError) as exc:
+        status["error"] = f"素材服务暂不可用：{exc}"
+    return status
+
+
 @st.cache_resource
-def ensure_jimeng_static_server() -> dict[str, Any]:
+def start_jimeng_static_server() -> dict[str, Any]:
     runtime_settings = load_runtime_settings()
     upload_dir = ensure_jimeng_upload_dir()
     history_dir = ensure_db_image_dir()
@@ -5415,6 +5451,8 @@ def get_infinite_canvas_step_features() -> list[dict[str, Any]]:
 
 
 def load_config_namespace() -> dict[str, Any]:
+    if os.getenv("TC_CONTAINER_MODE") == "1":
+        return image_site_config_namespace()
     config_path = APP_DIR / "config.py"
     if not config_path.exists():
         return {}
@@ -13021,24 +13059,24 @@ def inject_app_styles() -> None:
             background: rgba(10, 19, 39, 0.96) !important;
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3) !important;
         }
-        div[data-testid="column"]:has(.side-menu-shell) .stButton > button {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) .stButton > button {
             min-height: 31px !important;
             padding: 0.12rem 0.36rem !important;
             border-radius: 10px !important;
         }
-        div[data-testid="column"]:has(.side-menu-shell) .stButton > button p {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) .stButton > button p {
             font-size: 0.72rem !important;
             line-height: 1.08 !important;
             font-weight: 700 !important;
         }
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] {
             margin-top: 0.38rem;
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 11px;
             background: rgba(6, 14, 30, 0.56);
             overflow: hidden;
         }
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details > summary {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary {
             min-height: 34px;
             padding: 0.28rem 0.5rem;
             color: rgba(229, 233, 255, 0.92) !important;
@@ -13050,28 +13088,28 @@ def inject_app_styles() -> None:
             outline: none !important;
             -webkit-tap-highlight-color: transparent !important;
         }
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details > summary:hover,
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details > summary:focus,
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details > summary:focus-visible,
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details > summary:active {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary:hover,
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary:focus,
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary:focus-visible,
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary:active {
             color: #ffffff !important;
             background: rgba(24, 33, 58, 0.98) !important;
             border: 0 !important;
             box-shadow: none !important;
             outline: none !important;
         }
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details[open] > summary {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details[open] > summary {
             color: #ffffff !important;
             background: rgba(28, 35, 57, 0.98) !important;
         }
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details > summary * {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > summary * {
             color: inherit !important;
             fill: currentColor !important;
         }
-        div[data-testid="column"]:has(.side-menu-shell) [data-testid="stExpander"] details > div {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) [data-testid="stExpander"] details > div {
             padding: 0.12rem 0.3rem 0.35rem;
         }
-        div[data-testid="column"]:has(.side-menu-shell) .side-history-shell {
+        :is(div[data-testid="column"], div[data-testid="stColumn"]):has(.side-menu-shell) .side-history-shell {
             margin-top: 0.45rem;
             padding-top: 0.45rem;
         }

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from secret_settings import relocate_storage_path
 
 import os
 import posixpath
@@ -39,7 +40,7 @@ from department_permissions import require_permission
 daily_replenishment_bp = Blueprint("daily_replenishment", __name__)
 
 SHEET_NAME = "日常补货"
-DEFAULT_OUTPUT_DIR = Path(r"D:\tuchuangai\捕获表文件")
+DEFAULT_OUTPUT_DIR = Path(relocate_storage_path(r"D:\tuchuangai\捕获表文件"))
 ALLOWED_SUFFIXES = {".xlsx", ".xlsm"}
 SESSION_SOURCE_KEY = "daily_replenishment_source"
 MAX_REMARK_LENGTH = 5000

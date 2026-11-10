@@ -1,3 +1,4 @@
+from secret_settings import relocate_storage_path
 from werkzeug.utils import secure_filename  # 用于安全处理上传文件名
 from bjc import sf_db, dui_db  # 导入数据库相关操作
 from datetime import datetime  # 处理日期和时间
@@ -27,9 +28,9 @@ app.secret_key = APP_CONFIG['secret_key']  # 设置秘钥，暂时没用到
 app.config['UPLOAD_FOLDER'] = APP_CONFIG['upload_folder']  # 设置文件保存路径，图片的路径
 app.config['MAX_CONTENT_LENGTH'] = APP_CONFIG[
     'max_content_length']  # 配置文件大小限制，最大16m                                      #配置文件大小限制，最大16m
-LIKE_IMAGE_FOLDER = r"D:\tuchuangai\点赞图片"
+LIKE_IMAGE_FOLDER = relocate_storage_path(r"D:\tuchuangai\点赞图片")
 INNOVATION_STAR_MEDIA_FOLDER = os.path.abspath(
-    os.environ.get('INNOVATION_STAR_MEDIA_FOLDER', r'D:\tuchuangai\创新星主场')
+    os.environ.get('INNOVATION_STAR_MEDIA_FOLDER', relocate_storage_path(r'D:\tuchuangai\创新星主场'))
 )
 INNOVATION_STAR_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
 INNOVATION_STAR_VIDEO_EXTENSIONS = {'.mp4', '.webm', '.ogg', '.mov', '.m4v'}

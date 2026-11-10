@@ -1,0 +1,187 @@
+name: toochuangai-docker
+services:
+  web:
+    build:
+      context: .
+      target: web
+    env_file:
+      - path: .env.docker
+        format: raw
+    environment:
+      TC_CONTAINER_MODE: "1"
+      TC_BACKGROUND_JOBS: "${TC_BACKGROUND_JOBS:-0}"
+      TUCHUANGAI_STORAGE_ROOT: /data
+      SALES_API_PORT: "4311"
+      LASHFORGE_PUBLIC_URL: "${DOCKER_XIAOHA_PUBLIC_URL:-http://localhost:18501/lashforge}"
+      LASHFORGE_HEALTH_URL: http://127.0.0.1:8501/lashforge/_stcore/health
+    ports:
+      - "${DOCKER_BIND_ADDRESS:-127.0.0.1}:${DOCKER_WEB_PORT:-18080}:8000"
+      - "${DOCKER_BIND_ADDRESS:-127.0.0.1}:${DOCKER_XIAOHA_PORT:-18501}:8501"
+      - "${DOCKER_BIND_ADDRESS:-127.0.0.1}:${DOCKER_ASSETS_PORT:-18502}:8502"
+    volumes:
+      - "${DOCKER_STORAGE_PATH:-./docker-data/storage}:/data"
+      - knowledge-base:/app/knowledge_base
+      - listing-data:/app/listing_agent/data
+      - sales-data:/app/business_analysis/data
+      - exports:/app/static/exports
+      - runtime-logs:/app/logs
+    restart: unless-stopped
+    init: true
+  sales-api:
+    build:
+      context: .
+      target: sales-api
+    env_file:
+      - path: .env.docker
+        format: raw
+    environment:
+      SALES_API_HOST: "127.0.0.1"
+      SALES_API_PORT: "4311"
+    network_mode: service:web
+    depends_on:
+      web:
+        condition: service_started
+    volumes:
+      - sales-data:/app/business_analysis/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4311/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+    restart: unless-stopped
+    init: true
+  xiaoha:
+    build: &xiaoha-build
+      context: .
+      dockerfile: Dockerfile.services
+      target: xiaoha
+      additional_contexts:
+        web_image: service:web
+    env_file:
+      - path: .env.docker
+        format: raw
+    environment: &xiaoha-environment
+      TC_CONTAINER_MODE: "1"
+      TUCHUANGAI_STORAGE_ROOT: /data
+      LASHFORGE_PUBLIC_APP_URL: "${DOCKER_XIAOHA_PUBLIC_URL:-http://localhost:18501/lashforge}"
+      LASHFORGE_SERVER_PORT: "8501"
+      JIMENG_STATIC_PORT: "8502"
+      JIMENG_PUBLIC_PORT: "${DOCKER_ASSETS_PORT:-18502}"
+      JIMENG_PUBLIC_UPLOAD_BASE_URL: "${DOCKER_UPLOAD_PUBLIC_URL:-http://localhost:18502/jimeng_uploads}"
+    network_mode: service:web
+    depends_on:
+      web:
+        condition: service_started
+    volumes: &xiaoha-volumes
+      - "${DOCKER_STORAGE_PATH:-./docker-data/storage}:/data"
+      - xiaoha-history:/app/图片/history
+      - xiaoha-outputs:/app/图片/outputs
+      - runtime-logs:/app/图片/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/lashforge/_stcore/health',timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+    restart: unless-stopped
+    init: true
+  xiaoha-static:
+    build: *xiaoha-build
+    env_file:
+      - path: .env.docker
+        format: raw
+    environment: *xiaoha-environment
+    command: ["python", "/app/docker/xiaoha_static.py"]
+    network_mode: service:web
+    depends_on:
+      web:
+        condition: service_started
+    volumes: *xiaoha-volumes
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8502/infinite-canvas/',timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+    restart: unless-stopped
+    init: true
+  videoclaw-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      target: video-backend
+      additional_contexts:
+        web_image: service:web
+    env_file:
+      - path: .env.docker
+        format: raw
+    network_mode: service:web
+    depends_on:
+      web:
+        condition: service_started
+    volumes:
+      - ./docker-data/videoclaw:/video-state
+      - video-data:/app/backend/code/data
+      - video-results:/app/backend/code/result
+      - video-temp:/app/backend/temp
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:18000/api/health',timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+    restart: unless-stopped
+    init: true
+  videoclaw-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      target: video-frontend
+    network_mode: service:web
+    depends_on:
+      web:
+        condition: service_started
+      videoclaw-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ai/video-claw').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+    restart: unless-stopped
+    init: true
+  ads-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.services
+      target: ads-api
+      additional_contexts:
+        web_image: service:web
+    env_file:
+      - path: .env.docker
+        format: raw
+    network_mode: service:web
+    depends_on:
+      web:
+        condition: service_started
+    volumes:
+      - ./docker-data/ads:/ads-state
+      - ads-data:/app/ads_monitor_web/ads-monitor-web-full-source/data
+      - ads-outputs:/app/ads_monitor_web/ads-monitor-web-full-source/outputs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4174/api/diagnostic/health',timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+    restart: unless-stopped
+    init: true
+volumes:
+  knowledge-base:
+  listing-data:
+  sales-data:
+  exports:
+  runtime-logs:
+  xiaoha-history:
+  xiaoha-outputs:
+  video-data:
+  video-results:
+  video-temp:
+  ads-data:
+  ads-outputs:

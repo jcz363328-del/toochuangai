@@ -20,7 +20,7 @@ from openpyxl import load_workbook
 
 from bjc import dui_db
 from department_permissions import permission_manager
-from secret_settings import ai_runtime_config, env
+from secret_settings import ai_runtime_config, env, relocate_storage_path
 
 
 ROOT = Path(__file__).resolve().parent
@@ -29,7 +29,7 @@ DATA_DIR = ROOT / "data"
 DEFAULT_RANKING_FILE = DATA_DIR / "aba-ranking-export.json"
 DEFAULT_RANKING_DASHBOARD_FILE = DATA_DIR / "ABA四核心词综合排名看板_2026-06-28~2026-07-04.html"
 LEGACY_ACTIVE_RANKING_FILE = DATA_DIR / "active-aba-ranking.json"
-LISTING_STORAGE_ROOT = Path(env("LISTING_STORAGE_ROOT") or r"D:\tuchuangai\Listing生成")
+LISTING_STORAGE_ROOT = Path(env("LISTING_STORAGE_ROOT") or relocate_storage_path(r"D:\tuchuangai\Listing生成"))
 ABA_RANKING_STORAGE_DIR = Path(
     env("LISTING_ABA_RANKING_DIR") or LISTING_STORAGE_ROOT / "ABA排名"
 )

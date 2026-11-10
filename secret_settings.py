@@ -52,6 +52,7 @@ def env(key: str, default: str = "") -> str:
 TUCHUANGAI_STORAGE_ROOT = Path(env("TUCHUANGAI_STORAGE_ROOT", r"D:\tuchuangai"))
 
 _LEGACY_STORAGE_LOCATIONS = (
+    (r"D:\tuchuangai", TUCHUANGAI_STORAGE_ROOT),
     (r"D:\TC服务器\data\2026.4.2-4.3百森战略拆解", TUCHUANGAI_STORAGE_ROOT / "2026.4.2-4.3百森战略拆解"),
     (r"D:\TC服务器\data\2026-7-9传世启动仪式", TUCHUANGAI_STORAGE_ROOT / "2026-7-9传世启动仪式"),
     (r"D:\TC服务器\data\2026-06-18年会图片", TUCHUANGAI_STORAGE_ROOT / "2026-06-18年会图片"),
@@ -119,7 +120,7 @@ def sql_server_config(include_port: bool = False) -> dict[str, Any]:
         "user": env("DB_USER") or env("SQLSERVER_USER"),
         "password": env("DB_PASSWORD") or env("SQLSERVER_PASSWORD"),
     }
-    if include_port:
+    if include_port or env("TC_CONTAINER_MODE") == "1":
         cfg["port"] = env_int("DB_PORT", env_int("SQLSERVER_PORT", 1433))
     return cfg
 

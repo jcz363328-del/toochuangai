@@ -5,7 +5,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from secret_settings import env, get_feishu_company_configs
+from secret_settings import env, get_feishu_company_configs, relocate_storage_path
 
 
 # 多公司飞书应用配置
@@ -19,7 +19,7 @@ FEISHU_CONFIG = FEISHU_CONFIGS['company1']
 DATABASE_PATH = 'innovation.db'
 
 # 应用配置
-DEFAULT_UPLOAD_FOLDER = r'D:\tuchuangai\创新图片'
+DEFAULT_UPLOAD_FOLDER = relocate_storage_path(r'D:\tuchuangai\创新图片')
 
 APP_CONFIG = {
     'secret_key': env('INNOVATION_SECRET_KEY'),  # 请在 .env 中配置随机密钥

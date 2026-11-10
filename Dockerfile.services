@@ -1,0 +1,43 @@
+FROM oven/bun:1.3.13 AS canvas-build
+WORKDIR /canvas/web
+COPY 无限画布/infinite-canvas/web/package.json 无限画布/infinite-canvas/web/bun.lock ./
+RUN bun install
+COPY 无限画布/infinite-canvas/VERSION 无限画布/infinite-canvas/CHANGELOG.md /canvas/
+COPY 无限画布/infinite-canvas/web/ ./
+RUN bun run build
+
+FROM node:22-bookworm-slim AS video-build
+WORKDIR /video/frontend
+COPY VideoClaw/video-claw/video-claw/frontend/package*.json ./
+RUN npm ci
+COPY VideoClaw/video-claw/video-claw/frontend/ ./
+ENV NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_API_URL=/ai/video-claw/backend
+RUN npm run build
+
+FROM web_image AS xiaoha
+RUN pip install --no-cache-dir 'streamlit>=1.50,<2'
+RUN pip install --no-cache-dir 'openai>=2,<3' && pip check
+ENV INFINITE_CANVAS_BUILD_DIR=/opt/infinite-canvas LASHFORGE_SERVER_ADDRESS=0.0.0.0 LASHFORGE_SERVER_PORT=8501 JIMENG_STATIC_PORT=8502
+COPY --from=canvas-build /canvas/web/dist /opt/infinite-canvas
+CMD ["python", "-m", "streamlit", "run", "图片/openrouter_image_site.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.baseUrlPath=lashforge", "--server.headless=true", "--server.fileWatcherType=none"]
+
+FROM web_image AS video-backend
+WORKDIR /app/backend
+COPY VideoClaw/video-claw/video-claw/backend/ ./
+RUN pip install --no-cache-dir --upgrade -r requirements.txt && pip check
+RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 && python -m playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
+CMD ["python", "/app/docker/videoclaw_entrypoint.py"]
+
+FROM video-build AS video-frontend
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+RUN npm prune --omit=dev --ignore-scripts
+CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", "3000"]
+
+FROM web_image AS ads-api
+WORKDIR /app/ads_monitor_web/ads-monitor-web-full-source
+RUN apt-get update && apt-get install -y --no-install-recommends libodbc2 && rm -rf /var/lib/apt/lists/* && pip install --no-cache-dir -r requirements.txt
+RUN python -c "import urllib.request; urllib.request.urlretrieve('https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb', '/tmp/microsoft-prod.deb')" && dpkg -i /tmp/microsoft-prod.deb && apt-get update && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql17 libgssapi-krb5-2 && rm -rf /var/lib/apt/lists/* /tmp/microsoft-prod.deb
+COPY --from=video-build /usr/local/bin/node /usr/local/bin/node
+ENV LOCALAPPDATA=/ads-state
+ENV ADS_MONITOR_NODE=/usr/local/bin/node
+CMD ["python", "sellfox_ad_diagnostic_server.py", "--config", "/ads-state/ads_monitor_config.json"]

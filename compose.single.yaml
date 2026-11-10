@@ -1,0 +1,93 @@
+name: toochuangai-single
+services:
+  app:
+    image: toochuangai-single:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.single
+    env_file:
+      - path: "${SINGLE_ENV_FILE:-.env.single}"
+        format: raw
+    environment:
+      TC_CONTAINER_MODE: "1"
+      TC_SINGLE_PORT: "1"
+      TC_BACKGROUND_JOBS: "${TC_BACKGROUND_JOBS:-0}"
+      TC_SCHEDULED_JOBS: "${TC_SCHEDULED_JOBS:-0}"
+      TC_WEB_HOST: 127.0.0.1
+      TC_WEB_PORT: "8100"
+      TUCHUANGAI_STORAGE_ROOT: /data
+      LASHFORGE_SERVER_ADDRESS: 127.0.0.1
+      LASHFORGE_SERVER_PORT: "8501"
+      LASHFORGE_PUBLIC_URL: /lashforge
+      LASHFORGE_PUBLIC_APP_URL: "${DOCKER_PUBLIC_URL:-http://localhost:18081}/lashforge"
+      LASHFORGE_HEALTH_URL: http://127.0.0.1:8501/lashforge/_stcore/health
+      JIMENG_STATIC_PORT: "8502"
+      JIMENG_PUBLIC_PORT: ""
+      JIMENG_PUBLIC_UPLOAD_BASE_URL: "${DOCKER_PUBLIC_URL:-http://localhost:18081}/jimeng_uploads"
+      INFINITE_CANVAS_BUILD_DIR: /opt/infinite-canvas
+      SALES_API_HOST: 127.0.0.1
+      SALES_API_PORT: "4311"
+      LOCALAPPDATA: /ads-state
+    ports:
+      - "${DOCKER_BIND_ADDRESS:-127.0.0.1}:${DOCKER_WEB_PORT:-18081}:8000"
+    volumes:
+      - "${DOCKER_STORAGE_PATH:-./docker-data/storage}:/data"
+      - "${DOCKER_KNOWLEDGE_PATH:-knowledge-base}:/app/knowledge_base"
+      - "${DOCKER_LISTING_DATA_PATH:-listing-data}:/app/listing_agent/data"
+      - "${DOCKER_SALES_DATA_PATH:-sales-data}:/app/business_analysis/data"
+      - "${DOCKER_EXPORTS_PATH:-exports}:/app/static/exports"
+      - "${DOCKER_LOGS_PATH:-runtime-logs}:/app/logs"
+      - "${DOCKER_XIAOHA_HISTORY_PATH:-xiaoha-history}:/app/图片/history"
+      - "${DOCKER_XIAOHA_OUTPUTS_PATH:-xiaoha-outputs}:/app/图片/outputs"
+      - "${DOCKER_VIDEO_STATE_PATH:-./docker-data/videoclaw}:/video-state"
+      - "${DOCKER_VIDEO_DATA_PATH:-video-data}:/app/backend/code/data"
+      - "${DOCKER_VIDEO_RESULTS_PATH:-video-results}:/app/backend/code/result"
+      - "${DOCKER_VIDEO_TEMP_PATH:-video-temp}:/app/backend/temp"
+      - "${DOCKER_ADS_STATE_PATH:-./docker-data/ads}:/ads-state"
+      - "${DOCKER_ADS_DATA_PATH:-ads-data}:/app/ads_monitor_web/ads-monitor-web-full-source/data"
+      - "${DOCKER_ADS_OUTPUTS_PATH:-ads-outputs}:/app/ads_monitor_web/ads-monitor-web-full-source/outputs"
+    healthcheck:
+      test: ["CMD", "python", "/app/docker/healthcheck.py"]
+      interval: 20s
+      timeout: 15s
+      start_period: 180s
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 60s
+volumes:
+  knowledge-base:
+    external: true
+    name: toochuangai-docker_knowledge-base
+  listing-data:
+    external: true
+    name: toochuangai-docker_listing-data
+  sales-data:
+    external: true
+    name: toochuangai-docker_sales-data
+  exports:
+    external: true
+    name: toochuangai-docker_exports
+  runtime-logs:
+    external: true
+    name: toochuangai-docker_runtime-logs
+  xiaoha-history:
+    external: true
+    name: toochuangai-docker_xiaoha-history
+  xiaoha-outputs:
+    external: true
+    name: toochuangai-docker_xiaoha-outputs
+  video-data:
+    external: true
+    name: toochuangai-docker_video-data
+  video-results:
+    external: true
+    name: toochuangai-docker_video-results
+  video-temp:
+    external: true
+    name: toochuangai-docker_video-temp
+  ads-data:
+    external: true
+    name: toochuangai-docker_ads-data
+  ads-outputs:
+    external: true
+    name: toochuangai-docker_ads-outputs

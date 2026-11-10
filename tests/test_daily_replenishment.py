@@ -77,6 +77,9 @@ def build_sample_dataset(first_sku: str = "SKU-A") -> dict:
 
 class DailyReplenishmentTests(unittest.TestCase):
     def setUp(self):
+        departments = patch.object(app_module.permission_manager, "get_user_departments", return_value=[{"name": "AI部"}])
+        departments.start()
+        self.addCleanup(departments.stop)
         self.temp_dir = tempfile.TemporaryDirectory()
         self.old_output_dir = app_module.app.config.get("DAILY_REPLENISHMENT_OUTPUT_DIR")
         self.old_source_path = app_module.app.config.get("DAILY_REPLENISHMENT_SOURCE_PATH")
@@ -145,6 +148,11 @@ class DailyReplenishmentTests(unittest.TestCase):
         self.assertIn('id="fastTooltip"', html)
         self.assertIn("data-tooltip", html)
         self.assertIn("pointerover", html)
+
+    def test_non_ai_member_cannot_enter_ai_workspace_even_with_permission(self):
+        with patch.object(app_module.permission_manager, "get_user_departments", return_value=[{"name": "运营一部"}]):
+            response = self.request_with_permission("GET", "/ai_modules")
+        self.assertEqual(403, response.status_code)
 
     def test_daily_replenishment_routes_require_scoped_permission(self):
         with patch.object(

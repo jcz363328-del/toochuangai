@@ -22,6 +22,9 @@ dist-flask/
 .env
 .env.*
 !.env.example
+!.env.docker.example
+!.env.single.example
+/docker-data/
 *.log
 ai_runtime_config.json
 图片/config.py
