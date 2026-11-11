@@ -54,8 +54,6 @@ from 图片.amazon_a_plus_psd import (
     select_closest_aspect_ratio,
 )
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images"
 ARK_IMAGES_URL = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
 ARK_SEEDREAM_5_PRO_MODEL = "doubao-seedream-5-0-pro-260628"
 ARK_SEEDREAM_5_PRO_SIZE = "2K"
@@ -66,6 +64,7 @@ OMNIAKEY_API_BASE = (
     else _OMNIAKEY_API_BASE_RAW
 )
 OMNIAKEY_MEDIA_TASKS_URL = f"{OMNIAKEY_API_BASE}/v1/media/tasks"
+OMNIAKEY_CHAT_COMPLETIONS_URL = f"{OMNIAKEY_API_BASE}/v1/chat/completions"
 NANO_BANANA_MODEL = "gemini-nano-banana-2.1"
 DEFAULT_MODEL = NANO_BANANA_MODEL
 # 历史遗留的 Nano Banana 变体统一收敛到 NANO_BANANA_MODEL，且统一走 OmniaKey 媒体任务接口。
@@ -82,6 +81,7 @@ OMNIA_IMAGE_MODEL_LABELS = {
     "gpt-image-2.5-flare": "GPT Image 2.5 Flare",
     "gpt-image-2": "GPT Image 2",
     "grok-imagine-image-quality": "Grok Imagine Image Quality",
+    "Dola-Seedream-5.0-pro": "Seedream 5.0 Pro",
 }
 OMNIA_IMAGE_MODELS = tuple(OMNIA_IMAGE_MODEL_LABELS)
 OMNIA_IMAGE_MODEL_ALIASES = {
@@ -89,6 +89,8 @@ OMNIA_IMAGE_MODEL_ALIASES = {
     "openai/gpt-5-image-mini": "gpt-image-2.5-flare",
     "openai/gpt-5-image": "gpt-image-2",
     "x-ai/grok-imagine-image-quality": "grok-imagine-image-quality",
+    "bytedance-seed/seedream-4.5": "Dola-Seedream-5.0-pro",
+    "recraft/recraft-v4.1-utility-pro": "gpt-image-2.6-flare",
 }
 DEFAULT_ASPECT_RATIO = "自动"
 REFERENCE_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
@@ -312,7 +314,6 @@ DEFAULT_LOGIN_ACCOUNTS = {}
 MODEL_OPTIONS = [
     JIMENG_MODEL_NAME,
     *OMNIA_IMAGE_MODELS,
-    "bytedance-seed/seedream-4.5",
 ]
 OUTPAINT_MODEL_OPTIONS = [
     NANO_BANANA_MODEL,
@@ -321,7 +322,9 @@ OUTPAINT_MODEL_OPTIONS = [
 INFINITE_CANVAS_IMAGE_MODELS = tuple(
     model for model in MODEL_OPTIONS if model != JIMENG_MODEL_NAME
 )
-INFINITE_CANVAS_TEXT_MODELS = ("google/gemini-2.5-flash",)
+OMNIAKEY_VISION_TEXT_MODEL = "claude-haiku-4-5"
+OMNIAKEY_VISION_TEXT_FALLBACK_MODELS = ("gemini-3.7-flash",)
+INFINITE_CANVAS_TEXT_MODELS = (OMNIAKEY_VISION_TEXT_MODEL,)
 IMAGE_ONLY_OUTPUT_MODEL_PREFIXES = (
     "bytedance-seed/",
     "x-ai/grok-imagine-image",
@@ -440,11 +443,11 @@ MAIN_IMAGE_A_PLUS_CROP_PRESETS: dict[str, dict[str, Any]] = {
 MAIN_IMAGE_A_PLUS_MAX_SECTION_CONCURRENCY = 4
 MAIN_IMAGE_A_PLUS_REFERENCE_MAX_EDGE = 2048
 MAIN_IMAGE_A_PLUS_REFERENCE_TARGET_BYTES = 3 * 1024 * 1024
-MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL = "google/gemini-2.5-flash"
-MAIN_IMAGE_A_PLUS_QUALITY_REVIEW_MODEL = "google/gemini-2.5-flash"
+MAIN_IMAGE_A_PLUS_ELEMENT_ANALYSIS_MODEL = OMNIAKEY_VISION_TEXT_MODEL
+MAIN_IMAGE_A_PLUS_QUALITY_REVIEW_MODEL = OMNIAKEY_VISION_TEXT_MODEL
 MAIN_IMAGE_A_PLUS_MAX_QUALITY_ATTEMPTS = 2
 MAIN_IMAGE_A_PLUS_MAX_FREE_QUALITY_ATTEMPTS = 4
-MAIN_IMAGE_A_PLUS_SOURCE_INTEGRITY_MODEL = "google/gemini-2.5-flash"
+MAIN_IMAGE_A_PLUS_SOURCE_INTEGRITY_MODEL = OMNIAKEY_VISION_TEXT_MODEL
 MAIN_IMAGE_A_PLUS_SOURCE_REPAIR_MIN_CONFIDENCE = 0.78
 MAIN_IMAGE_A_PLUS_SOURCE_REPAIR_EDGE_RATIO = 0.12
 MAIN_IMAGE_A_PLUS_MAX_SOURCE_REPAIRS = 3
@@ -455,8 +458,8 @@ MAIN_IMAGE_A_PLUS_MOBILE_REFERENCE_PAIRS = (
     ("36-71G-desktop.jpg", "36-71G-mobile.jpg"),
 )
 IMAGE_SMART_ANALYSIS_FEATURE_KEY = "image_smart_analysis"
-IMAGE_SMART_ANALYSIS_MODEL = "google/gemini-2.5-flash"
-PUBLIC_FIGURE_DETECTION_MODELS = (IMAGE_SMART_ANALYSIS_MODEL, "openai/gpt-4.1-mini")
+IMAGE_SMART_ANALYSIS_MODEL = OMNIAKEY_VISION_TEXT_MODEL
+PUBLIC_FIGURE_DETECTION_MODELS = (IMAGE_SMART_ANALYSIS_MODEL,)
 # 无限画布在生成前调用本服务做公众人物风险检测，走服务器代理以避开浏览器直连的地区限制。
 PUBLIC_FIGURE_DETECTION_PROMPT = (
     "检查所有参考图片中是否出现真实存在的知名公众人物，例如明星、网红、政治人物、企业家。\n"
@@ -855,40 +858,16 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             self.send_json({"success": False, "message": "无效的画布访问凭证"}, status=403)
             return
 
-        api_key = load_api_key()
         omnia_api_key = load_omnia_api_key()
-        if not api_key and not omnia_api_key:
+        if not omnia_api_key:
             self.send_json(
-                {"success": False, "message": "OPENROUTER_API_KEY 与 OMNIAKEY_API_KEY 均未配置"},
+                {"success": False, "message": "OMNIAKEY_API_KEY 未配置"},
                 status=503,
             )
             return
 
-        legacy_nano_model = "google/gemini-nano-banana-2.1"
-        legacy_image_models = [
-            legacy_nano_model,
-            "openai/gpt-5.4-image-2",
-            "openai/gpt-5-image-mini",
-            "openai/gpt-5-image",
-            "x-ai/grok-imagine-image-quality",
-            "recraft/recraft-v4.1-utility-pro",
-            "bytedance-seed/seedream-4.5",
-        ]
-        omnia_image_models = [
-            model for model in INFINITE_CANVAS_IMAGE_MODELS if model in OMNIA_IMAGE_MODELS
-        ]
-        openrouter_image_models = [
-            model for model in INFINITE_CANVAS_IMAGE_MODELS if model not in OMNIA_IMAGE_MODELS
-        ]
+        omnia_image_models = list(INFINITE_CANVAS_IMAGE_MODELS)
         text_models = list(INFINITE_CANVAS_TEXT_MODELS)
-        legacy_channel = {
-            "id": "xiaoha-openrouter",
-            "name": "小哈 OpenRouter",
-            "baseUrl": "https://openrouter.ai/api/v1",
-            "apiKey": api_key,
-            "apiFormat": "openai",
-            "models": [*legacy_image_models, *text_models],
-        }
         channels = [
             {
                 "id": "xiaoha-omnia",
@@ -896,34 +875,24 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
                 "baseUrl": f"{OMNIAKEY_API_BASE}/v1",
                 "apiKey": omnia_api_key,
                 "apiFormat": "openai",
-                "models": omnia_image_models,
-            },
-            {
-                "id": "xiaoha-openrouter",
-                "name": "小哈 OpenRouter",
-                "baseUrl": "https://openrouter.ai/api/v1",
-                "apiKey": api_key,
-                "apiFormat": "openai",
-                "models": openrouter_image_models + text_models,
+                "models": [*omnia_image_models, *text_models],
             },
         ]
-        image_models = omnia_image_models + (openrouter_image_models if api_key else [])
-        available_text_models = text_models if api_key else []
         self.send_json(
             {
                 "success": True,
                 "config": {
-                    "configVersion": "2026-11-06-omnia-no-qwen",
-                    "channel": legacy_channel,
+                    "configVersion": "2026-11-11-omnia-only",
+                    "channel": channels[0],
                     "channels": channels,
-                    "imageModel": legacy_nano_model,
+                    "imageModel": NANO_BANANA_MODEL,
                     "imageModelNext": NANO_BANANA_MODEL,
-                    "textModel": available_text_models[0] if available_text_models else "",
+                    "textModel": text_models[0],
                     "videoModel": "",
                     "audioModel": "",
-                    "imageModels": legacy_image_models if api_key else [],
-                    "imageModelsNext": image_models,
-                    "textModels": available_text_models,
+                    "imageModels": omnia_image_models,
+                    "imageModelsNext": omnia_image_models,
+                    "textModels": text_models,
                     "videoModels": [],
                     "audioModels": [],
                 },
@@ -15930,7 +15899,7 @@ def call_openrouter_images_api(
     resolution: str = "",
     max_attempts: int | None = None,
 ) -> dict[str, Any]:
-    """Call OmniaKey for non-Seedream models, otherwise OpenRouter's Images API."""
+    """Run every supported image model through OmniaKey's media-task API."""
     omnia_model = resolve_omnia_image_model(model)
     if omnia_model:
         return call_omnia_image_api(
@@ -15941,118 +15910,7 @@ def call_openrouter_images_api(
             resolution=resolution,
             max_attempts=max_attempts,
         )
-    api_key = load_api_key()
-    if not api_key:
-        raise RuntimeError("未找到 OPENROUTER_API_KEY，请先完成配置。")
-
-    input_references: list[dict[str, Any]] = []
-    for safe_uploaded_file in prepare_openrouter_request_inputs(uploaded_files):
-        input_references.append(
-            {
-                "type": "image_url",
-                "image_url": {"url": file_to_data_url(safe_uploaded_file)},
-            }
-        )
-
-    payload: dict[str, Any] = {
-        "model": str(model or "").strip(),
-        "prompt": enforce_global_no_distortion_rules(prompt),
-    }
-    if input_references:
-        payload["input_references"] = input_references
-    normalized_resolution = str(resolution or "").strip().upper()
-    if normalized_resolution in GEMINI_IMAGE_SIZES or normalized_resolution == "512":
-        payload["resolution"] = normalized_resolution
-    normalized_aspect_ratio = str(aspect_ratio or "").strip()
-    if normalized_aspect_ratio in GEMINI_IMAGE_ASPECT_RATIOS:
-        payload["aspect_ratio"] = normalized_aspect_ratio
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://127.0.0.1:10808",
-        "X-Title": "OpenRouter Image Workspace",
-    }
-    response = None
-    last_request_error: requests.RequestException | None = None
-    normalized_max_attempts = max(int(max_attempts or OPENROUTER_IMAGES_MAX_ATTEMPTS), 1)
-    for attempt_index in range(normalized_max_attempts):
-        try:
-            response = requests.post(
-                OPENROUTER_IMAGES_URL,
-                headers=headers,
-                json=payload,
-                **get_external_request_kwargs(
-                    timeout=(
-                        OPENROUTER_IMAGES_CONNECT_TIMEOUT_SECONDS,
-                        OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS,
-                    )
-                ),
-            )
-        except (requests.Timeout, requests.ConnectionError) as exc:
-            last_request_error = exc
-            if attempt_index + 1 >= normalized_max_attempts:
-                raise RuntimeError(
-                    f"OpenRouter Images API 连接失败，已自动尝试 {normalized_max_attempts} 次：{exc}"
-                ) from exc
-            retry_delay = OPENROUTER_IMAGES_RETRY_DELAYS[
-                min(attempt_index, len(OPENROUTER_IMAGES_RETRY_DELAYS) - 1)
-            ]
-            time.sleep(retry_delay)
-            continue
-        except requests.RequestException as exc:
-            raise RuntimeError(f"OpenRouter Images API 连接失败：{exc}") from exc
-        if (
-            response.status_code in OPENROUTER_IMAGES_TRANSIENT_STATUS_CODES
-            and attempt_index + 1 < normalized_max_attempts
-        ):
-            retry_delay = OPENROUTER_IMAGES_RETRY_DELAYS[
-                min(attempt_index, len(OPENROUTER_IMAGES_RETRY_DELAYS) - 1)
-            ]
-            time.sleep(retry_delay)
-            continue
-        break
-    if response is None:
-        raise RuntimeError(f"OpenRouter Images API 连接失败：{last_request_error or '未收到响应'}")
-
-    try:
-        data = response.json()
-    except Exception as exc:
-        raise RuntimeError(f"OpenRouter Images API 返回了无法解析的内容（HTTP {response.status_code}）。") from exc
-    if response.status_code >= 400:
-        error_payload = data.get("error") if isinstance(data, dict) else data
-        error_code: Any = ""
-        if isinstance(error_payload, dict):
-            error_message = error_payload.get("message") or "未提供具体错误信息"
-            error_code = error_payload.get("code") or error_payload.get("type") or ""
-        else:
-            error_message = error_payload or "未提供具体错误信息"
-        code_text = f"，错误码 {error_code}" if str(error_code).strip() else ""
-        safe_error_message = redact_background_error_text(error_message)
-        raise RuntimeError(
-            f"OpenRouter Images API 请求失败（HTTP {response.status_code}{code_text}）：{safe_error_message}"
-        )
-
-    images: list[str] = []
-    for item in list(data.get("data") or []) if isinstance(data, dict) else []:
-        if not isinstance(item, dict):
-            continue
-        encoded_image = str(item.get("b64_json") or "").strip()
-        if encoded_image:
-            media_type = str(item.get("media_type") or "image/png").strip() or "image/png"
-            images.append(f"data:{media_type};base64,{encoded_image}")
-            continue
-        image_url = str(item.get("url") or "").strip()
-        if image_url:
-            images.append(image_url)
-    if not images:
-        raise RuntimeError("OpenRouter Images API 没有返回可用图片。")
-    return {
-        "images": images,
-        "text": "",
-        "raw": data,
-        "requested_resolution": normalized_resolution,
-    }
+    raise RuntimeError(f"OmniaKey 不支持该生图模型：{model}")
 
 
 def call_ark_seedream_images_api(
@@ -16155,6 +16013,79 @@ def call_ark_seedream_images_api(
     }
 
 
+def call_omnia_chat_api(
+    model: str,
+    prompt: str,
+    uploaded_files: list[Any],
+) -> dict[str, Any]:
+    """Call OmniKey's OpenAI-compatible chat endpoint for text and vision work."""
+    api_key = load_omnia_api_key()
+    if not api_key:
+        raise RuntimeError("OmniaKey 未配置 OMNIAKEY_API_KEY，请联系管理员完成配置。")
+
+    content: list[dict[str, Any]] = [{"type": "text", "text": str(prompt or "").strip()}]
+    for safe_uploaded_file in prepare_openrouter_request_inputs(list(uploaded_files or [])):
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": file_to_data_url(safe_uploaded_file)},
+            }
+        )
+    requested_model = str(model or "").strip()
+    candidate_models = (requested_model,)
+    if requested_model == OMNIAKEY_VISION_TEXT_MODEL:
+        candidate_models += tuple(
+            candidate
+            for candidate in OMNIAKEY_VISION_TEXT_FALLBACK_MODELS
+            if candidate and candidate != requested_model
+        )
+
+    last_error: RuntimeError | None = None
+    for index, candidate_model in enumerate(candidate_models):
+        should_fallback = False
+        try:
+            response = requests.post(
+                OMNIAKEY_CHAT_COMPLETIONS_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": candidate_model,
+                    "messages": [{"role": "user", "content": content}],
+                    "stream": False,
+                },
+                **get_external_request_kwargs(timeout=120, use_proxy=False),
+            )
+        except requests.RequestException as exc:
+            last_error = RuntimeError(f"OmniaKey 请求失败：无法连接到 OmniaKey 或请求超时。{exc}")
+            should_fallback = True
+
+        else:
+            try:
+                data = response.json()
+            except Exception:
+                last_error = RuntimeError(f"OmniaKey 响应解析失败（HTTP {response.status_code}）。")
+                should_fallback = response.status_code in {408, 425, 429, 500, 502, 503, 504, 524}
+            else:
+                if response.status_code < 400 and isinstance(data, dict) and data.get("choices"):
+                    return extract_response_payload(data)
+                error_payload = data.get("error") if isinstance(data, dict) else data
+                error_message = (
+                    error_payload.get("message") or "未提供具体错误信息"
+                    if isinstance(error_payload, dict)
+                    else error_payload or "未提供具体错误信息"
+                )
+                last_error = RuntimeError(
+                    f"OmniaKey 请求失败（HTTP {response.status_code}）：{redact_background_error_text(error_message)}"
+                )
+                should_fallback = response.status_code in {408, 425, 429, 500, 502, 503, 504, 524}
+        if not should_fallback or index + 1 >= len(candidate_models):
+            break
+
+    raise last_error or RuntimeError("OmniaKey 未返回可用的视觉分析结果。")
+
+
 def call_openrouter(
     model: str,
     prompt: str,
@@ -16169,19 +16100,21 @@ def call_openrouter(
         else str(prompt or "").strip()
     )
     if output_mode == "image":
-        omnia_model = resolve_omnia_image_model(model)
-        if omnia_model:
-            return call_omnia_image_api(
-                model=omnia_model,
-                prompt=request_prompt,
-                uploaded_files=list(uploaded_files or []),
-                aspect_ratio=aspect_ratio,
-                resolution=image_size,
-            )
+        return call_openrouter_images_api(
+            model=model,
+            prompt=request_prompt,
+            uploaded_files=list(uploaded_files or []),
+            aspect_ratio=aspect_ratio,
+            resolution=image_size,
+        )
+    return call_omnia_chat_api(
+        model=model,
+        prompt=request_prompt,
+        uploaded_files=list(uploaded_files or []),
+    )
 
-    api_key = load_api_key()
-    if not api_key:
-        raise RuntimeError("未找到 OPENROUTER_API_KEY，请先在环境变量或 config.py 中配置。")
+    # Kept below temporarily for source-history readability. All paths return above,
+    # so XiaoHa never sends a text or vision request to OpenRouter.
     content: list[dict[str, Any]] = [{"type": "text", "text": request_prompt}]
     for safe_uploaded_file in prepare_openrouter_request_inputs(list(uploaded_files or [])):
         content.append(

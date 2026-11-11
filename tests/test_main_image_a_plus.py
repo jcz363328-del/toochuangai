@@ -2443,18 +2443,25 @@ class MainImageAPlusTests(unittest.TestCase):
             self.assertEqual(output.size, (146, 240))
 
     def test_images_api_retries_transient_read_timeout(self) -> None:
-        success_response = Mock(status_code=200)
-        success_response.json.return_value = {
-            "data": [{"b64_json": "aW1hZ2U=", "media_type": "image/png"}]
+        created_response = Mock(status_code=202)
+        created_response.json.return_value = {"id": "task_timeout", "status": "queued"}
+        completed_response = Mock(status_code=200)
+        completed_response.json.return_value = {
+            "id": "task_timeout",
+            "status": "succeeded",
+            "assets": [{"kind": "image", "url": "https://example.invalid/result.jpg"}],
         }
+        downloaded_response = Mock(status_code=200, content=b"image")
+        downloaded_response.headers = {"Content-Type": "image/png"}
 
         with (
-            patch.object(site, "load_api_key", return_value="test-key"),
+            patch.object(site, "load_omnia_api_key", return_value="test-key"),
             patch.object(
                 site.requests,
                 "post",
-                side_effect=[site.requests.ReadTimeout("temporary timeout"), success_response],
+                side_effect=[site.requests.ReadTimeout("temporary timeout"), created_response],
             ) as request_post,
+            patch.object(site.requests, "get", side_effect=[completed_response, downloaded_response]),
             patch.object(site.time, "sleep") as retry_sleep,
         ):
             result = site.call_openrouter_images_api(
@@ -2463,19 +2470,19 @@ class MainImageAPlusTests(unittest.TestCase):
             )
 
         self.assertEqual(request_post.call_count, 2)
-        self.assertEqual(retry_sleep.call_count, 1)
+        retry_sleep.assert_any_call(site.OMNIAKEY_MEDIA_RETRY_DELAYS[0])
         self.assertEqual(
             request_post.call_args_list[0].kwargs["timeout"],
             (
-                site.OPENROUTER_IMAGES_CONNECT_TIMEOUT_SECONDS,
-                site.OPENROUTER_IMAGES_READ_TIMEOUT_SECONDS,
+                site.OMNIAKEY_CONNECT_TIMEOUT_SECONDS,
+                site.OMNIAKEY_READ_TIMEOUT_SECONDS,
             ),
         )
         self.assertIn(
             "GLOBAL GEOMETRY LOCK",
-            request_post.call_args_list[0].kwargs["json"]["prompt"],
+            request_post.call_args_list[0].kwargs["json"]["input"]["prompt"],
         )
-        self.assertEqual(result["images"], ["data:image/png;base64,aW1hZ2U="])
+        self.assertTrue(result["images"][0].startswith("data:image/png;base64,"))
 
     def test_template_mode_sends_template_section_first_and_replaces_content(self) -> None:
         generated = Image.new("RGB", (200, 100), "white")

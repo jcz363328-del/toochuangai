@@ -64,14 +64,21 @@ class RemoveEyelashesImagesApiTests(unittest.TestCase):
     def test_images_api_retries_http_429_then_succeeds(self) -> None:
         throttled = Mock(status_code=429)
         throttled.json.return_value = {"error": {"message": "Rate limit exceeded", "code": 429}}
-        success = Mock(status_code=200)
-        success.json.return_value = {
-            "data": [{"b64_json": "aW1hZ2U=", "media_type": "image/png"}]
+        created = Mock(status_code=202)
+        created.json.return_value = {"id": "task_test_429", "status": "queued"}
+        completed = Mock(status_code=200)
+        completed.json.return_value = {
+            "id": "task_test_429",
+            "status": "succeeded",
+            "assets": [{"kind": "image", "url": "https://example.invalid/result.jpg"}],
         }
+        downloaded = Mock(status_code=200, content=b"image")
+        downloaded.headers = {"Content-Type": "image/png"}
 
         with (
-            patch.object(site, "load_api_key", return_value="test-key"),
-            patch.object(site.requests, "post", side_effect=[throttled, success]) as request_post,
+            patch.object(site, "load_omnia_api_key", return_value="test-key"),
+            patch.object(site.requests, "post", side_effect=[throttled, created]) as request_post,
+            patch.object(site.requests, "get", side_effect=[completed, downloaded]),
             patch.object(site.time, "sleep") as retry_sleep,
         ):
             result = site.call_openrouter_images_api(
@@ -80,8 +87,9 @@ class RemoveEyelashesImagesApiTests(unittest.TestCase):
             )
 
         self.assertEqual(request_post.call_count, 2)
-        retry_sleep.assert_called_once()
-        self.assertEqual(result["images"], ["data:image/png;base64,aW1hZ2U="])
+        retry_sleep.assert_any_call(site.OMNIAKEY_MEDIA_RETRY_DELAYS[0])
+        self.assertEqual(result["channel"], "Seedream 5.0 Pro · OmniaKey")
+        self.assertTrue(result["images"][0].startswith("data:image/png;base64,"))
 
     def test_images_api_failure_keeps_http_status_and_error_code(self) -> None:
         failed_one = Mock(status_code=503)
@@ -92,7 +100,7 @@ class RemoveEyelashesImagesApiTests(unittest.TestCase):
         failed_two.json.return_value = failed_one.json.return_value
 
         with (
-            patch.object(site, "load_api_key", return_value="test-key"),
+            patch.object(site, "load_omnia_api_key", return_value="test-key"),
             patch.object(site.requests, "post", side_effect=[failed_one, failed_two]),
             patch.object(site.time, "sleep"),
         ):
