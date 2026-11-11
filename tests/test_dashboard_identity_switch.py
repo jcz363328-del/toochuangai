@@ -156,16 +156,19 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
         self.assertFalse(response.get_json()["success"])
 
     @patch.object(app_module, "_xiaotu_search_notify_users")
-    def test_cai_jing_can_switch_identity_like_zhou_juncheng(self, search_members):
-        self._login("蔡晶")
+    def test_approved_users_can_search_identity_switch_members(self, search_members):
         search_members.return_value = [
             {"open_id": "ou_target", "name": "张三", "display_name": "张三"},
         ]
 
-        response = self.client.get("/api/dashboard/identity-switch/members?q=张三")
+        for user_name in ("周俊成", "蔡晶", "陈子烨"):
+            with self.subTest(user_name=user_name):
+                self._login(user_name)
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.get_json()["success"])
+                response = self.client.get("/api/dashboard/identity-switch/members?q=张三")
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.get_json()["success"])
 
     @patch.object(app_module, "_xiaotu_search_notify_users")
     def test_tenant_user_id_header_is_not_compared_with_session_open_id(self, search_members):
@@ -249,46 +252,49 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
     @patch.object(app_module, "_dashboard_identity_switch_departments")
     @patch.object(app_module, "_xiaotu_query_user_names_by_open_ids")
     def test_switch_uses_a_small_separate_signed_cookie(self, resolve_names, resolve_departments):
-        self._login()
         resolve_names.return_value = {"ou_target": "张三"}
         resolve_departments.return_value = ["运营三部"]
-        with self.client.session_transaction() as flask_session:
-            flask_session["preloaded_functions"] = [{"function_name": "ai_dept"}]
         selection_token = app_module._dashboard_identity_switch_selection_token(
             "ou_target",
             "张三",
         )
 
-        response = self.client.post(
-            "/api/dashboard/identity-switch",
-            json={
-                "open_id": "ou_forged",
-                "user_name": "伪造名称",
-                "selection_token": selection_token,
-            },
-        )
+        for user_name in ("周俊成", "蔡晶", "陈子烨"):
+            with self.subTest(user_name=user_name):
+                self._login(user_name)
+                with self.client.session_transaction() as flask_session:
+                    flask_session["preloaded_functions"] = [{"function_name": "ai_dept"}]
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["data"]["user_name"], "张三")
-        identity_cookie = self.client.get_cookie(
-            app_module._DASHBOARD_IDENTITY_SWITCH_COOKIE
-        )
-        self.assertIsNotNone(identity_cookie)
-        self.assertLess(len(identity_cookie.value), 4093)
-        cookie_payload = app_module._dashboard_identity_switch_state_serializer().loads(
-            identity_cookie.value,
-            max_age=app_module._DASHBOARD_IDENTITY_SWITCH_MAX_AGE_SECONDS,
-        )
-        self.assertEqual(cookie_payload["o"], "ou_real_operator")
-        self.assertEqual(cookie_payload["u"], "ou_target")
-        self.assertEqual(cookie_payload["n"], "张三")
-        self.assertEqual(cookie_payload["d"], ["运营三部"])
-        with self.client.session_transaction() as flask_session:
-            self.assertEqual(flask_session["feishu_user_name"], "周俊成")
-            self.assertNotIn("permission_debug_user_name", flask_session)
-            self.assertNotIn("permission_debug_user_open_id", flask_session)
-            self.assertNotIn("permission_debug_departments", flask_session)
-            self.assertNotIn("preloaded_functions", flask_session)
+                response = self.client.post(
+                    "/api/dashboard/identity-switch",
+                    json={
+                        "open_id": "ou_forged",
+                        "user_name": "伪造名称",
+                        "selection_token": selection_token,
+                    },
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.get_json()["data"]["user_name"], "张三")
+                identity_cookie = self.client.get_cookie(
+                    app_module._DASHBOARD_IDENTITY_SWITCH_COOKIE
+                )
+                self.assertIsNotNone(identity_cookie)
+                self.assertLess(len(identity_cookie.value), 4093)
+                cookie_payload = app_module._dashboard_identity_switch_state_serializer().loads(
+                    identity_cookie.value,
+                    max_age=app_module._DASHBOARD_IDENTITY_SWITCH_MAX_AGE_SECONDS,
+                )
+                self.assertEqual(cookie_payload["o"], "ou_real_operator")
+                self.assertEqual(cookie_payload["u"], "ou_target")
+                self.assertEqual(cookie_payload["n"], "张三")
+                self.assertEqual(cookie_payload["d"], ["运营三部"])
+                with self.client.session_transaction() as flask_session:
+                    self.assertEqual(flask_session["feishu_user_name"], user_name)
+                    self.assertNotIn("permission_debug_user_name", flask_session)
+                    self.assertNotIn("permission_debug_user_open_id", flask_session)
+                    self.assertNotIn("permission_debug_departments", flask_session)
+                    self.assertNotIn("preloaded_functions", flask_session)
 
     def test_signed_switch_cookie_is_loaded_for_permission_checks(self):
         updated_at = "2026-09-03T20:00:00"

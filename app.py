@@ -19778,7 +19778,7 @@ def _permission_debug_available_departments():
     return sorted(list(names), key=lambda x: x)
 
 
-_DASHBOARD_IDENTITY_SWITCH_USER_NAMES = {'周俊成', '蔡晶'}
+_DASHBOARD_IDENTITY_SWITCH_USER_NAMES = {'周俊成', '蔡晶', '陈子烨'}
 _DASHBOARD_IDENTITY_SWITCH_COOKIE = 'dashboard_identity_switch'
 _DASHBOARD_IDENTITY_SWITCH_MAX_AGE_SECONDS = 24 * 60 * 60
 
