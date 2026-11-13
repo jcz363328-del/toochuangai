@@ -45,6 +45,7 @@ from tk_total_dashboard import tk_dashboard_bp, get_joint_dashboard_allowed_shop
 from tk_bd_metrics import bd_metrics_bp
 from department_permissions import permission_manager, require_permission, get_feishu_auth_url, FEISHU_CONFIG, \
     handle_feishu_event
+from department_permissions import is_local_superadmin
 from bjc import sf_db, dui_db
 from innovation.message_service import MessageService
 from innovation.pending_reminder import innovation_pending_reminder
@@ -4907,6 +4908,8 @@ def dev_login():
     }
 
     user_info = mock_users.get(user_type, mock_users['bd'])
+    if is_local_superadmin():
+        user_info = dict(mock_users['admin'], name='本地开发管理员')
     _safe_debug_print(f"📝 选择的用户信息: {user_info}")
 
     raw_name = user_info['name']
@@ -4934,6 +4937,11 @@ def dev_login():
 @app.before_request
 def check_feishu_user():
     """在每个请求前检查飞书用户身份"""
+    if is_local_superadmin():
+        session['feishu_user_id'] = 'dev_admin_user_001'
+        session['feishu_user_name'] = '本地开发管理员'
+        session['feishu_user_email'] = 'admin_test@company.com'
+        session['user_department'] = '总经办'
     middleware_started_at = time.perf_counter()
     if env("TC_BACKGROUND_JOBS", "1") == "1":
         try:
@@ -19817,6 +19825,8 @@ _DASHBOARD_IDENTITY_SWITCH_MAX_AGE_SECONDS = 24 * 60 * 60
 
 def _can_dashboard_switch_identity():
     """Only explicitly approved real Feishu users may impersonate another member."""
+    if is_local_superadmin() and session.get('feishu_user_id'):
+        return True
     if not str(session.get('feishu_user_id') or '').strip():
         return False
     real_user_name = _normalize_feishu_user_name(
@@ -21780,11 +21790,13 @@ def reauth():
 
 
 if __name__ == '__main__':
+    local_superadmin = env('TC_LOCAL_SUPERADMIN', '0') == '1'
+    app.config['LOCAL_SUPERADMIN_LOOPBACK_BOUND'] = local_superadmin
     debug_mode = str(os.environ.get("TC_FLASK_DEBUG", "")).strip().lower() in {"1", "true", "yes", "on"}
     if env("TC_BACKGROUND_JOBS", "1") == "1" and ((not debug_mode) or os.environ.get('WERKZEUG_RUN_MAIN') == 'true'):
         _start_xiaotu_report_reminder_thread_once()
         innovation_pending_reminder.start()
         tk_customer_service_tracking_reminder.start()
-    app.run(debug=debug_mode, host='0.0.0.0', port=8000, use_reloader=False)
+    app.run(debug=debug_mode, host='127.0.0.1' if local_superadmin else '0.0.0.0', port=8000, use_reloader=False)
 # 飞书原生视频消息接口的上传限制低于大文件上传需求，超过约 30MB 会被接口拒绝。
 FEISHU_NATIVE_VIDEO_MAX_BYTES = 30 * 1024 * 1024
