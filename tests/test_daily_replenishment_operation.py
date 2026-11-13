@@ -228,6 +228,20 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         self.assertEqual([["LOC", "SKU-A", 1]], scoped["sheets"]["库存明细"]["rows"])
         self.assertEqual({"0": {"4": "A"}}, scoped["sheets"][base.SHEET_NAME]["comments"])
 
+    def test_shared_snapshot_fallback_prefers_full_scope_snapshot(self):
+        snapshot_root = Path(self.temp_dir.name) / "_每日快照"
+        snapshot_root.joinpath("operator-a").mkdir(parents=True)
+        snapshot_root.joinpath("operator-b").mkdir(parents=True)
+        smaller = snapshot_root / "operator-a" / f"{date.today():%Y%m%d}日常补货运营.xlsx"
+        larger = snapshot_root / "operator-b" / f"{date.today():%Y%m%d}日常补货运营.xlsx"
+        smaller.write_bytes(b"small operator snapshot")
+        larger.write_bytes(b"full scope snapshot with more rows")
+
+        with app_module.app.app_context():
+            selected = operation.get_shared_today_snapshot()
+
+        self.assertEqual(larger, selected)
+
     def test_own_snapshot_is_still_filtered_for_current_operator(self):
         payload = {
             "sheets": {

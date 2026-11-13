@@ -468,8 +468,8 @@
                 <div class="dept-feature-icon">
                     <i class="fas fa-ship"></i>
                 </div>
-                <h3 class="text-center mb-3">FBA货件运输方式</h3>
-                <p class="text-muted text-center mb-4">查看FBA货件运输方式，支持店铺筛选、导入时间排序和异常标红</p>
+                <h3 class="text-center mb-3">FBA追踪码/IEN查询</h3>
+                <p class="text-muted text-center mb-4">查询FBA追踪码、IEN和物流单号，支持店铺筛选、导入时间排序和异常标红</p>
                 <div class="text-center">
                     <a href="{{ url_for('operation_fba_shipping_methods_page', source=dept_id) }}" class="dept-feature-btn">
                         <i class="fas fa-play"></i> 进入功能
@@ -713,7 +713,7 @@
             opsFbaState.loading = true;
             if (meta) meta.textContent = '正在加载数据...';
             if (wrap && !wrap.querySelector('.ops-fba-table')) {
-                wrap.innerHTML = '<div class="ops-fba-empty">正在加载FBA货件运输方式数据...</div>';
+                wrap.innerHTML = '<div class="ops-fba-empty">正在加载FBA追踪码/IEN数据...</div>';
             }
             try {
                 const params = new URLSearchParams();
