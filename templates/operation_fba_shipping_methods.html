@@ -152,6 +152,7 @@
             background: #fff;
         }
         .data-table {
+            table-layout: fixed;
             width: 100%;
             min-width: 1120px;
             border-collapse: separate;
@@ -176,7 +177,6 @@
         }
         .data-table td {
             color: #475569;
-            max-width: 280px;
             overflow: hidden;
             text-overflow: ellipsis;
             user-select: text;
@@ -187,27 +187,11 @@
             outline: 1px solid #2563eb;
             outline-offset: -1px;
         }
-        .data-table td.logistics-cell {
-            min-width: 360px;
-            max-width: 520px;
-            overflow: visible;
-            text-overflow: clip;
-            white-space: normal;
-            overflow-wrap: anywhere;
-            word-break: break-all;
-            user-select: text;
-            cursor: text;
-        }
         .data-table td.tracking-cell {
-            min-width: 300px;
-            max-width: 620px;
-            overflow: visible;
-            text-overflow: clip;
             white-space: normal;
             overflow-wrap: anywhere;
-            word-break: break-all;
-            user-select: text;
-            cursor: text;
+            overflow: visible;
+            text-overflow: clip;
         }
         .data-table tr:hover td { background: #f8fafc; }
         .data-table tr.is-warning td {
@@ -393,20 +377,25 @@
             }
 
             const thead = columns.map(function (col) {
-                return `<th>${opsFbaEscape(col.label || col.key)}</th>`;
+                const width = col.label === '亚马逊追踪码' ? ' style="width:20%"' : '';
+                return `<th${width}>${opsFbaEscape(col.label || col.key)}</th>`;
             }).join('');
             const tbody = items.map(function (item) {
                 const values = item.values || {};
                 const warningFields = item.warning_fields || {};
+                const rowDetails = columns.map(function (col) {
+                    const fullValue = values[col.key];
+                    return `${col.label || col.key}：${fullValue == null || fullValue === '' ? '—' : fullValue}`;
+                }).join('\n');
                 const cells = columns.map(function (col) {
                     const key = col.key;
                     const value = values[key] == null ? '' : values[key];
                     const warning = warningFields[key] || '';
                     const labelText = String(col.label || '');
                     const logisticsClass = /wuliu|物流/i.test(String(key)) || /物流单号/i.test(labelText) ? ' logistics-cell' : '';
-                    const trackingClass = /亚马逊追踪码/.test(labelText) ? ' tracking-cell' : '';
+                    const trackingClass = labelText === '亚马逊追踪码' ? ' tracking-cell' : '';
                     const cls = ` class="${warning ? 'is-warning-cell' : ''}${logisticsClass}${trackingClass}"`;
-                    const title = warning || value;
+                    const title = `${col.label || key}：${value === '' ? '—' : value}${warning ? '\n提示：' + warning : ''}\n\n该行详情\n${rowDetails}`;
                     return `<td${cls} title="${opsFbaEscape(title)}">${opsFbaEscape(value)}</td>`;
                 }).join('');
                 return `<tr class="${item.warning ? 'is-warning' : ''}">${cells}</tr>`;
