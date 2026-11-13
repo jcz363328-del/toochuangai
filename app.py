@@ -1043,7 +1043,7 @@ def _normalize_dashboard_functions(accessible_functions):
         ('operation_dept_3', '运营三部功能', '运营三部专属功能模块'),
         ('operation_dept_6', '运营六部功能', '运营六部专属功能模块'),
         ('operation_dept_7', '运营七部功能', '运营七部专属功能模块'),
-        ('operation_fba_shipping', 'FBA货件运输方式', '查看FBA货件运输方式、店铺筛选和异常信息'),
+        ('operation_fba_shipping', 'FBA追踪码/IEN查询', '查询FBA追踪码、IEN、物流单号和异常信息'),
         ('amazon_reply_agent', '亚马逊站内信回复智能体', '亚马逊站内信回复工具'),
         ('tech_dept', '技术部功能', '技术部专属功能模块'),
         ('visual_design_dept', '视觉设计部功能', '视觉设计部功能模块'),
@@ -17682,13 +17682,14 @@ def _fba_shipping_label(name):
         '运输方式': '运输方式',
         'xiaobaoguo': '小包裹',
         'wuliudanhao': '物流单号',
-        'huojiandanhao': '货件单号',
-        '货件单号': '货件单号',
+        'huojiandanhao': '亚马逊追踪码',
+        '货件单号': '亚马逊追踪码',
         'daorushijian': '导入时间',
         '导入时间': '导入时间',
         'daoruren': '导入人',
         '导入人': '导入人',
         'ien': 'IEN',
+        'huojiandanhaogeshu': '亚马逊追踪码个数',
         'sku': 'SKU',
         'beizhu': '备注',
         '备注': '备注',
@@ -17788,16 +17789,39 @@ def _fba_shipping_prepare_payload_item(row_item, columns, sea_col, cargo_col):
     warning_fields = {}
     shipping_text = values.get(sea_col, '') if sea_col else ''
     cargo_text = values.get(cargo_col, '') if cargo_col else ''
+    cargo_count = len([
+        part for part in re.split(r'[;,，；\s]+', cargo_text)
+        if part.strip()
+    ]) if cargo_text.strip() else 0
     if sea_col and cargo_col and '海运' in shipping_text and not cargo_text.strip():
-        warning_fields[sea_col] = '运输方式包含“海运”，但货件单号为空'
-        warning_fields[cargo_col] = '海运货件单号为空'
+        warning_fields[sea_col] = '运输方式包含“海运”，但亚马逊追踪码为空'
+        warning_fields[cargo_col] = '海运亚马逊追踪码为空'
     if cargo_col and _fba_shipping_is_scientific(cargo_text):
-        warning_fields[cargo_col] = '货件单号为科学计数法'
+        warning_fields[cargo_col] = '亚马逊追踪码为科学计数法'
     return {
         'values': values,
+        'cargo_count': cargo_count,
         'warning': bool(warning_fields),
         'warning_fields': warning_fields,
     }
+
+
+def _fba_shipping_response_columns(columns):
+    """Arrange the FBA query columns with tracking fields together and import time last."""
+    result = []
+    inserted = False
+    ien_col = _fba_shipping_pick_col(columns, ['ien', 'IEN'])
+    import_col = _fba_shipping_pick_col(columns, ['导入时间', 'DaoRuShiJian', 'daorushijian', 'import_time', 'shijian'])
+    for col in columns:
+        if import_col and col == import_col:
+            continue
+        result.append({'key': col, 'label': _fba_shipping_label(col)})
+        if ien_col and col == ien_col:
+            result.append({'key': '__cargo_count__', 'label': '亚马逊追踪码个数'})
+            inserted = True
+    if import_col:
+        result.append({'key': import_col, 'label': _fba_shipping_label(import_col)})
+    return result
 
 
 def _fba_shipping_sort_columns(columns):
@@ -17831,6 +17855,11 @@ def api_operation_fba_shipping_methods():
         seq_col, import_col = _fba_shipping_sort_columns(columns)
 
         where_parts = []
+        # IBR / OWS 开头的是内部货件记录，不在此页面展示。
+        if danhao_col:
+            where_parts.append(
+                f"LEFT(LTRIM(RTRIM(ISNULL(CAST({_fba_shipping_sql_ident(danhao_col)} AS NVARCHAR(200)), N''))), 3) NOT IN (N'IBR', N'OWS')"
+            )
         if dian_filter and dian_col:
             where_parts.append(
                 f"ISNULL(CAST({_fba_shipping_sql_ident(dian_col)} AS NVARCHAR(200)), N'') = N'{_fba_shipping_sql_text(dian_filter)}'"
@@ -17881,11 +17910,14 @@ def api_operation_fba_shipping_methods():
             _fba_shipping_prepare_payload_item(_fba_shipping_row_to_item(row, columns), columns, shipping_col, cargo_col)
             for row in rows
         ]
+        response_columns = _fba_shipping_response_columns(columns)
+        for item in items:
+            item['values']['__cargo_count__'] = item.pop('cargo_count', 0)
         total_pages = max((total + page_size - 1) // page_size, 1)
         return jsonify({
             'success': True,
             'data': {
-                'columns': [{'key': col, 'label': _fba_shipping_label(col)} for col in columns],
+                'columns': response_columns,
                 'items': items,
                 'page': page,
                 'page_size': page_size,

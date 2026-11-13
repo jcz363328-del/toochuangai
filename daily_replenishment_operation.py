@@ -209,13 +209,21 @@ def get_today_snapshot(*, user_name: str = "") -> Path | None:
 
 
 def get_shared_today_snapshot() -> Path | None:
-    """Return the newest existing snapshot for today when the current user has none."""
+    """Return the shared full-scope snapshot for today.
+
+    Per-operator snapshots are stored beside the shared snapshot.  Falling back
+    to the newest file can select another operator's small, already-filtered
+    workbook and leave the current operator with zero rows after authorization
+    filtering.  The full-scope workbook is the largest same-day snapshot in
+    this store, so use size as the stable full-scope signal and mtime only as a
+    tie-breaker.
+    """
     snapshot_root = get_output_dir() / "_每日快照"
     if not snapshot_root.is_dir():
         return None
     filename = f"{date.today():%Y%m%d}日常补货运营.xlsx"
     candidates = [path for path in snapshot_root.rglob(filename) if path.is_file()]
-    return max(candidates, key=lambda path: path.stat().st_mtime_ns) if candidates else None
+    return max(candidates, key=lambda path: (path.stat().st_size, path.stat().st_mtime_ns)) if candidates else None
 
 
 def _scope_snapshot_payload(payload: dict[str, Any], access: dict[str, Any]) -> dict[str, Any]:

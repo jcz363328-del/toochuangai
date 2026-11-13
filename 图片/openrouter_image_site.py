@@ -14560,7 +14560,7 @@ def inject_clipboard_paste_support() -> None:
             while (current && current !== hostDocument.body) {
               if (typeof current.querySelector === "function") {
                 const input = current.querySelector('input[type="file"]');
-                if (input && isVisible(input) && !input.disabled) {
+                if (input && input.isConnected && !input.disabled) {
                   return input;
                 }
               }
@@ -14571,7 +14571,10 @@ def inject_clipboard_paste_support() -> None:
 
           function getVisibleFileInputs() {
             return Array.from(hostDocument.querySelectorAll('input[type="file"]')).filter(function (input) {
-              return isVisible(input) && !input.disabled;
+              // Streamlit keeps the native file input visually hidden.  It is
+              // still the real upload target, so visibility must not be used
+              // to decide whether paste can target it.
+              return input && !input.disabled;
             });
           }
 
@@ -14581,11 +14584,22 @@ def inject_clipboard_paste_support() -> None:
               return active;
             }
             const remembered = hostWindow.__lashforgeLastUploaderInput;
-            if (remembered && isVisible(remembered) && !remembered.disabled) {
+            if (remembered && remembered.isConnected && !remembered.disabled) {
               return remembered;
             }
             const visibleInputs = getVisibleFileInputs();
-            return visibleInputs.length ? visibleInputs[0] : null;
+            if (visibleInputs.length) {
+              return visibleInputs[0];
+            }
+            // Some Streamlit versions render the input without the type
+            // attribute until the uploader receives focus. Find it by the
+            // uploader test id as a final fallback.
+            const zones = Array.from(hostDocument.querySelectorAll('[data-testid*="fileUploader"], [data-testid*="FileUploader"]'));
+            for (const zone of zones) {
+              const input = zone.querySelector('input');
+              if (input && !input.disabled) return input;
+            }
+            return null;
           }
 
           function showToast(message) {
