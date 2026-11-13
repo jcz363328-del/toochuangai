@@ -22,6 +22,21 @@ from tools import safe_print as _safe_print
 # 飞书应用配置
 FEISHU_CONFIG = dict(SECRET_FEISHU_CONFIG)
 
+
+def is_local_superadmin():
+    """Temporary request permission; never persist this grant to the database."""
+    from flask import current_app
+
+    return (
+        os.environ.get('TC_LOCAL_SUPERADMIN', '0') == '1'
+        and has_request_context()
+        and current_app.config.get('LOCAL_SUPERADMIN_LOOPBACK_BOUND') is True
+        and request.remote_addr in {'127.0.0.1', '::1'}
+        and request.host.split(':', 1)[0].lower() in {'127.0.0.1', 'localhost'}
+        and not any(request.headers.get(h) for h in
+                    ('Forwarded', 'X-Forwarded-For', 'X-Forwarded-Host', 'X-Real-IP'))
+    )
+
 # 部门ID映射配置 - 硬编码部门ID和名称的对应关系，避免频繁API调用
 DEPARTMENT_ID_MAPPING = {
     # 根据实际飞书组织架构配置部门ID和名称的映射关系
@@ -1823,6 +1838,8 @@ class FeishuPermissionManager:
 
     def check_user_permission(self, user_id, function_name):
         """按“部门优先、个人补充、子功能只向上点亮父级”检查权限。"""
+        if user_id and is_local_superadmin():
+            return True, '本地开发最高权限'
         function_name = str(function_name or "").strip()
         records = self.get_permission_records()
         if not records:
@@ -2065,6 +2082,13 @@ class FeishuPermissionManager:
         直接命中的子功能会向上补齐父级导航，但不会向下放开兄弟节点。
         """
         records = self.get_permission_records()
+        if user_id and is_local_superadmin():
+            return [
+                dict(function_name=name, name=row.get('name') or name,
+                     description=row.get('description') or '',
+                     reason='本地开发最高权限', is_parent_visibility=False)
+                for name, row in records.items() if name != '*'
+            ]
         if not records:
             return []
 
