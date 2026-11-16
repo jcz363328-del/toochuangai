@@ -15677,16 +15677,21 @@ def prepare_omnia_media_uploaded_input(
     if not image_bytes:
         raise RuntimeError("OmniaKey 输入图片为空，请重新上传。")
     limit = max(OMNIAKEY_INPUT_MIN_BUDGET_BYTES, int(max_bytes or 0))
-    if len(image_bytes) <= limit:
-        return normalized
-
     original_name = sanitize_file_name(str(normalized.get("name") or "omnia_input.png"))
     stem = Path(original_name).stem or "omnia_input"
     try:
         with Image.open(io.BytesIO(image_bytes)) as image:
+            image.load()
             working = ImageOps.exif_transpose(image)
             has_alpha = working.mode in {"RGBA", "LA"} or "transparency" in working.info
             working = working.convert("RGBA") if has_alpha else working.convert("RGB")
+            # Decode even small uploads: filenames and browser MIME types may
+            # disagree with the actual bytes. Emit a clean, explicit PNG first.
+            if max(working.size) <= OMNIAKEY_MAX_INPUT_IMAGE_EDGE:
+                canonical = io.BytesIO()
+                working.save(canonical, format="PNG")
+                if len(canonical.getvalue()) <= limit:
+                    return {"data": canonical.getvalue(), "name": f"{stem}_omnia.png", "type": "image/png"}
             if has_alpha:
                 background = Image.new("RGB", working.size, (255, 255, 255))
                 background.paste(working, mask=working.getchannel("A"))
@@ -15722,7 +15727,7 @@ def prepare_omnia_media_uploaded_input(
                     break
                 working = working.resize(next_size, Image.Resampling.LANCZOS)
     except Exception as exc:
-        raise RuntimeError(f"OmniaKey 输入图片自动压缩失败：{exc}") from exc
+        raise RuntimeError("OmniaKey 输入图片无法解码或转换，请重新导出为 PNG/JPEG 后上传。") from exc
 
     raise RuntimeError("OmniaKey 输入图片压缩后仍然超过 1MB 请求体上限，请降低图片尺寸后重试。")
 
@@ -15781,7 +15786,14 @@ def call_omnia_image_api(
         "prompt": enforce_global_no_distortion_rules(prompt),
     }
     if prepared_files:
-        task_input["images"] = [file_to_data_url(prepared_file) for prepared_file in prepared_files]
+        references = [
+            {"data": base64.b64encode(item["data"]).decode("ascii"), "mime_type": item["type"]}
+            for item in prepared_files
+        ]
+        if len(references) == 1:
+            task_input["image"] = references[0]
+        else:
+            task_input["images"] = references
     payload = {
         "model": omnia_model,
         "type": "image",
