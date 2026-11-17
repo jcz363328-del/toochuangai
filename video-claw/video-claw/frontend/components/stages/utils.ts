@@ -5,10 +5,12 @@
  */
 
 /** 将后端本地文件路径转换为浏览器可访问的 URL */
+import { apiUrl } from '@/lib/apiClient';
+
 export function assetUrl(path: string): string {
   if (!path) return '';
-  if (path.startsWith('http') || path.startsWith('/') || path.startsWith('blob:') || path.startsWith('data:')) return path;
-  return '/' + path;
+  if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+  return apiUrl(path.startsWith('/') ? path : '/' + path);
 }
 
 export function assetVersionLabel(path: string, index: number): string {

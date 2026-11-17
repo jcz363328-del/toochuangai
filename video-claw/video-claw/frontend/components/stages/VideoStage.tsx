@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/apiClient';
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Film, RefreshCw, ChevronLeft, ChevronRight, Loader, AlertCircle, AlertTriangle, Play, Edit2, Save, X } from 'lucide-react';
 import type { StageViewProps } from './types';
@@ -439,7 +441,7 @@ export default function VideoStage({ state, sessionId, onConfirm, onIntervene, o
 
     setSavingIds(prev => new Set(prev).add(clipId));
     try {
-      const response = await fetch(`/api/project/${sessionId}/artifact/video_generation`, {
+      const response = await apiFetch(`/api/project/${sessionId}/artifact/video_generation`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

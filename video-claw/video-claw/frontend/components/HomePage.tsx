@@ -1,5 +1,7 @@
 ﻿'use client';
 
+import { apiFetch } from '@/lib/apiClient';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Play, Settings2, Clock, ArrowRight, Zap, CheckCircle, Trash2, X, Lock, Globe, ListOrdered, Upload, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
@@ -145,7 +147,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
       setConfigLoading(true);
       setConfigError('');
       try {
-        const resp = await fetch('/api/config');
+        const resp = await apiFetch('/api/config');
         if (!resp.ok) throw new Error('读取默认模型配置失败');
         const data = await resp.json();
         const models = data.config?.models || {};
@@ -258,7 +260,7 @@ export default function HomePage({ onStartProject, onResumeProject, onDeleteSess
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/upload_file`, {
+      const response = await apiFetch('/api/upload_file', {
         method: 'POST',
         body: formData,
       });

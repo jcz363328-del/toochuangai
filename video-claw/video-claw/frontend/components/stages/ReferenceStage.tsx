@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/apiClient';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, RefreshCw, ChevronLeft, ChevronRight, Loader, AlertCircle, ZoomIn, ImagePlus, Edit2, Save, X, Upload } from 'lucide-react';
 import type { StageViewProps } from './types';
@@ -440,7 +442,7 @@ export default function ReferenceStage({ state, sessionId, onConfirm, onInterven
     setSavingIds(prev => new Set(prev).add(sceneId));
     try {
       // 调用后端 API 保存提示词
-      const response = await fetch(`/api/project/${sessionId}/artifact/reference_generation`, {
+      const response = await apiFetch(`/api/project/${sessionId}/artifact/reference_generation`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

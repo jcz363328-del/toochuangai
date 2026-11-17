@@ -1,3 +1,5 @@
+import { API_BASE, apiFetch } from '@/lib/apiClient';
+
 /**
  * 工作流 API 客户端
  */
@@ -7,7 +9,7 @@
  * the entire upstream response before forwarding, which breaks SSE real-time delivery.
  * Non-streaming endpoints can still go through the proxy (relative URL).
  */
-export const DIRECT_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+export const DIRECT_API_BASE = API_BASE;
 const STREAM_API_BASE = DIRECT_API_BASE;
 
 export interface StageInfo {
@@ -115,19 +117,19 @@ export interface StandardTemplateOption {
 }
 
 export async function fetchStages(): Promise<StageInfo[]> {
-  const resp = await fetch('/api/stages');
+  const resp = await apiFetch('/api/stages');
   const data = await resp.json();
   return data.stages;
 }
 
 export async function fetchSessions(): Promise<any[]> {
-  const resp = await fetch('/api/sessions');
+  const resp = await apiFetch('/api/sessions');
   const data = await resp.json();
   return data.sessions || [];
 }
 
 async function postPipelineTask(path: string, params: Record<string, any>): Promise<PipelineStartResponse> {
-  const resp = await fetch(path, {
+  const resp = await apiFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -152,27 +154,27 @@ export async function startDigitalHumanPipeline(params: Record<string, any>): Pr
 }
 
 export async function fetchPipelineTasks(limit = 100): Promise<PipelineTask[]> {
-  const resp = await fetch(`/api/tasks?limit=${limit}`);
+  const resp = await apiFetch(`/api/tasks?limit=${limit}`);
   if (!resp.ok) throw new Error('获取任务历史失败');
   const data = await resp.json();
   return data.tasks || [];
 }
 
 export async function fetchPipelineTask(taskId: string): Promise<PipelineTask> {
-  const resp = await fetch(`/api/tasks/${taskId}`);
+  const resp = await apiFetch(`/api/tasks/${taskId}`);
   if (!resp.ok) throw new Error('获取任务状态失败');
   return resp.json();
 }
 
 export async function fetchSandboxTasks(): Promise<SandboxTask[]> {
-  const resp = await fetch('/api/sandbox/tasks');
+  const resp = await apiFetch('/api/sandbox/tasks');
   if (!resp.ok) return [];
   const data = await resp.json();
   return data.tasks || [];
 }
 
 export async function clearTempCache(): Promise<{ status: string; deleted: number; freed_bytes?: number; freed_mb?: number; errors?: Array<{ path: string; error: string }> }> {
-  const resp = await fetch('/api/cache/temp', { method: 'DELETE' });
+  const resp = await apiFetch('/api/cache/temp', { method: 'DELETE' });
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ detail: '清空缓存失败' }));
     throw new Error(err.detail || '清空缓存失败');
@@ -181,7 +183,7 @@ export async function clearTempCache(): Promise<{ status: string; deleted: numbe
 }
 
 export async function deletePipelineTask(taskId: string): Promise<void> {
-  const resp = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+  const resp = await apiFetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
   if (!resp.ok) throw new Error('删除任务失败');
 }
 
@@ -196,14 +198,14 @@ export async function fetchApiModels(params: {
   if (params.modelType) search.set('model_type', params.modelType);
   if (params.ability) search.set('ability', params.ability);
   if (params.verifiedOnly) search.set('verified_only', 'true');
-  const resp = await fetch(`/api/models${search.toString() ? `?${search.toString()}` : ''}`);
+  const resp = await apiFetch(`/api/models${search.toString() ? `?${search.toString()}` : ''}`);
   if (!resp.ok) throw new Error('获取模型列表失败');
   const data = await resp.json();
   return data.models || [];
 }
 
 export async function fetchStandardTemplates(): Promise<StandardTemplateOption[]> {
-  const resp = await fetch('/api/pipelines/standard/templates');
+  const resp = await apiFetch('/api/pipelines/standard/templates');
   if (!resp.ok) throw new Error('获取模版列表失败');
   const data = await resp.json();
   return data.templates || [];
@@ -212,7 +214,7 @@ export async function fetchStandardTemplates(): Promise<StandardTemplateOption[]
 export async function uploadMedia(file: File): Promise<{ filename: string; file_path: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const resp = await fetch('/api/upload_media', {
+  const resp = await apiFetch('/api/upload_media', {
     method: 'POST',
     body: formData,
   });
@@ -234,7 +236,7 @@ export async function uploadArtifactImage(
   formData.append('item_type', itemType);
   formData.append('item_id', itemId);
   formData.append('file', file);
-  const resp = await fetch(`/api/project/${sessionId}/artifact/${stage}/upload_image`, {
+  const resp = await apiFetch(`/api/project/${sessionId}/artifact/${stage}/upload_image`, {
     method: 'POST',
     body: formData,
   });
@@ -286,7 +288,7 @@ export async function startProject(params: {
   expand_idea?: boolean;
   episodes?: number;
 }): Promise<{ session_id: string; status: string; params: any }> {
-  const resp = await fetch('/api/project/start', {
+  const resp = await apiFetch('/api/project/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -299,20 +301,20 @@ export async function startProject(params: {
 }
 
 export async function getProjectStatus(sessionId: string): Promise<ProjectStatus> {
-  const resp = await fetch(`/api/project/${sessionId}/status`);
+  const resp = await apiFetch(`/api/project/${sessionId}/status`);
   if (!resp.ok) throw new Error('Failed to get project status');
   return resp.json();
 }
 
 // 兼容旧路由名；后端实际会通过统一的 workflow state 入口返回状态。
 export async function getProjectStatusFromDisk(sessionId: string): Promise<any> {
-  const resp = await fetch(`/api/project/${sessionId}/status/from_disk`);
+  const resp = await apiFetch(`/api/project/${sessionId}/status/from_disk`);
   if (!resp.ok) throw new Error('Failed to get project status snapshot');
   return resp.json();
 }
 
 export async function getArtifact(sessionId: string, stage: string): Promise<any> {
-  const resp = await fetch(`/api/project/${sessionId}/artifact/${stage}`);
+  const resp = await apiFetch(`/api/project/${sessionId}/artifact/${stage}`);
   if (!resp.ok) throw new Error(`Artifact for stage '${stage}' not found`);
   return resp.json();
 }
@@ -323,7 +325,7 @@ export async function checkSceneAssets(sessionId: string, sceneNumber: number): 
   videos: number;
   shot_count: number;
 }> {
-  const resp = await fetch(`/api/project/${sessionId}/scene/${sceneNumber}/assets`);
+  const resp = await apiFetch(`/api/project/${sessionId}/scene/${sceneNumber}/assets`);
   if (!resp.ok) return { scene_number: sceneNumber, reference_images: 0, videos: 0, shot_count: 0 };
   return resp.json();
 }
@@ -334,7 +336,7 @@ export async function executeStage(
   inputData: Record<string, any> = {},
   signal?: AbortSignal,
 ): Promise<Response> {
-  return fetch(`${STREAM_API_BASE}/api/project/${sessionId}/execute/${stage}`, {
+  return apiFetch(`${STREAM_API_BASE}/api/project/${sessionId}/execute/${stage}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(inputData),
@@ -348,7 +350,7 @@ export async function intervene(
   modifications: Record<string, any>,
 ): Promise<Response> {
   // Use STREAM_API_BASE to bypass Next.js proxy (SSE endpoint)
-  return fetch(`${STREAM_API_BASE}/api/project/${sessionId}/intervene`, {
+  return apiFetch(`${STREAM_API_BASE}/api/project/${sessionId}/intervene`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ stage, modifications }),
@@ -356,7 +358,7 @@ export async function intervene(
 }
 
 export async function stopProject(sessionId: string): Promise<{ status: string }> {
-  const resp = await fetch(`/api/project/${sessionId}/stop`, {
+  const resp = await apiFetch(`/api/project/${sessionId}/stop`, {
     method: 'POST',
   });
   return resp.json();
@@ -366,7 +368,7 @@ export async function updateModels(
   sessionId: string,
   models: Partial<Record<string, string | boolean>>,
 ): Promise<{ status: string }> {
-  const resp = await fetch(`/api/project/${sessionId}/models`, {
+  const resp = await apiFetch(`/api/project/${sessionId}/models`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(models),
@@ -377,7 +379,7 @@ export async function updateModels(
 export async function deleteSession(
   sessionId: string,
 ): Promise<{ status: string }> {
-  const resp = await fetch(`/api/sessions/${sessionId}`, {
+  const resp = await apiFetch(`/api/sessions/${sessionId}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -393,7 +395,7 @@ export async function saveSelections(
   stage: string,
   selections: Record<string, any>,
 ): Promise<{ status: string }> {
-  const resp = await fetch(`/api/project/${sessionId}/artifact/${stage}`, {
+  const resp = await apiFetch(`/api/project/${sessionId}/artifact/${stage}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(selections),
@@ -403,7 +405,7 @@ export async function saveSelections(
 }
 
 export async function continueWorkflow(sessionId: string): Promise<{ status: string; next_stage?: string }> {
-  const resp = await fetch(`/api/project/${sessionId}/continue`, {
+  const resp = await apiFetch(`/api/project/${sessionId}/continue`, {
     method: 'POST',
   });
   return resp.json();

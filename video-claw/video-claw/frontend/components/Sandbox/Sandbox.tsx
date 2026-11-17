@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch, apiUrl } from '@/lib/apiClient';
+
 import { useState, useEffect, useRef, DragEvent } from 'react';
 import { Sparkles, Image, Video, MessageSquare, Zap, Loader2, Copy, Check, Trash2, X, FolderOpen, Upload, Globe, Hexagon } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
@@ -15,11 +17,11 @@ const toMediaUrl = (path: string) => {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
   // 相对路径添加 /code/ 前缀（result/xxx 格式）
   if (path.startsWith('result/')) {
-    return `/code/${path}`;
+    return apiUrl(`/code/${path}`);
   } else if (!path.startsWith('/code/')) {
-    return `/code/result/${path}`;
+    return apiUrl(`/code/result/${path}`);
   }
-  return path;
+  return apiUrl(path);
 };
 
 async function readJsonResponse(resp: Response) {
@@ -351,7 +353,7 @@ export default function SandboxPage() {
   // 获取历史记录
   const fetchHistory = async () => {
     try {
-      const resp = await fetch('/api/sandbox/history');
+      const resp = await apiFetch('/api/sandbox/history');
       const data = await readJsonResponse(resp);
       if (data.success) {
         setHistory(data.records);
@@ -456,7 +458,7 @@ export default function SandboxPage() {
   const deleteRecord = async (id: string) => {
     setDeleting(id);
     try {
-      const resp = await fetch(`/api/sandbox/history/${id}`, { method: 'DELETE' });
+      const resp = await apiFetch(`/api/sandbox/history/${id}`, { method: 'DELETE' });
       const data = await readJsonResponse(resp);
       if (data.success) {
         setHistory(history.filter(r => r.id !== id));
@@ -546,7 +548,7 @@ export default function SandboxPage() {
           break;
       }
 
-      const response = await fetch(apiUrl, {
+      const response = await apiFetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

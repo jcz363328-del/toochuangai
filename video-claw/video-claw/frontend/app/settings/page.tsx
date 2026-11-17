@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/apiClient';
+
 import { useEffect, useState } from 'react';
 import { CheckCircle, Loader2, Save, Settings, XCircle } from 'lucide-react';
 import BrandHeader from '@/components/BrandHeader';
@@ -192,7 +194,7 @@ export default function SettingsPage() {
       setLoading(true);
       setError('');
       try {
-        const resp = await fetch('/api/config');
+        const resp = await apiFetch('/api/config');
         if (!resp.ok) throw new Error('读取配置失败');
         const data = await resp.json();
         setConfig(data.config || {});
@@ -261,7 +263,7 @@ export default function SettingsPage() {
     setMessage('');
     setError('');
     try {
-      const resp = await fetch('/api/config', {
+      const resp = await apiFetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: config }),

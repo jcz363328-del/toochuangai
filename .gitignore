@@ -1,3 +1,7 @@
 # Ignore MacOS system files
 .DS_Store
 dev/
+
+# Local runtime binaries and logs
+/ffmpeg/
+*.log

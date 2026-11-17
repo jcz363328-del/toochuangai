@@ -1,5 +1,7 @@
 'use client';
 
+import { apiFetch } from '@/lib/apiClient';
+
 import React, { useState, useCallback } from 'react';
 import { Save, X, Users, MapPin, Film, Sparkles, BookOpen, Lightbulb, Target, User, Crosshair, RefreshCw, Palette, Edit3, Plus, Trash2 } from 'lucide-react';
 import type { StageViewProps } from './types';
@@ -144,7 +146,7 @@ export default function ScriptStage({ state, sessionId, onConfirm, onIntervene, 
 
   const patchScriptArtifact = async (patch: Record<string, any>) => {
     if (!sessionId) throw new Error('缺少会话 ID');
-    const response = await fetch(`/api/project/${sessionId}/artifact/script_generation`, {
+    const response = await apiFetch(`/api/project/${sessionId}/artifact/script_generation`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),

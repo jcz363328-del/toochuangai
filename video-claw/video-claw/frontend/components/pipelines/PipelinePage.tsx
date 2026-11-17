@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { apiUrl } from '@/lib/apiClient';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowRight,
@@ -343,7 +344,7 @@ function assetHref(path?: string) {
   if (/^(https?:|data:|file:)/.test(path)) return path;
   const marker = '/code/';
   const idx = path.indexOf(marker);
-  if (idx >= 0) return `/code/${path.slice(idx + marker.length)}`;
+  if (idx >= 0) return apiUrl(`/code/${path.slice(idx + marker.length)}`);
   return path;
 }
 
