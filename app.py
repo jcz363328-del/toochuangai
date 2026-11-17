@@ -6693,7 +6693,7 @@ def _xiaotu_build_missing_report_reminder_card(user_name, notify_time):
         "schema": "2.0",
         "config": {
             "update_multi": True,
-            "wide_screen_mode": True
+            "width_mode": "fill"
         },
         "header": {
             "template": "orange",
@@ -7693,7 +7693,7 @@ def _xiaotu_build_report_notify_card(title_text, person_type, pingjia_text, doc_
         "schema": "2.0",
         "config": {
             "update_multi": True,
-            "wide_screen_mode": True
+            "width_mode": "fill"
         },
         "header": {
             "template": str(header_template or "blue").strip() or "blue",
