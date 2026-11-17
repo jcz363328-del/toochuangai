@@ -82,3 +82,6 @@ Thumbs.db
 
 # Innovation reward UI asset
 !innovation/static/special_cash_reward_transparent.png
+
+# Runtime error payloads
+/logs/

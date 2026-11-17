@@ -52,8 +52,7 @@ class MainImageAPlusTests(unittest.TestCase):
 
         self.assertIn("allow_reorder=True", page_source)
         self.assertIn("按住图片左上角", uploader_source)
-        self.assertIn('addEventListener("dragstart"', sorter_source)
-        self.assertIn('addEventListener("drop"', sorter_source)
+        self.assertIn("upload_priority_sort.js", sorter_source)
         self.assertIn("UPLOAD_REORDER_QUERY_KEY", sorter_source)
 
     def test_upload_priority_token_round_trips_and_cache_order_is_persisted(self) -> None:

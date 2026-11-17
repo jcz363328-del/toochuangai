@@ -1,0 +1,13 @@
+{
+  "container": "toochuangai-single-app-1",
+  "component": "xiaoha",
+  "dependency": "streamlit-option-menu==0.4.0",
+  "before_sha256": "099b9962ba46349f659a5b768960cb1006ebd87076a02c44ec25152ad1b259a6",
+  "deployed_sha256": "9e86403d11679383942ff34e503cfdb57603487b21c1a239f345f6017f3fc84f",
+  "validation": [
+    "all services healthy",
+    "xiaoha RUNNING",
+    "HTTP 200 /lashforge/"
+  ],
+  "rollback_image": "toochuangai-single:before-sidebar-20261117"
+}

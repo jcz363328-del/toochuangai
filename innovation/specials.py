@@ -16,8 +16,13 @@ from innovation.special_support import (
     sql_int,
     sql_text,
     user_in_receiver_department,
+    special_permission_subject,
+    special_subject_in_departments,
+    user_can_view_special_drafts,
+    get_special_user_department,
 )
 from innovation.config import DEPARTMENTS
+from department_permissions import permission_manager
 from innovation.web_app import (
     _get_current_feishu_user_name,
     _innovation_has_permission,
@@ -81,13 +86,19 @@ def _current_user() -> dict[str, str]:
     return {
         'user_id': str(session.get('feishu_user_id') or '').strip(),
         'user_name': _get_current_feishu_user_name(),
-        'department': department,
+        'department': department or get_special_user_department(str(session.get('feishu_user_id') or '')),
         'avatar': str(session.get('feishu_avatar') or '').strip(),
     }
 
 
 def _is_manager() -> bool:
     return _innovation_has_permission(SPECIAL_MANAGE_PERMISSION)
+
+
+def _can_delete_special() -> bool:
+    """删除授权独立于专项管理权限，不向通用管理员放行。"""
+    name, _, _ = special_permission_subject()
+    return name in {'韩雅俊', '蔡晶'} or special_subject_in_departments(('流程与AI部',))
 
 
 def _format_datetime(value):
@@ -109,7 +120,7 @@ def _special_from_row(row):
         'nanti_miaoshu': str(row[3] or ''),
         'fabu_user_id': str(row[4] or ''),
         'fabu_user_name': str(row[5] or ''),
-        'fabu_bumen': str(row[6] or ''),
+        'fabu_bumen': str(row[6] or '').strip() or get_special_user_department(str(row[4] or '')),
         'chengjie_bumen': str(row[7] or ''),
         'zhuangtai': str(row[8] or ''),
         'zhuangtai_label': SPECIAL_STATUS_LABELS.get(str(row[8] or ''), str(row[8] or '')),
@@ -152,7 +163,7 @@ def _load_special(special_id: int):
             chuangjian_shijian, gengxin_shijian,
             (SELECT COUNT(1) FROM dbo.chuangxin_tibao1 t WHERE t.zhuanxiang_id = z.zhuanxiang_id) AS idea_count
         FROM dbo.chuangxin_zhuanxiang z
-        WHERE zhuanxiang_id = {int(special_id)}
+        WHERE zhuanxiang_id = {int(special_id)} AND zhuangtai <> 'yishanchu'
     """) or []
     return _special_from_row(rows[0]) if rows else None
 
@@ -185,6 +196,8 @@ def _fill_current_user_avatar(ideas: list[dict], user: dict[str, str] | None = N
 
 
 def _can_operate_special(special: dict) -> bool:
+    if special.get('zhuangtai') == 'caogao' and not user_can_view_special_drafts():
+        return False
     user = _current_user()
     return _is_manager() or (
         bool(user['user_id']) and user['user_id'] == special['fabu_user_id']
@@ -240,6 +253,7 @@ def specials_page():
         'specials.html',
         feishu_user_name=user['user_name'],
         is_special_manager=_is_manager(),
+        can_delete_special=_can_delete_special(),
         departments=DEPARTMENTS,
     )
 
@@ -250,7 +264,7 @@ def special_detail_page(special_id: int):
     special = _load_special(special_id)
     if not special:
         return render_template('special_detail.html', special=None, ideas=[], feishu_user_name=user['user_name']), 404
-    if special['zhuangtai'] == 'caogao' and not _can_operate_special(special):
+    if special['zhuangtai'] == 'caogao' and not user_can_view_special_drafts():
         return render_template('special_detail.html', special=None, ideas=[], feishu_user_name=user['user_name']), 403
     return render_template(
         'special_detail.html',
@@ -259,6 +273,7 @@ def special_detail_page(special_id: int):
         feishu_user_name=user['user_name'],
         can_operate=_can_review_special(special),
         can_manage=_can_operate_special(special),
+        can_delete_special=_can_delete_special(),
         departments=DEPARTMENTS,
     )
 
@@ -267,7 +282,7 @@ def get_specials():
     ensure_special_storage()
     manager = _is_manager()
     user = _current_user()
-    where_clause = '' if manager else "WHERE zhuangtai = 'yifabu'"
+    where_clause = "WHERE zhuangtai <> 'yishanchu'" if user_can_view_special_drafts() else "WHERE zhuangtai = 'yifabu'"
     rows = sf_db(f"""
         SELECT
             zhuanxiang_id, zhuanxiang_bianhao, biaoti, nanti_miaoshu,
@@ -294,14 +309,14 @@ def get_special_detail(special_id: int):
     special = _load_special(special_id)
     if not special:
         return jsonify({'success': False, 'message': '专项不存在'}), 404
-    if special['zhuangtai'] == 'caogao' and not _can_operate_special(special):
+    if special['zhuangtai'] == 'caogao' and not user_can_view_special_drafts():
         return jsonify({'success': False, 'message': '专项尚未发布'}), 403
     return jsonify({'success': True, 'data': {'special': special, 'ideas': _fill_current_user_avatar(_load_ideas(special_id), user)}})
 
 
 def create_special():
     ensure_special_storage()
-    if not _is_manager():
+    if not _is_manager() or not user_can_view_special_drafts():
         return jsonify({'success': False, 'message': '没有专项管理权限'}), 403
     user = _current_user()
     if not user['user_id'] or not user['user_name']:
@@ -339,6 +354,23 @@ def create_special():
         single=True,
     )
     return jsonify({'success': True, 'data': {'zhuanxiang_id': int(row)}}), 201
+
+
+def delete_special(special_id: int):
+    ensure_special_storage()
+    if not _can_delete_special():
+        return jsonify({'success': False, 'message': '没有专项删除权限'}), 403
+    special = _load_special(special_id)
+    if not special:
+        return jsonify({'success': False, 'message': '专项不存在'}), 404
+    dui_db(f"""
+        UPDATE dbo.chuangxin_zhuanxiang
+        SET zhuangtai = 'yishanchu', gengxin_shijian = SYSDATETIME()
+        WHERE zhuanxiang_id = {int(special_id)} AND zhuangtai <> 'yishanchu'
+    """)
+    logger.info('删除创新专项 special_id=%s user_id=%s user_name=%s',
+                special_id, session.get('feishu_user_id'), _get_current_feishu_user_name())
+    return jsonify({'success': True})
 
 
 def update_special(special_id: int):

@@ -7,6 +7,20 @@
 {% if not special %}
 <div class="alert alert-danger">专项不存在</div>
 {% else %}
+{% if can_delete_special %}
+<div class="text-end mb-3"><button type="button" class="btn btn-outline-danger" id="deleteSpecialButton">删除专项</button></div>
+<script>
+document.getElementById('deleteSpecialButton').addEventListener('click', async () => {
+    if (!window.confirm('确认删除这个专项吗？删除后将不再显示，已有提案和积分记录会保留。')) return;
+    try {
+        const response = await fetch('/innovation/api/specials/{{ special.zhuanxiang_id }}', {method: 'DELETE'});
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || '删除失败');
+        window.location.href = '/innovation/specials';
+    } catch (error) { window.alert(error.message || '删除失败'); }
+});
+</script>
+{% endif %}
 <style>
     .special-detail-page {
         --special-blue: #2563eb;

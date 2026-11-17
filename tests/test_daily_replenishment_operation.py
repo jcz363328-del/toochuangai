@@ -246,28 +246,29 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         self.assertIn("只有阅读权限", response.get_json()["message"])
 
     def test_refresh_job_runs_in_background_thread_with_app_context(self):
-        with patch.object(base, "resolve_source_path", return_value=None):
-            response = self.request("POST", "/api/ai/daily-replenishment-operation/refresh")
+        with patch.object(base, 'sf_db', return_value=[]):
+            with patch.object(base, "resolve_source_path", return_value=None):
+                response = self.request("POST", "/api/ai/daily-replenishment-operation/refresh")
 
-        self.assertEqual(202, response.status_code)
-        job_id = response.get_json()["jobId"]
+            self.assertEqual(202, response.status_code)
+            job_id = response.get_json()["jobId"]
 
-        payload = None
-        deadline = time.time() + 20
-        while time.time() < deadline:
-            status = self.request("GET", f"/api/ai/daily-replenishment-operation/refresh/{job_id}")
-            body = status.get_json()
-            if body.get("status") == "failed":
-                self.fail(f"刷新任务在后台线程失败：{body.get('message')}")
-            # 任务完成时该接口直接返回 payload 本身，没有 status 字段
-            if body.get("generation") and body.get("sheets"):
-                payload = body
-                break
-            time.sleep(0.05)
+            payload = None
+            deadline = time.time() + 20
+            while time.time() < deadline:
+                status = self.request("GET", f"/api/ai/daily-replenishment-operation/refresh/{job_id}")
+                body = status.get_json()
+                if body.get("status") == "failed":
+                    self.fail(f"刷新任务在后台线程失败：{body.get('message')}")
+                # 任务完成时该接口直接返回 payload 本身，没有 status 字段
+                if body.get("generation") and body.get("sheets"):
+                    payload = body
+                    break
+                time.sleep(0.05)
 
-        self.assertIsNotNone(payload, "刷新任务未在超时时间内完成")
-        self.assertTrue(payload.get("success"))
-        self.assertIn("FBA发货", payload["sheets"])
+            self.assertIsNotNone(payload, "刷新任务未在超时时间内完成")
+            self.assertTrue(payload.get("success"))
+            self.assertIn("FBA发货", payload["sheets"])
 
     def test_main_sheet_payload_preserves_excel_comments(self):
         main = build_sample_dataset()
@@ -301,7 +302,7 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         self.assertEqual([["LOC", "SKU-A", 1]], scoped["sheets"]["库存明细"]["rows"])
         self.assertEqual({"0": {"4": "A"}}, scoped["sheets"][base.SHEET_NAME]["comments"])
 
-    def test_shared_snapshot_fallback_prefers_full_scope_snapshot(self):
+    def test_shared_snapshot_does_not_guess_from_operator_file_sizes(self):
         snapshot_root = Path(self.temp_dir.name) / "_每日快照"
         snapshot_root.joinpath("operator-a").mkdir(parents=True)
         snapshot_root.joinpath("operator-b").mkdir(parents=True)
@@ -313,7 +314,7 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         with app_module.app.app_context():
             selected = operation.get_shared_today_snapshot()
 
-        self.assertEqual(larger, selected)
+        self.assertIsNone(selected)
 
     def test_own_snapshot_is_still_filtered_for_current_operator(self):
         payload = {

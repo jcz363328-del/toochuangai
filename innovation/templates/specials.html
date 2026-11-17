@@ -145,6 +145,7 @@
             window.location.href = `/innovation/specials/${event.target.dataset.specialId}`;
         }
     });
+    const canDelete = {{ 'true' if can_delete_special else 'false' }};
     const canManage = {{ 'true' if is_special_manager else 'false' }};
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -227,6 +228,7 @@
 
                         ${renderActivity(item)}
                         <div class="special-list-actions">
+                            ${canDelete ? `<button class="btn btn-outline-danger ms-2" onclick="deleteSpecial(${item.zhuanxiang_id})">删除</button>` : ''}
                             ${canManage && item.zhuangtai === 'caogao' ? `<button class="btn btn-primary" onclick="publishSpecial(${item.zhuanxiang_id})">发布</button>` : ''}
                         </div>
                     </div>
@@ -239,6 +241,16 @@
         const result = await response.json();
         if (!result.success) throw new Error(result.message || '专项加载失败');
         render(result.data || []);
+    };
+
+    window.deleteSpecial = async (specialId) => {
+        if (!window.confirm('确认删除这个专项吗？删除后将不再显示，已有提案和积分记录会保留。')) return;
+        try {
+            const response = await fetch(`/innovation/api/specials/${specialId}`, {method: 'DELETE'});
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '删除失败');
+            await load();
+        } catch (error) { window.alert(error.message || '删除失败'); }
     };
 
     window.publishSpecial = async (specialId) => {

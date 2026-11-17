@@ -264,3 +264,52 @@ def user_in_receiver_department(receiver_department: str, user_id: str) -> bool:
             pass
     return any(_same_department(name, target) for name in departments)
 
+
+
+def get_special_user_department(user_id: str) -> str:
+    """会话缺失或历史专项未保存部门时，从发起人的飞书组织信息补齐。"""
+    if not user_id:
+        return ''
+    try:
+        rows = permission_manager.get_user_departments(user_id) or []
+    except Exception:
+        return ''
+    return ', '.join(dict.fromkeys(
+        str(row.get('name') or '').strip() for row in rows
+        if isinstance(row, dict) and row.get('status') not in {'invalid', 'unmapped'}
+        and str(row.get('name') or '').strip()
+    ))
+
+
+def special_permission_subject():
+    """沿用权限系统的请求级切换身份，模拟状态覆盖真实姓名和部门。"""
+    debug_names = permission_manager._get_debug_departments_from_session()
+    debug_user = permission_manager._get_debug_user_from_session()
+    using_debug = bool(debug_names or debug_user.get('name') or debug_user.get('open_id'))
+    user_id = str(debug_user.get('open_id') or '') if using_debug else str(session.get('feishu_user_id') or '')
+    name = str(debug_user.get('name') or '') if using_debug else str(session.get('feishu_user_name') or '')
+    raw = debug_names if using_debug else session.get('user_department') or []
+    names = {str(item).strip() for item in (raw if isinstance(raw, (list, tuple, set)) else [raw]) if str(item).strip()}
+    rows = []
+    if user_id:
+        try:
+            rows = permission_manager.get_user_departments(user_id) or []
+        except Exception:
+            pass
+    rows = [row for row in rows if isinstance(row, dict) and row.get('status') not in {'invalid', 'unmapped'}]
+    names.update(str(row.get('name') or '').strip() for row in rows)
+    if using_debug and not user_id:
+        rows = permission_manager._resolve_effective_department_rows([], list(names), True)
+    return name.split('（', 1)[0].strip(), names, rows
+
+
+def special_subject_in_departments(roots) -> bool:
+    _, names, rows = special_permission_subject()
+    return any(_same_department(name, root) for name in names for root in roots) or any(
+        permission_manager._user_in_department_tree(rows, root) for root in roots
+    )
+
+
+def user_can_view_special_drafts() -> bool:
+    """草稿仅向流程与AI部、人力资源与行政部及其子部门开放。"""
+    return special_subject_in_departments(('流程与AI部', '人力资源与行政部'))

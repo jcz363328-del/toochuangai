@@ -1860,7 +1860,7 @@ FEATURES = [
     {
         "key": A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY,
         "name": "A+首屏卖点融合",
-        "summary": "保留首屏核心元素，把多张主图中的真实卖点融合为完整 A+ 长图",
+        "summary": "首屏原样保留，拆解卖点素材并统一设计整张 A+ 长图",
         "mode": "openrouter",
         "output_mode": "image",
         "min_images": 2,
@@ -1868,7 +1868,7 @@ FEATURES = [
         "max_output_images": 1,
         "target_size": (1464, 2400),
         "target_size_text": "",
-        "description": "第 1 张上传图作为不可改动的首屏底稿，后续上传主图只补充真实卖点；最终尺寸和比例跟随第 1 张图片。",
+        "description": "参考完整首屏统一设计，将后续素材中的真实卖点拆解后自由组合；程序保留首屏原始像素，最终尺寸和比例跟随底稿。",
         "default_prompt": (
             "请生成一张完整连续的电商 A+ 长图。输入图片中的第 1 张是最终首屏底稿，后续图片是同一商品的主图、细节图和卖点素材图。"
             "第 1 张图片的首屏区域必须作为不可编辑的原始画面完整保留：不得重绘、改字、调色、裁切、缩放、拉伸、移动、重排、替换或覆盖首屏中的人物、商品、包装、Logo、可读文案、主色、背景氛围、装饰语言、构图关系和视觉层级；用户补充要求明确指定删除或修改的文字、文案及其他元素时除外。"
@@ -11722,7 +11722,7 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
     return finalize_feature_job_result(job_context, merged_result, job_id)
 
 
-def detect_first_screen_fill_start(source: Image.Image) -> int:
+def _detect_solid_first_screen_fill_start(source: Image.Image) -> int:
     """Find a continuous, solid-color bottom canvas; fail closed without one."""
     rgb = source.convert("RGB")
     width, height = rgb.size
@@ -11738,6 +11738,82 @@ def detect_first_screen_fill_start(source: Image.Image) -> int:
                 raise RuntimeError("首屏底稿下方未检测到足够的纯色留白，请上传带下方留白的底稿。")
             return start
     raise RuntimeError("首屏底稿没有可识别的首屏内容，请检查上传图片。")
+
+
+def detect_first_screen_fill_bounds(source: Image.Image) -> tuple[int, int]:
+    best = (0, 0)
+    try:
+        best = (_detect_solid_first_screen_fill_start(source), source.height)
+    except RuntimeError:
+        pass
+    # Colored gradients, side borders and footer decorations are valid templates.
+    rgb = source.convert('RGB')
+    margin = max(1, rgb.width // 10)
+    center = rgb.crop((margin, 0, rgb.width - margin, rgb.height))
+    background = ImageStat.Stat(center.crop((0, rgb.height // 2, center.width, rgb.height))).median
+    start = None
+    for y in range(rgb.height):
+        row = ImageStat.Stat(center.crop((0, y, center.width, y + 1)))
+        blank = max(row.stddev) < 18 and max(abs(a-b) for a,b in zip(row.mean, background)) < 60
+        if blank and start is None:
+            start = y
+        if start is not None and (not blank or y == rgb.height - 1):
+            end = y if not blank else y + 1
+            if start >= rgb.height * .08 and end - start > best[1] - best[0]:
+                best = (start, end)
+            start = None
+    if best[1] - best[0] < max(16, round(rgb.height * .1)):
+        raise RuntimeError("无法自动确认下方填充区域，请填写“首屏保留高度”，指定从哪里开始填充；背景不限颜色。")
+    return best
+
+
+def detect_first_screen_fill_start(source: Image.Image) -> int:
+    return detect_first_screen_fill_bounds(source)[0]
+
+
+def build_first_screen_fill_mask(source: Image.Image, manual_start: int = 0) -> Image.Image:
+    """Grow the connected background into sloping/curved blank areas, preserving artwork."""
+    if manual_start:
+        if not 0 < manual_start < source.height:
+            raise RuntimeError("首屏保留高度必须小于底稿总高度。")
+        mask = Image.new('L', source.size, 0)
+        ImageDraw.Draw(mask).rectangle((0, manual_start, source.width-1, source.height-1), fill=255)
+        return mask
+    start, end = detect_first_screen_fill_bounds(source)
+    rgb = source.convert('RGB')
+    center_x, seed_y = source.width // 2, (start + end) // 2
+    background = rgb.getpixel((center_x, seed_y))
+    channels = [ImageChops.difference(channel, Image.new('L', rgb.size, color))
+                for channel, color in zip(rgb.split(), background)]
+    distance = ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2])
+    eligible = distance.point(lambda value: 255 if value <= 60 else 0)
+    # Do not cross footer artwork or wander into unrelated blank header margins.
+    ImageDraw.Draw(eligible).rectangle((0, 0, source.width-1, max(0, int(source.height*.08)-1)), fill=0)
+    if end < source.height:
+        ImageDraw.Draw(eligible).rectangle((0, end, source.width-1, source.height-1), fill=0)
+    ImageDraw.floodfill(eligible, (center_x, seed_y), 128, thresh=0)
+    mask = eligible.point(lambda value: 255 if value == 128 else 0)
+    # Once below the hero, the whole selling-point canvas is editable. Side
+    # textures and old footer artwork belong to that canvas, not the locked hero.
+    pixels = mask.load()
+    column_starts = []
+    for x in range(source.width):
+        first = next((y for y in range(int(source.height*.08), seed_y+1)
+                      if pixels[x,y]), None)
+        if first is not None:
+            column_starts.append(first)
+    full_width_start = max(start, max(column_starts, default=start))
+    ImageDraw.Draw(mask).rectangle((0, full_width_start, source.width-1, source.height-1), fill=255)
+    return mask
+
+
+def fit_selling_points_region(image: Image.Image, size: tuple[int, int], background) -> Image.Image:
+    """Keep all generated content, using clean color rather than sampled edge bands."""
+    image = ImageOps.exif_transpose(image).convert('RGBA')
+    fitted = ImageOps.contain(image, size, Image.Resampling.LANCZOS)
+    canvas = Image.new('RGBA', size, tuple(background) + (255,))
+    canvas.paste(fitted, ((size[0]-fitted.width)//2, (size[1]-fitted.height)//2))
+    return canvas
 
 
 def preserve_first_screen_pixels(image_url: str, uploaded_input: Any) -> str:
@@ -11756,46 +11832,95 @@ def preserve_first_screen_pixels(image_url: str, uploaded_input: Any) -> str:
     return image_bytes_to_data_url(output.getvalue(), "image/png")
 
 
+def selling_points_bottom_blank_fraction(image: Image.Image) -> float:
+    """Measure a large empty tail using the center, ignoring decorative side borders."""
+    rgb = image.convert('RGB')
+    margin = max(1,rgb.width//10)
+    small = rgb.crop((margin,0,rgb.width-margin,rgb.height)).resize((160,400))
+    blank = 0
+    for y in range(small.height-1,-1,-1):
+        if max(ImageStat.Stat(small.crop((0,y,small.width,y+1))).stddev) > 6:
+            break
+        blank += 1
+    return blank / small.height
+
+
+def request_selling_points_layout(model, prompt, inputs, size, background):
+    for attempt in range(2):
+        result = call_openrouter_images_api(
+            model=model, prompt=prompt, uploaded_files=inputs,
+            aspect_ratio=select_closest_aspect_ratio(size),
+            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+        )
+        valid = bool(result.get('images'))
+        for url in result.get('images') or []:
+            data, _ = load_image_bytes_from_url(url)
+            with Image.open(io.BytesIO(data)) as image:
+                candidate = fit_selling_points_region(image,size,background)
+                valid = valid and selling_points_bottom_blank_fraction(candidate) < .12
+        if valid:
+            return result
+        prompt += "\n质量修正：上一版底部留白过大。重新分配各卖点模块的大小与间距，覆盖至少88%的高度，末组信息接近底部且保持完整，禁止留下大块空尾。"
+    task_id = str((result.get('raw') or {}).get('id') or '')
+    raise RuntimeError(f"卖点排版检查未通过：底部留白过大，已自动重新排版一次。任务编号：{task_id or '未提供'}，请调整素材数量或输出高度后重试。")
+
+
 def run_first_screen_selling_points_job(job_context: dict[str, Any]) -> dict[str, Any]:
-    """Generate only the blank region; never send the hero to the image model."""
+    """Design in full-canvas context, then restore every protected original pixel."""
     files = list(job_context.get("uploaded_files") or [])
     if len(files) < 2:
         raise RuntimeError("请上传首屏底稿和至少一张卖点素材图。")
     with Image.open(io.BytesIO(get_uploaded_file_bytes(files[0]))) as image:
         source = ImageOps.exif_transpose(image).convert("RGBA")
-    start = detect_first_screen_fill_start(source)
-    region_size = (source.width, source.height - start)
-    background = tuple(int(v) for v in ImageStat.Stat(source.convert('RGB').crop(
-        (0, source.height - 1, source.width, source.height))).median)
+    manual_start = int(job_context.get('a_plus_first_screen_keep_height') or 0)
+    fill_mask = build_first_screen_fill_mask(source, manual_start)
+    bounds = fill_mask.getbbox()
+    if bounds is None:
+        raise RuntimeError("无法识别填充区域，请手动设置首屏保留高度。")
+    left, top, right, bottom = bounds
+    region_size = (right-left, bottom-top)
+    region_mask = fill_mask.crop(bounds)
+    # The tapered part is useful for visual continuity, but complete text needs
+    # a full-width safe area below the lowest protected edge.
+    safe_row = next((y for y in range(top,bottom)
+                     if fill_mask.crop((0,y,source.width,y+1)).getextrema() == (255,255)), bottom)
+    text_top = min(region_size[1]-1, safe_row-top + max(12,source.width//40))
+    background = tuple(int(v) for v in ImageStat.Stat(source.convert('RGB'), fill_mask).median)
     background_hex = '#%02x%02x%02x' % background
+    guide = source.crop(bounds).convert('RGB')
+    guide.paste((30,30,30), (0,0,*region_size), ImageChops.invert(region_mask))
+    guide_bytes = io.BytesIO()
+    guide.save(guide_bytes, format='PNG')
+    guide_input = {'data':guide_bytes.getvalue(), 'name':'fill-area-guide.png', 'type':'image/png'}
     prompt = (
-        f"只设计电商 A+ 长图下方的卖点区域，目标尺寸 {region_size[0]}×{region_size[1]}。"
-        f"底色统一为 {background_hex}，顶部从该纯色自然过渡到卖点内容。"
-        "首屏已由系统保留，不属于本次生成范围。只参考上传的卖点素材，不新增首屏、封面、人物主视觉或重复产品大海报。"
-        "将素材中真实存在的卖点、细节、规格和使用方式自由拆解组合，重新设计成一张连续的卖点信息区。"
+        f"为一张 {source.width}×{source.height} 的完整 A+ 长图设计后续卖点区域。本次只输出 {region_size[0]}×{region_size[1]} 的卖点画布，不输出整张长图或重复首屏。"
+        "第1张是完整底稿，仅供理解品牌、首屏构图与视觉衔接，首屏由系统原样保留，不要在本次输出中绘制其人物、标题和主视觉。"
+        "第2张是本次输出尺寸的可编辑区域示意图：深灰色区域最终会被原首屏遮住，其余部分才可设计；示意图仅用于理解边界，不得出现在成品中。"
+        f"关键安全区：输出画布从顶部到第 {text_top} 像素只安排背景、纹理和不承载重要信息的衔接装饰，禁止放标题、正文、对比标签或关键产品细节；完整信息从 y={text_top} 以下开始排版。"
+        "从第3张开始是卖点素材库，不是现成排版模板。"
+        f"以第1张首屏为整体设计的锚点，延续其品牌色、字体气质、装饰语言、光影和阅读动线；背景色参考 {background_hex}，允许协调的渐变或轻纹理。"
+        "沿示意图的斜线或曲线边界填满可用区域，禁止改为水平起排后留下三角形空白；"
+        "斜边附近可安排花纹、局部产品细节和视觉引导，完整标题和关键文字必须放在较宽的可用区域内，不能被遮罩截断。"
+        "先梳理全部素材中真实存在的独立卖点、产品细节、眼部对比、使用场景、规格和可读文案，去重后完整编入设计；不得无故丢失独立重要信息。"
+        "跨素材按语义去重：同一眼部特写不得在不同位置重复，一组Before/After只各用一张，不再额外加入同眼睛横幅；同一产品视角、长度规格组和使用场景组各出现一次，优先使用空间展示不同信息。首屏已经表达的主标题不在下方重复做第二个主视觉。"
+        "把这些元素从素材原海报中拆解出来，自由重组大小、位置、疏密和层级，允许创意穿插、错落和视觉呼应；不要沿用各素材原来的框架、边框和背景。"
+        "让首屏与卖点自然连成一张有创意的完整作品，重点内容完整清楚，边缘和转折衔接顺畅，不做几个独立海报的上下拼接。"
         "禁止整张参考海报照搬堆叠，禁止边框、斜纹装饰边、硬接缝和重复信息；不编造文案或参数。"
+        "卖点区的左右两侧和底部属于本次完整设计范围，必须干净连续，不复制素材海报的毛边、黑色碎条、残留字、旧页脚或重复Logo；禁止用镜像和拉伸纹理填充边缘。"
         "合理铺满整个目标区域，模块分布到接近底部，只保留适度呼吸空间，禁止底部大面积空白。"
         "不拉伸人物、商品或文字。以下补充要求仅适用于本次下方卖点区：\n"
         + str(job_context.get('a_plus_first_screen_requirements') or '')
     )
-    result = call_openrouter_images_api(
-        model=str(job_context['model']), prompt=prompt,
-        uploaded_files=files[1:], aspect_ratio=select_closest_aspect_ratio(region_size),
-        resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+    result = request_selling_points_layout(
+        str(job_context['model']), prompt, [files[0],guide_input,*files[1:]], region_size, background,
     )
     outputs = []
     for url in result.get('images') or []:
         data, _ = load_image_bytes_from_url(url)
         with Image.open(io.BytesIO(data)) as image:
-            region = fit_image_to_canvas_without_distortion(image.convert('RGBA'), *region_size).convert('RGBA')
-        # Blend only inside the editable area, leaving every hero pixel untouched.
-        blend_rows = min(16, region.height)
-        for y in range(blend_rows):
-            strip = region.crop((0, y, region.width, y + 1))
-            base = Image.new('RGBA', strip.size, background + (255,))
-            region.paste(Image.blend(base, strip, y / max(blend_rows - 1, 1)), (0, y))
+            designed = fit_selling_points_region(image, region_size, background)
         canvas = source.copy()
-        canvas.paste(region, (0, start))
+        canvas.paste(designed, (left,top), region_mask)
         buffer = io.BytesIO()
         canvas.save(buffer, format='PNG')
         outputs.append(image_bytes_to_data_url(buffer.getvalue(), 'image/png'))
@@ -12012,6 +12137,8 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
     if job_id:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
+    if feature_key == A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY:
+        return finalize_feature_job_result(job_context, run_hero_reverse_job(job_context), job_id)
     if (feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
             and job_context.get("a_plus_first_screen_workflow_stage") != "hero"):
         result = run_first_screen_selling_points_job(job_context)
@@ -12505,6 +12632,16 @@ def store_completed_background_job_result(
     job_info.pop("completion_start_progress", None)
     frontend_result = prepare_result_for_frontend(result)
     st.session_state.feature_results[feature_key] = frontend_result
+    if feature_key == A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY and result.get("hero_reverse_batch"):
+        state = st.session_state.setdefault("hero_style_reverse_state", {})
+        batches = state.setdefault("batches", [])
+        if not any(batch.get("job_id") == job_info.get("job_id") for batch in batches):
+            batch = dict(result["hero_reverse_batch"])
+            batch.update(images=list(frontend_result.get("images") or []),
+                         job_id=job_info.get("job_id"),
+                         label=f"第 {len(batches) + 1} 批 · {datetime.now().strftime('%m-%d %H:%M')}")
+            batches.append(batch)
+            state["pending_batch_reset"] = True
     if (
         feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
         and str(job_info.get("a_plus_first_screen_workflow_stage") or "") == "hero"
@@ -12914,16 +13051,12 @@ def inject_app_styles() -> None:
                 linear-gradient(90deg, #030816 0%, #071329 45%, #08152d 100%);
             color: #f5f7ff;
         }
-        [data-testid="stHeader"] {
-            display: none !important;
-            height: 0 !important;
-            min-height: 0 !important;
-        }
-        .stAppHeader {
-            display: none !important;
-            height: 0 !important;
-            min-height: 0 !important;
+        [data-testid="stHeader"], .stAppHeader {
             background: transparent;
+            pointer-events: none;
+        }
+        [data-testid="stHeader"] button {
+            pointer-events: auto;
         }
         [data-testid="stToolbar"],
         [data-testid="stDecoration"],
@@ -12935,9 +13068,11 @@ def inject_app_styles() -> None:
             display: none !important;
             visibility: hidden !important;
         }
-        [data-testid="collapsedControl"] {
-            display: none !important;
-            visibility: hidden !important;
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapsedControl"] {
+            display: flex !important;
+            visibility: visible !important;
+            color: #e1e5f5;
         }
         [data-testid="stAppViewContainer"] {
             padding-top: 0 !important;
@@ -12981,8 +13116,8 @@ def inject_app_styles() -> None:
             min-width: 0 !important;
         }
         [data-testid="stSidebar"] {
-            display: none !important;
-            visibility: hidden !important;
+            background: #080f23;
+            border-right: 1px solid rgba(169, 155, 255, 0.18);
         }
         [data-testid="stSidebarContent"] {
             padding: 0.75rem 0.8rem 0.7rem;
@@ -14896,123 +15031,10 @@ def inject_upload_drag_replace_support() -> None:
 
 
 def inject_upload_reorder_support() -> None:
-    components.html(
-        f"""
-        <script>
-        (function () {{
-          const hostWindow = window.parent;
-          const hostDocument = hostWindow && hostWindow.document;
-          const installVersion = "upload-priority-sort-v1";
-          if (!hostWindow || !hostDocument || hostWindow.__xiaohaUploadSortInstalled === installVersion) {{
-            return;
-          }}
-          hostWindow.__xiaohaUploadSortInstalled = installVersion;
-          let activeDrag = null;
+    script = (APP_DIR / "upload_priority_sort.js").read_text(encoding="utf-8")
+    script = script.replace("__UPLOAD_REORDER_QUERY_KEY__", UPLOAD_REORDER_QUERY_KEY)
+    components.html("<script>" + script + "</script>", height=0)
 
-          function clearDropZones() {{
-            hostDocument.querySelectorAll(".upload-sort-drop-zone").forEach((node) => node.remove());
-            hostDocument.querySelectorAll(".upload-sortable-item.upload-sort-dragging").forEach((node) => {{
-              node.classList.remove("upload-sort-dragging");
-            }});
-          }}
-
-          function encodePayload(payload) {{
-            const bytes = new hostWindow.TextEncoder().encode(JSON.stringify(payload));
-            let binary = "";
-            bytes.forEach((byte) => {{ binary += String.fromCharCode(byte); }});
-            return hostWindow.btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
-          }}
-
-          function commitReorder(widgetKey, sourceIndex, targetIndex) {{
-            if (sourceIndex === targetIndex) return;
-            const currentUrl = new URL(hostWindow.location.href);
-            currentUrl.searchParams.set(
-              "{UPLOAD_REORDER_QUERY_KEY}",
-              encodePayload({{
-                widget_key: widgetKey,
-                source_index: sourceIndex,
-                target_index: targetIndex,
-              }}),
-            );
-            hostWindow.location.href = currentUrl.toString();
-          }}
-
-          function showDropZones() {{
-            clearDropZones();
-            if (!activeDrag) return;
-            hostDocument.querySelectorAll('.upload-preview-root[data-upload-sortable="true"]').forEach((marker) => {{
-              if ((marker.dataset.uploadWidget || "") !== activeDrag.widgetKey) return;
-              const card = marker.closest('div[data-testid="stVerticalBlock"]');
-              if (!card) return;
-              const rect = card.getBoundingClientRect();
-              if (rect.width < 24 || rect.height < 24) return;
-              const targetIndex = Number(marker.dataset.uploadIndex || 0);
-              const zone = hostDocument.createElement("div");
-              zone.className = "upload-sort-drop-zone" + (targetIndex === activeDrag.sourceIndex ? " is-source" : "");
-              zone.style.left = `${{rect.left}}px`;
-              zone.style.top = `${{rect.top}}px`;
-              zone.style.width = `${{rect.width}}px`;
-              zone.style.height = `${{rect.height}}px`;
-              zone.textContent = targetIndex === activeDrag.sourceIndex ? "当前位置" : `放到优先级 ${{targetIndex + 1}}`;
-              zone.addEventListener("dragover", (event) => {{
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                zone.classList.add("is-target");
-              }});
-              zone.addEventListener("dragleave", () => zone.classList.remove("is-target"));
-              zone.addEventListener("drop", (event) => {{
-                event.preventDefault();
-                event.stopPropagation();
-                const payload = activeDrag;
-                clearDropZones();
-                activeDrag = null;
-                if (payload) commitReorder(payload.widgetKey, payload.sourceIndex, targetIndex);
-              }});
-              hostDocument.body.appendChild(zone);
-            }});
-          }}
-
-          function installSortHandles() {{
-            hostDocument.querySelectorAll('.upload-preview-root[data-upload-sortable="true"]').forEach((marker) => {{
-              const card = marker.closest('div[data-testid="stVerticalBlock"]');
-              if (!card || card.querySelector(":scope > .upload-sort-grip")) return;
-              const widgetKey = marker.dataset.uploadWidget || "";
-              const itemIndex = Number(marker.dataset.uploadIndex || 0);
-              card.classList.add("upload-sortable-item");
-              const grip = hostDocument.createElement("div");
-              grip.className = "upload-sort-grip";
-              grip.draggable = true;
-              grip.title = "拖拽调整图片参考优先级";
-              grip.innerHTML = '<span class="upload-sort-grip-icon">⠿</span><span>优先级 ' + (itemIndex + 1) + "</span>";
-              grip.addEventListener("dragstart", (event) => {{
-                activeDrag = {{ widgetKey, sourceIndex: itemIndex }};
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", JSON.stringify(activeDrag));
-                card.classList.add("upload-sort-dragging");
-                hostWindow.setTimeout(showDropZones, 0);
-              }});
-              grip.addEventListener("dragend", () => {{
-                activeDrag = null;
-                clearDropZones();
-              }});
-              card.appendChild(grip);
-            }});
-          }}
-
-          const observer = new hostWindow.MutationObserver(() => installSortHandles());
-          observer.observe(hostDocument.body, {{ childList: true, subtree: true }});
-          hostWindow.addEventListener("scroll", () => {{
-            if (activeDrag) showDropZones();
-          }}, true);
-          hostWindow.addEventListener("resize", () => {{
-            if (activeDrag) showDropZones();
-          }});
-          installSortHandles();
-        }})();
-        </script>
-        """,
-        height=0,
-    )
 
 
 def build_a_plus_first_screen_user_override(custom_prompt: str) -> str:
@@ -17643,6 +17665,7 @@ def render_uploaded_preview_card(
     component_key: str,
     preview_renderer: Any | None = None,
     allow_reorder: bool = False,
+    item_count: int = 1,
 ) -> None:
     preview_container = st.container()
     with preview_container:
@@ -17673,6 +17696,20 @@ def render_uploaded_preview_card(
                 fit_mode="contain",
                 max_width_percent=100,
             )
+        if allow_reorder and item_count > 1:
+            for column, label, target in zip(
+                st.columns(2), ("←前移", "后移→"), (item_index - 1, item_index + 1)
+            ):
+                with column:
+                    if st.button(
+                        label,
+                        key=f"reorder_{component_key}_{target}",
+                        disabled=not 0 <= target < item_count,
+                        use_container_width=True,
+                    ):
+                        reorder_upload_cache_item(widget_key, item_index, target)
+                        reset_upload_widget(widget_key)
+                        st.rerun()
         st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
         replacement_upload = st.file_uploader(
             "替换图片",
@@ -17723,6 +17760,7 @@ def render_uploaded_gallery(
                         component_key=f"upload_preview_{widget_key}_{item_index}",
                         preview_renderer=preview_renderer,
                         allow_reorder=allow_reorder,
+                        item_count=len(files),
                     )
     if empty_text:
         st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
@@ -18743,7 +18781,7 @@ def render_multi_image_uploader(
             allow_reorder=allow_reorder,
         )
         if allow_reorder and len(active_uploaded_files) > 1:
-            st.caption("按住图片左上角的“优先级”标签拖拽，即可调整生成时的参考顺序。")
+            st.caption("按住图片左上角的“优先级”标签拖拽，或点击前移/后移，调整生成时的参考顺序。")
     else:
         st.markdown(
             '<div class="upload-main-empty">'
@@ -21387,6 +21425,51 @@ def persist_hero_style_reverse_history(
     return records
 
 
+def save_hero_reverse_draft(field: str, widget_key: str) -> None:
+    state = st.session_state.setdefault("hero_style_reverse_state", {})
+    value = st.session_state.get(widget_key)
+    state.setdefault("draft", {})[field] = value
+    if field == "prompt":
+        state["prompt"] = str(value or "")
+
+
+def submit_hero_reverse_job(feature, prompt, references, count, ratio, width, height,
+                            parent="", parent_index=None):
+    state = st.session_state.setdefault("hero_style_reverse_state", {})
+    state["prompt"] = str(st.session_state.get(
+        f"hero_style_reverse_prompt_{feature['key']}") or state.get("prompt") or prompt)
+    return submit_feature_job(feature, {
+        "feature": dict(feature), "model": NANO_BANANA_MODEL,
+        "prompt": prompt, "uploaded_files": [normalize_uploaded_input(f) for f in references],
+        "output_mode": "image", "aspect_ratio": ratio,
+        "max_output_images": 1,
+        "account_name": str(st.session_state.get("auth_username") or "admin"),
+        "hero_reverse_count": count, "hero_reverse_size": [width or 0, height or 0],
+        "hero_reverse_parent": parent, "hero_reverse_parent_index": parent_index,
+    })
+
+
+def run_hero_reverse_job(context):
+    job_id = str(context.get("job_id") or "")
+    def report(done, total, produced):
+        if job_id:
+            set_task_progress(job_id, 10 + int(65 * done / max(total, 1)),
+                              f"已生成 {done}/{total} 张，共 {produced} 张结果")
+    images = generate_hero_style_reverse_images(
+        context["prompt"], context.get("uploaded_files") or [],
+        context["hero_reverse_count"], context["aspect_ratio"], report,
+    )
+    width, height = context["hero_reverse_size"]
+    if width:
+        images = [resize_hero_style_reverse_output(url, width, height or None) for url in images]
+    return {"images": images, "hero_reverse_batch": {
+        "prompt": context["prompt"], "aspect_ratio": context["aspect_ratio"],
+        "target_size": [width, height], "parent": context.get("hero_reverse_parent") or "",
+        "parent_index": context.get("hero_reverse_parent_index"),
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+    }}
+
+
 def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
     feature_key = str(feature.get("key") or A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY)
     if "hero_style_reverse_state" not in st.session_state:
@@ -21401,6 +21484,13 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
     use_ref_key = f"hero_style_reverse_use_ref_{feature_key}"
     batch_key = f"batch_select_{feature_key}"
 
+    draft = state.setdefault("draft", {})
+    for field, widget_key in (("extra", extra_key), ("refine", refine_key),
+                              ("count", count_key), ("width", width_key),
+                              ("height", height_key), ("use_ref", use_ref_key)):
+        if widget_key not in st.session_state and field in draft:
+            st.session_state[widget_key] = draft[field]
+
     if prompt_key not in st.session_state:
         st.session_state[prompt_key] = str(state.get("prompt") or "")
     pending_prompt = state.pop("pending_prompt", None)
@@ -21410,6 +21500,12 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
         st.session_state.pop(refine_key, None)
     if state.pop("pending_batch_reset", False):
         st.session_state.pop(batch_key, None)
+
+    job_info = st.session_state.get("background_jobs", {}).get(feature_key) or {}
+    if job_info.get("status") in {"queued", "running"}:
+        render_running_job_status(feature_key)
+    elif job_info.get("status") == "error":
+        st.error(str(job_info.get("error") or "生成失败，请重试。"))
 
     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
     st.markdown(
@@ -21433,6 +21529,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
         st.text_area(
             "补充要求（可选）",
             key=extra_key,
+            on_change=save_hero_reverse_draft, args=("extra", extra_key),
             height=86,
             placeholder="例如：保留人物姿势只换背景；希望更高级、更冷色调；必须出现大理石台面。",
         )
@@ -21477,6 +21574,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
         st.text_area(
             "生图提示词（可编辑）",
             key=prompt_key,
+            on_change=save_hero_reverse_draft, args=("prompt", prompt_key),
             height=230,
             placeholder="分析完成后自动填入，也可以手动编写或调整。",
         )
@@ -21511,6 +21609,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                 options=list(range(1, HERO_STYLE_REVERSE_MAX_COUNT + 1)),
                 value=2,
                 key=count_key,
+                on_change=save_hero_reverse_draft, args=("count", count_key),
             )
         )
         aspect_ratio = "4:3"
@@ -21523,6 +21622,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                 value=1464,
                 step=1,
                 key=width_key,
+                on_change=save_hero_reverse_draft, args=("width", width_key),
             )
         with size_col_height:
             target_height = st.number_input(
@@ -21532,6 +21632,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                 value=None,
                 step=1,
                 key=height_key,
+                on_change=save_hero_reverse_draft, args=("height", height_key),
                 placeholder="留空则自动计算",
             )
         if target_width and target_height:
@@ -21546,6 +21647,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
             "把参考图作为风格参考一起提交（更贴近原图的质感与色调）",
             value=True,
             key=use_ref_key,
+            on_change=save_hero_reverse_draft, args=("use_ref", use_ref_key),
         )
         generate_clicked = st.button(
             f"② 批量生成 {output_count} 张",
@@ -21561,62 +21663,11 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                 st.warning("参考图已被清空，请重新上传，或取消“把参考图作为风格参考”后再生成。")
             else:
                 reference_files = [reference_file] if (use_reference and reference_file is not None) else []
-                progress_bar = st.progress(0.0, text="准备生成…")
-
-                def _report_progress(done: int, total: int, produced: int) -> None:
-                    progress_bar.progress(
-                        min(max(done / max(total, 1), 0.0), 1.0),
-                        text=f"已生成 {done}/{total} 张，共拿到 {produced} 张结果…",
-                    )
-
-                with st.spinner("正在批量生成，请稍候…（每张约 30-90 秒）"):
-                    try:
-                        generated_images = generate_hero_style_reverse_images(
-                            prompt_to_use,
-                            reference_files,
-                            output_count,
-                            aspect_ratio,
-                            _report_progress,
-                        )
-                        if target_width:
-                            generated_images = [
-                                resize_hero_style_reverse_output(
-                                    image_url,
-                                    int(target_width),
-                                    int(target_height) if target_height else None,
-                                )
-                                for image_url in generated_images
-                            ]
-                    except Exception as exc:
-                        record_background_job_error(
-                            uuid4().hex, feature_key, "hero_style_reverse_generate", exc
-                        )
-                        st.error(f"批量生成失败：{format_user_facing_error_message(exc)}")
-                    else:
-                        persist_hero_style_reverse_history(
-                            feature,
-                            generated_images,
-                            prompt_to_use,
-                        )
-                        batches = list(state.get("batches") or [])
-                        batches.append(
-                            {
-                                "label": f"第 {len(batches) + 1} 批 · {datetime.now().strftime('%m-%d %H:%M')}",
-                                "images": generated_images,
-                                "prompt": prompt_to_use,
-                                "aspect_ratio": aspect_ratio,
-                                "target_size": [
-                                    int(target_width or 0),
-                                    int(target_height or 0),
-                                ],
-                                "created_at": datetime.now().isoformat(timespec="seconds"),
-                                "parent": "",
-                            }
-                        )
-                        state["batches"] = batches
-                        state["pending_refine_clear"] = True
-                        state["pending_batch_reset"] = True
-                        st.rerun()
+                submit_hero_reverse_job(
+                    feature, prompt_to_use, reference_files, output_count,
+                    aspect_ratio, int(target_width or 0), int(target_height or 0),
+                )
+                st.rerun()
 
     with right_col:
         st.markdown('<div class="result-block-title">⑤ 生成结果</div>', unsafe_allow_html=True)
@@ -21678,6 +21729,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
             st.text_area(
                 "二次优化要求",
                 key=refine_key,
+                on_change=save_hero_reverse_draft, args=("refine", refine_key),
                 height=96,
                 placeholder="例如：光影更通透、色温偏冷、背景换成大理石台面、人物表情更自然。",
             )
@@ -21708,55 +21760,13 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                     refine_target_size = list(current_batch.get("target_size") or [target_width or 0, target_height or 0])
                     refine_target_width = int(refine_target_size[0] or 0)
                     refine_target_height = int(refine_target_size[1] or 0) if len(refine_target_size) > 1 else 0
-                    refine_progress = st.progress(0.0, text="准备二次优化…")
-
-                    def _report_refine_progress(done: int, total: int, produced: int) -> None:
-                        refine_progress.progress(
-                            min(max(done / max(total, 1), 0.0), 1.0),
-                            text=f"已优化生成 {done}/{total} 张，共拿到 {produced} 张结果…",
-                        )
-
-                    with st.spinner("正在按二次优化要求生成…"):
-                        try:
-                            refined_images = generate_hero_style_reverse_images(
-                                refined_prompt,
-                                [refine_reference] if refine_reference is not None else [],
-                                refine_count,
-                                refine_ratio,
-                                _report_refine_progress,
-                            )
-                            if refine_target_width:
-                                refined_images = [
-                                    resize_hero_style_reverse_output(
-                                        image_url,
-                                        refine_target_width,
-                                        refine_target_height or None,
-                                    )
-                                    for image_url in refined_images
-                                ]
-                        except Exception as exc:
-                            st.error(f"二次优化生成失败：{format_user_facing_error_message(exc)}")
-                        else:
-                            persist_hero_style_reverse_history(
-                                feature,
-                                refined_images,
-                                refined_prompt,
-                            )
-                            batches.append(
-                                {
-                                    "label": f"第 {len(batches) + 1} 批 · 二次优化 · {datetime.now().strftime('%m-%d %H:%M')}",
-                                    "images": refined_images,
-                                    "prompt": refined_prompt,
-                                    "aspect_ratio": refine_ratio,
-                                    "target_size": [refine_target_width, refine_target_height],
-                                    "created_at": datetime.now().isoformat(timespec="seconds"),
-                                    "parent": current_batch.get("label") or "",
-                                    "parent_index": selected_index,
-                                }
-                            )
-                            state["batches"] = batches
-                            state["pending_batch_reset"] = True
-                            st.rerun()
+                    submit_hero_reverse_job(
+                        feature, refined_prompt,
+                        [refine_reference] if refine_reference is not None else [],
+                        refine_count, refine_ratio, refine_target_width, refine_target_height,
+                        parent=current_batch.get("label") or "", parent_index=selected_index,
+                    )
+                    st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
     render_history_records(feature)
@@ -23798,6 +23808,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             st.info(
                 "第 1 张图片作为首屏底稿原样保留；后续主图只提取真实卖点，尺寸和比例跟随第 1 张图片。"
             )
+            st.number_input(
+                "首屏保留高度（px，0 为自动识别）", min_value=0, max_value=30000,
+                value=0, step=1, key=f"first_screen_keep_height_{feature['key']}",
+                help="背景可以是粉色、渐变或带装饰。自动识别不准时，填写原图中首屏结束的位置；该位置以上保持不变。",
+            )
             st.markdown('<div class="panel-subtitle">补充要求（可选）</div>', unsafe_allow_html=True)
             a_plus_first_screen_selling_points_prompt = st.text_area(
                 "输入首屏与卖点融合补充要求",
@@ -25653,6 +25668,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "a_plus_first_screen_requirements": (
                         custom_prompt if supports_a_plus_first_screen_selling_points else ""
                     ),
+                    "a_plus_first_screen_keep_height": (
+                        int(st.session_state.get(f"first_screen_keep_height_{feature['key']}") or 0)
+                        if supports_a_plus_first_screen_selling_points else 0
+                    ),
                     "main_image_a_plus_template": (
                         prepare_uploaded_input(main_image_a_plus_template_file)
                         if supports_main_image_a_plus
@@ -25780,70 +25799,50 @@ def render_side_menu(current_feature: dict[str, Any] | None = None) -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.button(
-        "◀ 收起",
-        key="hide_side_menu",
-        use_container_width=True,
-        on_click=set_side_menu_visible,
-        args=(False,),
-    )
+    from streamlit_option_menu import option_menu
 
     visible_features = get_visible_features()
-    features_by_key = {
-        str(feature.get("key") or ""): feature for feature in visible_features
-    }
+    features_by_key = {str(feature["key"]): feature for feature in visible_features}
+    ordered_features = []
     grouped_keys: set[str] = set()
+    for _, feature_keys in SIDE_MENU_FEATURE_GROUPS:
+        for feature_key in feature_keys:
+            if feature_key in features_by_key and feature_key not in grouped_keys:
+                ordered_features.append(features_by_key[feature_key])
+                grouped_keys.add(feature_key)
+    ordered_features.extend(
+        feature for feature in visible_features if str(feature["key"]) not in grouped_keys
+    )
+    entries = [(str(feature["key"]), str(feature["name"])) for feature in ordered_features]
+    entries.append((XIAOHA_DASHBOARD_KEY, "数据看板"))
+    keys = [key for key, _ in entries]
+    labels = [label for _, label in entries]
     selected_key = str(st.session_state.selected_feature_key or "")
-    for group_name, feature_keys in SIDE_MENU_FEATURE_GROUPS:
-        group_features = [features_by_key[key] for key in feature_keys if key in features_by_key]
-        if not group_features:
-            continue
-        grouped_keys.update(str(feature.get("key") or "") for feature in group_features)
-        with st.expander(
-            group_name,
-            expanded=any(str(feature.get("key") or "") == selected_key for feature in group_features),
-        ):
-            for feature in group_features:
-                is_active = selected_key == feature["key"]
-                st.button(
-                    feature["name"],
-                    key=f"side_menu_feature_{feature['key']}",
-                    use_container_width=True,
-                    type="primary" if is_active else "secondary",
-                    on_click=select_feature,
-                    args=(feature["key"],),
-                )
+    selected_index = keys.index(selected_key) if selected_key in keys else 0
 
-    ungrouped_features = [
-        feature
-        for feature in visible_features
-        if str(feature.get("key") or "") not in grouped_keys
-    ]
-    if ungrouped_features:
-        with st.expander(
-            "其他功能",
-            expanded=any(str(feature.get("key") or "") == selected_key for feature in ungrouped_features),
-        ):
-            for feature in ungrouped_features:
-                is_active = selected_key == feature["key"]
-                st.button(
-                    feature["name"],
-                    key=f"side_menu_feature_{feature['key']}",
-                    use_container_width=True,
-                    type="primary" if is_active else "secondary",
-                    on_click=select_feature,
-                    args=(feature["key"],),
-                )
-    is_dashboard_active = st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY
-    with st.expander("状态与数据", expanded=is_dashboard_active):
-        st.button(
-            "数据看板",
-            key="side_menu_usage_dashboard",
-            use_container_width=True,
-            type="primary" if is_dashboard_active else "secondary",
-            on_click=select_feature,
-            args=(XIAOHA_DASHBOARD_KEY,),
-        )
+    def on_menu_change(widget_key: str) -> None:
+        selected_label = st.session_state.get(widget_key)
+        if selected_label in labels:
+            select_feature(keys[labels.index(selected_label)])
+
+    option_menu(
+        menu_title=None,
+        options=labels,
+        icons=["bar-chart-line" if key == XIAOHA_DASHBOARD_KEY else "image" for key in keys],
+        default_index=selected_index,
+        key="xiaoha_feature_navigation",
+        on_change=on_menu_change,
+        styles={
+            "container": {"padding": "0!important", "background-color": "#080f23"},
+            "icon": {"color": "#b8abff", "font-size": "17px"},
+            "nav-link": {
+                "font-size": "14px", "text-align": "left", "margin": "3px 0",
+                "padding": "10px 12px", "border-radius": "8px",
+                "color": "#e1e5f5", "--hover-color": "#20233e",
+            },
+            "nav-link-selected": {"background-color": "#6550d9", "color": "#ffffff"},
+        },
+    )
 
 
 def is_running_in_streamlit() -> bool:
@@ -25926,21 +25925,9 @@ def main() -> None:
             "Agent 参考图静态服务启动失败，当前图片上传到 Agent 可能无法使用。"
             f"{str(jimeng_static_server.get('error') or '').strip()}"
         )
-    if bool(st.session_state.get("side_menu_visible", True)):
-        menu_col, content_col = st.columns([0.55, 4.45], gap="small")
-        with menu_col:
-            render_side_menu(current_feature)
-    else:
-        st.markdown('<span class="collapsed-side-menu-marker"></span>', unsafe_allow_html=True)
-        st.button(
-            "▶",
-            key="show_side_menu",
-            help="显示功能栏",
-            on_click=set_side_menu_visible,
-            args=(True,),
-        )
-        content_col = st.container()
-    with content_col:
+    with st.sidebar:
+        render_side_menu(current_feature)
+    with st.container():
         if st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY:
             render_xiaoha_usage_dashboard()
         elif current_feature is not None:

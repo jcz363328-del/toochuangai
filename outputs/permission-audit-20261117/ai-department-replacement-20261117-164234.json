@@ -1,0 +1,389 @@
+{
+  "changes": [
+    {
+      "id": 103,
+      "function": "ads_monitor",
+      "before": "AI部；总经办",
+      "after": "流程与AI部；总经办"
+    },
+    {
+      "id": 105,
+      "function": "daily_replenishment_operation",
+      "before": "运营部；AI部；总经办",
+      "after": "运营部；流程与AI部；总经办"
+    },
+    {
+      "id": 107,
+      "function": "value_evaluation_admin",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 108,
+      "function": "video_claw",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 101,
+      "function": "business_analysis",
+      "before": "运营一部；运营二部；运营三部；运营六部；运营七部；AI部；总经办",
+      "after": "运营一部；运营二部；运营三部；运营六部；运营七部；流程与AI部；总经办"
+    },
+    {
+      "id": 26,
+      "function": "review_analysis",
+      "before": "运营部；技术部；AI部；总经办；研发部",
+      "after": "运营部；技术部；流程与AI部；总经办；研发部"
+    },
+    {
+      "id": 102,
+      "function": "business_analysis_all",
+      "before": "AI部；总经办",
+      "after": "流程与AI部；总经办"
+    },
+    {
+      "id": 27,
+      "function": "amazon_reply_agent",
+      "before": "运营部；AI部；总经办；亚马逊",
+      "after": "运营部；流程与AI部；总经办；亚马逊"
+    },
+    {
+      "id": 28,
+      "function": "tk_email_register",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；AI部；总经办；深圳团队；技术部",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；流程与AI部；总经办；深圳团队；技术部"
+    },
+    {
+      "id": 29,
+      "function": "tk_video_realtime",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；摄影部；AI部；总经办；财务部；深圳团队；技术部",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；摄影部；流程与AI部；总经办；财务部；深圳团队；技术部"
+    },
+    {
+      "id": 30,
+      "function": "tk_dashboard",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；AI部；总经办；财务部；深圳团队",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；流程与AI部；总经办；财务部；深圳团队"
+    },
+    {
+      "id": 31,
+      "function": "tk_total_dashboard",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；AI部；总经办；财务部；深圳团队",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；流程与AI部；总经办；财务部；深圳团队"
+    },
+    {
+      "id": 34,
+      "function": "tk_project_group",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 35,
+      "function": "warehouse_group",
+      "before": "仓储部；质检；文员；桌长；库管；AI部；总经办",
+      "after": "仓储部；质检；文员；桌长；库管；流程与AI部；总经办"
+    },
+    {
+      "id": 36,
+      "function": "general_office",
+      "before": "总经办；AI部",
+      "after": "总经办；流程与AI部"
+    },
+    {
+      "id": 37,
+      "function": "operation_dept_1",
+      "before": "运营一部；新人组；AI部；总经办",
+      "after": "运营一部；新人组；流程与AI部；总经办"
+    },
+    {
+      "id": 38,
+      "function": "operation_dept_2",
+      "before": "运营二部；新人组；AI部；总经办",
+      "after": "运营二部；新人组；流程与AI部；总经办"
+    },
+    {
+      "id": 39,
+      "function": "operation_dept_3",
+      "before": "运营三部；新人组；AI部；总经办",
+      "after": "运营三部；新人组；流程与AI部；总经办"
+    },
+    {
+      "id": 40,
+      "function": "operation_dept_6",
+      "before": "运营六部；新人组；AI部；总经办",
+      "after": "运营六部；新人组；流程与AI部；总经办"
+    },
+    {
+      "id": 41,
+      "function": "operation_dept_7",
+      "before": "运营七部；新人组；AI部；总经办",
+      "after": "运营七部；新人组；流程与AI部；总经办"
+    },
+    {
+      "id": 42,
+      "function": "procurement_dept",
+      "before": "采购部；AI部；总经办",
+      "after": "采购部；流程与AI部；总经办"
+    },
+    {
+      "id": 43,
+      "function": "rd_dept",
+      "before": "研发部；AI部；总经办",
+      "after": "研发部；流程与AI部；总经办"
+    },
+    {
+      "id": 44,
+      "function": "tech_dept",
+      "before": "技术部；AI部；总经办",
+      "after": "技术部；流程与AI部；总经办"
+    },
+    {
+      "id": 46,
+      "function": "photography_dept",
+      "before": "摄影部；AI部；总经办",
+      "after": "摄影部；流程与AI部；总经办"
+    },
+    {
+      "id": 47,
+      "function": "ai_dept",
+      "before": "AI部；总经办",
+      "after": "流程与AI部；总经办"
+    },
+    {
+      "id": 48,
+      "function": "finance_dept",
+      "before": "财务部；AI部；总经办",
+      "after": "财务部；流程与AI部；总经办"
+    },
+    {
+      "id": 49,
+      "function": "hr_admin_dept",
+      "before": "招聘配置；人才发展与培训；薪酬结效；招聘配置；员工关系；企业文化；行政部；HRBP；AI部；总经办",
+      "after": "招聘配置；人才发展与培训；薪酬结效；招聘配置；员工关系；企业文化；行政部；HRBP；流程与AI部；总经办"
+    },
+    {
+      "id": 50,
+      "function": "newcomer_group",
+      "before": "新人组；AI部；总经办",
+      "after": "新人组；流程与AI部；总经办"
+    },
+    {
+      "id": 51,
+      "function": "shenzhen_dept",
+      "before": "深圳团队；总经办；AI部；亚马逊",
+      "after": "深圳团队；总经办；流程与AI部；亚马逊"
+    },
+    {
+      "id": 52,
+      "function": "script_generator",
+      "before": "BD部；TK部门；TK直播部；短视频部；AI部；总经办；深圳团队",
+      "after": "BD部；TK部门；TK直播部；短视频部；流程与AI部；总经办；深圳团队"
+    },
+    {
+      "id": 53,
+      "function": "influencer_management",
+      "before": "BD部；TK部门；TK直播部；短视频部；AI部；总经办；深圳团队",
+      "after": "BD部；TK部门；TK直播部；短视频部；流程与AI部；总经办；深圳团队"
+    },
+    {
+      "id": 54,
+      "function": "model_library",
+      "before": "用户体验与运营部；AI部；总经办",
+      "after": "用户体验与运营部；流程与AI部；总经办"
+    },
+    {
+      "id": 56,
+      "function": "admin_functions",
+      "before": "总经办；AI部",
+      "after": "总经办；流程与AI部"
+    },
+    {
+      "id": 57,
+      "function": "performance_monitor",
+      "before": "AI部；总经办",
+      "after": "流程与AI部；总经办"
+    },
+    {
+      "id": 60,
+      "function": "tk_invite_monitor",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 61,
+      "function": "tk_monthly_target_import",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 62,
+      "function": "tk_bd_metrics",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 63,
+      "function": "tk_bd_metrics_import",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 64,
+      "function": "tk_gmv_ratio",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 65,
+      "function": "tk_gmv_authorization",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 66,
+      "function": "tk_project_seedance",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 67,
+      "function": "tk_dashboard_legacy",
+      "before": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；AI部；总经办；财务部；亚马逊",
+      "after": "内容生产工厂；TK部门；TK直播部；BD部；短视频部；客服；产品&店铺运营；新人组；流程与AI部；总经办；财务部；亚马逊"
+    },
+    {
+      "id": 100,
+      "function": "listing_agent_aba_import",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 80,
+      "function": "innovation_star_manage",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 82,
+      "function": "operation_fba_shipping",
+      "before": "运营一部；运营二部；运营三部；运营六部；运营七部；新人组；AI部；总经办",
+      "after": "运营一部；运营二部；运营三部；运营六部；运营七部；新人组；流程与AI部；总经办"
+    },
+    {
+      "id": 83,
+      "function": "tk_joint_shop_82",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 84,
+      "function": "tk_joint_shop_88",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 85,
+      "function": "tk_joint_shop_90",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 86,
+      "function": "tk_joint_shop_87",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 87,
+      "function": "tk_joint_shop_89",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 88,
+      "function": "tk_joint_shop_91",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 89,
+      "function": "tk_joint_shop_92",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 90,
+      "function": "tk_joint_shop_93",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 91,
+      "function": "tk_joint_shop_95",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 92,
+      "function": "tk_joint_shop_96",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 93,
+      "function": "tk_joint_shop_106",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 94,
+      "function": "tk_joint_shop_97",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 95,
+      "function": "tk_joint_shop_101",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 96,
+      "function": "tk_joint_shop_84",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 97,
+      "function": "tk_joint_shop_107",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 98,
+      "function": "tk_joint_shop_108",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 99,
+      "function": "tk_joint_shop_109",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 104,
+      "function": "daily_replenishment",
+      "before": "AI部",
+      "after": "流程与AI部"
+    },
+    {
+      "id": 111,
+      "function": "daily_replenishment_tiktok",
+      "before": "运营部；AI部；总经办",
+      "after": "运营部；流程与AI部；总经办"
+    }
+  ],
+  "remaining_old_department": []
+}

@@ -81,15 +81,9 @@ def main() -> None:
         (item for item in visible if item["key"] == st.session_state.selected_feature_key),
         site.get_feature_by_key("hd_batch"),
     )
-    if st.session_state.get("side_menu_visible", True):
-        menu_col, content_col = st.columns([0.55, 4.45], gap="small")
-        with menu_col:
-            site.render_side_menu(feature)
-    else:
-        st.markdown('<span class="collapsed-side-menu-marker"></span>', unsafe_allow_html=True)
-        st.button("▶", key="show_side_menu", on_click=site.set_side_menu_visible, args=(True,))
-        content_col = st.container()
-    with content_col:
+    with st.sidebar:
+        site.render_side_menu(feature)
+    with st.container():
         site.render_openrouter_feature(feature, model=site.DEFAULT_MODEL, aspect_ratio=site.DEFAULT_ASPECT_RATIO)
 
 

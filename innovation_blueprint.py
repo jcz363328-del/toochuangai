@@ -28,7 +28,7 @@ from innovation.web_app import (
 from innovation.specials import (
     specials_page, special_detail_page,
     get_specials, get_special_detail,
-    create_special, update_special, publish_special, close_special,
+    create_special, update_special, publish_special, close_special, delete_special,
     submit_special_idea, review_special_idea,
     adopt_special_idea, reject_special_idea,
 )
@@ -130,6 +130,11 @@ def innovation_create_special():
 @innovation_bp.route('/api/specials/<int:special_id>', methods=['GET'])
 def innovation_get_special_detail(special_id):
     return get_special_detail(special_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>', methods=['DELETE'])
+def innovation_delete_special(special_id):
+    return delete_special(special_id)
 
 
 @innovation_bp.route('/api/specials/<int:special_id>', methods=['PUT'])

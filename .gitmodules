@@ -1,0 +1,8 @@
+[submodule "VideoClaw"]
+	path = VideoClaw
+	url = https://github.com/jcz363328-del/toochuangai.git
+	branch = codex/vendor-videoclaw
+[submodule "infinite-canvas"]
+	path = 无限画布/infinite-canvas
+	url = https://github.com/jcz363328-del/toochuangai.git
+	branch = codex/vendor-infinite-canvas

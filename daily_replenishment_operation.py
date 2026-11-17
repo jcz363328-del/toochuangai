@@ -217,21 +217,13 @@ def get_today_snapshot(*, user_name: str = "") -> Path | None:
 
 
 def get_shared_today_snapshot() -> Path | None:
-    """Return the shared full-scope snapshot for today.
+    """仅使用明确标记的全量共享快照，不从个人快照猜测全量数据。"""
+    path = get_output_dir() / '_每日快照' / '_shared_full_v1' / f'{date.today():%Y%m%d}日常补货运营.xlsx'
+    return path if path.is_file() else None
 
-    Per-operator snapshots are stored beside the shared snapshot.  Falling back
-    to the newest file can select another operator's small, already-filtered
-    workbook and leave the current operator with zero rows after authorization
-    filtering.  The full-scope workbook is the largest same-day snapshot in
-    this store, so use size as the stable full-scope signal and mtime only as a
-    tie-breaker.
-    """
-    snapshot_root = get_output_dir() / "_每日快照"
-    if not snapshot_root.is_dir():
-        return None
-    filename = f"{date.today():%Y%m%d}日常补货运营.xlsx"
-    candidates = [path for path in snapshot_root.rglob(filename) if path.is_file()]
-    return max(candidates, key=lambda path: (path.stat().st_size, path.stat().st_mtime_ns)) if candidates else None
+
+def get_shared_snapshot_path() -> Path:
+    return get_output_dir() / '_每日快照' / '_shared_full_v1' / f'{date.today():%Y%m%d}日常补货运营.xlsx'
 
 
 def _scope_snapshot_payload(payload: dict[str, Any], access: dict[str, Any]) -> dict[str, Any]:
@@ -377,10 +369,14 @@ def _save_snapshot_quantity_changes(
 
 
 def _resolve_snapshot_for_user(user_name: str) -> tuple[Path | None, bool]:
+    shared = get_shared_today_snapshot()
+    if shared is None:
+        return None, True
     own = get_today_snapshot(user_name=user_name)
-    if own is not None:
+    # 只保留基于本轮全量快照之后的个人订货量修改。
+    if own is not None and own.stat().st_mtime_ns > shared.stat().st_mtime_ns:
         return own, False
-    return get_shared_today_snapshot(), True
+    return shared, True
 
 
 def _settings(source: Path | None = None, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -591,7 +587,7 @@ def cache_snapshot_payload(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _snapshot_payload(path: Path | None = None, *, user_name: str = "") -> dict[str, Any]:
-    snapshot = path or get_today_snapshot(user_name=user_name)
+    snapshot = path or _resolve_snapshot_for_user(user_name)[0]
     if snapshot is None:
         return {"available": False, "date": date.today().isoformat()}
     stat = snapshot.stat()
@@ -630,7 +626,7 @@ def page():
     stores = set(access["read_stores"])
     snapshot_path, is_shared = _resolve_snapshot_for_user(user_name)
     snapshot_meta = _snapshot_payload(snapshot_path, user_name=user_name)
-    snapshot_meta["download_available"] = not is_shared
+    snapshot_meta["download_available"] = snapshot_path is not None
     _attach_client_cache_meta(snapshot_meta, snapshot_path, user_name, access)
     response = current_app.make_response(
         render_template(
@@ -654,7 +650,7 @@ def page():
 def refresh():
     try:
         user_name = _current_user_name()
-        scoped_executor, access = scoped_query_executor(user_name)
+        _, access = scoped_query_executor(user_name)
         if not access["can_write"]:
             return jsonify({"success": False, "message": "当前用户在 DianQuanXian 中只有阅读权限，不能生成或刷新"}), 403
         stores = set(access["read_stores"])
@@ -690,13 +686,21 @@ def refresh():
                     with _refresh_jobs_lock:
                         _refresh_jobs[job_id]["status"] = "running"
                     with _refresh_lock:
-                        dataset = generate_operation_dataset(source, query_executor=scoped_executor, overrides=overrides)
-                        snapshot = save_operation_workbook(dataset, get_snapshot_path(user_name=user_name))
-                    payload = _sheet_payload(dataset)
+                        dataset = generate_operation_dataset(source, query_executor=base.sf_db, overrides=overrides)
+                        snapshot = get_shared_snapshot_path()
+                        staging = snapshot.with_name(f'.{uuid.uuid4().hex}.xlsx')
+                        try:
+                            save_operation_workbook(dataset, staging)
+                            os.replace(staging, snapshot)
+                        finally:
+                            staging.unlink(missing_ok=True)
+                        payload = _sheet_payload(dataset)
+                        cache_snapshot_payload(snapshot, payload)
                     snapshot_meta = _snapshot_payload(snapshot, user_name=user_name)
+                    payload = _scope_snapshot_payload(payload, access)
+                    snapshot_meta['download_available'] = True
                     _attach_client_cache_meta(snapshot_meta, snapshot, user_name, access)
                     payload.update(success=True, stores=sorted(stores), snapshot=snapshot_meta)
-                    cache_snapshot_payload(snapshot, payload)
                 with _refresh_jobs_lock:
                     _refresh_jobs[job_id].update(status="completed", payload=payload)
             except Exception as exc:
@@ -722,7 +726,10 @@ def refresh_status(job_id):
             return jsonify({"success": False, "message": "刷新任务不存在"}), 404
         result = dict(job)
     if result.get("status") == "completed":
-        return jsonify(result["payload"])
+        _, access = scoped_query_executor(_current_user_name())
+        payload = _scope_snapshot_payload(result["payload"], access)
+        payload['stores'] = sorted(access['read_stores'])
+        return jsonify(payload)
     return jsonify({"success": result.get("status") != "failed", "status": result.get("status"), "message": result.get("message", "")})
 
 
@@ -740,7 +747,7 @@ def data():
     # File ownership only selects a cache candidate; it must not grant data scope.
     payload = _scope_snapshot_payload(payload, access)
     snapshot_meta = _snapshot_payload(snapshot, user_name=user_name)
-    snapshot_meta["download_available"] = not is_shared
+    snapshot_meta["download_available"] = True
     _attach_client_cache_meta(snapshot_meta, snapshot, user_name, access)
     payload.update(success=True, stores=sorted(stores), snapshot=snapshot_meta)
     return jsonify(payload)
@@ -995,11 +1002,29 @@ def update_order_quantities():
 @require_permission(PERMISSION_NAME)
 def download():
     user_name = _current_user_name()
-    scoped_query_executor(user_name)
-    snapshot = get_today_snapshot(user_name=user_name)
+    _, access = scoped_query_executor(user_name)
+    snapshot, _ = _resolve_snapshot_for_user(user_name)
     if snapshot is None:
         return jsonify({"success": False, "message": "今日快照尚未生成"}), 404
-    return send_file(snapshot, as_attachment=True, download_name=snapshot.name)
+    from io import BytesIO
+    from openpyxl import Workbook
+    payload = _scope_snapshot_payload(load_snapshot_cached(snapshot), access)
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    for name, sheet in (payload.get('sheets') or {}).items():
+        ws = workbook.create_sheet(name)
+        for column, value in enumerate(sheet.get('columns') or [], 1):
+            base._write_literal(ws.cell(1, column), value)
+        for index, row in enumerate(sheet.get('rows') or [], 2):
+            for column, value in enumerate(row, 1):
+                base._write_literal(ws.cell(index, column), value)
+        base._style_worksheet(ws, len(sheet.get('rows') or []) + 1, len(sheet.get('columns') or []))
+    stream = BytesIO()
+    workbook.save(stream)
+    workbook.close()
+    stream.seek(0)
+    return send_file(stream, as_attachment=True, download_name=snapshot.name,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', max_age=0)
 
 
 # ---------------------------------------------------------------- 采购计划导入模板

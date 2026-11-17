@@ -1,0 +1,183 @@
+--- 
+
++++ 
+
+@@ -13052,14 +13052,10 @@
+
+             color: #f5f7ff;
+         }
+-        [data-testid="stHeader"] {
+-            display: none !important;
+-            height: 0 !important;
+-            min-height: 0 !important;
+-        }
+-        .stAppHeader {
+-            display: none !important;
+-            height: 0 !important;
+-            min-height: 0 !important;
++        [data-testid="stHeader"], .stAppHeader {
+             background: transparent;
++            pointer-events: none;
++        }
++        [data-testid="stHeader"] button {
++            pointer-events: auto;
+         }
+         [data-testid="stToolbar"],
+@@ -13073,7 +13069,9 @@
+
+             visibility: hidden !important;
+         }
+-        [data-testid="collapsedControl"] {
+-            display: none !important;
+-            visibility: hidden !important;
++        [data-testid="collapsedControl"],
++        [data-testid="stSidebarCollapsedControl"] {
++            display: flex !important;
++            visibility: visible !important;
++            color: #e1e5f5;
+         }
+         [data-testid="stAppViewContainer"] {
+@@ -13119,6 +13117,6 @@
+
+         }
+         [data-testid="stSidebar"] {
+-            display: none !important;
+-            visibility: hidden !important;
++            background: #080f23;
++            border-right: 1px solid rgba(169, 155, 255, 0.18);
+         }
+         [data-testid="stSidebarContent"] {
+@@ -25802,68 +25800,48 @@
+
+         unsafe_allow_html=True,
+     )
+-    st.button(
+-        "◀ 收起",
+-        key="hide_side_menu",
+-        use_container_width=True,
+-        on_click=set_side_menu_visible,
+-        args=(False,),
+-    )
++    from streamlit_option_menu import option_menu
+ 
+     visible_features = get_visible_features()
+-    features_by_key = {
+-        str(feature.get("key") or ""): feature for feature in visible_features
+-    }
++    features_by_key = {str(feature["key"]): feature for feature in visible_features}
++    ordered_features = []
+     grouped_keys: set[str] = set()
++    for _, feature_keys in SIDE_MENU_FEATURE_GROUPS:
++        for feature_key in feature_keys:
++            if feature_key in features_by_key and feature_key not in grouped_keys:
++                ordered_features.append(features_by_key[feature_key])
++                grouped_keys.add(feature_key)
++    ordered_features.extend(
++        feature for feature in visible_features if str(feature["key"]) not in grouped_keys
++    )
++    entries = [(str(feature["key"]), str(feature["name"])) for feature in ordered_features]
++    entries.append((XIAOHA_DASHBOARD_KEY, "数据看板"))
++    keys = [key for key, _ in entries]
++    labels = [label for _, label in entries]
+     selected_key = str(st.session_state.selected_feature_key or "")
+-    for group_name, feature_keys in SIDE_MENU_FEATURE_GROUPS:
+-        group_features = [features_by_key[key] for key in feature_keys if key in features_by_key]
+-        if not group_features:
+-            continue
+-        grouped_keys.update(str(feature.get("key") or "") for feature in group_features)
+-        with st.expander(
+-            group_name,
+-            expanded=any(str(feature.get("key") or "") == selected_key for feature in group_features),
+-        ):
+-            for feature in group_features:
+-                is_active = selected_key == feature["key"]
+-                st.button(
+-                    feature["name"],
+-                    key=f"side_menu_feature_{feature['key']}",
+-                    use_container_width=True,
+-                    type="primary" if is_active else "secondary",
+-                    on_click=select_feature,
+-                    args=(feature["key"],),
+-                )
+-
+-    ungrouped_features = [
+-        feature
+-        for feature in visible_features
+-        if str(feature.get("key") or "") not in grouped_keys
+-    ]
+-    if ungrouped_features:
+-        with st.expander(
+-            "其他功能",
+-            expanded=any(str(feature.get("key") or "") == selected_key for feature in ungrouped_features),
+-        ):
+-            for feature in ungrouped_features:
+-                is_active = selected_key == feature["key"]
+-                st.button(
+-                    feature["name"],
+-                    key=f"side_menu_feature_{feature['key']}",
+-                    use_container_width=True,
+-                    type="primary" if is_active else "secondary",
+-                    on_click=select_feature,
+-                    args=(feature["key"],),
+-                )
+-    is_dashboard_active = st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY
+-    with st.expander("状态与数据", expanded=is_dashboard_active):
+-        st.button(
+-            "数据看板",
+-            key="side_menu_usage_dashboard",
+-            use_container_width=True,
+-            type="primary" if is_dashboard_active else "secondary",
+-            on_click=select_feature,
+-            args=(XIAOHA_DASHBOARD_KEY,),
+-        )
++    selected_index = keys.index(selected_key) if selected_key in keys else 0
++
++    def on_menu_change(widget_key: str) -> None:
++        selected_label = st.session_state.get(widget_key)
++        if selected_label in labels:
++            select_feature(keys[labels.index(selected_label)])
++
++    option_menu(
++        menu_title=None,
++        options=labels,
++        icons=["bar-chart-line" if key == XIAOHA_DASHBOARD_KEY else "image" for key in keys],
++        default_index=selected_index,
++        key="xiaoha_feature_navigation",
++        on_change=on_menu_change,
++        styles={
++            "container": {"padding": "0!important", "background-color": "#080f23"},
++            "icon": {"color": "#b8abff", "font-size": "17px"},
++            "nav-link": {
++                "font-size": "14px", "text-align": "left", "margin": "3px 0",
++                "padding": "10px 12px", "border-radius": "8px",
++                "color": "#e1e5f5", "--hover-color": "#20233e",
++            },
++            "nav-link-selected": {"background-color": "#6550d9", "color": "#ffffff"},
++        },
++    )
+ 
+ 
+@@ -25948,19 +25926,7 @@
+
+             f"{str(jimeng_static_server.get('error') or '').strip()}"
+         )
+-    if bool(st.session_state.get("side_menu_visible", True)):
+-        menu_col, content_col = st.columns([0.55, 4.45], gap="small")
+-        with menu_col:
+-            render_side_menu(current_feature)
+-    else:
+-        st.markdown('<span class="collapsed-side-menu-marker"></span>', unsafe_allow_html=True)
+-        st.button(
+-            "▶",
+-            key="show_side_menu",
+-            help="显示功能栏",
+-            on_click=set_side_menu_visible,
+-            args=(True,),
+-        )
+-        content_col = st.container()
+-    with content_col:
++    with st.sidebar:
++        render_side_menu(current_feature)
++    with st.container():
+         if st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY:
+             render_xiaoha_usage_dashboard()

@@ -15,7 +15,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_API_URL=/ai/video-claw/backend
 RUN npm run build
 
 FROM web_image AS xiaoha
-RUN pip install --no-cache-dir 'streamlit>=1.50,<2'
+RUN pip install --no-cache-dir 'streamlit>=1.50,<2' 'streamlit-option-menu==0.4.0'
 RUN pip install --no-cache-dir 'openai>=2,<3' && pip check
 ENV INFINITE_CANVAS_BUILD_DIR=/opt/infinite-canvas LASHFORGE_SERVER_ADDRESS=0.0.0.0 LASHFORGE_SERVER_PORT=8501 JIMENG_STATIC_PORT=8502
 COPY --from=canvas-build /canvas/web/dist /opt/infinite-canvas

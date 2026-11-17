@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+
+{% block title %}专项创新管理{% endblock %}
+{% block page_label %}专项创新管理{% endblock %}
+
+{% block content %}
+<style>
+    .special-list-idea { align-items: flex-start; display: flex; gap: 10px; }
+    .special-list-avatar,
+    .special-list-avatar-fallback { align-items: center; border-radius: 50%; display: flex; flex: 0 0 34px; height: 34px; justify-content: center; width: 34px; }
+    .special-list-avatar { object-fit: cover; border: 1px solid #dbe6f6; }
+    .special-list-avatar-fallback { background: linear-gradient(145deg, #5c8df6, #7a62d7); color: #fff; font-size: .85rem; font-weight: 700; }
+    .special-list-rewards { display:flex; flex-wrap:wrap; align-items:center; gap:12px; border-bottom:1px solid #dce5f2; padding-bottom:14px; margin-bottom:16px; }
+    .special-list-reward { display:flex; align-items:center; gap:16px; padding:10px 16px; border-radius:15px; font-weight:700; }
+    .special-list-cash { background:#fff5e3; border:1px solid #ffda9e; color:#8b500b; }
+    .special-list-cash img { width:64px; height:58px; object-fit:contain; }
+    .special-list-cash strong { color:#dc2936; border:1px solid #e73540; border-radius:999px; padding:6px 16px; font-size:1.3rem; overflow-wrap:anywhere; }
+    .special-list-points { background:#f1f6ff; border:1px solid #cddfff; color:#103768; }
+    .special-list-points strong { color:#0864ed; font-size:2rem; border-left:1px solid #91b6ff; padding-left:18px; }
+    #specialList .card { border-radius:18px; border-color:#dbe6f6; }
+    @media(max-width:540px) { .special-list-reward { gap:10px; padding:8px 12px; } .special-list-cash img { width:45px; height:45px; } }
+    .special-list-info { display:grid; grid-template-columns:minmax(200px, 1fr) minmax(360px, 1.6fr); gap:24px; align-items:center; margin-bottom:16px; }
+    .special-list-facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 28px; background:#f7f9fd; border:1px solid #e7edf6; border-radius:12px; padding:18px 22px; }
+    .special-list-fact { font-size:.85rem; color:#243650; overflow-wrap:anywhere; }
+    .special-list-fact span { display:block; color:#7a879b; font-size:.76rem; margin-bottom:4px; }
+    @media(max-width:760px) { .special-list-info { grid-template-columns:1fr; gap:12px; } .special-list-facts { padding:14px; gap:14px; } }
+    .special-list-rewards { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); width:100%; align-items:stretch; }
+    .special-list-reward { min-width:0; min-height:80px; height:100%; justify-content:center; gap:clamp(10px, 2vw, 28px); }
+    .special-list-cash img { flex:0 0 auto; }
+    .special-list-cash span, .special-list-points span { white-space:nowrap; }
+    .special-list-cash strong { min-width:0; text-align:center; }
+    @media(max-width:600px) {
+        .special-list-rewards { grid-template-columns:minmax(0,1fr); gap:10px; }
+        .special-list-reward { justify-content:center; }
+        .special-list-cash strong { font-size:1.1rem; padding:6px 10px; }
+    }
+    .special-solutions summary { cursor:pointer; color:#243650; padding:2px 0; }
+    .special-solutions summary::marker { color:#7a879b; }
+    #specialList .card-body { padding:20px 24px; }
+    .special-list-rewards { border:0; padding-bottom:0; margin-bottom:20px; }
+    .special-list-reward { border-radius:12px; min-height:88px; }
+    .special-list-cash strong { border:0; padding:0 0 0 20px; border-radius:0; font-size:1.65rem; }
+    .special-list-cash span { border-left:1px solid #edcf9e; padding-left:20px; }
+    .special-list-points > i { font-size:2rem; color:#1764ed; }
+    .special-list-points strong { font-size:2.4rem; }
+    .special-list-info { display:block; margin:0; }
+    .special-list-title { display:flex; align-items:center; gap:16px; margin-bottom:10px; }
+    .special-list-title > div { display:contents; }
+    .special-list-title .small { width:100%; }
+    .special-list-title { flex-wrap:wrap; }
+    .special-list-title h2 { font-size:1.5rem; font-weight:700; color:#172b46; }
+    .special-list-title .badge { border-radius:999px; padding:7px 13px; }
+    .special-list-info > div:first-child > .small span { background:#f0f4fa; border-radius:8px; padding:6px 12px; color:#334760; }
+    .special-list-facts { grid-template-columns:repeat(4,minmax(0,1fr)); border:0; border-top:1px solid #e3eaf4; border-bottom:1px solid #e3eaf4; background:transparent; border-radius:0; padding:18px 0; margin-bottom:16px; gap:16px; }
+    .special-list-fact { padding-left:16px; border-left:1px solid #e3eaf4; }
+    .special-list-fact:first-child { border-left:0; padding-left:0; }
+    .special-solutions { border:1px solid #d9e3f1!important; border-radius:10px; background:#f8fafd; padding:12px 16px!important; }
+    .special-solutions summary { display:flex; align-items:center; gap:12px; list-style:none; }
+    .special-solutions summary::-webkit-details-marker { display:none; }
+    .special-solutions summary::before { content:'›'; font-size:1.4rem; line-height:1; transition:transform .15s; }
+    .special-solutions[open] summary::before { transform:rotate(90deg); }
+    .special-pending { padding:3px 9px; background:#e9eef6; color:#62748e; border-radius:6px; font-size:.78rem; }
+    .special-expand { margin-left:auto; color:#2563eb; font-weight:400; }
+    .special-expand::after { content:'展开'; }
+    .special-solutions[open] .special-expand::after { content:'收起'; }
+    .special-list-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; }
+    .special-list-actions .btn { border-radius:8px; padding:8px 18px; font-size:.85rem; }
+    .special-detail-link { order:2; background:#4661df; border-color:#4661df; }
+    @media(max-width:900px) { .special-list-facts { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:600px) { #specialList .card-body { padding:16px; } .special-list-cash strong { font-size:1.25rem; padding-left:0; } .special-list-cash span { padding-left:10px; } .special-list-fact { padding-left:0; border:0; } }
+    .special-clickable { cursor:pointer; }
+    .special-clickable:focus-visible { outline:2px solid #4661df; outline-offset:3px; }
+    .special-list-actions:empty { display:none; }
+    .special-list-info { display:grid; grid-template-columns:minmax(240px, 1fr) minmax(0, 1.5fr); align-items:center; gap:28px; }
+    .special-list-facts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); border:1px solid #e5edf8; border-radius:12px; background:#f8faff; padding:18px 22px; margin:0; gap:18px 24px; }
+    .special-list-fact { border:0; padding:0; }
+    @media(max-width:760px) { .special-list-info { grid-template-columns:1fr; gap:12px; } .special-list-facts { padding:14px; } }
+    /* One continuous proposal surface with quiet internal hierarchy. */
+    #specialList .card { border-radius:16px; box-shadow:0 3px 14px rgba(31,55,92,.045)!important; }
+    #specialList .card-body { padding:22px 26px; }
+    .special-list-rewards { background:linear-gradient(100deg,#fff9ee 0%,#fbfcff 55%,#f2f6ff 100%); border-radius:10px; gap:0; margin-bottom:20px; }
+    .special-list-reward { background:transparent; border:0; border-radius:0; min-height:76px; padding:10px 18px; }
+    .special-list-points { position:relative; }
+    .special-list-points::before { content:''; position:absolute; left:0; top:22%; bottom:22%; width:1px; background:#dce3ef; }
+    .special-list-cash img { width:54px; height:50px; }
+    .special-list-cash span { border:0; padding:0; }
+    .special-list-cash strong { font-size:1.45rem; padding:0; }
+    .special-list-points strong { border:0; padding-left:0; font-size:2rem; }
+    .special-list-points > i { font-size:1.6rem; }
+    .special-list-info { grid-template-columns:minmax(240px,1fr) minmax(0,1.25fr); gap:36px; }
+    .special-list-facts { background:transparent; border:0; border-radius:0; padding:0 0 0 28px; border-left:1px solid #edf0f5; gap:18px 28px; }
+    .special-list-title h2 { font-size:1.3rem; }
+    .special-list-info > div:first-child > .small span { background:transparent; border:0; padding:0; color:#718096; }
+    .special-list-info > div:first-child > .mb-3:last-child { margin-bottom:0!important; }
+    .special-list-title .badge { background:#edf4ff!important; color:#2463dc; font-size:.73rem; }
+    @media(max-width:760px) { .special-list-info { grid-template-columns:1fr; gap:18px; } .special-list-facts { border-left:0; border-top:1px solid #edf0f5; padding:16px 0 0; } }
+    @media(max-width:600px) { #specialList .card-body { padding:16px; } .special-list-points::before { width:auto; height:1px; top:0; left:18px; right:18px; bottom:auto; } }
+    .special-activity { display:flex; align-items:center; flex-wrap:wrap; gap:12px 24px; border-top:1px solid #edf0f5; padding-top:14px; margin-top:18px; color:#748198; font-size:.8rem; }
+    .special-activity i { margin-right:6px; }
+    .special-activity strong { color:#34465f; font-weight:600; margin-left:4px; }
+    .special-progress { display:inline-flex; flex-wrap:wrap; gap:12px; }
+    .special-recent { margin-left:auto; overflow-wrap:anywhere; }
+    @media(max-width:900px) { .special-recent { flex-basis:100%; margin-left:0; } }
+    .special-list-description { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; line-height:1.6; }
+    .special-list-info > div { min-width:0; }
+    .special-list-info { align-items:start; }
+    .special-list-info { grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); align-items:stretch; gap:28px; }
+    .special-list-info > div:first-child { display:flex; flex-direction:column; min-width:0; }
+    .special-list-title { display:grid; grid-template-columns:minmax(0,max-content) auto; justify-content:start; gap:8px 14px; margin-bottom:8px; }
+    .special-list-title .small { grid-column:1 / -1; margin-bottom:0!important; }
+    .special-list-title h2 { overflow-wrap:anywhere; }
+    .special-list-title .badge { align-self:center; justify-self:start; }
+    .special-list-description { min-height:4.8em; max-height:4.8em; margin-bottom:12px!important; }
+    .special-list-facts { grid-template-columns:repeat(2,minmax(0,1fr)); align-content:start; gap:24px 28px; padding-top:2px; }
+    .special-activity { min-width:0; }
+    .special-recent { min-width:0; max-width:55%; white-space:normal; }
+    @media(max-width:900px) { .special-recent { max-width:100%; } }
+    @media(max-width:760px) { .special-list-info { grid-template-columns:minmax(0,1fr); } .special-list-description { min-height:0; } }
+    .special-list-info { grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:0; }
+    .special-list-info > div:first-child { padding-right:28px; }
+    .special-list-facts { padding-left:28px; }
+    @media(max-width:760px) {
+        .special-list-info { grid-template-columns:minmax(0,1fr); }
+        .special-list-info > div:first-child { padding-right:0; }
+        .special-list-facts { padding-left:0; }
+    }
+</style>
+{% include 'special_media.html' %}
+<div id="specialList" class="row g-3">
+    <div class="col-12 text-muted">正在加载专项...</div>
+</div>
+
+<script>
+(() => {
+    const list = document.getElementById('specialList');
+    const isInteractive = (target) => target.closest('details, button, a, input, textarea, select, video, [data-special-image]');
+    list.addEventListener('click', (event) => {
+        if (isInteractive(event.target) || window.getSelection()?.toString()) return;
+        const card = event.target.closest('[data-special-id]');
+        if (card) window.location.href = `/innovation/specials/${card.dataset.specialId}`;
+    });
+    list.addEventListener('keydown', (event) => {
+        if (event.target.matches('[data-special-id]') && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            window.location.href = `/innovation/specials/${event.target.dataset.specialId}`;
+        }
+    });
+    const canDelete = {{ 'true' if can_delete_special else 'false' }};
+    const canManage = {{ 'true' if is_special_manager else 'false' }};
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[char]));
+    const renderMedia = item => `<div class="special-media">${(item.images || []).map(url => `<img src="${escapeHtml(url)}" data-special-image alt="附件图片" loading="lazy">`).join('')}${(item.videos || []).map(url => `<video src="${escapeHtml(url)}" controls preload="metadata"></video>`).join('')}</div>`;
+    const renderActivity = item => {
+        const ideas = item.ideas || [];
+        const adopted = ideas.filter(idea => idea.status === 'yicainei').length;
+        const rejected = ideas.filter(idea => idea.status === 'yijujue').length;
+        const participants = new Set(ideas.map(idea => idea.submitter_user_id || idea.submitter).filter(Boolean)).size;
+        const latest = [...ideas].sort((a,b) => String(b.submitted_at || '').localeCompare(String(a.submitted_at || '')))[0];
+        const recent = latest ? `${latest.submitter || '用户'} · ${latest.submitted_at || ''} 提交方案` : '暂无提交动态';
+        return `<div class="special-activity">
+            <span><i class="bi bi-lightbulb" aria-hidden="true"></i>方案 <strong>${ideas.length}</strong></span>
+            <span class="special-progress"><span>待评估 <strong>${ideas.length - adopted - rejected}</strong></span><span class="text-success">已采纳 <strong>${adopted}</strong></span><span>已驳回 <strong>${rejected}</strong></span></span>
+            <span><i class="bi bi-people" aria-hidden="true"></i>参与 <strong>${participants}</strong> 人</span>
+            <span class="special-recent"><i class="bi bi-clock-history" aria-hidden="true"></i>最近动态：${escapeHtml(recent)}</span>
+        </div>`;
+    };
+    const renderAvatar = (idea) => {
+        const name = idea.submitter || '创';
+        const fallback = escapeHtml(name.slice(0, 1));
+        if (!idea.submitter_avatar) return `<span class="special-list-avatar-fallback">${fallback}</span>`;
+        return `<img class="special-list-avatar" src="${escapeHtml(idea.submitter_avatar)}" alt="${escapeHtml(name)}的飞书头像" loading="lazy" onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');"><span class="special-list-avatar-fallback d-none">${fallback}</span>`;
+    };
+    const renderIdeas = (ideas) => {
+        if (!ideas || !ideas.length) return '<div class="small text-muted">暂无解决方案</div>';
+        return ideas.map((idea) => `
+            <article class="special-list-idea border rounded p-3 mb-2 bg-light">
+                <div>${renderAvatar(idea)}</div>
+                <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                        <strong>解决方案 #${escapeHtml(idea.id)}</strong>
+                        <span class="small text-muted ms-2">${escapeHtml(idea.submitter || '未知提交人')} · ${escapeHtml(idea.submitted_at || '')}</span>
+                    </div>
+                    <span class="badge bg-secondary">${escapeHtml(idea.status_label || idea.status)}</span>
+                </div>
+                <div class="mt-2" style="white-space: pre-wrap">${escapeHtml(idea.content)}</div>
+                ${idea.score !== null && idea.score !== undefined ? `<div class="small text-muted mt-2">评分：${escapeHtml(idea.score)} 分</div>` : ''}
+                ${idea.comment ? `<div class="small text-muted mt-1">评语：${escapeHtml(idea.comment)}</div>` : ''}
+                </div>
+            </article>`).join('');
+    };
+
+    const render = (items) => {
+        if (!items.length) {
+            list.innerHTML = '<div class="col-12"><div class="alert alert-light">暂无专项</div></div>';
+            return;
+        }
+        list.innerHTML = items.map((item) => `
+            <div class="col-12">
+                <article class="card shadow-sm special-clickable" data-special-id="${item.zhuanxiang_id}" tabindex="0" aria-label="查看专项明细">
+                    <div class="card-body">
+                        <div class="special-list-rewards">
+                            <div class="special-list-reward special-list-cash"><img src="{{ url_for('innovation.static', filename='special_cash_reward_transparent.png') }}" alt=""><span>现金奖励</span><strong>${escapeHtml(item.jiangli_mingxi || '未设置')}</strong></div>
+                            <div class="special-list-reward special-list-points"><i class="bi bi-coin" aria-hidden="true"></i><span>创新积分</span><strong>${escapeHtml(item.jiangli_jifen)}</strong></div>
+                        </div>
+                        <div class="special-list-info">
+                        <div>
+                        <div class="special-list-title">
+                            <div>
+                                <div class="small text-muted mb-1">专项 ${escapeHtml(item.zhuanxiang_bianhao)}</div>
+                                <h2 class="h5 mb-0">${escapeHtml(item.biaoti)}</h2>
+                            </div>
+                            <span class="badge bg-primary">${escapeHtml(item.zhuangtai_label || item.zhuangtai)}</span>
+                        </div>
+                        <p class="mb-3 special-list-description" style="white-space: pre-wrap">${escapeHtml(item.nanti_miaoshu)}</p>
+                        <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
+                            <span>承接部门：${escapeHtml(item.chengjie_bumen || '未设置')}</span>
+                        </div>
+                        </div>
+                        <div class="special-list-facts">
+                            <div class="special-list-fact"><span>发起人</span>${escapeHtml(item.fabu_user_name || '未记录')}</div>
+                            <div class="special-list-fact"><span>发起部门</span>${escapeHtml(item.fabu_bumen || '未记录')}</div>
+                            <div class="special-list-fact"><span>提出时间</span>${escapeHtml(item.chuangjian_shijian || '未记录')}</div>
+                            <div class="special-list-fact"><span>更新时间</span>${escapeHtml(item.gengxin_shijian || '未记录')}</div>
+                        </div>
+                        </div>
+
+                        ${renderActivity(item)}
+                        <div class="special-list-actions">
+                            ${canDelete ? `<button class="btn btn-outline-danger ms-2" onclick="deleteSpecial(${item.zhuanxiang_id})">删除</button>` : ''}
+                            ${canManage && item.zhuangtai === 'caogao' ? `<button class="btn btn-primary" onclick="publishSpecial(${item.zhuanxiang_id})">发布</button>` : ''}
+                        </div>
+                    </div>
+                </article>
+            </div>`).join('');
+    };
+
+    const load = async () => {
+        const response = await fetch('/innovation/api/specials');
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || '专项加载失败');
+        render(result.data || []);
+    };
+
+    window.deleteSpecial = async (specialId) => {
+        if (!window.confirm('确认删除这个专项吗？删除后将不再显示，已有提案和积分记录会保留。')) return;
+        try {
+            const response = await fetch(`/innovation/api/specials/${specialId}`, {method: 'DELETE'});
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '删除失败');
+            await load();
+        } catch (error) { window.alert(error.message || '删除失败'); }
+    };
+
+    window.publishSpecial = async (specialId) => {
+        if (!window.confirm('确认发布这个专项吗？')) return;
+        const response = await fetch(`/innovation/api/specials/${specialId}/publish`, {method: 'POST'});
+        const result = await response.json();
+        if (!result.success) {
+            window.alert(result.message || '发布失败');
+            return;
+        }
+        load();
+    };
+
+    load().catch((error) => {
+        list.innerHTML = `<div class="col-12"><div class="alert alert-danger">${escapeHtml(error.message)}</div></div>`;
+    });
+})();
+</script>
+{% endblock %}
+
