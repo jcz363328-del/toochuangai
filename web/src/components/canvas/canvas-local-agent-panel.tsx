@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { App, Button, Input, Segmented, Tooltip } from "antd";
 import copyToClipboard from "copy-to-clipboard";
 import { Copy, FolderOpen, History, KeyRound, Link2, LoaderCircle, PlugZap, Plus, RefreshCw, Square, Terminal, Trash2 } from "lucide-react";
+import { nanoid } from "nanoid";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
@@ -15,9 +16,10 @@ import { AgentChatComposer, AgentChatMessage, AgentPanelTabs, AgentPendingToolCa
 const MAX_ATTACHMENTS = 6;
 const MAX_ATTACHMENT_PAYLOAD_BYTES = 28 * 1024 * 1024;
 const DEFAULT_AGENT_URL = "http://127.0.0.1:17371";
+const AGENT_DIRECT_COMMAND = import.meta.env.VITE_AGENT_COMMAND || "npm --prefix canvas-agent run dev";
 const AGENT_CONNECT_STEPS = [
     { title: "方式一：在 Codex 中使用插件", text: "在 Codex app 安装 Infinite Canvas 插件后，通过插件启动画布，插件会自动启动本地 Agent 并带上连接信息。" },
-    { title: "方式二：直接运行 Agent", text: "不使用 Codex 插件时，在终端运行下面命令，再回到网页里连接或手动填入 Local URL 和 Connect token。", command: "npx -y @basketikun/canvas-agent" },
+    { title: "方式二：直接运行 Agent", text: "不使用 Codex 插件时，在项目根目录运行下面命令，再回到网页里连接或手动填入 Local URL 和 Connect token。", command: AGENT_DIRECT_COMMAND },
 ];
 const AGENT_PLUGIN_REMOVE_COMMAND = "codex plugin remove infinite-canvas";
 const AGENT_MCP_REMOVE_COMMAND = "codex mcp remove infinite-canvas";
@@ -54,7 +56,7 @@ export function CanvasLocalAgentPanel({ embedded, headless, autoConnect }: { emb
     const connectedRef = useRef(false);
     const errorLoggedRef = useRef(false);
     const attachmentUrlsRef = useRef(new Set<string>());
-    const clientIdRef = useRef(typeof crypto === "undefined" ? `${Date.now()}` : crypto.randomUUID());
+    const clientIdRef = useRef(nanoid());
     const endpoint = useMemo(() => url.trim().replace(/\/$/, ""), [url]);
     const urlAgentAutoConnect = searchParams.has("agentUrl") && searchParams.has("agentToken");
     const loadThreads = useCallback(async () => {
@@ -632,7 +634,7 @@ function AgentConnectView({ theme, url, token, enabled, connected, activity, con
     const codexPluginReminder = (
         <div className="rounded-lg border px-3 py-2.5 text-xs leading-5" style={{ borderColor: theme.node.stroke, color: theme.node.muted }}>
             <div className="font-medium" style={{ color: theme.node.text }}>Codex 插件提醒</div>
-            <div className="mt-1">只有安装 Codex 插件或手动添加 MCP 后，工具列表才会进入 Codex 上下文并增加 token 消耗；仅运行 `npx -y @basketikun/canvas-agent` 启动本地 Agent 不会安装 MCP。</div>
+            <div className="mt-1">只有安装 Codex 插件或手动添加 MCP 后，工具列表才会进入 Codex 上下文并增加 token 消耗；仅运行 `{AGENT_DIRECT_COMMAND}` 启动本地 Agent 不会安装 MCP。</div>
             <div className="mt-2 grid gap-1.5">
                 {[
                     ["移除插件", AGENT_PLUGIN_REMOVE_COMMAND],
@@ -1045,7 +1047,7 @@ function formatThreadTime(value?: number) {
 }
 
 function createId() {
-    return typeof crypto === "undefined" ? `${Date.now()}-${Math.random()}` : crypto.randomUUID();
+    return nanoid();
 }
 
 function clamp(value: number, min: number, max: number) {

@@ -26,9 +26,12 @@ export const CanvasResourceMentionTextarea = forwardRef<HTMLTextAreaElement, Pro
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
     const overlayRef = useRef<HTMLDivElement | null>(null);
+    const caretOverlayRef = useRef<HTMLDivElement | null>(null);
     const [mention, setMention] = useState<MentionState | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [hasSelection, setHasSelection] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
+    const [caretPosition, setCaretPosition] = useState(0);
     const candidates = useMemo(() => {
         if (!mention) return [];
         const query = mention.query.trim().toLowerCase();
@@ -74,21 +77,27 @@ export const CanvasResourceMentionTextarea = forwardRef<HTMLTextAreaElement, Pro
     };
 
     const syncOverlayScroll = () => {
-        if (!overlayRef.current || !textareaRef.current) return;
-        overlayRef.current.scrollTop = textareaRef.current.scrollTop;
-        overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
+        if (!textareaRef.current) return;
+        if (overlayRef.current) {
+            overlayRef.current.scrollTop = textareaRef.current.scrollTop;
+            overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
+        }
+        if (caretOverlayRef.current) {
+            caretOverlayRef.current.scrollTop = textareaRef.current.scrollTop;
+            caretOverlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
+        }
     };
 
     const updateSelectionState = () => {
         const textarea = textareaRef.current;
         setHasSelection(Boolean(textarea && textarea.selectionStart !== textarea.selectionEnd));
+        setCaretPosition(textarea?.selectionStart ?? 0);
     };
 
     const showOverlay = Boolean(activeLabels.length && !hasSelection);
     const mergedStyle = {
         ...(style || {}),
         color: showOverlay ? "transparent" : style?.color,
-        caretColor: style?.color || theme.node.text,
         ...(showOverlay ? { background: "transparent", backgroundColor: "transparent" } : {}),
     } as CSSProperties;
     const menu = mention && candidates.length && textareaRef.current ? <MentionMenu textarea={textareaRef.current} references={candidates} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} /> : null;
@@ -108,8 +117,13 @@ export const CanvasResourceMentionTextarea = forwardRef<HTMLTextAreaElement, Pro
                     else if (forwardedRef) forwardedRef.current = node;
                 }}
                 value={value}
-                className={className}
+                className={`${className || ""} canvas-text-input ${isFocused && !hasSelection ? "canvas-text-input-custom-caret" : ""}`}
                 style={mergedStyle}
+                onFocus={(event) => {
+                    setIsFocused(true);
+                    updateSelectionState();
+                    props.onFocus?.(event);
+                }}
                 onChange={(event) => {
                     const next = event.target.value;
                     onChange(next);
@@ -170,11 +184,23 @@ export const CanvasResourceMentionTextarea = forwardRef<HTMLTextAreaElement, Pro
                     props.onScroll?.(event);
                 }}
                 onBlur={(event) => {
+                    setIsFocused(false);
                     setHasSelection(false);
                     window.setTimeout(closeMention, 120);
                     props.onBlur?.(event);
                 }}
             />
+            {isFocused && !hasSelection ? (
+                <div
+                    ref={caretOverlayRef}
+                    aria-hidden="true"
+                    className={`${className || ""} pointer-events-none absolute inset-0 z-10 overflow-hidden whitespace-pre-wrap break-words text-transparent`}
+                    style={{ ...style, background: "transparent", backgroundColor: "transparent" }}
+                >
+                    {value.slice(0, caretPosition)}
+                    <span className="canvas-custom-caret" />
+                </div>
+            ) : null}
             {menu}
         </div>
     );

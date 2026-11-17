@@ -1,7 +1,7 @@
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from "react";
 import { useRef, useState } from "react";
 import { Button, Segmented, Switch } from "antd";
-import { CircleDot, Eraser, FolderOpen, Grid2x2, Group, Hand, Image as ImageIcon, Info, Moon, Music2, Palette, Redo2, Settings2, Square, Sun, Trash2, Type, Undo2, Upload, Video } from "lucide-react";
+import { CircleDot, Eraser, FolderOpen, Grid2x2, Group, Hand, Image as ImageIcon, Info, Moon, Music2, Palette, Redo2, Settings2, Sparkles, Square, Sun, Trash2, Type, Undo2, Upload, Video } from "lucide-react";
 
 import { canvasThemes, type CanvasBackgroundMode, type CanvasColorTheme, type CanvasTheme } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
@@ -18,6 +18,7 @@ export function CanvasToolbar({
     onAddAudio,
     onAddText,
     onAddConfig,
+    onAddModelHd,
     onAddGroup,
     onUndo,
     onRedo,
@@ -39,6 +40,7 @@ export function CanvasToolbar({
     onAddAudio: () => void;
     onAddText: () => void;
     onAddConfig: () => void;
+    onAddModelHd: () => void;
     onAddGroup: () => void;
     onUndo: () => void;
     onRedo: () => void;
@@ -57,6 +59,7 @@ export function CanvasToolbar({
     const [hovered, setHovered] = useState<string | null>(null);
     const [tipX, setTipX] = useState(0);
     const [appearanceOpen, setAppearanceOpen] = useState(false);
+    const [modulesOpen, setModulesOpen] = useState(false);
     const [panelX, setPanelX] = useState(0);
     const dockStyle = { background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.toolbar.item, boxShadow: colorTheme === "dark" ? "0 18px 45px rgba(0,0,0,.32)" : "0 16px 40px rgba(28,25,23,.12)" };
     const hoverStyle = { background: theme.toolbar.itemHover, color: theme.toolbar.activeText };
@@ -91,6 +94,9 @@ export function CanvasToolbar({
                 </ToolbarButton>
                 <ToolbarButton id="tool-config" label="生成配置" hovered={hovered} hoverStyle={hoverStyle} wrapRef={wrapRef} onTipX={setTipX} onHover={setHovered} onClick={onAddConfig}>
                     <Settings2 className="size-4.5" />
+                </ToolbarButton>
+                <ToolbarButton id="tool-modules" label="功能模块" active={modulesOpen} hovered={hovered} activeStyle={activeStyle} hoverStyle={hoverStyle} wrapRef={wrapRef} onTipX={setTipX} onHover={setHovered} onClick={() => setModulesOpen((value) => !value)}>
+                    <Sparkles className="size-4.5" />
                 </ToolbarButton>
                 <ToolbarButton id="tool-group" label="组" hovered={hovered} hoverStyle={hoverStyle} wrapRef={wrapRef} onTipX={setTipX} onHover={setHovered} onClick={onAddGroup}>
                     <Group className="size-4.5" />
@@ -132,6 +138,27 @@ export function CanvasToolbar({
                     <Eraser className="size-4.5" />
                 </ToolbarButton>
             </div>
+
+            {modulesOpen ? (
+                <div className="pointer-events-auto absolute bottom-[72px] z-30 w-[286px] -translate-x-1/2 rounded-xl border p-2.5 shadow-xl backdrop-blur" style={{ left: "50%", background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.toolbar.item }}>
+                    <div className="px-1 pb-2 text-sm font-medium opacity-65">功能模块</div>
+                    <button
+                        type="button"
+                        className="flex w-full cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-left transition"
+                        style={{ background: theme.toolbar.itemHover, borderColor: theme.toolbar.border, color: theme.toolbar.activeText }}
+                        onClick={() => {
+                            onAddModelHd();
+                            setModulesOpen(false);
+                        }}
+                    >
+                        <Sparkles className="mt-0.5 size-5 shrink-0" />
+                        <span className="min-w-0">
+                            <strong className="block text-sm">模特高清</strong>
+                            <span className="mt-1 block text-xs leading-5 opacity-60">Nano Banana 2.1 锁定人物、肤色与构图，只提升清晰度</span>
+                        </span>
+                    </button>
+                </div>
+            ) : null}
 
             {appearanceOpen ? (
                 <div
@@ -286,6 +313,7 @@ function toolLabel(id: string) {
     if (id === "tool-video") return "视频";
     if (id === "tool-audio") return "音频";
     if (id === "tool-config") return "生成配置";
+    if (id === "tool-modules") return "功能模块";
     if (id === "tool-group") return "组";
     if (id === "tool-upload") return "上传素材";
     if (id === "tool-assets") return "我的素材";

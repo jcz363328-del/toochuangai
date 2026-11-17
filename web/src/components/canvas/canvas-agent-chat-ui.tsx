@@ -270,9 +270,10 @@ function AgentDetailBlock({ detail, theme }: { detail: unknown; theme: (typeof c
 }
 
 function AgentAvatar({ theme }: { theme: (typeof canvasThemes)[keyof typeof canvasThemes] }) {
+    const iconUrl = `${import.meta.env.BASE_URL}icons/openai.svg`;
     return (
         <span className="grid size-8 shrink-0 place-items-center" role="img" aria-label="OpenAI">
-            <span className="size-5 opacity-80" style={{ background: theme.node.text, WebkitMask: "url(/icons/openai.svg) center / contain no-repeat", mask: "url(/icons/openai.svg) center / contain no-repeat" }} />
+            <span className="size-5 opacity-80" style={{ background: theme.node.text, WebkitMask: `url(${iconUrl}) center / contain no-repeat`, mask: `url(${iconUrl}) center / contain no-repeat` }} />
         </span>
     );
 }

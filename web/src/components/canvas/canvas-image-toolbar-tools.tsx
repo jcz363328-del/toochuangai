@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { Brush, Camera, Copy, FileText, Grid2x2, Lock, LockOpen, Maximize2, Scissors, Sparkles, Upload, ZoomIn } from "lucide-react";
+import { Brush, Camera, Copy, FileText, Grid2x2, Lock, LockOpen, Maximize2, ScanFace, Scissors, Sparkles, Upload, ZoomIn } from "lucide-react";
 
 import type { CanvasNodeData } from "@/types/canvas";
 
-export type ImageNodeActionToolId = "copyPrompt" | "reversePrompt" | "replace" | "resize" | "maskEdit" | "crop" | "split" | "upscale" | "superResolve" | "angle" | "view";
+export type ImageNodeActionToolId = "copyPrompt" | "reversePrompt" | "publicFigure" | "replace" | "resize" | "maskEdit" | "crop" | "split" | "upscale" | "superResolve" | "angle" | "view";
 export type ImageQuickToolId = "info" | "delete" | "saveAsset" | "download" | "edit" | ImageNodeActionToolId;
 
 export type ImageToolHandlers = {
@@ -18,6 +18,7 @@ export type ImageToolHandlers = {
     onViewImage: (node: CanvasNodeData) => void;
     onCopyPrompt: (node: CanvasNodeData) => void;
     onReversePrompt: (node: CanvasNodeData) => void;
+    onIdentifyPublicFigure: (node: CanvasNodeData) => void;
 };
 
 export type ImageToolDefinition = {
@@ -58,6 +59,15 @@ export const imageToolDefinitions: ImageToolDefinition[] = [
         title: "创建反推提示词的文本和配置节点",
         icon: () => <FileText className="size-4" />,
         run: (node, handlers) => handlers.onReversePrompt(node),
+    },
+    {
+        id: "publicFigure",
+        defaultVisible: true,
+        panelLabel: "公众人物识别",
+        label: "人物识别",
+        title: "识别图片中的公众人物",
+        icon: () => <ScanFace className="size-4" />,
+        run: (node, handlers) => handlers.onIdentifyPublicFigure(node),
     },
     {
         id: "replace",

@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
-import { Image as ImageIcon, LoaderCircle, MessageSquare, Music2, Play, Settings2, Square, Video } from "lucide-react";
+import { Image as ImageIcon, LoaderCircle, MessageSquare, Music2, Play, Settings2, Sparkles, Square, Video } from "lucide-react";
 import { Button, Segmented } from "antd";
 
 import { ModelPicker } from "@/components/model-picker";
-import { defaultConfig, modelMatchesCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { defaultConfig, modelAvailableForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { CanvasImageSettingsPopover } from "./canvas-image-settings-popover";
@@ -26,17 +26,21 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const mode = node.metadata?.generationMode || "image";
+    const isModelHd = node.metadata?.businessModule === "modelHd";
     const config = buildNodeConfig(globalConfig, node, mode);
     const chipStyle = { background: theme.node.fill, borderColor: theme.node.stroke, color: theme.node.text };
     const hasAnyInput = Boolean(inputSummary.textCount || inputSummary.imageCount || inputSummary.videoCount || inputSummary.audioCount);
     const hasComposerContent = Boolean((node.metadata?.composerContent ?? node.metadata?.prompt ?? "").trim());
-    const canGenerate = hasComposerContent || (mode === "audio" ? inputSummary.textCount > 0 : hasAnyInput);
+    const canGenerate = isModelHd ? inputSummary.imageCount > 0 : hasComposerContent || (mode === "audio" ? inputSummary.textCount > 0 : hasAnyInput);
 
     return (
         <div className="flex h-full w-full cursor-move flex-col px-3 pb-3 pt-7 text-sm" style={{ color: theme.node.text }} onWheel={(event) => event.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between gap-3">
-                <div className="shrink-0 text-sm font-semibold">生成配置</div>
-                <div className="cursor-default" onMouseDown={(event) => event.stopPropagation()}>
+                <div className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold">
+                    {isModelHd ? <Sparkles className="size-4" /> : null}
+                    {isModelHd ? "模特高清" : "生成配置"}
+                </div>
+                {!isModelHd ? <div className="cursor-default" onMouseDown={(event) => event.stopPropagation()}>
                     <Segmented
                         size="small"
                         className="canvas-config-mode !rounded-md !p-0.5"
@@ -81,21 +85,25 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                             },
                         ]}
                     />
-                </div>
+                </div> : null}
             </div>
 
             <div className="mb-2 flex flex-wrap gap-1.5">
-                <InputChip label="提示词" value={`${inputSummary.textCount} 个`} style={chipStyle} />
-                <InputChip label="参考图" value={`${inputSummary.imageCount} 张`} style={chipStyle} />
-                <InputChip label="参考视频" value={`${inputSummary.videoCount} 个`} style={chipStyle} />
-                <InputChip label="参考音频" value={`${inputSummary.audioCount} 个`} style={chipStyle} />
+                {!isModelHd ? <InputChip label="提示词" value={`${inputSummary.textCount} 个`} style={chipStyle} /> : null}
+                <InputChip label={isModelHd ? "待处理原图" : "参考图"} value={`${inputSummary.imageCount} 张`} style={chipStyle} />
+                {!isModelHd ? <InputChip label="参考视频" value={`${inputSummary.videoCount} 个`} style={chipStyle} /> : null}
+                {!isModelHd ? <InputChip label="参考音频" value={`${inputSummary.audioCount} 个`} style={chipStyle} /> : null}
                 <button type="button" className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2 text-[11px]" style={chipStyle} onMouseDown={(event) => event.stopPropagation()} onClick={onComposerToggle}>
                     <Settings2 className="size-3.5" />
-                    组装提示词
+                    {isModelHd ? "补充要求" : "组装提示词"}
                 </button>
             </div>
 
-            <div className={`mb-2 grid min-w-0 cursor-default items-center gap-2 ${mode === "image" || mode === "video" || mode === "audio" ? "grid-cols-[minmax(0,1fr)_148px]" : "grid-cols-1"}`} onMouseDown={(event) => event.stopPropagation()}>
+            {isModelHd ? (
+                <div className="mb-2 rounded-lg border px-3 py-2 text-xs leading-5" style={chipStyle}>
+                    Nano Banana 2.1 · 原图尺寸输出<br />锁定人物、肤色肤质、色温色调与构图，只提升清晰度
+                </div>
+            ) : <div className={`mb-2 grid min-w-0 cursor-default items-center gap-2 ${mode === "image" || mode === "video" || mode === "audio" ? "grid-cols-[minmax(0,1fr)_148px]" : "grid-cols-1"}`} onMouseDown={(event) => event.stopPropagation()}>
                 <ModelPicker className="canvas-compact-control h-10" config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability={mode} onMissingConfig={() => openConfigDialog(true)} fullWidth />
                 {mode === "video" ? (
                     <CanvasVideoSettingsPopover config={config} placement="topRight" buttonClassName="canvas-compact-control !h-10 !w-full !justify-start !rounded-lg !px-2" onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
@@ -104,7 +112,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                 ) : mode === "audio" ? (
                     <CanvasAudioSettingsPopover config={config} placement="topRight" buttonClassName="canvas-compact-control !h-10 !w-full !justify-start !rounded-lg !px-2" onConfigChange={(key, value) => onConfigChange(node.id, audioConfigPatch(key, value))} />
                 ) : null}
-            </div>
+            </div>}
 
             <Button
                 type="primary"
@@ -124,7 +132,7 @@ export function CanvasConfigNodePanel({ node, isRunning, inputSummary, onConfigC
                     ) : (
                         <>
                             <Play className="size-4" />
-                            <span>开始生成</span>
+                            <span>{isModelHd ? "开始高清" : "开始生成"}</span>
                         </>
                     )}
                 </span>
@@ -146,9 +154,9 @@ function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mode: Can
     const defaultModel = mode === "image" ? globalConfig.imageModel : mode === "video" ? globalConfig.videoModel : mode === "audio" ? globalConfig.audioModel : globalConfig.textModel;
     const fallbackModel = mode === "image" ? defaultConfig.imageModel : mode === "video" ? defaultConfig.videoModel : mode === "audio" ? defaultConfig.audioModel : defaultConfig.textModel;
     const currentModel = node.metadata?.model;
-    const model = currentModel && modelMatchesCapability(currentModel, mode)
+    const model = currentModel && modelAvailableForCapability(globalConfig, currentModel, mode)
         ? currentModel
-        : defaultModel && modelMatchesCapability(defaultModel, mode)
+        : defaultModel && modelAvailableForCapability(globalConfig, defaultModel, mode)
             ? defaultModel
             : fallbackModel;
     return {

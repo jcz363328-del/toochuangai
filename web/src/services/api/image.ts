@@ -224,9 +224,20 @@ function supportsGeminiImageSize(model: string) {
     return value.includes("gemini-3") || value.includes("3.1") || value.includes("3-pro");
 }
 
+function imageMimeFromBase64(value: string) {
+    if (value.startsWith("/9j/")) return "image/jpeg";
+    if (value.startsWith("iVBORw0KGgo")) return "image/png";
+    if (value.startsWith("R0lGOD")) return "image/gif";
+    if (value.startsWith("UklGR")) return "image/webp";
+    if (value.startsWith("PHN2Zy") || value.startsWith("PD94bW")) return "image/svg+xml";
+    return "";
+}
+
 function resolveImageDataUrl(item: Record<string, unknown>) {
     if (typeof item.b64_json === "string" && item.b64_json) {
-        return `data:image/png;base64,${item.b64_json}`;
+        const declared = typeof item.media_type === "string" ? item.media_type.trim().toLowerCase() : "";
+        const mime = declared.startsWith("image/") ? declared : imageMimeFromBase64(item.b64_json) || "image/png";
+        return `data:${mime};base64,${item.b64_json}`;
     }
     if (typeof item.url === "string" && item.url) {
         return item.url;
@@ -274,6 +285,177 @@ function withSystemPrompt(config: AiConfig, prompt: string) {
 
 function aiApiUrl(config: AiConfig, path: string) {
     return buildApiUrl(config.baseUrl, path);
+}
+
+function openRouterApiBaseUrl(baseUrl: string) {
+    try {
+        const url = new URL(baseUrl.trim());
+        if (!url.hostname.toLowerCase().endsWith("openrouter.ai")) return null;
+        const path = url.pathname.replace(/\/+$/, "");
+        const lowerPath = path.toLowerCase();
+        const apiIndex = lowerPath.indexOf("/api/v1");
+        url.pathname = apiIndex >= 0 ? path.slice(0, apiIndex + "/api/v1".length) : "/api/v1";
+        url.search = "";
+        url.hash = "";
+        return url.toString().replace(/\/+$/, "");
+    } catch {
+        return null;
+    }
+}
+
+function openRouterImageApiUrl(config: Pick<AiConfig, "baseUrl">, path = "") {
+    const base = openRouterApiBaseUrl(config.baseUrl);
+    return base ? `${base}/images${path}` : "";
+}
+
+function isOmniaKeyBaseUrl(baseUrl: string) {
+    try {
+        return new URL(baseUrl.trim()).hostname.toLowerCase().endsWith("omniakey.com");
+    } catch {
+        return false;
+    }
+}
+
+function cloneFormData(source: FormData) {
+    const cloned = new FormData();
+    source.forEach((value, key) => cloned.append(key, value));
+    return cloned;
+}
+
+function resolveOmniaImageParameters(size?: string) {
+    const dimensions = size ? parseImageDimensions(size) : null;
+    if (!dimensions) return {};
+    const aspectRatio = closestGeminiAspectRatio(`${dimensions.width}:${dimensions.height}`);
+    const longestEdge = Math.max(dimensions.width, dimensions.height);
+    return { aspect_ratio: aspectRatio, image_size: longestEdge >= 3000 ? "4K" : longestEdge >= 1800 ? "2K" : "1K" };
+}
+
+const OMNIA_MEDIA_INPUT_BUDGET_BYTES = 600_000;
+const OMNIA_MEDIA_TASK_TIMEOUT_MS = 8 * 60 * 1000;
+const OMNIA_MEDIA_POLL_INTERVAL_MS = 2_500;
+
+type OmniaMediaTask = {
+    id?: string;
+    status?: string;
+    assets?: Array<{ url?: string; mime_type?: string }>;
+    error?: { message?: string };
+};
+
+function dataUrlByteSize(dataUrl: string) {
+    const encoded = dataUrl.slice(dataUrl.indexOf(",") + 1);
+    return Math.ceil((encoded.length * 3) / 4);
+}
+
+function loadImageElement(src: string) {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("参考图读取失败"));
+        image.src = src;
+    });
+}
+
+async function prepareOmniaMediaImage(image: ReferenceImage, maxBytes: number) {
+    const element = await loadImageElement(await imageToDataUrl(image));
+    const sourceWidth = element.naturalWidth || element.width;
+    const sourceHeight = element.naturalHeight || element.height;
+    let scale = Math.min(1, 4096 / Math.max(sourceWidth, sourceHeight));
+    let lastDataUrl = "";
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+        const width = Math.max(1, Math.round(sourceWidth * scale));
+        const height = Math.max(1, Math.round(sourceHeight * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("参考图压缩失败");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, width, height);
+        context.drawImage(element, 0, 0, width, height);
+        for (const quality of [0.9, 0.8, 0.7, 0.6, 0.5]) {
+            lastDataUrl = canvas.toDataURL("image/jpeg", quality);
+            if (dataUrlByteSize(lastDataUrl) <= maxBytes) return lastDataUrl;
+        }
+        scale *= 0.82;
+    }
+    if (lastDataUrl && dataUrlByteSize(lastDataUrl) <= maxBytes) return lastDataUrl;
+    throw new Error("参考图压缩后仍超过 OmniaKey 1MB 请求限制");
+}
+
+function blobToDataUrl(blob: Blob) {
+    return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("图片读取失败"));
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function downloadOmniaAsset(assetUrl: string, signal?: AbortSignal) {
+    try {
+        const basePath = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
+        const pageParams = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams({ url: assetUrl });
+        for (const key of ["auth_user", "auth_token"]) {
+            const value = pageParams.get(key);
+            if (value) params.set(key, value);
+        }
+        const response = await axios.get<Blob>(`${basePath}api/omnia-asset`, {
+            params,
+            responseType: "blob",
+            timeout: 60_000,
+            signal,
+        });
+        if (!response.data.type.startsWith("image/")) throw new Error("代理未返回图片");
+        return await blobToDataUrl(response.data);
+    } catch {
+        return assetUrl;
+    }
+}
+
+async function requestOmniaMediaEdit(config: AiConfig, prompt: string, references: ReferenceImage[], n: number, parameters: { aspect_ratio?: string; image_size?: string }, signal?: AbortSignal) {
+    if (!references.length) throw new Error("OmniaKey 图片编辑需要至少 1 张参考图");
+    const perImageBudget = Math.max(24_000, Math.floor(OMNIA_MEDIA_INPUT_BUDGET_BYTES / references.length));
+    const images = await Promise.all(references.map((image) => prepareOmniaMediaImage(image, perImageBudget)));
+    const createTask = async () => {
+        const response = await axios.post<OmniaMediaTask>(
+            aiApiUrl(config, "/media/tasks"),
+            {
+                model: config.model,
+                type: "image",
+                operation: "edit",
+                input: { prompt: withSystemPrompt(config, prompt), images },
+                parameters,
+            },
+            {
+                headers: { ...aiHeaders(config, "application/json"), "Idempotency-Key": `canvas-${nanoid()}` },
+                signal,
+            },
+        );
+        const taskId = response.data.id;
+        if (!taskId) throw new Error("OmniaKey 未返回任务 ID");
+        const deadline = Date.now() + OMNIA_MEDIA_TASK_TIMEOUT_MS;
+        while (Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, OMNIA_MEDIA_POLL_INTERVAL_MS));
+            if (signal?.aborted) throw new Error("请求已取消");
+            const taskResponse = await axios.get<OmniaMediaTask>(aiApiUrl(config, `/media/tasks/${encodeURIComponent(taskId)}`), {
+                headers: aiHeaders(config),
+                signal,
+            });
+            const task = taskResponse.data;
+            if (task.status === "succeeded") {
+                const assetUrl = task.assets?.[0]?.url;
+                if (!assetUrl) throw new Error("OmniaKey 任务成功但没有返回图片");
+                return await downloadOmniaAsset(assetUrl, signal);
+            }
+            if (task.status === "failed" || task.status === "canceled") {
+                throw new Error(task.error?.message || "OmniaKey 图片任务失败");
+            }
+        }
+        throw new Error("OmniaKey 图片任务等待超时");
+    };
+    const dataUrls = await Promise.all(Array.from({ length: n }, () => createTask()));
+    return dataUrls.map((dataUrl) => ({ id: nanoid(), dataUrl }));
 }
 
 function aiHeaders(config: AiConfig, contentType?: string) {
@@ -656,7 +838,7 @@ function parseGeminiImagePayload(payload: GeminiPayload) {
 export async function requestGeneration(config: AiConfig, prompt: string, options?: RequestOptions) {
     const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
-    if (requestConfig.apiFormat === "gemini") {
+    if (requestConfig.apiFormat === "gemini" && !openRouterImageApiUrl(requestConfig)) {
         try {
             return await requestGeminiImages(requestConfig, prompt, [], n, options);
         } catch (error) {
@@ -666,17 +848,46 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
     const quality = normalizeQuality(config.quality);
     const requestSize = resolveRequestSize(quality, config.size);
     try {
+        const openRouterUrl = openRouterImageApiUrl(requestConfig);
+        if (openRouterUrl) {
+            const response = await axios.post<ImageApiResponse>(
+                openRouterUrl,
+                {
+                    model: requestConfig.model,
+                    prompt: withSystemPrompt(requestConfig, prompt),
+                    n,
+                    ...(quality ? { quality } : {}),
+                    ...(requestSize ? { size: requestSize } : {}),
+                    output_format: IMAGE_OUTPUT_FORMAT,
+                },
+                {
+                    headers: aiHeaders(requestConfig, "application/json"),
+                    signal: options?.signal,
+                },
+            );
+            return parseImagePayload(response.data);
+        }
+
+        const omniaKey = isOmniaKeyBaseUrl(requestConfig.baseUrl);
+        const payload = {
+            model: requestConfig.model,
+            prompt: withSystemPrompt(requestConfig, prompt),
+            ...(quality ? { quality } : {}),
+            ...(omniaKey ? resolveOmniaImageParameters(requestSize) : requestSize ? { size: requestSize } : {}),
+            response_format: "b64_json",
+            ...(omniaKey ? {} : { output_format: IMAGE_OUTPUT_FORMAT }),
+        };
+        if (isOmniaKeyBaseUrl(requestConfig.baseUrl) && n > 1) {
+            const responses = await Promise.all(
+                Array.from({ length: n }, () =>
+                    axios.post<ImageApiResponse>(aiApiUrl(requestConfig, "/images/generations"), { ...payload, n: 1 }, { headers: aiHeaders(requestConfig, "application/json"), signal: options?.signal }),
+                ),
+            );
+            return responses.flatMap((response) => parseImagePayload(response.data));
+        }
         const response = await axios.post<ImageApiResponse>(
             aiApiUrl(requestConfig, "/images/generations"),
-            {
-                model: requestConfig.model,
-                prompt: withSystemPrompt(requestConfig, prompt),
-                n,
-                ...(quality ? { quality } : {}),
-                ...(requestSize ? { size: requestSize } : {}),
-                response_format: "b64_json",
-                output_format: IMAGE_OUTPUT_FORMAT,
-            },
+            { ...payload, n },
             {
                 headers: aiHeaders(requestConfig, "application/json"),
                 signal: options?.signal,
@@ -693,7 +904,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     const requestConfig = resolveModelRequestConfig(config, config.model || config.imageModel);
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
     const requestPrompt = buildImageReferencePromptText(prompt, references);
-    if (requestConfig.apiFormat === "gemini") {
+    if (requestConfig.apiFormat === "gemini" && !openRouterImageApiUrl(requestConfig)) {
         if (mask) throw new Error("Gemini 调用格式暂不支持蒙版编辑");
         try {
             return await requestGeminiImages(requestConfig, requestPrompt, references, n, options);
@@ -703,12 +914,29 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     }
     const quality = normalizeQuality(config.quality);
     const requestSize = resolveRequestSize(quality, config.size);
+    if (isOmniaKeyBaseUrl(requestConfig.baseUrl)) {
+        if (mask) throw new Error("OmniaKey 图片编辑暂不支持蒙版");
+        try {
+            return await requestOmniaMediaEdit(
+                requestConfig,
+                requestPrompt,
+                references,
+                n,
+                resolveOmniaImageParameters(requestSize),
+                options?.signal,
+            );
+        } catch (error) {
+            throw new Error(readAxiosError(error, "请求失败"));
+        }
+    }
     const formData = new FormData();
     formData.set("model", requestConfig.model);
     formData.set("prompt", withSystemPrompt(requestConfig, requestPrompt));
     formData.set("n", String(n));
     formData.set("response_format", "b64_json");
-    formData.set("output_format", IMAGE_OUTPUT_FORMAT);
+    if (!isOmniaKeyBaseUrl(requestConfig.baseUrl)) {
+        formData.set("output_format", IMAGE_OUTPUT_FORMAT);
+    }
     if (quality) {
         formData.set("quality", quality);
     }
@@ -720,6 +948,44 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
     if (mask) formData.set("mask", dataUrlToFile(mask));
 
     try {
+        const openRouterUrl = openRouterImageApiUrl(requestConfig);
+        if (openRouterUrl) {
+            if (mask) throw new Error("OpenRouter 图片接口暂不支持蒙版编辑");
+            const inputReferences = await Promise.all(
+                references.map(async (image) => ({
+                    type: "image_url",
+                    image_url: { url: await imageToDataUrl(image) },
+                })),
+            );
+            const response = await axios.post<ImageApiResponse>(
+                openRouterUrl,
+                {
+                    model: requestConfig.model,
+                    prompt: withSystemPrompt(requestConfig, requestPrompt),
+                    n,
+                    ...(quality ? { quality } : {}),
+                    ...(requestSize ? { size: requestSize } : {}),
+                    output_format: IMAGE_OUTPUT_FORMAT,
+                    ...(inputReferences.length ? { input_references: inputReferences } : {}),
+                },
+                {
+                    headers: aiHeaders(requestConfig, "application/json"),
+                    signal: options?.signal,
+                },
+            );
+            return parseImagePayload(response.data);
+        }
+
+        if (isOmniaKeyBaseUrl(requestConfig.baseUrl) && n > 1) {
+            const responses = await Promise.all(
+                Array.from({ length: n }, () => {
+                    const singleFormData = cloneFormData(formData);
+                    singleFormData.set("n", "1");
+                    return axios.post<ImageApiResponse>(aiApiUrl(requestConfig, "/images/edits"), singleFormData, { headers: aiHeaders(requestConfig), signal: options?.signal });
+                }),
+            );
+            return responses.flatMap((response) => parseImagePayload(response.data));
+        }
         const response = await axios.post<ImageApiResponse>(aiApiUrl(requestConfig, "/images/edits"), formData, { headers: aiHeaders(requestConfig), signal: options?.signal });
         const images = parseImagePayload(response.data);
         return images;
@@ -731,7 +997,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
 export async function requestImageQuestion(config: AiConfig, messages: AiTextMessage[], onDelta: (text: string) => void, options?: RequestOptions) {
     const requestConfig = resolveModelRequestConfig(config, config.model || config.textModel);
     try {
-        if (requestConfig.apiFormat === "gemini") {
+        if (requestConfig.apiFormat === "gemini" && !openRouterImageApiUrl(requestConfig)) {
             const answer = (await requestGeminiStreamingResponse(requestConfig, toGeminiBody(requestConfig, messages), onDelta, options)).content || "没有返回内容";
             if (answer === "没有返回内容") onDelta(answer);
             return answer;
@@ -749,11 +1015,23 @@ export async function requestImageQuestion(config: AiConfig, messages: AiTextMes
 
 export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKey" | "apiFormat">) {
     try {
-        if (config.apiFormat === "gemini") {
+        if (config.apiFormat === "gemini" && !openRouterImageApiUrl(config, "/models")) {
             const response = await axios.get<GeminiPayload>(geminiApiUrl({ ...defaultGeminiConfig, ...config }), { headers: geminiHeaders({ ...defaultGeminiConfig, ...config }) });
             validateGeminiPayload(response.data);
             return (response.data.models || [])
                 .map((model) => model.name?.replace(/^models\//, ""))
+                .filter((id): id is string => Boolean(id))
+                .sort((a, b) => a.localeCompare(b));
+        }
+        const openRouterModelsUrl = openRouterImageApiUrl(config, "/models");
+        if (openRouterModelsUrl) {
+            const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(openRouterModelsUrl, {
+                headers: {
+                    Authorization: `Bearer ${config.apiKey}`,
+                },
+            });
+            return (response.data.data || [])
+                .map((model) => model.id)
                 .filter((id): id is string => Boolean(id))
                 .sort((a, b) => a.localeCompare(b));
         }

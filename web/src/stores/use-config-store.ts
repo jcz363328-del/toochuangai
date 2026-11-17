@@ -129,7 +129,7 @@ function isVideoModelName(model: string) {
 
 function isImageModelName(model: string) {
     const value = modelOptionName(model).toLowerCase();
-    return !isVideoModelName(model) && !isAudioModelName(model) && (value.includes("seedream") || value.includes("gpt-image") || value.includes("image") || value.includes("dall-e") || value.includes("dalle") || value.includes("imagen") || value.includes("flux") || value.includes("sdxl") || value.includes("stable-diffusion") || value.includes("midjourney"));
+    return !isVideoModelName(model) && !isAudioModelName(model) && (value.includes("seedream") || value.includes("gpt-image") || value.includes("image") || value.includes("dall-e") || value.includes("dalle") || value.includes("imagen") || value.includes("flux") || value.includes("sdxl") || value.includes("stable-diffusion") || value.includes("midjourney") || value.includes("banana") || value.includes("recraft"));
 }
 
 function isAudioModelName(model: string) {
@@ -147,6 +147,12 @@ export function modelMatchesCapability(model: string, capability?: ModelCapabili
     if (capability === "video") return isVideoModelName(model);
     if (capability === "audio") return isAudioModelName(model);
     return isTextModelName(model);
+}
+
+export function modelAvailableForCapability(config: AiConfig, model: string | undefined, capability?: ModelCapability) {
+    if (!model?.trim()) return false;
+    if (capability && selectableModelsByCapability(config, capability).includes(model)) return true;
+    return modelMatchesCapability(model, capability);
 }
 
 export function filterModelsByCapability(models: string[], capability?: ModelCapability) {

@@ -135,8 +135,49 @@
     textarea::-webkit-resizer {
         display: none;
     }
+    .canvas-text-input {
+        caret-color: #2563eb;
+    }
+    .canvas-text-input-custom-caret {
+        caret-color: transparent;
+    }
+    .canvas-custom-caret {
+        display: inline-block;
+        width: 3px;
+        height: 1.3em;
+        margin-right: -3px;
+        vertical-align: -0.25em;
+        border-radius: 999px;
+        background: #2563eb;
+        box-shadow: 0 0 4px rgb(37 99 235 / 80%);
+        animation: canvas-caret-blink 1s steps(1, end) infinite;
+    }
+    .canvas-text-input:focus {
+        box-shadow: inset 0 0 0 1px rgb(37 99 235 / 45%);
+    }
+    .dark .canvas-text-input {
+        caret-color: #60a5fa;
+    }
+    .dark .canvas-custom-caret {
+        background: #60a5fa;
+        box-shadow: 0 0 5px rgb(96 165 250 / 90%);
+    }
+    .dark .canvas-text-input:focus {
+        box-shadow: inset 0 0 0 1px rgb(96 165 250 / 55%);
+    }
     html {
         @apply font-sans;
+    }
+}
+
+@keyframes canvas-caret-blink {
+    0%,
+    55% {
+        opacity: 1;
+    }
+    56%,
+    100% {
+        opacity: 0.22;
     }
 }
 

@@ -88,4 +88,4 @@ or by requiring acceptance through an automated CLA workflow.
 ## 8. Contact
 
 For questions about this Agreement, contact the maintainers through the
-repository or email `1844025705@qq.com`.
+repository or your configured project contact.

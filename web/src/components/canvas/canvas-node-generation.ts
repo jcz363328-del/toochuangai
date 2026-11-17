@@ -1,4 +1,5 @@
-import type { AiTextMessage } from "@/services/api/image";
+import { type AiTextMessage } from "@/services/api/image";
+import { requestPublicFigureDetection } from "@/services/api/xiaoha";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { seedanceReferenceLabel } from "@/lib/seedance-video";
 import type { ReferenceImage } from "@/types/image";
@@ -143,6 +144,21 @@ export function buildNodeResponseMessages(context: NodeGenerationContext): AiTex
 export async function hydrateNodeGenerationContext(context: NodeGenerationContext) {
     const { imageToDataUrl } = await import("@/services/image-storage");
     return { ...context, referenceImages: await Promise.all(context.referenceImages.map(async (image) => ({ ...image, dataUrl: await imageToDataUrl(image) }))) };
+}
+
+export async function detectPublicFigures(images: ReferenceImage[], signal?: AbortSignal) {
+    if (!images.length) return { detected: false, names: [] as string[] };
+    const hydrated = await Promise.all(images.map(async (image) => ({ ...image, dataUrl: await imageToDataUrlForDetection(image) })));
+    const result = await requestPublicFigureDetection(
+        hydrated.map((image) => image.dataUrl).filter((value): value is string => Boolean(value)),
+        signal,
+    );
+    return { detected: result.detected, names: result.names };
+}
+
+async function imageToDataUrlForDetection(image: ReferenceImage) {
+    const { imageToDataUrl } = await import("@/services/image-storage");
+    return imageToDataUrl(image);
 }
 
 function readNodeTextInput(node: CanvasNodeData) {

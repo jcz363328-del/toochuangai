@@ -1,5 +1,5 @@
 {
-  "name": "@basketikun/canvas-agent",
+  "name": "canvas-agent",
   "version": "0.2.0",
   "type": "module",
   "main": "./dist/index.js",

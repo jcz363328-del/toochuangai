@@ -1,6 +1,9 @@
 services:
   app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
+    image: infinite-canvas:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: infinite-canvas
     ports:
       - "3000:3000"

@@ -12,6 +12,9 @@ type CanvasConfigComposerProps = {
     inputs: NodeGenerationInput[];
     onChange: (value: string) => void;
     onClose: () => void;
+    title?: string;
+    hint?: string;
+    placeholder?: string;
 };
 
 type Token =
@@ -24,7 +27,15 @@ type MentionState = {
 
 export const CONFIG_REFERENCE_PATTERN = /@\[node:([^\]]+)\]/g;
 
-export function CanvasConfigComposer({ value, inputs, onChange, onClose }: CanvasConfigComposerProps) {
+export function CanvasConfigComposer({
+    value,
+    inputs,
+    onChange,
+    onClose,
+    title = "组装提示词",
+    hint = "@ 引用已连接素材，发送前按当前连接重新编号",
+    placeholder = "输入提示词，按 @ 引用连接的图片或文本",
+}: CanvasConfigComposerProps) {
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const editorRef = useRef<HTMLDivElement>(null);
     const composingRef = useRef(false);
@@ -115,13 +126,13 @@ export function CanvasConfigComposer({ value, inputs, onChange, onClose }: Canva
         >
             <div className="mb-2 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-baseline gap-2">
-                    <div className="shrink-0 text-xs font-semibold">组装提示词</div>
-                    <div className="truncate text-[11px] opacity-55">@ 引用已连接素材，发送前按当前连接重新编号</div>
+                    <div className="shrink-0 text-xs font-semibold">{title}</div>
+                    <div className="truncate text-[11px] opacity-55">{hint}</div>
                 </div>
                 <Button size="small" type="text" className="!h-7 !w-7 !min-w-7 !p-0" icon={<X className="size-3.5" />} onClick={onClose} />
             </div>
             <div className="relative rounded-xl border" style={{ background: theme.node.fill, borderColor: theme.node.stroke }}>
-                {!value.trim() ? <div className="pointer-events-none absolute left-3 top-2 text-sm leading-7" style={{ color: theme.node.placeholder }}>输入提示词，按 @ 引用连接的图片或文本</div> : null}
+                {!value.trim() ? <div className="pointer-events-none absolute left-3 top-2 text-sm leading-7" style={{ color: theme.node.placeholder }}>{placeholder}</div> : null}
                 <div
                     ref={editorRef}
                     contentEditable

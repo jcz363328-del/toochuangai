@@ -21,6 +21,25 @@ export enum CanvasNodeType {
 export type CanvasNodeStatus = "idle" | "success" | "loading" | "error";
 export type CanvasGenerationMode = "text" | "image" | "video" | "audio";
 export type CanvasImageGenerationType = "generation" | "edit";
+export type CanvasBusinessModule = "modelHd";
+export type CanvasXiaohaImageFeature =
+    | "modelHd"
+    | "product_retouch"
+    | "product_retouch_local"
+    | "background_cutout"
+    | "jimeng_hd_upscale"
+    | "remove_eyelashes"
+    | "pose_change"
+    | "scene_change"
+    | "outpaint"
+    | "single_to_double"
+    | "skin_tone"
+    | "pupil_color_change"
+    | "eye_shape_change"
+    | "three_view"
+    | "ai_qa_image";
+export type CanvasImageFunction = "generate" | CanvasXiaohaImageFeature;
+export type CanvasModelHdMethod = "nano-banana-2" | "seedream-5-pro";
 
 export type CanvasNodeMetadata = {
     content?: string;
@@ -31,6 +50,14 @@ export type CanvasNodeMetadata = {
     fontSize?: number;
     generationMode?: CanvasGenerationMode;
     generationType?: CanvasImageGenerationType;
+    businessModule?: CanvasBusinessModule;
+    imageFunction?: CanvasImageFunction;
+    sourceTitle?: string;
+    modelHdMethod?: CanvasModelHdMethod;
+    outpaintTop?: number;
+    outpaintBottom?: number;
+    outpaintLeft?: number;
+    outpaintRight?: number;
     model?: string;
     size?: string;
     quality?: string;

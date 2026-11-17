@@ -9,6 +9,8 @@ type ModelPickerProps = {
     config: AiConfig;
     value?: string;
     onChange: (model: string) => void;
+    models?: string[];
+    modelLabels?: Record<string, string>;
     capability?: ModelCapability;
     className?: string;
     fullWidth?: boolean;
@@ -16,11 +18,15 @@ type ModelPickerProps = {
     onMissingConfig?: () => void;
 };
 
-export function ModelPicker({ config, value, onChange, capability, className, fullWidth = false, placeholder = "选择模型", onMissingConfig }: ModelPickerProps) {
+export function ModelPicker({ config, value, onChange, models, modelLabels, capability, className, fullWidth = false, placeholder = "选择模型", onMissingConfig }: ModelPickerProps) {
     const pickerId = useId();
     const [open, setOpen] = useState(false);
-    const options = useMemo(() => Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model)))), [capability, config, value]);
+    const options = useMemo(
+        () => Array.from(new Set((models || [...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)]).filter((model): model is string => Boolean(model)))),
+        [capability, config, models, value],
+    );
     const current = value || "";
+    const labelForModel = (model: string) => modelLabels?.[model] || modelOptionLabel(config, model);
 
     useEffect(() => {
         const closeOtherPicker = (event: Event) => {
@@ -50,10 +56,10 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
                 )}
                 onMouseDown={(event) => event.stopPropagation()}
                 onPointerDown={(event) => event.stopPropagation()}
-                title={current ? modelOptionLabel(config, current) : placeholder}
+                title={current ? labelForModel(current) : placeholder}
             >
                 <ModelIcon model={current} />
-                <span className="canvas-model-picker-text min-w-0 flex-1 truncate text-left">{current ? modelOptionLabel(config, current) : placeholder}</span>
+                <span className="canvas-model-picker-text min-w-0 flex-1 truncate text-left">{current ? labelForModel(current) : placeholder}</span>
             </SelectTrigger>
             <SelectContent
                 data-canvas-no-zoom
@@ -67,8 +73,8 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
             >
                 {options.length ? (
                     options.map((model) => (
-                        <SelectItem key={model} value={model} textValue={modelOptionLabel(config, model)}>
-                            <ModelLabel config={config} model={model} />
+                        <SelectItem key={model} value={model} textValue={labelForModel(model)}>
+                            <ModelLabel config={config} model={model} label={labelForModel(model)} />
                         </SelectItem>
                     ))
                 ) : (
@@ -87,11 +93,11 @@ function emptyModelLabel(config: AiConfig, capability?: ModelCapability) {
     return config.models.length ? `暂无匹配的${label}模型` : "请先到配置里添加渠道和模型";
 }
 
-function ModelLabel({ config, model }: { config: AiConfig; model: string }) {
+function ModelLabel({ config, model, label }: { config: AiConfig; model: string; label?: string }) {
     return (
         <span className="flex min-w-0 items-center gap-2">
             <ModelIcon model={model} />
-            <span className="truncate">{modelOptionLabel(config, model)}</span>
+            <span className="truncate">{label || modelOptionLabel(config, model)}</span>
         </span>
     );
 }

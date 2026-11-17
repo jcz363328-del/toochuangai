@@ -5,17 +5,9 @@
 <h1 align="center">无限画布 (infinite-canvas)</h1>
 
 <p align="center">
-  <a href="https://linux.do/"><img src="https://img.shields.io/badge/Linux.do-Community-2b6de8?style=flat-square" alt="Linux.do"></a>
-  <a href="https://render.com/deploy?repo=https://github.com/basketikun/infinite-canvas"><img src="https://img.shields.io/badge/Render-Deploy-46e3b7?style=flat-square&logo=render&logoColor=111111" alt="Deploy to Render"></a>
-  <a href="https://github.com/basketikun/infinite-canvas"><img src="https://img.shields.io/github/stars/basketikun/infinite-canvas?style=flat-square&logo=github" alt="GitHub stars"></a>
-  <a href="https://github.com/basketikun/infinite-canvas/tags"><img src="https://img.shields.io/github/v/tag/basketikun/infinite-canvas?style=flat-square&label=version" alt="Version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-f97316?style=flat-square" alt="License"></a>
   <a href="https://vite.dev/"><img src="https://img.shields.io/badge/Vite-7-646cff?style=flat-square&logo=vite&logoColor=white" alt="Vite"></a>
   <a href="https://reactrouter.com/"><img src="https://img.shields.io/badge/React_Router-7-ca4245?style=flat-square&logo=reactrouter&logoColor=white" alt="React Router"></a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/50077?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-50077" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/50077/daily?language=TypeScript" alt="basketikun%2Finfinite-canvas | Trendshift" width="250" height="55"></a>
 </p>
 
 <p align="center">
@@ -27,7 +19,7 @@
 > [!CAUTION]
 > 项目目前处于开发阶段，不保证历史数据兼容。各种本地存储格式都可能直接调整，欢迎关注后续更新，当前更适合个人/本地部署，不建议直接公网多人共用。
 >
-> 如果你需要稳定维护自己的分支，建议自行 fork 后独立开发。二次开发与 PR 请保留原作者信息和前端页面标识。
+> 如果你需要稳定维护自己的分支，建议自行 fork 后独立开发，并遵守本项目许可证要求。
 
 ## 核心功能
 
@@ -40,8 +32,6 @@
 
 完整功能说明见 [功能介绍](docs/content/docs/overview/features.mdx)。
 
-如果你在为担心没有合适的生图API来发愁，可以查看该免费生图项目：[chatgpt2api](https://github.com/basketikun/chatgpt2api)
-
 ## 快速开始
 
 AI API Key、Base URL、画布、素材和生成记录默认保存在浏览器本地。
@@ -49,7 +39,7 @@ AI API Key、Base URL、画布、素材和生成记录默认保存在浏览器�
 ### 本地开发
 
 ```bash
-git clone git@github.com:basketikun/infinite-canvas.git
+git clone <your-repository-url>
 cd infinite-canvas
 cd web
 bun install
@@ -59,7 +49,7 @@ bun run dev
 ### Docker 运行
 
 ```bash
-git clone git@github.com:basketikun/infinite-canvas.git
+git clone <your-repository-url>
 cd infinite-canvas
 docker compose up -d
 ```
@@ -73,11 +63,11 @@ docker compose up -d
 如果使用 New API，可在 `系统设置 -> 聊天方式 -> 添加聊天设置` 中填入：
 
 ```text
-https://canvas.best?apiKey={key}&baseUrl={address}
+https://your-site.example?apiKey={key}&baseUrl={address}
 ```
 
 跳转后会自动打开配置弹窗并填入 API Key 和 Base URL。
-如果自己部署了，可以把 `https://canvas.best` 替换成你部署的地址。
+请把示例域名替换成你自己的部署地址。
 
 ## 效果展示
 
@@ -100,45 +90,6 @@ https://canvas.best?apiKey={key}&baseUrl={address}
   </tr>
 </table>
 
-## 联系方式
-
-项目定制二次开发需求 / 生图 API 需求可联系。
-
-邮箱：1844025705@qq.com · QQ：1844025705
-
-## 赞助支持
-
-<div align="center">
-
-如果这个项目对你有帮助，欢迎通过爱发电赞助支持，你的每一份鼓励都是持续更新的动力！
-
-<br>
-
-<a href="https://ifdian.net/a/basketikun">
-  <img src="https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E8%B5%9E%E5%8A%A9%E4%BD%9C%E8%80%85-946ce6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0xMiAyMS4zNWwtMS40NS0xLjMyQzUuNCAxNS4zNiAyIDEyLjI4IDIgOC41IDIgNS40MiA0LjQyIDMgNy41IDNjMS43NCAwIDMuNDEuODEgNC41IDIuMDlDMTMuMDkgMy44MSAxNC43NiAzIDE2LjUgMyAxOS41OCAzIDIyIDUuNDIgMjIgOC41YzAgMy43OC0zLjQgNi44Ni04LjU1IDExLjU0TDEyIDIxLjM1eiIvPjwvc3ZnPg==&logoColor=white" alt="爱发电赞助" />
-</a>
-
-<br>
-<br>
-
-</div>
-
-## 社区支持
-
-学 AI，上 L 站：[LinuxDO](https://linux.do/)
-
-点击链接加入群聊【AI开源交流】：https://qm.qq.com/q/DFnKzZ807u
-
 ## 开源协议
 
 本项目使用 GNU Affero General Public License v3.0，见 [LICENSE](LICENSE)。
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=basketikun%2Finfinite-canvas&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=basketikun/infinite-canvas&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=basketikun/infinite-canvas&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=basketikun/infinite-canvas&type=date&legend=top-left" />
- </picture>
-</a>

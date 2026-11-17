@@ -3,8 +3,6 @@
   "root": true,
   "defaultOpen": true,
   "pages": [
-    "security",
-    "donate",
-    "sponsor"
+    "security"
   ]
 }
