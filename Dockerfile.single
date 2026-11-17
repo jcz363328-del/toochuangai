@@ -16,6 +16,9 @@ COPY --from=sales-runtime /app/business_analysis /app/business_analysis
 COPY --from=xiaoha-runtime /opt/infinite-canvas /opt/infinite-canvas
 RUN apt-get update && apt-get install -y --no-install-recommends nginx supervisor libatomic1 && /opt/video/bin/python -m playwright install-deps chromium && rm -rf /var/lib/apt/lists/*
 COPY *.py ./
+COPY templates/ ./templates/
+COPY static/ ./static/
+COPY migrations/ ./migrations/
 COPY innovation/ ./innovation/
 COPY 图片/ ./图片/
 COPY docker/ ./docker/

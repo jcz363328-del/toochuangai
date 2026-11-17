@@ -47,6 +47,10 @@
                 </form>
             </div>
         </div>
+        {% else %}
+        <div class="alert alert-info" role="alert">
+            当前账号没有专项发布权限。若部门刚调整，请退出并通过当前飞书应用重新登录。
+        </div>
         {% endif %}
     </div>
 </div>

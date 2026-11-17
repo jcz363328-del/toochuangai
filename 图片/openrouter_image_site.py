@@ -131,7 +131,7 @@ REQUEST_PROXIES = {
 HISTORY_DIR = APP_DIR / "history"
 HISTORY_IMAGES_DIR = HISTORY_DIR / "images"
 HISTORY_FILE = HISTORY_DIR / "records.json"
-OPENROUTER_ERROR_LOG_FILE = APP_DIR / "logs" / "openrouter_errors.jsonl"
+OPENROUTER_ERROR_LOG_FILE = PROJECT_ROOT / "logs" / "openrouter_errors.jsonl"
 MAX_HISTORY_RECORDS = 120
 HISTORY_PAGE_SIZE = 20
 DB_HISTORY_TABLE = "AI_TuPian"
@@ -1872,7 +1872,7 @@ FEATURES = [
         "default_prompt": (
             "请生成一张完整连续的电商 A+ 长图。输入图片中的第 1 张是最终首屏底稿，后续图片是同一商品的主图、细节图和卖点素材图。"
             "第 1 张图片的首屏区域必须作为不可编辑的原始画面完整保留：不得重绘、改字、调色、裁切、缩放、拉伸、移动、重排、替换或覆盖首屏中的人物、商品、包装、Logo、可读文案、主色、背景氛围、装饰语言、构图关系和视觉层级；用户补充要求明确指定删除或修改的文字、文案及其他元素时除外。"
-            "从后续多张主图中识别并提取真实可见的产品卖点、功能细节、材质、结构、配件、使用方式、规格与可读文案，把它们自然融合到首屏及后续内容区；优先保留证据清晰、信息价值高且互不重复的卖点。"
+            "从后续多张主图中识别并提取真实可见的产品卖点、功能细节、材质、结构、配件、使用方式、规格与可读文案，只在底稿下方纯色留白内自由组合填充，允许重排、错落布局和自由组合，禁止把参考主图整张机械堆叠；首屏已有画面完全不变。"
             "只能使用上传图片中明确存在的信息，禁止编造功效、参数、认证、折扣、承诺、配件或品牌文案；相同卖点只表达一次。"
             "最终画布必须严格沿用第 1 张图片的像素尺寸和宽高比例，不得裁切、补边、拉伸或改变画布方向。首屏之后只在第 1 张图片已有的下方留白或可用区域排布后续卖点，不能覆盖或改变首屏。"
             "整张 A+ 必须是一张连续设计，不得出现硬切分、拼贴接缝、重复背景、独立海报堆叠或白边黑边。保持统一品牌色、字体气质、光影、材质、留白和阅读节奏。"
@@ -11722,6 +11722,90 @@ def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
     return finalize_feature_job_result(job_context, merged_result, job_id)
 
 
+def detect_first_screen_fill_start(source: Image.Image) -> int:
+    """Find a continuous, solid-color bottom canvas; fail closed without one."""
+    rgb = source.convert("RGB")
+    width, height = rgb.size
+    sample = rgb.crop((0, height - 1, width, height))
+    background = tuple(int(v) for v in ImageStat.Stat(sample).median)
+    pixels = rgb.load()
+    # Inspect original pixels so narrow details are never discarded by downsampling.
+    for y in range(height - 1, -1, -1):
+        if any(max(abs(pixels[x, y][c] - background[c]) for c in range(3)) > 12
+               for x in range(width)):
+            start = y + 1
+            if height - start < max(16, round(height * .1)):
+                raise RuntimeError("首屏底稿下方未检测到足够的纯色留白，请上传带下方留白的底稿。")
+            return start
+    raise RuntimeError("首屏底稿没有可识别的首屏内容，请检查上传图片。")
+
+
+def preserve_first_screen_pixels(image_url: str, uploaded_input: Any) -> str:
+    """Restore original hero pixels after generation; only bottom blank rows may change."""
+    with Image.open(io.BytesIO(get_uploaded_file_bytes(uploaded_input))) as image:
+        source = ImageOps.exif_transpose(image).convert("RGBA")
+    start = detect_first_screen_fill_start(source)
+    generated_bytes, _mime = load_image_bytes_from_url(image_url)
+    with Image.open(io.BytesIO(generated_bytes)) as image:
+        generated = ImageOps.exif_transpose(image).convert("RGBA")
+        if generated.size != source.size:
+            generated = generated.resize(source.size, Image.Resampling.LANCZOS)
+    generated.paste(source.crop((0, 0, source.width, start)), (0, 0))
+    output = io.BytesIO()
+    generated.save(output, format="PNG")
+    return image_bytes_to_data_url(output.getvalue(), "image/png")
+
+
+def run_first_screen_selling_points_job(job_context: dict[str, Any]) -> dict[str, Any]:
+    """Generate only the blank region; never send the hero to the image model."""
+    files = list(job_context.get("uploaded_files") or [])
+    if len(files) < 2:
+        raise RuntimeError("请上传首屏底稿和至少一张卖点素材图。")
+    with Image.open(io.BytesIO(get_uploaded_file_bytes(files[0]))) as image:
+        source = ImageOps.exif_transpose(image).convert("RGBA")
+    start = detect_first_screen_fill_start(source)
+    region_size = (source.width, source.height - start)
+    background = tuple(int(v) for v in ImageStat.Stat(source.convert('RGB').crop(
+        (0, source.height - 1, source.width, source.height))).median)
+    background_hex = '#%02x%02x%02x' % background
+    prompt = (
+        f"只设计电商 A+ 长图下方的卖点区域，目标尺寸 {region_size[0]}×{region_size[1]}。"
+        f"底色统一为 {background_hex}，顶部从该纯色自然过渡到卖点内容。"
+        "首屏已由系统保留，不属于本次生成范围。只参考上传的卖点素材，不新增首屏、封面、人物主视觉或重复产品大海报。"
+        "将素材中真实存在的卖点、细节、规格和使用方式自由拆解组合，重新设计成一张连续的卖点信息区。"
+        "禁止整张参考海报照搬堆叠，禁止边框、斜纹装饰边、硬接缝和重复信息；不编造文案或参数。"
+        "合理铺满整个目标区域，模块分布到接近底部，只保留适度呼吸空间，禁止底部大面积空白。"
+        "不拉伸人物、商品或文字。以下补充要求仅适用于本次下方卖点区：\n"
+        + str(job_context.get('a_plus_first_screen_requirements') or '')
+    )
+    result = call_openrouter_images_api(
+        model=str(job_context['model']), prompt=prompt,
+        uploaded_files=files[1:], aspect_ratio=select_closest_aspect_ratio(region_size),
+        resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+    )
+    outputs = []
+    for url in result.get('images') or []:
+        data, _ = load_image_bytes_from_url(url)
+        with Image.open(io.BytesIO(data)) as image:
+            region = fit_image_to_canvas_without_distortion(image.convert('RGBA'), *region_size).convert('RGBA')
+        # Blend only inside the editable area, leaving every hero pixel untouched.
+        blend_rows = min(16, region.height)
+        for y in range(blend_rows):
+            strip = region.crop((0, y, region.width, y + 1))
+            base = Image.new('RGBA', strip.size, background + (255,))
+            region.paste(Image.blend(base, strip, y / max(blend_rows - 1, 1)), (0, y))
+        canvas = source.copy()
+        canvas.paste(region, (0, start))
+        buffer = io.BytesIO()
+        canvas.save(buffer, format='PNG')
+        outputs.append(image_bytes_to_data_url(buffer.getvalue(), 'image/png'))
+    if not outputs:
+        raise RuntimeError("卖点区域未返回图片。")
+    result['images'] = outputs
+    result['target_size'] = list(source.size)
+    return result
+
+
 def _amazon_a_plus_row_profile(source: Image.Image) -> tuple[list[float], list[float], int]:
     """Return per-row brightness mean/std profiles for section boundary detection."""
     sample_width = 320
@@ -11928,6 +12012,10 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
     if job_id:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
+    if (feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
+            and job_context.get("a_plus_first_screen_workflow_stage") != "hero"):
+        result = run_first_screen_selling_points_job(job_context)
+        return finalize_feature_job_result(job_context, result, job_id)
     if feature_key == AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY:
         result = run_amazon_to_walmart_a_plus_job(job_context)
         return finalize_feature_job_result(job_context, result, job_id)
@@ -12245,6 +12333,11 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
                 if job_id:
                     set_task_progress(job_id, 80, "正在识别绿幕元素并生成分层 PSD")
                 result = build_amazon_a_plus_layered_result(result, target_size)
+            if (feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
+                    and job_context.get("a_plus_first_screen_workflow_stage") != "hero"):
+                original = list(job_context.get("uploaded_files") or [])[0]
+                result["images"] = [preserve_first_screen_pixels(url, original)
+                                    for url in result.get("images") or []]
         max_output_images = int(job_context.get("max_output_images") or 0)
         if max_output_images > 0:
             result["images"] = (result.get("images") or [])[:max_output_images]
@@ -12571,6 +12664,7 @@ def record_background_job_error(
         with _OPENROUTER_ERROR_LOG_LOCK:
             with OPENROUTER_ERROR_LOG_FILE.open("a", encoding="utf-8") as log_file:
                 log_file.write(serialized + "\n")
+        print(f"[image-task-error] {serialized}", file=sys.stderr)
     except Exception as log_exc:
         print(
             f"[background-job-log] write_failed={type(log_exc).__name__}: {log_exc}",
@@ -15592,7 +15686,7 @@ def format_omnia_error_message(error_message: Any) -> str:
     if "http 413" in normalized_message or "request body too large" in normalized_message or "1mb" in normalized_message:
         return "OmniaKey 请求体超过 1MB 上限，请降低输入图片尺寸后重试。"
     if "safety" in normalized_message or "blocked" in normalized_message or "审核" in raw_message:
-        return "图片或文字要求触发了模型安全审核，请更换合规图片或调整要求后重试。"
+        return "OmniaKey 返回内容审核拦截，未提供图片结果；这不一定表示输入违规。请检查图片和提示词，正常内容仍被拒绝时请联系服务商排查。"
     if "timeout" in normalized_message or "timed out" in normalized_message or "超时" in raw_message:
         return "OmniaKey 任务等待超时，请稍后重新提交。"
     cleaned_message = re.sub(r"https?://\S+", "", raw_message).strip()
@@ -15853,12 +15947,17 @@ def call_omnia_image_api(
 
     deadline = time.monotonic() + OMNIAKEY_TASK_TIMEOUT_SECONDS
     task_data: dict[str, Any] = dict(create_data or {})
+    poll_failures = 0
     while time.monotonic() < deadline:
         status = str(task_data.get("status") or "").strip().lower()
         if status == "succeeded":
             break
         if status in {"failed", "canceled", "cancelled"}:
-            raise RuntimeError(f"OmniaKey 图片任务失败：{build_omnia_task_error_message(task_data)}")
+            error = RuntimeError(
+                f"OmniaKey 图片任务失败（任务 {task_id}）：{build_omnia_task_error_message(task_data)}"
+            )
+            record_background_job_error(task_id, "omnia_image", status, error)
+            raise error
         time.sleep(OMNIAKEY_TASK_POLL_INTERVAL_SECONDS)
         try:
             poll_response = requests.get(
@@ -15870,7 +15969,11 @@ def call_omnia_image_api(
                 ),
             )
         except requests.RequestException as exc:
-            raise RuntimeError(f"OmniaKey 查询图片任务失败：{exc}") from exc
+            poll_failures += 1
+            if poll_failures < 4:
+                continue
+            raise RuntimeError(f"OmniaKey 查询图片任务失败（任务 {task_id}，已重试 3 次）：{exc}") from exc
+        poll_failures = 0
         if poll_response.status_code >= 400:
             try:
                 poll_error = poll_response.json()
@@ -21485,6 +21588,9 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                                 for image_url in generated_images
                             ]
                     except Exception as exc:
+                        record_background_job_error(
+                            uuid4().hex, feature_key, "hero_style_reverse_generate", exc
+                        )
                         st.error(f"批量生成失败：{format_user_facing_error_message(exc)}")
                     else:
                         persist_hero_style_reverse_history(
@@ -25459,6 +25565,13 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 final_prompt = build_jimeng_prompt(feature_for_request, custom_prompt, aspect_ratio, extra_notes)
             else:
                 final_prompt = build_prompt(feature_for_request, custom_prompt, aspect_ratio, extra_notes)
+            if (supports_a_plus_first_screen_selling_points
+                    and a_plus_first_screen_workflow_stage != "hero"):
+                final_prompt += (
+                    "\n\n最终硬性规则：第1张底稿首屏已有内容完全不变，任何补充要求不得覆盖此规则。"
+                    "只在下方连续纯色留白内自由组合卖点，保持底稿原始尺寸、原始首屏位置和边界。"
+                    "允许对卖点进行自由编排，但不编造信息，不重复卖点，不改变首屏任何人物、文字、商品、色彩或布局。"
+                )
             selected_hd_reference_input = hd_skin_texture_reference_file or hd_skin_reference_file
             if feature["key"] == "hd_batch" and selected_hd_reference_input is not None:
                 batch_groups = [[item, selected_hd_reference_input] for item in files]
@@ -25536,6 +25649,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         a_plus_first_screen_workflow_stage
                         if supports_a_plus_first_screen_selling_points
                         else None
+                    ),
+                    "a_plus_first_screen_requirements": (
+                        custom_prompt if supports_a_plus_first_screen_selling_points else ""
                     ),
                     "main_image_a_plus_template": (
                         prepare_uploaded_input(main_image_a_plus_template_file)

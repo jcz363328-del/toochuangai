@@ -161,24 +161,14 @@ def ensure_special_storage() -> None:
         dui_db("""
             IF OBJECT_ID(N'dbo.quanxian', N'U') IS NOT NULL
             BEGIN
-                IF EXISTS (
+                IF NOT EXISTS (
                     SELECT 1 FROM dbo.quanxian
                     WHERE LTRIM(RTRIM(GongNeng)) = N'innovation_special_manage'
                 )
-                    UPDATE dbo.quanxian
-                    SET YongHu = N'',
-                        BuMen = N'人力资源与行政部；流程与AI部',
-                        FuJiGongNeng = N'innovation_proposals',
-                        MingCheng = N'创新专项管理',
-                        MiaoShu = N'人力资源与行政部和流程与AI部创建、发布、关闭创新专项。',
-                        QiYong = 1,
-                        GengXinShiJian = SYSDATETIME()
-                    WHERE LTRIM(RTRIM(GongNeng)) = N'innovation_special_manage';
-                ELSE
                     INSERT INTO dbo.quanxian
                         (GongNeng, YongHu, BuMen, FuJiGongNeng, MingCheng, MiaoShu, QiYong, GengXinShiJian)
                     VALUES
-                        (N'innovation_special_manage', N'', N'人力资源与行政部；流程与AI部',
+                        (N'innovation_special_manage', N'', N'招聘配置；人才发展与培训；薪酬绩效；员工关系；企业文化；行政；HRBP；流程与AI部',
                          N'innovation_proposals', N'创新专项管理',
                          N'人力资源与行政部和流程与AI部创建、发布、关闭创新专项。', 1, SYSDATETIME());
             END

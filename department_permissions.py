@@ -41,14 +41,21 @@ def is_local_superadmin():
 DEPARTMENT_ID_MAPPING = {
     # 根据实际飞书组织架构配置部门ID和名称的映射关系
     # 格式: 'department_id': 'department_name'
-    'od-f652a036dd421ff38d25b92e423026df': 'AI部',
+    'od-f652a036dd421ff38d25b92e423026df': '流程与AI部',
     'od-82e136378bb07aeae74247dd78a08b18': 'TK直播部',
     'od-e7b5654df37bd9375225e8fce462a408': '财务部',
     'od-9929dd4f4d3b0be7c1f635d17e46ae22': '采购部',
     'od-692236b3673407d6c0333c42fd6b01af': '仓储部',
     'od-bca4e38e980226d367f7c501b3697e5a': '技术部',
     'od-c560effca33bf715c15f79a0670fe6ba': '内容生产工厂',
-    'od-f400f2b1de53f7303b589420f14b6c5a': '人力行政部',
+    'od-f400f2b1de53f7303b589420f14b6c5a': '人力资源与行政部',
+    'od-01808af9c4301714fc52f792cb5acf0e': '招聘配置',
+    'od-b44b7cb9fd3a47fcb04926173af96f98': '人才发展与培训',
+    'od-8cef8256533e2b792c727a8415eecc82': '薪酬绩效',
+    'od-3c08a06d9d0502672b8267852a7570d9': '员工关系',
+    'od-b642b4bbac9459c5bf94c0389d882c67': '企业文化',
+    'od-b6cb4fee59585494ccc3f95bdb466097': '行政',
+    'od-c578d5d92e77d1edbb0320012728bf0a': 'HRBP',
     'od-533088d36a43c281e0a2e99161e7e6a9': '摄影部',
     'od-c6530027bce19f79a623f46dc9a57372': '深圳团队',
     'od-791aa15d697bd40782942379363d4f21': '视觉设计部',
@@ -95,7 +102,7 @@ PERMISSION_CONFIG = {
     },
     'innovation_special_manage': {
         'name': '创新专项管理',
-        'allowed_departments': ['人力资源与行政部', '流程与AI部'],
+        'allowed_departments': ['招聘配置', '人才发展与培训', '薪酬绩效', '员工关系', '企业文化', '行政', 'HRBP', '流程与AI部'],
         'description': '创建、发布和维护创新专项。'
     },
     'review_analysis': {
@@ -245,7 +252,7 @@ PERMISSION_CONFIG = {
     },
     'hr_admin_dept': {
         'name': '人力行政部功能',
-        'allowed_departments': ['人力行政部', 'AI部', '总经办'],
+        'allowed_departments': ['招聘配置', '人才发展与培训', '薪酬绩效', '员工关系', '企业文化', '行政', 'HRBP', '流程与AI部', '总经办'],
         'description': '人力行政部专属功能模块'
     },
     'newcomer_group': {
