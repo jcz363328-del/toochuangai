@@ -2563,10 +2563,10 @@ def require_permission(function_name):
                             'success': False,
                             'error': '未登录',
                             'message': '未检测到飞书登录状态，请重新登录',
-                            'auth_url': url_for('feishu_auth')
+                            'auth_url': url_for('feishu_auth', next=request.full_path.rstrip('?'))
                         }), 401
                     # 非API请求重定向到飞书授权
-                    return redirect(url_for('feishu_auth'))
+                    return redirect(url_for('feishu_auth', next=request.full_path.rstrip('?')))
 
             # 检查权限
             try:
@@ -2579,7 +2579,7 @@ def require_permission(function_name):
                         'message': f'权限校验失败: {str(e)}',
                         'required_function': function_name
                     }), 500
-                return redirect(url_for('feishu_auth'))
+                return redirect(url_for('feishu_auth', next=request.full_path.rstrip('?')))
 
             if not has_permission:
                 # 检查请求类型，如果是API请求返回JSON，否则重定向到dashboard

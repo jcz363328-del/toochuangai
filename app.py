@@ -10708,11 +10708,11 @@ def dashboard_xiaotu_report_center_mobile():
 def dashboard_xiaotu_report_history():
     user_id = session.get('feishu_user_id')
     if not user_id:
-        session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_history')
+        session['post_auth_redirect'] = request.full_path.rstrip('?')
         return redirect(url_for('feishu_auth'))
     user_access_token = _get_feishu_user_access_token()
     if not user_access_token:
-        session['post_auth_redirect'] = url_for('dashboard_xiaotu_report_history')
+        session['post_auth_redirect'] = request.full_path.rstrip('?')
         return redirect(url_for('feishu_auth'))
     user_name = str(session.get('feishu_user_name') or '用户').strip()
     history_debug_options = _xiaotu_get_report_history_debug_options(user_name)
