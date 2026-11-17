@@ -4,19 +4,23 @@ import os
 import tempfile
 import hashlib
 import copy
+import re
+import shutil
 import uuid
+import zipfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+from xml.sax.saxutils import escape as xml_escape
 
 from flask import Blueprint, current_app, g, has_request_context, jsonify, render_template, request, send_file, session
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font
+from openpyxl import load_workbook
 
 import daily_replenishment as base
 from department_permissions import require_permission
+from bjc import dui_db
 from tools import escape_sql_literal
 
 
@@ -30,6 +34,8 @@ _snapshot_cache: dict[str, tuple[int, dict[str, Any]]] = {}
 _refresh_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="daily-replenishment-refresh")
 _refresh_jobs_lock = Lock()
 _refresh_jobs: dict[str, dict[str, Any]] = {}
+SEA_SHIPPING_RECOMMENDATION_DAYS = 30
+SEA_SHIPPING_RECOMMENDATION_MIN_AVG = 20.0
 
 
 def _normalized_store(value: Any) -> str:
@@ -125,6 +131,8 @@ def scoped_query_executor(user_name: str, *, query_executor=base.sf_db):
             return [row for row in rows if row and str(row[0] or "").strip() in visible_skus]
         if "daily_replenishment:smart_margins" in marker:
             return [row for row in rows if row and str(row[0] or "").strip() in visible_skus]
+        if "daily_replenishment:sea_shipping" in marker:
+            return [row for row in rows if row and str(row[0] or "").lstrip("@").strip() in visible_skus]
         if "daily_replenishment:smart_status" in marker:
             return [
                 row for row in rows
@@ -271,6 +279,101 @@ def _scope_snapshot_payload(payload: dict[str, Any], access: dict[str, Any]) -> 
             if str(old_index) in styles
         }
     return scoped
+
+
+def _scoped_main_row_indexes(payload: dict[str, Any], access: dict[str, Any]) -> list[int]:
+    """Return full-snapshot row indexes for the authorized 日常补货 rows."""
+    sheet = (payload.get("sheets") or {}).get(base.SHEET_NAME) or {}
+    columns = [str(value or "").strip() for value in sheet.get("columns") or []]
+    try:
+        store_index = columns.index("店铺")
+    except ValueError as exc:
+        raise base.DailyReplenishmentError("快照缺少“店铺”列，无法保存订货量") from exc
+    stores = {_normalized_store(value) for value in access.get("read_stores") or set()}
+    return [
+        index
+        for index, row in enumerate(sheet.get("rows") or [])
+        if len(row) > store_index and _normalized_store(row[store_index]) in stores
+    ]
+
+
+def _coerce_order_quantity(value: Any, *, allow_zero: bool = True) -> int:
+    number = base._as_number(value)
+    if number is None or number < 0 or (not allow_zero and number <= 0):
+        raise base.DailyReplenishmentError("订货量必须是大于 0 的整数" if not allow_zero else "订货量必须是大于等于 0 的整数")
+    rounded = int(round(number))
+    if abs(number - rounded) > 1e-9:
+        raise base.DailyReplenishmentError("订货量必须是整数")
+    return rounded
+
+
+def _save_snapshot_quantity_changes(
+    snapshot: Path,
+    access: dict[str, Any],
+    changes: list[dict[str, Any]],
+) -> tuple[Path, int]:
+    """Persist authorized quantity edits into the user's current snapshot."""
+    if not changes:
+        return snapshot, 0
+    payload = load_snapshot(snapshot)
+    main = (payload.get("sheets") or {}).get(base.SHEET_NAME) or {}
+    columns = [str(value or "").strip() for value in main.get("columns") or []]
+    try:
+        sku_index = columns.index("SKU")
+        store_index = columns.index("店铺")
+        operator_index = columns.index("运营")
+        quantity_index = columns.index("订货量")
+    except ValueError as exc:
+        raise base.DailyReplenishmentError("快照缺少保存订货量所需的列") from exc
+    rows = main.get("rows") or []
+    scoped_indexes = _scoped_main_row_indexes(payload, access)
+    resolved: dict[int, int] = {}
+    for raw in changes:
+        if not isinstance(raw, dict):
+            raise base.DailyReplenishmentError("订货量修改明细格式不正确")
+        try:
+            scoped_index = int(raw.get("index"))
+        except (TypeError, ValueError) as exc:
+            raise base.DailyReplenishmentError("订货量修改缺少有效行号") from exc
+        if scoped_index < 0 or scoped_index >= len(scoped_indexes):
+            raise base.DailyReplenishmentError("订货量修改的行已失效，请刷新后重试")
+        full_index = scoped_indexes[scoped_index]
+        row = rows[full_index]
+        expected = {
+            "sku": str(row[sku_index] or "").strip(),
+            "store": _normalized_store(row[store_index]),
+            "operator": str(row[operator_index] or "").strip(),
+        }
+        for key in ("sku", "store", "operator"):
+            if key in raw and str(raw.get(key) or "").strip() != expected[key]:
+                raise base.DailyReplenishmentError("快照内容已变化，请刷新后再保存订货量")
+        resolved[full_index] = _coerce_order_quantity(raw.get("quantity"), allow_zero=True)
+    if not resolved:
+        return snapshot, 0
+
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    quantity_column = quantity_index + 1
+    workbook = load_workbook(snapshot)
+    temp_path: Path | None = None
+    try:
+        if base.SHEET_NAME not in workbook.sheetnames:
+            raise base.DailyReplenishmentError("快照缺少日常补货工作表")
+        sheet = workbook[base.SHEET_NAME]
+        for full_index, quantity in resolved.items():
+            sheet.cell(row=full_index + 2, column=quantity_column).value = quantity
+        with tempfile.NamedTemporaryFile(dir=snapshot.parent, suffix=".xlsx", delete=False) as tmp:
+            temp_path = Path(tmp.name)
+        workbook.save(temp_path)
+        os.replace(temp_path, snapshot)
+        temp_path = None
+    finally:
+        workbook.close()
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+    for full_index, quantity in resolved.items():
+        rows[full_index][quantity_index] = quantity
+    cache_snapshot_payload(snapshot, payload)
+    return snapshot, len(resolved)
 
 
 def _resolve_snapshot_for_user(user_name: str) -> tuple[Path | None, bool]:
@@ -643,6 +746,128 @@ def data():
     return jsonify(payload)
 
 
+def _sea_shipping_recommendation_sql() -> str:
+    """返回近 30 个完整销售日的海运推荐查询。"""
+    return f"""/* daily_replenishment:sea_shipping_recommendations */
+SELECT sales.SKU,
+       ROUND(SUM(ISNULL(sales.HeSuanXiaoLiang,0))/{SEA_SHIPPING_RECOMMENDATION_DAYS}.0,1) AS AvgDailySales
+  FROM v_XiaoShouLiang sales
+  LEFT JOIN HaiYunSKU ocean
+    ON LTRIM(RTRIM(ocean.SKU))=LTRIM(RTRIM(sales.SKU))
+   AND ocean.ZhengChang=N'Y'
+ WHERE sales.RiQi>=CONVERT(date,DATEADD(day,-31,GETDATE()))
+   AND sales.RiQi<CONVERT(date,DATEADD(day,-1,GETDATE()))
+   AND ocean.SKU IS NULL
+ GROUP BY sales.SKU
+HAVING SUM(ISNULL(sales.HeSuanXiaoLiang,0))>{SEA_SHIPPING_RECOMMENDATION_DAYS * SEA_SHIPPING_RECOMMENDATION_MIN_AVG:g}
+ ORDER BY AvgDailySales DESC,sales.SKU"""
+
+
+def _normalize_sea_shipping_rows(rows: list[Any]) -> list[dict[str, Any]]:
+    recommendations: list[dict[str, Any]] = []
+    for raw in rows or []:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            continue
+        sku = str(raw[0] or "").lstrip("@").strip()
+        try:
+            average = float(raw[1])
+        except (TypeError, ValueError):
+            continue
+        if not sku or average <= SEA_SHIPPING_RECOMMENDATION_MIN_AVG:
+            continue
+        recommendations.append({"sku": sku, "avg_daily_sales": round(average, 1)})
+    return recommendations
+
+
+def _sea_shipping_insert_sql(skus: list[str]) -> str:
+    values = ",".join(
+        f"(N'{escape_sql_literal(sku, escape_percent=False)}')"
+        for sku in skus
+    )
+    return f"""INSERT INTO dbo.HaiYunSKU ([SKU],[ZhengChang],[TianJiaShiJian],[ShanChuShiJian])
+SELECT candidates.SKU,N'Y',GETDATE(),NULL
+  FROM (VALUES {values}) candidates(SKU)
+ WHERE NOT EXISTS (
+       SELECT 1
+         FROM dbo.HaiYunSKU existing
+        WHERE LTRIM(RTRIM(existing.SKU))=candidates.SKU
+          AND existing.ZhengChang=N'Y'
+ )"""
+
+
+@daily_replenishment_operation_bp.route(
+    "/api/ai/daily-replenishment-operation/sea-shipping-recommendations",
+    methods=("GET", "POST"),
+)
+@require_permission(PERMISSION_NAME)
+def sea_shipping_recommendations():
+    user_name = _current_user_name()
+    execute, access = scoped_query_executor(user_name)
+    visible_skus = {
+        str(value or "").lstrip("@").strip()
+        for value in access.get("visible_skus") or set()
+        if str(value or "").strip()
+    }
+    if request.method == "GET":
+        try:
+            rows = execute(_sea_shipping_recommendation_sql())
+            recommendations = [
+                item
+                for item in _normalize_sea_shipping_rows(rows)
+                if item["sku"] in visible_skus
+            ]
+            return jsonify(
+                success=True,
+                items=recommendations,
+                days=SEA_SHIPPING_RECOMMENDATION_DAYS,
+                threshold=SEA_SHIPPING_RECOMMENDATION_MIN_AVG,
+            )
+        except Exception as exc:
+            current_app.logger.exception("Failed to load sea shipping recommendations")
+            return jsonify({"success": False, "message": f"读取海运推荐失败：{exc}"}), 500
+
+    if not access.get("can_write"):
+        return jsonify({"success": False, "message": "当前用户没有写入海运计划的权限"}), 403
+    body = request.get_json(silent=True) or {}
+    raw_skus = body.get("skus") if isinstance(body, dict) else None
+    if not isinstance(raw_skus, list):
+        return jsonify({"success": False, "message": "请选择要加入海运计划的 SKU"}), 400
+    selected: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_skus:
+        sku = str(raw or "").lstrip("@").strip()
+        if sku and sku not in seen:
+            selected.append(sku)
+            seen.add(sku)
+    if not selected:
+        return jsonify({"success": False, "message": "请选择要加入海运计划的 SKU"}), 400
+    if len(selected) > 500:
+        return jsonify({"success": False, "message": "一次最多加入 500 个 SKU"}), 400
+    if any(sku not in visible_skus for sku in selected):
+        return jsonify({"success": False, "message": "所选 SKU 不在当前店铺权限范围内"}), 403
+    try:
+        active_rows = execute(
+            "/* daily_replenishment:sea_shipping_active */\n"
+            "SELECT SKU FROM dbo.HaiYunSKU WHERE ZhengChang=N'Y'"
+        )
+        active = {
+            str(row[0] if isinstance(row, (list, tuple)) else row or "").lstrip("@").strip()
+            for row in active_rows or []
+        }
+        to_insert = [sku for sku in selected if sku not in active]
+        if to_insert:
+            dui_db(_sea_shipping_insert_sql(to_insert))
+        return jsonify(
+            success=True,
+            added=len(to_insert),
+            skipped=len(selected) - len(to_insert),
+            skus=to_insert,
+        )
+    except Exception as exc:
+        current_app.logger.exception("Failed to add sea shipping recommendations")
+        return jsonify({"success": False, "message": f"加入海运计划失败：{exc}"}), 500
+
+
 @daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/sales-trend")
 @require_permission(PERMISSION_NAME)
 def sales_trend():
@@ -731,6 +956,41 @@ SELECT SKU,RiQi,SUM(CAST(ISNULL({column},0) AS FLOAT))
     )
 
 
+@daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/order-quantities")
+@require_permission(PERMISSION_NAME)
+def update_order_quantities():
+    """Save edited 订货量 values back to the current operator snapshot."""
+    try:
+        user_name = _current_user_name()
+        _, access = scoped_query_executor(user_name)
+        if not access["can_write"]:
+            return jsonify({"success": False, "message": "当前用户只有阅读权限，不能修改订货量"}), 403
+        body = request.get_json(silent=True) or {}
+        changes = body.get("changes") if isinstance(body, dict) else None
+        if not isinstance(changes, list):
+            return jsonify({"success": False, "message": "订货量修改明细格式不正确"}), 400
+        snapshot, is_shared = _resolve_snapshot_for_user(user_name)
+        if snapshot is None:
+            return jsonify({"success": False, "message": "今日快照尚未生成，请先生成 / 刷新"}), 404
+        with _refresh_lock:
+            if is_shared:
+                own_snapshot = get_snapshot_path(user_name=user_name)
+                own_snapshot.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(snapshot, own_snapshot)
+                snapshot = own_snapshot
+            _save_snapshot_quantity_changes(snapshot, access, changes)
+            payload = _scope_snapshot_payload(load_snapshot_cached(snapshot), access)
+        snapshot_meta = _snapshot_payload(snapshot, user_name=user_name)
+        _attach_client_cache_meta(snapshot_meta, snapshot, user_name, access)
+        payload.update(success=True, stores=sorted(access["read_stores"]), snapshot=snapshot_meta)
+        return jsonify(payload)
+    except base.DailyReplenishmentError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        current_app.logger.exception("Failed to update daily replenishment order quantities")
+        return jsonify({"success": False, "message": f"保存订货量失败：{exc}"}), 500
+
+
 @daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/download")
 @require_permission(PERMISSION_NAME)
 def download():
@@ -745,29 +1005,69 @@ def download():
 # ---------------------------------------------------------------- 采购计划导入模板
 # 复刻 Excel【日常补货】页「生成采购计划」按钮的口径：
 #   订货量 > 10 的行 -> *SKU（有【下单SKU】就用它，否则原 SKU）
-#   *计划采购量 = 订货量；备注 = "成品SKU：原SKU" +（需下单里该 SKU 的备注）
-PURCHASE_PLAN_HEADERS = ("*SKU", "店铺", "FNSKU", "专属类型", "仓库", "MSKU", "供应商", "*计划采购量", "备注")
+#   *计划采购量 = 订货量；商品备注 = "成品SKU：原 SKU" +（需下单里该 SKU 的备注）
+#   店铺与采购方分别取快照里的店铺和运营负责人，采购仓库固定为青岛仓。
+PURCHASE_PLAN_TEMPLATE_PATH = Path(__file__).resolve().parent / "templates" / "import_purchase_plan_template.xlsx"
+PURCHASE_PLAN_HEADERS = (
+    "临时单号",
+    "*SKU",
+    "店铺",
+    "FNSKU",
+    "专属类型",
+    "*采购仓库",
+    "供应商",
+    "采购方",
+    "*计划采购量",
+    "采购员",
+    "预计到货时间",
+    "商品备注",
+    "创建时间",
+    "单据备注",
+)
+PURCHASE_PLAN_WAREHOUSE = "青岛仓"
 PURCHASE_PLAN_MIN_QTY = 10
 
 
-def _purchase_plan_items(sheet_payload: dict[str, Any]) -> list[tuple[str, int]]:
-    """从日常补货快照中挑出”订货量 > 10”的 (原 SKU, 订货量)。"""
+def _purchase_plan_item_details(sheet_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """从快照中挑出订货量大于阈值的行，并保留店铺及负责人。"""
     columns = [str(value or "").strip() for value in sheet_payload.get("columns") or []]
     try:
         sku_index = columns.index("SKU")
         qty_index = columns.index("订货量")
     except ValueError as exc:
         raise base.DailyReplenishmentError("快照缺少“SKU”或“订货量”列，无法生成采购计划") from exc
-    items: list[tuple[str, int]] = []
-    for row in sheet_payload.get("rows") or []:
+    operator_index = columns.index("运营") if "运营" in columns else None
+    store_index = columns.index("店铺") if "店铺" in columns else None
+    items: list[dict[str, Any]] = []
+    for row_index, row in enumerate(sheet_payload.get("rows") or []):
         if not isinstance(row, (list, tuple)) or len(row) <= max(sku_index, qty_index):
             continue
         source_sku = str(row[sku_index] or "").strip()
         quantity = base._as_number(row[qty_index])
         if not source_sku or quantity is None or quantity <= PURCHASE_PLAN_MIN_QTY:
             continue
-        items.append((source_sku, int(round(quantity))))
+        operator = ""
+        if operator_index is not None and operator_index < len(row):
+            operator = str(row[operator_index] or "").strip()
+        store = ""
+        if store_index is not None and store_index < len(row):
+            store = str(row[store_index] or "").strip()
+        items.append({
+            "row_index": row_index,
+            "source_sku": source_sku,
+            "quantity": int(round(quantity)),
+            "store": store,
+            "purchaser": operator,
+        })
     return items
+
+
+def _purchase_plan_items(sheet_payload: dict[str, Any]) -> list[tuple[str, int]]:
+    """从日常补货快照中挑出”订货量 > 10”的 (原 SKU, 订货量)。"""
+    return [
+        (item["source_sku"], item["quantity"])
+        for item in _purchase_plan_item_details(sheet_payload)
+    ]
 
 
 def _purchase_plan_sku_map(skus: set[str]) -> dict[str, str]:
@@ -821,62 +1121,180 @@ def _purchase_plan_notes(skus: set[str]) -> dict[str, str]:
     return notes
 
 
-def _purchase_plan_rows(sheet_payload: dict[str, Any]) -> list[list[Any]]:
-    """拼出采购导入模板的数据行：*SKU / 店铺 / FNSKU / 专属类型 / 仓库 / MSKU / 供应商 / *计划采购量 / 备注。"""
-    items = _purchase_plan_items(sheet_payload)
+def _purchase_plan_rows_from_items(items: list[dict[str, Any]]) -> list[list[Any]]:
+    """根据确认后的采购明细拼出模板 Sheet1 的 14 列数据行。"""
     if not items:
         return []
-    source_skus = {sku for sku, _ in items}
+    source_skus = {item["source_sku"] for item in items}
     sku_map = _purchase_plan_sku_map(source_skus)
     chosen_skus = {(sku_map.get(sku) or sku) for sku in source_skus}
     notes = _purchase_plan_notes(chosen_skus)
     rows: list[list[Any]] = []
-    for source_sku, quantity in items:
+    for item in items:
+        source_sku = item["source_sku"]
+        quantity = item["quantity"]
         sku = sku_map.get(source_sku) or source_sku
         remark = f"成品SKU：{source_sku}"
         note = notes.get(sku)
         if note:
             remark = f"{remark} {note}"
-        # 店铺/FNSKU/专属类型/仓库/MSKU/供应商 与原 Excel 一致，留空由采购填写
-        rows.append([sku, "", "", "", "", "", "", quantity, remark])
+        rows.append([
+            "",                       # 临时单号
+            sku,                      # *SKU
+            item["store"],           # 店铺
+            "",                       # FNSKU
+            "",                       # 专属类型
+            PURCHASE_PLAN_WAREHOUSE,  # *采购仓库
+            "",                       # 供应商
+            item["purchaser"],       # 采购方
+            quantity,                 # *计划采购量
+            "",                       # 采购员
+            "",                       # 预计到货时间
+            remark,                   # 商品备注
+            "",                       # 创建时间
+            "",                       # 单据备注
+        ])
     return rows
 
 
-@daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/purchase-plan")
+def _purchase_plan_rows(sheet_payload: dict[str, Any]) -> list[list[Any]]:
+    """拼出模板 Sheet1 的 14 列数据行。"""
+    return _purchase_plan_rows_from_items(_purchase_plan_item_details(sheet_payload))
+
+
+def _purchase_plan_confirmed_rows(
+    sheet_payload: dict[str, Any], confirmations: list[dict[str, Any]]
+) -> list[list[Any]]:
+    """根据明细确认弹窗里的行号和数量生成最终导出行。"""
+    candidates = {
+        item["row_index"]: item
+        for item in _purchase_plan_item_details(sheet_payload)
+    }
+    if not confirmations:
+        raise base.DailyReplenishmentError("请至少选择一条采购明细")
+    items: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for raw in confirmations:
+        if not isinstance(raw, dict):
+            raise base.DailyReplenishmentError("采购明细格式不正确")
+        try:
+            row_index = int(raw.get("index"))
+        except (TypeError, ValueError) as exc:
+            raise base.DailyReplenishmentError("采购明细缺少有效行号") from exc
+        if row_index in seen or row_index not in candidates:
+            raise base.DailyReplenishmentError("采购明细已变化，请刷新后重新确认")
+        item = dict(candidates[row_index])
+        item["quantity"] = _coerce_order_quantity(raw.get("quantity"), allow_zero=False)
+        items.append(item)
+        seen.add(row_index)
+    return _purchase_plan_rows_from_items(items)
+
+
+def _purchase_plan_inline_string_cell(reference: str, value: Any, style: str = "") -> str:
+    text = xml_escape(str(value or ""))
+    style_attr = f' s="{style}"' if style else ""
+    return f'<c r="{reference}"{style_attr} t="inlineStr"><is><t xml:space="preserve">{text}</t></is></c>'
+
+
+def _purchase_plan_template_row(row_number: int, values: list[Any]) -> str:
+    columns = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    cells: list[str] = []
+    for index, value in enumerate(values, start=1):
+        if value in (None, ""):
+            continue
+        reference = f"{columns[index - 1]}{row_number}"
+        if index == 2:
+            cells.append(_purchase_plan_inline_string_cell(reference, value, "6"))
+        elif index == 6:
+            cells.append(_purchase_plan_inline_string_cell(reference, value, "7"))
+        elif index == 9:
+            cells.append(f'<c r="{reference}"><v>{int(value)}</v></c>')
+        else:
+            cells.append(_purchase_plan_inline_string_cell(reference, value))
+    # Keep the template's yyyy-mm-dd formatting on the creation-time column.
+    cells.append(f'<c r="M{row_number}" s="2"/>')
+    return (
+        f'<row r="{row_number}" spans="1:14" ht="18.75" customHeight="1">'
+        + "".join(cells)
+        + "</row>"
+    )
+
+
+def _write_purchase_plan_template(rows: list[list[Any]], destination: Path) -> None:
+    """Fill the provided XLSX template while preserving its hidden lists and formatting."""
+    if not PURCHASE_PLAN_TEMPLATE_PATH.is_file():
+        raise base.DailyReplenishmentError(
+            f"采购计划模板不存在：{PURCHASE_PLAN_TEMPLATE_PATH.name}"
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temp_destination = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
+    row_count = max(67, len(rows) + 1)
+    if not rows:
+        body_rows = "".join(
+            _purchase_plan_template_row(row_number, [""] * len(PURCHASE_PLAN_HEADERS))
+            for row_number in range(2, row_count + 1)
+        )
+    else:
+        body_rows = "".join(
+            _purchase_plan_template_row(row_number, values)
+            for row_number, values in enumerate(rows, start=2)
+        )
+    try:
+        with zipfile.ZipFile(PURCHASE_PLAN_TEMPLATE_PATH, "r") as source_zip, zipfile.ZipFile(
+            temp_destination, "w", compression=zipfile.ZIP_DEFLATED
+        ) as target_zip:
+            for entry in source_zip.infolist():
+                data = source_zip.read(entry.filename)
+                if entry.filename == "xl/worksheets/sheet1.xml":
+                    xml = data.decode("utf-8")
+                    header_match = re.search(r'<row r="1".*?</row>', xml, flags=re.DOTALL)
+                    if header_match is None:
+                        raise base.DailyReplenishmentError("采购计划模板缺少表头行")
+                    sheet_data = f"<sheetData>{header_match.group(0)}{body_rows}</sheetData>"
+                    xml = re.sub(r'<dimension ref="A1:N\d+"/>', f'<dimension ref="A1:N{row_count}"/>', xml, count=1)
+                    xml = re.sub(r"<sheetData>.*?</sheetData>", sheet_data, xml, count=1, flags=re.DOTALL)
+                    data = xml.encode("utf-8")
+                target_zip.writestr(entry, data)
+        os.replace(temp_destination, destination)
+    finally:
+        temp_destination.unlink(missing_ok=True)
+
+
+@daily_replenishment_operation_bp.route("/api/ai/daily-replenishment-operation/purchase-plan", methods=("GET", "POST"))
 @require_permission(PERMISSION_NAME)
 def purchase_plan():
-    """按 Excel【日常补货】页「生成采购计划」的逻辑，导出采购导入模板（下单导入.xlsx）。"""
+    """确认采购明细后导出采购导入模板（下单导入.xlsx）。"""
     try:
         user_name = _current_user_name()
         _, access = scoped_query_executor(user_name)
-        snapshot, _is_shared = _resolve_snapshot_for_user(user_name)
+        snapshot, is_shared = _resolve_snapshot_for_user(user_name)
         if snapshot is None:
             return jsonify({"success": False, "message": "今日的智能补货中心-运营快照尚未生成，请先点“生成 / 刷新”"}), 404
         payload = _scope_snapshot_payload(load_snapshot_cached(snapshot), access)
         sheet_payload = (payload.get("sheets") or {}).get(base.SHEET_NAME) or {}
-        rows = _purchase_plan_rows(sheet_payload)
-
-        workbook = Workbook()
-        worksheet = workbook.active
-        worksheet.title = "下单导入"
-        worksheet.append(list(PURCHASE_PLAN_HEADERS))
-        for values in rows:
-            worksheet.append(values)
-        for cell in worksheet[1]:
-            cell.font = Font(bold=True)
-        worksheet.freeze_panes = "A2"
-        for column, width in (("A", 20), ("B", 12), ("C", 16), ("H", 14), ("I", 56)):
-            worksheet.column_dimensions[column].width = width
+        confirmed_items: list[dict[str, Any]] | None = None
+        if request.method == "POST":
+            body = request.get_json(silent=True) or {}
+            confirmed_items = body.get("items") if isinstance(body, dict) else None
+            if not isinstance(confirmed_items, list):
+                return jsonify({"success": False, "message": "采购明细格式不正确"}), 400
+            rows = _purchase_plan_confirmed_rows(sheet_payload, confirmed_items)
+            with _refresh_lock:
+                if is_shared:
+                    own_snapshot = get_snapshot_path(user_name=user_name)
+                    own_snapshot.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(snapshot, own_snapshot)
+                    snapshot = own_snapshot
+                _save_snapshot_quantity_changes(snapshot, access, confirmed_items)
+        else:
+            rows = _purchase_plan_rows(sheet_payload)
 
         today = date.today()
         download_name = f"{today.month}.{today.day}下单导入.xlsx"
         output_dir = get_output_dir(create=True) / "_采购计划"
         output_dir.mkdir(parents=True, exist_ok=True)
         destination = output_dir / f"{today.isoformat()}_{uuid.uuid4().hex[:8]}下单导入.xlsx"
-        try:
-            workbook.save(destination)
-        finally:
-            workbook.close()
+        _write_purchase_plan_template(rows, destination)
 
         response = send_file(destination, as_attachment=True, download_name=download_name, max_age=0)
         response.headers["X-Purchase-Plan-Rows"] = str(len(rows))

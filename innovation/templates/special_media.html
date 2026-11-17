@@ -1,0 +1,55 @@
+<style>
+.special-media { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0; }
+.special-media img { width:180px; height:120px; object-fit:cover; border-radius:8px; cursor:zoom-in; border:1px solid #dce5f2; }
+.special-media video { width:180px; height:120px; max-width:100%; object-fit:contain; border-radius:8px; background:#101828; }
+#specialMediaViewer { border:0; border-radius:12px; max-width:92vw; padding:14px; }
+#specialMediaViewer::backdrop { background:rgba(0,0,0,.8); }
+#specialMediaViewer img { max-width:85vw; max-height:80vh; display:block; }
+#specialMediaViewer button { display:block; margin:0 0 10px auto; }
+.special-media { align-items:flex-start; }
+.special-media img { object-fit:contain; background:#f3f5f9; }
+.special-media-group { display:flex; flex-direction:column; gap:8px; max-width:100%; }
+.special-media-items { display:flex; flex-wrap:wrap; gap:10px; }
+.special-media-items > .special-media-extra { display:none; }
+.special-media-group.is-expanded .special-media-extra { display:block; }
+.special-media-toggle { align-self:flex-start; background:transparent; border:0; padding:0; color:#4661df; font-size:.78rem; cursor:pointer; }
+</style>
+<dialog id="specialMediaViewer"><button type="button" class="btn btn-sm btn-secondary" onclick="this.closest('dialog').close()">关闭</button><img alt="图片预览"></dialog>
+<script>
+function organizeSpecialMedia() {
+    document.querySelectorAll('.special-media:not([data-organized])').forEach(container => {
+        container.dataset.organized = 'true';
+        for (const [tag, label] of [['img', '图片'], ['video', '视频']]) {
+            const items = [...container.children].filter(item => item.tagName.toLowerCase() === tag);
+            if (!items.length) continue;
+            const group = document.createElement('div'); group.className = 'special-media-group';
+            const content = document.createElement('div'); content.className = 'special-media-items';
+            items.forEach((item, index) => { if (index) item.classList.add('special-media-extra'); content.append(item); });
+            group.append(content);
+            if (items.length > 1) {
+                const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'special-media-toggle';
+                toggle.textContent = `展开其余${items.length - 1}个${label}`; toggle.setAttribute('aria-expanded', 'false');
+                toggle.onclick = event => {
+                    event.stopPropagation();
+                    const expanded = group.classList.toggle('is-expanded');
+                    toggle.setAttribute('aria-expanded', String(expanded));
+                    toggle.textContent = expanded ? `收起${label}` : `展开其余${items.length - 1}个${label}`;
+                    if (!expanded) content.querySelectorAll('video').forEach(video => video.pause());
+                };
+                group.append(toggle);
+            }
+            container.append(group);
+        }
+    });
+}
+document.addEventListener('DOMContentLoaded', organizeSpecialMedia);
+new MutationObserver(organizeSpecialMedia).observe(document.body, {childList:true, subtree:true});
+
+document.addEventListener('click', event => {
+    const img = event.target.closest('[data-special-image]');
+    if (!img) return;
+    const viewer = document.getElementById('specialMediaViewer');
+    viewer.querySelector('img').src = img.src;
+    viewer.showModal();
+});
+</script>

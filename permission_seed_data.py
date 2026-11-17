@@ -19,6 +19,7 @@ def _joined(values):
 CORE_PARENT_MAP = {
     "video_claw": "ai_dept",
     "daily_replenishment": "ai_dept",
+    "daily_replenishment_tiktok": "daily_replenishment_operation",
     "ai_group_performance": "ai_dept",
     "tk_email_register": "tk_project_group",
     "tk_video_realtime": "tk_project_group",
@@ -32,6 +33,7 @@ CORE_PARENT_MAP = {
 CORE_USER_OVERRIDES = {
     "review_analysis": "郭婷",
     "amazon_reply_agent": "郭婷",
+    "daily_replenishment_tiktok": "周俊成",
     "operation_dept_1": "孙洁；侯梁；郭婷；曹园园",
     "operation_dept_2": "孙洁；侯梁",
     "operation_dept_3": "孙洁；侯梁",
@@ -296,6 +298,14 @@ EXTRA_PERMISSION_ROWS = [
         "bumen": "",
         "fujigongneng": "innovation_proposals",
         "miaoshu": "创新委员会评分权限。",
+    },
+    {
+        "gongneng": "innovation_special_manage",
+        "mingcheng": "创新专项管理",
+        "yonghu": "",
+        "bumen": "人力行政部；AI部",
+        "fujigongneng": "innovation_proposals",
+        "miaoshu": "人力行政部和AI部创建、发布和维护创新专项。",
     },
     {
         "gongneng": "innovation_star_manage",

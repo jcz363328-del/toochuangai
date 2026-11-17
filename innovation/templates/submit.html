@@ -1,8 +1,56 @@
 {% extends "base.html" %}
 
-{% block title %}改善创新 - 团队创新奖励管理系统{% endblock %}
+{% block title %}{{ '专项创新提案' if proposal_type == 'special' else '改善创新' }} - 团队创新奖励管理系统{% endblock %}
+{% block page_label %}{{ '专项创新提案' if proposal_type == 'special' else '常规创新提案' }}{% endblock %}
 
 {% block content %}
+{% if proposal_type == 'special' %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        {% if is_special_manager %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-plus-circle"></i> 发布专项</h4>
+            </div>
+            <div class="card-body">
+                <form id="specialForm" class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="specialTitle">专项标题 <span class="text-danger">*</span></label>
+                        <input id="specialTitle" class="form-control" required maxlength="200" placeholder="请输入专项标题">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="specialDepartment">承接部门 <span class="text-danger">*</span></label>
+                        <select id="specialDepartment" class="form-select" required>
+                            <option value="">请选择承接部门</option>
+                            {% for department in departments %}
+                            <option value="{{ department }}">{{ department }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="specialPoints">奖励积分</label>
+                        <input id="specialPoints" type="number" min="0" step="1" class="form-control" value="0">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="specialProblem">难题描述 <span class="text-danger">*</span></label>
+                        <textarea id="specialProblem" class="form-control" rows="4" required placeholder="请描述需要解决的专项难题"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="specialReward">奖金包（可选）</label>
+                        <textarea id="specialReward" class="form-control" rows="2" placeholder="填写后，专项采纳一条想法后自动结束。留空则可以持续采纳想法。"></textarea>
+                    </div>
+<div class="col-12 border rounded p-3 bg-light mb-3"><strong class="d-block mb-3"><i class="bi bi-paperclip"></i> 图片与视频附件</strong><div class="col-12 mb-3"><label class="form-label">图片（可多选）</label><input id="specialImages" class="form-control" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple></div><div class="col-12 mb-3"><label class="form-label">视频（可多选）</label><input id="specialVideos" class="form-control" type="file" accept="video/mp4,video/webm,video/quicktime,.m4v" multiple></div></div>
+                    <div class="col-12">
+                        <button class="btn btn-primary" type="submit">保存草稿</button>
+                        <span id="specialFormMessage" class="ms-2 text-muted"></span>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="card">
@@ -142,9 +190,11 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if proposal_type != 'special' %}
 <script>
 // 提交表单
 document.getElementById('submitForm').addEventListener('submit', function(e) {
@@ -225,4 +275,112 @@ document.addEventListener('DOMContentLoaded', function() {
     deadlineInput.value = defaultDate.toISOString().split('T')[0];
 });
 </script>
+{% else %}
+<script>
+function specialMediaData(values, prefix) {
+    const data = new FormData();
+    Object.entries(values).forEach(([key, value]) => data.append(key, value));
+    for (const file of document.getElementById(prefix + 'Images').files) data.append('images', file);
+    for (const file of document.getElementById(prefix + 'Videos').files) data.append('videos', file);
+    return data;
+}
+const specialForm = document.getElementById('specialForm');
+if (specialForm) {
+    specialForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const message = document.getElementById('specialFormMessage');
+        message.textContent = '正在保存...';
+        try {
+            const response = await fetch('/innovation/api/specials', {
+                method: 'POST',
+                body: specialMediaData({
+                    biaoti: document.getElementById('specialTitle').value,
+                    nanti_miaoshu: document.getElementById('specialProblem').value,
+                    chengjie_bumen: document.getElementById('specialDepartment').value,
+                    jiangli_jifen: document.getElementById('specialPoints').value,
+                    jiangli_mingxi: document.getElementById('specialReward').value
+                }, 'special')
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '保存失败');
+            message.textContent = '草稿已保存';
+            specialForm.reset();
+            document.getElementById('specialPoints').value = '0';
+        } catch (error) {
+            message.textContent = error.message || '保存失败，请稍后重试';
+        }
+    });
+}
+
+const specialIdeaForm = document.getElementById('specialIdeaSubmitForm');
+const specialIdeaSelect = document.getElementById('specialIdeaSelect');
+const specialIdeaInfo = document.getElementById('specialIdeaInfo');
+const specialIdeaMessage = document.getElementById('specialIdeaMessage');
+const escapeSpecialText = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[char]));
+
+function renderSpecialIdeaInfo() {
+    if (!specialIdeaSelect || !specialIdeaInfo) return;
+    const option = specialIdeaSelect.options[specialIdeaSelect.selectedIndex];
+    if (!option || !option.value) {
+        specialIdeaInfo.classList.add('d-none');
+        specialIdeaInfo.textContent = '';
+        return;
+    }
+    const description = option.dataset.description || '';
+    const department = option.dataset.department || '未设置';
+    const points = option.dataset.points || '0';
+    const reward = option.dataset.reward || '未填写，专项可以持续采纳想法';
+    specialIdeaInfo.innerHTML = `<div><strong>专项难题：</strong>${escapeSpecialText(description)}</div>
+        <div><strong>承接部门：</strong>${escapeSpecialText(department)}</div>
+        <div><strong>奖励积分：</strong>${escapeSpecialText(points)}</div>
+        <div><strong>奖励明细：</strong>${escapeSpecialText(reward)}</div>`;
+    specialIdeaInfo.classList.remove('d-none');
+}
+
+if (specialIdeaSelect) {
+    specialIdeaSelect.addEventListener('change', renderSpecialIdeaInfo);
+}
+
+function resetSpecialIdeaForm() {
+    if (!specialIdeaForm) return;
+    specialIdeaForm.reset();
+    renderSpecialIdeaInfo();
+    if (specialIdeaMessage) specialIdeaMessage.textContent = '';
+}
+
+if (specialIdeaForm) {
+    specialIdeaForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const specialId = specialIdeaSelect.value;
+        const content = document.getElementById('specialIdeaContent').value.trim();
+        if (!specialId || !content) {
+            specialIdeaMessage.textContent = '请选择专项并填写想法内容';
+            return;
+        }
+        const submitButton = specialIdeaForm.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>提交中...';
+        specialIdeaMessage.textContent = '正在提交...';
+        try {
+            const response = await fetch(`/innovation/api/specials/${specialId}/ideas`, {
+                method: 'POST',
+                body: specialMediaData({content}, 'idea')
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || '提交失败');
+            specialIdeaMessage.textContent = '想法提交成功，已通知专项发布人';
+            specialIdeaForm.reset(); renderSpecialIdeaInfo();
+        } catch (error) {
+            specialIdeaMessage.textContent = error.message || '提交失败，请稍后重试';
+        } finally {
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
+        }
+    });
+}
+</script>
+{% endif %}
 {% endblock %}

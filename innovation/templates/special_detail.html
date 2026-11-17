@@ -1,0 +1,537 @@
+{% extends 'base.html' %}
+
+{% block title %}专项创新管理详情{% endblock %}
+{% block page_label %}专项创新管理详情{% endblock %}
+
+{% block content %}
+{% if not special %}
+<div class="alert alert-danger">专项不存在</div>
+{% else %}
+<style>
+    .special-detail-page {
+        --special-blue: #2563eb;
+        --special-blue-soft: #eef4ff;
+        --special-ink: #172033;
+        --special-muted: #6b7a90;
+        --special-line: #dce7fb;
+        max-width: 1240px;
+        margin: 0 auto;
+        padding-bottom: 32px;
+    }
+    .special-page-heading { margin-bottom: 20px; }
+    .special-page-heading h1 {
+        color: var(--special-ink);
+        font-size: clamp(1.55rem, 2.6vw, 2.15rem);
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+    .special-page-heading p { color: var(--special-muted); margin: 0; }
+    .special-summary-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+        border: 1px solid #dbe6f6;
+        border-radius: 18px;
+        box-shadow: 0 10px 28px rgba(31, 67, 125, .08);
+        margin-bottom: 26px;
+        padding: 22px 24px;
+    }
+    .special-summary-top {
+        align-items: stretch;
+        display: flex;
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+    .special-reward-highlight {
+        align-items: center;
+        border-radius: 14px;
+        display: flex;
+        gap: 12px;
+        min-height: 78px;
+        padding: 13px 18px;
+    }
+    .special-reward-highlight-cash {
+        background: linear-gradient(135deg, #fff8e9 0%, #fff2d7 100%);
+        border: 1px solid #f4d49a;
+        flex: 1.35;
+    }
+    .special-reward-highlight-points {
+        background: linear-gradient(135deg, #f0f6ff 0%, #e8f0ff 100%);
+        border: 1px solid #cfe0ff;
+        flex: 1;
+    }
+    .special-reward-icon {
+        align-items: center;
+        background: rgba(255, 255, 255, .72);
+        border-radius: 11px;
+        display: flex;
+        flex: 0 0 42px;
+        font-size: 1.35rem;
+        height: 42px;
+        justify-content: center;
+    }
+    .special-reward-highlight-cash .special-reward-icon { color: #b66a12; }
+    .special-reward-highlight-points .special-reward-icon { color: var(--special-blue); }
+    .special-reward-copy { min-width: 0; }
+    .special-reward-label {
+        color: #786143;
+        display: block;
+        font-size: .82rem;
+        margin-bottom: 2px;
+    }
+    .special-reward-highlight-points .special-reward-label { color: #5270a1; }
+    .special-reward-value {
+        color: #c62f39;
+        display: block;
+        font-size: 1.34rem;
+        font-weight: 800;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+    }
+    .special-reward-highlight-points .special-reward-value { color: #215fd3; }
+    .special-reward-subtext {
+        color: #7a879b;
+        display: block;
+        font-size: .72rem;
+        margin-top: 3px;
+    }
+    .special-summary-top .special-status-pill {
+        align-self: flex-start;
+        margin-left: auto;
+    }
+    .special-summary-body { min-width: 0; }
+    .special-summary-kicker { color: var(--special-muted); font-size: .86rem; margin-bottom: 3px; }
+    .special-summary-body h2 { color: var(--special-ink); font-size: 1.45rem; margin: 0 0 7px; }
+    .special-summary-problem { color: #27364d; font-size: 1.03rem; margin: 0 0 15px; white-space: pre-wrap; }
+    .special-summary-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+    .special-meta-chip {
+        background: #f1f5fb;
+        border: 1px solid #e1e9f5;
+        border-radius: 999px;
+        color: #52637b;
+        font-size: .82rem;
+        padding: 5px 10px;
+    }
+    .special-meta-chip strong { color: var(--special-ink); font-weight: 600; }
+    .special-status-pill,
+    .special-idea-status {
+        background: #e8f1ff;
+        border-radius: 999px;
+        color: #175cd3;
+        display: inline-flex;
+        font-size: .82rem;
+        font-weight: 600;
+        padding: 6px 12px;
+        white-space: nowrap;
+    }
+    .special-idea-status.is-adopted { background: #e4f8ec; color: #12804a; }
+    .special-idea-status.is-rejected { background: #fff0f0; color: #c83d3d; }
+    .special-reward-icon img { display: block; width: 72px; height: 66px; object-fit: contain; mix-blend-mode: normal; }
+    /* Match the approved horizontal reward summary. */
+    .special-summary-card { padding: 24px 30px 28px; border-radius: 22px; }
+    .special-summary-top { align-items: center; gap: 20px; padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1px solid #cfdbed; }
+    .special-reward-highlight { min-width: 0; min-height: 88px; padding: 16px 22px; border-radius: 18px; }
+    .special-reward-highlight-cash { flex: 1.6; background: #fff5e3; border-color: #ffda9e; }
+    .special-reward-highlight-points { flex: 1; background: #f1f6ff; border-color: #cddfff; justify-content: center; }
+    .special-reward-copy { display: flex; align-items: center; gap: 22px; flex: 1; }
+    .special-reward-label { margin: 0; color: #8b500b; font-size: clamp(1rem, 1.7vw, 1.45rem); font-weight: 700; white-space: nowrap; }
+    .special-reward-highlight-cash .special-reward-value { border: 1px solid #e73540; border-radius: 999px; padding: 8px 22px; font-size: clamp(1rem, 1.8vw, 1.6rem); color: #dc2936; }
+    .special-reward-highlight-points .special-reward-label { color: #103768; }
+    .special-reward-highlight-points .special-reward-value { border-left: 1px solid #91b6ff; padding-left: 28px; font-size: 2.3rem; color: #0864ed; }
+    .special-reward-highlight-points .special-reward-copy { justify-content: center; }
+    .special-reward-highlight-points .special-reward-icon { display: none; }
+    .special-reward-highlight-cash .special-reward-icon { background: transparent; border-right: 1px solid #efc482; border-radius: 0; flex-basis: 88px; height: 66px; padding-right: 16px; font-size: 2.6rem; }
+    .special-reward-subtext { display: none; }
+    .special-summary-top .special-status-pill { align-self: center; }
+    .special-summary-body h2 { font-weight: 700; font-size: 1.65rem; margin: 10px 0; }
+    .special-summary-problem { margin-bottom: 24px; }
+    @media (max-width: 1000px) {
+        .special-summary-top { flex-wrap: wrap; }
+        .special-reward-copy { gap: 12px; }
+        .special-reward-highlight { padding: 14px; }
+    }
+    @media (max-width: 600px) {
+        .special-summary-top .special-reward-highlight { flex: 1 1 100%; }
+        .special-reward-highlight-cash .special-reward-value { padding: 8px 12px; }
+        .special-reward-highlight-cash .special-reward-icon { flex-basis: 50px; font-size: 2rem; }
+    }
+    /* Keep summary space proportional to its content. */
+    .special-summary-card { padding: 18px 22px; margin-bottom: 18px; }
+    .special-summary-top { gap: 12px; padding-bottom: 15px; margin-bottom: 15px; }
+    .special-summary-top .special-reward-highlight { flex: 0 1 auto; min-height: 72px; padding: 10px 16px; }
+    .special-summary-top .special-reward-copy { flex: 0 1 auto; gap: 16px; }
+    .special-summary-top .special-reward-highlight-points { justify-content: flex-start; }
+    .special-summary-top .special-status-pill { margin-left: auto; }
+    .special-summary-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; }
+    .special-summary-kicker { grid-column: 1; }
+    .special-summary-body h2 { grid-column: 1; font-size: 1.4rem; margin: 5px 0 8px; }
+    .special-summary-problem { grid-column: 1; margin-bottom: 0; }
+    .special-summary-meta { grid-column: 2; grid-row: 1 / 4; align-content: center; align-items: center; justify-content: flex-end; max-width: 360px; }
+    @media (max-width: 760px) {
+        .special-summary-body { display: block; }
+        .special-summary-meta { justify-content: flex-start; max-width: none; margin-top: 14px; }
+        .special-summary-top .special-reward-highlight { flex: 0 1 auto; }
+    }
+    @media (max-width: 480px) {
+        .special-summary-top .special-reward-highlight { flex: 1 1 100%; }
+    }
+    .special-comment-form { display: flex; align-items: stretch; gap: 10px; margin-top: 14px; }
+    .special-comment-form .special-comment-input { flex: 1; min-width: 0; margin: 0; height: 40px; padding: 9px 12px; }
+    .special-comment-submit { flex: 0 0 auto; min-width: 76px; height: 40px; white-space: nowrap; border-radius: 8px; font-size: .85rem; padding: 8px 16px; }
+    .special-operation-row { border: 0; padding: 0; margin: 0 0 0 auto; gap: 8px; }
+    .special-operation-row .btn { min-width: 78px; height: 34px; border-radius: 7px; padding: 6px 14px; white-space: nowrap; font-size: .82rem; }
+    .special-operation-hint { margin-right: auto; background: transparent; padding-left: 0; }
+    .special-settings-card {
+        background: #fff;
+        border: 1px solid #dce5f2;
+        border-radius: 14px;
+        margin-bottom: 24px;
+        padding: 18px 20px;
+    }
+    .special-settings-card summary { color: var(--special-ink); cursor: pointer; font-weight: 600; list-style: none; }
+    .special-settings-card summary::-webkit-details-marker { display: none; }
+    .special-settings-card summary::after { color: var(--special-muted); content: '展开'; float: right; font-size: .82rem; font-weight: 400; }
+    .special-settings-card[open] summary::after { content: '收起'; }
+    .special-feed-head { align-items: center; display: flex; justify-content: space-between; margin-bottom: 13px; }
+    .special-feed-head h2 { color: var(--special-ink); font-size: 1.15rem; margin: 0; }
+    .special-feed-count { color: var(--special-muted); font-size: .85rem; }
+    .special-feed { position: relative; }
+    .special-feed::before {
+        background: var(--special-line);
+        bottom: 28px;
+        content: '';
+        left: 26px;
+        position: absolute;
+        top: 15px;
+        width: 2px;
+    }
+    .special-feed-item { display: flex; gap: 14px; margin-bottom: 18px; position: relative; }
+    .special-feed-node {
+        background: #fff;
+        border: 3px solid #83adff;
+        border-radius: 50%;
+        flex: 0 0 14px;
+        height: 14px;
+        margin-left: 20px;
+        margin-top: 18px;
+        position: relative;
+        width: 14px;
+        z-index: 1;
+    }
+    .special-avatar-wrap { flex: 0 0 44px; height: 44px; margin-top: 1px; position: relative; z-index: 2; }
+    .special-avatar,
+    .special-avatar-fallback {
+        align-items: center;
+        border-radius: 50%;
+        display: flex;
+        height: 44px;
+        justify-content: center;
+        object-fit: cover;
+        width: 44px;
+    }
+    .special-avatar { background: #eaf1ff; border: 2px solid #fff; box-shadow: 0 3px 10px rgba(50, 94, 160, .18); }
+    .special-avatar-fallback { background: linear-gradient(145deg, #5c8df6, #7a62d7); color: #fff; font-size: 1.12rem; font-weight: 700; }
+    .special-post {
+        background: #fff;
+        border: 1px solid #dfe7f2;
+        border-radius: 14px;
+        box-shadow: 0 7px 20px rgba(31, 67, 125, .06);
+        flex: 1;
+        min-width: 0;
+        padding: 17px 18px 15px;
+    }
+    .special-post-head { align-items: flex-start; display: flex; gap: 12px; justify-content: space-between; }
+    .special-post-author { color: #172033; font-size: 1rem; font-weight: 700; }
+    .special-post-time,
+    .special-post-id { color: var(--special-muted); font-size: .8rem; margin-left: 9px; }
+    .special-post-id { margin-left: 5px; }
+    .special-post-content { color: #27364d; font-size: 1.03rem; line-height: 1.7; margin: 13px 0 12px; white-space: pre-wrap; }
+    .special-post-toolbar { align-items: center; border-top: 1px solid #edf1f7; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; padding-top: 11px; }
+    .special-post-stats { color: var(--special-muted); display: flex; font-size: .83rem; gap: 14px; }
+    .special-post-stats i { margin-right: 3px; }
+    .special-review-result { background: #f7f9fc; border-left: 3px solid #9dbcfb; border-radius: 4px 8px 8px 4px; color: #5a6b82; font-size: .83rem; margin-top: 11px; padding: 8px 11px; }
+    .special-review-result strong { color: #34465f; }
+    .special-comment-list { background: #f7f9fc; border-radius: 9px; color: #53657d; font-size: .82rem; margin-top: 12px; padding: 9px 11px; }
+    .special-comment-input { background: #fbfcfe; border: 1px solid #d7e0ed; border-radius: 9px; margin-top: 10px; }
+    .special-comment-input:focus { border-color: #76a0f3; box-shadow: 0 0 0 .2rem rgba(37, 99, 235, .1); }
+    .special-operation-row { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 11px; }
+    .special-operation-hint { background: #f2f5fa; border-radius: 7px; color: #75849a; font-size: .75rem; padding: 6px 9px; }
+    @media (max-width: 760px) {
+        .special-summary-card { padding: 18px; }
+        .special-summary-top { flex-wrap: wrap; }
+        .special-reward-highlight { flex: 1 1 calc(50% - 7px); min-width: 0; padding: 12px; }
+        .special-summary-top .special-status-pill { margin-left: 0; }
+        .special-feed::before { left: 17px; }
+        .special-feed-node { margin-left: 11px; }
+        .special-avatar-wrap { flex-basis: 38px; height: 38px; }
+        .special-avatar, .special-avatar-fallback { height: 38px; width: 38px; }
+        .special-post { padding: 14px; }
+        .special-post-head { display: block; }
+        .special-post-head .special-idea-status { margin-top: 9px; }
+    }
+    .special-summary-top { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) auto; align-items:stretch; }
+    .special-summary-top .special-reward-highlight { width:100%; height:100%; min-width:0; justify-content:center; }
+    .special-summary-top .special-reward-copy { flex:0 1 auto; }
+    .special-summary-top .special-status-pill { align-self:center; margin-left:4px; }
+    @media(max-width:760px) {
+        .special-summary-top { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .special-summary-top .special-status-pill { justify-self:end; grid-column:1 / -1; }
+    }
+    @media(max-width:540px) {
+        .special-summary-top { grid-template-columns:minmax(0,1fr); }
+        .special-summary-top .special-reward-highlight { min-height:76px; }
+    }
+    .special-solution-dialog { width:min(720px, calc(100vw - 32px)); max-height:90vh; overflow:auto; border:1px solid #dce5f2; border-radius:16px; padding:24px; color:#243650; box-shadow:0 20px 60px rgba(20,40,80,.2); }
+    .special-solution-dialog::backdrop { background:rgba(16,30,54,.45); }
+    .special-summary-top { grid-template-columns:repeat(2,minmax(0,1fr)); background:linear-gradient(100deg,#fff9ee 0%,#fbfcff 55%,#f2f6ff 100%); border-radius:10px; border:0; padding:0; gap:0; margin-bottom:20px; }
+    .special-summary-top .special-reward-highlight { background:transparent; border:0; border-radius:0; min-height:76px; padding:10px 18px; gap:clamp(10px,2vw,28px); }
+    .special-summary-top .special-reward-highlight-cash .special-reward-icon { border:0; padding:0; flex-basis:54px; height:50px; }
+    .special-reward-icon img { width:54px; height:50px; }
+    .special-summary-top .special-reward-copy { gap:clamp(10px,2vw,28px); }
+    .special-summary-top .special-reward-label { font-size:1rem; }
+    .special-summary-top .special-reward-highlight-cash .special-reward-value { border:0; border-radius:0; padding:0; font-size:1.45rem; }
+    .special-summary-top .special-reward-highlight-points { position:relative; }
+    .special-summary-top .special-reward-highlight-points::before { content:''; position:absolute; left:0; top:22%; bottom:22%; width:1px; background:#dce3ef; }
+    .special-summary-top .special-reward-highlight-points .special-reward-value { border:0; padding:0; font-size:2rem; }
+    .special-points-symbol { color:#1764ed; font-size:1.6rem; }
+    @media(max-width:600px) {
+        .special-summary-top { grid-template-columns:minmax(0,1fr); }
+        .special-summary-top .special-reward-highlight-points::before { width:auto; height:1px; top:0; left:18px; right:18px; bottom:auto; }
+    }
+</style>
+
+{% include 'special_media.html' %}
+<div class="special-detail-page">
+    <section class="special-summary-card">
+        <div class="special-summary-top">
+            <div class="special-reward-highlight special-reward-highlight-cash">
+                <span class="special-reward-icon" aria-hidden="true"><img src="{{ url_for('innovation.static', filename='special_cash_reward_transparent.png') }}" alt=""></span>
+                <span class="special-reward-copy">
+                    <span class="special-reward-label">现金奖励</span>
+                    <strong class="special-reward-value">{{ special.jiangli_mingxi or '未设置' }}</strong>
+                    <small class="special-reward-subtext">采纳后发放</small>
+                </span>
+            </div>
+            <div class="special-reward-highlight special-reward-highlight-points">
+                <span class="special-reward-icon" aria-hidden="true"><i class="bi bi-stars"></i></span>
+                <span class="special-reward-copy">
+                    <i class="bi bi-coin special-points-symbol" aria-hidden="true"></i><span class="special-reward-label">创新积分</span>
+                    <strong class="special-reward-value">{{ special.jiangli_jifen }}</strong>
+                    <small class="special-reward-subtext">采纳后发放</small>
+                </span>
+            </div>
+        </div>
+        <div class="special-summary-body">
+            <div class="special-summary-kicker">专项 {{ special.zhuanxiang_bianhao }}</div>
+            <div class="d-flex align-items-center gap-3"><h2>{{ special.biaoti }}</h2><span class="special-status-pill">{{ special.zhuangtai_label }}</span></div>
+            <p class="special-summary-problem">{{ special.nanti_miaoshu }}</p>
+            <div class="special-media">{% for image in special.images %}<img src="{{ image }}" alt="附件图片" data-special-image loading="lazy" tabindex="0">{% endfor %}{% for video in special.videos %}<video src="{{ video }}" controls preload="metadata"></video>{% endfor %}</div><div class="special-summary-meta">
+                <span class="special-meta-chip">承接部门：<strong>{{ special.chengjie_bumen or '未设置' }}</strong></span>
+                <span class="special-meta-chip">奖励积分：<strong>{{ special.jiangli_jifen }}</strong></span>
+                <span class="special-meta-chip">想法数量：<strong>{{ special.idea_count }}</strong></span>
+            </div>
+        </div>
+        {% if special.zhuangtai == 'yifabu' %}
+        <div class="d-flex justify-content-end mt-3"><button type="button" class="btn btn-primary" onclick="document.getElementById('solutionDialog').showModal()">＋ 提交解决方案</button></div>
+        {% endif %}
+    </section>
+
+    {% if special.zhuangtai == 'yifabu' %}
+    <dialog id="solutionDialog" class="special-solution-dialog">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0">提交解决方案</h2>
+            <button type="button" class="btn-close" aria-label="关闭" onclick="document.getElementById('solutionDialog').close()"></button>
+        </div>
+        <form id="detailSolutionForm">
+            <textarea name="content" class="form-control mb-3" rows="3" placeholder="请填写解决方案" required></textarea>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6"><label class="form-label">上传图片（可多选）</label><input name="images" type="file" class="form-control" accept="image/png,image/jpeg,image/gif,image/webp" multiple></div>
+                <div class="col-md-6"><label class="form-label">上传视频（可多选）</label><input name="videos" type="file" class="form-control" accept="video/mp4,video/webm,video/quicktime,.m4v" multiple></div>
+            </div>
+            <button class="btn btn-primary" type="submit">提交解决方案</button><span id="detailSolutionMessage" class="ms-2 small"></span>
+        </form>
+    </dialog>
+    {% endif %}
+    <section>
+        <div class="special-feed-head">
+            <h2>专项想法动态</h2>
+            <span class="special-feed-count">{{ ideas|length }} 条想法</span>
+        </div>
+        <div id="ideaList" class="special-feed">
+            {% for idea in ideas %}
+            <article class="special-feed-item" data-idea-id="{{ idea.id }}">
+                <span class="special-feed-node" aria-hidden="true"></span>
+                <div class="special-avatar-wrap">
+                    {% if idea.submitter_avatar %}
+                    <img class="special-avatar" src="{{ idea.submitter_avatar }}" alt="{{ idea.submitter }}的飞书头像" loading="lazy"
+                         onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');">
+                    <span class="special-avatar-fallback d-none">{{ (idea.submitter or '创')[:1] }}</span>
+                    {% else %}
+                    <span class="special-avatar-fallback">{{ (idea.submitter or '创')[:1] }}</span>
+                    {% endif %}
+                </div>
+                <div class="special-post">
+                    <div class="special-post-head">
+                        <div>
+                            <span class="special-post-author">{{ idea.submitter or '未知提交人' }}</span>
+                            <span class="special-post-id">#{{ idea.id }}</span>
+                            <span class="special-post-time">{{ idea.submitted_at }}</span>
+                        </div>
+                        <span class="special-idea-status{% if idea.status == 'yicainei' %} is-adopted{% elif idea.status == 'yijujue' %} is-rejected{% endif %}">{{ idea.status_label }}</span>
+                    </div>
+                    <div class="special-post-content">{{ idea.content }}</div>
+                    <div class="special-media">{% for image in idea.images %}<img src="{{ image }}" alt="附件图片" data-special-image loading="lazy" tabindex="0">{% endfor %}{% for video in idea.videos %}<video src="{{ video }}" controls preload="metadata"></video>{% endfor %}</div><div class="special-post-toolbar">
+                        <div class="special-post-stats">
+                            <span><i class="bi bi-chat-square-text" aria-hidden="true"></i>评论 <span id="comment-count-{{ idea.id }}">0</span></span>
+                            <span><i class="bi bi-hand-thumbs-up" aria-hidden="true"></i>点赞 0</span>
+                        </div>
+                        {% if can_operate %}
+                    <div class="special-operation-row">
+                        <span class="special-operation-hint">仅承接部门可操作</span>
+                        {% if idea.status not in ['yicainei', 'yijujue'] %}
+                        <button class="btn btn-sm btn-primary" onclick="reviewIdea({{ idea.id }})"><i class="bi bi-star-fill me-1" aria-hidden="true"></i>评分</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="adoptIdea({{ idea.id }})"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>采纳</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="rejectIdea({{ idea.id }})"><i class="bi bi-x-lg me-1" aria-hidden="true"></i>驳回</button>
+                        {% endif %}
+                    </div>
+                        {% endif %}
+                        {% if idea.score is not none %}
+                        <span class="small text-primary fw-semibold">评分 {{ idea.score|round(2) }} 分</span>
+                        {% endif %}
+                        {% if idea.points_awarded %}
+                        <span class="small text-warning-emphasis fw-semibold">+{{ idea.awarded_points }} 积分</span>
+                        {% endif %}
+                    </div>
+                    {% if idea.comment %}
+                    <div class="special-review-result"><strong>承接部门评价</strong><span class="ms-2">{{ idea.comment }}</span></div>
+                    {% endif %}
+                    <div id="comments-{{ idea.id }}" class="special-comment-list">正在加载评论...</div>
+                    {% if can_operate %}
+                    <form class="special-comment-form" onsubmit="submitComment(event, {{ idea.id }})">
+                        <input class="form-control form-control-sm special-comment-input" id="comment-input-{{ idea.id }}" placeholder="写下你的评价，按回车发送" aria-label="写下评价，按回车发送" onkeydown="if (event.key === 'Enter' &amp;&amp; (event.isComposing || event.keyCode === 229)) { event.preventDefault(); }">
+                    </form>
+
+                    {% else %}
+                    <div class="small text-muted mt-2">仅承接部门成员可以评论和处理想法</div>
+                    {% endif %}
+                </div>
+            </article>
+            {% else %}
+            <div class="alert alert-light border">暂时还没有想法，欢迎提交第一条解决思路。</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+
+<script>
+const specialId = {{ special.zhuanxiang_id }};
+document.getElementById('detailSolutionForm')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button');
+    const message = document.getElementById('detailSolutionMessage');
+    button.disabled = true;
+    message.textContent = '正在上传并提交…';
+    try {
+        const response = await fetch(`/innovation/api/specials/${specialId}/ideas`, {method:'POST', body:new FormData(form)});
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || '提交失败');
+        window.location.reload();
+    } catch(error) { message.textContent = error.message; button.disabled = false; }
+});
+const specialEditForm = document.getElementById('specialEditForm');
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+}[char]));
+
+async function sendIdeaAction(url, method, body) {
+    const response = await fetch(url, {
+        method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body || {})
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || '操作失败');
+    window.location.reload();
+}
+
+async function reviewIdea(ideaId) {
+    const score = window.prompt('请输入评分（0-10）');
+    if (score === null) return;
+    const comment = window.prompt('请输入评语') || '';
+    await sendIdeaAction(`/innovation/api/specials/${specialId}/ideas/${ideaId}/review`, 'PUT', {score, comment});
+}
+
+async function adoptIdea(ideaId) {
+    if (!window.confirm('确认采纳这条想法并发放专项积分吗？')) return;
+    await sendIdeaAction(`/innovation/api/specials/${specialId}/ideas/${ideaId}/adopt`, 'POST');
+}
+
+async function rejectIdea(ideaId) {
+    const comment = window.prompt('请输入驳回原因') || '';
+    await sendIdeaAction(`/innovation/api/specials/${specialId}/ideas/${ideaId}/reject`, 'POST', {comment});
+}
+
+async function loadComments(ideaId) {
+    const container = document.getElementById(`comments-${ideaId}`);
+    const count = document.getElementById(`comment-count-${ideaId}`);
+    try {
+        const response = await fetch(`/innovation/api/react/stats?id=${ideaId}`);
+        const result = await response.json();
+        const comments = (result.comments || []).filter((item) => item.comment);
+        if (count) count.textContent = comments.length;
+        container.innerHTML = comments.length
+            ? comments.map((item) => `<div class="mb-1"><strong>${escapeHtml(item.operator || '用户')}</strong><span class="ms-1">${escapeHtml(item.comment)}</span></div>`).join('')
+            : '暂无评论';
+    } catch (error) {
+        container.textContent = '评论加载失败';
+    }
+}
+
+async function submitComment(event, ideaId) {
+    event.preventDefault();
+    const input = document.getElementById(`comment-input-${ideaId}`);
+    const comment = input.value.trim();
+    if (!comment) return;
+    const response = await fetch('/innovation/api/react', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: ideaId, comment})
+    });
+    const result = await response.json();
+    if (!result.success) {
+        window.alert(result.message || '评论失败');
+        return;
+    }
+    input.value = '';
+    loadComments(ideaId);
+}
+
+document.querySelectorAll('[data-idea-id]').forEach((card) => loadComments(card.dataset.ideaId));
+
+if (specialEditForm) {
+    specialEditForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const message = document.getElementById('specialEditMessage');
+        message.textContent = '正在保存...';
+        try {
+            const response = await fetch(`/innovation/api/specials/${specialId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    biaoti: document.getElementById('editSpecialTitle').value,
+                    nanti_miaoshu: document.getElementById('editSpecialProblem').value,
+                    chengjie_bumen: document.getElementById('editSpecialDepartment').value,
+                    jiangli_jifen: document.getElementById('editSpecialPoints').value,
+                    jiangli_mingxi: document.getElementById('editSpecialReward').value
+                })
+            });
+            const result = await response.json();
+            if (!result.success) throw new Error(result.message || '保存失败');
+            window.location.reload();
+        } catch (error) {
+            message.textContent = error.message;
+        }
+    });
+}
+</script>
+{% endif %}
+{% endblock %}

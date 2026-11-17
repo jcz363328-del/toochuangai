@@ -93,6 +93,11 @@ PERMISSION_CONFIG = {
         'allowed_departments': 'all',  # 全员可见
         'description': '创新提案的提交、评审和管理系统'
     },
+    'innovation_special_manage': {
+        'name': '创新专项管理',
+        'allowed_departments': ['人力行政部', 'AI部'],
+        'description': '创建、发布和维护创新专项。'
+    },
     'review_analysis': {
         'name': '差评分析系统',
         'allowed_departments': ['运营部', '研发部', '技术部', 'AI部', '总经办'],  # 运营部及其下各运营分部 + 研发部、技术部、AI部和总经办
@@ -217,6 +222,11 @@ PERMISSION_CONFIG = {
         'name': '智能补货中心-运营',
         'allowed_departments': ['运营部', 'AI部', '总经办'],
         'description': '智能补货中心-运营版多工作表刷新功能，运营人员按 v_PinPaiDianPu.YunYing 查看本人店铺'
+    },
+    'daily_replenishment_tiktok': {
+        'name': '智能补货中心-Tiktok',
+        'allowed_departments': ['运营部', 'AI部', '总经办'],
+        'description': 'TikTok 日常补货生成、筛选、订货量编辑和采购模板导出，按店铺权限隔离数据'
     },
     'ai_group_performance': {
         'name': '组别经营数据',
@@ -1328,7 +1338,9 @@ class FeishuPermissionManager:
         real_departments = list(valid_departments or [])
         debug_departments = self._get_debug_departments_from_session()
         debug_user = self._get_debug_user_from_session()
-        can_use_debug = 'AI部' in real_departments
+        # 本地超级管理员用于联调时没有真实的 AI 部归属，但仍应能够切换到
+        # 权限调试页选择的部门，否则页面权限和专项承接部门判定会出现分歧。
+        can_use_debug = 'AI部' in real_departments or is_local_superadmin()
         if can_use_debug and (debug_departments or debug_user.get('name')):
             return list(debug_departments), True
         return real_departments, False

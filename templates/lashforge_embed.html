@@ -10,17 +10,18 @@
         body {
             margin: 0;
             font-family: 'Microsoft YaHei', Arial, sans-serif;
-            background: #f7f9fc;
-            color: #111827;
+            background: #050b1c;
+            color: #e8edff;
+            overflow: hidden;
         }
         .page {
             width: 100%;
             max-width: none;
             margin: 0 auto;
-            padding: 8px 0 0;
+            padding: 0;
         }
         .page-head {
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: space-between;
             gap: 8px;
@@ -62,13 +63,13 @@
             border-color: #c7d2fe;
         }
         .panel {
-            background: #fff;
+            background: #050b1c;
             border: 0;
             border-radius: 0;
             padding: 0;
         }
         .panel-hd {
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: space-between;
             gap: 8px;
@@ -86,19 +87,19 @@
         .panel-title i { color: #5b7cff; }
         .panel-sub { color: #94a3b8; font-size: 12px; }
         .iframe-shell {
-            height: calc(100vh - 82px);
-            min-height: 760px;
+            height: 100vh;
+            min-height: 100vh;
             border: 0;
             border-radius: 0;
             overflow: hidden;
-            background: #fff;
+            background: #050b1c;
         }
         .iframe-shell iframe {
             width: 100%;
             height: 100%;
             border: 0;
             display: block;
-            background: #fff;
+            background: #050b1c;
         }
         .iframe-loading {
             position: absolute;
@@ -108,8 +109,8 @@
             justify-content: center;
             flex-direction: column;
             gap: 10px;
-            background: linear-gradient(180deg, #f8fbff 0%, #f2f6fb 100%);
-            color: #475569;
+            background: linear-gradient(180deg, #050b1c 0%, #07132b 100%);
+            color: #b8c5e8;
             font-size: 13px;
         }
         .iframe-shell {
@@ -118,21 +119,21 @@
         .spinner {
             width: 26px;
             height: 26px;
-            border: 3px solid #dbeafe;
-            border-top-color: #5b7cff;
+            border: 3px solid rgba(132, 102, 255, 0.28);
+            border-top-color: #7652ff;
             border-radius: 50%;
             animation: spin 0.9s linear infinite;
         }
         .loading-tip {
-            color: #94a3b8;
+            color: #7f8db5;
             font-size: 12px;
         }
         .retry-btn {
             padding: 6px 12px;
             border-radius: 8px;
-            border: 1px solid #c7d2fe;
-            background: #eef2ff;
-            color: #4338ca;
+            border: 1px solid rgba(132, 102, 255, 0.5);
+            background: #171c45;
+            color: #d9d1ff;
             cursor: pointer;
             font-size: 12px;
         }
@@ -144,18 +145,15 @@
             to { transform: rotate(360deg); }
         }
         .footer {
-            text-align: center;
-            color: #c3cad8;
-            padding: 8px 0 4px;
-            font-size: 12px;
+            display: none;
         }
         @media (max-width: 768px) {
             .page { padding: 6px 0 0; }
             .title { font-size: 18px; }
             .actions { flex-wrap: wrap; justify-content: flex-end; }
             .iframe-shell {
-                height: calc(100vh - 120px);
-                min-height: 640px;
+                height: 100vh;
+                min-height: 100vh;
             }
         }
     </style>

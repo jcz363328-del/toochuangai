@@ -48,6 +48,10 @@ body.innovation-app {
 .innovation-nav-item > i { font-size: 19px; }
 .innovation-nav-item:hover { color: var(--innovation-blue); background: #f3f6ff; }
 .innovation-nav-item.is-active { background: #eaf0ff; color: var(--innovation-blue); font-weight: 700; }
+.innovation-submit-navigation .innovation-nav-item { margin-bottom: 2px; }
+.innovation-submit-subnav { margin: 0 0 6px 28px; padding-left: 12px; border-left: 1px solid var(--innovation-line); }
+.innovation-submit-subnav .innovation-nav-item { padding: 8px 10px; margin: 2px 0; font-size: 13px; }
+.innovation-submit-subnav .innovation-nav-item > i { font-size: 15px; }
 .innovation-star-navigation > summary { cursor: pointer; list-style: none; }
 .innovation-star-navigation > summary::-webkit-details-marker { display: none; }
 .innovation-star-navigation > summary::after { content: "›"; margin-left: auto; transform: rotate(0); }

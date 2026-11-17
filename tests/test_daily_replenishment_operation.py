@@ -109,6 +109,79 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         self.assertEqual(1, len(execute("/* daily_replenishment:core */")))
         self.assertEqual(1, len(execute("/* daily_replenishment:sheet_inventory_detail */")))
 
+    def test_sea_shipping_recommendation_uses_strict_average_threshold(self):
+        sql = operation._sea_shipping_recommendation_sql()
+
+        self.assertIn("HAVING SUM", sql)
+        self.assertIn(">600", sql)
+        self.assertEqual(
+            [
+                {"sku": "SKU-A", "avg_daily_sales": 20.1},
+                {"sku": "SKU-B", "avg_daily_sales": 32.0},
+            ],
+            operation._normalize_sea_shipping_rows(
+                [("SKU-A", 20.1), ("@SKU-B", 32), ("SKU-C", 20)]
+            ),
+        )
+
+    def test_sea_shipping_recommendations_are_scoped_and_can_be_added(self):
+        access = {
+            "read_stores": {"1"},
+            "write_stores": {"1"},
+            "visible_skus": {"SKU-A"},
+            "can_write": True,
+        }
+
+        def fake_execute(sql):
+            if "sea_shipping_active" in sql:
+                return []
+            return [("SKU-A", 21.5), ("SKU-B", 32.0)]
+
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
+            with patch.object(operation, "scoped_query_executor", return_value=(fake_execute, access)):
+                response = self.client.get(
+                    "/api/ai/daily-replenishment-operation/sea-shipping-recommendations"
+                )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            [{"sku": "SKU-A", "avg_daily_sales": 21.5}],
+            response.get_json()["items"],
+        )
+
+        captured = []
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
+            with patch.object(operation, "scoped_query_executor", return_value=(fake_execute, access)):
+                with patch.object(operation, "dui_db", side_effect=captured.append):
+                    response = self.client.post(
+                        "/api/ai/daily-replenishment-operation/sea-shipping-recommendations",
+                        json={"skus": ["SKU-A"]},
+                    )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(1, response.get_json()["added"])
+        self.assertIn("[SKU]", captured[0])
+        self.assertIn("ZhengChang", captured[0])
+        self.assertIn("GETDATE()", captured[0])
+        self.assertIn("ShanChuShiJian", captured[0])
+        self.assertIn("NULL", captured[0])
+
+    def test_sea_shipping_recommendations_reject_write_without_permission(self):
+        access = {
+            "read_stores": {"1"},
+            "write_stores": set(),
+            "visible_skus": {"SKU-A"},
+            "can_write": False,
+        }
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
+            with patch.object(operation, "scoped_query_executor", return_value=(lambda sql: [], access)):
+                response = self.client.post(
+                    "/api/ai/daily-replenishment-operation/sea-shipping-recommendations",
+                    json={"skus": ["SKU-A"]},
+                )
+
+        self.assertEqual(403, response.status_code)
+
     def test_current_user_name_falls_back_to_open_id_mapping(self):
         with self.client.session_transaction() as flask_session:
             flask_session.pop("feishu_user_name", None)

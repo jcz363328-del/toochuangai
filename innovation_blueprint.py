@@ -25,6 +25,13 @@ from innovation.web_app import (
     innovation_meeting_draw_state, innovation_meeting_draw, innovation_meeting_new_round,
     innovation_meeting_cancel_draw
 )
+from innovation.specials import (
+    specials_page, special_detail_page,
+    get_specials, get_special_detail,
+    create_special, update_special, publish_special, close_special,
+    submit_special_idea, review_special_idea,
+    adopt_special_idea, reject_special_idea,
+)
 
 # 创建创新系统蓝图，指定模板和静态文件路径
 innovation_bp = Blueprint('innovation', __name__, 
@@ -85,6 +92,18 @@ def innovation_manage_mobile():
     """管理页面 - 移动版"""
     return manage_mobile()
 
+
+@innovation_bp.route('/specials')
+def innovation_specials():
+    """创新专项列表。"""
+    return specials_page()
+
+
+@innovation_bp.route('/specials/<int:special_id>')
+def innovation_special_detail(special_id):
+    """创新专项详情。"""
+    return special_detail_page(special_id)
+
 @innovation_bp.route('/manage1')
 def innovation_manage1():
     """管理页面 - 简化版"""
@@ -96,6 +115,56 @@ def innovation_manage1():
 def innovation_submit_innovation():
     """提交创新项目API"""
     return submit_innovation()
+
+
+@innovation_bp.route('/api/specials', methods=['GET'])
+def innovation_get_specials():
+    return get_specials()
+
+
+@innovation_bp.route('/api/specials', methods=['POST'])
+def innovation_create_special():
+    return create_special()
+
+
+@innovation_bp.route('/api/specials/<int:special_id>', methods=['GET'])
+def innovation_get_special_detail(special_id):
+    return get_special_detail(special_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>', methods=['PUT'])
+def innovation_update_special(special_id):
+    return update_special(special_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>/publish', methods=['POST'])
+def innovation_publish_special(special_id):
+    return publish_special(special_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>/close', methods=['POST'])
+def innovation_close_special(special_id):
+    return close_special(special_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>/ideas', methods=['POST'])
+def innovation_submit_special_idea(special_id):
+    return submit_special_idea(special_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>/ideas/<int:idea_id>/review', methods=['PUT'])
+def innovation_review_special_idea(special_id, idea_id):
+    return review_special_idea(special_id, idea_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>/ideas/<int:idea_id>/adopt', methods=['POST'])
+def innovation_adopt_special_idea(special_id, idea_id):
+    return adopt_special_idea(special_id, idea_id)
+
+
+@innovation_bp.route('/api/specials/<int:special_id>/ideas/<int:idea_id>/reject', methods=['POST'])
+def innovation_reject_special_idea(special_id, idea_id):
+    return reject_special_idea(special_id, idea_id)
 
 
 @innovation_bp.route('/api/innovation_star_content', methods=['POST'])

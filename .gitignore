@@ -52,6 +52,7 @@ innovation/static/uploads/rewards/
 *.xlsx
 *.xls
 *.csv
+!templates/import_purchase_plan_template.xlsx
 !listing_agent/data/aba-ranking-export.csv
 /listing_agent/data/active-aba-ranking.json
 
@@ -78,3 +79,6 @@ innovation/static/uploads/rewards/
 Thumbs.db
 .vscode/
 .idea/
+
+# Innovation reward UI asset
+!innovation/static/special_cash_reward_transparent.png

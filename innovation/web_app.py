@@ -9,6 +9,7 @@ from config import *  # 从配置文件中导入所有应用
 from department_permissions import permission_manager
 from tools import escape_sql_literal as _escape_sql_literal_for_pytds
 from tools import is_mobile_user_agent, safe_print as _safe_print
+from innovation.special_support import ensure_special_storage, user_in_receiver_department
 import os
 from io import BytesIO  # 用于操作文件和目录
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory, \
@@ -713,7 +714,43 @@ def submit():
     raw_name = session.get('feishu_user_name', '')
     name_parts = str(raw_name).split('（', 1) if raw_name else []
     feishu_user_name = name_parts[0].strip() if name_parts else str(raw_name).strip()
-    return render_template('submit.html', departments=DEPARTMENTS, feishu_user_name=feishu_user_name)  # 渲染网页，对应的部门列表加载上
+    proposal_type = str(request.args.get('type') or 'normal').strip().lower()
+    if proposal_type not in {'normal', 'special'}:
+        proposal_type = 'normal'
+
+    special_options = []
+    if proposal_type == 'special':
+        ensure_special_storage()
+        special_rows = sf_db("""
+            SELECT zhuanxiang_id, zhuanxiang_bianhao, biaoti, nanti_miaoshu,
+                   chengjie_bumen, jiangli_jifen, jiangli_mingxi
+            FROM dbo.chuangxin_zhuanxiang
+            WHERE zhuangtai = 'yifabu'
+              AND NULLIF(LTRIM(RTRIM(chengjie_bumen)), '') IS NOT NULL
+            ORDER BY zhuanxiang_id DESC
+        """) or []
+        for row in special_rows:
+            special_options.append({
+                'zhuanxiang_id': int(row[0]),
+                'zhuanxiang_bianhao': str(row[1] or ''),
+                'biaoti': str(row[2] or ''),
+                'nanti_miaoshu': str(row[3] or ''),
+                'chengjie_bumen': str(row[4] or ''),
+                'jiangli_jifen': int(row[5] or 0),
+                'jiangli_mingxi': str(row[6] or ''),
+            })
+
+    return render_template(
+        'submit.html',
+        departments=DEPARTMENTS,
+        feishu_user_name=feishu_user_name,
+        proposal_type=proposal_type,
+        special_options=special_options,
+        is_special_manager=(
+            _innovation_has_permission('innovation_special_manage')
+            if proposal_type == 'special' else False
+        ),
+    )
 
 
 @app.route('/dashboard')  # 定义路由，积分详情展示页面，已经停用，后续可能会加
@@ -1406,6 +1443,25 @@ def innovation_react():
         has_comment = (comment is not None and comment_esc.strip() != '')
         has_image = bool(uploaded_image_path)
         if has_comment or has_image:
+            try:
+                special_rows = sf_db(f"""
+                    SELECT TOP 1 z.zhuanxiang_id, z.chengjie_bumen
+                    FROM dbo.chuangxin_tibao1 t
+                    INNER JOIN dbo.chuangxin_zhuanxiang z ON z.zhuanxiang_id = t.zhuanxiang_id
+                    WHERE t.编号 = {project_id}
+                """) or []
+            except Exception:
+                special_rows = []
+            if special_rows:
+                receiver_department = str(special_rows[0][1] or '').strip()
+                if not user_in_receiver_department(receiver_department, session.get('feishu_user_id', '')):
+                    if uploaded_image_path:
+                        try:
+                            os.remove(uploaded_image_path.replace('/', '\\'))
+                        except Exception:
+                            pass
+                    return jsonify({'success': False, 'message': '只有专项承接部门成员可以评论'}), 403
+        if has_comment or has_image:
             if has_image_column:
                 sql_list.append(
                     f"INSERT INTO chuangxin_dianzan (编号, 操作人, 点赞, 评论, 图片, 操作时间) "
@@ -1458,6 +1514,22 @@ def innovation_update_comment():
         user_name = _get_current_feishu_user_name()
         if not user_name:
             return jsonify({'success': False, 'message': '未识别飞书用户'}), 401
+
+        # 专项想法的评论只能由专项承接部门成员新增或修改。
+        # 普通创新提案继续沿用原有评论权限。
+        try:
+            special_rows = sf_db(f"""
+                SELECT TOP 1 z.chengjie_bumen
+                FROM dbo.chuangxin_tibao1 t
+                INNER JOIN dbo.chuangxin_zhuanxiang z ON z.zhuanxiang_id = t.zhuanxiang_id
+                WHERE t.编号 = {project_id}
+            """) or []
+        except Exception:
+            special_rows = []
+        if special_rows:
+            receiver_department = str(special_rows[0][0] or '').strip()
+            if not user_in_receiver_department(receiver_department, session.get('feishu_user_id', '')):
+                return jsonify({'success': False, 'message': '只有专项承接部门成员可以评论'}), 403
 
         user_esc = user_name.replace("'", "''")
         comment_esc = (comment or '').replace("'", "''")
@@ -1926,7 +1998,7 @@ def get_innovations():
         offset = (page - 1) * per_page
 
         # 构建WHERE条件
-        where_conditions = []
+        where_conditions = ["ISNULL(创新类别, N'') NOT IN (N'创新专项', N'专项想法')"]
 
         # 部门筛选：直接在SQL中进行
         if department_filter:
@@ -3327,6 +3399,7 @@ def submit_to_meeting():
 def update_user_points_summary():
     """统计并更新用户积分汇总到创新_消费表"""
     try:
+        ensure_special_storage()
         data = request.get_json()
         user_name = data.get('user_name')
         current_year = datetime.now().year
@@ -3347,6 +3420,15 @@ def update_user_points_summary():
         """
         annual_result = sf_db(annual_points_sql)
         annual_points = annual_result[0][0] if annual_result else 0
+        special_annual_result = sf_db(f"""
+            SELECT COALESCE(SUM(zhuanxiang_fafang_jifen), 0)
+            FROM dbo.chuangxin_tibao1
+            WHERE 发起人 = '{user_name}'
+              AND xiangfa_zhuangtai = 'yicainei'
+              AND ISNULL(zhuanxiang_fafang_biaoshi, 0) = 1
+              AND YEAR(发起时间) = {current_year}
+        """, single=True) or 0
+        annual_points = (annual_points or 0) + special_annual_result
 
         # 2. 计算历史总积分（所有年份获得的总积分）
         total_points_sql = f"""
@@ -3357,6 +3439,14 @@ def update_user_points_summary():
         """
         total_result = sf_db(total_points_sql)
         total_earned_points = total_result[0][0] if total_result else 0
+        special_total_result = sf_db(f"""
+            SELECT COALESCE(SUM(zhuanxiang_fafang_jifen), 0)
+            FROM dbo.chuangxin_tibao1
+            WHERE 发起人 = '{user_name}'
+              AND xiangfa_zhuangtai = 'yicainei'
+              AND ISNULL(zhuanxiang_fafang_biaoshi, 0) = 1
+        """, single=True) or 0
+        total_earned_points = (total_earned_points or 0) + special_total_result
 
         # 3. 计算已花费积分
         spent_points_sql = f"""
@@ -3421,6 +3511,7 @@ def update_user_points_summary():
 def batch_update_all_users_points():
     """批量更新所有用户的积分统计"""
     try:
+        ensure_special_storage()
         # 获取所有有积分记录的用户
         users_sql = """
                     SELECT DISTINCT 发起人
@@ -3459,6 +3550,15 @@ def batch_update_all_users_points():
             """
             annual_result = sf_db(annual_points_sql)
             annual_points = annual_result[0][0] if annual_result else 0
+            special_annual_result = sf_db(f"""
+                SELECT COALESCE(SUM(zhuanxiang_fafang_jifen), 0)
+                FROM dbo.chuangxin_tibao1
+                WHERE 发起人 = '{user_name}'
+                  AND xiangfa_zhuangtai = 'yicainei'
+                  AND ISNULL(zhuanxiang_fafang_biaoshi, 0) = 1
+                  AND YEAR(发起时间) = {current_year}
+            """, single=True) or 0
+            annual_points = (annual_points or 0) + special_annual_result
 
             total_points_sql = f"""
                 SELECT COALESCE(SUM(最高分), 0) as total_points
@@ -3468,6 +3568,14 @@ def batch_update_all_users_points():
             """
             total_result = sf_db(total_points_sql)
             total_earned_points = total_result[0][0] if total_result else 0
+            special_total_result = sf_db(f"""
+                SELECT COALESCE(SUM(zhuanxiang_fafang_jifen), 0)
+                FROM dbo.chuangxin_tibao1
+                WHERE 发起人 = '{user_name}'
+                  AND xiangfa_zhuangtai = 'yicainei'
+                  AND ISNULL(zhuanxiang_fafang_biaoshi, 0) = 1
+            """, single=True) or 0
+            total_earned_points = (total_earned_points or 0) + special_total_result
 
             spent_points_sql = f"""
                 SELECT COALESCE(SUM(花费积分), 0) as spent_points
@@ -3523,6 +3631,7 @@ def batch_update_all_users_points():
 def get_user_points():
     """获取用户积分API - 修复查询结果处理"""
     try:
+        ensure_special_storage()
         user_name = (request.args.get('user_name') or '').strip()
         if not user_name:
             user_name = _get_current_feishu_user_name()
@@ -3565,6 +3674,16 @@ def get_user_points():
 
             annual_points = extract_value(annual_result)
 
+            special_annual_result = sf_db(f"""
+                SELECT COALESCE(SUM(zhuanxiang_fafang_jifen), 0)
+                FROM dbo.chuangxin_tibao1
+                WHERE 发起人 = '{user_esc}'
+                  AND xiangfa_zhuangtai = 'yicainei'
+                  AND ISNULL(zhuanxiang_fafang_biaoshi, 0) = 1
+                  AND YEAR(发起时间) = {current_year}
+            """)
+            annual_points += extract_value(special_annual_result)
+
         except Exception as e:
             _safe_print(f"[ERROR] 年度积分查询失败: {e}")
             annual_points = 0
@@ -3582,6 +3701,15 @@ def get_user_points():
             total_result = sf_db(total_points_sql)
 
             total_earned_points = extract_value(total_result)
+
+            special_total_result = sf_db(f"""
+                SELECT COALESCE(SUM(zhuanxiang_fafang_jifen), 0)
+                FROM dbo.chuangxin_tibao1
+                WHERE 发起人 = '{user_esc}'
+                  AND xiangfa_zhuangtai = 'yicainei'
+                  AND ISNULL(zhuanxiang_fafang_biaoshi, 0) = 1
+            """)
+            total_earned_points += extract_value(special_total_result)
 
         except Exception as e:
             _safe_print(f"[ERROR] 历史总积分查询失败: {e}")
@@ -3872,6 +4000,7 @@ def exchange_reward():
 def get_point_records():
     """获取积分记录API"""
     try:
+        ensure_special_storage()
         user_name = (request.args.get('user_name') or '').strip()
         if not user_name:
             user_name = _get_current_feishu_user_name()
@@ -3905,6 +4034,21 @@ def get_point_records():
               AND CAST(ISNULL(v.最高分, 0) AS INT) > 0
         """
 
+        special_earn_sql = f"""
+            SELECT
+                t.编号 as 项目编号,
+                CAST(ISNULL(t.zhuanxiang_fafang_jifen, 0) AS INT) as points,
+                '获得' as type,
+                '创新专项' as source,
+                CONCAT('创新专项采纳奖励 - 项目编号:', t.编号, ' - ', COALESCE(t.标题, '未知想法')) as description,
+                COALESCE(t.标题, '未知想法') as project_title
+            FROM chuangxin_tibao1 t
+            WHERE t.发起人 = '{user_esc}'
+              AND t.xiangfa_zhuangtai = 'yicainei'
+              AND ISNULL(t.zhuanxiang_fafang_biaoshi, 0) = 1
+              AND ISNULL(t.zhuanxiang_fafang_jifen, 0) > 0
+        """
+
         # 同时修改spend_sql以保持字段一致
         spend_sql = f"""
             SELECT 
@@ -3926,6 +4070,8 @@ def get_point_records():
         combined_sql = f"""
             SELECT * FROM (
                 {earn_sql}
+                UNION ALL
+                {special_earn_sql}
                 UNION ALL
                 {spend_sql}
             ) AS combined_records
@@ -3969,6 +4115,8 @@ def get_point_records():
                         description = f"创新项目D级评分奖励 - 项目编号:{project_id} ({project_title}) (+{points}分)"
                     else:
                         description = f"创新项目评分奖励 - 项目编号:{project_id} ({project_title}) (+{points}分)"
+                elif source == '创新专项' and points > 0:
+                    description = f"创新专项采纳奖励 - 项目编号:{project_id} ({project_title}) (+{points}分)"
                 elif source == '积分兑换' and points < 0:
                     description = f"积分兑换消费 ({points}分) - 兑换奖品 {description.replace('积分消费', '').replace('积分兑换消费', '')}"
 
@@ -4005,10 +4153,23 @@ def get_point_records():
               AND (备注 IS NULL OR 备注 != '积分汇总')
         """
         stats_rows = sf_db(stats_sql) or []
+        special_stats_rows = sf_db(f"""
+            SELECT
+                COALESCE(SUM(zhuanxiang_fafang_jifen), 0),
+                COALESCE(COUNT(1), 0)
+            FROM chuangxin_tibao1
+            WHERE 发起人 = '{user_esc}'
+              AND xiangfa_zhuangtai = 'yicainei'
+              AND ISNULL(zhuanxiang_fafang_biaoshi, 0) = 1
+              AND ISNULL(zhuanxiang_fafang_jifen, 0) > 0
+        """) or []
         spent_rows = sf_db(spent_stats_sql) or []
         if stats_rows and isinstance(stats_rows[0], (list, tuple)):
             stats['total_earned'] = int(stats_rows[0][0] or 0)
             stats['earn_count'] = int(stats_rows[0][1] or 0)
+        if special_stats_rows and isinstance(special_stats_rows[0], (list, tuple)):
+            stats['total_earned'] += int(special_stats_rows[0][0] or 0)
+            stats['earn_count'] += int(special_stats_rows[0][1] or 0)
         if spent_rows and isinstance(spent_rows[0], (list, tuple)):
             stats['total_spent'] = int(spent_rows[0][0] or 0)
             stats['spend_count'] = int(spent_rows[0][1] or 0)

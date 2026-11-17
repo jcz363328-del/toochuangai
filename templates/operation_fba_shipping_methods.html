@@ -193,6 +193,13 @@
             overflow: visible;
             text-overflow: clip;
         }
+        .data-table td.copyable-cell {
+            cursor: copy;
+        }
+        .data-table td.copyable-cell.copy-success {
+            background: #dcfce7 !important;
+            color: #166534;
+        }
         .data-table tr:hover td { background: #f8fafc; }
         .data-table tr.is-warning td {
             background: #fff1f2;
@@ -264,7 +271,7 @@
         <div class="panel">
             <div class="panel-hd">
                 <h2 class="panel-title"><i class="fa-solid fa-table-list"></i>运输方式明细</h2>
-                <span class="panel-sub">红色表示：海运但亚马逊追踪码为空，或亚马逊追踪码为科学计数法</span>
+                <span class="panel-sub">双击亚马逊追踪码或 IEN 单元格可复制内容 · 红色表示：海运但亚马逊追踪码为空，或亚马逊追踪码为科学计数法</span>
             </div>
             <div class="toolbar">
                 <div class="controls">
@@ -300,7 +307,7 @@
                 <span id="opsFbaPageText">第 1 / 1 页</span>
                 <button type="button" id="opsFbaNext">下一页</button>
             </div>
-            <div class="legend">标红规则：运输方式包含“海运”但亚马逊追踪码为空，或亚马逊追踪码为科学计数法。</div>
+            <div class="legend">双击亚马逊追踪码或 IEN 单元格可复制内容。标红规则：运输方式包含“海运”但亚马逊追踪码为空，或亚马逊追踪码为科学计数法。</div>
         </div>
     </div>
 
@@ -394,8 +401,16 @@
                     const labelText = String(col.label || '');
                     const logisticsClass = /wuliu|物流/i.test(String(key)) || /物流单号/i.test(labelText) ? ' logistics-cell' : '';
                     const trackingClass = labelText === '亚马逊追踪码' ? ' tracking-cell' : '';
-                    const cls = ` class="${warning ? 'is-warning-cell' : ''}${logisticsClass}${trackingClass}"`;
-                    const title = `${col.label || key}：${value === '' ? '—' : value}${warning ? '\n提示：' + warning : ''}\n\n该行详情\n${rowDetails}`;
+                    const normalizedKey = String(key || '').trim().toUpperCase();
+                    const copyable = labelText === '亚马逊追踪码'
+                        || labelText.toUpperCase() === 'IEN'
+                        || normalizedKey === 'IEN'
+                        || normalizedKey === 'HUOJIANDANHAO'
+                        || normalizedKey === '货件单号';
+                    const copyableClass = copyable ? ' copyable-cell' : '';
+                    const cls = ` class="${warning ? 'is-warning-cell' : ''}${logisticsClass}${trackingClass}${copyableClass}"`;
+                    const copyHint = copyable ? '\n双击复制' : '';
+                    const title = `${col.label || key}：${value === '' ? '—' : value}${warning ? '\n提示：' + warning : ''}${copyHint}\n\n该行详情\n${rowDetails}`;
                     return `<td${cls} title="${opsFbaEscape(title)}">${opsFbaEscape(value)}</td>`;
                 }).join('');
                 return `<tr class="${item.warning ? 'is-warning' : ''}">${cells}</tr>`;
@@ -451,6 +466,41 @@
                 Array.from(row.cells).slice(colStart, colEnd + 1)
                     .map(cell => cell.innerText.replace(/\s+/g, ' ').trim()).join('\t')
             ).join('\n');
+        }
+
+        async function opsFbaCopyText(text) {
+            if (!text) return false;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (e) {
+                console.warn('复制到剪贴板失败，尝试备用方式', e);
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            let copied = false;
+            try {
+                copied = document.execCommand('copy');
+            } catch (e) {
+                console.warn('备用复制方式失败', e);
+            }
+            textarea.remove();
+            return copied;
+        }
+
+        function opsFbaMarkCopied(cell) {
+            cell.classList.remove('copy-success');
+            void cell.offsetWidth;
+            cell.classList.add('copy-success');
+            setTimeout(function () { cell.classList.remove('copy-success'); }, 900);
         }
 
         async function opsFbaLoadData(page) {
@@ -537,6 +587,13 @@
                     if (!cell || cell.closest('table') !== selectionStart.closest('table')) return;
                     opsFbaApplyCellSelection(cell.closest('table'), selectionStart, cell);
                 });
+                tableWrap.addEventListener('dblclick', async function (event) {
+                    const cell = event.target.closest('td.copyable-cell');
+                    if (!cell || !tableWrap.contains(cell)) return;
+                    event.preventDefault();
+                    const text = cell.textContent.trim();
+                    if (await opsFbaCopyText(text)) opsFbaMarkCopied(cell);
+                });
                 document.addEventListener('mouseup', function () {
                     selecting = false;
                     selectionStart = null;
@@ -553,7 +610,7 @@
                 if (!table) return;
                 const text = opsFbaTableText(table);
                 try {
-                    await navigator.clipboard.writeText(text);
+                    if (!await opsFbaCopyText(text)) throw new Error('复制失败');
                     copy.innerHTML = '<i class="fas fa-check"></i> 已复制';
                     setTimeout(() => { copy.innerHTML = '<i class="fas fa-copy"></i> 复制表格'; }, 1400);
                 } catch (e) { window.prompt('请复制下面的表格内容：', text); }

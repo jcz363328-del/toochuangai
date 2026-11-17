@@ -83,6 +83,15 @@ h1, h2, h3, h4, p { margin: 0; }
 ::-webkit-scrollbar-thumb:hover { background: #c0b8a6; background-clip: content-box; border: 3px solid transparent; }
 
 /* ---------------------------------------------------------------- topbar */
+.app-shell {
+    display: grid;
+    grid-template-columns: 188px minmax(0, 1fr);
+    min-height: 100vh;
+}
+.app-main {
+    min-width: 0;
+    min-height: 100vh;
+}
 .topbar {
     position: sticky;
     top: 0;
@@ -96,6 +105,24 @@ h1, h2, h3, h4, p { margin: 0; }
     background: rgba(255, 255, 255, .82);
     backdrop-filter: saturate(180%) blur(14px);
     border-bottom: 1px solid var(--line);
+}
+
+.topbar-title {
+    min-width: 0;
+    padding: 0 2px;
+}
+.topbar-title .eyebrow {
+    font-size: 9.5px;
+    letter-spacing: .05em;
+    white-space: nowrap;
+}
+.topbar-title h1 {
+    margin: 2px 0 0;
+    font-size: 18px;
+    line-height: 1.1;
+    font-weight: 620;
+    letter-spacing: -.01em;
+    white-space: nowrap;
 }
 
 .brand { display: flex; align-items: center; gap: 11px; }
@@ -120,7 +147,32 @@ h1, h2, h3, h4, p { margin: 0; }
     border-left: 1px solid var(--line);
 }
 
-.topbar-right { display: flex; align-items: center; gap: 16px; }
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    min-height: 54px;
+    margin: -15px -10px 7px;
+    padding: 0 12px;
+    background: rgba(255, 255, 255, .82);
+    border-bottom: 1px solid var(--line);
+}
+.sidebar-brand .brand-text {
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+}
+.sidebar-brand .brand { width: 100%; min-width: 0; }
+.sidebar-brand .brand-text b,
+.sidebar-brand .brand-text i { white-space: nowrap; }
+.sidebar-brand .brand-text i {
+    padding-left: 0;
+    border-left: 0;
+    font-size: 10px;
+}
+
+.topbar-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.topbar .head-actions { padding-bottom: 0; }
 .who {
     display: inline-flex;
     align-items: center;
@@ -160,11 +212,14 @@ h1, h2, h3, h4, p { margin: 0; }
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: 22px 14px 34px;
+    padding: 8px 14px 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
+    height: calc(100vh - 54px);
+    min-height: 0;
+    overflow: hidden;
 }
 
 .pagehead {
@@ -342,6 +397,8 @@ h1, h2, h3, h4, p { margin: 0; }
 
 /* ------------------------------------------------------------- workspace */
 .ws {
+    flex: 1 1 auto;
+    min-height: 0;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -349,33 +406,204 @@ h1, h2, h3, h4, p { margin: 0; }
     overflow: hidden;
 }
 
-.ws-head {
+.ws-layout {
+    min-width: 0;
+    height: 100%;
+}
+
+.sheet-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    padding: 15px 10px;
+    background: var(--surface-2);
+    border-right: 1px solid var(--line);
+}
+
+.app-sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.sheet-sidebar-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding: 0 7px 5px;
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 620;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.sheet-sidebar-head span:last-child {
+    color: var(--muted-2);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+.sidebar-status {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+}
+.sidebar-status[hidden] { display: none; }
+.sidebar-status .chips {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 3px;
+}
+.sidebar-status .chip {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 32px;
+    height: auto;
+    padding: 0 9px;
+    border-radius: var(--radius-xs);
+    text-align: left;
+}
+.sidebar-status .chip .n { margin-left: auto; }
+.sea-recommendation {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+.sea-recommendation-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 7px 4px;
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 620;
+}
+.sea-recommendation-head .count {
+    margin-left: auto;
+    color: var(--muted-2);
+    font-size: 10px;
+    font-weight: 500;
+}
+.sea-recommendation-list {
+    display: grid;
+    gap: 3px;
+    max-height: 190px;
+    overflow-y: auto;
+    padding: 0 2px 2px;
+}
+.sea-recommendation-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 27px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
+    color: var(--ink-2);
+    font-size: 10.5px;
+}
+.sea-recommendation-row:hover { background: var(--surface); border-color: var(--line-2); }
+.sea-recommendation-row input { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); }
+.sea-recommendation-row .sku {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--mono);
+}
+.sea-recommendation-row .avg { color: var(--accent-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sea-recommendation-empty { padding: 6px 7px; color: var(--muted-2); font-size: 10.5px; }
+.sea-recommendation-actions { display: flex; gap: 4px; margin-top: 5px; }
+.sea-recommendation-actions .link-btn { flex: 0 0 auto; padding: 4px 5px; font-size: 10.5px; }
+.sea-recommendation-actions .btn { flex: 1; min-width: 0; height: 27px; padding: 0 7px; font-size: 10.5px; justify-content: center; }
+
+.ws-main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.ws-head {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     gap: 16px;
-    padding: 0 14px 0 8px;
+    min-height: 58px;
+    padding: 0 14px;
     border-bottom: 1px solid var(--line);
     background: var(--surface);
 }
 
-.tabs { display: flex; gap: 1px; overflow-x: auto; scrollbar-width: none; }
-.tabs::-webkit-scrollbar { display: none; }
+.ws-context {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    margin-right: auto;
+}
+.ws-context .eyebrow { margin: 0; font-size: 10px; letter-spacing: .06em; }
+.ws-context strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-2);
+    font-size: 13px;
+    font-weight: 620;
+}
+
+.tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.tabs::-webkit-scrollbar { width: 6px; }
+.tab-entry { min-width: 0; }
+.tabs > .tab-entry > .sidebar-status {
+    margin: -1px 0 4px 8px;
+    padding: 3px 0 7px 8px;
+    border-bottom: 0;
+    border-left: 1px solid var(--line);
+}
+.tabs > .tab-entry > .sidebar-status .sheet-sidebar-head {
+    padding: 0 7px 4px;
+}
+.tabs > .tab-entry > .sidebar-status .chip {
+    min-height: 29px;
+    padding: 0 8px;
+}
 .tab {
     position: relative;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 7px;
-    padding: 14px 12px 13px;
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 9px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 520;
+    text-align: left;
     white-space: nowrap;
-    transition: color .15s ease;
+    transition: color .15s ease, background .15s ease, border-color .15s ease;
 }
-.tab:hover { color: var(--ink-2); }
+.tab:hover { color: var(--ink-2); background: var(--surface); border-color: var(--line-2); }
 .tab .cnt {
     min-width: 18px;
+    margin-left: auto;
     padding: 0 5px;
     border-radius: 6px;
     background: var(--surface-3);
@@ -385,20 +613,26 @@ h1, h2, h3, h4, p { margin: 0; }
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
-.tab.active { color: var(--ink); font-weight: 600; }
-.tab.active .cnt { background: var(--accent-soft); color: var(--accent-2); }
-.tab.active::after {
+.tab.active {
+    color: var(--accent-2);
+    font-weight: 620;
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+}
+.tab.active .cnt { background: rgba(255, 255, 255, .7); color: var(--accent-2); }
+.tab.active::before {
     content: "";
     position: absolute;
-    left: 10px;
-    right: 10px;
-    bottom: -1px;
-    height: 2px;
-    border-radius: 2px;
+    left: -1px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
     background: var(--accent);
 }
 
 .ws-tools { display: flex; align-items: center; gap: 4px; }
+.ws-tools .count { margin-left: 8px; }
 .search {
     display: flex;
     align-items: center;
@@ -436,7 +670,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .ws-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 12px;
     padding: 9px 14px;
     border-bottom: 1px solid var(--line-2);
@@ -483,30 +717,12 @@ h1, h2, h3, h4, p { margin: 0; }
 .link-btn:hover { background: var(--accent-soft); }
 .link-btn[hidden] { display: none; }
 
-.notice {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 10px 14px 4px;
-    padding: 9px 12px;
-    border: 1px solid #f0d9d4;
-    border-radius: var(--radius-sm);
-    background: linear-gradient(180deg, #fdf1ef, #fcf7f5);
-    color: #7d2a20;
-    font-size: 12px;
-}
-.notice[hidden] { display: none; }
-.notice .ic { color: var(--danger); }
-.notice b { font-weight: 620; }
-.notice .spacer { flex: 1; }
-.notice .link-btn { color: var(--danger); }
-.notice .link-btn:hover { background: rgba(173, 43, 31, .08); }
-
 /* ----------------------------------------------------------------- table */
 .tablewrap {
+    flex: 1 1 auto;
     overflow: auto;
-    max-height: calc(100vh - 436px);
-    min-height: 340px;
+    max-height: none;
+    min-height: 0;
     background: var(--surface);
     overscroll-behavior: contain;
 }
@@ -590,6 +806,20 @@ h1, h2, h3, h4, p { margin: 0; }
 
 td.n, th.n { text-align: right; }
 td.n { font-variant-numeric: tabular-nums; }
+.qty-input {
+    width: 68px;
+    padding: 5px 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.qty-input:hover { border-color: var(--line); background: var(--surface); }
+.qty-input:focus { outline: 2px solid var(--accent-line); border-color: var(--accent); background: var(--surface); color: var(--ink); -webkit-text-fill-color: var(--ink); }
+.qty-input.dirty { border-color: #d6b65e; background: #fff9df; color: var(--ink); }
 td.zero { color: var(--muted-2); }
 td.sku { font-family: var(--mono); font-size: 11.5px; color: var(--ink); letter-spacing: -.01em; }
 td.dim { color: var(--muted-2); }
@@ -659,7 +889,6 @@ td .inf { color: var(--muted-2); }
     font-variant-numeric: tabular-nums;
 }
 .ws-foot b { color: var(--ink-2); font-weight: 600; }
-.ws-foot .purpose { color: var(--muted-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46%; }
 
 .empty {
     padding: 64px 20px;
@@ -956,6 +1185,92 @@ table.calc tr.strong td:last-child { color: var(--accent-2); }
 }
 .dlg-head h3 { font-size: 16px; font-weight: 600; }
 .dlg-head p { margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+.purchase-dialog { position: relative; width: min(980px, calc(100vw - 24px)); overflow: visible; }
+.purchase-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line-2);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 11.5px;
+}
+.purchase-summary b { color: var(--ink-2); }
+.purchase-table-wrap { max-height: min(58vh, 560px); overflow: auto; }
+.purchase-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.purchase-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    text-align: left;
+}
+.purchase-table th .purchase-filter {
+    display: block;
+    width: 100%;
+    min-width: 72px;
+    margin-top: 5px;
+    padding: 4px 6px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink-2);
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 400;
+}
+.purchase-table th .purchase-filter:focus { outline: 2px solid var(--accent-line); border-color: var(--accent); }
+.purchase-table th .purchase-filter.select-filter { min-width: 76px; }
+.purchase-filter-button {
+    display: block;
+    width: 100%;
+    min-width: 72px;
+    margin-top: 5px;
+    padding: 4px 6px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--muted);
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 400;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.purchase-filter-button:hover, .purchase-filter-button.on { border-color: var(--accent); color: var(--accent-2); background: var(--accent-soft); }
+.purchase-filter-button.active { color: var(--accent-2); font-weight: 600; }
+.purchase-filter-pop { position: absolute; max-height: 310px; }
+.purchase-table td { padding: 8px 12px; border-bottom: 1px solid var(--line-2); color: var(--ink-2); }
+.purchase-table tr:last-child td { border-bottom: 0; }
+.purchase-table td.n, .purchase-table th.n { text-align: right; }
+.purchase-table td.sku { font-family: var(--mono); font-size: 11px; }
+.purchase-table .check-cell { width: 44px; text-align: center; }
+.purchase-table input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--accent); }
+.purchase-table input[type="number"] {
+    width: 104px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.purchase-table input[type="number"]:focus { outline: 2px solid var(--accent-line); border-color: var(--accent); }
+.purchase-table tr.unselected td { color: var(--muted-2); background: #faf9f5; }
+.purchase-table tr.unselected input[type="number"] { color: var(--muted); background: var(--surface-2); }
+.purchase-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 13px 20px 17px; border-top: 1px solid var(--line); }
+.purchase-empty { padding: 46px 20px; text-align: center; color: var(--muted); }
 .legend-list {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1038,15 +1353,27 @@ table.calc tr.strong td:last-child { color: var(--accent-2); }
 @media (max-width: 1280px) {
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .search input { width: 150px; }
-    .tablewrap { max-height: calc(100vh - 520px); }
 }
 
 @media (max-width: 900px) {
-    .page { padding: 16px 12px 26px; }
+    .app-shell { display: block; }
+    .app-sidebar { position: static; height: auto; min-height: 0; overflow: visible; }
+    .sidebar-brand { margin: -10px -10px 7px; }
+    .topbar { height: auto; min-height: 54px; padding: 9px 12px; align-items: stretch; flex-direction: column; }
+    .topbar-title { padding: 0 0 5px; }
+    .topbar-right { width: 100%; flex-wrap: wrap; gap: 6px; }
+    .topbar .head-actions { width: 100%; padding-bottom: 0; }
+    .page { padding: 16px 12px 26px; height: auto; min-height: auto; overflow: visible; }
     .pagehead { flex-direction: column; align-items: flex-start; }
     .head-actions { width: 100%; flex-wrap: wrap; }
     .head-actions .btn { flex: 1; justify-content: center; }
     .who { display: none; }
+    .ws-layout { display: block; }
+    .sheet-sidebar { gap: 6px; padding: 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .sheet-sidebar-head { padding: 0 3px 2px; }
+    .tabs { flex-direction: row; gap: 4px; overflow-x: auto; overflow-y: hidden; }
+    .tab { width: auto; flex: 0 0 auto; min-height: 34px; padding: 7px 9px; }
+    .tab.active::before { left: 5px; top: 6px; bottom: 6px; }
     .ws-head { flex-wrap: wrap; padding: 0 10px 6px; }
     .ws-tools { width: 100%; }
     .search { flex: 1; }
@@ -1054,7 +1381,6 @@ table.calc tr.strong td:last-child { color: var(--accent-2); }
     .legend-list { grid-template-columns: 1fr; }
     .drawer { width: calc(100vw - 16px); height: calc(100vh - 16px); border-radius: 10px; }
     .ws-foot { flex-direction: column; align-items: flex-start; }
-    .ws-foot .purpose { max-width: 100%; }
 }
 
 /* ------------------------------------------------------------------ 生产页补充 */
@@ -1087,27 +1413,79 @@ td.dim { color: var(--muted); }
 </head>
 <body>
 
-<header class="topbar">
-    <div class="brand">
-        <span class="brand-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4v10l-9 4-9-4z"/><path d="m3 7 9 4 9-4M12 21V11"/></svg>
-        </span>
-        <span class="brand-text"><b>图创AI系统</b><i>智能补货中心-运营</i></span>
-    </div>
-    <div class="topbar-right">
-        {% if not can_write %}<span class="meta-chip plain" style="height:24px"><i class="sdot"></i>只读权限</span>{% endif %}
-        <a class="back" href="{{ url_for('dashboard') }}">
-            <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>
-            返回首页
-        </a>
-    </div>
-</header>
+<div class="app-shell">
+    <aside class="sheet-sidebar app-sidebar" aria-label="工作表导航">
+        <div class="sidebar-brand">
+            <div class="brand">
+                <span class="brand-mark">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4v10l-9 4-9-4z"/><path d="m3 7 9 4 9-4M12 21V11"/></svg>
+                </span>
+                <span class="brand-text"><b>图创AI系统</b><i>智能补货中心-运营</i></span>
+            </div>
+        </div>
+        <div class="sidebar-status" id="sidebarStatus" aria-label="状态筛选">
+            <div class="sheet-sidebar-head"><span>状态</span></div>
+            <div class="chips" id="chips"></div>
+            <div class="sea-recommendation" id="seaRecommendation" hidden aria-label="推荐海运">
+                <div class="sea-recommendation-head"><span>推荐海运</span><span class="count" id="seaRecommendationCount">0</span></div>
+                <div class="sea-recommendation-list" id="seaRecommendationList"></div>
+                <div class="sea-recommendation-actions">
+                    <button class="link-btn" id="seaRecommendationSelectAll" type="button">全选</button>
+                    <button class="btn primary" id="seaRecommendationAdd" type="button" disabled>加入海运</button>
+                </div>
+            </div>
+        </div>
+        <div class="tabs" id="tabs" role="tablist" aria-label="智能补货工作表"></div>
+    </aside>
+
+    <div class="app-main">
+        <header class="topbar">
+            <div class="topbar-title">
+                <p class="eyebrow"><span class="dot-live"></span>运营版完整多表刷新 · 订货口径 45 天</p>
+                <h1>智能补货中心-运营</h1>
+            </div>
+            <div class="topbar-right">
+                <div class="head-actions">
+                    {% if can_write %}
+                    <label class="btn" for="file" id="fileLabel">
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V9m0 0 4 4m-4-4L8 13M5 4h14"/></svg>
+                        <span id="fileName">运营版参数表</span><i class="btn-sub">可选</i>
+                    </label>
+                    <button class="btn" id="paramsBtn" type="button" onclick="document.getElementById('paramsDialog').showModal()">运营参数 <i class="btn-sub">点击修改</i></button>
+                    <input id="file" type="file" accept=".xlsx,.xlsm" hidden>
+                    <button class="btn" id="saveQuantities" type="button" disabled title="保存表格中修改过的订货量">
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v14H5z"/><path d="M8 5v5h8V5M8 19v-5h8v5"/></svg>
+                        同步订货量
+                    </button>
+                    <button class="btn" id="shippingPlan" type="button" title="先确认采购明细，再生成采购导入模板（下单导入.xlsx）">
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+                        生成采购计划
+                    </button>
+                    <button class="btn primary" id="refresh" type="button">
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.6 6.1"/><path d="M20 5v6h-6"/></svg>
+                        生成 / 刷新
+                    </button>
+                    {% endif %}
+                    <a class="btn" id="download" href="{{ url_for('daily_replenishment_operation.download') }}"{% if not snapshot.available or snapshot.download_available is sameas false %} hidden{% endif %}>
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/></svg>
+                        下载工作簿
+                    </a>
+                    <button class="btn" id="legendTopButton" type="button" title="查看表格颜色与标记说明">
+                        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9c0 2.2-1.8 3.4-3.6 3.4h-1.6a2 2 0 0 0-1.4 3.4A1.4 1.4 0 0 1 12 21z"/><circle cx="8" cy="10" r=".9"/><circle cx="12" cy="7.4" r=".9"/><circle cx="15.5" cy="10" r=".9"/></svg>
+                        颜色说明
+                    </button>
+                </div>
+                {% if not can_write %}<span class="meta-chip plain" style="height:24px"><i class="sdot"></i>只读权限</span>{% endif %}
+                <a class="back" href="{{ url_for('dashboard') }}">
+                    <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>
+                    返回首页
+                </a>
+            </div>
+        </header>
 
 <main class="page">
     <section class="pagehead">
         <div class="head-main">
-            <p class="eyebrow"><span class="dot-live"></span>运营版完整多表刷新 · 订货口径 45 天</p>
-            <h1>智能补货中心-运营</h1>
             <div class="head-meta">
                 <span class="meta-chip {% if snapshot.available %}accent{% else %}danger{% endif %}" id="metaStatus">
                     {% if snapshot.available %}数据已载入{% else %}今日尚未生成{% endif %}
@@ -1126,77 +1504,49 @@ td.dim { color: var(--muted); }
                 </span>
             </div>
         </div>
-        <div class="head-actions">
-            {% if can_write %}
-            <label class="btn" for="file" id="fileLabel">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V9m0 0 4 4m-4-4L8 13M5 4h14"/></svg>
-                <span id="fileName">运营版参数表</span><i class="btn-sub">可选</i>
-            </label>
-            <button class="btn" id="paramsBtn" type="button" onclick="document.getElementById('paramsDialog').showModal()">运营参数 <i class="btn-sub">点击修改</i></button>
-            <input id="file" type="file" accept=".xlsx,.xlsm" hidden>
-            <button class="btn" id="shippingPlan" type="button" title="按【订货量 &gt; 10】生成采购导入模板（下单导入.xlsx）">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
-                生成采购计划
-            </button>
-            <button class="btn primary" id="refresh" type="button">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.6 6.1"/><path d="M20 5v6h-6"/></svg>
-                生成 / 刷新
-            </button>
-            {% endif %}
-            <a class="btn" id="download" href="{{ url_for('daily_replenishment_operation.download') }}"{% if not snapshot.available or snapshot.download_available is sameas false %} hidden{% endif %}>
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/></svg>
-                下载工作簿
-            </a>
-            <button class="btn" id="legendTopButton" type="button" title="查看表格颜色与标记说明">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9c0 2.2-1.8 3.4-3.6 3.4h-1.6a2 2 0 0 0-1.4 3.4A1.4 1.4 0 0 1 12 21z"/><circle cx="8" cy="10" r=".9"/><circle cx="12" cy="7.4" r=".9"/><circle cx="15.5" cy="10" r=".9"/></svg>
-                颜色说明
-            </button>
-        </div>
     </section>
 
     <section class="stats" id="stats"></section>
 
     <section class="ws">
-        <div class="ws-head">
-            <div class="tabs" id="tabs" role="tablist"></div>
-            <div class="ws-tools">
-                <label class="search">
-                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5 16.7 16.7"/></svg>
-                    <input id="search" type="search" placeholder="搜索 SKU / 备注 / 任意字段" autocomplete="off">
-                    <kbd>/</kbd>
-                </label>
-                <button class="icon-btn" id="colsBtn" type="button" title="列设置">
-                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7M15 7h5M4 17h3M11 17h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
-                </button>
-                <button class="icon-btn" id="exportBtn" type="button" title="导出当前视图 CSV">
-                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/></svg>
-                </button>
+        <div class="ws-layout">
+            <div class="ws-main">
+                <div class="ws-head">
+                    <div class="ws-context"><span class="eyebrow">当前工作表</span><strong id="activeSheetName">智能补货</strong></div>
+                    <div class="ws-tools">
+                        <label class="search">
+                            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5 16.7 16.7"/></svg>
+                            <input id="search" type="search" placeholder="搜索 SKU / 备注 / 任意字段" autocomplete="off">
+                            <kbd>/</kbd>
+                        </label>
+                        <button class="icon-btn" id="colsBtn" type="button" title="列设置">
+                            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7M15 7h5M4 17h3M11 17h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+                        </button>
+                        <button class="icon-btn" id="exportBtn" type="button" title="导出当前视图 CSV">
+                            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/></svg>
+                        </button>
+                        <span class="count" id="count">尚未载入</span>
+                        <button class="link-btn" id="clearFilters" type="button" hidden>
+                            <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                            清空筛选
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tablewrap" id="wrap">
+                    <table class="grid" id="grid"></table>
+                </div>
+
+                <div class="ws-foot">
+                    <span id="footLeft">—</span>
+                </div>
             </div>
-        </div>
-
-        <div class="ws-bar">
-            <div class="chips" id="chips"></div>
-            <div class="ws-bar-right">
-                <span class="count" id="count">尚未载入</span>
-                <button class="link-btn" id="clearFilters" type="button" hidden>
-                    <svg class="ic sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
-                    清空筛选
-                </button>
-            </div>
-        </div>
-
-        <div class="notice" id="notice" hidden></div>
-
-        <div class="tablewrap" id="wrap">
-            <table class="grid" id="grid"></table>
-        </div>
-
-        <div class="ws-foot">
-            <span id="footLeft">—</span>
-            <span class="purpose" id="purpose"></span>
         </div>
     </section>
 </main>
+
+    </div>
+</div>
 
 <div class="scrim" id="scrim" hidden></div>
 
@@ -1258,12 +1608,42 @@ td.dim { color: var(--muted); }
 
 <dialog class="dlg" id="paramsDialog"><div class="dlg-head"><h3>运营参数</h3><button class="icon-btn" id="paramsClose" type="button">×</button></div><div class="param-form"><label>上新观察天数<input id="listingDays" type="number" min="1" max="365" value="60"></label><label>近期销量天数<input id="recentDays" type="number" min="1" max="365" value="30"></label><label>低毛利率阈值<input id="marginThreshold" type="number" min="0" max="1" step="0.01" value="0.1"></label></div><div class="drawer-foot"><button class="btn primary" id="paramsSave" type="button">保存参数</button></div></dialog>
 
+<dialog class="dlg purchase-dialog" id="purchasePlanDialog" aria-labelledby="purchasePlanTitle">
+    <div class="dlg-head">
+        <div>
+            <h3 id="purchasePlanTitle">采购计划明细确认</h3>
+            <p>勾选需要导出的明细，并确认最终采购数量。导出时会同步本次修改到快照。</p>
+        </div>
+        <button class="icon-btn" id="purchasePlanClose" type="button" title="关闭">×</button>
+    </div>
+    <div class="purchase-summary">
+        <div style="display:flex;align-items:center;gap:10px">
+            <label><input id="purchasePlanSelectAll" type="checkbox" checked> 全选</label>
+            <button class="link-btn" id="purchasePlanClearSelection" type="button">取消全选</button>
+            <button class="link-btn" id="purchasePlanClearFilters" type="button">清空筛选</button>
+        </div>
+        <span id="purchasePlanSummary">—</span>
+    </div>
+    <div class="purchase-table-wrap">
+        <table class="purchase-table">
+            <thead id="purchasePlanHead"></thead>
+            <tbody id="purchasePlanBody"></tbody>
+        </table>
+    </div>
+    <footer class="purchase-foot">
+        <button class="btn" id="purchasePlanCancel" type="button">取消</button>
+        <button class="btn primary" id="purchasePlanExport" type="button">确认并导出</button>
+    </footer>
+</dialog>
+
 <script>
 const CONF = {
     dataUrl: {{ url_for('daily_replenishment_operation.data')|tojson }},
     refreshUrl: {{ url_for('daily_replenishment_operation.refresh')|tojson }},
     statusUrl: {{ '/api/ai/daily-replenishment-operation/refresh/'|tojson }},
     downloadUrl: {{ url_for('daily_replenishment_operation.download')|tojson }},
+    quantityUpdateUrl: {{ url_for('daily_replenishment_operation.update_order_quantities')|tojson }},
+    seaShippingRecommendationsUrl: {{ url_for('daily_replenishment_operation.sea_shipping_recommendations')|tojson }},
     purchasePlanUrl: {{ url_for('daily_replenishment_operation.purchase_plan')|tojson }},
     trendUrl: {{ url_for('daily_replenishment_operation.sales_trend')|tojson }},
     canWrite: {{ can_write|tojson }},
@@ -1337,8 +1717,10 @@ const CONF = {
     const WIDE_COLS = new Set(["备注", "产品备注", "筛选规则", "配送地址", "单号", "创建时间", "ASIN", "MSKU"]);
     const DATE_COLS = new Set(["到FBA仓日期", "日期", "开船日期", "到港日期", "创建时间"]);
 
-    const SHEET_ORDER = ["库存明细", "在途", "日常补货", "FBA发货", "每日库存", "海运即将到货", "低毛利率"];
+    const SHEET_ORDER = ["日常补货", "库存明细", "在途", "FBA发货", "每日库存", "海运即将到货", "低毛利率"];
     const MAIN_SHEET = "日常补货";
+    const SHEET_LABELS = { [MAIN_SHEET]: "智能补货" };
+    const sheetLabel = name => SHEET_LABELS[name] || name;
 
     const state = {
         sheets: {},
@@ -1352,20 +1734,32 @@ const CONF = {
         limit: 160,
         rows: [],
         selected: null,
+        savedQuantities: new Map(),
+        dirtyQuantities: new Map(),
+        seaRecommendations: [],
+        seaSelected: new Set(),
+        purchaseItems: [],
+        purchaseFilters: { selection: [], sku: [], store: [], purchaser: [], originalQuantity: [], quantity: [] },
     };
 
     const el = {
         stats: $("#stats"),
         tabs: $("#tabs"),
+        sheetCount: $("#sheetCount"),
+        activeSheetName: $("#activeSheetName"),
+        sidebarStatus: $("#sidebarStatus"),
         chips: $("#chips"),
         count: $("#count"),
         footLeft: $("#footLeft"),
-        purpose: $("#purpose"),
         wrap: $("#wrap"),
         grid: $("#grid"),
         search: $("#search"),
         clearFilters: $("#clearFilters"),
-        notice: $("#notice"),
+        seaRecommendation: $("#seaRecommendation"),
+        seaRecommendationCount: $("#seaRecommendationCount"),
+        seaRecommendationList: $("#seaRecommendationList"),
+        seaRecommendationSelectAll: $("#seaRecommendationSelectAll"),
+        seaRecommendationAdd: $("#seaRecommendationAdd"),
         pop: $("#pop"),
         drawer: $("#drawer"),
         scrim: $("#scrim"),
@@ -1376,6 +1770,7 @@ const CONF = {
         toast: $("#toast"),
         tip: $("#tip"),
         refresh: $("#refresh"),
+        saveQuantities: $("#saveQuantities"),
         shippingPlan: $("#shippingPlan"),
         file: $("#file"),
         fileName: $("#fileName"),
@@ -1385,6 +1780,14 @@ const CONF = {
         metaSnapshot: $("#metaSnapshot"),
         metaSales: $("#metaSales"),
         metaStores: $("#metaStores"),
+        purchasePlanDialog: $("#purchasePlanDialog"),
+        purchasePlanHead: $("#purchasePlanHead"),
+        purchasePlanBody: $("#purchasePlanBody"),
+        purchasePlanSummary: $("#purchasePlanSummary"),
+        purchasePlanSelectAll: $("#purchasePlanSelectAll"),
+        purchasePlanClearSelection: $("#purchasePlanClearSelection"),
+        purchasePlanClearFilters: $("#purchasePlanClearFilters"),
+        purchasePlanExport: $("#purchasePlanExport"),
     };
 
     /* ------------------------------------------------------------- 基础工具 */
@@ -1510,11 +1913,18 @@ const CONF = {
     function renderTabs() {
         const names = SHEET_ORDER.filter(n => state.sheets[n]);
         if (!state.sheets[state.active]) state.active = names[0] || MAIN_SHEET;
+        if (el.sheetCount) el.sheetCount.textContent = `${names.length} 张`;
+        if (el.activeSheetName) el.activeSheetName.textContent = state.sheets[state.active] ? sheetLabel(state.active) : "暂无数据";
         el.tabs.innerHTML = names.map(n => {
             const count = (state.sheets[n].rows || []).length;
-            return `<button class="tab${n === state.active ? " active" : ""}" role="tab" data-name="${esc(n)}">
-                ${esc(n)}<span class="cnt">${fmtInt(count)}</span></button>`;
+            return `<div class="tab-entry">
+                <button class="tab${n === state.active ? " active" : ""}" role="tab" data-name="${esc(n)}">
+                    ${esc(sheetLabel(n))}<span class="cnt">${fmtInt(count)}</span></button>
+                ${n === MAIN_SHEET ? '<div class="tab-status-slot"></div>' : ''}
+            </div>`;
         }).join("");
+        const slot = el.tabs.querySelector(".tab-status-slot");
+        if (slot && el.sidebarStatus) slot.replaceWith(el.sidebarStatus);
     }
 
     /* ----------------------------------------------------------------- chips */
@@ -1543,13 +1953,83 @@ const CONF = {
     }
 
     function renderChips() {
-        if (state.active !== MAIN_SHEET) { el.chips.innerHTML = ""; return; }
+        if (state.active !== MAIN_SHEET) {
+            el.chips.innerHTML = "";
+            if (el.sidebarStatus) el.sidebarStatus.hidden = true;
+            return;
+        }
+        if (el.sidebarStatus) el.sidebarStatus.hidden = false;
         const counts = quickCounts();
         el.chips.innerHTML = QUICK.map(q => `
             <button class="chip${state.quick === q.key ? " active" : ""}" data-quick="${q.key}">
                 ${q.dot ? `<i class="dot ${q.dot}"></i>` : ""}${q.label}
                 <span class="n">${fmtInt(counts[q.key] || 0)}</span>
             </button>`).join("");
+    }
+
+    function renderSeaRecommendations(message = "") {
+        if (!el.seaRecommendation) return;
+        el.seaRecommendation.hidden = false;
+        const items = state.seaRecommendations;
+        el.seaRecommendationCount.textContent = fmtInt(items.length);
+        if (message) {
+            el.seaRecommendationList.innerHTML = `<div class="sea-recommendation-empty">${esc(message)}</div>`;
+        } else if (!items.length) {
+            el.seaRecommendationList.innerHTML = '<div class="sea-recommendation-empty">暂无符合条件的 SKU</div>';
+        } else {
+            el.seaRecommendationList.innerHTML = items.map(item => `
+                <label class="sea-recommendation-row">
+                    <input type="checkbox" data-sea-sku="${esc(item.sku)}" ${state.seaSelected.has(item.sku) ? "checked" : ""}>
+                    <span class="sku" title="${esc(item.sku)}">${esc(item.sku)}</span>
+                    <span class="avg">${fmtDecimal(item.avg_daily_sales)}/日</span>
+                </label>`).join("");
+        }
+        const hasSelected = state.seaSelected.size > 0;
+        el.seaRecommendationAdd.disabled = !CONF.canWrite || !hasSelected;
+        el.seaRecommendationAdd.textContent = CONF.canWrite ? "加入海运" : "只读权限";
+        el.seaRecommendationSelectAll.hidden = !items.length;
+        el.seaRecommendationSelectAll.textContent = items.length && state.seaSelected.size === items.length ? "取消全选" : "全选";
+    }
+
+    async function loadSeaShippingRecommendations() {
+        try {
+            const response = await fetch(CONF.seaShippingRecommendationsUrl, { cache: "no-store" });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "读取海运推荐失败");
+            state.seaRecommendations = Array.isArray(data.items) ? data.items : [];
+            const available = new Set(state.seaRecommendations.map(item => item.sku));
+            state.seaSelected = new Set([...state.seaSelected].filter(sku => available.has(sku)));
+            renderSeaRecommendations();
+        } catch (err) {
+            state.seaRecommendations = [];
+            state.seaSelected.clear();
+            renderSeaRecommendations(err?.message || "读取海运推荐失败");
+        }
+    }
+
+    async function addSelectedSeaShippingRecommendations() {
+        const skus = [...state.seaSelected];
+        if (!skus.length || !CONF.canWrite) return;
+        el.seaRecommendationAdd.disabled = true;
+        try {
+            const response = await fetch(CONF.seaShippingRecommendationsUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ skus }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "加入海运计划失败");
+            const selected = new Set(skus);
+            state.seaRecommendations = state.seaRecommendations.filter(item => !selected.has(item.sku));
+            state.seaSelected.clear();
+            renderSeaRecommendations();
+            const added = Number(data.added || 0);
+            const skipped = Number(data.skipped || 0);
+            toast(`已加入海运 ${fmtInt(added)} 个 SKU${skipped ? `，跳过 ${fmtInt(skipped)} 个已存在 SKU` : ""}`);
+        } catch (err) {
+            renderSeaRecommendations();
+            toast(err?.message || "加入海运计划失败", "warn");
+        }
     }
 
     /* ------------------------------------------------------------- 列与渲染 */
@@ -1663,7 +2143,11 @@ const CONF = {
             align = "n";
         } else if (colName === "订货量") {
             const v = num(value);
-            html = v > 0 ? `<b style="font-weight:600">${fmtInt(v)}</b>` : `<span class="dim">0</span>`;
+            if (state.active === MAIN_SHEET && CONF.canWrite) {
+                html = `<input class="qty-input${state.dirtyQuantities.has(rowIndex) ? " dirty" : ""}" data-qty-row="${rowIndex}" type="number" min="0" step="1" inputmode="numeric" value="${esc(Math.round(v))}" aria-label="修改订货量">`;
+            } else {
+                html = v > 0 ? `<b style="font-weight:600">${fmtInt(v)}</b>` : `<span class="dim">0</span>`;
+            }
             align = "n";
         } else if (typeof value === "number") {
             html = value === 0 ? `<span class="dim">0</span>` : fmtDecimal(value);
@@ -1678,6 +2162,34 @@ const CONF = {
         }
 
         return { cls: cls.join(" "), align, html };
+    }
+
+    function setQuantitySaveState() {
+        if (!el.saveQuantities) return;
+        const count = state.dirtyQuantities.size;
+        el.saveQuantities.disabled = !count;
+        el.saveQuantities.title = count ? `同步 ${count} 行订货量到快照` : "保存表格中修改过的订货量";
+    }
+
+    function updateQuantityFromInput(input) {
+        const rowIndex = Number(input.dataset.qtyRow);
+        const quantityIndex = colIndex("订货量");
+        const row = (sheet().rows || [])[rowIndex];
+        if (!Number.isInteger(rowIndex) || quantityIndex < 0 || !row) return;
+        const quantity = Number(input.value);
+        if (!Number.isFinite(quantity) || quantity < 0 || !Number.isInteger(quantity)) {
+            input.value = String(Math.round(num(row[quantityIndex])));
+            toast("订货量必须是大于等于 0 的整数", "warn");
+            return;
+        }
+        row[quantityIndex] = quantity;
+        if (state.savedQuantities.get(rowIndex) === quantity) state.dirtyQuantities.delete(rowIndex);
+        else state.dirtyQuantities.set(rowIndex, quantity);
+        input.classList.toggle("dirty", state.dirtyQuantities.has(rowIndex));
+        setQuantitySaveState();
+        renderStats();
+        renderChips();
+        updateCounts();
     }
 
     function renderBody() {
@@ -1793,23 +2305,6 @@ const CONF = {
         el.footLeft.innerHTML = state.active === MAIN_SHEET
             ? `已显示 <b>${fmtInt(Math.min(state.limit, shown))}</b> / ${fmtInt(shown)} 行 · 断货 <b>${fmtInt(stockout)}</b> · 订货合计 <b>${fmtInt(orderSum)}</b> 件`
             : `已显示 <b>${fmtInt(Math.min(state.limit, shown))}</b> / ${fmtInt(shown)} 行`;
-        el.purpose.textContent = s.purpose || "";
-
-        const m = mainMetrics();
-        if (m && state.active === MAIN_SHEET) {
-            const risk = m.stockout + m.low;
-            if (risk) {
-                el.notice.hidden = false;
-                el.notice.innerHTML = `${icon("alert")}
-                    <span><b>${fmtInt(m.stockout)}</b> 个 SKU 已断货，<b>${fmtInt(m.low)}</b> 个低于 30 天安全线，建议优先处理。</span>
-                    <span class="spacer"></span>
-                    <button class="link-btn" data-quick-jump="stockout">只看断货 ${icon("chevron", "sm")}</button>`;
-            } else {
-                el.notice.hidden = true;
-            }
-        } else {
-            el.notice.hidden = true;
-        }
     }
 
     function renderAll() {
@@ -1821,6 +2316,14 @@ const CONF = {
 
     /* ------------------------------------------------------------- 筛选弹层 */
     let popAnchor = null;
+
+    function restorePopToBody() {
+        if (el.pop.parentElement !== document.body) document.body.appendChild(el.pop);
+        el.pop.style.position = "";
+        el.pop.style.left = "";
+        el.pop.style.top = "";
+        el.pop.style.maxHeight = "";
+    }
 
     function closePop() {
         el.pop.hidden = true;
@@ -1843,6 +2346,7 @@ const CONF = {
     }
 
     function openFilter(i, anchor) {
+        restorePopToBody();
         closePop();
         popAnchor = anchor;
         anchor.classList.add("on");
@@ -1919,6 +2423,7 @@ const CONF = {
     }
 
     function openCols(anchor) {
+        restorePopToBody();
         closePop();
         popAnchor = anchor;
         anchor.classList.add("on");
@@ -2320,8 +2825,22 @@ const CONF = {
         }
     }
 
+    function resetQuantityTracking(data) {
+        const main = data?.sheets?.[MAIN_SHEET] || {};
+        const quantityIndex = (main.columns || []).findIndex(column => String(column) === "订货量");
+        state.savedQuantities = new Map();
+        state.dirtyQuantities.clear();
+        if (quantityIndex >= 0) {
+            (main.rows || []).forEach((row, index) => {
+                state.savedQuantities.set(index, Math.round(num(row[quantityIndex])));
+            });
+        }
+        setQuantitySaveState();
+    }
+
     function apply(data, persist = true) {
         state.sheets = data.sheets || {};
+        resetQuantityTracking(data);
         const g = data.generation || {};
         state.generation = g;
         const snap = data.snapshot || {};
@@ -2338,17 +2857,19 @@ const CONF = {
         if (snap.download_available === false) el.download.hidden = true;
 
         renderAll();
+        loadSeaShippingRecommendations();
         if (persist) saveLocalCache(data);
     }
 
     function renderEmpty(title, hint, action) {
         el.stats.innerHTML = "";
         el.tabs.innerHTML = "";
+        if (el.sheetCount) el.sheetCount.textContent = "0 张";
+        if (el.activeSheetName) el.activeSheetName.textContent = "暂无数据";
         el.chips.innerHTML = "";
-        el.notice.hidden = true;
+        if (el.sidebarStatus) el.sidebarStatus.hidden = true;
         el.count.textContent = "尚未载入";
         el.footLeft.textContent = "—";
-        el.purpose.textContent = "";
         el.grid.innerHTML = `<tbody><tr><td>
             <div class="empty" style="padding:72px 20px">${icon("box")}
                 <div style="font-size:13px;color:var(--ink-2);margin-bottom:4px">${esc(title)}</div>
@@ -2433,6 +2954,7 @@ const CONF = {
     async function refresh(event) {
         if (!CONF.canWrite) { toast("当前为只读权限，不能生成或刷新", "warn"); return; }
         if (!confirm("确定刷新“智能补货中心-运营”的全部 7 个工作表吗？")) return;
+        if (state.dirtyQuantities.size && !(await syncOrderQuantities())) return;
         const btn = el.refresh;
         const html = btn.innerHTML;
         btn.disabled = true;
@@ -2456,22 +2978,269 @@ const CONF = {
         }
     }
 
-    /* 生成采购计划：复刻 Excel【日常补货】页「生成采购计划」按钮（订货量 > 10 的采购导入模板） */
-    async function generatePurchasePlan() {
+    async function syncOrderQuantities() {
+        if (!state.dirtyQuantities.size) return true;
+        const main = state.sheets[MAIN_SHEET] || {};
+        const columns = main.columns || [];
+        const indexes = {
+            sku: columns.findIndex(column => String(column) === "SKU"),
+            store: columns.findIndex(column => String(column) === "店铺"),
+            operator: columns.findIndex(column => String(column) === "运营"),
+        };
+        const changes = [...state.dirtyQuantities.entries()].map(([index, quantity]) => {
+            const row = main.rows[index] || [];
+            const value = key => indexes[key] >= 0 ? row[indexes[key]] ?? "" : "";
+            return {
+                index,
+                quantity,
+                sku: value("sku"),
+                store: value("store"),
+                operator: value("operator"),
+            };
+        });
+        const btn = el.saveQuantities;
+        const html = btn?.innerHTML || "同步订货量";
+        if (btn) { btn.disabled = true; btn.classList.add("spinning"); btn.innerHTML = `${icon("refresh")} 同步中…`; }
+        try {
+            const r = await fetch(CONF.quantityUpdateUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ changes }),
+            });
+            const data = await r.json();
+            if (!r.ok || !data.success) throw new Error(data.message || "保存订货量失败");
+            apply(data);
+            toast(`已同步 ${changes.length} 行订货量到快照`);
+            return true;
+        } catch (err) {
+            toast(err instanceof TypeError ? "服务连接中断，请稍后重试" : (err?.message || "保存订货量失败"), "warn");
+            return false;
+        } finally {
+            if (btn) {
+                btn.classList.remove("spinning");
+                btn.innerHTML = html;
+                setQuantitySaveState();
+            }
+        }
+    }
+
+    function purchaseCandidates() {
+        const main = state.sheets[MAIN_SHEET] || {};
+        const columns = main.columns || [];
+        const indexes = {
+            sku: columns.findIndex(column => String(column) === "SKU"),
+            store: columns.findIndex(column => String(column) === "店铺"),
+            operator: columns.findIndex(column => String(column) === "运营"),
+            quantity: columns.findIndex(column => String(column) === "订货量"),
+        };
+        if (indexes.sku < 0 || indexes.quantity < 0) return [];
+        const value = (row, index) => index >= 0 ? row[index] ?? "" : "";
+        return (main.rows || []).map((row, index) => ({
+            index,
+            sku: String(value(row, indexes.sku)).trim(),
+            store: String(value(row, indexes.store)).trim(),
+            purchaser: String(value(row, indexes.operator)).trim(),
+            quantity: Math.round(num(value(row, indexes.quantity))),
+            selected: true,
+        })).filter(item => item.sku && item.quantity > 10);
+    }
+
+    function filteredPurchaseItems() {
+        const filters = state.purchaseFilters;
+        const matches = (key, value) => {
+            const selected = filters[key] || [];
+            return !selected.length || selected.includes(String(value ?? ""));
+        };
+        return state.purchaseItems.filter(item => {
+            const selection = item.selected ? "selected" : "unselected";
+            return matches("selection", selection) &&
+                matches("sku", item.sku) &&
+                matches("store", item.store) &&
+                matches("purchaser", item.purchaser) &&
+                matches("originalQuantity", item.originalQuantity ?? item.quantity) &&
+                matches("quantity", item.quantity);
+        });
+    }
+
+    const PURCHASE_FILTER_LABELS = {
+        selection: "选择状态",
+        sku: "SKU",
+        store: "店铺",
+        purchaser: "采购方",
+        originalQuantity: "当前订货量",
+        quantity: "最终导出数量",
+    };
+
+    function purchaseFilterValues(key) {
+        if (key === "selection") return [["selected", "已选"], ["unselected", "未选"]];
+        const values = new Set();
+        state.purchaseItems.forEach(item => {
+            const value = key === "sku" ? item.sku :
+                key === "store" ? item.store :
+                key === "purchaser" ? item.purchaser :
+                key === "originalQuantity" ? item.originalQuantity ?? item.quantity : item.quantity;
+            if (value !== "" && value !== null && value !== undefined) values.add(String(value));
+        });
+        return [...values].sort((a, b) => a.localeCompare(b, "zh-CN", { numeric: true, sensitivity: "base" })).map(value => [value, value]);
+    }
+
+    function purchaseFilterText(key) {
+        const selected = state.purchaseFilters[key] || [];
+        if (!selected.length) return "全部";
+        return `已选 ${selected.length} 项`;
+    }
+
+    function syncPurchaseFilterButtons() {
+        el.purchasePlanHead.querySelectorAll("[data-purchase-filter-button]").forEach(button => {
+            const key = button.dataset.purchaseFilterButton;
+            const selected = state.purchaseFilters[key] || [];
+            button.textContent = purchaseFilterText(key);
+            button.classList.toggle("active", selected.length > 0);
+        });
+    }
+
+    function openPurchaseFilter(key, anchor) {
+        closePop();
+        el.purchasePlanDialog.appendChild(el.pop);
+        popAnchor = anchor;
+        anchor.classList.add("on");
+        const values = purchaseFilterValues(key);
+        const selected = state.purchaseFilters[key] || [];
+        const counts = new Map();
+        state.purchaseItems.forEach(item => {
+            const value = key === "selection" ? (item.selected ? "selected" : "unselected") :
+                key === "sku" ? item.sku :
+                key === "store" ? item.store :
+                key === "purchaser" ? item.purchaser :
+                key === "originalQuantity" ? item.originalQuantity ?? item.quantity : item.quantity;
+            counts.set(String(value), (counts.get(String(value)) || 0) + 1);
+        });
+        el.pop.className = "pop purchase-filter-pop";
+        el.pop.hidden = false;
+        el.pop.innerHTML = `
+            <div class="pop-head"><span class="t">筛选 · ${esc(PURCHASE_FILTER_LABELS[key])}</span><span class="spacer"></span><button class="icon-btn" data-close type="button" style="width:24px;height:24px">${icon("close", "sm")}</button></div>
+            <div class="pop-search">${icon("search", "sm")}<input type="search" placeholder="搜索选项" data-purchase-filter-search></div>
+            <div class="pop-list">
+                <label class="filter-option"><input type="checkbox" class="purchase-filter-all" ${!selected.length ? "checked" : ""}><span class="txt">全部</span><span class="cnt">${fmtInt(state.purchaseItems.length)}</span></label>
+                ${values.map(([value, label]) => `<label class="filter-option" data-purchase-filter-value="${esc(label)}"><input type="checkbox" value="${esc(value)}" ${selected.includes(value) ? "checked" : ""}><span class="txt">${esc(label)}</span><span class="cnt">${fmtInt(counts.get(value) || 0)}</span></label>`).join("")}
+            </div>
+            <div class="pop-foot"><span class="hint">支持多选</span><button type="button" data-purchase-filter-clear>清空</button></div>`;
+        const dialogRect = el.purchasePlanDialog.getBoundingClientRect();
+        const anchorRect = anchor.getBoundingClientRect();
+        const popWidth = 258;
+        const maxLeft = Math.max(8, dialogRect.width - popWidth - 8);
+        el.pop.style.left = `${Math.max(8, Math.min(anchorRect.left - dialogRect.left, maxLeft))}px`;
+        el.pop.style.top = `${Math.max(8, anchorRect.bottom - dialogRect.top + 6)}px`;
+        el.pop.querySelector("[data-close]").addEventListener("click", closePop);
+        const refreshFilter = () => {
+            state.purchaseFilters[key] = [...el.pop.querySelectorAll('input[type="checkbox"]:not(.purchase-filter-all):checked')].map(input => input.value);
+            el.pop.querySelector(".purchase-filter-all").checked = state.purchaseFilters[key].length === 0;
+            syncPurchaseFilterButtons();
+            renderPurchasePlanRows();
+        };
+        el.pop.querySelectorAll('.pop-list input[type="checkbox"]:not(.purchase-filter-all)').forEach(input => input.addEventListener("change", refreshFilter));
+        el.pop.querySelector(".purchase-filter-all").addEventListener("change", event => {
+            if (event.target.checked) {
+                state.purchaseFilters[key] = [];
+                syncPurchaseFilterButtons();
+                renderPurchasePlanRows();
+                el.pop.querySelectorAll('.pop-list input[type="checkbox"]:not(.purchase-filter-all)').forEach(input => { input.checked = false; });
+            }
+        });
+        el.pop.querySelector("[data-purchase-filter-clear]").addEventListener("click", () => {
+            state.purchaseFilters[key] = [];
+            syncPurchaseFilterButtons();
+            renderPurchasePlanRows();
+            closePop();
+        });
+        el.pop.querySelector("[data-purchase-filter-search]").addEventListener("input", event => {
+            const keyword = event.target.value.trim().toLowerCase();
+            el.pop.querySelectorAll("[data-purchase-filter-value]").forEach(label => {
+                label.hidden = keyword && !label.dataset.purchaseFilterValue.toLowerCase().includes(keyword);
+            });
+        });
+    }
+
+    function renderPurchasePlanRows() {
+        const items = state.purchaseItems;
+        const visible = filteredPurchaseItems();
+        const selected = items.filter(item => item.selected);
+        const total = selected.reduce((sum, item) => sum + Math.max(0, Number(item.quantity) || 0), 0);
+        const visibleSelected = visible.filter(item => item.selected);
+        syncPurchaseFilterButtons();
+        el.purchasePlanSummary.innerHTML = `已选 <b>${selected.length}</b> / ${items.length} 行 · 当前显示 <b>${visible.length}</b> 行 · 最终数量合计 <b>${fmtInt(total)}</b> 件`;
+        el.purchasePlanSelectAll.checked = Boolean(visible.length && visibleSelected.length === visible.length);
+        el.purchasePlanSelectAll.indeterminate = Boolean(visibleSelected.length && visibleSelected.length < visible.length);
+        el.purchasePlanBody.innerHTML = visible.length ? visible.map(item => `
+            <tr class="${item.selected ? "" : "unselected"}" data-purchase-index="${item.index}">
+                <td class="check-cell"><input type="checkbox" data-purchase-select ${item.selected ? "checked" : ""} aria-label="选择 ${esc(item.sku)}"></td>
+                <td class="sku">${esc(item.sku)}</td>
+                <td>${esc(item.store)}</td>
+                <td>${esc(item.purchaser)}</td>
+                <td class="n">${fmtInt(item.originalQuantity ?? item.quantity)}</td>
+                <td class="n"><input type="number" min="1" step="1" inputmode="numeric" data-purchase-quantity value="${esc(item.quantity)}" aria-label="${esc(item.sku)} 最终导出数量"></td>
+            </tr>`).join("") : `<tr><td class="purchase-empty" colspan="6">${items.length ? "没有符合当前筛选条件的明细" : "没有订货量大于 10 的明细"}</td></tr>`;
+    }
+
+    function renderPurchasePlanDialog() {
+        el.purchasePlanHead.innerHTML = `
+            <tr>
+                <th class="check-cell">选择<button class="purchase-filter-button" data-purchase-filter-button="selection" type="button">全部</button></th>
+                <th>SKU<button class="purchase-filter-button" data-purchase-filter-button="sku" type="button">全部</button></th>
+                <th>店铺<button class="purchase-filter-button" data-purchase-filter-button="store" type="button">全部</button></th>
+                <th>采购方<button class="purchase-filter-button" data-purchase-filter-button="purchaser" type="button">全部</button></th>
+                <th class="n">当前订货量<button class="purchase-filter-button" data-purchase-filter-button="originalQuantity" type="button">全部</button></th>
+                <th class="n">最终导出数量<button class="purchase-filter-button" data-purchase-filter-button="quantity" type="button">全部</button></th>
+            </tr>`;
+        el.purchasePlanHead.querySelectorAll("[data-purchase-filter-button]").forEach(button => {
+            button.addEventListener("click", event => {
+                event.stopPropagation();
+                openPurchaseFilter(button.dataset.purchaseFilterButton, button);
+            });
+        });
+        syncPurchaseFilterButtons();
+        renderPurchasePlanRows();
+    }
+
+    async function openPurchasePlanDialog() {
         if (!CONF.canWrite) { toast("当前为只读权限，不能生成采购计划", "warn"); return; }
-        const btn = el.shippingPlan;
+        if (state.dirtyQuantities.size && !(await syncOrderQuantities())) return;
+        const candidates = purchaseCandidates();
+        if (!candidates.length) { toast("没有订货量大于 10 的明细", "warn"); return; }
+        state.purchaseItems = candidates.map(item => ({ ...item, originalQuantity: item.quantity }));
+        renderPurchasePlanDialog();
+        el.purchasePlanDialog.showModal();
+    }
+
+    async function confirmPurchasePlan() {
+        const visible = filteredPurchaseItems();
+        el.purchasePlanBody.querySelectorAll("tr[data-purchase-index]").forEach(row => {
+            const item = state.purchaseItems.find(value => value.index === Number(row.dataset.purchaseIndex));
+            if (!item) return;
+            item.selected = row.querySelector("[data-purchase-select]")?.checked === true;
+            item.quantity = Number(row.querySelector("[data-purchase-quantity]")?.value);
+        });
+        const selected = state.purchaseItems.filter(item => item.selected);
+        if (!selected.length) { toast("请至少选择一条采购明细", "warn"); return; }
+        if (selected.some(item => !Number.isInteger(item.quantity) || item.quantity <= 0)) {
+            toast("最终导出数量必须是大于 0 的整数", "warn"); return;
+        }
+        const btn = el.purchasePlanExport;
         const html = btn.innerHTML;
         btn.disabled = true;
         btn.classList.add("spinning");
-        btn.innerHTML = `${icon("refresh")} 生成中…`;
+        btn.innerHTML = `${icon("refresh")} 导出中…`;
         try {
-            const r = await fetch(CONF.purchasePlanUrl, { cache: "no-store" });
+            const r = await fetch(CONF.purchasePlanUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    items: selected.map(item => ({ index: item.index, quantity: item.quantity, sku: item.sku, store: item.store, operator: item.purchaser })),
+                }),
+            });
             if (!r.ok) {
                 let message = "生成采购计划失败";
-                try {
-                    const data = await r.json();
-                    message = data.message || message;
-                } catch (parseErr) { /* 后端返回的不是 JSON，保留默认提示 */ }
+                try { message = (await r.json()).message || message; } catch (parseErr) { /* 保留默认提示 */ }
                 throw new Error(message);
             }
             const blob = await r.blob();
@@ -2489,7 +3258,9 @@ const CONF = {
             a.click();
             URL.revokeObjectURL(url);
             const rows = r.headers.get("X-Purchase-Plan-Rows");
-            toast(`已生成 ${name}${rows ? `，共 ${rows} 行` : ""}；请检查 SKU 是否需要改成成品SKU`);
+            el.purchasePlanDialog.close();
+            await load();
+            toast(`已生成 ${name}${rows ? `，共 ${rows} 行` : ""}`);
         } catch (err) {
             toast(err instanceof TypeError ? "服务连接中断，请稍后重试" : (err?.message || "生成采购计划失败"), "warn");
         } finally {
@@ -2501,6 +3272,10 @@ const CONF = {
 
     /* ------------------------------------------------------------- 事件绑定 */
     el.grid.addEventListener("click", e => {
+        if (e.target.closest("[data-qty-row]")) {
+            e.stopPropagation();
+            return;
+        }
         const reset = e.target.closest("[data-reset-filter]");
         if (reset) {
             state.filters[state.active] = [];
@@ -2530,6 +3305,11 @@ const CONF = {
         }
         const tr = e.target.closest("tr[data-index]");
         if (tr) openRow(Number(tr.dataset.index));
+    });
+
+    el.grid.addEventListener("change", e => {
+        const input = e.target.closest("[data-qty-row]");
+        if (input) updateQuantityFromInput(input);
     });
 
     el.grid.addEventListener("mousemove", e => {
@@ -2565,13 +3345,25 @@ const CONF = {
         renderTable();
     });
 
-    el.notice.addEventListener("click", e => {
-        const b = e.target.closest("[data-quick-jump]");
-        if (!b) return;
-        state.quick = b.dataset.quickJump;
-        renderChips();
-        renderTable();
+    el.seaRecommendationList.addEventListener("change", e => {
+        const checkbox = e.target.closest("[data-sea-sku]");
+        if (!checkbox) return;
+        const sku = checkbox.dataset.seaSku;
+        if (checkbox.checked) state.seaSelected.add(sku);
+        else state.seaSelected.delete(sku);
+        renderSeaRecommendations();
     });
+
+    el.seaRecommendationSelectAll.addEventListener("click", () => {
+        const allSelected = state.seaRecommendations.length > 0 &&
+            state.seaSelected.size === state.seaRecommendations.length;
+        state.seaSelected = allSelected
+            ? new Set()
+            : new Set(state.seaRecommendations.map(item => item.sku));
+        renderSeaRecommendations();
+    });
+
+    el.seaRecommendationAdd.addEventListener("click", addSelectedSeaShippingRecommendations);
 
     let searchTimer = null;
     el.search.addEventListener("input", () => {
@@ -2687,7 +3479,37 @@ const CONF = {
         });
     }
     if (el.refresh) el.refresh.addEventListener("click", refresh);
-    if (el.shippingPlan) el.shippingPlan.addEventListener("click", generatePurchasePlan);
+    if (el.saveQuantities) el.saveQuantities.addEventListener("click", syncOrderQuantities);
+    if (el.shippingPlan) el.shippingPlan.addEventListener("click", openPurchasePlanDialog);
+    el.purchasePlanBody.addEventListener("change", e => {
+        const row = e.target.closest("tr[data-purchase-index]");
+        if (!row) return;
+        const item = state.purchaseItems.find(value => value.index === Number(row.dataset.purchaseIndex));
+        if (!item) return;
+        if (e.target.matches("[data-purchase-select]")) item.selected = e.target.checked;
+        if (e.target.matches("[data-purchase-quantity]")) item.quantity = Number(e.target.value);
+        renderPurchasePlanDialog();
+    });
+    el.purchasePlanSelectAll.addEventListener("change", () => {
+        filteredPurchaseItems().forEach(item => { item.selected = el.purchasePlanSelectAll.checked; });
+        renderPurchasePlanRows();
+    });
+    el.purchasePlanClearSelection.addEventListener("click", () => {
+        state.purchaseItems.forEach(item => { item.selected = false; });
+        renderPurchasePlanDialog();
+    });
+    el.purchasePlanClearFilters.addEventListener("click", () => {
+        state.purchaseFilters = { selection: [], sku: [], store: [], purchaser: [], originalQuantity: [], quantity: [] };
+        renderPurchasePlanDialog();
+    });
+    el.purchasePlanExport.addEventListener("click", confirmPurchasePlan);
+    $("#purchasePlanClose").addEventListener("click", () => el.purchasePlanDialog.close());
+    $("#purchasePlanCancel").addEventListener("click", () => el.purchasePlanDialog.close());
+    el.purchasePlanDialog.addEventListener("click", e => { if (e.target === el.purchasePlanDialog) el.purchasePlanDialog.close(); });
+    el.purchasePlanDialog.addEventListener("close", () => {
+        closePop();
+        restorePopToBody();
+    });
     const paramsDialog = $("#paramsDialog");
     if (el.paramsBtn) el.paramsBtn.addEventListener("click", () => paramsDialog.showModal());
     $("#paramsClose").addEventListener("click", () => paramsDialog.close());

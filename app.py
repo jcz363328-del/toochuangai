@@ -61,6 +61,7 @@ from listing_agent import listing_agent_bp
 from listing_agent_v2 import listing_agent_v2_bp
 from daily_replenishment import daily_replenishment_bp
 from daily_replenishment_operation import daily_replenishment_operation_bp
+from daily_replenishment_tiktok import daily_replenishment_tiktok_bp
 from ai_group_performance import ai_group_performance_bp
 from historical_sales import historical_sales_bp
 from developer_product_sales import developer_product_sales_bp
@@ -85,6 +86,7 @@ from business_analysis_store_tier_promotion import detect_promotions
 from business_analysis_usage import record_business_analysis_usage
 
 app = Flask(__name__)
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.secret_key = env("FLASK_SECRET_KEY", "change-this-secret-key")  # 用于session加密
 app.config['JSON_AS_ASCII'] = False  # 支持中文JSON响应
 app.config['MAX_CONTENT_LENGTH'] = 512 * 1024 * 1024
@@ -4583,6 +4585,7 @@ app.register_blueprint(listing_agent_bp)
 app.register_blueprint(listing_agent_v2_bp)
 app.register_blueprint(daily_replenishment_bp)
 app.register_blueprint(daily_replenishment_operation_bp)
+app.register_blueprint(daily_replenishment_tiktok_bp)
 app.register_blueprint(ai_group_performance_bp)
 app.register_blueprint(historical_sales_bp)
 app.register_blueprint(developer_product_sales_bp)
@@ -4907,8 +4910,9 @@ def dev_login():
         }
     }
 
+    user_type_was_explicit = bool(str(request.args.get('user_type') or '').strip())
     user_info = mock_users.get(user_type, mock_users['bd'])
-    if is_local_superadmin():
+    if is_local_superadmin() and not user_type_was_explicit:
         user_info = dict(mock_users['admin'], name='本地开发管理员')
     _safe_debug_print(f"📝 选择的用户信息: {user_info}")
 
@@ -4921,6 +4925,7 @@ def dev_login():
     session['feishu_user_email'] = user_info['email']
     _set_feishu_user_access_token('dev_local_access_token')
     session['user_department'] = user_info['department']
+    session['local_dev_identity_override'] = user_type_was_explicit
     session['login_time'] = datetime.now()
     session.permanent = True
     app.permanent_session_lifetime = timedelta(hours=24)
@@ -4937,7 +4942,14 @@ def dev_login():
 @app.before_request
 def check_feishu_user():
     """在每个请求前检查飞书用户身份"""
-    if is_local_superadmin():
+    current_dev_user_id = str(session.get('feishu_user_id') or '').strip()
+    current_dev_department = str(session.get('user_department') or '').strip()
+    has_explicit_dev_identity = bool(session.get('local_dev_identity_override')) or (
+        current_dev_user_id.startswith('dev_')
+        and current_dev_department
+        and current_dev_department != '总经办'
+    )
+    if is_local_superadmin() and not has_explicit_dev_identity:
         session['feishu_user_id'] = 'dev_admin_user_001'
         session['feishu_user_name'] = '本地开发管理员'
         session['feishu_user_email'] = 'admin_test@company.com'
@@ -14477,6 +14489,7 @@ def dashboard_workspace_catalog(accessible=None):
     for menu, endpoint, permission, icon in [
         ('我开发的产品销售', 'developer_product_sales.page', 'ai_dept', 'fas fa-box-open'),
         ('智能补货中心-运营', 'daily_replenishment_operation.page', 'daily_replenishment_operation', 'fas fa-warehouse'),
+        ('智能补货中心-Tiktok', 'daily_replenishment_tiktok.page', 'daily_replenishment_tiktok', 'fab fa-tiktok'),
     ]:
         href = url_for(endpoint)
         operations['items'].append({'menu': menu, 'href': href,

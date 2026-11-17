@@ -38,8 +38,12 @@
             ('innovation.innovation_index', '数据总览', 'bar-chart', ''),
             ('innovation.innovation_submit', '新建提案', 'plus-lg', '发起创新')
         ]),
-        ('提案协作', [
-            ('innovation.innovation_manage', '承接管理', 'clipboard-check', '承接管理')
+        ('提案管理', [
+            ('innovation.innovation_manage', '创新提案管理', 'clipboard-check', '创新提案管理'),
+            ('innovation.innovation_specials', '专项创新管理', 'lightbulb-fill', '专项创新管理')
+        ]),
+        ('会议管理', [
+            ('innovation.innovation_manage', '会议抽签', 'shuffle', '会议抽签')
         ]),
         ('创新星主场', [
             ('innovation.innovation_excellent_cases', '创新星主场', 'award', '创新星主场')
@@ -61,7 +65,7 @@
                 {% for endpoint, label, icon, tracking in links %}
                 {% if endpoint == 'innovation.innovation_manage' %}
                 {% for section, section_label, section_icon in management_sections %}
-                {% if (heading == '积分与激励' and section == 'rewards') or (heading == '提案协作' and section != 'rewards') %}
+                {% if (heading == '积分与激励' and section == 'rewards') or (heading == '提案管理' and section == 'innovations') or (heading == '会议管理' and section == 'meeting-draw') %}
                 <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint and selected_section == section else '' }}"
                    href="{{ url_for(endpoint, section=section, desktop=1) }}"
                    {% if current_endpoint == endpoint and selected_section == section %}aria-current="page"{% endif %}
@@ -70,6 +74,27 @@
                 </a>
                 {% endif %}
                 {% endfor %}
+                {% elif endpoint == 'innovation.innovation_submit' %}
+                {% set submit_type = request.args.get('type', 'normal') if request.args.get('type', 'normal') in ['normal', 'special'] else 'normal' %}
+                <div class="innovation-submit-navigation">
+                    <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint else '' }}"
+                       href="{{ url_for(endpoint, type='normal') }}"
+                       {% if tracking %}onclick="return logMenuClickAndGo('{{ tracking }}', this.href);"{% endif %}>
+                        <i class="bi bi-{{ icon }}" aria-hidden="true"></i><span>{{ label }}</span>
+                    </a>
+                    <div class="innovation-submit-subnav">
+                        <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint and submit_type == 'normal' else '' }}"
+                           href="{{ url_for(endpoint, type='normal') }}"
+                           {% if current_endpoint == endpoint and submit_type == 'normal' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-file-earmark-text" aria-hidden="true"></i><span>常规创新提案</span>
+                        </a>
+                        <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint and submit_type == 'special' else '' }}"
+                           href="{{ url_for(endpoint, type='special') }}"
+                           {% if current_endpoint == endpoint and submit_type == 'special' %}aria-current="page"{% endif %}>
+                            <i class="bi bi-lightbulb-fill" aria-hidden="true"></i><span>专项创新提案</span>
+                        </a>
+                    </div>
+                </div>
                 {% elif endpoint == 'innovation.innovation_excellent_cases' %}
                 {% set star_section = request.args.get('tab', 'excellent') if request.args.get('tab', 'excellent') in ['excellent', 'rank', 'share', 'talk'] else 'excellent' %}
                 <div class="innovation-star-navigation">
@@ -81,6 +106,13 @@
                        onclick="return logMenuClickAndGo('{{ star_label }}', this.href);">{{ star_label }}</a>
                     {% endfor %}
                 </div>
+                {% elif endpoint == 'innovation.innovation_specials' %}
+                <a class="innovation-nav-item{{ ' is-active' if current_endpoint in [endpoint, 'innovation.innovation_special_detail'] else '' }}"
+                   href="/innovation/specials"
+                   {% if current_endpoint in [endpoint, 'innovation.innovation_special_detail'] %}aria-current="page"{% endif %}
+                   {% if tracking %}onclick="return logMenuClickAndGo('{{ tracking }}', this.href);"{% endif %}>
+                    <i class="bi bi-{{ icon }}" aria-hidden="true"></i><span>{{ label }}</span>
+                </a>
                 {% else %}
                 <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint else '' }}"
                    href="{{ url_for(endpoint) }}"

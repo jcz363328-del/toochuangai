@@ -1867,14 +1867,14 @@ FEATURES = [
         "max_input_images": 10,
         "max_output_images": 1,
         "target_size": (1464, 2400),
-        "target_size_text": "1464*2400",
-        "description": "第 1 张上传首屏风格参考图，后续上传多张包含商品细节与卖点的主图；首屏高度在 600–1200px 内自适应，总高度可选 2400、3000 或 3600px。",
+        "target_size_text": "",
+        "description": "第 1 张上传图作为不可改动的首屏底稿，后续上传主图只补充真实卖点；最终尺寸和比例跟随第 1 张图片。",
         "default_prompt": (
-            "请生成一张完整连续的电商 A+ 长图。输入图片中的第 1 张是首屏风格与元素参考图，后续图片是同一商品的主图、细节图和卖点素材图。"
-            "首屏必须尽量保留第 1 张图中真实存在的核心元素，包括商品、人物、包装、Logo、可读文案、主色、背景氛围、装饰语言、构图关系与视觉层级；但用户补充要求明确指定删除或修改的文字、文案及其他可编辑元素除外。允许为了融合新卖点进行专业重排，但不得随意删除未被用户指定的关键识别元素、改变商品身份或照搬截图界面。"
+            "请生成一张完整连续的电商 A+ 长图。输入图片中的第 1 张是最终首屏底稿，后续图片是同一商品的主图、细节图和卖点素材图。"
+            "第 1 张图片的首屏区域必须作为不可编辑的原始画面完整保留：不得重绘、改字、调色、裁切、缩放、拉伸、移动、重排、替换或覆盖首屏中的人物、商品、包装、Logo、可读文案、主色、背景氛围、装饰语言、构图关系和视觉层级；用户补充要求明确指定删除或修改的文字、文案及其他元素时除外。"
             "从后续多张主图中识别并提取真实可见的产品卖点、功能细节、材质、结构、配件、使用方式、规格与可读文案，把它们自然融合到首屏及后续内容区；优先保留证据清晰、信息价值高且互不重复的卖点。"
             "只能使用上传图片中明确存在的信息，禁止编造功效、参数、认证、折扣、承诺、配件或品牌文案；相同卖点只表达一次。"
-            "首屏宽度固定为 1464px，高度必须根据首屏元素密度和构图需要在 600–1200px 之间自适应，形成强主视觉且不拥挤；首屏之后自然承接卖点、细节证据、使用场景和规格信息。"
+            "最终画布必须严格沿用第 1 张图片的像素尺寸和宽高比例，不得裁切、补边、拉伸或改变画布方向。首屏之后只在第 1 张图片已有的下方留白或可用区域排布后续卖点，不能覆盖或改变首屏。"
             "整张 A+ 必须是一张连续设计，不得出现硬切分、拼贴接缝、重复背景、独立海报堆叠或白边黑边。保持统一品牌色、字体气质、光影、材质、留白和阅读节奏。"
             "商品外观、包装、Logo、颜色、比例、结构和可读文字必须准确清晰；任何标题、正文、商品和 Logo 都不能被画布边缘截断。"
         ),
@@ -14961,7 +14961,7 @@ def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str,
         return "\n\n".join(part for part in sections if part)
     if feature.get("key") in A_PLUS_IMAGES_API_FEATURE_KEYS:
         size_text = str(feature.get("target_size_text", "")).strip()
-        if not size_text:
+        if not size_text and feature.get("key") != A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY:
             target_size = feature.get("target_size")
             if isinstance(target_size, (tuple, list)) and len(target_size) == 2:
                 size_text = f"{int(target_size[0])}*{int(target_size[1])}"
@@ -21248,6 +21248,42 @@ def resize_hero_style_reverse_output(
     return image_bytes_to_data_url(output.getvalue(), "image/png")
 
 
+def persist_hero_style_reverse_history(
+    feature: dict[str, Any],
+    images: list[str],
+    prompt: str,
+    model: str = NANO_BANANA_MODEL,
+) -> list[dict[str, Any]]:
+    """Save reverse-engineering results through the shared history pipeline."""
+    normalized_images = [str(image).strip() for image in list(images or []) if str(image).strip()]
+    if not normalized_images:
+        return []
+    account_name = str(st.session_state.get("auth_username") or "admin").strip() or "admin"
+    result = {"images": normalized_images}
+    try:
+        records = save_generated_images_and_record_db(
+            feature=dict(feature),
+            model=str(model or NANO_BANANA_MODEL),
+            prompt=str(prompt or ""),
+            result=result,
+            account_name=account_name,
+        )
+    except Exception as exc:
+        print(f"[hero-style-reverse-history] 数据库保存失败：{exc}", file=sys.stderr)
+        records = build_local_history_records(
+            feature=dict(feature),
+            model=str(model or NANO_BANANA_MODEL),
+            prompt=str(prompt or ""),
+            result=result,
+            account_name=account_name,
+        )
+    if records:
+        store_local_history_records(account_name, str(feature.get("key") or ""), records)
+        cache_key = get_history_cache_key(account_name, str(feature.get("key") or ""))
+        st.session_state.history_records_cache.pop(cache_key, None)
+    return records
+
+
 def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
     feature_key = str(feature.get("key") or A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY)
     if "hero_style_reverse_state" not in st.session_state:
@@ -21451,6 +21487,11 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                     except Exception as exc:
                         st.error(f"批量生成失败：{format_user_facing_error_message(exc)}")
                     else:
+                        persist_hero_style_reverse_history(
+                            feature,
+                            generated_images,
+                            prompt_to_use,
+                        )
                         batches = list(state.get("batches") or [])
                         batches.append(
                             {
@@ -21590,6 +21631,11 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                         except Exception as exc:
                             st.error(f"二次优化生成失败：{format_user_facing_error_message(exc)}")
                         else:
+                            persist_hero_style_reverse_history(
+                                feature,
+                                refined_images,
+                                refined_prompt,
+                            )
                             batches.append(
                                 {
                                     "label": f"第 {len(batches) + 1} 批 · 二次优化 · {datetime.now().strftime('%m-%d %H:%M')}",
@@ -21607,6 +21653,7 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                             st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
+    render_history_records(feature)
 
 
 def render_replacement_infinite_canvas_feature(feature: dict[str, Any]) -> None:
@@ -23215,10 +23262,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         amazon_a_plus_prompt = ""
         a_plus_style_model_replace_prompt = ""
         a_plus_first_screen_selling_points_prompt = ""
-        a_plus_first_screen_total_height = 2400
         a_plus_first_screen_workflow_mode = "combined"
         a_plus_first_screen_workflow_stage = "combined"
-        a_plus_first_screen_hero_height = 900
         main_image_a_plus_prompt = ""
         main_image_a_plus_mode = MAIN_IMAGE_A_PLUS_MODE_FREE
         main_image_a_plus_template_file = None
@@ -23610,71 +23655,43 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 label_visibility="collapsed",
             )
         elif supports_a_plus_first_screen_selling_points:
-            a_plus_first_screen_workflow_mode = st.radio(
-                "生成方式",
-                options=("combined", "staged"),
-                format_func=lambda value: "一键生成首屏＋卖点" if value == "combined" else "分两步生成",
-                horizontal=True,
-                key=f"a_plus_first_screen_workflow_mode_{feature['key']}",
-            )
-            hero_result = dict(
-                (st.session_state.get("a_plus_first_screen_hero_results") or {}).get(feature["key"])
-                or {}
-            )
-            if a_plus_first_screen_workflow_mode == "combined":
-                st.markdown('<div class="panel-subtitle">首屏参考图 + 卖点主图（2–10 张）</div>', unsafe_allow_html=True)
-                amazon_source_files = render_multi_image_uploader(
-                    "上传首屏参考图与卖点主图",
-                    key=f"a_plus_first_screen_selling_points_uploader_{feature['key']}",
-                    help_text="第 1 张是首屏参考图；第 2–10 张是包含商品细节、功能和真实卖点的主图。",
-                    max_files=10,
+            hero_upload_key = f"a_plus_first_screen_hero_uploader_{feature['key']}"
+            selling_points_upload_key = f"a_plus_first_screen_selling_only_uploader_{feature['key']}"
+            legacy_upload_key = f"a_plus_first_screen_selling_points_uploader_{feature['key']}"
+            if not load_upload_cache(hero_upload_key, max_files=1) and not load_upload_cache(selling_points_upload_key, max_files=9):
+                legacy_files = load_upload_cache(legacy_upload_key, max_files=10)
+                if legacy_files:
+                    save_upload_cache(hero_upload_key, legacy_files[:1])
+                    if len(legacy_files) > 1:
+                        save_upload_cache(selling_points_upload_key, legacy_files[1:])
+                    clear_upload_cache(legacy_upload_key)
+
+            hero_col, selling_points_col = st.columns([0.92, 1.08], gap="medium")
+            with hero_col:
+                st.markdown('<div class="panel-subtitle">首屏底稿（1 张）</div>', unsafe_allow_html=True)
+                hero_source_files = render_multi_image_uploader(
+                    "上传首屏底稿",
+                    key=hero_upload_key,
+                    help_text="上传最终首屏底稿，生成时会完整保留这张图的首屏画面和原始比例。",
+                    max_files=1,
+                    preview_slot_count=1,
+                    allow_reorder=False,
+                )
+            with selling_points_col:
+                st.markdown('<div class="panel-subtitle">卖点主图（1–9 张）</div>', unsafe_allow_html=True)
+                selling_point_files = render_multi_image_uploader(
+                    "上传卖点图",
+                    key=selling_points_upload_key,
+                    help_text="上传商品细节、功能和真实卖点主图；按住图片左上角的优先级标签拖动排序。",
+                    max_files=9,
+                    preview_slot_count=3,
                     allow_reorder=True,
                 )
-                st.markdown('<div class="slot-helper">第 1 张锁定首屏；后续图片提取真实卖点，一次生成完整连续 A+。</div>', unsafe_allow_html=True)
-            else:
-                step_options = ("hero", "selling_points") if hero_result.get("images") else ("hero",)
-                a_plus_first_screen_workflow_stage = st.radio(
-                    "当前步骤",
-                    options=step_options,
-                    format_func=lambda value: "第 1 步 · 生成首屏" if value == "hero" else "第 2 步 · 续写下方卖点",
-                    horizontal=True,
-                    key=f"a_plus_first_screen_workflow_stage_{feature['key']}",
-                )
-                if a_plus_first_screen_workflow_stage == "hero":
-                    st.markdown('<div class="panel-subtitle">首屏参考图（1 张）</div>', unsafe_allow_html=True)
-                    amazon_source_files = render_multi_image_uploader(
-                        "上传首屏参考图",
-                        key=f"a_plus_first_screen_hero_uploader_{feature['key']}",
-                        help_text="先生成并锁定首屏。完成后切换到第 2 步上传主图和卖点图。",
-                        max_files=1,
-                        allow_reorder=False,
-                    )
-                    a_plus_first_screen_hero_height = st.selectbox(
-                        "首屏尺寸",
-                        options=(600, 900, 1200),
-                        format_func=lambda height: f"1464×{height}",
-                        index=1,
-                        key=f"a_plus_first_screen_hero_height_{feature['key']}",
-                    )
-                else:
-                    st.success("已锁定上一步生成的首屏；本步骤只续写下方卖点区。")
-                    amazon_source_files = render_multi_image_uploader(
-                        "上传主图与卖点图",
-                        key=f"a_plus_first_screen_selling_only_uploader_{feature['key']}",
-                        help_text="上传 1–9 张商品主图、细节图或卖点图；系统会自动带入已生成首屏。",
-                        max_files=9,
-                        allow_reorder=True,
-                    )
-            if a_plus_first_screen_workflow_stage != "hero":
-                st.markdown('<div class="panel-subtitle">A+ 总尺寸</div>', unsafe_allow_html=True)
-                a_plus_first_screen_total_height = st.selectbox(
-                    "选择 A+ 总尺寸",
-                    options=(2400, 3000, 3600),
-                    format_func=lambda height: f"1464×{height}",
-                    key=f"a_plus_first_screen_total_height_{feature['key']}",
-                    label_visibility="collapsed",
-                )
-                st.info("首屏保持在顶部，其余高度用于承载卖点与细节；相同元素和卖点只出现一次。")
+            amazon_source_files = list(hero_source_files) + list(selling_point_files)
+            st.markdown('<div class="slot-helper">生成时自动使用左侧首屏底稿作为第 1 张参考图，右侧卖点图按拖动后的顺序依次提交。</div>', unsafe_allow_html=True)
+            st.info(
+                "第 1 张图片作为首屏底稿原样保留；后续主图只提取真实卖点，尺寸和比例跟随第 1 张图片。"
+            )
             st.markdown('<div class="panel-subtitle">补充要求（可选）</div>', unsafe_allow_html=True)
             a_plus_first_screen_selling_points_prompt = st.text_area(
                 "输入首屏与卖点融合补充要求",
@@ -25121,7 +25138,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             if supports_main_image_a_plus and selected_main_image_a_plus_layout is not None
             else tuple(feature.get("target_size") or (1464, 1000))
             if supports_a_plus_style_model_replace
-            else (1464, int(a_plus_first_screen_total_height))
+            else (
+                get_uploaded_input_dimensions(files[0])
+                if supports_a_plus_first_screen_selling_points and files
+                else tuple(feature.get("target_size") or (1464, 2400))
+            )
             if supports_a_plus_first_screen_selling_points
             else parse_size_text(amazon_size_text)
             if supports_amazon_a_plus
@@ -25129,8 +25150,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             if supports_image_resize
             else None
         )
-        if supports_a_plus_first_screen_selling_points and a_plus_first_screen_workflow_stage == "hero":
-            target_size = (1464, int(a_plus_first_screen_hero_height))
         using_jimeng_for_request = (
             feature_mode == "jimeng_upscale"
             or is_jimeng_model(active_model)
@@ -25412,10 +25431,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     )
                 elif a_plus_first_screen_workflow_stage == "selling_points":
                     feature_for_request["default_prompt"] = (
-                        "输入图片中的第 1 张是已经生成的 A+ 首屏，默认完整保留在最终长图顶部，不得重新设计、删减、裁切、改字或重复其中的任何元素；但用户补充要求明确指定删除或修改的文字和元素必须按要求处理。"
-                        "从第 2 张开始是同一商品的主图、细节图和卖点图。只在首屏下方续写卖点内容，并延续首屏的品牌色、字体气质、光影、材质、留白和视觉节奏，形成一张无接缝的连续 A+ 长图。"
+                        "输入图片中的第 1 张是已经确定的 A+ 首屏底稿，必须作为最终长图顶部的不可编辑原始画面完整保留，不得重新设计、删减、裁切、改字、调色、缩放、拉伸、移动、重排、替换或覆盖其中的任何元素；用户补充要求明确指定删除或修改的文字和元素必须按要求处理。"
+                        "从第 2 张开始是同一商品的主图、细节图和卖点图。只在第 1 张首屏下方已有的留白或可用区域补充卖点内容，不得覆盖首屏，不得改变首屏边界，并延续首屏的品牌色、字体气质、光影、材质、留白和视觉节奏，形成一张无接缝的连续 A+ 长图。"
                         "只使用上传图片中真实可见的信息；禁止编造功效、参数、认证、承诺、配件或品牌文案。相同商品视角、元素、文案和卖点在整张图中只能出现一次。"
-                        "优先展示证据清晰且互不重复的卖点、材质、结构、使用方式和规格；所有商品、文字和 Logo 必须完整清晰，不得被画布边缘截断。"
+                        "优先展示证据清晰且互不重复的卖点、材质、结构、使用方式和规格；最终画布必须沿用第 1 张图片的实际像素尺寸和宽高比例，不得裁切、补边、拉伸、改变画布方向或在底部追加额外尺寸；所有商品、文字和 Logo 必须完整清晰，不得被画布边缘截断。"
                     )
             if supports_remove_eyelashes:
                 feature_for_request["default_prompt"] = (
