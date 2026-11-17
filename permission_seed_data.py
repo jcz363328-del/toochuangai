@@ -303,9 +303,9 @@ EXTRA_PERMISSION_ROWS = [
         "gongneng": "innovation_special_manage",
         "mingcheng": "创新专项管理",
         "yonghu": "",
-        "bumen": "人力行政部；AI部",
+        "bumen": "人力资源与行政部；流程与AI部",
         "fujigongneng": "innovation_proposals",
-        "miaoshu": "人力行政部和AI部创建、发布和维护创新专项。",
+        "miaoshu": "人力资源与行政部和流程与AI部创建、发布和维护创新专项。",
     },
     {
         "gongneng": "innovation_star_manage",

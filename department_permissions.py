@@ -95,7 +95,7 @@ PERMISSION_CONFIG = {
     },
     'innovation_special_manage': {
         'name': '创新专项管理',
-        'allowed_departments': ['人力行政部', 'AI部'],
+        'allowed_departments': ['人力资源与行政部', '流程与AI部'],
         'description': '创建、发布和维护创新专项。'
     },
     'review_analysis': {

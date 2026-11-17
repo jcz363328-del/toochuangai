@@ -157,7 +157,7 @@ def ensure_special_storage() -> None:
                 CREATE INDEX IX_chuangxin_liuzhuan1_zhuanxiang
                 ON dbo.chuangxin_liuzhuan1(zhuanxiang_id, 项目编号, 流转时间);
         """)
-        # 权限种子同时写入数据库，保证首次打开专项页面即可识别人力行政部和 AI 部管理员。
+        # 权限种子同时写入数据库，保证首次打开专项页面即可识别人力资源与行政部和流程与AI部管理员。
         dui_db("""
             IF OBJECT_ID(N'dbo.quanxian', N'U') IS NOT NULL
             BEGIN
@@ -167,10 +167,10 @@ def ensure_special_storage() -> None:
                 )
                     UPDATE dbo.quanxian
                     SET YongHu = N'',
-                        BuMen = N'人力行政部；AI部',
+                        BuMen = N'人力资源与行政部；流程与AI部',
                         FuJiGongNeng = N'innovation_proposals',
                         MingCheng = N'创新专项管理',
-                        MiaoShu = N'人力行政部和AI部创建、发布、关闭创新专项。',
+                        MiaoShu = N'人力资源与行政部和流程与AI部创建、发布、关闭创新专项。',
                         QiYong = 1,
                         GengXinShiJian = SYSDATETIME()
                     WHERE LTRIM(RTRIM(GongNeng)) = N'innovation_special_manage';
@@ -178,9 +178,9 @@ def ensure_special_storage() -> None:
                     INSERT INTO dbo.quanxian
                         (GongNeng, YongHu, BuMen, FuJiGongNeng, MingCheng, MiaoShu, QiYong, GengXinShiJian)
                     VALUES
-                        (N'innovation_special_manage', N'', N'人力行政部；AI部',
+                        (N'innovation_special_manage', N'', N'人力资源与行政部；流程与AI部',
                          N'innovation_proposals', N'创新专项管理',
-                         N'人力行政部和AI部创建、发布、关闭创新专项。', 1, SYSDATETIME());
+                         N'人力资源与行政部和流程与AI部创建、发布、关闭创新专项。', 1, SYSDATETIME());
             END
         """)
         try:
@@ -239,7 +239,7 @@ def _department_names_from_session() -> set[str]:
 
 
 def _same_department(actual: str, target: str) -> bool:
-    """匹配飞书部门的常见简称，兼容“AI”和“AI部”等历史值。"""
+    """匹配飞书部门名称及省略末尾“部”字的简称。"""
     actual_name = str(actual or '').strip()
     target_name = str(target or '').strip()
     if not actual_name or not target_name:
