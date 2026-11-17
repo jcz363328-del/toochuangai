@@ -43,7 +43,7 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
         response = self.request("GET", "/ai/daily-replenishment-operation")
         self.assertEqual(200, response.status_code)
         html = response.get_data(as_text=True)
-        self.assertIn("智能补货中心-运营", html)
+        self.assertIn("智能补货中心-亚马逊", html)
         self.assertIn("/api/ai/daily-replenishment-operation/refresh", html)
 
     def test_all_column_filters_support_multiple_values(self):

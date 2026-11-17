@@ -219,9 +219,9 @@ PERMISSION_CONFIG = {
         'description': 'AI功能卡片中的日常补货工作台，仅允许 AI部访问'
     },
     'daily_replenishment_operation': {
-        'name': '智能补货中心-运营',
+        'name': '智能补货中心-亚马逊',
         'allowed_departments': ['运营部', 'AI部', '总经办'],
-        'description': '智能补货中心-运营版多工作表刷新功能，运营人员按 v_PinPaiDianPu.YunYing 查看本人店铺'
+        'description': '智能补货中心-亚马逊版多工作表刷新功能，运营人员按 v_PinPaiDianPu.YunYing 查看本人店铺'
     },
     'daily_replenishment_tiktok': {
         'name': '智能补货中心-Tiktok',

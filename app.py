@@ -14488,8 +14488,7 @@ def dashboard_workspace_catalog(accessible=None):
     operations = next(group for group in groups if group['key'] == 'operations')
     for menu, endpoint, permission, icon in [
         ('我开发的产品销售', 'developer_product_sales.page', 'ai_dept', 'fas fa-box-open'),
-        ('智能补货中心-运营', 'daily_replenishment_operation.page', 'daily_replenishment_operation', 'fas fa-warehouse'),
-        ('智能补货中心-Tiktok', 'daily_replenishment_tiktok.page', 'daily_replenishment_tiktok', 'fab fa-tiktok'),
+        ('智能补货中心-亚马逊', 'daily_replenishment_operation.page', 'daily_replenishment_operation', 'fas fa-warehouse'),
     ]:
         href = url_for(endpoint)
         operations['items'].append({'menu': menu, 'href': href,

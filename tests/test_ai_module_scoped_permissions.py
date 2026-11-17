@@ -129,7 +129,7 @@ class AiModuleScopedPermissionTests(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         page = response.get_data(as_text=True)
-        for title in ("我开发的产品销售", "智能补货中心-运营"):
+        for title in ("我开发的产品销售", "智能补货中心-亚马逊"):
             with self.subTest(title=title):
                 self.assertNotIn("<h3>" + title + "</h3>", page)
         self.assertIn("<h3>日常补货</h3>", page)

@@ -544,7 +544,7 @@ def load_snapshot(path: Path) -> dict[str, Any]:
                         for index, row in enumerate(serialized.get("rows") or [])
                         if row.get("styles")
                     },
-                    "purpose": "智能补货中心-运营快照",
+                    "purpose": "智能补货中心-亚马逊快照",
                 }
             else:
                 sheets[name] = {
@@ -553,7 +553,7 @@ def load_snapshot(path: Path) -> dict[str, Any]:
                     "header_comments": {},
                     "comments": {},
                     "styles": {},
-                    "purpose": "智能补货中心-运营快照",
+                    "purpose": "智能补货中心-亚马逊快照",
                 }
         generation: dict[str, Any] = {}
         if "_生成信息" in workbook.sheetnames:
@@ -710,7 +710,7 @@ def refresh():
         return jsonify({"success": False, "message": str(exc)}), 400
     except Exception as exc:
         current_app.logger.exception("Failed to refresh daily replenishment operation")
-        return jsonify({"success": False, "message": f"智能补货中心-运营刷新失败：{exc}"}), 500
+        return jsonify({"success": False, "message": f"智能补货中心-亚马逊刷新失败：{exc}"}), 500
 
 
 @daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/refresh/<job_id>")
@@ -734,7 +734,7 @@ def data():
     stores = set(access["read_stores"])
     snapshot, is_shared = _resolve_snapshot_for_user(user_name)
     if snapshot is None:
-        return jsonify({"success": False, "message": "今日的智能补货中心-运营快照尚未生成"}), 404
+        return jsonify({"success": False, "message": "今日的智能补货中心-亚马逊快照尚未生成"}), 404
     payload = load_snapshot_cached(snapshot)
     # Apply authorization on every response, including a user's own snapshot.
     # File ownership only selects a cache candidate; it must not grant data scope.
@@ -1269,7 +1269,7 @@ def purchase_plan():
         _, access = scoped_query_executor(user_name)
         snapshot, is_shared = _resolve_snapshot_for_user(user_name)
         if snapshot is None:
-            return jsonify({"success": False, "message": "今日的智能补货中心-运营快照尚未生成，请先点“生成 / 刷新”"}), 404
+            return jsonify({"success": False, "message": "今日的智能补货中心-亚马逊快照尚未生成，请先点“生成 / 刷新”"}), 404
         payload = _scope_snapshot_payload(load_snapshot_cached(snapshot), access)
         sheet_payload = (payload.get("sheets") or {}).get(base.SHEET_NAME) or {}
         confirmed_items: list[dict[str, Any]] | None = None

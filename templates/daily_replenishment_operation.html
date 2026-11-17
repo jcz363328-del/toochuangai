@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>智能补货中心-运营 - 图创AI系统</title>
+<title>智能补货中心-亚马逊 - 图创AI系统</title>
 <style>/* ==========================================================================
-   智能补货中心-运营 · 前端改版 Demo
+   智能补货中心-亚马逊 · 前端改版 Demo
    设计语言：暖纸底 + 细线卡片 + 单一强调色（墨绿），数据用色只做弱底强调
    ========================================================================== */
 
@@ -1420,7 +1420,7 @@ td.dim { color: var(--muted); }
                 <span class="brand-mark">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4v10l-9 4-9-4z"/><path d="m3 7 9 4 9-4M12 21V11"/></svg>
                 </span>
-                <span class="brand-text"><b>图创AI系统</b><i>智能补货中心-运营</i></span>
+                <span class="brand-text"><b>图创AI系统</b><i>智能补货中心-亚马逊</i></span>
             </div>
         </div>
         <div class="sidebar-status" id="sidebarStatus" aria-label="状态筛选">
@@ -1442,7 +1442,7 @@ td.dim { color: var(--muted); }
         <header class="topbar">
             <div class="topbar-title">
                 <p class="eyebrow"><span class="dot-live"></span>运营版完整多表刷新 · 订货口径 45 天</p>
-                <h1>智能补货中心-运营</h1>
+                <h1>智能补货中心-亚马逊</h1>
             </div>
             <div class="topbar-right">
                 <div class="head-actions">
@@ -2901,7 +2901,7 @@ const CONF = {
         }
         if (r.status === 404) {
             setStatus("今日尚未生成", "warn");
-            renderEmpty("今日的智能补货中心-运营快照尚未生成",
+            renderEmpty("今日的智能补货中心-亚马逊快照尚未生成",
                 CONF.canWrite ? "点击右上角“生成 / 刷新”，后台会生成 7 个工作表" : "当前为只读权限，请联系有写权限的运营生成",
                 CONF.canWrite ? "生成 / 刷新" : "");
             return;
@@ -2953,7 +2953,7 @@ const CONF = {
 
     async function refresh(event) {
         if (!CONF.canWrite) { toast("当前为只读权限，不能生成或刷新", "warn"); return; }
-        if (!confirm("确定刷新“智能补货中心-运营”的全部 7 个工作表吗？")) return;
+        if (!confirm("确定刷新“智能补货中心-亚马逊”的全部 7 个工作表吗？")) return;
         if (state.dirtyQuantities.size && !(await syncOrderQuantities())) return;
         const btn = el.refresh;
         const html = btn.innerHTML;

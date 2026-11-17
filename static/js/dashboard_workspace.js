@@ -67,7 +67,7 @@
             const legacyAnchor = /^#workspace-feature-\d+$/.test(url.hash) && candidate.menu === item.menu && target.pathname === url.pathname;
             return (exact || legacyAnchor) && candidate.allowed !== false;
         });
-        return match ? {...match, menu: item.menu, id: item.id || match.id} : null;
+        return match ? {...match, id: item.id || match.id} : null;
     }
     function entry(item) {
         const title = item.querySelector('h3, .quick-name, .mini-name, .nav-name');

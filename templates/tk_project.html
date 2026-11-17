@@ -81,6 +81,7 @@
 {% set has_invite_monitor = 'tk_invite_monitor' in ns.fnames %}
 {% set has_model_queue = 'model_queue' in ns.fnames %}
 {% set has_customer_service = 'tk_customer_service' in ns.fnames %}
+{% set has_tiktok_replenishment = 'daily_replenishment_tiktok' in ns.fnames %}
 
 {% macro quick_card(name, desc, href, icon, cls='g1') -%}
 <div class="quick-card" data-href="{{ href }}" data-menu="{{ name }}">
@@ -114,6 +115,7 @@
             </div>
         </div>
         <div class="quick-grid">
+            {% if has_tiktok_replenishment %}{{ quick_card('智能补货中心-Tiktok', '库存分析与智能补货', url_for('daily_replenishment_tiktok.page'), 'fab fa-tiktok', 'g3') }}{% endif %}
             {% if has_video_rt %}{{ quick_card('实时视频数据', '实时查看视频数据', url_for('tk_video_realtime'), 'fas fa-video', 'g1') }}{% endif %}
             {% if has_dashboard_82 %}{{ quick_card('OKAYLOVE数据看板', '核心数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-column', 'g2') }}{% endif %}
             {% if has_influencer %}{{ quick_card('TK达人管理', '达人管理与数据分析', url_for('influencer_management.influencer_management'), 'fas fa-users', 'g3') }}{% endif %}

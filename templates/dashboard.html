@@ -633,6 +633,7 @@
         const permissionByMenu = Object.freeze({
             '日常补货': 'daily_replenishment',
             '智能补货中心-运营': 'daily_replenishment_operation',
+            '智能补货中心-亚马逊': 'daily_replenishment_operation',
             '智能补货中心-Tiktok': 'daily_replenishment_tiktok',
             '组别经营数据': 'ai_group_performance',
             'VideoClaw AI视频创作': 'video_claw',
@@ -679,7 +680,10 @@
             try {
                 const parsed = JSON.parse(localStorage.getItem(secondaryStorageKey) || '[]');
                 return Array.isArray(parsed)
-                    ? parsed.filter(item => item && item.menu && item.href)
+                    ? parsed.filter(item => item && item.menu && item.href).map(item =>
+                        item.menu === '智能补货中心-运营'
+                            ? {...item, menu: '智能补货中心-亚马逊', search: '智能补货中心-亚马逊'}
+                            : item)
                     : [];
             } catch (_) {
                 return [];

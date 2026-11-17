@@ -85,29 +85,30 @@ class WorkspaceIntegrationTests(unittest.TestCase):
         self.assertNotIn('日常补货', {item['menu'] for group in body['groups'] for item in group['items']})
         self.assertNotIn('历史销售数据曲线', {item['menu'] for group in body['groups'] for item in group['items']})
 
-    def test_moved_features_keep_stable_operations_entries_for_all_members(self):
+    def test_moved_features_have_one_entry_in_their_department_for_all_members(self):
         expected_targets = {
-            '我开发的产品销售': '/ai/developer-product-sales',
-            '智能补货中心-运营': '/ai/daily-replenishment-operation',
+            '我开发的产品销售': ('/ai/developer-product-sales', 'operations'),
+            '智能补货中心-亚马逊': ('/ai/daily-replenishment-operation', 'operations'),
+            '智能补货中心-Tiktok': ('/ai/daily-replenishment-tiktok', 'tk_project_group'),
         }
         for ai_member in (True, False):
             body = self.catalog([], ai_member=ai_member)
-            for menu, href in expected_targets.items():
+            for menu, (href, expected_group) in expected_targets.items():
                 with self.subTest(ai_member=ai_member, menu=menu):
                     entries = [(group['key'], item) for group in body['groups']
                                for item in group['items'] if item['href'] == href]
                     self.assertEqual(len(entries), 1)
                     group_key, entry = entries[0]
-                    self.assertEqual(group_key, 'operations')
+                    self.assertEqual(group_key, expected_group)
                     self.assertEqual(entry['menu'], menu)
                     self.assertEqual(entry['id'], menu + '::' + href)
-                    if menu == '智能补货中心-运营':
+                    if menu == '智能补货中心-亚马逊':
                         self.assertEqual(entry['iconClass'], 'fas fa-warehouse')
 
     def test_operations_entries_keep_independent_permissions_without_ai_membership(self):
         required_permissions = {
             '我开发的产品销售': 'ai_dept',
-            '智能补货中心-运营': 'daily_replenishment_operation',
+            '智能补货中心-亚马逊': 'daily_replenishment_operation',
         }
         for grants in ([], *[[permission] for permission in required_permissions.values()]):
             body = self.catalog(grants, ai_member=False)
