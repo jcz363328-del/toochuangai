@@ -296,6 +296,14 @@
         .special-summary-top { grid-template-columns:minmax(0,1fr); }
         .special-summary-top .special-reward-highlight-points::before { width:auto; height:1px; top:0; left:18px; right:18px; bottom:auto; }
     }
+    .special-summary-body { grid-template-columns:minmax(0,1fr); }
+    .special-summary-body .special-summary-kicker,
+    .special-summary-body h2,
+    .special-summary-body .special-summary-problem { min-width:0; max-width:100%; overflow-wrap:anywhere; word-break:break-word; }
+    .special-summary-problem { white-space:pre-wrap; line-height:1.65; }
+    .special-summary-body .special-summary-meta { grid-column:1; grid-row:auto; max-width:100%; justify-content:flex-start; margin-top:14px; }
+    .special-summary-body .special-media { grid-column:1; min-width:0; max-width:100%; }
+    .special-post-content { min-width:0; overflow-wrap:anywhere; word-break:break-word; }
 </style>
 
 {% include 'special_media.html' %}
@@ -326,7 +334,7 @@
             <div class="special-media">{% for image in special.images %}<img src="{{ image }}" alt="附件图片" data-special-image loading="lazy" tabindex="0">{% endfor %}{% for video in special.videos %}<video src="{{ video }}" controls preload="metadata"></video>{% endfor %}</div><div class="special-summary-meta">
                 <span class="special-meta-chip">承接部门：<strong>{{ special.chengjie_bumen or '未设置' }}</strong></span>
                 <span class="special-meta-chip">奖励积分：<strong>{{ special.jiangli_jifen }}</strong></span>
-                <span class="special-meta-chip">想法数量：<strong>{{ special.idea_count }}</strong></span>
+                <span class="special-meta-chip">方案数量：<strong>{{ special.idea_count }}</strong></span>
             </div>
         </div>
         {% if special.zhuangtai == 'yifabu' %}
@@ -352,8 +360,8 @@
     {% endif %}
     <section>
         <div class="special-feed-head">
-            <h2>专项想法动态</h2>
-            <span class="special-feed-count">{{ ideas|length }} 条想法</span>
+            <h2>解决方案动态</h2>
+            <span class="special-feed-count">{{ ideas|length }} 条解决方案</span>
         </div>
         <div id="ideaList" class="special-feed">
             {% for idea in ideas %}
@@ -410,12 +418,12 @@
                     </form>
 
                     {% else %}
-                    <div class="small text-muted mt-2">仅承接部门成员可以评论和处理想法</div>
+                    <div class="small text-muted mt-2">仅承接部门成员可以评论和处理解决方案</div>
                     {% endif %}
                 </div>
             </article>
             {% else %}
-            <div class="alert alert-light border">暂时还没有想法，欢迎提交第一条解决思路。</div>
+            <div class="alert alert-light border">暂时还没有解决方案，欢迎提交第一条解决方案。</div>
             {% endfor %}
         </div>
     </section>

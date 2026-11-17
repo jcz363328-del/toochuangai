@@ -432,7 +432,7 @@ def submit_special_idea(special_id: int):
                 {sql_text(title)}, {sql_text(content)}, {sql_text(user['user_name'])},
                 {sql_text(now)}, 0,
                 '待评估', '专项想法', N'', {int(special_id)},
-                {sql_text(user['user_id'])}, {sql_text(user['avatar'])}, 'daipinggu', 0, CONVERT(VARCHAR(MAX), {sql_text(image_paths)}), CONVERT(VARCHAR(MAX), {sql_text(video_paths)})
+                {sql_text(user['user_id'])}, 'daipinggu', {sql_text(user['avatar'])}, 0, CONVERT(VARCHAR(MAX), {sql_text(image_paths)}), CONVERT(VARCHAR(MAX), {sql_text(video_paths)})
             )
         """)
         idea_id = sf_db(f"""
