@@ -17888,11 +17888,6 @@ def render_uploaded_preview_card(
             """,
             unsafe_allow_html=True,
         )
-        render_upload_delete_button(
-            widget_key,
-            item_index,
-            button_key=f"delete_upload_{component_key}_{item_index}",
-        )
         if preview_renderer is not None:
             preview_renderer(uploaded_input, item_index, component_key)
         else:
@@ -17904,31 +17899,36 @@ def render_uploaded_preview_card(
                 fit_mode="contain",
                 max_width_percent=100,
             )
-        if allow_reorder and item_count > 1:
-            for column, label, target in zip(
-                st.columns(2), ("←前移", "后移→"), (item_index - 1, item_index + 1)
-            ):
-                with column:
-                    if st.button(
-                        label,
-                        key=f"reorder_{component_key}_{target}",
-                        disabled=not 0 <= target < item_count,
-                        use_container_width=True,
-                    ):
-                        reorder_upload_cache_item(widget_key, item_index, target)
-                        reset_upload_widget(widget_key)
-                        st.rerun()
-        st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
-        replacement_upload = st.file_uploader(
-            "替换图片",
-            type=["png", "jpg", "jpeg", "webp"],
-            key=get_replace_uploader_widget_key(widget_key, item_index),
-            label_visibility="collapsed",
-        )
-        if replacement_upload is not None:
-            replace_upload_cache_item(widget_key, item_index, replacement_upload)
-            reset_upload_widget(widget_key)
-            st.rerun()
+        with st.popover("图片操作", use_container_width=True):
+            if st.button("移除图片", key=f"delete_upload_{component_key}_{item_index}", use_container_width=True):
+                remove_upload_cache_item(widget_key, item_index)
+                reset_upload_widget(widget_key)
+                st.rerun()
+            if allow_reorder and item_count > 1:
+                for column, label, target in zip(
+                    st.columns(2), ("←前移", "后移→"), (item_index - 1, item_index + 1)
+                ):
+                    with column:
+                        if st.button(
+                            label,
+                            key=f"reorder_{component_key}_{target}",
+                            disabled=not 0 <= target < item_count,
+                            use_container_width=True,
+                        ):
+                            reorder_upload_cache_item(widget_key, item_index, target)
+                            reset_upload_widget(widget_key)
+                            st.rerun()
+            st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
+            replacement_upload = st.file_uploader(
+                "替换图片",
+                type=["png", "jpg", "jpeg", "webp"],
+                key=get_replace_uploader_widget_key(widget_key, item_index),
+                label_visibility="collapsed",
+            )
+            if replacement_upload is not None:
+                replace_upload_cache_item(widget_key, item_index, replacement_upload)
+                reset_upload_widget(widget_key)
+                st.rerun()
 
 
 def render_uploaded_previews(uploaded_file: Any | None, widget_key: str) -> None:
@@ -18885,8 +18885,16 @@ def render_single_image_uploader(
     cached_files = load_upload_cache(key, max_files=1)
     active_uploaded = cached_files[0] if cached_files else None
 
-    if active_uploaded is not None:
-        render_uploaded_previews(active_uploaded, key)
+    with st.container(height=400, border=False):
+        if active_uploaded is not None:
+            def single_preview(uploaded_input: Any, item_index: int, component_key: str) -> None:
+                render_zoomable_image_gallery(
+                    [uploaded_input_to_data_url(uploaded_input)], columns=1, thumb_height=320,
+                    component_key=component_key, fit_mode="contain", max_width_percent=100,
+                )
+            render_uploaded_preview_card(active_uploaded, key, 0, f"single_preview_{key}", preview_renderer=single_preview)
+        else:
+            st.markdown('<div class="upload-main-empty" style="height:350px"><div class="empty-icon">＋</div><div class="empty-title">上传参考图片</div></div>', unsafe_allow_html=True)
 
     action_left, action_right = st.columns([1, 1], gap="small")
     with action_left:
@@ -18960,6 +18968,94 @@ def render_compact_element_image_uploader(
     return active_uploaded
 
 
+def render_first_screen_material_uploader(key: str, *, hero: bool = False) -> list[Any]:
+    """Fixed material canvas with compact, accessible per-image actions."""
+    limit = 1 if hero else 9
+    files = load_upload_cache(key, max_files=limit)
+    with st.container(border=True, key="fusion_hero" if hero else "fusion_materials"):
+        st.markdown(
+            f'<div class="fusion-panel-heading"><strong>{"首屏底稿" if hero else "卖点素材"}</strong>'
+            f'<span>{len(files)} / {limit}</span></div>', unsafe_allow_html=True,
+        )
+        st.caption("首屏内容原样保留" if hero else "拖动调整顺序，按优先级提取卖点")
+        with st.container(height=540, border=False):
+            for start in range(0, limit, 1 if hero else 3):
+                columns = st.columns(1 if hero else 3, gap="small")
+                for offset, column in enumerate(columns):
+                    index = start + offset
+                    with column:
+                        if index >= len(files):
+                            st.markdown(
+                                f'<div class="fusion-empty-slot {"fusion-empty-hero" if hero else ""}">'
+                                '<span>＋</span>等待上传</div>',
+                                unsafe_allow_html=True,
+                            )
+                            with st.popover("上传底稿" if hero else "添加素材", use_container_width=True):
+                                additions = st.file_uploader(
+                                    "选择图片", type=["png", "jpg", "jpeg", "webp"],
+                                    accept_multiple_files=not hero,
+                                    key=f"{get_uploader_widget_key(key)}_slot_{index}",
+                                )
+                                if additions:
+                                    new_files = [additions] if hero else list(additions)
+                                    save_upload_cache(key, (files + new_files)[:limit])
+                                    reset_upload_widget(key)
+                                    st.rerun()
+                            continue
+                        with st.container(key=f"fusion_card_{key}_{index}"):
+                            st.markdown(
+                                f'<div class="upload-preview-root" data-upload-widget="{html.escape(key, quote=True)}" '
+                                f'data-upload-index="{index}" data-upload-sortable="{str(not hero).lower()}"></div>',
+                                unsafe_allow_html=True,
+                            )
+                            render_zoomable_image_gallery(
+                                [uploaded_input_to_data_url(files[index])], columns=1,
+                                thumb_height=470 if hero else 112,
+                                component_key=f"fusion_preview_{key}_{index}",
+                                fit_mode="contain", max_width_percent=100,
+                            )
+                            with st.popover("替换 / 移除" if hero else f"{index + 1:02d} · 操作", use_container_width=True):
+                                st.caption("点击图片可放大查看")
+                                replacement = st.file_uploader(
+                                    "替换图片", type=["png", "jpg", "jpeg", "webp"],
+                                    key=get_replace_uploader_widget_key(key, index),
+                                )
+                                if replacement is not None:
+                                    replace_upload_cache_item(key, index, replacement)
+                                    reset_upload_widget(key)
+                                    st.rerun()
+                                if not hero:
+                                    for target, label in ((index - 1, "← 前移"), (index + 1, "后移 →")):
+                                        if st.button(label, key=f"fusion_move_{key}_{index}_{target}", disabled=not 0 <= target < len(files)):
+                                            reorder_upload_cache_item(key, index, target)
+                                            reset_upload_widget(key)
+                                            st.rerun()
+                                if st.button("移除图片", key=f"fusion_remove_{key}_{index}"):
+                                    remove_upload_cache_item(key, index)
+                                    reset_upload_widget(key)
+                                    st.rerun()
+        upload_col, clear_col = st.columns([3, 1], gap="small")
+        with upload_col:
+            st.markdown('<div class="upload-more-marker"></div>', unsafe_allow_html=True)
+            uploaded = st.file_uploader(
+                "替换底稿" if hero and files else "上传底稿" if hero else "添加素材",
+                type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=not hero,
+                key=get_uploader_widget_key(key), label_visibility="collapsed",
+            )
+            if uploaded:
+                additions = [uploaded] if hero else list(uploaded)
+                save_upload_cache(key, (additions if hero else files + additions)[:limit])
+                reset_upload_widget(key)
+                st.rerun()
+        with clear_col:
+            if st.button("清空", key=f"fusion_clear_{key}", use_container_width=True, disabled=not files):
+                clear_upload_cache(key)
+                reset_upload_widget(key)
+                st.rerun()
+        st.caption("支持 Ctrl+V 粘贴 · 点击图片放大" if hero else "最多 9 张 · 支持 Ctrl+V 粘贴")
+    return files
+
+
 def render_multi_image_uploader(
     label: str,
     key: str,
@@ -18968,37 +19064,43 @@ def render_multi_image_uploader(
     preview_renderer: Any | None = None,
     preview_slot_count: int | None = None,
     allow_reorder: bool = False,
+    preview_area_height: int | None = None,
 ) -> list[Any]:
     cached_files = load_upload_cache(key, max_files=max_files)
     active_uploaded_files = cached_files
 
-    if active_uploaded_files:
-        st.markdown(
-            '<div class="upload-summary-row">'
-            '<strong>已上传图片</strong>'
-            f'<span>{len(active_uploaded_files)} / {max_files} 张</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        render_uploaded_gallery(
-            active_uploaded_files,
-            "",
-            widget_key=key,
-            slot_count=preview_slot_count or max_files,
-            preview_renderer=preview_renderer,
-            allow_reorder=allow_reorder,
-        )
-        if allow_reorder and len(active_uploaded_files) > 1:
-            st.caption("按住图片左上角的“优先级”标签拖拽，或点击前移/后移，调整生成时的参考顺序。")
-    else:
-        st.markdown(
-            '<div class="upload-main-empty">'
-            '<div class="empty-icon">＋</div>'
-            '<div class="empty-title">添加需要处理的图片</div>'
-            f'<div class="empty-subtitle">支持批量上传，最多 {max_files} 张</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+    # Reserve the same space for empty and populated galleries. Extra images
+    # scroll inside this area instead of moving the controls below the uploader.
+    preview_area_height = preview_area_height or (560 if preview_renderer is not None else 420)
+    preview_area = st.container(height=preview_area_height, border=False) if preview_area_height else st.container()
+    with preview_area:
+        if active_uploaded_files:
+            st.markdown(
+                '<div class="upload-summary-row">'
+                '<strong>已上传图片</strong>'
+                f'<span>{len(active_uploaded_files)} / {max_files} 张</span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            render_uploaded_gallery(
+                active_uploaded_files,
+                "",
+                widget_key=key,
+                slot_count=preview_slot_count or max_files,
+                preview_renderer=preview_renderer,
+                allow_reorder=allow_reorder,
+            )
+            if allow_reorder and len(active_uploaded_files) > 1:
+                st.caption("按住图片左上角的“优先级”标签拖拽，或点击前移/后移，调整生成时的参考顺序。")
+        else:
+            st.markdown(
+                f'<div class="upload-main-empty" style="height:{preview_area_height - 16}px">'
+                '<div class="empty-icon">＋</div>'
+                '<div class="empty-title">添加需要处理的图片</div>'
+                f'<div class="empty-subtitle">支持批量上传，最多 {max_files} 张</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
 
     action_left, action_right = st.columns([1.4, 0.6], gap="small")
     with action_left:
@@ -20108,24 +20210,27 @@ def render_history_toggle(feature: dict[str, Any]) -> None:
         st.rerun()
 
 
-def render_history_records(feature: dict[str, Any]) -> None:
+def render_history_records(feature: dict[str, Any], *, show_toggle: bool = True) -> None:
     account_name = str(st.session_state.get("auth_username") or "admin")
     cache_key = get_history_cache_key(account_name, feature["key"])
     is_expanded = bool(st.session_state.history_panel_expanded.get(cache_key, False))
     button_label = "加载历史记录" if not is_expanded else "收起历史记录"
     button_icon = ":material/history:" if not is_expanded else ":material/expand_less:"
-    if st.button(
-        button_label,
-        key=f"lazy_history_{feature['key']}",
-        use_container_width=True,
-        type="secondary",
-        icon=button_icon,
-    ):
-        next_state = not is_expanded
-        st.session_state.history_panel_expanded[cache_key] = next_state
-        if next_state:
-            set_history_visible_limit(cache_key, HISTORY_PAGE_SIZE)
-        st.rerun()
+    if not show_toggle:
+        is_expanded = True
+    else:
+        if st.button(
+            button_label,
+            key=f"lazy_history_{feature['key']}",
+            use_container_width=True,
+            type="secondary",
+            icon=button_icon,
+        ):
+            next_state = not is_expanded
+            st.session_state.history_panel_expanded[cache_key] = next_state
+            if next_state:
+                set_history_visible_limit(cache_key, HISTORY_PAGE_SIZE)
+            st.rerun()
     if not is_expanded:
         return
 
@@ -20151,6 +20256,38 @@ def render_history_records(feature: dict[str, Any]) -> None:
             set_history_visible_limit(cache_key, next_limit)
             ensure_history_records_loaded(feature["key"], account_name, cache_key, next_limit)
             st.rerun()
+
+
+def render_image_workbench_header(feature: dict[str, Any], badge: str = "AI 增强") -> None:
+    """Shared image-tool header; history always stays within reach."""
+    st.markdown("""<style>
+    .workbench-page-marker {display:none;}
+    body:has(.workbench-page-marker) textarea {min-height:clamp(180px,22vh,340px)!important;resize:vertical;background:#091325!important;color:#edf0ff!important;}
+    body:has(.workbench-page-marker) textarea::placeholder {color:#8996b3!important;opacity:1;}
+    body:has(.workbench-page-marker) [data-baseweb="textarea"] {border:1px solid #303958!important;border-radius:10px;background:#091325!important;}
+    body:has(.workbench-page-marker) [data-testid="stPopoverButton"] {background:#101b31!important;color:#dce2f8!important;border:1px solid #303958!important;border-radius:9px!important;}
+    .st-key-workbench_settings {background:#0c1529;border-color:#303958!important;}
+    .st-key-workbench_action_dock {position:fixed;bottom:0;left:0;right:0;z-index:1000;background:rgba(12,20,40,.98);border-radius:0!important;padding:12px 28px!important;border-top:1px solid #3c4169!important;}
+    body:has(.workbench-page-marker) section[data-testid="stMain"] .block-container {padding-bottom:110px;}
+    div[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .workbench-right-marker) {height:100%;min-height:0;}
+    [data-testid="stLayoutWrapper"]:has(> .st-key-workbench_results), .st-key-workbench_results {flex:1!important;min-height:420px;}
+    .st-key-workbench_results > [data-testid="stElementContainer"]:has(.result-empty) {flex:1!important;height:100%;}
+    .st-key-workbench_results :is([data-testid="stMarkdown"],[data-testid="stMarkdownContainer"]):has(.result-empty),
+    .st-key-workbench_results [data-testid="stMarkdown"]:has(.result-empty) > div {height:100%;}
+    .st-key-workbench_results .result-empty {height:100%;min-height:420px;box-sizing:border-box;margin:0;}
+    @media(max-width:900px){.st-key-workbench_action_dock{padding:8px 12px!important;}}
+    </style><div class="workbench-page-marker"></div>""", unsafe_allow_html=True)
+    title_col, history_col = st.columns([5, 1], vertical_alignment="center")
+    with title_col:
+        st.markdown(f'<div class="feature-title">{html.escape(str(feature["name"]))}<span class="feature-badge">{html.escape(badge)}</span></div>', unsafe_allow_html=True)
+    with history_col:
+        if st.button("历史记录", icon=":material/history:", key=f"workbench_history_{feature['key']}", use_container_width=True):
+            render_fusion_history_dialog(feature)
+
+
+@st.dialog("历史记录", width="large")
+def render_fusion_history_dialog(feature: dict[str, Any]) -> None:
+    render_history_records(feature, show_toggle=False)
 
 
 def render_side_history_panel(feature: dict[str, Any]) -> None:
@@ -21282,10 +21419,8 @@ def render_background_cutout_feature(feature: dict[str, Any]) -> None:
     job_info = st.session_state.background_jobs.get(feature_key) or {}
 
     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="feature-title">{feature["name"]}<span class="feature-badge">AI 抠图转透明</span></div>',
-        unsafe_allow_html=True,
-    )
+    render_image_workbench_header(feature, "AI 抠图转透明")
+    action_dock = st.container(key="workbench_action_dock", border=True)
     left_col, right_col = st.columns([0.86, 1.14], gap="medium")
     uploaded_file = None
     with left_col:
@@ -21308,7 +21443,8 @@ def render_background_cutout_feature(feature: dict[str, Any]) -> None:
         cutout_action_label = "只抠睫毛商品区域"
         if str(job_info.get("status") or "").strip().lower() in {"queued", "running"}:
             cutout_action_label += "（加入队列）"
-        submitted = st.button(cutout_action_label, key=f"process_{feature_key}", type="secondary", use_container_width=True)
+        with action_dock:
+            submitted = st.button(cutout_action_label, key=f"process_{feature_key}", type="primary", use_container_width=True)
         if submitted:
             if uploaded_file is None:
                 st.warning("请先上传 1 张需要抠图的图片。")
@@ -21372,7 +21508,6 @@ def render_background_cutout_feature(feature: dict[str, Any]) -> None:
             st.success("睫毛商品区域抠图任务已完成。")
 
     st.markdown("</div>", unsafe_allow_html=True)
-    render_history_records(feature)
 
 
 
@@ -21716,15 +21851,13 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
         st.error(str(job_info.get("error") or "生成失败，请重试。"))
 
     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="feature-title">{feature["name"]}<span class="feature-badge">参考图 → 风格拆解 → 提示词 → 批量创作</span></div>',
-        unsafe_allow_html=True,
-    )
+    render_image_workbench_header(feature, "参考图 → 风格拆解 → 提示词 → 批量创作")
     st.caption(
         "上传一张首屏风格参考图，AI 先拆解主体、构图、色彩、光影、风格与细节，反写中文生图提示词；"
         "提示词可直接修改，再批量生成同风格创意图，最后挑出最优方案做二次优化。"
     )
 
+    action_dock = st.container(key="workbench_action_dock", border=True)
     left_col, right_col = st.columns([0.92, 1.08], gap="medium")
 
     with left_col:
@@ -21811,17 +21944,18 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                         st.rerun()
 
         st.markdown('<div class="result-block-title">④ 批量生成</div>', unsafe_allow_html=True)
-        output_count = int(
-            st.select_slider(
-                "生成张数",
-                options=list(range(1, HERO_STYLE_REVERSE_MAX_COUNT + 1)),
-                value=2,
-                key=count_key,
-                on_change=save_hero_reverse_draft, args=("count", count_key),
+        count_col, size_col_width, size_col_height = st.columns([1, 1, 1], gap="small")
+        with count_col:
+            output_count = int(
+                st.select_slider(
+                    "生成张数",
+                    options=list(range(1, HERO_STYLE_REVERSE_MAX_COUNT + 1)),
+                    value=2,
+                    key=count_key,
+                    on_change=save_hero_reverse_draft, args=("count", count_key),
+                )
             )
-        )
         aspect_ratio = "4:3"
-        size_col_width, size_col_height = st.columns(2, gap="small")
         with size_col_width:
             target_width = st.number_input(
                 "输出宽度（px）",
@@ -21857,12 +21991,13 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
             key=use_ref_key,
             on_change=save_hero_reverse_draft, args=("use_ref", use_ref_key),
         )
-        generate_clicked = st.button(
-            f"② 批量生成 {output_count} 张",
-            key=f"generate_{feature_key}",
-            type="primary",
-            use_container_width=True,
-        )
+        with action_dock:
+            generate_clicked = st.button(
+                f"② 批量生成 {output_count} 张",
+                key=f"generate_{feature_key}",
+                type="primary",
+                use_container_width=True,
+            )
         if generate_clicked:
             prompt_to_use = str(st.session_state.get(prompt_key) or "").strip()
             if not prompt_to_use:
@@ -21977,7 +22112,6 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                     st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
-    render_history_records(feature)
 
 
 def render_replacement_infinite_canvas_feature(feature: dict[str, Any]) -> None:
@@ -23439,13 +23573,52 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
     if supports_a_plus_reference_lab:
         st.markdown('<div class="a-plus-lab-page-marker"></div>', unsafe_allow_html=True)
+    if supports_a_plus_first_screen_selling_points:
+        st.markdown("""<style>
+        .st-key-fusion_hero, .st-key-fusion_materials { min-width:0; background:#0c1529; border-color:#303958!important; }
+        :is(.st-key-fusion_hero,.st-key-fusion_materials) [data-testid="stPopoverButton"] {background:#101b31!important;color:#dce2f8!important;border:1px solid #303958!important;border-radius:9px!important;}
+        :is(.st-key-fusion_hero,.st-key-fusion_materials) [data-testid="stPopoverButton"] p {color:#dce2f8!important;}
+        .st-key-fusion_settings {border-color:#303958!important;background:#0c1529;}
+        .st-key-fusion_settings textarea {min-height:clamp(220px,24vh,380px)!important;resize:vertical;background:#091325!important;color:#edf0ff!important;}
+        .st-key-fusion_settings textarea::placeholder {color:#8996b3!important;opacity:1;}
+        .st-key-fusion_settings [data-baseweb="textarea"] {border:1px solid #303958!important;border-radius:10px;background:#091325!important;}
+        .st-key-fusion_settings [data-testid="stHorizontalBlock"] {align-items:end;}
+        .st-key-fusion_settings [data-testid="stColumn"] {min-width:0!important;}
+        .fusion-panel-heading {display:flex;justify-content:space-between;align-items:center;color:#f1f3ff;font-size:16px;}
+        .fusion-panel-heading span {border:1px solid #36415d;border-radius:18px;padding:2px 12px;font-size:12px;color:#c8cde5;}
+        .fusion-empty-slot {height:112px;border:1px dashed #49547c;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aeb9d7;font-size:12px;background:#10192e;}
+        .fusion-empty-slot span {font-size:25px;color:#a995ff;margin-bottom:8px;}
+        .fusion-empty-hero {height:470px;}
+        div[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .fusion-right-marker) {height:100%;min-height:0;padding:12px;border:1px solid #303958;border-radius:14px;background:rgba(7,15,31,.32);}
+        .st-key-fusion_results {flex:1!important;min-height:500px;}
+        [data-testid="stLayoutWrapper"]:has(> .st-key-fusion_results) {flex:1!important;min-height:500px;}
+        .st-key-fusion_results > [data-testid="stElementContainer"]:has(.fusion-result-empty) {flex:1!important;height:100%;}
+        .st-key-fusion_results [data-testid="stMarkdown"]:has(.fusion-result-empty) {height:100%;}
+        .st-key-fusion_results [data-testid="stMarkdownContainer"]:has(.fusion-result-empty),
+        .st-key-fusion_results [data-testid="stMarkdown"]:has(.fusion-result-empty) > div {height:100%;}
+        .fusion-result-empty {height:100%;min-height:500px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px dashed #7165ac;border-radius:12px;background:#0d162b;}
+        .fusion-result-empty>div {font-size:42px;color:#9c7aff;margin-bottom:20px;}
+        .fusion-result-empty p {font-size:13px;color:#aab5d1;max-width:230px;}
+        .st-key-fusion_action_dock {position:fixed;bottom:0;left:0;right:0;z-index:1000;background:rgba(12,20,40,.98);border-radius:0!important;padding:12px 28px!important;border-top:1px solid #3c4169!important;}
+        .st-key-fusion_action_dock p {margin:10px 0;color:#c8d5ec;}
+        section[data-testid="stMain"] .block-container {padding-bottom:110px;}
+        @media(max-width:900px){.st-key-fusion_action_dock {padding:8px 12px!important;} .fusion-result-empty {height:500px;}}
+        </style>""", unsafe_allow_html=True)
     page_subtitle = str(feature.get("summary") or feature.get("description") or "").strip()
     if not supports_a_plus_reference_lab and page_subtitle:
         page_subtitle = re.split(r"[。；;]", page_subtitle, maxsplit=1)[0].strip()
         if len(page_subtitle) > 42:
             page_subtitle = f"{page_subtitle[:41].rstrip()}…"
     title_html = f'<div class="feature-title">{feature["name"]}<span class="feature-badge">AI 增强</span></div>'
-    st.markdown(title_html, unsafe_allow_html=True)
+    if supports_a_plus_first_screen_selling_points:
+        title_col, history_col = st.columns([5, 1], vertical_alignment="center")
+        with title_col:
+            st.markdown(title_html, unsafe_allow_html=True)
+        with history_col:
+            if st.button("历史记录", icon=":material/history:", key="fusion_open_history", use_container_width=True):
+                render_fusion_history_dialog(feature)
+    else:
+        render_image_workbench_header(feature)
     if not supports_a_plus_reference_lab:
         st.markdown(f'<div class="feature-desc">{page_subtitle}</div>', unsafe_allow_html=True)
     if str(job_info.get("status") or "").strip().lower() in {"queued", "running"}:
@@ -23525,7 +23698,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         meta_items = meta_items[:3]
         st.markdown(f'<div class="meta-row">{"".join(meta_items)}</div>', unsafe_allow_html=True)
 
-    if supports_a_plus_reference_lab:
+    if supports_a_plus_first_screen_selling_points:
+        workflow_steps = ("上传素材", "设置要求", "生成结果")
+    elif supports_a_plus_reference_lab:
         workflow_steps = ("选风格", "传素材", "定规格", "生成", "看结果")
     elif supports_main_image_a_plus or supports_amazon_a_plus:
         workflow_steps = ("选择方式", "上传素材", "设置规格与要求", "开始生成", "查看结果")
@@ -23552,7 +23727,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     if feature.get("key") == "hd_batch":
         active_batch_concurrency = min(active_batch_concurrency, HD_BATCH_MAX_API_CONCURRENCY)
 
-    column_ratio = [1, 1]
+    shared_action_dock = None
+    if not supports_a_plus_first_screen_selling_points:
+        shared_action_dock = st.container(key="workbench_action_dock", border=True)
+    column_ratio = [1.85, 1] if supports_a_plus_first_screen_selling_points else [1, 1]
     left_col, right_col = st.columns(column_ratio, gap="medium")
     with left_col:
         if supports_a_plus_reference_lab:
@@ -23573,8 +23751,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             unsafe_allow_html=True,
         )
         primary_action_slot = None
-        if not supports_batch_multi_upload and not supports_a_plus_reference_lab:
-            primary_action_slot = st.empty()
         skin_tone_reference_file = None
         pupil_color_reference_file = None
         eye_shape_reference_file = None
@@ -23949,6 +24125,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 max_files=3,
             )
             st.markdown('<div class="panel-subtitle">文字要求</div>', unsafe_allow_html=True)
+            if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                primary_action_slot = st.empty()
             ai_qa_prompt = st.text_area(
                 "输入你的问答要求",
                 key=f"ai_qa_prompt_{feature['key']}",
@@ -23971,6 +24149,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             )
             st.info("固定输出 1464×1000 px；版式允许在合理范围内重新组织，参考图中的原模特会被替换为目标模特。")
             st.markdown('<div class="panel-subtitle">补充要求（可选）</div>', unsafe_allow_html=True)
+            if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                primary_action_slot = st.empty()
             a_plus_style_model_replace_prompt = st.text_area(
                 "输入 A+ 换模补充要求",
                 key=f"a_plus_style_model_replace_prompt_{feature['key']}",
@@ -23990,45 +24170,36 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         save_upload_cache(selling_points_upload_key, legacy_files[1:])
                     clear_upload_cache(legacy_upload_key)
 
-            hero_col, selling_points_col = st.columns([0.92, 1.08], gap="medium")
+            hero_col, selling_points_col = st.columns([0.85, 1.15], gap="small")
             with hero_col:
-                st.markdown('<div class="panel-subtitle">首屏底稿（1 张）</div>', unsafe_allow_html=True)
-                hero_source_files = render_multi_image_uploader(
-                    "上传首屏底稿",
-                    key=hero_upload_key,
-                    help_text="上传最终首屏底稿，生成时会完整保留这张图的首屏画面和原始比例。",
-                    max_files=1,
-                    preview_slot_count=1,
-                    allow_reorder=False,
-                )
+                hero_source_files = render_first_screen_material_uploader(hero_upload_key, hero=True)
             with selling_points_col:
-                st.markdown('<div class="panel-subtitle">卖点主图（1–9 张）</div>', unsafe_allow_html=True)
-                selling_point_files = render_multi_image_uploader(
-                    "上传卖点图",
-                    key=selling_points_upload_key,
-                    help_text="上传商品细节、功能和真实卖点主图；按住图片左上角的优先级标签拖动排序。",
-                    max_files=9,
-                    preview_slot_count=3,
-                    allow_reorder=True,
-                )
+                selling_point_files = render_first_screen_material_uploader(selling_points_upload_key)
             amazon_source_files = list(hero_source_files) + list(selling_point_files)
-            st.markdown('<div class="slot-helper">生成时自动使用左侧首屏底稿作为第 1 张参考图，右侧卖点图按拖动后的顺序依次提交。</div>', unsafe_allow_html=True)
-            st.info(
-                "第 1 张图片作为首屏底稿原样保留；后续主图只提取真实卖点，尺寸和比例跟随第 1 张图片。"
-            )
-            st.number_input(
-                "首屏保留高度（px，0 为自动识别）", min_value=0, max_value=30000,
-                value=0, step=1, key=f"first_screen_keep_height_{feature['key']}",
-                help="背景可以是粉色、渐变或带装饰。自动识别不准时，填写原图中首屏结束的位置；该位置以上保持不变。",
-            )
-            st.markdown('<div class="panel-subtitle">补充要求（可选）</div>', unsafe_allow_html=True)
-            a_plus_first_screen_selling_points_prompt = st.text_area(
-                "输入首屏与卖点融合补充要求",
-                key=f"a_plus_first_screen_selling_points_prompt_{feature['key']}",
-                placeholder="例如：首屏保留模特、产品与品牌色；优先融合防水、轻量和三步使用方法。",
-                height=110,
-                label_visibility="collapsed",
-            )
+            with st.container(key="fusion_settings", border=True):
+                st.markdown('<div class="result-block-title">生成设置</div>', unsafe_allow_html=True)
+                count_col, model_col, height_col = st.columns([1, 1.6, 1.4], gap="small")
+                with count_col:
+                    selected_output_count = int(st.number_input(
+                        "生成数量", min_value=FEATURE_OUTPUT_COUNT_MIN, max_value=FEATURE_OUTPUT_COUNT_MAX,
+                        value=default_output_count, step=1, disabled=bool(fixed_output_count),
+                        key=f"output_count_{feature['key']}",
+                    ))
+                with model_col:
+                    active_model = model_options_for_feature[0]
+                    st.text_input("当前模型", value=get_model_display_name(active_model), disabled=True, key="fusion_current_model")
+                with height_col:
+                    st.number_input(
+                        "首屏保留高度（px，0 为自动识别）", min_value=0, max_value=30000,
+                        value=0, step=1, key=f"first_screen_keep_height_{feature['key']}",
+                        help="自动识别不准时，填写原图中首屏结束的位置；该位置以上保持不变。",
+                    )
+                if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                    primary_action_slot = st.empty()
+                a_plus_first_screen_selling_points_prompt = st.text_area(
+                    "补充要求（可选）", key=f"a_plus_first_screen_selling_points_prompt_{feature['key']}",
+                    placeholder="请输入本次生成的补充要求…", height=220,
+                )
         elif supports_a_plus_reference_lab:
             main_image_a_plus_mode = MAIN_IMAGE_A_PLUS_MODE_FREE
             a_plus_lab_style_key = st.selectbox(
@@ -24100,6 +24271,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     unsafe_allow_html=True,
                 )
             st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
+            if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                primary_action_slot = st.empty()
             main_image_a_plus_prompt = st.text_area(
                 "输入 A+3.0 补充要求",
                 key=f"main_image_a_plus_prompt_{feature['key']}",
@@ -24682,6 +24855,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     )
                 )
             st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
+            if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                primary_action_slot = st.empty()
             main_image_a_plus_prompt = st.text_area(
                 "输入主图生A+补充要求",
                 key=f"main_image_a_plus_prompt_{feature['key']}",
@@ -24739,6 +24914,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 f"{a_plus_psd_width}×{a_plus_psd_height}px · 商业背景独立图层 · 商品/模特/文案/装饰自动拆层。"
             )
             st.markdown('<div class="panel-subtitle">补充宣传要求（可选）</div>', unsafe_allow_html=True)
+            if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                primary_action_slot = st.empty()
             amazon_a_plus_prompt = st.text_area(
                 "输入自由创作 PSD 补充要求",
                 key=f"amazon_prompt_{feature['key']}",
@@ -24770,6 +24947,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 )
                 st.caption(selected_texture_details)
             st.markdown('<div class="panel-subtitle">直接描述想要的质感（可选）</div>', unsafe_allow_html=True)
+            if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                primary_action_slot = st.empty()
             background_texture_prompt = st.text_area(
                 "输入背景质感描述",
                 key=f"background_texture_prompt_{feature['key']}",
@@ -24832,6 +25011,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             )
             if feature.get("key") == "product_retouch_local":
                 st.markdown('<div class="panel-subtitle">修复要求</div>', unsafe_allow_html=True)
+                if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                    primary_action_slot = st.empty()
                 local_retouch_prompt = st.text_area(
                     "输入要修复的区域和瑕疵",
                     key=f"local_retouch_prompt_{feature['key']}",
@@ -24927,109 +25108,47 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             and not main_image_a_plus_element_review_confirmed
         )
         process_button_disabled = is_element_review_pending
-        if primary_action_slot is None:
-            action_container = st.container(border=True)
-        else:
-            with primary_action_slot:
-                action_container = st.container(border=True)
-        with action_container:
-            has_inline_image_controls = bool(
-                str(feature.get("output_mode") or "") == "image"
-                and not supports_image_resize
-                and not supports_a_plus_reference_lab
-            )
-            if has_inline_image_controls:
-                count_control_col, model_control_col, action_control_col = st.columns(
-                    [0.68, 1.42, 0.82],
-                    gap="small",
-                )
-                with count_control_col:
-                    selected_output_count = int(
-                        st.number_input(
-                            "生成数量",
-                            min_value=FEATURE_OUTPUT_COUNT_MIN,
-                            max_value=FEATURE_OUTPUT_COUNT_MAX,
-                            value=default_output_count,
-                            step=1,
-                            disabled=bool(fixed_output_count),
+        if not supports_a_plus_first_screen_selling_points:
+            settings_parent = primary_action_slot.container() if primary_action_slot is not None else st.container()
+            with settings_parent, st.container(key="workbench_settings", border=True):
+                st.markdown('<div class="result-block-title">生成设置</div>', unsafe_allow_html=True)
+                count_col, model_col = st.columns([1, 2], gap="small")
+                with count_col:
+                    if str(feature.get("output_mode") or "") == "image" and not supports_image_resize and not supports_a_plus_reference_lab:
+                        selected_output_count = int(st.number_input(
+                            "生成数量", min_value=FEATURE_OUTPUT_COUNT_MIN, max_value=FEATURE_OUTPUT_COUNT_MAX,
+                            value=default_output_count, step=1, disabled=bool(fixed_output_count),
                             key=f"output_count_{feature['key']}",
-                        )
-                    )
-                with model_control_col:
+                        ))
+                    else:
+                        st.caption(f"结果数量：{selected_output_count}" if selected_output_count else "分析结果")
+                with model_col:
                     if len(model_options_for_feature) == 1:
                         active_model = model_options_for_feature[0]
-                        st.markdown('<div class="panel-subtitle">当前模型</div>', unsafe_allow_html=True)
-                        st.markdown(
-                            '<div class="a-plus-inline-model-card">'
-                            f'{html.escape(get_model_display_name(active_model))}</div>',
-                            unsafe_allow_html=True,
-                        )
+                        st.text_input("当前模型", value=get_model_display_name(active_model), disabled=True, key=f"workbench_model_{feature['key']}")
                     else:
                         active_model = st.selectbox(
-                            "生成方式" if supports_outpaint else "当前模型",
-                            model_options_for_feature,
+                            "生成方式" if supports_outpaint else "当前模型", model_options_for_feature,
                             index=model_options_for_feature.index(default_model_for_feature),
-                            format_func=get_model_display_name,
-                            key=f"model_select_{feature['key']}",
+                            format_func=get_model_display_name, key=f"model_select_{feature['key']}",
                         )
-                with action_control_col:
-                    st.markdown('<div class="panel-subtitle">&nbsp;</div>', unsafe_allow_html=True)
+            with shared_action_dock:
+                status_col, action_col = st.columns([2, 1], vertical_alignment="center")
+                with status_col:
+                    st.caption(f"{feature['name']} · {'任务处理中，可继续加入队列' if has_active_job else '设置完成后开始处理'}")
+                with action_col:
                     submitted = st.button(
-                        process_button_label,
-                        key=f"process_{feature['key']}",
-                        type="primary",
-                        use_container_width=True,
+                        f"开始生成 {selected_output_count} 张" if supports_a_plus_reference_lab else process_button_label,
+                        key=f"process_{feature['key']}", type="primary", use_container_width=True,
                         disabled=process_button_disabled,
                     )
-            st.markdown(
-                '<div class="main-action-dock-marker"></div>'
-                '<div class="inline-action-row"></div>',
-                unsafe_allow_html=True,
-            )
-            if len(model_options_for_feature) == 1:
-                active_model = model_options_for_feature[0]
-                if not supports_a_plus_reference_lab and not has_inline_image_controls:
-                    st.markdown(
-                        '<div class="fixed-model-card"><span>当前模型</span>'
-                        f'<strong>{html.escape(get_model_display_name(active_model))}</strong></div>',
-                        unsafe_allow_html=True,
-                    )
-                action_label = (
-                    f"开始生成 {selected_output_count} 张"
-                    if supports_a_plus_reference_lab
-                    else process_button_label
-                )
-                if not has_inline_image_controls:
-                    submitted = st.button(
-                        action_label,
-                        key=f"process_{feature['key']}",
-                        type="primary",
-                        use_container_width=True,
-                        disabled=process_button_disabled,
-                    )
-            else:
-                if not has_inline_image_controls:
-                    selector_col, process_col = st.columns([1.35, 0.95], gap="small")
-                    with selector_col:
-                        active_model = st.selectbox(
-                            "生成方式" if supports_outpaint else "模型切换",
-                            model_options_for_feature,
-                            index=model_options_for_feature.index(default_model_for_feature),
-                            format_func=get_model_display_name,
-                            key=f"model_select_{feature['key']}",
-                        )
-                    with process_col:
-                        st.markdown('<div class="panel-subtitle">&nbsp;</div>', unsafe_allow_html=True)
-                        submitted = st.button(
-                            process_button_label,
-                            key=f"process_{feature['key']}",
-                            type="primary",
-                            use_container_width=True,
-                            disabled=process_button_disabled,
-                        )
     with right_col:
+        if not supports_a_plus_first_screen_selling_points:
+            st.markdown('<div class="workbench-right-marker" style="display:none"></div>', unsafe_allow_html=True)
         if supports_a_plus_reference_lab:
             st.markdown('<div class="a-plus-lab-right-marker"></div>', unsafe_allow_html=True)
+        elif supports_a_plus_first_screen_selling_points:
+            st.markdown('<div class="fusion-right-marker" style="display:none"></div>', unsafe_allow_html=True)
         else:
             st.markdown('<div class="feature-workbench-right-marker"></div>', unsafe_allow_html=True)
         if supports_batch_multi_upload:
@@ -25069,7 +25188,11 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 except Exception:
                     source_images.append("")
         result_captions = list(result.get("captions") or [])
-        result_view_container = st.container()
+        result_view_container = (
+            st.container(key="fusion_results", border=False)
+            if supports_a_plus_first_screen_selling_points
+            else st.container(key="workbench_results", border=False)
+        )
         if shows_element_map:
             element_map_tab, manual_picker_tab, result_view_container = st.tabs(
                 ["元素标注图", "手动补漏", "生成结果"]
@@ -25259,6 +25382,23 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     feature["key"],
                     download_images=result_download_images,
                 )
+            elif supports_a_plus_first_screen_selling_points:
+                if not result_images:
+                    st.markdown(
+                        '<div class="fusion-result-empty"><div>✦</div><strong>准备生成你的 A+ 长图</strong>'
+                        '<p>上传素材并填写要求后，点击下方生成</p></div>', unsafe_allow_html=True,
+                    )
+                else:
+                    preview_index = st.selectbox(
+                        "切换结果", range(len(result_images)), format_func=lambda i: f"结果 {i + 1}",
+                        key=f"fusion_result_index_{feature['key']}",
+                    )
+                    zoom = st.select_slider("预览缩放", options=[50, 75, 100], value=100, key="fusion_result_zoom")
+                    render_zoomable_image_gallery(
+                        [result_images[preview_index]], columns=1, thumb_height=660,
+                        component_key="fusion_result_view", fit_mode="contain", max_width_percent=zoom,
+                        full_images=[result_download_images[preview_index]], include_full_src=True,
+                    )
             elif supports_a_plus_reference_lab and not result_images:
                 render_a_plus_reference_lab_empty_results(selected_output_count)
             else:
@@ -25369,6 +25509,18 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     ):
                         submit_main_image_a_plus_mobile_adaptation(str(result_download_images[0]))
                         st.rerun()
+
+    if supports_a_plus_first_screen_selling_points:
+        with st.container(key="fusion_action_dock", border=True):
+            status_col, submit_col = st.columns([2, 1])
+            ready = bool(hero_source_files and selling_point_files)
+            with status_col:
+                st.markdown(f"{'✓' if ready else '○'} 底稿 {len(hero_source_files)} 张 · 卖点素材 {len(selling_point_files)} 张 · {'已就绪' if ready else '请补充素材'}")
+            with submit_col:
+                submitted = st.button(
+                    process_button_label, key=f"process_{feature['key']}", type="primary",
+                    use_container_width=True, disabled=not ready,
+                )
 
     if job_info.get("status") == "completed":
         if feature.get("output_mode") == "image" and not (result.get("images") or []):
@@ -25931,8 +26083,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 st.info("任务已提交到后台处理，你可以先切换到其他功能。")
             st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
-    if feature.get("output_mode") == "image":
-        render_history_records(feature)
 
 
 def render_login_page() -> None:
