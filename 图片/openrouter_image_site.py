@@ -25994,8 +25994,7 @@ SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 def render_side_menu(current_feature: dict[str, Any] | None = None) -> None:
     with st.container(key="xiaoha_sidebar_brand"):
         st.markdown(
-            '<div class="xiaoha-sidebar-brand"><strong>小哈</strong>'
-            '<span>专业的 AI 图像处理工具</span></div>',
+            '<div class="xiaoha-sidebar-brand"><strong>小哈</strong></div>',
             unsafe_allow_html=True,
         )
 
