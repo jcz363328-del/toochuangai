@@ -13058,7 +13058,7 @@ def inject_app_styles() -> None:
         [data-testid="stHeader"] button {
             pointer-events: auto;
         }
-        [data-testid="stToolbar"],
+        [data-testid="stToolbar"]:not(:has([data-testid="stExpandSidebarButton"])),
         [data-testid="stDecoration"],
         [data-testid="stStatusWidget"],
         #MainMenu,
@@ -13074,6 +13074,77 @@ def inject_app_styles() -> None:
             visibility: visible !important;
             color: #e1e5f5;
         }
+        [data-testid="stSidebarCollapseButton"] {
+            visibility: visible !important;
+        }
+        [data-testid="stSidebarCollapseButton"] button {
+            color: #f5f7ff !important;
+        }
+        /* Streamlit 1.67 mounts the sidebar opener inside the app toolbar. */
+        [data-testid="stToolbar"]:has([data-testid="stExpandSidebarButton"]) {
+            display: flex !important;
+            visibility: visible !important;
+            pointer-events: none;
+        }
+        [data-testid="stExpandSidebarButton"] {
+            position: fixed;
+            top: 12px;
+            left: 16px;
+            z-index: 1000000;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            visibility: visible !important;
+            pointer-events: auto;
+            width: 40px;
+            min-width: 40px;
+            height: 40px;
+            min-height: 40px;
+            padding: 10px;
+            color: #aeb9d1 !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 10px;
+            box-shadow: none !important;
+            transition: background 0.15s ease;
+        }
+        [data-testid="stExpandSidebarButton"] > * {
+            display: none !important;
+        }
+        [data-testid="stExpandSidebarButton"]::before {
+            content: "";
+            width: 20px;
+            height: 20px;
+            background: currentColor;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='3'/%3E%3Cpath d='M9 4v16m4-11 3 3-3 3'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+        }
+        [data-testid="stExpandSidebarButton"]:hover {
+            background: rgba(169, 155, 255, 0.10) !important;
+            color: #f5f7ff !important;
+        }
+        [data-testid="stExpandSidebarButton"]:focus-visible {
+            outline: 2px solid #8c75ff;
+            outline-offset: 2px;
+        }
+        [data-testid="stExpandSidebarButton"]::after {
+            content: "展开侧栏";
+            position: absolute;
+            top: 46px;
+            left: 0;
+            white-space: nowrap;
+            padding: 6px 9px;
+            border-radius: 6px;
+            background: #20283c;
+            color: #e1e5f5;
+            font-size: 12px;
+            font-weight: 400;
+            opacity: 0;
+            pointer-events: none;
+        }
+        [data-testid="stExpandSidebarButton"]:hover::after,
+        [data-testid="stExpandSidebarButton"]:focus-visible::after {
+            opacity: 1;
+        }
         [data-testid="stAppViewContainer"] {
             padding-top: 0 !important;
         }
@@ -13084,10 +13155,10 @@ def inject_app_styles() -> None:
         .main .block-container,
         [data-testid="stMainBlockContainer"] {
             box-sizing: border-box;
-            width: 100%;
-            max-width: 1920px;
+            width: 100% !important;
+            max-width: none !important;
             padding-top: 0.72rem !important;
-            margin-top: 0 !important;
+            margin: 0 !important;
             padding-left: 1rem;
             padding-right: 1rem;
             padding-bottom: 1.35rem;
@@ -13120,7 +13191,73 @@ def inject_app_styles() -> None:
             border-right: 1px solid rgba(169, 155, 255, 0.18);
         }
         [data-testid="stSidebarContent"] {
-            padding: 0.75rem 0.8rem 0.7rem;
+            padding: 0 14px 16px;
+        }
+        [data-testid="stSidebarHeader"] {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            height: 32px;
+            min-height: 0;
+            padding: 0;
+            z-index: 20;
+        }
+        [data-testid="stSidebarUserContent"] {
+            padding-top: 0;
+        }
+        .st-key-xiaoha_sidebar_brand {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #080f23;
+            padding: 18px 8px 16px;
+            border-bottom: 1px solid rgba(169, 155, 255, 0.14);
+            margin-bottom: 8px;
+        }
+        .xiaoha-sidebar-brand strong {
+            display: block;
+            font-size: 22px;
+            line-height: 30px;
+            color: #f5f7ff;
+        }
+        .xiaoha-sidebar-brand span {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #929bb5;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] {
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary {
+            min-height: 44px;
+            padding: 10px 8px;
+            color: #c4cce0;
+            font-weight: 600;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
+            padding: 2px 0 6px 10px;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button {
+            min-height: 36px;
+            padding: 7px 12px;
+            justify-content: flex-start;
+            border: none;
+            border-radius: 7px;
+            background: transparent;
+            box-shadow: none;
+            color: #aeb8d0;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button:hover {
+            background: #151e35;
+            color: #f5f7ff;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button[kind="primary"] {
+            background: rgba(117, 91, 255, 0.20);
+            color: #d9d1ff;
+            box-shadow: inset 3px 0 #8c75ff;
         }
         [data-testid="stSidebar"] .stButton {
             margin-bottom: 0;
@@ -14751,6 +14888,77 @@ def inject_app_styles() -> None:
             div[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker, > div > div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker),
             div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > :is([data-testid="stElementContainer"], [data-testid="element-container"]) .a-plus-template-card-marker) {
                 min-height: 224px;
+            }
+        }
+
+        /* Sidebar overrides follow shared workbench styles. */
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+            gap: 6px !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
+            border: none !important;
+        }
+        [data-testid="stSidebar"] .stButton [data-testid="stMarkdownContainer"] {
+            width: 100%;
+            text-align: left !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stExpander"],
+        [data-testid="stSidebar"] [data-testid="stExpander"] details {
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary,
+        [data-testid="stSidebar"] [data-testid="stExpander"] details[open] > summary {
+            background: transparent !important;
+            color: #c4cce0 !important;
+            border: none !important;
+            border-radius: 8px !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
+            background: #141d33 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button {
+            min-height: 36px !important;
+            justify-content: flex-start !important;
+            padding: 6px 12px !important;
+            border: none !important;
+            border-radius: 6px !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button p {
+            width: 100%;
+            text-align: left !important;
+            font-size: 13px !important;
+            font-weight: 400 !important;
+            color: #aeb9d1 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button:hover {
+            background: #141d33 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button[kind="primary"] {
+            background: rgba(117, 91, 255, 0.18) !important;
+            box-shadow: inset 3px 0 #8c75ff !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button[kind="primary"] p {
+            color: #ded7ff !important;
+            font-weight: 600 !important;
+        }
+        [data-testid="stSidebarCollapseButton"] button,
+        [data-testid="stSidebarCollapseButton"] button * {
+            color: #b8abff !important;
+        }
+
+        @media (min-width: 768px) {
+            [data-testid="stAppViewContainer"]:has([data-testid="stExpandSidebarButton"]) [data-testid="stMainBlockContainer"] {
+                padding-left: 72px !important;
+            }
+        }
+        @media (max-width: 767px) {
+            [data-testid="stAppViewContainer"]:has([data-testid="stExpandSidebarButton"]) [data-testid="stMainBlockContainer"] {
+                padding-top: 56px !important;
             }
         }
         </style>
@@ -25784,65 +25992,41 @@ SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def render_side_menu(current_feature: dict[str, Any] | None = None) -> None:
-    st.markdown(
-        """
-        <div class="side-menu-shell">
-            <div class="brand-wrap">
-                <div class="brand-logo">AI</div>
-                <div>
-                    <div class="brand-title">小哈</div>
-                    <div class="brand-subtitle">专业的 AI 图像处理工具</div>
-                </div>
-            </div>
-            <div class="side-menu-note">功能菜单</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    from streamlit_option_menu import option_menu
+    with st.container(key="xiaoha_sidebar_brand"):
+        st.markdown(
+            '<div class="xiaoha-sidebar-brand"><strong>小哈</strong>'
+            '<span>专业的 AI 图像处理工具</span></div>',
+            unsafe_allow_html=True,
+        )
 
     visible_features = get_visible_features()
     features_by_key = {str(feature["key"]): feature for feature in visible_features}
-    ordered_features = []
     grouped_keys: set[str] = set()
-    for _, feature_keys in SIDE_MENU_FEATURE_GROUPS:
-        for feature_key in feature_keys:
-            if feature_key in features_by_key and feature_key not in grouped_keys:
-                ordered_features.append(features_by_key[feature_key])
-                grouped_keys.add(feature_key)
-    ordered_features.extend(
-        feature for feature in visible_features if str(feature["key"]) not in grouped_keys
-    )
-    entries = [(str(feature["key"]), str(feature["name"])) for feature in ordered_features]
-    entries.append((XIAOHA_DASHBOARD_KEY, "数据看板"))
-    keys = [key for key, _ in entries]
-    labels = [label for _, label in entries]
+    groups = []
+    for group_name, feature_keys in SIDE_MENU_FEATURE_GROUPS:
+        group_features = [features_by_key[key] for key in feature_keys if key in features_by_key]
+        if group_features:
+            groups.append((group_name, group_features))
+            grouped_keys.update(str(feature["key"]) for feature in group_features)
+    ungrouped_features = [feature for feature in visible_features if str(feature["key"]) not in grouped_keys]
+    if ungrouped_features:
+        groups.append(("其他功能", ungrouped_features))
+    groups.append(("状态与数据", [{"key": XIAOHA_DASHBOARD_KEY, "name": "数据看板"}]))
     selected_key = str(st.session_state.selected_feature_key or "")
-    selected_index = keys.index(selected_key) if selected_key in keys else 0
-
-    def on_menu_change(widget_key: str) -> None:
-        selected_label = st.session_state.get(widget_key)
-        if selected_label in labels:
-            select_feature(keys[labels.index(selected_label)])
-
-    option_menu(
-        menu_title=None,
-        options=labels,
-        icons=["bar-chart-line" if key == XIAOHA_DASHBOARD_KEY else "image" for key in keys],
-        default_index=selected_index,
-        key="xiaoha_feature_navigation",
-        on_change=on_menu_change,
-        styles={
-            "container": {"padding": "0!important", "background-color": "#080f23"},
-            "icon": {"color": "#b8abff", "font-size": "17px"},
-            "nav-link": {
-                "font-size": "14px", "text-align": "left", "margin": "3px 0",
-                "padding": "10px 12px", "border-radius": "8px",
-                "color": "#e1e5f5", "--hover-color": "#20233e",
-            },
-            "nav-link-selected": {"background-color": "#6550d9", "color": "#ffffff"},
-        },
-    )
+    for group_name, group_features in groups:
+        with st.expander(
+            group_name,
+            expanded=any(str(feature["key"]) == selected_key for feature in group_features),
+        ):
+            for feature in group_features:
+                st.button(
+                    str(feature["name"]),
+                    key=f"side_menu_feature_{feature['key']}",
+                    use_container_width=True,
+                    type="primary" if str(feature["key"]) == selected_key else "secondary",
+                    on_click=select_feature,
+                    args=(feature["key"],),
+                )
 
 
 def is_running_in_streamlit() -> bool:

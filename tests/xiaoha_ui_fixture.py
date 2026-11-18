@@ -71,7 +71,7 @@ def main() -> None:
     site.prepress_check_service.run_check = blocked
     site.prepress_check_service.reset_session = blocked
 
-    st.set_page_config(page_title=f"小哈 · 响应式离线回归 · Streamlit {st.__version__}", layout="wide")
+    st.set_page_config(page_title=f"小哈 · 响应式离线回归 · Streamlit {st.__version__}", layout="wide", initial_sidebar_state="expanded")
     site.ensure_state()
     st.session_state.is_authenticated = True
     st.session_state.auth_username = "responsive-fixture"
