@@ -1116,7 +1116,7 @@ table.calc tr.strong td:last-child { color: var(--accent-2); }
     color: var(--muted-2);
 }
 .pop-search input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 11.5px; background: none; }
-.pop-list { flex: 1; overflow: auto; padding: 4px 6px 8px; }
+.pop-list { flex: 1; min-height: 0; overflow: auto; padding: 4px 6px 8px; }
 .filter-option {
     display: flex;
     align-items: center;
@@ -1149,6 +1149,34 @@ table.calc tr.strong td:last-child { color: var(--accent-2); }
 }
 .pop-foot .hint { font-size: 10.5px; color: var(--muted); }
 .pop-foot button { font-size: 11px; color: var(--accent); font-weight: 520; }
+
+/* Keep popover controls visible; only the option list scrolls. */
+.pop-head, .pop-search, .pop-foot {flex-shrink:0;}
+.pop.filter-pop {width:320px;max-height:min(480px,calc(100dvh - 24px));}
+.filter-pop .filter-option {min-height:38px;padding:8px 10px;font-size:13px;gap:10px;}
+.filter-pop .filter-option input {width:16px;height:16px;}
+.filter-pop .pop-search {height:36px;}
+.filter-pop .pop-search input {font-size:13px;}
+.filter-pop .pop-foot {flex-wrap:wrap;justify-content:flex-end;}
+.filter-pop .pop-foot .hint {flex:1 0 100%;}
+.filter-pop .pop-foot button {min-height:32px;padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);}
+.filter-pop .pop-foot [data-apply] {background:var(--accent);color:white;border-color:var(--accent);}
+.sea-recommendation-head {cursor:pointer;list-style:none;min-height:34px;}
+.sea-recommendation-head::-webkit-details-marker {display:none;}
+.sea-chevron {margin-left:4px;transition:transform .15s;}
+.sea-recommendation[open] .sea-chevron {transform:rotate(180deg);}
+.sea-recommendation:not([open]) {border-left:0;}
+
+#seaRecommendationView[hidden], #replenishmentView[hidden], #stats[hidden] {display:none!important;}
+.sea-directory {margin-top:8px;width:100%;}
+.sea-details .sea-recommendation-list {max-height:calc(100dvh - 260px);min-height:220px;padding:8px 14px;}
+.sea-detail-columns, .sea-details .sea-recommendation-row {display:grid;grid-template-columns:24px minmax(0,1fr) 140px;gap:12px;align-items:center;}
+.sea-detail-columns {padding:12px 22px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);}
+.sea-details .sea-recommendation-row {min-height:46px;padding:9px 8px;border-bottom:1px solid var(--line-2);}
+.sea-details .sea-recommendation-row .sku,.sea-details .sea-recommendation-row .avg {font-size:13px;}
+.sea-details .sea-recommendation-row input {width:16px;height:16px;}
+.sea-detail-hint {margin:6px 0 0;color:var(--muted);font-size:12px;}
+.sea-details .sea-recommendation-actions .btn {height:34px;font-size:12px;flex:none;padding:0 14px;}
 
 .pop.cols { max-height: 420px; }
 .cols-list { display: grid; grid-template-columns: 1fr; gap: 1px; padding: 4px 6px 8px; }
@@ -1426,14 +1454,9 @@ td.dim { color: var(--muted); }
         <div class="sidebar-status" id="sidebarStatus" aria-label="状态筛选">
             <div class="sheet-sidebar-head"><span>状态</span></div>
             <div class="chips" id="chips"></div>
-            <div class="sea-recommendation" id="seaRecommendation" hidden aria-label="推荐海运">
-                <div class="sea-recommendation-head"><span>推荐海运</span><span class="count" id="seaRecommendationCount">0</span></div>
-                <div class="sea-recommendation-list" id="seaRecommendationList"></div>
-                <div class="sea-recommendation-actions">
-                    <button class="link-btn" id="seaRecommendationSelectAll" type="button">全选</button>
-                    <button class="btn primary" id="seaRecommendationAdd" type="button" disabled>加入海运</button>
-                </div>
-            </div>
+            <button class="chip sea-directory" id="seaRecommendation" type="button" hidden aria-pressed="false">
+                推荐海运<span class="n" id="seaRecommendationCount">0</span>
+            </button>
         </div>
         <div class="tabs" id="tabs" role="tablist" aria-label="智能补货工作表"></div>
     </aside>
@@ -1508,7 +1531,19 @@ td.dim { color: var(--muted); }
 
     <section class="stats" id="stats"></section>
 
-    <section class="ws">
+    <section class="ws sea-details" id="seaRecommendationView" hidden aria-label="推荐海运明细">
+        <div class="ws-head">
+            <div><strong>推荐海运</strong><p class="sea-detail-hint">近 30 日日均销量超过 20 件，且尚未加入海运计划的 SKU</p></div>
+            <div class="sea-recommendation-actions">
+                <button class="btn" id="seaRecommendationSelectAll" type="button">全选</button>
+                <button class="btn primary" id="seaRecommendationAdd" type="button" disabled>加入海运</button>
+            </div>
+        </div>
+        <div class="sea-detail-columns"><span></span><span>SKU</span><span>日均销量</span></div>
+        <div class="sea-recommendation-list" id="seaRecommendationList"></div>
+    </section>
+
+    <section class="ws" id="replenishmentView">
         <div class="ws-layout">
             <div class="ws-main">
                 <div class="ws-head">
@@ -1737,6 +1772,7 @@ const CONF = {
         savedQuantities: new Map(),
         dirtyQuantities: new Map(),
         seaRecommendations: [],
+        seaView: false,
         seaSelected: new Set(),
         purchaseItems: [],
         purchaseFilters: { selection: [], sku: [], store: [], purchaser: [], originalQuantity: [], quantity: [] },
@@ -1918,7 +1954,7 @@ const CONF = {
         el.tabs.innerHTML = names.map(n => {
             const count = (state.sheets[n].rows || []).length;
             return `<div class="tab-entry">
-                <button class="tab${n === state.active ? " active" : ""}" role="tab" data-name="${esc(n)}">
+                <button class="tab${!state.seaView && n === state.active ? " active" : ""}" role="tab" data-name="${esc(n)}">
                     ${esc(sheetLabel(n))}<span class="cnt">${fmtInt(count)}</span></button>
                 ${n === MAIN_SHEET ? '<div class="tab-status-slot"></div>' : ''}
             </div>`;
@@ -1961,10 +1997,18 @@ const CONF = {
         if (el.sidebarStatus) el.sidebarStatus.hidden = false;
         const counts = quickCounts();
         el.chips.innerHTML = QUICK.map(q => `
-            <button class="chip${state.quick === q.key ? " active" : ""}" data-quick="${q.key}">
+            <button class="chip${!state.seaView && state.quick === q.key ? " active" : ""}" data-quick="${q.key}">
                 ${q.dot ? `<i class="dot ${q.dot}"></i>` : ""}${q.label}
                 <span class="n">${fmtInt(counts[q.key] || 0)}</span>
             </button>`).join("");
+    }
+
+    function renderSeaView() {
+        $("#seaRecommendationView").hidden = !state.seaView;
+        $("#replenishmentView").hidden = state.seaView;
+        el.stats.hidden = state.seaView;
+        el.seaRecommendation.classList.toggle("active", state.seaView);
+        el.seaRecommendation.setAttribute("aria-pressed", String(state.seaView));
     }
 
     function renderSeaRecommendations(message = "") {
@@ -2312,6 +2356,7 @@ const CONF = {
         renderChips();
         renderStats();
         renderTable();
+        renderSeaView();
     }
 
     /* ------------------------------------------------------------- 筛选弹层 */
@@ -2334,15 +2379,16 @@ const CONF = {
 
     function placePop(anchor, width) {
         const r = anchor.getBoundingClientRect();
-        const w = width || 258;
-        const left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12));
+        const w = Math.min(width || 320, window.innerWidth - 24);
+        const below = window.innerHeight - r.bottom - 18;
+        const above = r.top - 18;
+        const useBelow = below >= Math.min(480, above);
+        const available = Math.max(140, useBelow ? below : above);
         el.pop.style.width = w + "px";
-        el.pop.style.left = left + "px";
-        el.pop.style.top = (r.bottom + 6) + "px";
-        const h = el.pop.getBoundingClientRect().height;
-        if (r.bottom + 6 + h > window.innerHeight - 8) {
-            el.pop.style.top = Math.max(8, r.top - h - 6) + "px";
-        }
+        el.pop.style.maxHeight = Math.min(480, available, window.innerHeight - 24) + "px";
+        el.pop.style.left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12)) + "px";
+        const height = el.pop.getBoundingClientRect().height;
+        el.pop.style.top = Math.max(12, Math.min(useBelow ? r.bottom + 6 : r.top - height - 6, window.innerHeight - height - 12)) + "px";
     }
 
     function openFilter(i, anchor) {
@@ -2362,7 +2408,7 @@ const CONF = {
         const f = filtersOf()[i];
         const selected = Array.isArray(f) ? f.slice() : (f ? [f] : []);
 
-        el.pop.className = "pop";
+        el.pop.className = "pop filter-pop";
         el.pop.hidden = false;
         el.pop.innerHTML = `
             <div class="pop-head">
@@ -2387,18 +2433,22 @@ const CONF = {
             <div class="pop-foot">
                 <span class="hint" data-hint>${selected.length ? `已选 ${selected.length} 项` : "点击勾选多个取值"}</span>
                 <button data-select-all type="button">全选</button>
-                <button data-clear type="button">清空</button>
+                <button data-clear type="button">重置</button>
+                <button data-apply type="button">应用筛选</button>
             </div>`;
+        let draft = selected.slice();
         const refresh = () => {
-            const list = filtersOf();
-            list[i] = [...el.pop.querySelectorAll('.pop-list input[type="checkbox"]:not(.filter-all):checked')].map(x => x.value);
-            el.pop.querySelector(".filter-all").checked = !list[i].length;
-            el.pop.querySelector("[data-hint]").textContent = list[i].length ? `已选 ${list[i].length} 项` : "点击勾选多个取值";
-            state.limit = 160;
-            renderTable();
+            draft = [...el.pop.querySelectorAll('.filter-option[data-v] input:checked')].map(x => x.value);
+            el.pop.querySelector(".filter-all").checked = !draft.length;
+            el.pop.querySelector("[data-hint]").textContent = draft.length ? `已选 ${draft.length} 项，点击应用生效` : "不限取值，显示全部";
         };
         el.pop.querySelectorAll('.pop-list input[type="checkbox"]').forEach(input => {
-            input.addEventListener("change", refresh);
+            input.addEventListener("change", () => {
+                if (input.classList.contains("filter-all")) {
+                    el.pop.querySelectorAll('.filter-option[data-v] input').forEach(x => { x.checked = false; });
+                }
+                refresh();
+            });
         });
         el.pop.querySelector(".pop-search input").addEventListener("input", e => {
             const kw = e.target.value.trim().toLowerCase();
@@ -2413,13 +2463,22 @@ const CONF = {
             refresh();
         });
         el.pop.querySelector("[data-clear]").addEventListener("click", () => {
-            filtersOf()[i] = [];
+            el.pop.querySelectorAll('.filter-option[data-v] input').forEach(x => { x.checked = false; });
+            refresh();
+        });
+        const apply = () => {
+            filtersOf()[i] = draft.slice();
             state.limit = 160;
+            closePop();
             renderTable();
-            openFilter(i, anchor);
+        };
+        el.pop.querySelector("[data-apply]").addEventListener("click", apply);
+        el.pop.querySelector(".pop-search input").addEventListener("keydown", e => {
+            if (e.key === "Enter") { e.preventDefault(); apply(); }
         });
         el.pop.querySelector("[data-close]").addEventListener("click", closePop);
         placePop(anchor);
+        el.pop.querySelector(".pop-search input").focus();
     }
 
     function openCols(anchor) {
@@ -3327,6 +3386,7 @@ const CONF = {
     el.tabs.addEventListener("click", e => {
         const btn = e.target.closest("[data-name]");
         if (!btn) return;
+        state.seaView = false;
         state.active = btn.dataset.name;
         state.quick = "all";
         state.search = "";
@@ -3339,10 +3399,20 @@ const CONF = {
     el.chips.addEventListener("click", e => {
         const chip = e.target.closest("[data-quick]");
         if (!chip) return;
+        state.seaView = false;
+        renderSeaView();
+        renderTabs();
         state.quick = chip.dataset.quick;
         state.limit = 160;
         renderChips();
         renderTable();
+    });
+
+    el.seaRecommendation.addEventListener("click", () => {
+        state.seaView = true;
+        closePop();
+        closeRow();
+        renderAll();
     });
 
     el.seaRecommendationList.addEventListener("change", e => {
@@ -3405,7 +3475,7 @@ const CONF = {
         if (e.key === "Escape") {
             if (!$("#legendDialog").open) { closePop(); if (!el.drawer.hidden) closeRow(); }
         }
-        if (e.key === "/" && document.activeElement !== el.search) {
+        if (e.key === "/" && !e.target.closest("input, textarea, [contenteditable=true]")) {
             e.preventDefault();
             el.search.focus();
             el.search.select();
