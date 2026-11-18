@@ -1766,14 +1766,14 @@ FEATURES = [
     {
         "key": "ai_qa_image",
         "name": "AI问答生图",
-        "summary": "上传图片问答生成图片",
+        "summary": "通过对话生成图片，支持参考图与连续修改",
         "mode": "openrouter",
         "output_mode": "image",
-        "min_images": 1,
+        "min_images": 0,
         "max_output_images": 1,
-        "description": "支持上传参考图并输入文字要求，像网页版 AI 问答一样理解图片内容后生成 1 张结果图。",
+        "description": "输入文字或附加参考图生成图片，支持保存对话并基于上一轮结果继续修改。",
         "default_prompt": (
-            "请结合我上传的图片和我的文字要求进行多模态理解，并生成 1 张高质量结果图。"
+            "请根据我的文字要求生成 1 张高质量结果图；如有参考图，请结合参考图进行多模态理解。"
             "要优先理解用户上传图片中的主体、场景、构图、细节和视觉关系，再严格按照文字要求执行生成。"
             "仅输出 1 张结果图。"
         ),
@@ -12498,6 +12498,9 @@ def run_queued_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
     job_id = str(job_context.get("job_id") or "")
     if job_id:
         set_task_progress(job_id, 3, "排队结束，正在启动任务")
+    if job_context.get("qa_turn_id"):
+        from 图片.qa_chat import run_chat_job
+        return run_chat_job(sys.modules[__name__], job_context, run_feature_job)
     return run_feature_job(job_context)
 
 
@@ -14934,6 +14937,12 @@ def inject_app_styles() -> None:
             font-size: 13px !important;
             font-weight: 400 !important;
             color: #aeb9d1 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button > div,
+        [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button [data-testid="stMarkdownContainer"] {
+            width: 100% !important;
+            text-align: left !important;
+            justify-content: flex-start !important;
         }
         [data-testid="stSidebar"] [data-testid="stExpander"] .stButton > button:hover {
             background: #141d33 !important;
@@ -18986,10 +18995,13 @@ def render_first_screen_material_uploader(key: str, *, hero: bool = False) -> li
     files = load_upload_cache(key, max_files=limit)
     with st.container(border=True, key="fusion_hero" if hero else "fusion_materials"):
         st.markdown(
-            f'<div class="fusion-panel-heading"><strong>{"首屏底稿" if hero else "卖点素材"}</strong>'
-            f'<span>{len(files)} / {limit}</span></div>', unsafe_allow_html=True,
+            '<div class="fusion-panel-header"><div class="fusion-panel-heading">'
+            f'<strong>{"首屏底稿" if hero else "卖点素材"}</strong>'
+            f'<span>{len(files)} / {limit}</span></div>'
+            '<div class="fusion-panel-description">'
+            f'{"首屏内容原样保留" if hero else "拖动调整顺序，按优先级提取卖点"}'
+            '</div></div>', unsafe_allow_html=True,
         )
-        st.caption("首屏内容原样保留" if hero else "拖动调整顺序，按优先级提取卖点")
         with st.container(height=540, border=False):
             for start in range(0, limit, 1 if hero else 3):
                 columns = st.columns(1 if hero else 3, gap="small")
@@ -23498,6 +23510,10 @@ def render_prepress_check_feature(feature: dict[str, Any]) -> None:
 
 
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
+    if feature.get("key") == "ai_qa_image":
+        from 图片.qa_chat import render
+        render(sys.modules[__name__], feature, model, aspect_ratio)
+        return
     if feature.get("key") == "prepress_check":
         render_prepress_check_feature(feature)
         return
@@ -23596,7 +23612,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         .st-key-fusion_settings [data-baseweb="textarea"] {border:1px solid #303958!important;border-radius:10px;background:#091325!important;}
         .st-key-fusion_settings [data-testid="stHorizontalBlock"] {align-items:end;}
         .st-key-fusion_settings [data-testid="stColumn"] {min-width:0!important;}
-        .fusion-panel-heading {display:flex;justify-content:space-between;align-items:center;color:#f1f3ff;font-size:16px;}
+        .fusion-panel-header {display:flex;flex-direction:column;gap:6px;padding-bottom:10px;}
+        .fusion-panel-heading {display:flex;justify-content:space-between;align-items:center;gap:12px;color:#f1f3ff;font-size:16px;line-height:1.5;}
+        .fusion-panel-heading strong {display:block;line-height:1.5;}
+        .fusion-panel-description {color:#aeb9d7;font-size:12px;line-height:1.5;white-space:normal;overflow-wrap:anywhere;}
         .fusion-panel-heading span {border:1px solid #36415d;border-radius:18px;padding:2px 12px;font-size:12px;color:#c8cde5;}
         .fusion-empty-slot {height:112px;border:1px dashed #49547c;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aeb9d7;font-size:12px;background:#10192e;}
         .fusion-empty-slot span {font-size:25px;color:#a995ff;margin-bottom:8px;}
