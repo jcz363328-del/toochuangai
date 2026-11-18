@@ -1,0 +1,42 @@
+{
+  "event": "33:8:2026-11-04",
+  "message": "【🎉 店铺晋级喜报（历史补发）🎉】\n店铺：33号店\n店铺负责人：赵羽姝\n🏆 晋级层级：金1\n📅 晋级确认日期：2026-11-04\n⏱ 30天保持：2026-10-06 至 2026-11-04（连续保持金1及以上）\n\n本条补发此前已达成的晋级成绩。店铺此后曾达到金2，截至2026-11-16最新层级已回落至金1；金2尚未连续保持满30天。本次补发不代表当前晋级金2。",
+  "results": {
+    "蔡晶": {
+      "success": true,
+      "message_id": "om_x100b60e23a4554a8b09c4a9328d229e",
+      "code": 0,
+      "msg": "success"
+    },
+    "王晓菁": {
+      "success": true,
+      "message_id": "om_x100b60e23a5ac0accfea20b1a5e691e",
+      "code": 0,
+      "msg": "success"
+    },
+    "韩雅俊": {
+      "success": true,
+      "message_id": "om_x100b60e23a696898cfd18de931c7b5c",
+      "code": 0,
+      "msg": "success"
+    },
+    "陈子烨": {
+      "success": true,
+      "message_id": "om_x100b60e23a79ac80b3c6a8e790902ab",
+      "code": 0,
+      "msg": "success"
+    },
+    "周俊成": {
+      "success": true,
+      "message_id": "om_x100b60e23a0c48a4b0f041ebf80a356",
+      "code": 0,
+      "msg": "success"
+    },
+    "崔晓晨": {
+      "success": true,
+      "message_id": "om_x100b60e23a03c8bcb49096ec251d45f",
+      "code": 0,
+      "msg": "success"
+    }
+  }
+}

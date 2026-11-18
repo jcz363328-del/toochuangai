@@ -873,6 +873,24 @@ body.raw td.mark-recent-sales { background: #00b050 !important; color: #000 !imp
 body.raw td.mark-clearance { background: #a6a6a6 !important; color: #000 !important; }
 body.raw td.mark-new-product, body.raw td.mark-new-local, body.raw td.mark-falling { background: #000 !important; color: #fff !important; }
 
+/* 主表用标签承载状态，数字保留统一的阅读层级。 */
+.grid.label-view tbody td {background:#fff!important;color:#3d4742!important;font-weight:400!important;font-style:normal!important;}
+.grid.label-view tbody tr:hover td {background:#f7faf8!important;}
+.grid.label-view tbody tr.is-active td {background:#eff5f1!important;}
+.grid.label-view tbody tr td:first-child {box-shadow:none!important;}
+.grid.label-view td :is(.t-danger,.t-warn,.t-ocean,.dim,.inf) {color:inherit!important;}
+.grid.label-view .qty-input {width:100%;min-width:48px;box-sizing:border-box;background:#f5f7f6!important;border:1px solid #e0e6e2!important;color:#34443b!important;-webkit-text-fill-color:#34443b!important;}
+.grid.label-view .qty-input.dirty {background:#edf7f0!important;border-color:#69a284!important;}
+.grid.label-view .qty-input:focus {outline:2px solid #d6e9dd;border-color:#478263!important;}
+.sku-identity {display:block;line-height:17px;}
+.sku-statuses {display:flex;gap:4px;align-items:center;margin-top:3px;min-height:16px;font-family:system-ui,sans-serif;letter-spacing:0;}
+.sku-status {display:inline-flex;align-items:center;white-space:nowrap;font-size:10px;line-height:16px;padding:0 6px;border-radius:4px;background:#f0f2f1;color:#66716a;}
+.sku-status.danger {background:#fceceb;color:#aa4740;}
+.sku-status.warn {background:#fff2dd;color:#926821;}
+.sku-status.order {background:#eaf4ed;color:#3d7755;}
+.sku-status.mute {background:#edf0ee;color:#748078;}
+.sku-status.more {padding:0 4px;background:#f4f5f4;color:#879189;cursor:help;}
+.grid.label-view .tag-clear {display:none;}
 /* 可售天数：纯数字显示 */
 td .inf { color: var(--muted-2); }
 
@@ -1422,6 +1440,13 @@ table.calc tr.strong td:last-child { color: var(--accent-2); }
 td.zero { color: var(--muted-2); }
 td.dim { color: var(--muted); }
 
+.sales-spark {display:block;width:100%;min-width:120px;height:42px;cursor:crosshair;}
+.trend-large {width:100%;height:190px;}
+.sales-echarts-tooltip {pointer-events:none!important;z-index:150!important;}
+.sales-spark:focus-visible {outline:2px solid #b4d2c0;outline-offset:-2px;border-radius:4px;}
+.spark-cell {padding:1px 6px!important;}
+.spark-heading span {display:block;margin-top:5px;font-size:10px;color:var(--muted);font-weight:400;}
+.spark-missing {font-size:11px;color:var(--muted);}
 /* --------------------------------------------------- 逐日销量走势（明细抽屉） */
 .trend { margin-top: 2px; }
 .trend svg { display: block; width: 100%; height: auto; margin-top: 2px; }
@@ -1495,7 +1520,7 @@ td.dim { color: var(--muted); }
                     </a>
                     <button class="btn" id="legendTopButton" type="button" title="查看表格颜色与标记说明">
                         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9c0 2.2-1.8 3.4-3.6 3.4h-1.6a2 2 0 0 0-1.4 3.4A1.4 1.4 0 0 1 12 21z"/><circle cx="8" cy="10" r=".9"/><circle cx="12" cy="7.4" r=".9"/><circle cx="15.5" cy="10" r=".9"/></svg>
-                        颜色说明
+                        状态说明
                     </button>
                 </div>
                 {% if not can_write %}<span class="meta-chip plain" style="height:24px"><i class="sdot"></i>只读权限</span>{% endif %}
@@ -1624,6 +1649,7 @@ td.dim { color: var(--muted); }
             </button>
         </div>
     </div>
+    <p style="padding:0 20px;color:var(--muted);font-size:12px">智能补货主表改用 SKU 状态标签：断货（浅红）、低库存（浅橙）、待下单（浅绿）、清货（浅灰）。其余标签悬停查看；以下颜色规则用于其他工作表及明细。</p>
     <div class="legend-list">
         <div class="legend-item"><span class="legend-swatch sw-danger">红底</span><div><strong>低库存风险</strong><span>可售天数低于安全线，相关天数列标红。</span></div></div>
         <div class="legend-item"><span class="legend-swatch sw-warn">黄底</span><div><strong>需关注</strong><span>半成品、逾期未到货、订单减量或低库存费。</span></div></div>
@@ -1671,12 +1697,14 @@ td.dim { color: var(--muted); }
     </footer>
 </dialog>
 
+<script src="{{ url_for('static', filename='vendor/echarts/echarts.min.js') }}"></script>
 <script>
 const CONF = {
     dataUrl: {{ url_for('daily_replenishment_operation.data')|tojson }},
     refreshUrl: {{ url_for('daily_replenishment_operation.refresh')|tojson }},
     statusUrl: {{ '/api/ai/daily-replenishment-operation/refresh/'|tojson }},
     downloadUrl: {{ url_for('daily_replenishment_operation.download')|tojson }},
+    clearanceUrl: {{ url_for('daily_replenishment_operation.register_clearance')|tojson }},
     quantityUpdateUrl: {{ url_for('daily_replenishment_operation.update_order_quantities')|tojson }},
     seaShippingRecommendationsUrl: {{ url_for('daily_replenishment_operation.sea_shipping_recommendations')|tojson }},
     purchasePlanUrl: {{ url_for('daily_replenishment_operation.purchase_plan')|tojson }},
@@ -2035,20 +2063,14 @@ const CONF = {
         el.seaRecommendationSelectAll.textContent = items.length && state.seaSelected.size === items.length ? "取消全选" : "全选";
     }
 
-    async function loadSeaShippingRecommendations() {
-        try {
-            const response = await fetch(CONF.seaShippingRecommendationsUrl, { cache: "no-store" });
-            const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || "读取海运推荐失败");
-            state.seaRecommendations = Array.isArray(data.items) ? data.items : [];
-            const available = new Set(state.seaRecommendations.map(item => item.sku));
-            state.seaSelected = new Set([...state.seaSelected].filter(sku => available.has(sku)));
-            renderSeaRecommendations();
-        } catch (err) {
-            state.seaRecommendations = [];
-            state.seaSelected.clear();
-            renderSeaRecommendations(err?.message || "读取海运推荐失败");
-        }
+    function loadSeaShippingRecommendations() {
+        const snapshotSheet = state.sheets["推荐海运"];
+        state.seaRecommendations = ((snapshotSheet || {}).rows || []).map(row => ({
+            sku: String(row[0] || "").replace(/^@/, "").trim(), avg_daily_sales: Number(row[1])
+        })).filter(item => item.sku && Number.isFinite(item.avg_daily_sales));
+        const available = new Set(state.seaRecommendations.map(item => item.sku));
+        state.seaSelected = new Set([...state.seaSelected].filter(sku => available.has(sku)));
+        renderSeaRecommendations(snapshotSheet ? "" : "当前快照尚未包含推荐海运，请生成 / 刷新快照");
     }
 
     async function addSelectedSeaShippingRecommendations() {
@@ -2065,6 +2087,9 @@ const CONF = {
             if (!response.ok || !data.success) throw new Error(data.message || "加入海运计划失败");
             const selected = new Set(skus);
             state.seaRecommendations = state.seaRecommendations.filter(item => !selected.has(item.sku));
+            if (state.sheets["推荐海运"]) {
+                state.sheets["推荐海运"].rows = state.sheets["推荐海运"].rows.filter(row => !selected.has(String(row[0] || "").replace(/^@/, "").trim()));
+            }
             state.seaSelected.clear();
             renderSeaRecommendations();
             const added = Number(data.added || 0);
@@ -2106,19 +2131,121 @@ const CONF = {
 
     const isQuoteDate = v => typeof v === "string" && /到本地|到仓/.test(v);
 
+    function visibleTableColumns(columns, hidden) {
+        const visible = columns.map((_, i) => i).filter(i => !hidden.has(i));
+        if (state.active === MAIN_SHEET) {
+            const after = columns.indexOf("日均销量");
+            const next = visible.findIndex(i => i > after);
+            visible.splice(next < 0 ? visible.length : next, 0, -1);
+        }
+        return visible;
+    }
+
+    const salesChartInstances = new Map();
+    let salesChartObserver = null;
+    let drawerSalesChart = null;
+
+    function disposeSalesCharts() {
+        if (salesChartObserver) salesChartObserver.disconnect();
+        salesChartObserver = null;
+        salesChartInstances.forEach((chart, node) => { node.onkeydown = null; node.onblur = null; chart.dispose(); });
+        salesChartInstances.clear();
+    }
+
+    function createSalesChart(node, data, mini = true) {
+        if (!window.echarts) { node.textContent = "图表加载失败，请刷新"; return null; }
+        const chart = echarts.init(node, null, {renderer: "canvas"});
+        const days = data.days || [];
+        const dates = days.map(day => day.date);
+        chart.setOption({
+            animationDuration: 250,
+            animationDurationUpdate: 180,
+            color: ["#2f6b53"],
+            grid: mini ? {left: 4, right: 6, top: 6, bottom: 5} : {left: 34, right: 18, top: 18, bottom: 28},
+            tooltip: {
+                trigger: "axis", renderMode: "html", appendTo: document.body,
+                className: "sales-echarts-tooltip", transitionDuration: .08,
+                backgroundColor: "rgba(255,255,255,.98)", borderColor: "#d9e5dd", padding: [10, 14],
+                textStyle: {color: "#253a30", fontSize: 12},
+                extraCssText: "box-shadow:0 8px 24px rgba(24,48,36,.14);border-radius:10px;",
+                axisPointer: {type: "line", snap: true, lineStyle: {color: "#88ac99", width: 1, type: "dashed"}},
+                formatter: params => {
+                    const item = params[0];
+                    return `<div style="font-size:11px;color:#7c877f;margin-bottom:6px">${esc(node.dataset.sku || "")} · ${esc(item.axisValue)}</div><div>${item.marker}销量 <strong style="font-size:17px;margin-left:12px">${fmtInt(item.value)}</strong> 件</div>`;
+                }
+            },
+            xAxis: {type: "category", data: dates, boundaryGap: false,
+                axisLine: {show: !mini, lineStyle: {color: "#e8e5dc"}}, axisTick: {show: false},
+                axisLabel: {show: !mini, color: "#8c918b", fontSize: 10, formatter: value => value.slice(5)},
+                axisPointer: {label: {show: !mini, formatter: params => params.value}}},
+            yAxis: {type: "value", min: 0, minInterval: 1, show: !mini,
+                axisLabel: {color: "#8c918b", fontSize: 10}, splitLine: {lineStyle: {color: "#f0eee8"}}},
+            series: [{name: "销量", type: "line", data: days.map(day => day.qty),
+                smooth: .18, showSymbol: false, symbol: "circle", symbolSize: mini ? 5 : 7,
+                lineStyle: {width: mini ? 1.8 : 2.3, color: "#387c60"},
+                itemStyle: {color: "#387c60", borderWidth: 2, borderColor: "#fff"},
+                areaStyle: {color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                    {offset: 0, color: "rgba(67,140,103,.20)"}, {offset: 1, color: "rgba(67,140,103,.015)"}
+                ])}, emphasis: {scale: true},
+                markLine: mini ? undefined : {silent: true, symbol: "none", lineStyle: {color: "#b29461", type: "dashed"}, label: {formatter: "日均 {c}", fontSize: 10}, data: [{type: "average", name: "日均"}]}
+            }]
+        });
+        node.onkeydown = event => {
+            if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+            event.preventDefault();
+            const previous = Number(node.dataset.point || 14);
+            const index = Math.max(0, Math.min(14, previous + (event.key === "ArrowRight" ? 1 : -1)));
+            node.dataset.point = String(index);
+            chart.dispatchAction({type: "showTip", seriesIndex: 0, dataIndex: index});
+        };
+        node.onblur = () => chart.dispatchAction({type: "hideTip"});
+        return chart;
+    }
+
+    function mountSalesCharts() {
+        salesChartObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                const node = entry.target;
+                if (entry.isIntersecting && !salesChartInstances.has(node)) {
+                    const data = trendCache.get(node.dataset.sku);
+                    if (!data) return;
+                    const chart = createSalesChart(node, data);
+                    if (chart) salesChartInstances.set(node, chart);
+                } else if (!entry.isIntersecting && salesChartInstances.has(node)) {
+                    node.onkeydown = null;
+                    node.onblur = null;
+                    salesChartInstances.get(node).dispose();
+                    salesChartInstances.delete(node);
+                }
+            });
+        }, {root: el.wrap, rootMargin: "60px 0px"});
+        el.grid.querySelectorAll(".sales-spark").forEach(node => salesChartObserver.observe(node));
+    }
+
+    function salesSparkline(row) {
+        const sku = String(cellOf(row, "SKU") || "");
+        const data = trendCache.get(sku);
+        if (!data) return '<span class="spark-missing">请刷新快照</span>';
+        return `<div class="sales-spark" data-sku="${esc(sku)}" tabindex="0" role="img" aria-label="${esc(sku)} 近15天销量走势，最新 ${fmtInt(data.days[14].qty)} 件。悬停或用方向键查看逐日销量"></div>`;
+    }
+
     function renderHead() {
+        disposeSalesCharts();
+        el.grid.classList.toggle("label-view", state.active === MAIN_SHEET);
         const columns = sheet().columns || [];
         const hidden = hiddenOf();
         const sort = sortOf();
-        const visible = columns.map((c, i) => i).filter(i => !hidden.has(i));
+        const visible = visibleTableColumns(columns, hidden);
         let pin = 0;
         let totalPx = 0;
         const cols = columns.map((c, i) => {
-            const w = hidden.has(i) ? 0 : pxOf(String(c));
+            const w = hidden.has(i) ? 0 : (state.active === MAIN_SHEET && String(c) === "SKU" ? 176 : pxOf(String(c)));
             totalPx += w;
-            return `<col data-i="${i}" style="width:${w}px">`;
+            return `<col data-i="${i}" style="width:${w}px">` + (state.active === MAIN_SHEET && String(c) === "日均销量" ? '<col style="width:188px">' : "");
         }).join("");
+        if (state.active === MAIN_SHEET) totalPx += 188;
         const ths = visible.map(i => {
+            if (i === -1) return '<th class="spark-heading" title="截至快照销量截止日的15天；各SKU独立刻度。悬停查看逐日销量，点击行查看详细走势。">近15天销量走势<span>逐日 · 快照数据</span></th>';
             const name = String(columns[i]);
             const pinned = i < 4;
             const pinIndex = pinned ? pin++ : -1;
@@ -2156,6 +2283,26 @@ const CONF = {
         });
     }
 
+    function skuStatusLabels(row, rowIndex) {
+        const marks = new Set(Object.values(stylesAt(rowIndex)).flat());
+        const labels = [];
+        const add = (key, text, tone) => { if (!labels.some(item => item.key === key)) labels.push({key, text, tone}); };
+        const daily = num(cellOf(row, "日均销量"));
+        const stock = num(cellOf(row, "总库存")) + num(cellOf(row, "FBA可售量")) + num(cellOf(row, "待到货"));
+        const days = num(cellOf(row, "含待到货量的可售天数"));
+        if (stock === 0 && daily > 0) add("risk", "断货", "danger");
+        else if ((daily > 0 && days < 30) || marks.has("mark-low-stock")) add("risk", "低库存", "warn");
+        if (marks.has("mark-clearance")) add("clear", "清货", "mute");
+        else if (num(cellOf(row, "订货量")) > 0) add("order", "待下单", "order");
+        Object.entries(MARK_LABELS).forEach(([key, value]) => {
+            if (!marks.has(key) || key === "mark-low-stock" || key === "mark-clearance") return;
+            add(key, value[0], ["danger", "warn", "orange"].includes(value[1]) ? "warn" : "mute");
+        });
+        if (!labels.length) return "";
+        const all = labels.map(item => item.text).join("、");
+        return `<span class="sku-statuses" title="${esc(all)}">${labels.slice(0, 2).map(item => `<span class="sku-status ${item.tone}">${esc(item.text)}</span>`).join("")}${labels.length > 2 ? `<span class="sku-status more" title="${esc(labels.slice(2).map(item => item.text).join("、"))}">+${labels.length - 2}</span>` : ""}</span>`;
+    }
+
     function cellRender(colName, value, rowIndex, row) {
         const tokens = (stylesAt(rowIndex)[String(colIndex(colName))] || []);
         const cls = [...tokens];
@@ -2164,6 +2311,12 @@ const CONF = {
 
         if (SKU_COLS.has(colName)) {
             html = esc(value) + (tokens.includes("mark-clearance") ? `<span class="tag-clear">清货</span>` : "");
+            if (colName === "SKU" && state.active === MAIN_SHEET && CONF.canWrite && !tokens.includes("mark-clearance")) {
+                html += ` <button class="btn" type="button" data-clearance-row="${rowIndex}" style="padding:2px 6px;height:auto;font-size:10px">标记清货</button>`;
+            }
+            if (colName === "SKU" && state.active === MAIN_SHEET) {
+                html = `<span class="sku-identity">${html}</span>${skuStatusLabels(row, rowIndex)}`;
+            }
             cls.push("sku");
         } else if (colName === "日均销量") {
             html = fmtDecimal(value);
@@ -2230,6 +2383,8 @@ const CONF = {
         if (state.savedQuantities.get(rowIndex) === quantity) state.dirtyQuantities.delete(rowIndex);
         else state.dirtyQuantities.set(rowIndex, quantity);
         input.classList.toggle("dirty", state.dirtyQuantities.has(rowIndex));
+        const skuCell = el.grid.querySelector(`tr[data-index="${rowIndex}"] td[data-col="${colIndex("SKU")}"]`);
+        if (skuCell) skuCell.innerHTML = cellRender("SKU", cellOf(row, "SKU"), rowIndex, row).html;
         setQuantitySaveState();
         renderStats();
         renderChips();
@@ -2237,6 +2392,7 @@ const CONF = {
     }
 
     function renderBody() {
+        disposeSalesCharts();
         const tbody = el.grid.querySelector("tbody");
         if (!tbody) return;
         if (!state.rows.length) {
@@ -2248,7 +2404,7 @@ const CONF = {
         }
         const columns = sheet().columns || [];
         const hidden = hiddenOf();
-        const visible = columns.map((c, i) => i).filter(i => !hidden.has(i));
+        const visible = visibleTableColumns(columns, hidden);
         const slice = state.rows.slice(0, state.limit);
 
         tbody.innerHTML = slice.map(({ row, index }) => {
@@ -2267,6 +2423,7 @@ const CONF = {
 
             let pin = 0;
             const tds = visible.map(i => {
+                if (i === -1) return `<td class="spark-cell">${salesSparkline(row)}</td>`;
                 const name = String(columns[i]);
                 const c = cellRender(name, row[i], index, row);
                 const pinned = i < 4;
@@ -2279,6 +2436,7 @@ const CONF = {
             }).join("");
             return `<tr class="${trCls.trim()}" data-index="${index}">${tds}</tr>`;
         }).join("");
+        mountSalesCharts();
     }
 
     function computeRows() {
@@ -2756,81 +2914,22 @@ const CONF = {
     /* ------------------------------------------------------- 逐日销量走势图 */
     const trendCache = new Map();
 
-    let trendFillSeq = 0;
-
-    function trendChart(data) {
-        const days = data.days || [];
-        if (!days.length) return `<div class="trend-empty">该区间没有逐日销量记录</div>`;
-        const W = 416, H = 140, padL = 6, padR = 6, padT = 18, padB = 22;
-        const max = Math.max(1, ...days.map(item => item.qty));
-        const avg = data.avg || 0;
-        const H2 = H - padT - padB;
-        const X = i => padL + (days.length === 1 ? 0 : (i / (days.length - 1)) * (W - padL - padR));
-        const Y = v => H - padB - (Math.max(0, v) / max) * H2;
-        const pts = days.map((item, i) => ({ x: X(i), y: Y(item.qty), item }));
-        const line = pts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-        const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${H - padB} L${pts[0].x.toFixed(1)},${H - padB} Z`;
-        const avgY = Y(avg);
-        const fillId = `trendFill${trendFillSeq++}`;
-        const peak = days.reduce((best, item) => (item.qty > best.qty ? item : best), days[0]);
-        const peakIndex = days.indexOf(peak);
-        const meta = `${data.start.slice(5)} 至 ${data.end.slice(5)}${data.source ? ` · ${data.source}口径` : ""}`;
-        const node = document.querySelector("[data-trend-meta]");
-        if (node) node.textContent = meta;
-        return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="近 ${days.length} 天逐日销量走势">
-            <defs><linearGradient id="${fillId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#2f6b53" stop-opacity=".16"/>
-                <stop offset="100%" stop-color="#2f6b53" stop-opacity="0"/>
-            </linearGradient></defs>
-            ${[0.33, 0.66].map(f => `<line x1="${padL}" y1="${(padT + f * H2).toFixed(1)}" x2="${W - padR}" y2="${(padT + f * H2).toFixed(1)}" stroke="#f0ece2" stroke-width="1"/>`).join("")}
-            <path d="${area}" fill="url(#${fillId})"/>
-            <path d="${line}" fill="none" stroke="#2f6b53" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-            ${pts.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1.9" fill="#fff" stroke="#2f6b53" stroke-width="1.3">
-                <title>${p.item.date} · ${fmtInt(p.item.qty)} 件</title></circle>`).join("")}
-            ${avg > 0 ? `<line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W - padR}" y2="${avgY.toFixed(1)}" stroke="#b58b3c" stroke-width="1.1" stroke-dasharray="3 3"/>
-                <text x="${W - padR}" y="${Math.max(9, avgY - 4).toFixed(1)}" font-size="9" fill="#a07a2a" text-anchor="end">日均 ${fmtDecimal(avg)}</text>` : ""}
-            ${peak.qty > 0 ? `<text x="${pts[peakIndex].x.toFixed(1)}" y="${Math.max(9, pts[peakIndex].y - 6).toFixed(1)}" font-size="9" fill="#5f7d6f" text-anchor="middle">峰 ${fmtInt(peak.qty)}</text>` : ""}
-            ${days.map((item, i) => {
-                if (i !== 0 && i !== days.length - 1 && i % 5 !== 0) return "";
-                const anchor = i === 0 ? "start" : i === days.length - 1 ? "end" : "middle";
-                return `<text x="${X(i).toFixed(1)}" y="${H - 6}" font-size="9" fill="#a9a294" text-anchor="${anchor}">${item.date.slice(5)}</text>`;
-            }).join("")}
-        </svg>
-        <div class="trend-sum">
-            <span>合计 <b>${fmtInt(data.sum)}</b> 件</span>
-            <span>日均 <b>${fmtDecimal(avg)}</b> 件</span>
-            <span>峰值 <b>${fmtInt(peak.qty)}</b> 件 · ${esc(peak.date.slice(5))}</span>
-        </div>`;
-    }
-
     async function loadTrend(sku) {
         const box = document.querySelector("[data-trend]");
         if (!box || !sku) return;
-        const cached = trendCache.get(sku);
-        if (cached) {
-            box.innerHTML = trendChart(cached);
-            return;
-        }
-        const generation = state.generation || {};
-        const query = new URLSearchParams({ sku });
-        if (generation.sales_start) query.set("start", generation.sales_start);
-        if (generation.sales_end) query.set("end", generation.sales_end);
-        try {
-            const response = await fetch(`${CONF.trendUrl}?${query.toString()}`, { cache: "no-store" });
-            const data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || "读取失败");
-            trendCache.set(sku, data);
-            if (document.querySelector("[data-trend]") !== box) return;
-            box.innerHTML = trendChart(data);
-        } catch (err) {
-            if (document.querySelector("[data-trend]") !== box) return;
-            const metaNode = document.querySelector("[data-trend-meta]");
-            if (metaNode) metaNode.textContent = "暂不可用";
-            box.innerHTML = `<div class="trend-empty">逐日销量读取失败：${esc((err && err.message) || "接口无响应")}</div>`;
-        }
+        if (drawerSalesChart) drawerSalesChart.dispose();
+        drawerSalesChart = null;
+        const data = trendCache.get(sku);
+        if (!data) { box.innerHTML = '<div class="trend-empty">当前快照尚未包含逐日销量，请生成 / 刷新快照</div>'; return; }
+        const meta = document.querySelector("[data-trend-meta]");
+        if (meta) meta.textContent = `${data.start.slice(5)} 至 ${data.end.slice(5)} · ${data.source}口径`;
+        box.innerHTML = `<div class="trend-large" data-sku="${esc(sku)}"></div><div class="trend-sum"><span>合计 <b>${fmtInt(data.sum)}</b> 件</span><span>日均 <b>${fmtDecimal(data.avg)}</b> 件</span></div>`;
+        drawerSalesChart = createSalesChart(box.querySelector(".trend-large"), data, false);
     }
 
     function closeRow() {
+        if (drawerSalesChart) drawerSalesChart.dispose();
+        drawerSalesChart = null;
         el.drawer.hidden = true;
         el.scrim.hidden = true;
         el.drawer.setAttribute("aria-hidden", "true");
@@ -2899,6 +2998,16 @@ const CONF = {
 
     function apply(data, persist = true) {
         state.sheets = data.sheets || {};
+        trendCache.clear();
+        const trendSheet = state.sheets["近15天销量"];
+        if (trendSheet) {
+            const dates = (trendSheet.columns || []).slice(1);
+            (trendSheet.rows || []).forEach(row => {
+                const days = dates.map((date, i) => ({date, qty: num(row[i + 1])}));
+                const sum = days.reduce((total, day) => total + day.qty, 0);
+                trendCache.set(String(row[0]), {days, sum, avg: sum / 15, start: dates[0], end: dates[14], source: (data.generation || {}).sales_source || "付款"});
+            });
+        }
         resetQuantityTracking(data);
         const g = data.generation || {};
         state.generation = g;
@@ -3329,8 +3438,36 @@ const CONF = {
         }
     }
 
+    async function registerClearance(button) {
+        if (state.dirtyQuantities.size && !(await syncOrderQuantities())) return;
+        const row = (sheet().rows || [])[Number(button.dataset.clearanceRow)];
+        if (!row) return;
+        const sku = cellOf(row, "SKU");
+        if (!window.confirm(`将 ${sku} 标记为清货？订货量将设为 0，并记录当前登记人和时间。`)) return;
+        button.disabled = true;
+        try {
+            const response = await fetch(CONF.clearanceUrl, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sku }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "登记清货失败");
+            apply(data);
+            toast(data.message);
+        } catch (err) {
+            toast(err.message || "登记清货失败", "warn");
+            button.disabled = false;
+        }
+    }
+
     /* ------------------------------------------------------------- 事件绑定 */
     el.grid.addEventListener("click", e => {
+        const clearanceButton = e.target.closest("[data-clearance-row]");
+        if (clearanceButton) {
+            e.stopPropagation();
+            registerClearance(clearanceButton);
+            return;
+        }
         if (e.target.closest("[data-qty-row]")) {
             e.stopPropagation();
             return;
@@ -3469,7 +3606,7 @@ const CONF = {
         if (!e.target.closest("#pop") && !e.target.closest("[data-filter]") && !e.target.closest("#colsBtn")) closePop();
     });
 
-    window.addEventListener("resize", () => { closePop(); syncPins(); });
+    window.addEventListener("resize", () => { closePop(); syncPins(); salesChartInstances.forEach(chart => chart.resize()); if (drawerSalesChart) drawerSalesChart.resize(); });
 
     document.addEventListener("keydown", e => {
         if (e.key === "Escape") {

@@ -39,6 +39,41 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
             with patch.object(operation, "scoped_query_executor", return_value=(lambda sql: [], access)):
                 return self.client.open(path, method=method, **kwargs)
 
+    def test_clearance_records_actor_time_preserves_remark_and_zeroes_order(self):
+        with app_module.app.app_context():
+            snapshot = operation.get_shared_snapshot_path()
+            dataset = build_sample_dataset()
+            dataset["rows"][0]["values"][1] = 1
+            operation.save_operation_workbook({"main": dataset, "sheets": {}, "generation": {}}, snapshot)
+        with patch.object(operation, "dui_db") as write, patch.object(base, "sf_db", return_value=[]):
+            response = self.request("POST", "/api/ai/daily-replenishment-operation/clearance", json={"sku": "SKU-A", "user_name": "伪造用户"})
+        self.assertEqual(200, response.status_code, response.get_json())
+        body = response.get_json()
+        self.assertIn("登记人：测试用户", body["note"])
+        self.assertRegex(body["note"], r"清货登记：\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}")
+        main = body["sheets"][base.SHEET_NAME]
+        row = main["rows"][0]
+        self.assertIn("旧备注", row[17])
+        self.assertIn(body["note"], row[17])
+        self.assertEqual(0, row[13])
+        self.assertIn("mark-clearance", main["styles"]["0"]["3"])
+        self.assertIn("BEGIN TRANSACTION", write.call_args.args[0])
+        self.assertIn("测试用户", write.call_args.kwargs["params"])
+        with app_module.app.app_context():
+            persisted = operation.load_snapshot(operation.get_today_snapshot(user_name="测试用户"))
+        self.assertIn(body["note"], persisted["sheets"][base.SHEET_NAME]["rows"][0][17])
+
+    def test_clearance_rejects_sku_without_writable_store(self):
+        with app_module.app.app_context():
+            snapshot = operation.get_shared_snapshot_path()
+            dataset = build_sample_dataset()
+            dataset["rows"][0]["values"][1] = 1
+            operation.save_operation_workbook({"main": dataset, "sheets": {}, "generation": {}}, snapshot)
+        with patch.object(operation, "dui_db") as write:
+            response = self.request("POST", "/api/ai/daily-replenishment-operation/clearance", json={"sku": "OTHER"})
+        self.assertEqual(403, response.status_code)
+        write.assert_not_called()
+
     def test_page_is_independent_from_daily_replenishment(self):
         response = self.request("GET", "/ai/daily-replenishment-operation")
         self.assertEqual(200, response.status_code)
@@ -136,6 +171,14 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
             if "sea_shipping_active" in sql:
                 return []
             return [("SKU-A", 21.5), ("SKU-B", 32.0)]
+
+        with app_module.app.app_context():
+            operation.save_operation_workbook({
+                "main": build_sample_dataset(),
+                "sheets": {operation.SEA_RECOMMENDATION_SHEET: {
+                    "columns": ["SKU", "日均销量"], "rows": [["SKU-A", 21.5], ["SKU-B", 32.0]],
+                }}, "generation": {},
+            }, operation.get_shared_snapshot_path())
 
         with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")):
             with patch.object(operation, "scoped_query_executor", return_value=(fake_execute, access)):

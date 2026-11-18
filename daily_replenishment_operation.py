@@ -8,7 +8,7 @@ import re
 import shutil
 import uuid
 import zipfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
@@ -17,6 +17,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 from flask import Blueprint, current_app, g, has_request_context, jsonify, render_template, request, send_file, session
 from openpyxl import load_workbook
+from openpyxl.comments import Comment
 
 import daily_replenishment as base
 from department_permissions import require_permission
@@ -36,6 +37,9 @@ _refresh_jobs_lock = Lock()
 _refresh_jobs: dict[str, dict[str, Any]] = {}
 SEA_SHIPPING_RECOMMENDATION_DAYS = 30
 SEA_SHIPPING_RECOMMENDATION_MIN_AVG = 20.0
+SEA_RECOMMENDATION_SHEET = "推荐海运"
+SALES_TREND_SHEET = "近15天销量"
+SNAPSHOT_SHEET_ORDER = (*SHEET_ORDER, SEA_RECOMMENDATION_SHEET, SALES_TREND_SHEET)
 
 
 def _normalized_store(value: Any) -> str:
@@ -250,6 +254,8 @@ def _scope_snapshot_payload(payload: dict[str, Any], access: dict[str, Any]) -> 
         "每日库存": lambda row: keep_sku(row, (0,)),
         "海运即将到货": lambda row: keep_store(row, 2),
         "低毛利率": lambda row: keep_sku(row, (0,)),
+        SEA_RECOMMENDATION_SHEET: lambda row: keep_sku(row, (0,)),
+        SALES_TREND_SHEET: lambda row: keep_sku(row, (0,)),
     }
     for name, sheet in sheets.items():
         rule = rules.get(name)
@@ -439,7 +445,28 @@ def _trend_window(settings: dict[str, Any]) -> tuple[date, date]:
 def generate_operation_dataset(source: Path | None = None, *, query_executor=base.sf_db, overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     settings = _settings(source, overrides)
     main = base.generate_database_dataset(settings, query_executor=query_executor)
+    notes = query_executor(
+        "/* daily_replenishment:clearance_notes */\n"
+        "SELECT SKU,BeiZhu FROM dbo.ChanPinBeiZhu "
+        "WHERE YorN='Y' AND BeiZhu LIKE N'清货登记：%' ORDER BY RiQi"
+    ) or []
+    by_sku: dict[str, list[str]] = {}
+    for sku, note in notes:
+        by_sku.setdefault(str(sku).strip(), []).append(str(note))
+    for row in main.get("rows") or []:
+        values = row["values"]
+        for note in by_sku.get(str(values[3]).strip(), []):
+            if note not in str(values[17] or ""):
+                values[17] = "\n".join(filter(None, [values[17], note]))
     related = base.generate_button_sheets(settings, query_executor=query_executor)
+    skus = {str(row["values"][3] or "").strip() for row in main.get("rows") or [] if len(row.get("values") or []) > 3}
+    related[SALES_TREND_SHEET] = _sales_trend_snapshot_sheet(settings, skus, query_executor=query_executor)
+    recommendations = _normalize_sea_shipping_rows(query_executor(_sea_shipping_recommendation_sql()) or [])
+    related[SEA_RECOMMENDATION_SHEET] = {
+        "columns": ["SKU", "日均销量"],
+        "rows": [[item["sku"], item["avg_daily_sales"]] for item in recommendations],
+        "purpose": "每日快照生成时计算的推荐海运",
+    }
     return {
         "main": main,
         "sheets": related,
@@ -452,7 +479,7 @@ def save_operation_workbook(dataset: dict[str, Any], destination: Path) -> Path:
     base._save_dataset_workbook(dataset["main"], destination)
     workbook = load_workbook(destination)
     try:
-        for name in SHEET_ORDER:
+        for name in SNAPSHOT_SHEET_ORDER:
             if name == base.SHEET_NAME:
                 continue
             if name in workbook.sheetnames:
@@ -469,9 +496,11 @@ def save_operation_workbook(dataset: dict[str, Any], destination: Path) -> Path:
                 for column_index, value in enumerate(values, 1):
                     base._write_literal(sheet.cell(row_index, column_index), value)
             base._style_worksheet(sheet, len(rows) + 1, len(columns))
+            if name in (SEA_RECOMMENDATION_SHEET, SALES_TREND_SHEET):
+                sheet.sheet_state = "hidden"
 
-        ordered = [workbook[name] for name in SHEET_ORDER if name in workbook.sheetnames]
-        remaining = [sheet for sheet in workbook.worksheets if sheet.title not in SHEET_ORDER]
+        ordered = [workbook[name] for name in SNAPSHOT_SHEET_ORDER if name in workbook.sheetnames]
+        remaining = [sheet for sheet in workbook.worksheets if sheet.title not in SNAPSHOT_SHEET_ORDER]
         workbook._sheets = ordered + remaining
         with tempfile.NamedTemporaryFile(dir=destination.parent, suffix=".xlsx", delete=False) as tmp:
             temp_path = Path(tmp.name)
@@ -519,7 +548,7 @@ def load_snapshot(path: Path) -> dict[str, Any]:
     workbook = load_workbook(path, read_only=True, data_only=True, keep_links=False)
     try:
         sheets: dict[str, Any] = {}
-        for name in SHEET_ORDER:
+        for name in SNAPSHOT_SHEET_ORDER:
             if name not in workbook.sheetnames:
                 continue
             sheet = workbook[name]
@@ -786,6 +815,86 @@ def _normalize_sea_shipping_rows(rows: list[Any]) -> list[dict[str, Any]]:
     return recommendations
 
 
+def _sales_trend_snapshot_sheet(settings: dict[str, Any], skus: set[str], *, query_executor=base.sf_db) -> dict[str, Any]:
+    """One grouped query per refresh, with a complete zero-filled 15-day series."""
+    end = base._coerce_date(settings.get("sales_end")) or date.today() - timedelta(days=2)
+    start = end - timedelta(days=14)
+    dates = [(start + timedelta(days=index)).isoformat() for index in range(15)]
+    wanted = sorted(sku for sku in skus if sku)
+    table, column = _SALES_SOURCE_TABLES.get(settings.get("sales_source"), _SALES_SOURCE_TABLES["付款"])
+    totals: dict[str, dict[str, float]] = {}
+    if wanted:
+        literals = ",".join(f"N'{escape_sql_literal(sku, escape_percent=False)}'" for sku in wanted)
+        sql = f"""/* daily_replenishment:snapshot_sales_trend */
+SELECT SKU,CONVERT(date,RiQi),SUM(CAST(ISNULL({column},0) AS FLOAT))
+  FROM {table}
+ WHERE SKU IN ({literals}) AND RiQi>='{start.isoformat()}' AND RiQi<DATEADD(day,1,'{end.isoformat()}')
+ GROUP BY SKU,CONVERT(date,RiQi)"""
+        for raw in query_executor(sql) or []:
+            if not isinstance(raw, (list, tuple)) or len(raw) < 3:
+                continue
+            sku = str(raw[0] or "").strip()
+            day = base._coerce_date(raw[1])
+            if sku not in skus or day is None or not start <= day <= end:
+                continue
+            key = day.isoformat()
+            values = totals.setdefault(sku, {})
+            values[key] = values.get(key, 0) + (base._as_number(raw[2]) or 0)
+    return {
+        "columns": ["SKU", *dates],
+        "rows": [[sku, *[int(round(totals.get(sku, {}).get(day, 0))) for day in dates]] for sku in wanted],
+        "purpose": "截至快照销量截止日的近15天逐日销量",
+    }
+
+
+def _write_snapshot_sheet(path: Path, *, rows: list[list[Any]] | None = None, removed_skus: set[str] | None = None, sheet_name: str = SEA_RECOMMENDATION_SHEET, columns: list[str] | None = None) -> bool:
+    """Update one hidden data sheet, preserving every other snapshot sheet.
+
+    The caller holds _refresh_lock so a refresh cannot replace this update.
+    """
+    workbook = load_workbook(path)
+    temp_path = None
+    try:
+        if rows is None:
+            if sheet_name not in workbook.sheetnames:
+                return False
+            existing = list(workbook[sheet_name].iter_rows(min_row=2, values_only=True))
+            rows = [list(row) for row in existing if row and str(row[0] or "").lstrip("@").strip() not in (removed_skus or set())]
+            if len(rows) == len(existing):
+                return False
+        if sheet_name in workbook.sheetnames:
+            del workbook[sheet_name]
+        sheet = workbook.create_sheet(sheet_name)
+        for index, values in enumerate([columns or ["SKU", "日均销量"], *rows], 1):
+            for column, value in enumerate(values, 1):
+                base._write_literal(sheet.cell(index, column), value)
+        sheet.sheet_state = "hidden"
+        with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".xlsx", delete=False) as tmp:
+            temp_path = Path(tmp.name)
+        workbook.save(temp_path)
+        os.replace(temp_path, path)
+        with _snapshot_cache_lock:
+            _snapshot_cache.pop(str(path.resolve()), None)
+        return True
+    finally:
+        workbook.close()
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def populate_sea_recommendation_snapshot(path: Path, *, query_executor=base.sf_db) -> bool:
+    """One-time migration for an existing daily snapshot; never called on page reads."""
+    with _refresh_lock:
+        workbook = load_workbook(path, read_only=True)
+        try:
+            if SEA_RECOMMENDATION_SHEET in workbook.sheetnames:
+                return False
+        finally:
+            workbook.close()
+        items = _normalize_sea_shipping_rows(query_executor(_sea_shipping_recommendation_sql()) or [])
+        return _write_snapshot_sheet(path, rows=[[item["sku"], item["avg_daily_sales"]] for item in items])
+
+
 def _sea_shipping_insert_sql(skus: list[str]) -> str:
     values = ",".join(
         f"(N'{escape_sql_literal(sku, escape_percent=False)}')"
@@ -817,15 +926,17 @@ def sea_shipping_recommendations():
     }
     if request.method == "GET":
         try:
-            rows = execute(_sea_shipping_recommendation_sql())
+            snapshot, _ = _resolve_snapshot_for_user(user_name)
+            payload = load_snapshot_cached(snapshot) if snapshot is not None else {}
+            sheet = (payload.get("sheets") or {}).get(SEA_RECOMMENDATION_SHEET)
             recommendations = [
-                item
-                for item in _normalize_sea_shipping_rows(rows)
+                item for item in _normalize_sea_shipping_rows((sheet or {}).get("rows") or [])
                 if item["sku"] in visible_skus
             ]
             return jsonify(
                 success=True,
                 items=recommendations,
+                snapshot_ready=sheet is not None,
                 days=SEA_SHIPPING_RECOMMENDATION_DAYS,
                 threshold=SEA_SHIPPING_RECOMMENDATION_MIN_AVG,
             )
@@ -853,17 +964,22 @@ def sea_shipping_recommendations():
     if any(sku not in visible_skus for sku in selected):
         return jsonify({"success": False, "message": "所选 SKU 不在当前店铺权限范围内"}), 403
     try:
-        active_rows = execute(
-            "/* daily_replenishment:sea_shipping_active */\n"
-            "SELECT SKU FROM dbo.HaiYunSKU WHERE ZhengChang=N'Y'"
-        )
-        active = {
-            str(row[0] if isinstance(row, (list, tuple)) else row or "").lstrip("@").strip()
-            for row in active_rows or []
-        }
-        to_insert = [sku for sku in selected if sku not in active]
-        if to_insert:
-            dui_db(_sea_shipping_insert_sql(to_insert))
+        with _refresh_lock:
+            active_rows = execute(
+                "/* daily_replenishment:sea_shipping_active */\n"
+                "SELECT SKU FROM dbo.HaiYunSKU WHERE ZhengChang=N'Y'"
+            )
+            active = {
+                str(row[0] if isinstance(row, (list, tuple)) else row or "").lstrip("@").strip()
+                for row in active_rows or []
+            }
+            to_insert = [sku for sku in selected if sku not in active]
+            if to_insert:
+                dui_db(_sea_shipping_insert_sql(to_insert))
+            paths = {get_shared_today_snapshot(), get_today_snapshot(user_name=user_name)}
+            for snapshot in paths:
+                if snapshot is not None:
+                    _write_snapshot_sheet(snapshot, removed_skus=set(selected))
         return jsonify(
             success=True,
             added=len(to_insert),
@@ -961,6 +1077,109 @@ SELECT SKU,RiQi,SUM(CAST(ISNULL({column},0) AS FLOAT))
             "source": settings["sales_source"],
         }
     )
+
+
+@daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/clearance")
+@require_permission(PERMISSION_NAME)
+def register_clearance():
+    user_name = _current_user_name()
+    _, access = scoped_query_executor(user_name)
+    body = request.get_json(silent=True)
+    sku = str(body.get("sku") or "").strip() if isinstance(body, dict) else ""
+    if not sku:
+        return jsonify(success=False, message="请选择要标记清货的 SKU"), 400
+    if not user_name or not access.get("can_write"):
+        return jsonify(success=False, message="当前用户没有登记清货的权限"), 403
+    try:
+        with _refresh_lock:
+            snapshot, is_shared = _resolve_snapshot_for_user(user_name)
+            if snapshot is None:
+                return jsonify(success=False, message="请先生成今日快照"), 404
+            payload = load_snapshot(snapshot)
+            main = payload["sheets"][base.SHEET_NAME]
+            columns = main["columns"]
+            sku_col, store_col = columns.index("SKU"), columns.index("店铺")
+            matching = [row for row in main["rows"] if str(row[sku_col] or "").strip() == sku]
+            if not any(_normalized_store(row[store_col]) in access.get("write_stores", set()) for row in matching):
+                return jsonify(success=False, message="该 SKU 不在当前可写店铺范围内"), 403
+            stamp = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
+            note = f"清货登记：{stamp}，登记人：{user_name}"
+            # 清货状态和审计备注在同一事务内保存；重复点击保留首次登记记录。
+            dui_db("""SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+IF NOT EXISTS (SELECT 1 FROM dbo.QingHuo WITH (UPDLOCK,HOLDLOCK) WHERE SKU=%s)
+BEGIN
+    INSERT INTO dbo.QingHuo (SKU,BeiZhu,TianJiaRiQi) VALUES (%s,%s,%s);
+END;
+IF NOT EXISTS (SELECT 1 FROM dbo.ChanPinBeiZhu WITH (UPDLOCK,HOLDLOCK)
+               WHERE SKU=%s AND YorN='Y' AND BeiZhu LIKE N'清货登记：%%')
+BEGIN
+    INSERT INTO dbo.ChanPinBeiZhu (SKU,RiQi,BeiZhu,TianJiaRen,YorN)
+    VALUES (%s,%s,%s,%s,'Y');
+END;
+COMMIT TRANSACTION;""", params=(sku, sku, note, stamp, sku, sku, stamp, note, user_name))
+            # 读取数据库中的首次登记，避免重复请求改写登记时间。
+            records = base.sf_db(
+                "SELECT TOP 1 BeiZhu FROM dbo.ChanPinBeiZhu WHERE SKU=N'"
+                + escape_sql_literal(sku) + "' AND YorN='Y' AND BeiZhu LIKE N'清货登记：%' ORDER BY RiQi"
+            ) or []
+            if records:
+                note = str(records[0][0])
+            if is_shared:
+                own = get_snapshot_path(user_name=user_name)
+                own.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(snapshot, own)
+                snapshot = own
+            workbook = load_workbook(snapshot)
+            temp_path = None
+            try:
+                ws = workbook[base.SHEET_NAME]
+                if base.STYLE_SHEET_NAME not in workbook.sheetnames:
+                    metadata = workbook.create_sheet(base.STYLE_SHEET_NAME)
+                    metadata.append(["行号", "列序号", "样式"])
+                    metadata.sheet_state = "hidden"
+                metadata = workbook[base.STYLE_SHEET_NAME]
+                if base.COMMENT_SHEET_NAME not in workbook.sheetnames:
+                    comments = workbook.create_sheet(base.COMMENT_SHEET_NAME)
+                    comments.append(["行号", "列序号", "批注"])
+                    comments.sheet_state = "hidden"
+                comments = workbook[base.COMMENT_SHEET_NAME]
+                for index, row in enumerate(main["rows"]):
+                    if str(row[sku_col] or "").strip() != sku:
+                        continue
+                    remark_col = columns.index("备注")
+                    previous = str(row[remark_col] or "")
+                    if note not in previous:
+                        base._write_literal(ws.cell(index + 2, remark_col + 1), "\n".join(filter(None, [previous, note])))
+                    order_cell = ws.cell(index + 2, columns.index("订货量") + 1)
+                    order_cell.value = 0
+                    order_cell.comment = Comment("智能补货建议：0 件（清货产品，不下单）\n" + note, "智能补货")
+                    comments.append([index + 2, columns.index("订货量"), order_cell.comment.text])
+                    for column in range(1, 18):
+                        tokens = list((main.get("styles", {}).get(str(index), {})).get(str(column - 1), []))
+                        if "mark-clearance" not in tokens:
+                            tokens.append("mark-clearance")
+                        metadata.append([index + 2, column - 1, " ".join(tokens)])
+                        base._apply_cell_business_styles(ws.cell(index + 2, column), ["mark-clearance"])
+                with tempfile.NamedTemporaryFile(dir=snapshot.parent, suffix=".xlsx", delete=False) as tmp:
+                    temp_path = Path(tmp.name)
+                workbook.save(temp_path)
+                os.replace(temp_path, snapshot)
+            finally:
+                workbook.close()
+                if temp_path:
+                    temp_path.unlink(missing_ok=True)
+            updated = load_snapshot(snapshot)
+            result = _scope_snapshot_payload(updated, access)
+            cache_snapshot_payload(snapshot, updated)
+            meta = _snapshot_payload(snapshot, user_name=user_name)
+            _attach_client_cache_meta(meta, snapshot, user_name, access)
+            result.update(snapshot=meta, stores=sorted(access["read_stores"]))
+        result.update(success=True, message="已标记清货", note=note)
+        return jsonify(result)
+    except Exception as exc:
+        current_app.logger.exception("Failed to register clearance")
+        return jsonify(success=False, message=f"登记清货失败：{exc}"), 500
 
 
 @daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/order-quantities")

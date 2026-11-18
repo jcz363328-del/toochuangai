@@ -6,6 +6,7 @@ import EChart from "./components/EChart";
 import CompanyMarketPanel from "./components/CompanyMarketPanel";
 import FiscalOverview from "./components/FiscalOverview";
 import KeyTasksBoard from "./components/KeyTasksBoard";
+import PromotionBackfill from "./components/PromotionBackfill";
 import { MARKET_OVERVIEW_ROWS, type MarketOverviewRow } from "./data/marketOverview";
 import { useLiveDashboard } from "./hooks/useLiveDashboard";
 import {
@@ -1809,6 +1810,7 @@ export default function DashboardClient({ data: initialData }: { data: WorkbookD
                 }}><option value={30}>最近 30 天</option><option value={90}>最近 90 天</option><option value={180}>最近 180 天</option><option value={365}>最近 365 天</option></select></label>
                 <button className="tier-history-close" type="button" onClick={() => setShowTierHistory(false)} aria-label="关闭每日等级全屏视图">×</button>
               </div>
+              {accessScope?.role === "business_owner" ? <PromotionBackfill /> : null}
               {tierHistoryLoading ? <div className="tier-history-state">正在读取每日等级记录…</div>
                 : tierHistoryError ? <div className="tier-history-state error">{tierHistoryError}</div>
                 : tierHistoryRows.length ? <div className="table-scroll tier-history-scroll"><table className="tier-history-matrix"><thead><tr><th className="tier-history-store-head">店铺 / 运营</th><th className="tier-history-meta-head">历史正式最高</th><th className="tier-history-meta-head tier-history-days-head">当前层级已满</th>{tierHistoryDates.map((date) => <th key={date} title={date}><span>{date.slice(5).replace("-", "/")}</span></th>)}</tr></thead><tbody>{tierHistoryMatrix.map((row) => <tr key={row.store}><th className="tier-history-store-cell"><b>{row.store}号店</b><small>{row.operator || row.department || "—"}</small></th><td className="tier-history-meta-cell" title={row.meta?.officialSource || ""}><span className={`tier-history-cell tier-${tierTone(row.meta?.historicalOfficialTier || null)}`}>{row.meta?.historicalOfficialTier || "暂无"}</span><small>{row.meta?.officialSince ? `${row.meta.officialSince}确认` : "未确认晋级"}</small></td><td className="tier-history-meta-cell tier-history-days-cell"><b>{row.meta?.currentLevelDays ?? 0} 天</b><small>{row.meta?.currentTier || "暂无等级"}</small></td>{tierHistoryDates.map((date, index) => {

@@ -2226,3 +2226,15 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
 .cm-derived-field span { font-size: 12px; color: var(--muted); }
 .cm-derived-field strong { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .cm-history-table tbody tr { cursor: default; }
+
+.promotion-backfill { padding: 12px 20px; border-bottom: 1px solid var(--line-soft, #ddd); }
+.promotion-backfill-content { max-height: 50vh; overflow: auto; }
+.promotion-backfill-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-top: 12px; }
+.promotion-backfill-filters label { display: grid; gap: 6px; }
+.promotion-backfill input { padding: 8px; max-width: 170px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-soft, #ccc); border-radius: 6px; }
+.promotion-backfill button { padding: 8px 12px; cursor: pointer; }
+.promotion-backfill button:disabled { opacity: .5; cursor: default; }
+.promotion-backfill p { font-size: 13px; color: var(--muted); }
+.promotion-backfill-preview { padding: 16px; border: 1px solid var(--line-soft, #ddd); border-radius: 8px; }
+.promotion-backfill-preview pre { white-space: pre-wrap; font: inherit; line-height: 1.7; }
+.promotion-backfill-preview button + button { margin-left: 8px; }

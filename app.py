@@ -19120,6 +19120,44 @@ def business_analysis_store_tier_history_api():
     return response
 
 
+@app.route('/api/ai/business-analysis/promotion-backfill', methods=['GET', 'POST'])
+@_require_business_analysis_access
+def business_analysis_promotion_backfill_api():
+    scope = _get_business_analysis_scope(resolve_leader=True)
+    if not scope or scope.get('role') != 'business_owner':
+        return jsonify({'error': {'message': '仅经营负责人可补发晋级通知'}}), 403
+    from business_analysis_promotion_backfill import preview_backfill, send_backfill
+    try:
+        if request.method == 'POST':
+            # Require a same-origin JSON request for this session-authenticated write.
+            if not request.is_json or (request.headers.get('Origin') and
+                    request.headers['Origin'].rstrip('/') != request.host_url.rstrip('/')):
+                return jsonify({'error': {'message': '请从经营分析页面提交补发'}}), 403
+            body = request.get_json(silent=True) or {}
+            record_id = body.get('recordId')
+            if type(record_id) is not int or record_id <= 0:
+                raise ValueError('晋级记录参数无效')
+            result = send_backfill(record_id)
+        else:
+            end = date.fromisoformat(request.args.get('end') or date.today().isoformat())
+            start = date.fromisoformat(request.args.get('start') or (end - timedelta(days=89)).isoformat())
+            if start > end or (end - start).days > 365:
+                raise ValueError('请选择不超过366天的有效日期范围')
+            raw_store = request.args.get('store', '').strip()
+            store = int(raw_store) if raw_store else None
+            if store is not None and store <= 0:
+                raise ValueError('店铺参数无效')
+            result = preview_backfill(start, end, store)
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except ValueError as exc:
+        return jsonify({'error': {'message': str(exc)}}), 400
+    except Exception:
+        app.logger.exception('Promotion backfill failed')
+        return jsonify({'error': {'message': '补发服务暂不可用，请刷新记录核对发送状态后重试'}}), 503
+
+
 @app.route('/api/ai/business-analysis/fiscal-overview', methods=['GET'])
 @_require_business_analysis_access
 def business_analysis_fiscal_overview_api():

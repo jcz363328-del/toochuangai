@@ -18767,6 +18767,7 @@ def render_zoomable_image_gallery(
             activeCloseButton.onpointerdown = (event) => {{
               event.preventDefault();
               event.stopPropagation();
+              const state = hostWindow_{component_key}.__lashforgeFullscreenState || {{}};
               if (state.pointerId !== null && activeImage.releasePointerCapture) {{
                 try {{ activeImage.releasePointerCapture(state.pointerId); }} catch (e) {{}}
               }}
@@ -18792,7 +18793,9 @@ def render_zoomable_image_gallery(
             }} catch (e) {{}}
           }}
           hostWindow_{component_key}.__lashforgeFullscreenKeyHandler = (event) => {{
-            if (event.key === "Escape") {{
+            if (event.key === "Escape" && activeOverlay.classList.contains("active")) {{
+              event.preventDefault();
+              event.stopImmediatePropagation();
               closeActiveFullscreen();
             }}
           }};
@@ -18803,6 +18806,15 @@ def render_zoomable_image_gallery(
       function openFullscreen_{component_key}(src) {{
         ensureOverlay_{component_key}();
         const overlay = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
+        // Keep the viewer inside the active history dialog so its modal
+        // backdrop and focus trap do not cover or disable the preview.
+        let viewerHost = hostDoc_{component_key}.body;
+        try {{
+          const frame = window.frameElement;
+          const dialog = frame && frame.closest('dialog, [role="dialog"]');
+          if (dialog) viewerHost = dialog;
+        }} catch (e) {{}}
+        if (overlay.parentElement !== viewerHost) viewerHost.appendChild(overlay);
         const image = hostDoc_{component_key}.getElementById("lashforge-fullscreen-image");
         const state = hostWindow_{component_key}.__lashforgeFullscreenState;
         image.src = normalizeViewerSrc_{component_key}(src);
