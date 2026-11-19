@@ -9,6 +9,9 @@ from 图片 import openrouter_image_site as site
 
 
 class BackgroundTaskProgressTests(unittest.TestCase):
+    def test_provider_queue_wait_does_not_advance_visible_progress(self) -> None:
+        self.assertEqual(site.calculate_smooth_running_progress(35, 45, waiting=True), 35)
+
     def test_jimeng_hd_global_fifo_accepts_all_jobs_and_keeps_api_serial(self) -> None:
         class SessionState(dict):
             def __getattr__(self, name: str):
@@ -63,7 +66,7 @@ class BackgroundTaskProgressTests(unittest.TestCase):
                 self.assertTrue(all(job["queue_key"] == site.JIMENG_HD_GLOBAL_QUEUE_KEY for job in submitted_jobs))
                 self.assertEqual(submitted_jobs[-1]["status"], "queued")
                 self.assertEqual(submitted_jobs[-1]["queue_position"], 10)
-                self.assertEqual(submitted_jobs[-1]["queue_capacity"], 0)
+                self.assertEqual(submitted_jobs[-1]["queue_capacity"], 64)
                 eleventh = site.submit_feature_job(
                         feature,
                         {"account_name": "account-eleven", "output_mode": "image"},

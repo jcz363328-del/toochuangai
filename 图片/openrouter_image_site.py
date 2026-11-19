@@ -17,6 +17,7 @@ import time
 import urllib.parse
 import zipfile
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from datetime import date, datetime, timedelta, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -38,6 +39,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 from secret_settings import image_site_config_namespace, relocate_storage_path, sql_server_config
 import prepress_check_service
+from 图片.request_limits import admitted_job, get_request_limiter, limited_request, request_wait_callback
 from 图片.a_plus_reference_lab import (
     A_PLUS_REFERENCE_LAB_FEATURE_KEY,
     A_PLUS_REFERENCE_LAB_MAX_PRODUCT_IMAGES,
@@ -68,7 +70,7 @@ OMNIAKEY_MEDIA_TASKS_URL = f"{OMNIAKEY_API_BASE}/v1/media/tasks"
 OMNIAKEY_CHAT_COMPLETIONS_URL = f"{OMNIAKEY_API_BASE}/v1/chat/completions"
 NANO_BANANA_MODEL = "gemini-nano-banana-2.1"
 DEFAULT_MODEL = NANO_BANANA_MODEL
-# 历史遗留的 Nano Banana 变体统一收敛到 NANO_BANANA_MODEL，且统一走 OmniaKey 媒体任务接口。
+# 历史遗留的 Nano Banana 变体统一收敛到 NANO_BANANA_MODEL，使用 OmniaKey Images API。
 NANO_BANANA_MODEL_ALIASES = (
     "gemini-nano-banana",
     "google/gemini-nano-banana",
@@ -185,6 +187,7 @@ OPENROUTER_IMAGES_TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 # OmniaKey 媒体任务接口要求整个请求（含 Base64）不超过 1 MiB，原始图片需要先压到预算内。
 OMNIAKEY_CONNECT_TIMEOUT_SECONDS = 30
 OMNIAKEY_READ_TIMEOUT_SECONDS = 120
+OMNIAKEY_SYNC_IMAGE_TIMEOUT_SECONDS = 300
 OMNIAKEY_TASK_TIMEOUT_SECONDS = 600
 OMNIAKEY_TASK_POLL_INTERVAL_SECONDS = 3
 OMNIAKEY_MEDIA_MAX_ATTEMPTS = 2
@@ -638,18 +641,113 @@ _OPENROUTER_REMOVE_EYELASHES_LOCK = Lock()
 _OPENROUTER_ERROR_LOG_LOCK = Lock()
 
 class TaskRuntime:
+    """Bounded worker pool with fair FIFO scheduling for each account."""
+
     def __init__(self) -> None:
-        # Short local helper tasks may still run concurrently. Image-generation
-        # jobs use FIFO executors so each user can enqueue work without starting
-        # overlapping model requests. Jimeng HD uses one global FIFO because its
-        # concurrency limit applies to the whole vendor account, not one app user.
-        self.executor = ThreadPoolExecutor(max_workers=4)
-        self.generation_executors: dict[str, ThreadPoolExecutor] = {}
+        def setting(name: str, default: int, maximum: int) -> int:
+            try:
+                return min(max(int(os.environ.get(name, default)), 1), maximum)
+            except (TypeError, ValueError):
+                return default
+
+        self.max_workers = setting("XIAOHA_JOB_WORKERS", 4, 16)
+        self.max_outstanding_jobs = setting("XIAOHA_JOB_QUEUE_LIMIT", 64, 4096)
+        self.max_account_jobs = setting("XIAOHA_ACCOUNT_QUEUE_LIMIT", 8, 256)
+        self.completed_limit = setting("XIAOHA_COMPLETED_JOB_LIMIT", 256, 4096)
+        self.completed_ttl = setting("XIAOHA_COMPLETED_JOB_TTL_SECONDS", 86400, 604800)
+        self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="xiaoha-local")
+        self.generation_executor = ThreadPoolExecutor(
+            max_workers=self.max_workers, thread_name_prefix="xiaoha-generation"
+        )
         self.generation_orders: dict[str, list[str]] = {}
         self.job_queue_keys: dict[str, str] = {}
         self.futures: dict[str, Future] = {}
         self.progress: dict[str, dict[str, Any]] = {}
         self.lock = Lock()
+        self._pending: dict[str, tuple[Any, tuple[Any, ...]]] = {}
+        self._ready_accounts: list[str] = []
+        self._running_accounts: set[str] = set()
+        self._completed: dict[str, float] = {}
+        self._closed = False
+
+    def _forget_completed_locked(self, job_id: str) -> None:
+        future = self.futures.get(job_id)
+        if future is not None and not future.done():
+            return
+        self.futures.pop(job_id, None)
+        self.progress.pop(job_id, None)
+        self.job_queue_keys.pop(job_id, None)
+        self._completed.pop(job_id, None)
+
+    def _prune_completed_locked(self) -> None:
+        now = time.monotonic()
+        ordered_ids = {item for order in self.generation_orders.values() for item in order}
+        # Local helper futures share this registry and also need bounded
+        # retention if their browser session is closed before collecting them.
+        for job_id, future in self.futures.items():
+            if future.done() and job_id not in ordered_ids and job_id not in self._completed:
+                self._completed[job_id] = now
+        for job_id, completed_at in list(self._completed.items()):
+            if now - completed_at >= self.completed_ttl or len(self._completed) > self.completed_limit:
+                self._forget_completed_locked(job_id)
+
+    def _clean_canceled_locked(self) -> None:
+        for job_id in list(self._pending):
+            if not self.futures[job_id].cancelled():
+                continue
+            self._pending.pop(job_id, None)
+            account = self.job_queue_keys[job_id]
+            order = self.generation_orders.get(account, [])
+            if job_id in order:
+                order.remove(job_id)
+            if not order:
+                self.generation_orders.pop(account, None)
+                if account in self._ready_accounts:
+                    self._ready_accounts.remove(account)
+            self._completed[job_id] = time.monotonic()
+
+    def _dispatch_locked(self) -> None:
+        self._clean_canceled_locked()
+        while self._ready_accounts and len(self._running_accounts) < self.max_workers:
+            account = self._ready_accounts.pop(0)
+            order = self.generation_orders.get(account, [])
+            # Canceled jobs are never passed to a model callback.
+            while order and self.futures[order[0]].cancelled():
+                canceled_id = order.pop(0)
+                self._pending.pop(canceled_id, None)
+                self._completed[canceled_id] = time.monotonic()
+            if not order:
+                self.generation_orders.pop(account, None)
+                continue
+            job_id = order[0]
+            callback, args = self._pending.pop(job_id)
+            self._running_accounts.add(account)
+            self.generation_executor.submit(
+                self._run_generation_job, account, job_id, self.futures[job_id], callback, args
+            )
+        self._prune_completed_locked()
+
+    def _run_generation_job(self, account: str, job_id: str, future: Future, callback: Any, args: tuple) -> None:
+        try:
+            if future.set_running_or_notify_cancel():
+                try:
+                    result = callback(*args)
+                except BaseException as exc:
+                    future.set_exception(exc)
+                else:
+                    future.set_result(result)
+        finally:
+            with self.lock:
+                order = self.generation_orders.get(account, [])
+                if job_id in order:
+                    order.remove(job_id)
+                self._running_accounts.discard(account)
+                if order:
+                    self._ready_accounts.append(account)
+                else:
+                    self.generation_orders.pop(account, None)
+                self._completed[job_id] = time.monotonic()
+                self._dispatch_locked()
 
     def submit_generation_job(
         self,
@@ -659,73 +757,84 @@ class TaskRuntime:
         *args: Any,
         max_outstanding_jobs: int | None = None,
     ) -> Future:
-        normalized_queue_key = str(queue_key or "admin").strip() or "admin"
+        account = str(queue_key or "admin").strip() or "admin"
         with self.lock:
+            existing = self.futures.get(job_id)
+            if existing is not None:
+                return existing
+            if self._closed:
+                raise RuntimeError("小哈正在维护，暂时不能提交新任务。")
+            self._clean_canceled_locked()
+            self._prune_completed_locked()
+            outstanding = sum(not future.done() for future in self.futures.values())
+            if outstanding >= self.max_outstanding_jobs:
+                raise RuntimeError(f"小哈任务队列已满（最多 {self.max_outstanding_jobs} 个），请等待已有任务完成。")
+            capacity = self.max_outstanding_jobs if account == JIMENG_HD_GLOBAL_QUEUE_KEY else self.max_account_jobs
             if max_outstanding_jobs is not None:
-                capacity = max(int(max_outstanding_jobs), 1)
-                outstanding_count = sum(
-                    1
-                    for queued_job_id in self.generation_orders.get(normalized_queue_key, [])
-                    if (
-                        (queued_future := self.futures.get(queued_job_id)) is not None
-                        and not queued_future.done()
-                    )
-                )
-                if outstanding_count >= capacity:
-                    raise RuntimeError(
-                        f"即梦超清任务队列已满（最多 {capacity} 个，API 仍为 1 路串行），"
-                        "请等前面任务完成后再提交。"
-                    )
-            executor = self.generation_executors.get(normalized_queue_key)
-            if executor is None:
-                executor = ThreadPoolExecutor(
-                    max_workers=1,
-                    thread_name_prefix=f"xiaoha-{hashlib.sha1(normalized_queue_key.encode('utf-8')).hexdigest()[:8]}",
-                )
-                self.generation_executors[normalized_queue_key] = executor
-                self.generation_orders[normalized_queue_key] = []
-            future = executor.submit(callback, *args)
+                capacity = min(capacity, max(int(max_outstanding_jobs), 1))
+            account_count = sum(
+                not self.futures[item].done() for item in self.generation_orders.get(account, [])
+            )
+            if account_count >= capacity:
+                raise RuntimeError(f"当前账号任务队列已满（最多 {capacity} 个），请等待已有任务完成。")
+            future = Future()
             self.futures[job_id] = future
-            self.job_queue_keys[job_id] = normalized_queue_key
-            self.generation_orders.setdefault(normalized_queue_key, []).append(job_id)
+            self.job_queue_keys[job_id] = account
+            self._pending[job_id] = (callback, args)
+            self.generation_orders.setdefault(account, []).append(job_id)
+            if account not in self._running_accounts and account not in self._ready_accounts:
+                self._ready_accounts.append(account)
+            self._dispatch_locked()
             return future
 
     def get_generation_queue_state(self, job_id: str) -> dict[str, Any]:
         with self.lock:
             future = self.futures.get(job_id)
-            queue_key = self.job_queue_keys.get(job_id, "")
-            order = list(self.generation_orders.get(queue_key) or [])
             if future is None:
                 return {"state": "missing", "ahead_count": 0, "queue_position": 0}
             if future.done():
-                return {"state": "completed", "ahead_count": 0, "queue_position": 0}
+                state = "canceled" if future.cancelled() else "completed"
+                return {"state": state, "ahead_count": 0, "queue_position": 0}
             if future.running():
                 return {"state": "running", "ahead_count": 0, "queue_position": 0}
-            unfinished_before = 0
-            for queued_job_id in order:
-                if queued_job_id == job_id:
+            account = self.job_queue_keys.get(job_id, "")
+            before = 0
+            for item in self.generation_orders.get(account, []):
+                if item == job_id:
                     break
-                queued_future = self.futures.get(queued_job_id)
-                if queued_future is not None and not queued_future.done():
-                    unfinished_before += 1
-            return {
-                "state": "queued",
-                "ahead_count": unfinished_before,
-                "queue_position": unfinished_before + 1,
-            }
+                if not self.futures[item].done():
+                    before += 1
+            return {"state": "queued", "ahead_count": before, "queue_position": before + 1}
 
     def release_generation_job(self, job_id: str) -> None:
         with self.lock:
-            self.futures.pop(job_id, None)
-            queue_key = self.job_queue_keys.pop(job_id, "")
-            if queue_key:
-                order = self.generation_orders.get(queue_key) or []
-                self.generation_orders[queue_key] = [item for item in order if item != job_id]
+            future = self.futures.get(job_id)
+            # An active Future can still be referenced by the scheduler. Only
+            # reclaim it after its account slot and order entry are released.
+            if job_id in self._pending or any(job_id in order for order in self.generation_orders.values()):
+                if future is not None and not future.done():
+                    future.cancel()
+                self._dispatch_locked()
+                return
+            self._forget_completed_locked(job_id)
 
     def shutdown(self, wait: bool = True) -> None:
+        with self.lock:
+            self._closed = True
+            futures = list(self.futures.values())
+            if not wait:
+                for job_id in self._pending:
+                    self.futures[job_id].cancel()
+        if wait:
+            # Drain application queues before closing the underlying executor;
+            # completed jobs still need to dispatch the next account job.
+            for future in futures:
+                try:
+                    future.result()
+                except BaseException:
+                    pass
         self.executor.shutdown(wait=wait)
-        for executor in list(self.generation_executors.values()):
-            executor.shutdown(wait=wait)
+        self.generation_executor.shutdown(wait=wait)
 
 
 @st.cache_resource
@@ -754,6 +863,11 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         if request_path == "/_xiaoha_static_health":
             self.send_json({"service": "xiaoha-static", "canvas_ready": (Path(self.canvas_directory) / "index.html").exists()})
             return
+        proxy_prefix = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/omnia/v1"
+        if request_path.startswith(proxy_prefix + "/"):
+            from 图片.canvas_api_proxy import serve_canvas_api
+            serve_canvas_api(self, SimpleNamespace(**globals()), request_path[len(proxy_prefix):], "GET")
+            return
         bootstrap_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/bootstrap-config"
         if request_path == bootstrap_path:
             self.serve_infinite_canvas_bootstrap(request_url.query)
@@ -767,23 +881,43 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         request_url = urllib.parse.urlsplit(self.path)
         request_path = urllib.parse.unquote(request_url.path or "/").rstrip("/")
+        proxy_prefix = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/omnia/v1"
+        if request_path.startswith(proxy_prefix + "/"):
+            from 图片.canvas_api_proxy import serve_canvas_api
+            serve_canvas_api(self, SimpleNamespace(**globals()), request_path[len(proxy_prefix):])
+            return
         model_hd_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/model-hd"
         if request_path == model_hd_path:
-            self.serve_infinite_canvas_model_hd(request_url.query)
+            from 图片.canvas_api_proxy import serve_legacy_canvas_request
+            serve_legacy_canvas_request(self, SimpleNamespace(**globals()), request_url.query, self.serve_infinite_canvas_model_hd)
             return
         image_feature_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/image-feature"
         if request_path == image_feature_path:
-            self.serve_infinite_canvas_image_feature(request_url.query)
+            from 图片.canvas_api_proxy import serve_legacy_canvas_request
+            serve_legacy_canvas_request(self, SimpleNamespace(**globals()), request_url.query, self.serve_infinite_canvas_image_feature)
             return
         detect_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/detect-public-figures"
         if request_path == detect_path:
-            self.serve_infinite_canvas_detect_public_figures(request_url.query)
+            from 图片.canvas_api_proxy import serve_legacy_canvas_request
+            serve_legacy_canvas_request(self, SimpleNamespace(**globals()), request_url.query, self.serve_infinite_canvas_detect_public_figures)
             return
         usage_record_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/usage-record"
         if request_path == usage_record_path:
             self.serve_infinite_canvas_usage_record(request_url.query)
             return
         self.send_json({"success": False, "message": "接口不存在"}, status=404)
+
+    def do_OPTIONS(self) -> None:
+        request_path = urllib.parse.urlsplit(self.path).path
+        proxy_prefix = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/omnia/v1/"
+        if not request_path.startswith(proxy_prefix):
+            self.send_json({"success": False, "message": "接口不存在"}, status=404)
+            return
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def end_headers(self) -> None:
         request_url = urllib.parse.urlsplit(str(getattr(self, "path", "/") or "/"))
@@ -826,14 +960,16 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         if parsed.scheme != "https" or not allowed_host:
             self.send_json({"success": False, "message": "无效的图片地址"}, status=400)
             return
+        from 图片.request_limits import RequestQueueFull
         try:
-            response = requests.get(
-                asset_url,
-                allow_redirects=False,
-                proxies={"http": None, "https": None},
-                **get_external_request_kwargs(timeout=60, use_proxy=False),
-            )
-            response.raise_for_status()
+            with get_request_limiter().slot("download"):
+                response = requests.get(
+                    asset_url,
+                    allow_redirects=False,
+                    proxies={"http": None, "https": None},
+                    **get_external_request_kwargs(timeout=60, use_proxy=False),
+                )
+                response.raise_for_status()
             content_type = str(response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
             if not content_type.startswith("image/"):
                 self.send_json({"success": False, "message": "返回内容不是图片"}, status=502)
@@ -849,6 +985,8 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(response.content)
         except requests.RequestException as exc:
             self.send_json({"success": False, "message": f"图片下载失败：{exc}"}, status=502)
+        except RequestQueueFull as exc:
+            self.send_json({"success": False, "message": str(exc)}, status=429)
 
     def serve_infinite_canvas_bootstrap(self, query_text: str) -> None:
         query = urllib.parse.parse_qs(query_text)
@@ -869,12 +1007,14 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
 
         omnia_image_models = list(INFINITE_CANVAS_IMAGE_MODELS)
         text_models = list(INFINITE_CANVAS_TEXT_MODELS)
+        from 图片.canvas_api_proxy import build_canvas_token
+        canvas_token = build_canvas_token(username, auth_token)
         channels = [
             {
                 "id": "xiaoha-omnia",
                 "name": "小哈 OmniaKey",
-                "baseUrl": f"{OMNIAKEY_API_BASE}/v1",
-                "apiKey": omnia_api_key,
+                "baseUrl": f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/omnia/v1",
+                "apiKey": canvas_token,
                 "apiFormat": "openai",
                 "models": [*omnia_image_models, *text_models],
             },
@@ -883,7 +1023,7 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             {
                 "success": True,
                 "config": {
-                    "configVersion": "2026-11-11-omnia-only",
+                    "configVersion": "2026-11-19-shared-queue-" + hashlib.sha256(canvas_token.encode()).hexdigest()[:12],
                     "channel": channels[0],
                     "channels": channels,
                     "imageModel": NANO_BANANA_MODEL,
@@ -7295,9 +7435,13 @@ def clear_task_progress(job_id: str) -> None:
 def calculate_smooth_running_progress(
     current_percent: int,
     reported_percent: int,
+    *,
+    waiting: bool = False,
 ) -> int:
     """Advance visible progress in small steps while a background task is running."""
     current = max(1, min(int(current_percent or 1), 99))
+    if waiting:
+        return current
     reported = max(1, min(int(reported_percent or 1), 100))
     reported_target = min(reported, 97)
     if reported_target > current:
@@ -7332,15 +7476,16 @@ def run_main_image_a_plus_manual_element_job(
     existing_elements: list[dict[str, Any]],
     job_id: str,
 ) -> dict[str, Any]:
-    set_task_progress(job_id, 15, "正在读取点击位置")
-    set_task_progress(job_id, 35, "正在识别点击位置的完整元素")
-    new_element = analyze_main_image_a_plus_element_at_point(
-        template_input,
-        point,
-        existing_elements,
-    )
-    set_task_progress(job_id, 100, "补漏识别完成")
-    return new_element
+    with admitted_job(existing=True):
+        set_task_progress(job_id, 15, "正在读取点击位置")
+        set_task_progress(job_id, 35, "正在识别点击位置的完整元素")
+        new_element = analyze_main_image_a_plus_element_at_point(
+            template_input,
+            point,
+            existing_elements,
+        )
+        set_task_progress(job_id, 100, "补漏识别完成")
+        return new_element
 
 
 def submit_main_image_a_plus_manual_element_job(
@@ -7351,29 +7496,39 @@ def submit_main_image_a_plus_manual_element_job(
     existing_elements: list[dict[str, Any]],
 ) -> dict[str, Any]:
     current_state = dict(st.session_state.get(job_state_key) or {})
-    if str(current_state.get("status") or "").lower() == "running":
+    if str(current_state.get("status") or "").lower() in {"queued", "running"}:
         return current_state
     runtime = get_task_runtime()
+    account = str(st.session_state.get("auth_username") or "admin").strip() or "admin"
     job_id = f"a_plus_manual_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
-    set_task_progress(job_id, 5, "点击位置已提交")
-    future = runtime.executor.submit(
-        run_main_image_a_plus_manual_element_job,
-        prepare_uploaded_input(template_input),
-        tuple(point),
-        [dict(element) for element in existing_elements],
-        job_id,
-    )
-    with runtime.lock:
-        runtime.futures[job_id] = future
     job_state = {
         "job_id": job_id,
-        "status": "running",
+        "status": "queued",
         "template_signature": str(template_signature or ""),
         "point": tuple(point),
-        "progress": 5,
-        "stage": "点击位置已提交",
+        "progress": 1,
+        "stage": "点击补漏已加入账号队列",
         "error": "",
     }
+    try:
+        get_request_limiter().ensure_accepting()
+        set_task_progress(job_id, 1, "点击补漏已加入账号队列")
+        runtime.submit_generation_job(
+            account,
+            job_id,
+            run_main_image_a_plus_manual_element_job,
+            prepare_uploaded_input(template_input),
+            tuple(point),
+            [dict(element) for element in existing_elements],
+            job_id,
+        )
+    except Exception as exc:
+        clear_task_progress(job_id)
+        job_state.update(status="error", progress=0, error=format_user_facing_error_message(exc))
+    else:
+        queue_state = runtime.get_generation_queue_state(job_id)
+        if queue_state.get("state") in {"running", "completed"}:
+            job_state.update(status="running", progress=5, stage="正在识别点击位置")
     st.session_state[job_state_key] = job_state
     return job_state
 
@@ -7384,12 +7539,23 @@ def sync_main_image_a_plus_manual_element_job(
     template_signature: str,
 ) -> dict[str, Any]:
     job_state = dict(st.session_state.get(job_state_key) or {})
-    if str(job_state.get("status") or "").lower() != "running":
+    if str(job_state.get("status") or "").lower() not in {"queued", "running"}:
         return job_state
     job_id = str(job_state.get("job_id") or "")
     runtime = get_task_runtime()
     with runtime.lock:
         future = runtime.futures.get(job_id)
+    queue_state = runtime.get_generation_queue_state(job_id)
+    if queue_state.get("state") == "queued":
+        ahead = int(queue_state.get("ahead_count") or 0)
+        job_state.update(
+            status="queued", progress=1,
+            stage=f"点击补漏排队中，当前账号前面还有 {ahead} 个任务" if ahead else "点击补漏排队中，等待可用执行名额",
+        )
+        st.session_state[job_state_key] = job_state
+        return job_state
+    if queue_state.get("state") == "running":
+        job_state["status"] = "running"
     progress_info = get_task_progress(job_id)
     if progress_info:
         job_state["progress"] = calculate_smooth_running_progress(
@@ -7401,12 +7567,14 @@ def sync_main_image_a_plus_manual_element_job(
         job_state.update(
             {
                 "status": "error",
-                "error": "补漏识别任务状态已丢失，请重新点击元素。",
+                "error": "补漏识别任务状态已丢失，远端结果尚未确认，未自动重新提交。",
                 "progress": 0,
             }
         )
     elif future.done():
         try:
+            if future.cancelled():
+                raise RuntimeError("点击补漏任务在排队时已取消，未向模型提交。")
             new_element = dict(future.result())
             analysis_state = dict(st.session_state.get(analysis_state_key) or {})
             if str(analysis_state.get("template_signature") or "") != str(template_signature or ""):
@@ -7444,8 +7612,7 @@ def sync_main_image_a_plus_manual_element_job(
                     "error": format_user_facing_error_message(exc),
                 }
             )
-        with runtime.lock:
-            runtime.futures.pop(job_id, None)
+        runtime.release_generation_job(job_id)
         clear_task_progress(job_id)
     st.session_state[job_state_key] = job_state
     return job_state
@@ -7462,6 +7629,9 @@ def render_main_image_a_plus_manual_element_job_status(
         analysis_state_key,
         template_signature,
     )
+    if str(job_state.get("status") or "").lower() == "queued":
+        st.info(str(job_state.get("stage") or "点击补漏排队中"))
+        return
     if str(job_state.get("status") or "").lower() == "running":
         st.markdown(
             build_running_job_spinner_html(
@@ -9535,13 +9705,37 @@ def is_jimeng_concurrent_limit_error(message: str) -> bool:
     )
 
 
+def is_omnia_image_outcome_unknown(error: Any) -> bool:
+    """Keep accepted or uncertain image work from being submitted a second time."""
+    pending = [error]
+    visited: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in visited:
+            continue
+        visited.add(id(current))
+        if isinstance(current, ImageOutcomeUnknown):
+            return True
+        normalized = str(current or "").strip().lower()
+        if any(marker in normalized for marker in (
+            "未自动重新提交", "provider_submit_uncertain", "查询图片任务失败", "图片任务等待超时",
+        )):
+            return True
+        if isinstance(current, BaseException):
+            pending.extend(cause for cause in (current.__cause__, current.__context__) if cause is not None)
+    return False
+
+
 def is_hd_batch_transient_error(error: Any) -> bool:
+    if is_omnia_image_outcome_unknown(error):
+        return False
     normalized = str(error or "").strip().lower()
     if not normalized:
         return False
     if any(
         marker in normalized
-        for marker in ("invalid_input", "content not allowed", "not supported")
+        for marker in ("invalid_input", "content not allowed", "not supported",
+                       "provider_submit_uncertain", "查询图片任务失败", "图片任务等待超时")
     ):
         return False
     return any(
@@ -9852,7 +10046,9 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                             ),
                             [repair_reference],
                         )
-                    except Exception:
+                    except Exception as exc:
+                        if is_omnia_image_outcome_unknown(exc):
+                            raise
                         repair_result = {}
                     repaired_image = next(
                         iter(list(repair_result.get("images") or [])[:1]),
@@ -9876,7 +10072,9 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                                 + "Replace all outer scaffold bands with real scene content and remove all four conceptual source boundaries. "
                                 + "Do not paste the source back, do not draw an inner rectangle, and do not duplicate the head, face, torso, arms, hands, hair, or clothing."
                             )
-                        except Exception:
+                        except Exception as exc:
+                            if is_omnia_image_outcome_unknown(exc):
+                                raise
                             retry_result = {}
                         retry_image = next(
                             iter(list(retry_result.get("images") or [])[:1]),
@@ -10789,7 +10987,7 @@ def run_main_image_a_plus_designed_module_job(
         )
         with ThreadPoolExecutor(max_workers=worker_count) as section_executor:
             future_map = {
-                section_executor.submit(generate_designed_section, section_index): section_index
+                section_executor.submit(copy_context().run, generate_designed_section, section_index): section_index
                 for section_index in active_section_indices
             }
             completed_count = 0
@@ -11162,7 +11360,9 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
                     resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
                     max_attempts=1,
                 )
-            except Exception:
+            except Exception as exc:
+                if is_omnia_image_outcome_unknown(exc):
+                    raise
                 if best_image_url:
                     break
                 if attempt_index + 1 >= MAIN_IMAGE_A_PLUS_MAX_FREE_QUALITY_ATTEMPTS:
@@ -11500,7 +11700,7 @@ def run_main_image_a_plus_job(job_context: dict[str, Any]) -> dict[str, Any]:
         completed_count = 0
         with ThreadPoolExecutor(max_workers=worker_count) as section_executor:
             future_map = {
-                section_executor.submit(generate_section, section_index, reference, role): section_index
+                section_executor.submit(copy_context().run, generate_section, section_index, reference, role): section_index
                 for section_index, reference, role in section_specs
             }
             for future in as_completed(future_map):
@@ -12289,7 +12489,7 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
             completed_count = 0
             with ThreadPoolExecutor(max_workers=effective_batch_concurrency) as batch_executor:
                 future_map = {
-                    batch_executor.submit(process_batch_group, job_context, uploaded_group, group_index): group_index
+                    batch_executor.submit(copy_context().run, process_batch_group, job_context, uploaded_group, group_index): group_index
                     for group_index, uploaded_group in enumerate(batch_groups, start=1)
                 }
                 for future in as_completed(future_map):
@@ -12499,15 +12699,32 @@ def run_queued_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
     job_id = str(job_context.get("job_id") or "")
     if job_id:
         set_task_progress(job_id, 3, "排队结束，正在启动任务")
-    if job_context.get("qa_turn_id"):
-        from 图片.qa_chat import run_chat_job
-        return run_chat_job(SimpleNamespace(**globals()), job_context, run_feature_job)
-    return run_feature_job(job_context)
+
+    def report_request_wait(group: str, position: int) -> None:
+        if not job_id or group == "download":
+            return
+        labels = {"omnia_image": "OmniaKey 生图", "omnia_text": "OmniaKey 分析", "ark": "即梦生图", "jimeng": "即梦超清"}
+        label = labels.get(group, "模型")
+        runtime = get_task_runtime()
+        with runtime.lock:
+            progress = runtime.progress.setdefault(job_id, {"percent": 3})
+            progress.update(
+                stage=f"等待{label}空闲，当前排队第 {position} 位" if position else f"正在请求{label}",
+                request_waiting=bool(position),
+                updated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            )
+
+    with admitted_job(existing=True), request_wait_callback(report_request_wait):
+        if job_context.get("qa_turn_id"):
+            from 图片.qa_chat import run_chat_job
+            return run_chat_job(SimpleNamespace(**globals()), job_context, run_feature_job)
+        return run_feature_job(job_context)
 
 
 def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> dict[str, Any]:
+    get_request_limiter().ensure_accepting()
     runtime = get_task_runtime()
-    job_id = f"{feature['key']}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+    job_id = str(job_context.get("job_id") or f"{feature['key']}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}")
     job_context = dict(job_context)
     job_context["job_id"] = job_id
     feature_key = str(feature.get("key") or "").strip()
@@ -12524,8 +12741,7 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
             job_id,
             run_queued_feature_job,
             job_context,
-            # 即梦超清账号没有并发额度；所有任务进入同一个无容量上限的
-            # FIFO，由唯一 worker 串行处理，不能因为队列较长而绕过排队。
+            # 即梦超清跨用户 FIFO，服务商容量另由跨进程限流器统一控制。
             max_outstanding_jobs=None,
         )
     except Exception:
@@ -12542,7 +12758,7 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
         "queue_key": queue_key,
         "queue_ahead": ahead_count,
         "queue_position": max(int(queue_state.get("queue_position") or 0), 0),
-        "queue_capacity": 0,
+        "queue_capacity": runtime.max_outstanding_jobs if is_jimeng_hd_job else runtime.max_account_jobs,
         "submitted_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "error": "",
         "progress": 1,
@@ -12680,6 +12896,7 @@ def _sync_background_jobs_legacy() -> None:
                 job_info["progress"] = calculate_smooth_running_progress(
                     int(job_info.get("progress") or 1),
                     int(progress_info.get("percent") or 1),
+                    waiting=bool(progress_info.get("request_waiting")),
                 )
                 job_info["stage"] = str(progress_info.get("stage") or job_info.get("stage") or "")
             else:
@@ -12730,6 +12947,7 @@ def _sync_background_jobs_legacy() -> None:
                 job_info["progress"] = calculate_smooth_running_progress(
                     int(job_info.get("progress") or 1),
                     int(progress_info.get("percent") or 1),
+                    waiting=bool(progress_info.get("request_waiting")),
                 )
                 job_info["stage"] = str(progress_info.get("stage") or job_info.get("stage") or "")
             continue
@@ -12888,6 +13106,7 @@ def sync_background_jobs() -> None:
                 job_info["progress"] = calculate_smooth_running_progress(
                     int(job_info.get("progress") or 1),
                     int(progress_info.get("percent") or 1),
+                    waiting=bool(progress_info.get("request_waiting")),
                 )
                 job_info["stage"] = str(progress_info.get("stage") or job_info.get("stage") or "")
             else:
@@ -12946,6 +13165,7 @@ def sync_background_jobs() -> None:
                 job_info["progress"] = calculate_smooth_running_progress(
                     int(job_info.get("progress") or 1),
                     int(progress_info.get("percent") or 1),
+                    waiting=bool(progress_info.get("request_waiting")),
                 )
                 job_info["stage"] = str(progress_info.get("stage") or job_info.get("stage") or "")
             continue
@@ -15564,10 +15784,16 @@ def jimeng_signed_post(action: str, body: dict[str, Any], timeout: int = 180) ->
                 **get_external_request_kwargs(timeout=timeout, use_proxy=False),
             )
         except requests.RequestException as exc:
+            if action == JIMENG_SUBMIT_ACTION:
+                raise ImageOutcomeUnknown("即梦提交连接中断，远端结果尚未确认，未自动重新提交。") from exc
             raise RuntimeError(f"Agent 请求失败：无法连接到火山引擎视觉服务。{exc}") from exc
+        if action == JIMENG_SUBMIT_ACTION and (response.status_code >= 500 or response.status_code == 408):
+            raise ImageOutcomeUnknown(f"即梦提交返回 HTTP {response.status_code}，远端结果尚未确认，未自动重新提交。")
         try:
             data = response.json()
         except Exception as exc:
+            if action == JIMENG_SUBMIT_ACTION and response.status_code < 400:
+                raise ImageOutcomeUnknown("即梦提交响应无法解析，远端结果尚未确认，未自动重新提交。") from exc
             raise RuntimeError(
                 f"Agent 响应解析失败（HTTP {response.status_code}）：{response.text[:300]}"
             ) from exc
@@ -15586,6 +15812,7 @@ def jimeng_signed_post(action: str, body: dict[str, Any], timeout: int = 180) ->
             retry_delay = JIMENG_CONCURRENT_LIMIT_RETRY_DELAYS[
                 min(attempt, len(JIMENG_CONCURRENT_LIMIT_RETRY_DELAYS) - 1)
             ]
+            get_request_limiter().cooldown("jimeng", seconds=retry_delay)
             time.sleep(retry_delay)
             continue
         request_id = (
@@ -15633,7 +15860,8 @@ def poll_jimeng_task_result(req_key: str, task_id: str, timeout: int = 120) -> d
     retry transient query failures and wait for an explicit terminal state.
     """
     last_status = "in_queue"
-    while True:
+    deadline = time.monotonic() + 1800
+    while time.monotonic() < deadline:
         result_body = {
             "req_key": req_key,
             "task_id": task_id,
@@ -15672,8 +15900,12 @@ def poll_jimeng_task_result(req_key: str, task_id: str, timeout: int = 120) -> d
         if status in {"not_found", "expired"}:
             raise RuntimeError(f"Agent 查询结果失败：任务状态为 {status}。")
         time.sleep(JIMENG_RESULT_POLL_INTERVAL_SECONDS)
+    raise ImageOutcomeUnknown(
+        f"即梦任务 {task_id} 持续 30 分钟仍未结束（{last_status}），远端结果尚未确认，未自动重新提交。"
+    )
 
 
+@limited_request("jimeng")
 def call_jimeng_hd_upscale(uploaded_files: list[Any] | None = None) -> dict[str, Any]:
     normalized_files = list(uploaded_files or [])
     if not normalized_files:
@@ -15772,6 +16004,8 @@ def call_openrouter_portrait_hd(
         result["channel"] = "Images API 高清增强 · 原图尺寸输出"
         return result
     except Exception as exc:
+        if is_omnia_image_outcome_unknown(exc):
+            raise
         raise RuntimeError(
             "OmniaKey 原生 4K 调用失败。为避免画质降级，本次未使用聊天兼容通道或本地放大。"
             f"原因：{exc}"
@@ -15800,6 +16034,7 @@ def call_jimeng_portrait_hd(
     return finalize_portrait_hd_result(result, source_input)
 
 
+@limited_request("jimeng")
 def call_jimeng_v40(
     prompt: str,
     aspect_ratio: str,
@@ -15909,6 +16144,15 @@ def format_openrouter_error_message(error_message: Any) -> str:
 def format_omnia_error_message(error_message: Any) -> str:
     raw_message = str(error_message or "").strip()
     normalized_message = raw_message.lower()
+    if "同步生图" in raw_message and "未自动重新提交" in raw_message:
+        return raw_message
+    if "图片任务等待超时" in raw_message or "查询图片任务失败" in raw_message:
+        return raw_message
+    if "provider_submit_uncertain" in normalized_message:
+        task = re.search(r"task_[A-Za-z0-9]+", raw_message)
+        suffix = f"（任务 {task.group(0)}）" if task else ""
+        return ("OmniaKey 上游提交超时，服务商已将任务标记为失败，未返回图片。"
+                "可稍后重试，或选择其他模型重新生成。" + suffix)
     if "omniakey_api_key" in normalized_message or "未配置" in raw_message:
         return "OmniaKey 未配置 OMNIAKEY_API_KEY，请联系管理员完成配置。"
     if "http 401" in normalized_message or "unauthorized" in normalized_message or "invalid api key" in normalized_message:
@@ -15939,6 +16183,8 @@ def format_user_facing_error_message(error_message: Any) -> str:
     raw_message = str(error_message or "").strip()
     if not raw_message:
         return "任务失败，请稍后重试。"
+    if "未自动重新提交" in raw_message:
+        return redact_background_error_text(raw_message)[:600]
     normalized_message = raw_message.lower()
     is_ark_seedream_error = "即梦 5 pro" in normalized_message or "火山方舟" in raw_message
     if is_ark_seedream_error:
@@ -16091,7 +16337,148 @@ def build_omnia_task_error_message(payload: dict[str, Any]) -> str:
     return str(error_payload or "").strip() or "未提供具体错误信息"
 
 
+class ImageOutcomeUnknown(RuntimeError):
+    """A paid request may have been accepted; never submit a replacement automatically."""
+
+
+class OmniaImageOutcomeUnknown(ImageOutcomeUnknown):
+    """The synchronous provider may still be generating; never resubmit automatically."""
+
+
+@limited_request("omnia_image")
+def call_omnia_sync_image_api(
+    model: str,
+    prompt: str,
+    uploaded_files: list[Any] | None = None,
+    aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+    resolution: str = "",
+    *,
+    size: str = "",
+) -> dict[str, Any]:
+    api_key = load_omnia_api_key()
+    if not api_key:
+        raise RuntimeError("OmniaKey 未配置 OMNIAKEY_API_KEY，请联系管理员完成配置。")
+    files = prepare_omnia_media_request_inputs(list(uploaded_files or []))
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": enforce_global_no_distortion_rules(prompt),
+        "n": 1,
+        "response_format": "b64_json",
+    }
+    normalized_resolution = str(resolution or "").strip().upper()
+    # The synchronous API accepts pixel size; Gemini's media-task parameters
+    # (aspect_ratio/image_size) are ignored on this endpoint.
+    normalized_ratio = str(aspect_ratio or "").strip()
+    if normalized_ratio not in GEMINI_IMAGE_ASPECT_RATIOS:
+        normalized_ratio = get_uploaded_input_closest_aspect_ratio(files[0], "1:1") if files else "1:1"
+    ratio_width, ratio_height = map(int, normalized_ratio.split(":"))
+    edge = {"1K": 1024, "2K": 2048, "4K": 4096}.get(normalized_resolution, 1024)
+    scale = math.sqrt(ratio_width / ratio_height)
+    width = max(8, round(edge * scale / 8) * 8)
+    height = max(8, round(edge / scale / 8) * 8)
+    payload["size"] = f"{width}x{height}"
+    if size and size != "auto":
+        if not re.fullmatch(r"[1-9]\d{1,4}x[1-9]\d{1,4}", str(size)):
+            raise ValueError("图片尺寸格式无效，请使用宽x高。")
+        exact_width, exact_height = map(int, size.split("x"))
+        if max(exact_width, exact_height) > 16384 or exact_width * exact_height > 4096 ** 2:
+            raise ValueError("请求的图片尺寸超过 4K 像素面积上限。")
+        payload["size"] = size
+    endpoint = "edits" if files else "generations"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    if files:
+        # Send real file parts; the Nano edit route does not reliably consume
+        # JSON data URLs. Let requests supply the multipart boundary.
+        image_field = "image" if len(files) == 1 else "image[]"
+        request_body = {
+            "data": payload,
+            "files": [(image_field, (item["name"], item["data"], item["type"])) for item in files],
+        }
+    else:
+        headers["Content-Type"] = "application/json"
+        request_body = {"json": payload}
+    # OmniaKey's synchronous Images API bypasses the failing media-task worker.
+    # Its idempotency behavior is not documented, so submit exactly once.
+    try:
+        response = requests.post(
+            f"{OMNIAKEY_API_BASE}/v1/images/{endpoint}",
+            headers=headers,
+            **request_body,
+            **get_external_request_kwargs(
+                timeout=(OMNIAKEY_CONNECT_TIMEOUT_SECONDS, OMNIAKEY_SYNC_IMAGE_TIMEOUT_SECONDS),
+                use_proxy=False,
+            ),
+        )
+    except (requests.Timeout, requests.ConnectionError) as exc:
+        raise OmniaImageOutcomeUnknown(
+            "OmniaKey 同步生图连接中断或等待超时，远端结果尚未确认。"
+            "为避免重复计费，未自动重新提交；请先在服务商后台确认结果。"
+        ) from exc
+    except requests.RequestException as exc:
+        raise OmniaImageOutcomeUnknown(
+            "OmniaKey 同步生图响应传输中断，远端结果尚未确认，未自动重新提交。"
+        ) from exc
+    request_id = str(response.headers.get("x-request-id") or "").strip()
+    request_note = f"（请求 {request_id}）" if request_id else ""
+    if response.status_code >= 500 or response.status_code == 408:
+        raise OmniaImageOutcomeUnknown(
+            f"OmniaKey 同步生图返回 HTTP {response.status_code}，远端结果尚未确认，"
+            "未自动重新提交；请先在服务商后台确认结果。" + request_note
+        )
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise OmniaImageOutcomeUnknown(
+            "OmniaKey 同步生图返回无法解析的响应，未自动重新提交。" + request_note
+        ) from exc
+    if not isinstance(data, dict):
+        raise OmniaImageOutcomeUnknown("OmniaKey 同步生图响应格式异常，未自动重新提交。" + request_note)
+    if response.status_code >= 400 or data.get("error"):
+        raise RuntimeError(
+            f"OmniaKey 同步生图失败（HTTP {response.status_code}）："
+            + redact_background_error_text(build_omnia_task_error_message(data)) + request_note
+        )
+    images = []
+    for item in data.get("data") or []:
+        if not isinstance(item, dict):
+            continue
+        encoded = str(item.get("b64_json") or "").strip()
+        if encoded:
+            try:
+                image_bytes = base64.b64decode(encoded, validate=True)
+                with Image.open(io.BytesIO(image_bytes)) as image:
+                    mime = Image.MIME.get(image.format, "image/png")
+                    image.verify()
+            except Exception as exc:
+                raise RuntimeError("OmniaKey 返回的图片数据无法解码。" + request_note) from exc
+            images.append(image_bytes_to_data_url(image_bytes, mime))
+        elif item.get("url"):
+            images.append(str(item["url"]))
+    if not images:
+        raise RuntimeError("OmniaKey 同步生图未返回图片。" + request_note)
+    return {
+        "images": images, "text": "", "raw": data,
+        "requested_resolution": normalized_resolution,
+        "channel": f"{OMNIA_IMAGE_MODEL_LABELS.get(model, model)} · OmniaKey Images API",
+    }
+
+
 def call_omnia_image_api(
+    model: str,
+    prompt: str,
+    uploaded_files: list[Any] | None = None,
+    aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+    resolution: str = "",
+    max_attempts: int | None = None,
+) -> dict[str, Any]:
+    omnia_model = resolve_omnia_image_model(model)
+    if omnia_model == NANO_BANANA_MODEL:
+        return call_omnia_sync_image_api(omnia_model, prompt, uploaded_files, aspect_ratio, resolution)
+    return call_omnia_media_image_api(model, prompt, uploaded_files, aspect_ratio, resolution, max_attempts)
+
+
+@limited_request("omnia_image")
+def call_omnia_media_image_api(
     model: str,
     prompt: str,
     uploaded_files: list[Any] | None = None,
@@ -16157,33 +16544,46 @@ def call_omnia_image_api(
         except (requests.Timeout, requests.ConnectionError) as exc:
             last_request_error = exc
             if attempt_index + 1 >= normalized_max_attempts:
-                raise RuntimeError(f"OmniaKey 连接失败，已自动尝试 {normalized_max_attempts} 次：{exc}") from exc
+                raise OmniaImageOutcomeUnknown(
+                    "OmniaKey 提交结果尚未确认，同一幂等键重试仍未收到结果，未自动重新提交。"
+                ) from exc
             time.sleep(OMNIAKEY_MEDIA_RETRY_DELAYS[min(attempt_index, len(OMNIAKEY_MEDIA_RETRY_DELAYS) - 1)])
             continue
         except requests.RequestException as exc:
-            raise RuntimeError(f"OmniaKey 连接失败：{exc}") from exc
+            raise OmniaImageOutcomeUnknown(
+                "OmniaKey 提交响应传输中断，远端结果尚未确认，未自动重新提交。"
+            ) from exc
         if (
             response.status_code in OMNIAKEY_MEDIA_TRANSIENT_STATUS_CODES
             and attempt_index + 1 < normalized_max_attempts
         ):
-            time.sleep(OMNIAKEY_MEDIA_RETRY_DELAYS[min(attempt_index, len(OMNIAKEY_MEDIA_RETRY_DELAYS) - 1)])
+            retry_delay = OMNIAKEY_MEDIA_RETRY_DELAYS[min(attempt_index, len(OMNIAKEY_MEDIA_RETRY_DELAYS) - 1)]
+            if response.status_code == 429:
+                get_request_limiter().cooldown("omnia_image", seconds=retry_delay)
+            time.sleep(retry_delay)
             continue
         break
 
     if response is None:
         raise RuntimeError(f"OmniaKey 连接失败：{last_request_error or '未收到响应'}")
+    if response.status_code >= 500 or response.status_code == 408:
+        raise OmniaImageOutcomeUnknown(
+            f"OmniaKey 提交返回 HTTP {response.status_code}，远端结果尚未确认，未自动重新提交。"
+        )
     try:
         create_data = response.json()
     except Exception as exc:
-        raise RuntimeError(f"OmniaKey 返回了无法解析的内容（HTTP {response.status_code}）。") from exc
+        raise OmniaImageOutcomeUnknown(f"OmniaKey 提交响应无法解析（HTTP {response.status_code}），未自动重新提交。") from exc
     if response.status_code >= 400:
         raise RuntimeError(
             f"OmniaKey 创建图片任务失败（HTTP {response.status_code}）：{build_omnia_task_error_message(create_data)}"
         )
 
+    if not isinstance(create_data, dict):
+        raise OmniaImageOutcomeUnknown("OmniaKey 提交响应格式异常，远端结果尚未确认，未自动重新提交。")
     task_id = str((create_data or {}).get("id") or "").strip()
     if not task_id:
-        raise RuntimeError("OmniaKey 创建图片任务失败：返回结果里没有任务 ID。")
+        raise OmniaImageOutcomeUnknown("OmniaKey 提交响应没有任务 ID，远端结果尚未确认，未自动重新提交。")
 
     deadline = time.monotonic() + OMNIAKEY_TASK_TIMEOUT_SECONDS
     task_data: dict[str, Any] = dict(create_data or {})
@@ -16212,23 +16612,38 @@ def call_omnia_image_api(
             poll_failures += 1
             if poll_failures < 4:
                 continue
-            raise RuntimeError(f"OmniaKey 查询图片任务失败（任务 {task_id}，已重试 3 次）：{exc}") from exc
-        poll_failures = 0
+            raise OmniaImageOutcomeUnknown(
+                f"OmniaKey 查询图片任务失败（任务 {task_id}，已重试 3 次），远端结果尚未确认，未自动重新提交。"
+            ) from exc
+        if poll_response.status_code in OMNIAKEY_MEDIA_TRANSIENT_STATUS_CODES:
+            if poll_response.status_code == 429:
+                get_request_limiter().cooldown("omnia_image", seconds=OMNIAKEY_TASK_POLL_INTERVAL_SECONDS)
+            poll_failures += 1
+            if poll_failures < 4:
+                continue
+        else:
+            poll_failures = 0
         if poll_response.status_code >= 400:
             try:
                 poll_error = poll_response.json()
             except Exception:
                 poll_error = poll_response.text
-            raise RuntimeError(
-                f"OmniaKey 查询图片任务失败（HTTP {poll_response.status_code}）："
-                f"{build_omnia_task_error_message(poll_error if isinstance(poll_error, dict) else {'error': {'message': poll_error}})}"
+            raise OmniaImageOutcomeUnknown(
+                f"OmniaKey 查询图片任务失败（任务 {task_id}，HTTP {poll_response.status_code}）："
+                f"{build_omnia_task_error_message(poll_error if isinstance(poll_error, dict) else {'error': {'message': poll_error}})}。"
+                "远端结果尚未确认，未自动重新提交。"
             )
         try:
             task_data = poll_response.json()
+            if not isinstance(task_data, dict):
+                raise ValueError("Invalid task response")
         except Exception as exc:
-            raise RuntimeError("OmniaKey 查询图片任务返回了无法解析的内容。") from exc
+            raise OmniaImageOutcomeUnknown(f"OmniaKey 查询图片任务 {task_id} 响应无法解析，未自动重新提交。") from exc
     else:
-        raise RuntimeError(f"OmniaKey 图片任务等待超时（{OMNIAKEY_TASK_TIMEOUT_SECONDS} 秒）。")
+        raise OmniaImageOutcomeUnknown(
+            f"OmniaKey 图片任务等待超时（{OMNIAKEY_TASK_TIMEOUT_SECONDS} 秒，任务 {task_id}）。"
+            "远端结果尚未确认，未自动重新提交，请继续查询原任务。"
+        )
 
     assets = [asset for asset in list(task_data.get("assets") or []) if isinstance(asset, dict)]
     image_assets = [asset for asset in assets if str(asset.get("kind") or "image").strip() == "image"]
@@ -16238,14 +16653,21 @@ def call_omnia_image_api(
     asset_url = str(first_asset.get("url") or "").strip()
     if not asset_url:
         raise RuntimeError("OmniaKey 图片任务没有返回图片下载地址。")
-    try:
-        image_response = requests.get(
-            asset_url,
-            **get_external_request_kwargs(timeout=(OMNIAKEY_CONNECT_TIMEOUT_SECONDS, OMNIAKEY_READ_TIMEOUT_SECONDS), use_proxy=False),
-        )
-        image_response.raise_for_status()
-    except requests.RequestException as exc:
-        raise RuntimeError(f"OmniaKey 生成图片下载失败：{exc}") from exc
+    for download_attempt in range(3):
+        try:
+            with get_request_limiter().slot("download"):
+                image_response = requests.get(
+                    asset_url,
+                    **get_external_request_kwargs(timeout=(OMNIAKEY_CONNECT_TIMEOUT_SECONDS, OMNIAKEY_READ_TIMEOUT_SECONDS), use_proxy=False),
+                )
+            image_response.raise_for_status()
+            break
+        except requests.RequestException as exc:
+            if download_attempt == 2:
+                raise OmniaImageOutcomeUnknown(
+                    f"OmniaKey 图片已生成（任务 {task_id}），但下载失败，未自动重新提交生图。请恢复原任务的图片下载。"
+                ) from exc
+            time.sleep(download_attempt + 1)
     mime_type = (
         str(first_asset.get("mime_type") or "").strip()
         or image_response.headers.get("Content-Type", "").split(";", 1)[0].strip()
@@ -16268,7 +16690,7 @@ def call_openrouter_images_api(
     resolution: str = "",
     max_attempts: int | None = None,
 ) -> dict[str, Any]:
-    """Run every supported image model through OmniaKey's media-task API."""
+    """Run supported image models through OmniaKey's image endpoints."""
     omnia_model = resolve_omnia_image_model(model)
     if omnia_model:
         return call_omnia_image_api(
@@ -16282,6 +16704,7 @@ def call_openrouter_images_api(
     raise RuntimeError(f"OmniaKey 不支持该生图模型：{model}")
 
 
+@limited_request("ark")
 def call_ark_seedream_images_api(
     prompt: str,
     uploaded_files: list[Any] | None = None,
@@ -16328,20 +16751,24 @@ def call_ark_seedream_images_api(
                 ),
             )
         except (requests.Timeout, requests.ConnectionError) as exc:
-            last_request_error = exc
-            if attempt_index + 1 >= ARK_IMAGES_MAX_ATTEMPTS:
-                raise RuntimeError(
-                    f"即梦 5 Pro 连接失败，已自动尝试 {ARK_IMAGES_MAX_ATTEMPTS} 次：{exc}"
-                ) from exc
-            time.sleep(ARK_IMAGES_RETRY_DELAYS[min(attempt_index, len(ARK_IMAGES_RETRY_DELAYS) - 1)])
-            continue
+            raise ImageOutcomeUnknown(
+                "即梦 5 Pro 连接中断或等待超时，远端结果尚未确认，未自动重新提交。"
+            ) from exc
         except requests.RequestException as exc:
-            raise RuntimeError(f"即梦 5 Pro 连接失败：{exc}") from exc
+            raise ImageOutcomeUnknown(
+                "即梦 5 Pro 响应传输中断，远端结果尚未确认，未自动重新提交。"
+            ) from exc
+        if response.status_code >= 500 or response.status_code == 408:
+            raise ImageOutcomeUnknown(
+                f"即梦 5 Pro 返回 HTTP {response.status_code}，远端结果尚未确认，未自动重新提交。"
+            )
         if (
-            response.status_code in ARK_IMAGES_TRANSIENT_STATUS_CODES
+            response.status_code == 429
             and attempt_index + 1 < ARK_IMAGES_MAX_ATTEMPTS
         ):
-            time.sleep(ARK_IMAGES_RETRY_DELAYS[min(attempt_index, len(ARK_IMAGES_RETRY_DELAYS) - 1)])
+            retry_delay = ARK_IMAGES_RETRY_DELAYS[min(attempt_index, len(ARK_IMAGES_RETRY_DELAYS) - 1)]
+            get_request_limiter().cooldown("ark", seconds=retry_delay)
+            time.sleep(retry_delay)
             continue
         break
 
@@ -16350,7 +16777,7 @@ def call_ark_seedream_images_api(
     try:
         data = response.json()
     except Exception as exc:
-        raise RuntimeError(f"即梦 5 Pro 返回了无法解析的内容（HTTP {response.status_code}）。") from exc
+        raise ImageOutcomeUnknown(f"即梦 5 Pro 返回了无法解析的内容（HTTP {response.status_code}），未自动重新提交。") from exc
     if response.status_code >= 400:
         error_payload = data.get("error") if isinstance(data, dict) else data
         error_message = (
@@ -16382,6 +16809,7 @@ def call_ark_seedream_images_api(
     }
 
 
+@limited_request("omnia_text")
 def call_omnia_chat_api(
     model: str,
     prompt: str,
@@ -16411,7 +16839,6 @@ def call_omnia_chat_api(
 
     last_error: RuntimeError | None = None
     for index, candidate_model in enumerate(candidate_models):
-        should_fallback = False
         try:
             response = requests.post(
                 OMNIAKEY_CHAT_COMPLETIONS_URL,
@@ -16427,30 +16854,48 @@ def call_omnia_chat_api(
                 **get_external_request_kwargs(timeout=120, use_proxy=False),
             )
         except requests.RequestException as exc:
-            last_error = RuntimeError(f"OmniaKey 请求失败：无法连接到 OmniaKey 或请求超时。{exc}")
-            should_fallback = True
+            raise ImageOutcomeUnknown(
+                "OmniaKey 文字请求连接中断或等待超时，远端结果尚未确认，未自动重新提交。"
+            ) from exc
 
+        retry_delay = OMNIAKEY_MEDIA_RETRY_DELAYS[min(index, len(OMNIAKEY_MEDIA_RETRY_DELAYS) - 1)]
+        if response.status_code == 429:
+            get_request_limiter().cooldown("omnia_text", seconds=retry_delay)
+        try:
+            data = response.json()
+        except Exception as exc:
+            if response.status_code >= 500 or response.status_code < 400 or response.status_code == 408:
+                raise ImageOutcomeUnknown(
+                    f"OmniaKey 文字响应无法解析（HTTP {response.status_code}），远端结果尚未确认，未自动重新提交。"
+                ) from exc
+            last_error = RuntimeError(f"OmniaKey 响应解析失败（HTTP {response.status_code}）。")
+            should_fallback = response.status_code in {425, 429}
         else:
-            try:
-                data = response.json()
-            except Exception:
-                last_error = RuntimeError(f"OmniaKey 响应解析失败（HTTP {response.status_code}）。")
-                should_fallback = response.status_code in {408, 425, 429, 500, 502, 503, 504, 524}
-            else:
-                if response.status_code < 400 and isinstance(data, dict) and data.get("choices"):
-                    return extract_response_payload(data)
-                error_payload = data.get("error") if isinstance(data, dict) else data
-                error_message = (
-                    error_payload.get("message") or "未提供具体错误信息"
-                    if isinstance(error_payload, dict)
-                    else error_payload or "未提供具体错误信息"
+            if response.status_code < 400 and isinstance(data, dict) and data.get("choices"):
+                return extract_response_payload(data)
+            error_payload = data.get("error") if isinstance(data, dict) else data
+            error_message = (
+                error_payload.get("message") or "未提供具体错误信息"
+                if isinstance(error_payload, dict)
+                else error_payload or "未提供具体错误信息"
+            )
+            error_code = str(error_payload.get("code") or "").lower() if isinstance(error_payload, dict) else ""
+            explicit_rejection = error_code in {
+                "no_available_channel", "provider_submit_rejected", "model_not_found", "unsupported_model",
+            } or any(marker in str(error_message).lower() for marker in ("no available channel", "no_available_channel"))
+            if (response.status_code >= 500 or response.status_code == 408) and not explicit_rejection:
+                raise ImageOutcomeUnknown(
+                    f"OmniaKey 文字请求返回 HTTP {response.status_code}，远端结果尚未确认，未自动重新提交。"
                 )
-                last_error = RuntimeError(
-                    f"OmniaKey 请求失败（HTTP {response.status_code}）：{redact_background_error_text(error_message)}"
-                )
-                should_fallback = response.status_code in {408, 425, 429, 500, 502, 503, 504, 524}
+            last_error = RuntimeError(
+                f"OmniaKey 请求失败（HTTP {response.status_code}）：{redact_background_error_text(error_message)}"
+            )
+            # Only an explicit rejection can safely choose another model.
+            should_fallback = response.status_code in {425, 429} or explicit_rejection
         if not should_fallback or index + 1 >= len(candidate_models):
             break
+        if response.status_code == 429:
+            time.sleep(retry_delay)
 
     raise last_error or RuntimeError("OmniaKey 未返回可用的视觉分析结果。")
 
@@ -16637,7 +17082,8 @@ def load_image_bytes_from_url(image_url: str) -> tuple[bytes, str]:
             or "cloudflarestorage.com" in normalized_url
             or "r2.dev" in normalized_url
         )
-        response = requests.get(image_url, **get_external_request_kwargs(timeout=120, use_proxy=use_proxy))
+        with get_request_limiter().slot("download"):
+            response = requests.get(image_url, **get_external_request_kwargs(timeout=(15, 120), use_proxy=use_proxy))
         response.raise_for_status()
     except requests.RequestException as exc:
         raise RuntimeError(f"图片下载失败：无法下载模型返回的图片地址。{exc}") from exc
@@ -21670,10 +22116,11 @@ def build_hero_style_reverse_image_input(image_source: str) -> dict[str, Any] | 
     if not normalized_source.startswith(("http://", "https://")):
         return None
     try:
-        response = requests.get(
-            normalized_source,
-            **get_external_request_kwargs(timeout=90),
-        )
+        with get_request_limiter().slot("download"):
+            response = requests.get(
+                normalized_source,
+                **get_external_request_kwargs(timeout=(15, 90)),
+            )
     except Exception:
         return None
     if not getattr(response, "ok", False):
@@ -24522,7 +24969,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                                 manual_job_status = str(
                                     manual_job_state.get("status") or ""
                                 ).lower()
-                        if manual_job_status == "running":
+                                if manual_job_status == "error":
+                                    st.error(str(manual_job_state.get("error") or "点击补漏提交失败"))
+                        if manual_job_status in {"queued", "running"}:
                             render_main_image_a_plus_manual_element_job_status(
                                 manual_job_state_key,
                                 analysis_state_key,

@@ -87,6 +87,7 @@ class ChatStore:
         self.root = Path(root) / "qa_conversations"
         self.root.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
+            db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS chats (
                     id TEXT PRIMARY KEY, account TEXT NOT NULL, title TEXT NOT NULL,
@@ -98,12 +99,15 @@ class ChatStore:
                     count INTEGER DEFAULT 1, ratio TEXT DEFAULT '',
                     created TEXT DEFAULT CURRENT_TIMESTAMP);
                 CREATE INDEX IF NOT EXISTS chats_account ON chats(account, updated);
+                CREATE INDEX IF NOT EXISTS turns_chat_status ON turns(chat, status);
             """)
 
     @contextmanager
     def connect(self):
         db = sqlite3.connect(self.root / "conversations.sqlite3", timeout=30)
         db.row_factory = sqlite3.Row
+        db.execute("PRAGMA busy_timeout=30000")
+        db.execute("PRAGMA synchronous=NORMAL")
         try:
             with db:
                 yield db
@@ -123,24 +127,28 @@ class ChatStore:
 
     def turns(self, account, chat):
         with self.connect() as db:
-            rows = db.execute("SELECT t.* FROM turns t JOIN chats c ON c.id=t.chat "
+            rows = db.execute("SELECT t.*, (strftime('%s','now') - strftime('%s',t.created)) AS age_seconds "
+                              "FROM turns t JOIN chats c ON c.id=t.chat "
                               "WHERE c.account=? AND c.id=? ORDER BY t.rowid", (account, chat)).fetchall()
         return [dict(r, refs=json.loads(r["refs"]), images=json.loads(r["images"])) for r in rows]
 
-    def add(self, account, chat, prompt, refs, model, count=1, ratio=""):
+    def add(self, account, chat, prompt, refs, model, count=1, ratio="", job=""):
         turn = uuid4().hex
         with self.connect() as db:
+            # Serialize the read/check/insert across Streamlit sessions and
+            # processes. A deferred transaction permits duplicate active turns.
+            db.execute("BEGIN IMMEDIATE")
             if not db.execute("SELECT 1 FROM chats WHERE account=? AND id=?", (account, chat)).fetchone():
                 raise ValueError("无法访问此对话")
             if db.execute("SELECT 1 FROM turns WHERE chat=? AND status IN ('queued','running')", (chat,)).fetchone():
                 raise ValueError("请等待当前图片生成完成")
-            db.execute("INSERT INTO turns(id,chat,prompt,refs,model,status,count,ratio) VALUES(?,?,?,?,?,'queued',?,?)",
-                       (turn, chat, prompt, json.dumps(refs), model, count, ratio))
+            db.execute("INSERT INTO turns(id,chat,prompt,refs,model,status,count,ratio,job) VALUES(?,?,?,?,?,'queued',?,?,?)",
+                       (turn, chat, prompt, json.dumps(refs), model, count, ratio, job))
             db.execute("UPDATE chats SET title=CASE WHEN title='新对话' THEN ? ELSE title END, "
                        "updated=CURRENT_TIMESTAMP WHERE id=?", (prompt[:24], chat))
         return turn
 
-    def update(self, account, turn, *, status=None, images=None, error=None, job=None):
+    def update(self, account, turn, *, status=None, images=None, error=None, job=None, only_active=False):
         values = {k: v for k, v in dict(status=status, images=images, error=error, job=job).items() if v is not None}
         if "images" in values:
             values["images"] = json.dumps(values["images"])
@@ -148,7 +156,8 @@ class ChatStore:
             return
         with self.connect() as db:
             db.execute("UPDATE turns SET " + ",".join(f"{k}=?" for k in values) +
-                       " WHERE id=? AND chat IN (SELECT id FROM chats WHERE account=?)",
+                       " WHERE id=? AND chat IN (SELECT id FROM chats WHERE account=?)" +
+                       (" AND status IN ('queued','running')" if only_active else ""),
                        [*values.values(), turn, account])
 
     def save_image(self, site, account, source):
@@ -158,7 +167,20 @@ class ChatStore:
         folder.mkdir(exist_ok=True)
         path = folder / (hashlib.sha256(data).hexdigest() + suffix)
         if not path.exists():
-            path.write_bytes(data)
+            # Concurrent turns can save the same content; readers must never
+            # observe a partially written image.
+            temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
+            try:
+                temporary.write_bytes(data)
+                try:
+                    temporary.replace(path)
+                except PermissionError:
+                    # Windows can reject replacement when another writer has
+                    # just published the same content-addressed file.
+                    if not path.exists() or path.read_bytes() != data:
+                        raise
+            finally:
+                temporary.unlink(missing_ok=True)
         return str(path)
 
 
@@ -197,7 +219,8 @@ def submit_turn(site, store, account, chat, prompt, references, model, count, ra
     # Read references before creating a queued record, so a missing image cannot
     # leave the conversation permanently busy.
     inputs = [site.image_url_as_uploaded_input(source, f"reference_{i}.png") for i, source in enumerate(refs)]
-    turn = store.add(account, chat, prompt, references, model, count, ratio)
+    job_id = "ai_qa_image_" + uuid4().hex
+    turn = store.add(account, chat, prompt, references, model, count, ratio, job=job_id)
     try:
         feature = dict(site.get_feature_by_key("ai_qa_image"))
         feature["max_output_images"] = count
@@ -207,13 +230,45 @@ def submit_turn(site, store, account, chat, prompt, references, model, count, ra
             "custom_prompt": prompt, "uploaded_files": inputs,
             "output_mode": "image", "max_output_images": count,
             "account_name": account, "aspect_ratio": ratio,
-            "qa_chat_root": str(store.root.parent), "qa_turn_id": turn,
+            "qa_chat_root": str(store.root.parent), "qa_turn_id": turn, "job_id": job_id,
         })
         store.update(account, turn, job=job["job_id"])
         return turn
     except Exception as exc:
         store.update(account, turn, status="error", error=str(exc))
         raise
+
+
+def refresh_turn_status(site, store, account, chat, turn):
+    """Recover a terminal worker state without inventing generation progress."""
+    if turn["status"] not in {"queued", "running"}:
+        return turn, {}
+    runtime = site.get_task_runtime()
+    state = runtime.get_generation_queue_state(turn["job"])
+    if state["state"] in {"missing", "completed", "canceled"}:
+        # A worker can persist its result between the page read and this lookup.
+        latest = next((item for item in store.turns(account, chat) if item["id"] == turn["id"]), turn)
+        if latest["status"] not in {"queued", "running"}:
+            return latest, state
+        error = ""
+        if state["state"] == "canceled":
+            error = "任务在排队时已取消，未向图片服务提交。"
+        elif state["state"] == "completed":
+            with runtime.lock:
+                future = runtime.futures.get(turn["job"])
+            if future is not None:
+                failure = future.exception()
+                if failure is not None:
+                    error = str(failure)
+        elif int(latest.get("age_seconds") or 0) >= 60:
+            # Allow the short DB-commit / queue-submit gap. After a restart the
+            # remote synchronous request may still exist and must not be retried.
+            error = "服务重启或任务状态已丢失，远端结果尚未确认。系统未自动重新提交，请先核实原任务结果，避免重复计费。"
+        if error:
+            store.update(account, turn["id"], status="error", error=error, only_active=True)
+            latest = next((item for item in store.turns(account, chat) if item["id"] == turn["id"]), latest)
+        return latest, state
+    return turn, state
 
 
 def render(site, feature, default_model, ratio):
@@ -265,7 +320,9 @@ def render_conversation(site, store, account, chat, default_model, ratio):
                             '<h2>今天想创作什么图片？</h2>'
                             '<p>描述你的灵感，或上传参考图，让小哈帮你实现。</p>'
                             '</div>', unsafe_allow_html=True)
-            for turn in turns:
+            for index, turn in enumerate(turns):
+                turn, queue_state = refresh_turn_status(site, store, account, chat, turn)
+                turns[index] = turn
                 with st.chat_message("user"):
                     if turn["refs"]:
                         st.image(turn["refs"], width=100)
@@ -273,17 +330,15 @@ def render_conversation(site, store, account, chat, default_model, ratio):
                 with st.chat_message("assistant", avatar="✨"):
                     status = turn["status"]
                     if status in {"queued", "running"}:
-                        runtime = site.get_task_runtime()
-                        with runtime.lock:
-                            known = turn["job"] in runtime.futures
-                        if turn["job"] and not known:
-                            store.update(account, turn["id"], status="error", error="服务已重启，任务中断，请重新生成。")
-                            st.rerun()
                         busy = True
-                        progress = site.get_task_progress(turn["job"]) or {}
-                        st.status(str(progress.get("stage") or "已提交，正在排队生成…"), state="running")
+                        if queue_state.get("state") == "running":
+                            progress = site.get_task_progress(turn["job"]) or {}
+                            st.status(str(progress.get("stage") or "正在生成图片…"), state="running")
+                        else:
+                            ahead = int(queue_state.get("ahead_count") or 0)
+                            st.info(f"排队中，当前账号前面还有 {ahead} 个任务。" if ahead else "排队中，等待可用生成名额。")
                     elif status == "error":
-                        st.error(turn["error"] or "生成失败，请重试")
+                        st.error(site.format_user_facing_error_message(turn["error"] or "生成失败，请重试"))
                     else:
                         st.write("已为你生成图片，可以继续输入要求修改。")
                         with st.container(key="qa_images_" + turn["id"]):
@@ -297,12 +352,18 @@ def render_conversation(site, store, account, chat, default_model, ratio):
                             st.download_button(f"下载原图 {i + 1}", data=lambda p=path: p.read_bytes(),
                                                file_name=path.name, key=f"qa_dl_{turn['id']}_{i}")
                     st.caption(turn["model"])
+                    retry_model = turn["model"]
+                    if status == "error":
+                        retry_options = list(dict.fromkeys([turn["model"], *site.MODEL_OPTIONS]))
+                        retry_model = st.selectbox("重试模型", retry_options, key="qa_retry_model_" + turn["id"],
+                                                   format_func=site.get_model_display_name,
+                                                   disabled=any(t["status"] in {"queued", "running"} for t in turns))
                     if status in {"completed", "error"} and st.button("重新生成", key="qa_retry_" + turn["id"], disabled=any(
                             t["status"] in {"queued", "running"} for t in turns)):
                         try:
                             # Replay exactly this turn's original inputs, not the latest output.
                             prior = turns[:turns.index(turn)]
-                            submit_turn(site, store, account, chat, turn["prompt"], turn["refs"], turn["model"],
+                            submit_turn(site, store, account, chat, turn["prompt"], turn["refs"], retry_model,
                                         turn["count"], turn["ratio"] or ratio, prior_turns=prior)
                             st.rerun()
                         except Exception as exc:

@@ -6,6 +6,10 @@ from PIL import Image
 from 图片 import openrouter_image_site as site
 
 class OmniaInputTests(unittest.TestCase):
+    def setUp(self):
+        limiter = self.enterContext(patch.object(site, 'get_request_limiter')).return_value
+        self.enterContext(patch('图片.request_limits.get_request_limiter', return_value=limiter))
+
     def image(self):
         out = io.BytesIO()
         Image.new('RGBA', (32, 32), (20, 40, 60, 128)).save(out, format='PNG')
@@ -27,7 +31,7 @@ class OmniaInputTests(unittest.TestCase):
             response.json.return_value = {'id': 'test', 'status': 'failed', 'error': 'test-stop'}
             with patch.object(site, 'load_omnia_api_key', return_value='test-key'), patch.object(site.requests, 'post', return_value=response) as post, patch.object(site, 'record_background_job_error') as log_error:
                 with self.assertRaisesRegex(RuntimeError, 'test-stop'):
-                    site.call_omnia_image_api(site.NANO_BANANA_MODEL, 'test', [self.image()] * count)
+                    site.call_omnia_media_image_api(site.NANO_BANANA_MODEL, 'test', [self.image()] * count)
                 self.assertEqual(log_error.call_args.args[:3], ('test', 'omnia_image', 'failed'))
                 value = post.call_args.kwargs['json']['input']
                 refs = [value['image']] if count == 1 else value['images']
@@ -52,7 +56,7 @@ class OmniaInputTests(unittest.TestCase):
                 patch.object(site.requests, 'post', return_value=created) as post, \
                 patch.object(site.requests, 'get', side_effect=[site.requests.ConnectionError('DNS unavailable'), completed, asset]) as get, \
                 patch.object(site.time, 'sleep'):
-            result = site.call_omnia_image_api(site.NANO_BANANA_MODEL, 'test')
+            result = site.call_omnia_media_image_api(site.NANO_BANANA_MODEL, 'test')
         self.assertTrue(result['images'])
         self.assertEqual(post.call_count, 1)
         self.assertEqual(get.call_args_list[0].args[0], get.call_args_list[1].args[0])

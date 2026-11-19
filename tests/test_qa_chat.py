@@ -107,6 +107,33 @@ site.render_openrouter_feature(site.get_feature_by_key("ai_qa_image"), site.DEFA
             self.assertFalse(list(app.exception))
             self.assertEqual(len(ChatStore(self.tmp.name).list("alice")), 2)
 
+    def test_provider_timeout_can_retry_with_another_model(self):
+        model, alternate = site.MODEL_OPTIONS[:2]
+        turn = self.store.add("alice", self.chat, "画花", [], model, 2, "1:1")
+        self.store.update("alice", turn, status="error", error=(
+            "OmniaKey 图片任务失败（任务 task_example）：provider_submit_uncertain: The task timed out before it completed."))
+        with patch.object(site, "HISTORY_DIR", Path(self.tmp.name)), patch.object(
+                site, "submit_feature_job", return_value={"job_id": "test-job"}) as submit:
+            app = AppTest.from_string('''
+from 图片 import openrouter_image_site as site
+site.ensure_state()
+site.st.session_state.auth_username = "alice"
+site.render_openrouter_feature(site.get_feature_by_key("ai_qa_image"), site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)
+''', default_timeout=30).run()
+            self.assertFalse(list(app.exception))
+            self.assertIn("上游提交超时", app.error[0].value)
+            self.assertIn("task_example", app.error[0].value)
+            app.selectbox(key="qa_retry_model_" + turn).select(alternate).run()
+            app.button(key="qa_retry_" + turn).click().run()
+            self.assertFalse(list(app.exception), [e.message for e in app.exception])
+            context = submit.call_args.args[1]
+            self.assertEqual(context["model"], alternate)
+            self.assertIn("画花", context["prompt"])
+            turns = self.store.turns("alice", self.chat)
+            self.assertEqual(len(turns), 2)
+            self.assertEqual(turns[-1]["count"], 2)
+            self.assertEqual(turns[-1]["ratio"], "1:1")
+
     def test_completed_ui_restores_preview_and_follow_up_request(self):
         image = io.BytesIO()
         Image.new("RGB", (32, 32), "red").save(image, format="PNG")
