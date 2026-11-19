@@ -493,24 +493,9 @@
             {% endif %}
             {% endif %}
 
-            {% if dept_id == 'general_office' %}
-            <div class="dept-feature-card">
-                <div class="dept-feature-icon">
-                    <i class="fas fa-chart-pie"></i>
-                </div>
-                <h3 class="text-center mb-3">TK整体看板</h3>
-                <p class="text-muted text-center mb-4">查看TK项目整体经营数据与关键指标</p>
-                <div class="text-center">
-                    <a href="{{ url_for('tk_dashboard.tk_dashboard_page') }}" class="dept-feature-btn">
-                        <i class="fas fa-chart-bar"></i> 进入TK整体看板
-                    </a>
-                </div>
-            </div>
-
-            <div class="dept-feature-card">
-                <div class="dept-feature-icon">
-                    <i class="fas fa-city"></i>
-                </div>
+            {% if dept_id == 'shenzhen_dept' and can_sz_dashboard|default(true) %}
+            <div class="dept-feature-card" data-permission="tk_total_dashboard">
+                <div class="dept-feature-icon"><i class="fas fa-city"></i></div>
                 <h3 class="text-center mb-3">深圳看板</h3>
                 <p class="text-muted text-center mb-4">查看深圳团队月度收入、成本及利润等财务指标</p>
                 <div class="text-center">
@@ -519,6 +504,23 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
+            {% if dept_id == 'general_office' %}
+            {% if can_business_analysis|default(true) %}
+            <div class="dept-feature-card" data-permission="business_analysis">
+                <div class="dept-feature-icon">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <h3 class="text-center mb-3">经营分析</h3>
+                <p class="text-muted text-center mb-4">销售、利润、库存、履约与财年目标综合分析</p>
+                <div class="text-center">
+                    <a href="{{ url_for('business_analysis') }}" class="dept-feature-btn">
+                        <i class="fas fa-chart-line"></i> 进入经营分析
+                    </a>
+                </div>
+            </div>
+
+            {% endif %}
             {% endif %}
 
             {% if dept_id == 'tech_dept' %}

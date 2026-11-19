@@ -327,10 +327,6 @@
                 <h3>360价值评价</h3>
             </div>
             {% endif %}
-            <div class="quick-card available" data-allowed="{{ 'true' if can_business_analysis else 'false' }}" data-menu="经营分析" data-href="{{ url_for('business_analysis') }}" data-search="经营分析 销售 利润 库存 履约 财年目标">
-                <i class="fa-solid fa-chart-line"></i>
-                <h3>经营分析</h3>
-            </div>
             <div class="quick-card available" data-menu="Seedance 视频生成" data-href="{{ url_for('seedance_web.seedance_web_index') }}" data-search="Seedance 视频生成 AI视频 视频生成">
                 <i class="fa-solid fa-film"></i>
                 <h3>Seedance 视频生成</h3>
@@ -370,7 +366,7 @@
         <div class="panel" id="panel-business" data-dept="business">
             <div class="panel-hd"><i class="fa-regular fa-folder"></i>业务管理</div>
             {% if user_id %}
-                {% set biz_order = ['innovation_proposals', 'xiaotu_qa', 'business_analysis', 'tk_customer_service'] %}
+                {% set biz_order = ['innovation_proposals', 'xiaotu_qa', 'tk_customer_service'] %}
                 {% for key in biz_order %}
                     {% for func in accessible_functions %}
                         {% if func.function_name == key %}

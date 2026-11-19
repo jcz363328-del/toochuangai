@@ -118,6 +118,39 @@ class WorkspaceCatalogTests(unittest.TestCase):
         self.assertTrue(flags['can_future_tool'])
         self.assertIn('future_tool', permissions)
 
+    def test_general_office_contains_business_analysis_with_its_own_permission(self):
+        self.configure_full_catalog()
+        with self.app.test_request_context():
+            session['feishu_user_id'] = 'member'
+            body = self.catalog([]).get_json()
+            allowed_body = self.catalog([{'function_name': 'business_analysis'}]).get_json()
+        group = next(g for g in body['groups'] if g['key'] == 'general_office')
+        names = {i['menu'] for i in group['items']}
+        self.assertIn('经营分析', names)
+        self.assertNotIn('TK整体看板', names)
+        self.assertNotIn('深圳看板', names)
+        item = next(i for i in group['items'] if i['menu'] == '经营分析')
+        self.assertEqual(item['required_permissions'], ['business_analysis'])
+        self.assertFalse(item['allowed'])
+        allowed_group = next(g for g in allowed_body['groups'] if g['key'] == 'general_office')
+        self.assertTrue(next(i for i in allowed_group['items'] if i['menu'] == '经营分析')['allowed'])
+
+    def test_dashboards_belong_to_tk_and_shenzhen_with_original_permissions(self):
+        self.configure_full_catalog()
+        with self.app.test_request_context():
+            session['feishu_user_id'] = 'member'
+            denied = self.catalog([]).get_json()
+            permitted = self.catalog([{'function_name': p} for p in ['tk_total_dashboard', 'tk_dashboard_full']]).get_json()
+        self.assertFalse({'tk_overall_dashboard', 'shenzhen_dashboard'} & {g['key'] for g in denied['groups']})
+        for key, name, permission in [('tk_project_group', 'TK整体看板', 'tk_dashboard_full'),
+                                      ('shenzhen_dept', '深圳看板', 'tk_total_dashboard')]:
+            group = next(g for g in denied['groups'] if g['key'] == key)
+            item = next(i for i in group['items'] if i['menu'] == name)
+            self.assertFalse(item['allowed'])
+            self.assertEqual(item['required_permissions'], [permission])
+            allowed_group = next(g for g in permitted['groups'] if g['key'] == key)
+            self.assertTrue(next(i for i in allowed_group['items'] if i['menu'] == name)['allowed'])
+
     def test_action_anchor_does_not_change_when_other_cards_are_hidden(self):
         first = '<div class="module-card"><h3>First</h3><a href="/first">Open</a></div>'
         action = '<div class="module-card"><h3>版本通知</h3><button onclick="notify()">Send</button></div>'

@@ -17618,7 +17618,8 @@ def general_office():
                            user_name=user_name,
                            user_id=user_id,
                            dept_name='总经办',
-                           dept_id='general_office')
+                           dept_id='general_office',
+                           can_business_analysis=_current_user_has_permission('business_analysis', user_id))
 
 
 @app.route('/procurement_dept')
@@ -17856,105 +17857,13 @@ def api_operation_fba_shipping_methods():
     if not _operation_dept_has_access():
         return jsonify({'success': False, 'message': '无权限访问运营部门数据'}), 403
     try:
-        columns = _fba_shipping_get_columns()
-        if not columns:
-            return jsonify({'success': False, 'message': '未找到FBA货件运输方式表字段'}), 404
-
-        page = max(int(request.args.get('page') or 1), 1)
-        page_size = _FBA_SHIPPING_PAGE_SIZE
-        offset = (page - 1) * page_size
-        dian_filter = str(request.args.get('dian') or '').strip()
-        danhao_filter = str(request.args.get('danhao') or '').strip()
-        sort_key = str(request.args.get('sort') or 'seq_desc').strip()
-        issue_only = str(request.args.get('issue') or '').strip().lower() in {'1', 'true', 'yes', 'on'}
-
-        dian_col = _fba_shipping_pick_col(columns, ['dian', '店', '店铺'])
-        danhao_col = _fba_shipping_pick_col(columns, ['danhao', '单号'])
-        shipping_col = _fba_shipping_pick_col(columns, ['yunshufangshi', '运输方式'])
-        cargo_col = _fba_shipping_pick_col(columns, ['huojiandanhao', '货件单号'])
-        seq_col, import_col = _fba_shipping_sort_columns(columns)
-
-        where_parts = []
-        # IBR / OWS 开头的是内部货件记录，不在此页面展示。
-        if danhao_col:
-            where_parts.append(
-                f"LEFT(LTRIM(RTRIM(ISNULL(CAST({_fba_shipping_sql_ident(danhao_col)} AS NVARCHAR(200)), N''))), 3) NOT IN (N'IBR', N'OWS')"
-            )
-        if dian_filter and dian_col:
-            where_parts.append(
-                f"ISNULL(CAST({_fba_shipping_sql_ident(dian_col)} AS NVARCHAR(200)), N'') = N'{_fba_shipping_sql_text(dian_filter)}'"
-            )
-        if danhao_filter and danhao_col:
-            where_parts.append(
-                f"CHARINDEX(N'{_fba_shipping_sql_text(danhao_filter)}', ISNULL(CAST({_fba_shipping_sql_ident(danhao_col)} AS NVARCHAR(200)), N'')) > 0"
-            )
-        if issue_only:
-            issue_clause = _fba_shipping_issue_clause(shipping_col, cargo_col)
-            if issue_clause:
-                where_parts.append(issue_clause)
-        where_sql = ('WHERE ' + ' AND '.join(where_parts)) if where_parts else ''
-
-        if sort_key == 'import_asc' and import_col:
-            order_col, order_dir = import_col, 'ASC'
-        elif sort_key == 'import_desc' and import_col:
-            order_col, order_dir = import_col, 'DESC'
-        elif seq_col:
-            order_col, order_dir = seq_col, 'DESC'
-            sort_key = 'seq_desc'
-        elif import_col:
-            order_col, order_dir = import_col, 'DESC'
-            sort_key = 'import_desc'
-        else:
-            order_col, order_dir = columns[0], 'DESC'
-            sort_key = 'seq_desc'
-
-        count_rows = sf_db(f"SELECT COUNT(1) FROM {_fba_shipping_sql_ident(_FBA_SHIPPING_TABLE)} {where_sql}") or []
-        total = 0
-        if isinstance(count_rows, list) and count_rows:
-            first = count_rows[0]
-            if isinstance(first, dict):
-                total = int(next(iter(first.values()), 0) or 0)
-            elif isinstance(first, (list, tuple)):
-                total = int(first[0] or 0)
-            else:
-                total = int(first or 0)
-
-        rows = sf_db(f"""
-            SELECT *
-            FROM {_fba_shipping_sql_ident(_FBA_SHIPPING_TABLE)}
-            {where_sql}
-            ORDER BY {_fba_shipping_sql_ident(order_col)} {order_dir}
-            OFFSET {offset} ROWS FETCH NEXT {page_size} ROWS ONLY
-        """) or []
-        items = [
-            _fba_shipping_prepare_payload_item(_fba_shipping_row_to_item(row, columns), columns, shipping_col, cargo_col)
-            for row in rows
-        ]
-        response_columns = _fba_shipping_response_columns(columns)
-        for item in items:
-            item['values']['__cargo_count__'] = item.pop('cargo_count', 0)
-        total_pages = max((total + page_size - 1) // page_size, 1)
-        return jsonify({
-            'success': True,
-            'data': {
-                'columns': response_columns,
-                'items': items,
-                'page': page,
-                'page_size': page_size,
-                'total': total,
-                'total_pages': total_pages,
-                'sort': sort_key,
-                'dian': dian_filter,
-                'danhao': danhao_filter,
-                'issue_only': issue_only,
-                'has_import_sort': bool(import_col),
-                'has_dian_filter': bool(dian_col),
-                'has_danhao_filter': bool(danhao_col),
-            }
-        })
-    except Exception as e:
-        _safe_debug_print(f"FBA货件运输方式查询失败: {e}")
-        return jsonify({'success': False, 'message': f'查询失败: {str(e)}'}), 500
+        from fba_shipping_service import load_snapshot, payload
+        return jsonify({'success': True, 'data': payload(load_snapshot(sf_db), request.args)})
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'message': '分页参数无效'}), 400
+    except Exception:
+        app.logger.exception('FBA shipping query failed')
+        return jsonify({'success': False, 'message': '货件数据读取失败，请稍后重试'}), 503
 
 
 @app.route('/api/operation/fba_shipping_methods/shops')
@@ -17963,33 +17872,31 @@ def api_operation_fba_shipping_method_shops():
     if not _operation_dept_has_access():
         return jsonify({'success': False, 'message': '无权限访问运营部门数据'}), 403
     try:
-        columns = _fba_shipping_get_columns()
-        dian_col = _fba_shipping_pick_col(columns, ['dian', '店', '店铺'])
-        if not dian_col:
-            return jsonify({'success': True, 'data': {'shops': []}})
-        rows = sf_db(f"""
-            SELECT DISTINCT TOP 500 CAST({_fba_shipping_sql_ident(dian_col)} AS NVARCHAR(200)) AS dian
-            FROM {_fba_shipping_sql_ident(_FBA_SHIPPING_TABLE)}
-            WHERE ISNULL(CAST({_fba_shipping_sql_ident(dian_col)} AS NVARCHAR(200)), N'') <> N''
-            ORDER BY dian
-        """) or []
-        shops = []
-        for row in rows:
-            if isinstance(row, str):
-                value = row
-            elif isinstance(row, dict):
-                value = row.get('dian') or row.get('Dian') or row.get('DIAN')
-            elif isinstance(row, (list, tuple)) and row:
-                value = row[0]
-            else:
-                value = ''
-            value = str(value or '').strip()
-            if value and value not in shops:
-                shops.append(value)
-        return jsonify({'success': True, 'data': {'shops': shops}})
-    except Exception as e:
-        _safe_debug_print(f"FBA货件运输方式店铺查询失败: {e}")
-        return jsonify({'success': False, 'message': f'查询失败: {str(e)}'}), 500
+        from fba_shipping_service import load_snapshot
+        snapshot = load_snapshot(sf_db)
+        return jsonify({'success': True, 'data': {'shops': snapshot['shops'],
+                       'shipping_methods': snapshot['shipping_methods']}})
+    except Exception:
+        app.logger.exception('FBA shipping options failed')
+        return jsonify({'success': False, 'message': '筛选选项读取失败，请稍后重试'}), 503
+
+
+@app.route('/api/operation/fba_shipping_methods/export')
+@require_permission('operation_fba_shipping')
+def export_operation_fba_shipping_methods():
+    if not _operation_dept_has_access():
+        return jsonify({'success': False, 'message': '无权限访问运营部门数据'}), 403
+    try:
+        from flask import Response
+        from fba_shipping_service import load_snapshot, csv_rows
+        snapshot = load_snapshot(sf_db)
+        response = Response(csv_rows(snapshot, dict(request.args)), content_type='text/csv; charset=utf-8')
+        response.headers['Content-Disposition'] = 'attachment; filename="fba_shipping.csv"'
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except Exception:
+        app.logger.exception('FBA shipping export failed')
+        return jsonify({'success': False, 'message': '导出失败，请稍后重试'}), 503
 
 
 @app.route('/operation/fba_shipping_methods')
@@ -18250,7 +18157,8 @@ def shenzhen_dept():
                            user_name=user_name,
                            user_id=user_id,
                            dept_name='深圳团队',
-                           dept_id='shenzhen_dept')
+                           dept_id='shenzhen_dept',
+                           can_sz_dashboard=_current_user_has_permission('tk_total_dashboard', user_id))
 
 @app.route('/newcomer_group')
 @require_permission('newcomer_group')

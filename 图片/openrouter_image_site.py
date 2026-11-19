@@ -22,6 +22,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock, Thread
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -12500,7 +12501,7 @@ def run_queued_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
         set_task_progress(job_id, 3, "排队结束，正在启动任务")
     if job_context.get("qa_turn_id"):
         from 图片.qa_chat import run_chat_job
-        return run_chat_job(sys.modules[__name__], job_context, run_feature_job)
+        return run_chat_job(SimpleNamespace(**globals()), job_context, run_feature_job)
     return run_feature_job(job_context)
 
 
@@ -23512,7 +23513,7 @@ def render_prepress_check_feature(feature: dict[str, Any]) -> None:
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
     if feature.get("key") == "ai_qa_image":
         from 图片.qa_chat import render
-        render(sys.modules[__name__], feature, model, aspect_ratio)
+        render(SimpleNamespace(**globals()), feature, model, aspect_ratio)
         return
     if feature.get("key") == "prepress_check":
         render_prepress_check_feature(feature)

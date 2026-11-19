@@ -132,7 +132,6 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
             "创新提案管理",
             "报告智能体",
             "360价值评价",
-            "经营分析",
             "Seedance 视频生成",
             "Listing 生成智能体",
             "ABA 排名看板",

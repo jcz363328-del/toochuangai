@@ -1,634 +1,454 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FBA追踪码/IEN查询 - 图创AI系统</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            font-family: 'Microsoft YaHei', Arial, sans-serif;
-            background: #f7f9fc;
-            color: #111827;
-        }
-        .page {
-            width: 100%;
-            max-width: none;
-            margin: 0 auto;
-            padding: 20px 22px 30px;
-        }
-        .page-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 14px;
-        }
-        .title-wrap {
-            min-width: 0;
-        }
-        .title {
-            margin: 0;
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            font-size: 24px;
-            font-weight: 800;
-        }
-        .title i { color: #5b7cff; }
-        .subtitle {
-            margin-top: 6px;
-            color: #64748b;
-            font-size: 13px;
-        }
-        .head-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-        .back-btn {
-            min-width: 86px;
-            padding: 7px 11px;
-            border-radius: 9px;
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            font-size: 12px;
-            table-layout: auto;
-            color: #4b5563;
-            text-decoration: none;
-            text-align: center;
-            white-space: nowrap;
-            font-weight: 700;
-        }
-        .panel {
-            background: #fff;
-            border: 1px solid #edf1f7;
-            border-radius: 14px;
-            padding: 14px;
-            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.04);
-        }
-        .panel-hd {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-        .panel-title {
-            margin: 0;
-            font-size: 17px;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .panel-title i { color: #5b7cff; font-size: 15px; }
-        .panel-sub { color: #94a3b8; font-size: 13px; }
-        .toolbar {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 12px;
-        }
-        .controls {
-            display: flex;
-            align-items: flex-end;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .field {
-            display: grid;
-            gap: 5px;
-            min-width: 190px;
-        }
-        .field label {
-            font-size: 12px;
-            color: #64748b;
-            font-weight: 800;
-        }
-        .select,
-        .input,
-        .btn {
-            height: 38px;
-            border: 1px solid #dbe3f0;
-            border-radius: 10px;
-            background: #fff;
-            color: #111827;
-            padding: 0 12px;
-            font-size: 13px;
-            font-weight: 700;
-        }
-        .btn {
-            cursor: pointer;
-            color: #4f46e5;
-            border-color: #c7d2fe;
-        }
-        .btn:hover { background: #eef2ff; }
-        .btn.is-active {
-            background: #ef4444;
-            border-color: #ef4444;
-            color: #fff;
-        }
-        .btn.is-active:hover {
-            background: #dc2626;
-        }
-        .meta {
-            color: #64748b;
-            font-size: 12px;
-            min-height: 18px;
-        }
-        .table-wrap {
-            border: 1px solid #e5edf7;
-            border-radius: 12px;
-            overflow: auto;
-            max-height: calc(100vh - 250px);
-            min-height: 420px;
-            background: #fff;
-        }
-        .data-table {
-            table-layout: fixed;
-            width: 100%;
-            min-width: 1120px;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 12px;
-        }
-        .data-table th,
-        .data-table td {
-            border-bottom: 1px solid #eef2f7;
-            padding: 9px 10px;
-            text-align: left;
-            vertical-align: top;
-            white-space: nowrap;
-        }
-        .data-table th {
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            background: #f8fafc;
-            color: #334155;
-            font-weight: 900;
-        }
-        .data-table td {
-            color: #475569;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            user-select: text;
-        }
-        .data-table td.cell-selected,
-        .data-table th.cell-selected {
-            background: #dbeafe !important;
-            outline: 1px solid #2563eb;
-            outline-offset: -1px;
-        }
-        .data-table td.tracking-cell {
-            white-space: normal;
-            overflow-wrap: anywhere;
-            overflow: visible;
-            text-overflow: clip;
-        }
-        .data-table td.copyable-cell {
-            cursor: copy;
-        }
-        .data-table td.copyable-cell.copy-success {
-            background: #dcfce7 !important;
-            color: #166534;
-        }
-        .data-table tr:hover td { background: #f8fafc; }
-        .data-table tr.is-warning td {
-            background: #fff1f2;
-            color: #991b1b;
-        }
-        .data-table tr.is-warning:hover td { background: #ffe4e6; }
-        .data-table td.is-warning-cell {
-            font-weight: 900;
-            color: #b91c1c;
-        }
-        .empty {
-            padding: 34px 12px;
-            text-align: center;
-            color: #94a3b8;
-            font-size: 13px;
-        }
-        .pager {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 11px;
-            color: #64748b;
-            font-size: 12px;
-        }
-        .pager button {
-            height: 32px;
-            min-width: 76px;
-            border-radius: 9px;
-            border: 1px solid #dbe3f0;
-            background: #fff;
-            color: #475569;
-            cursor: pointer;
-            font-weight: 800;
-        }
-        .pager button:disabled {
-            cursor: not-allowed;
-            opacity: .45;
-        }
-        .legend {
-            margin-top: 8px;
-            color: #94a3b8;
-            font-size: 12px;
-        }
-        @media (max-width: 768px) {
-            .page { padding: 18px 14px 24px; }
-            .page-head { align-items: flex-start; flex-direction: column; }
-            .title { font-size: 20px; }
-            .head-actions { width: 100%; justify-content: flex-start; }
-            .field { min-width: 100%; }
-            .controls, .select, .input, .btn { width: 100%; }
-            .table-wrap { max-height: 70vh; }
-        }
-    </style>
-</head>
-<body>
-    <div class="page">
-        <div class="page-head">
-            <div class="title-wrap">
-                <h1 class="title"><i class="fas fa-ship"></i>FBA追踪码/IEN查询</h1>
-                <div class="subtitle">{{ source_name }} · 默认按序号倒序，每页展示200条</div>
-            </div>
-            <div class="head-actions">
-                <a class="back-btn" href="{{ back_url }}"><i class="fas fa-arrow-left"></i> 返回部门</a>
-                <a class="back-btn" href="{{ url_for('dashboard') }}"><i class="fas fa-home"></i> 返回首页</a>
-            </div>
-        </div>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FBA货件追踪 / IEN - 图创AI</title><style>
 
-        <div class="panel">
-            <div class="panel-hd">
-                <h2 class="panel-title"><i class="fa-solid fa-table-list"></i>运输方式明细</h2>
-                <span class="panel-sub">双击亚马逊追踪码或 IEN 单元格可复制内容 · 红色表示：海运但亚马逊追踪码为空，或亚马逊追踪码为科学计数法</span>
-            </div>
-            <div class="toolbar">
-                <div class="controls">
-                    <button type="button" class="btn" id="opsFbaCopy"><i class="fas fa-copy"></i> 复制表格</button>
-                    <div class="field">
-                        <label for="opsFbaDian">按店铺筛选</label>
-                        <select id="opsFbaDian" class="select">
-                            <option value="">全部店铺</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="opsFbaDanhao">按单号筛选</label>
-                        <input id="opsFbaDanhao" class="input" type="text" placeholder="输入单号关键词">
-                    </div>
-                    <div class="field">
-                        <label for="opsFbaSort">排序方式</label>
-                        <select id="opsFbaSort" class="select">
-                            <option value="seq_desc">序号倒序</option>
-                            <option value="import_desc">导入时间倒序</option>
-                            <option value="import_asc">导入时间正序</option>
-                        </select>
-                    </div>
-                    <button type="button" class="btn" id="opsFbaIssue"><i class="fas fa-triangle-exclamation"></i> 只看问题数据</button>
-                    <button type="button" class="btn" id="opsFbaRefresh"><i class="fas fa-magnifying-glass"></i> 查询</button>
-                </div>
-                <div class="meta" id="opsFbaMeta">正在加载数据...</div>
-            </div>
-            <div class="table-wrap" id="opsFbaTableWrap">
-                <div class="empty">正在加载FBA追踪码/IEN数据...</div>
-            </div>
-            <div class="pager">
-                <button type="button" id="opsFbaPrev">上一页</button>
-                <span id="opsFbaPageText">第 1 / 1 页</span>
-                <button type="button" id="opsFbaNext">下一页</button>
-            </div>
-            <div class="legend">双击亚马逊追踪码或 IEN 单元格可复制内容。标红规则：运输方式包含“海运”但亚马逊追踪码为空，或亚马逊追踪码为科学计数法。</div>
-        </div>
-    </div>
+*{box-sizing:border-box}
+body{margin:0;
+background:#f5f7fb;
+color:#202c41;
+font:14px 'Microsoft YaHei',Arial,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+header{height:64px;
+padding:0 36px;
+background:#fff;
+border-bottom:1px solid #e7ebf2;
+display:flex;
+align-items:center;
+gap:12px}
+.logo{background:#225ddd;
+color:white;
+border-radius:9px;
+padding:7px 9px;
+font-weight:800}
+.crumb{color:#8b96a7;
+font-size:13px}
+.right{margin-left:auto}
+.demo{background:#edf3ff;
+color:#3563ae;
+border-radius:6px;
+padding:5px 9px;
+font-size:12px}
+main{max-width:1600px;
+margin:auto;
+padding:30px 36px}
+h1{font-size:27px;
+margin:0 0 9px;
+letter-spacing:-.7px}
+p{color:#8390a3;
+margin:0;
+font-size:13px}
+.heading{display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:25px}
+.actions{display:flex;
+gap:9px}
+.btn{background:#fff;
+border:1px solid #dde3ed;
+color:#526078;
+padding:9px 14px;
+border-radius:8px}
+.primary{background:#2862e5;
+color:#fff;
+border-color:#2862e5}
+.stats{display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:16px;
+margin-bottom:24px}
+.stat{background:#fff;
+border:1px solid #e4e9f1;
+padding:19px 22px;
+border-radius:12px}
+.stat label{font-size:13px;
+color:#7b8799}
+.stat strong{display:block;
+font-size:30px;
+margin:9px 0;
+letter-spacing:-1px}
+.stat small{color:#96a0b0}
+.stat.warn strong{color:#d78b25}
+.stat.ok strong{color:#1a9c80}
+.panel{background:white;
+border:1px solid #e3e8f1;
+border-radius:13px;
+overflow:hidden;
+box-shadow:0 4px 20px #213a5e04}
+.tabs{padding:0 22px;
+border-bottom:1px solid #e8edf4;
+display:flex;
+gap:28px}
+.tab{border:0;
+background:transparent;
+padding:19px 0;
+color:#7c889a;
+position:relative}
+.tab.active{color:#275fe0;
+font-weight:700}
+.tab.active:after{content:'';
+position:absolute;
+height:3px;
+bottom:0;
+left:0;
+right:0;
+background:#2862e5;
+border-radius:5px}
+.tab span{background:#f0f3f8;
+border-radius:5px;
+padding:2px 6px;
+margin-left:5px;
+font-size:11px}
+.filters{display:flex;
+gap:10px;
+padding:20px 22px 16px;
+align-items:center;
+flex-wrap:wrap}
+.search{min-width:280px;
+flex:1;
+max-width:360px;
+position:relative}
+.search input{width:100%;
+padding-left:34px}
+.search:before{content:'⌕';
+position:absolute;
+top:5px;
+left:12px;
+color:#99a4b6;
+font-size:23px}
+input,select{border:1px solid #e0e6ef;
+border-radius:8px;
+padding:10px;
+color:#53617a;
+background:#fff;
+font-size:12px}
+select{min-width:118px}
+.filter-label{font-size:12px;
+color:#9aa4b4;
+margin-left:auto}
+.note{margin:0 22px 18px;
+background:#f2f7ff;
+border:1px solid #e4edfe;
+padding:11px 13px;
+color:#6e83a5;
+border-radius:8px;
+font-size:12px}
+.note b{color:#3a67ad}
+.toolbar{display:flex;
+align-items:center;
+justify-content:space-between;
+padding:0 22px 15px;
+font-size:12px;
+color:#8d99ab}
+.table-wrap{overflow:auto}
+table{border-collapse:collapse;
+width:100%;
+white-space:nowrap;
+text-align:left;
+font-size:12px}
+thead{background:#f8fafc;
+color:#8994a6}
+th{font-weight:500;
+padding:15px 13px;
+border-top:1px solid #e9edf3;
+border-bottom:1px solid #e9edf3}
+td{padding:18px 13px;
+border-bottom:1px solid #edf0f5;
+vertical-align:middle}
+th:first-child,td:first-child{padding-left:22px}
+tr:hover td{background:#f9fbff}
+tr.attention td{background:#fffdf8}
+td .sub{display:block;
+color:#9aa4b4;
+font-size:11px;
+margin-top:6px}
+.code{font-family:Consolas,monospace;
+font-size:12px;
+letter-spacing:.15px}
+.cargo{font-weight:600;
+color:#354b6b}
+.tag{display:inline-flex;
+padding:4px 8px;
+border-radius:5px;
+font-size:11px;
+background:#f0f3f8;
+color:#8090a4}
+.tag.green{background:#eaf8f2;
+color:#269a78}
+.tag.amber{background:#fff4df;
+color:#bb862c}
+.tag.blue{background:#edf3ff;
+color:#4975c9}
+.check{width:14px;
+height:14px;
+accent-color:#2862e5}
+.link{color:#356ddd;
+background:transparent;
+border:0;
+font-size:12px;
+padding:0}
+.count{font-weight:600}
+.muted{color:#adb5c2}
+.new{font-size:9px;
+background:#eaf2ff;
+color:#4a77cd;
+border-radius:4px;
+padding:2px 4px;
+margin-left:3px}
+.foot{display:flex;
+justify-content:space-between;
+padding:17px 22px;
+color:#929eaf;
+font-size:12px;
+align-items:center}
+.pages{display:flex;
+align-items:center;
+gap:7px}
+.pages button{border:1px solid #e4e9f1;
+background:#fff;
+padding:6px 10px;
+border-radius:5px;
+color:#8b97a8}
+.pages .current{color:#2862e5;
+background:#eff4ff;
+border-color:#dce7ff}
+.legend{padding:16px 3px;
+display:flex;
+justify-content:space-between;
+font-size:11px;
+color:#96a1b2}
+.overlay{display:none;
+position:fixed;
+inset:0;
+background:#14263d35;
+z-index:10}
+.overlay.open{display:block}
+.drawer{position:absolute;
+right:0;
+top:0;
+bottom:0;
+width:470px;
+max-width:95vw;
+background:#fff;
+padding:30px;
+overflow:auto;
+box-shadow:-8px 0 40px #20364b12}
+.drawer h2{font-size:21px;
+margin:18px 0 8px}
+.close{float:right;
+border:0;
+background:#f4f6f9;
+border-radius:50%;
+width:32px;
+height:32px;
+color:#8290a4}
+.detail-grid{display:grid;
+grid-template-columns:1fr 1fr;
+gap:22px;
+margin:25px 0}
+.detail-grid label{color:#94a0b2;
+font-size:12px;
+display:block;
+margin-bottom:8px}
+.detail-section{border-top:1px solid #edf0f5;
+margin-top:24px;
+padding-top:22px}
+.detail-section h3{font-size:14px;
+margin:0 0 15px}
+.tracking{background:#f8fafd;
+border:1px solid #e8edf5;
+border-radius:8px;
+padding:12px;
+margin:8px 0;
+font-family:Consolas}
+.toast{position:fixed;
+bottom:24px;
+left:50%;
+transform:translateX(-50%);
+background:#253951;
+color:white;
+border-radius:8px;
+padding:12px 20px;
+z-index:30;
+display:none}
+.empty{text-align:center;
+padding:60px;
+color:#97a2b4}
+@media(max-width:900px){main{padding:20px}
+.stats{grid-template-columns:repeat(2,1fr)}
+.heading{gap:16px;
+flex-wrap:wrap}
+.filter-label{display:none}
+.tabs{gap:14px}
+.legend{display:block;
+line-height:2}
+}
 
-    <script>
-        const opsFbaState = {
-            page: 1,
-            totalPages: 1,
-            loading: false,
-            issueOnly: false,
-            lastSelectedTableText: ''
-        };
 
-        function opsFbaEscape(value) {
-            return String(value == null ? '' : value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
+.table-wrap{max-height:calc(100dvh - 550px);
+min-height:360px;
+overflow:auto}
 
-        async function opsFbaLoadShops() {
-            const select = document.getElementById('opsFbaDian');
-            if (!select) return;
-            try {
-                const resp = await fetch('/api/operation/fba_shipping_methods/shops');
-                const data = await resp.json();
-                if (!data.success) return;
-                const current = select.value;
-                select.innerHTML = '<option value="">全部店铺</option>';
-                (data.data.shops || []).forEach(function (shop) {
-                    const option = document.createElement('option');
-                    option.value = shop;
-                    option.textContent = shop;
-                    select.appendChild(option);
-                });
-                if (current) select.value = current;
-            } catch (e) {
-                console.warn('加载店铺筛选失败', e);
-            }
-        }
+thead th{position:sticky;
+top:0;
+z-index:1;
+background:#f8fafc}
 
-        function opsFbaRenderTable(data) {
-            const wrap = document.getElementById('opsFbaTableWrap');
-            const meta = document.getElementById('opsFbaMeta');
-            const pageText = document.getElementById('opsFbaPageText');
-            const prevBtn = document.getElementById('opsFbaPrev');
-            const nextBtn = document.getElementById('opsFbaNext');
-            if (!wrap) return;
+td:nth-child(4){max-width:190px;
+overflow:hidden;
+text-overflow:ellipsis}
 
-            const columns = data.columns || [];
-            const items = data.items || [];
-            opsFbaState.page = data.page || 1;
-            opsFbaState.totalPages = data.total_pages || 1;
-            opsFbaState.lastSelectedTableText = '';
+td:nth-child(5){max-width:230px;
+overflow:hidden;
+text-overflow:ellipsis}
 
-            if (meta) {
-                const start = data.total ? ((opsFbaState.page - 1) * data.page_size + 1) : 0;
-                const end = data.total ? Math.min(opsFbaState.page * data.page_size, data.total) : 0;
-                const issueText = data.issue_only ? '，只看问题数据' : '';
-                meta.textContent = `共 ${data.total || 0} 条，当前 ${start}-${end} 条${issueText}`;
-            }
-            if (pageText) pageText.textContent = `第 ${opsFbaState.page} / ${opsFbaState.totalPages} 页`;
-            if (prevBtn) prevBtn.disabled = opsFbaState.page <= 1 || opsFbaState.loading;
-            if (nextBtn) nextBtn.disabled = opsFbaState.page >= opsFbaState.totalPages || opsFbaState.loading;
+td:nth-child(5) .sub{max-width:230px;
+overflow:hidden;
+text-overflow:ellipsis}
 
-            if (!columns.length) {
-                wrap.innerHTML = '<div class="empty">没有可展示的字段</div>';
-                return;
-            }
-            if (!items.length) {
-                wrap.innerHTML = '<div class="empty">暂无数据</div>';
-                return;
-            }
+.tracking{overflow-wrap:anywhere;
+white-space:normal}
 
-            const thead = columns.map(function (col) {
-                const width = col.label === '亚马逊追踪码' ? ' style="width:20%"' : '';
-                return `<th${width}>${opsFbaEscape(col.label || col.key)}</th>`;
-            }).join('');
-            const tbody = items.map(function (item) {
-                const values = item.values || {};
-                const warningFields = item.warning_fields || {};
-                const rowDetails = columns.map(function (col) {
-                    const fullValue = values[col.key];
-                    return `${col.label || col.key}：${fullValue == null || fullValue === '' ? '—' : fullValue}`;
-                }).join('\n');
-                const cells = columns.map(function (col) {
-                    const key = col.key;
-                    const value = values[key] == null ? '' : values[key];
-                    const warning = warningFields[key] || '';
-                    const labelText = String(col.label || '');
-                    const logisticsClass = /wuliu|物流/i.test(String(key)) || /物流单号/i.test(labelText) ? ' logistics-cell' : '';
-                    const trackingClass = labelText === '亚马逊追踪码' ? ' tracking-cell' : '';
-                    const normalizedKey = String(key || '').trim().toUpperCase();
-                    const copyable = labelText === '亚马逊追踪码'
-                        || labelText.toUpperCase() === 'IEN'
-                        || normalizedKey === 'IEN'
-                        || normalizedKey === 'HUOJIANDANHAO'
-                        || normalizedKey === '货件单号';
-                    const copyableClass = copyable ? ' copyable-cell' : '';
-                    const cls = ` class="${warning ? 'is-warning-cell' : ''}${logisticsClass}${trackingClass}${copyableClass}"`;
-                    const copyHint = copyable ? '\n双击复制' : '';
-                    const title = `${col.label || key}：${value === '' ? '—' : value}${warning ? '\n提示：' + warning : ''}${copyHint}\n\n该行详情\n${rowDetails}`;
-                    return `<td${cls} title="${opsFbaEscape(title)}">${opsFbaEscape(value)}</td>`;
-                }).join('');
-                return `<tr class="${item.warning ? 'is-warning' : ''}">${cells}</tr>`;
-            }).join('');
-            wrap.innerHTML = `<table class="data-table"><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
-        }
+button:disabled{cursor:default;
+opacity:.5}
 
-        function opsFbaSelectedTableText(table) {
-            const selection = window.getSelection && window.getSelection();
-            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return '';
-            const range = selection.getRangeAt(0);
-            const startCell = range.startContainer.parentElement && range.startContainer.parentElement.closest('th,td');
-            const endCell = range.endContainer.parentElement && range.endContainer.parentElement.closest('th,td');
-            if (!startCell || !endCell || !table.contains(startCell) || !table.contains(endCell)) return '';
-            const startRow = startCell.parentElement;
-            const endRow = endCell.parentElement;
-            const rows = Array.from(table.rows);
-            const rowStart = Math.min(rows.indexOf(startRow), rows.indexOf(endRow));
-            const rowEnd = Math.max(rows.indexOf(startRow), rows.indexOf(endRow));
-            const colStart = Math.min(startCell.cellIndex, endCell.cellIndex);
-            const colEnd = Math.max(startCell.cellIndex, endCell.cellIndex);
-            return rows.slice(rowStart, rowEnd + 1).map(function (row) {
-                return Array.from(row.cells).slice(colStart, colEnd + 1)
-                    .map(cell => cell.innerText.replace(/\s+/g, ' ').trim()).join('\t');
-            }).join('\n');
-        }
+@media(max-width:900px){.table-wrap{max-height:60dvh;
+min-height:300px}
+}
 
-        function opsFbaTableText(table) {
-            return opsFbaSelectedTableText(table) || opsFbaState.lastSelectedTableText || Array.from(table.rows)
-                .map(row => Array.from(row.cells)
-                    .map(cell => cell.innerText.replace(/\s+/g, ' ').trim()).join('\t'))
-                .join('\n');
-        }
-
-        function opsFbaClearCellSelection(table) {
-            table.querySelectorAll('.cell-selected').forEach(cell => cell.classList.remove('cell-selected'));
-        }
-
-        function opsFbaApplyCellSelection(table, startCell, endCell) {
-            const rows = Array.from(table.rows);
-            const startRow = rows.indexOf(startCell.parentElement);
-            const endRow = rows.indexOf(endCell.parentElement);
-            const rowStart = Math.min(startRow, endRow);
-            const rowEnd = Math.max(startRow, endRow);
-            const colStart = Math.min(startCell.cellIndex, endCell.cellIndex);
-            const colEnd = Math.max(startCell.cellIndex, endCell.cellIndex);
-            opsFbaClearCellSelection(table);
-            rows.slice(rowStart, rowEnd + 1).forEach(row => {
-                Array.from(row.cells).slice(colStart, colEnd + 1)
-                    .forEach(cell => cell.classList.add('cell-selected'));
-            });
-            opsFbaState.lastSelectedTableText = rows.slice(rowStart, rowEnd + 1).map(row =>
-                Array.from(row.cells).slice(colStart, colEnd + 1)
-                    .map(cell => cell.innerText.replace(/\s+/g, ' ').trim()).join('\t')
-            ).join('\n');
-        }
-
-        async function opsFbaCopyText(text) {
-            if (!text) return false;
-            try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(text);
-                    return true;
-                }
-            } catch (e) {
-                console.warn('复制到剪贴板失败，尝试备用方式', e);
-            }
-
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.setAttribute('readonly', '');
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
-            document.body.appendChild(textarea);
-            textarea.select();
-            let copied = false;
-            try {
-                copied = document.execCommand('copy');
-            } catch (e) {
-                console.warn('备用复制方式失败', e);
-            }
-            textarea.remove();
-            return copied;
-        }
-
-        function opsFbaMarkCopied(cell) {
-            cell.classList.remove('copy-success');
-            void cell.offsetWidth;
-            cell.classList.add('copy-success');
-            setTimeout(function () { cell.classList.remove('copy-success'); }, 900);
-        }
-
-        async function opsFbaLoadData(page) {
-            const wrap = document.getElementById('opsFbaTableWrap');
-            const meta = document.getElementById('opsFbaMeta');
-            if (opsFbaState.loading) return;
-
-            opsFbaState.loading = true;
-            if (meta) meta.textContent = '正在加载数据...';
-            if (wrap && !wrap.querySelector('.data-table')) {
-                wrap.innerHTML = '<div class="empty">正在加载FBA追踪码/IEN数据...</div>';
-            }
-            try {
-                const params = new URLSearchParams();
-                params.set('page', String(page || opsFbaState.page || 1));
-                const dian = document.getElementById('opsFbaDian');
-                const danhao = document.getElementById('opsFbaDanhao');
-                const sort = document.getElementById('opsFbaSort');
-                if (dian && dian.value) params.set('dian', dian.value);
-                if (danhao && danhao.value.trim()) params.set('danhao', danhao.value.trim());
-                if (sort && sort.value) params.set('sort', sort.value);
-                if (opsFbaState.issueOnly) params.set('issue', '1');
-                const resp = await fetch('/api/operation/fba_shipping_methods?' + params.toString());
-                const payload = await resp.json();
-                if (!payload.success) {
-                    throw new Error(payload.message || '加载失败');
-                }
-                opsFbaRenderTable(payload.data || {});
-            } catch (e) {
-                if (wrap) wrap.innerHTML = `<div class="empty">加载失败：${opsFbaEscape(e.message || e)}</div>`;
-                if (meta) meta.textContent = '加载失败';
-            } finally {
-                opsFbaState.loading = false;
-                const prevBtn = document.getElementById('opsFbaPrev');
-                const nextBtn = document.getElementById('opsFbaNext');
-                if (prevBtn) prevBtn.disabled = opsFbaState.page <= 1;
-                if (nextBtn) nextBtn.disabled = opsFbaState.page >= opsFbaState.totalPages;
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            const dian = document.getElementById('opsFbaDian');
-            const danhao = document.getElementById('opsFbaDanhao');
-            const sort = document.getElementById('opsFbaSort');
-            const issue = document.getElementById('opsFbaIssue');
-            const refresh = document.getElementById('opsFbaRefresh');
-            const copy = document.getElementById('opsFbaCopy');
-            const prevBtn = document.getElementById('opsFbaPrev');
-            const nextBtn = document.getElementById('opsFbaNext');
-
-            if (dian) dian.addEventListener('change', function () { opsFbaLoadData(1); });
-            if (danhao) {
-                danhao.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter') opsFbaLoadData(1);
-                });
-            }
-            if (sort) sort.addEventListener('change', function () { opsFbaLoadData(1); });
-            if (issue) {
-                issue.addEventListener('click', function () {
-                    opsFbaState.issueOnly = !opsFbaState.issueOnly;
-                    issue.classList.toggle('is-active', opsFbaState.issueOnly);
-                    issue.innerHTML = opsFbaState.issueOnly
-                        ? '<i class="fas fa-filter"></i> 已筛选问题'
-                        : '<i class="fas fa-triangle-exclamation"></i> 只看问题数据';
-                    opsFbaLoadData(1);
-                });
-            }
-            if (refresh) refresh.addEventListener('click', function () { opsFbaLoadData(opsFbaState.page || 1); });
-            const tableWrap = document.getElementById('opsFbaTableWrap');
-            let selecting = false;
-            let selectionStart = null;
-            if (tableWrap) {
-                tableWrap.addEventListener('mousedown', function (event) {
-                    const cell = event.target.closest('td,th');
-                    if (!cell || !tableWrap.contains(cell)) return;
-                    selecting = true;
-                    selectionStart = cell;
-                    event.preventDefault();
-                    opsFbaApplyCellSelection(cell.closest('table'), cell, cell);
-                });
-                tableWrap.addEventListener('mouseover', function (event) {
-                    if (!selecting || !selectionStart) return;
-                    const cell = event.target.closest('td,th');
-                    if (!cell || cell.closest('table') !== selectionStart.closest('table')) return;
-                    opsFbaApplyCellSelection(cell.closest('table'), selectionStart, cell);
-                });
-                tableWrap.addEventListener('dblclick', async function (event) {
-                    const cell = event.target.closest('td.copyable-cell');
-                    if (!cell || !tableWrap.contains(cell)) return;
-                    event.preventDefault();
-                    const text = cell.textContent.trim();
-                    if (await opsFbaCopyText(text)) opsFbaMarkCopied(cell);
-                });
-                document.addEventListener('mouseup', function () {
-                    selecting = false;
-                    selectionStart = null;
-                });
-            }
-            document.addEventListener('selectionchange', function () {
-                const table = document.querySelector('#opsFbaTableWrap .data-table');
-                if (!table) return;
-                const selected = opsFbaSelectedTableText(table);
-                if (selected) opsFbaState.lastSelectedTableText = selected;
-            });
-            if (copy) copy.addEventListener('click', async function () {
-                const table = document.querySelector('#opsFbaTableWrap .data-table');
-                if (!table) return;
-                const text = opsFbaTableText(table);
-                try {
-                    if (!await opsFbaCopyText(text)) throw new Error('复制失败');
-                    copy.innerHTML = '<i class="fas fa-check"></i> 已复制';
-                    setTimeout(() => { copy.innerHTML = '<i class="fas fa-copy"></i> 复制表格'; }, 1400);
-                } catch (e) { window.prompt('请复制下面的表格内容：', text); }
-            });
-            document.addEventListener('copy', function (event) {
-                const table = document.querySelector('#opsFbaTableWrap .data-table');
-                if (!table) return;
-                const selected = opsFbaSelectedTableText(table);
-                if (!selected || !event.clipboardData) return;
-                event.preventDefault();
-                event.clipboardData.setData('text/plain', selected);
-            });
-            if (prevBtn) prevBtn.addEventListener('click', function () { opsFbaLoadData(Math.max(1, opsFbaState.page - 1)); });
-            if (nextBtn) nextBtn.addEventListener('click', function () { opsFbaLoadData(Math.min(opsFbaState.totalPages, opsFbaState.page + 1)); });
-
-            opsFbaLoadShops();
-            opsFbaLoadData(1);
-        });
-    </script>
-</body>
+</style><header>
+<div class="logo">图</div>
+<b>图创 AI</b>
+<span class="crumb"> / 运营工作台 / FBA货件运输</span>
+<a class="btn right" href="{{ back_url }}" style="text-decoration:none">返回{{ source_name }}</a>
+<span class="crumb">{{ user_name }}</span>
+</header>
+<main>
+<div class="heading">
+<div>
+<h1>FBA 货件追踪</h1>
+<p>集中查询亚马逊追踪码与 IEN，快速定位待处理货件。</p>
+</div>
+<div class="actions">
+<button class="btn" id="reset">↻ 重置筛选</button>
+<button class="btn primary" id="export">↓ 导出当前结果</button>
+</div>
+</div>
+<div class="stats">
+<div class="stat">
+<label>当前货件</label>
+<strong id="total">—</strong>
+<small>当前筛选范围内的全部货件</small>
+</div>
+<div class="stat ok">
+<label>已填写</label>
+<strong id="filled">—</strong>
+<small>填写状态标记为 Y</small>
+</div>
+<div class="stat warn">
+<label>需要关注</label>
+<strong id="issues">—</strong>
+<small>追踪码缺失、格式或数量待核对</small>
+</div>
+<div class="stat">
+<label>已检查</label>
+<strong id="checked">—</strong>
+<small>已有检查日期的货件</small>
+</div>
+</div>
+<section class="panel">
+<div class="tabs">
+<button class="tab active" data-tab="all">全部货件 <span id="tabAll">—</span>
+</button>
+<button class="tab" data-tab="issue">需要关注 <span id="tabIssue">—</span>
+</button>
+<button class="tab" data-tab="filled">已填写 <span id="tabFilled">—</span>
+</button>
+<button class="tab" data-tab="unchecked">待检查 <span id="tabUnchecked">—</span>
+</button>
+</div>
+<div class="filters">
+<div class="search">
+<input id="search" placeholder="搜索货件单号 / 物流单号 / 追踪码 / IEN">
+</div>
+<select id="shop" aria-label="店铺">
+<option value="">全部店铺</option>
+</select>
+<select id="shipping" aria-label="运输方式">
+<option value="">全部运输方式</option>
+</select>
+<select id="status" aria-label="填写状态">
+<option value="">全部填写状态</option>
+<option value="Y">已填写</option>
+<option value="unmarked">未标记</option>
+</select>
+<select id="sort" aria-label="排序">
+<option value="import_desc">最新导入优先</option>
+<option value="import_asc">最早导入优先</option>
+<option value="check_desc">最近检查优先</option>
+</select>
+</div>
+<div class="note">
+<b>关注提醒</b>　数量不一致时同时展示数据库记录值与识别值；填写状态为空时显示“未标记”，不会自动判定为未填写。</div>
+<div class="toolbar">
+<span id="resultCount">正在读取货件数据…</span>
+<span>
+<span id="updatedAt">数据每 30 秒更新缓存</span>　·　点击详情查看完整信息</span>
+</div>
+<div class="table-wrap" tabindex="0" aria-label="货件列表，可横向及纵向滚动">
+<table>
+<thead>
+<tr>
+<th>
+<input class="check" type="checkbox" id="allCheck" title="全选当前结果">
+</th>
+<th>店铺 / 货件单号</th>
+<th>运输方式</th>
+<th>物流单号</th>
+<th>亚马逊追踪码 / IEN</th>
+<th>填写状态 <i class="new">新</i>
+</th>
+<th>追踪码个数 <i class="new">新</i>
+</th>
+<th>检查日期 <i class="new">新</i>
+</th>
+<th>导入时间</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody id="rows">
+<tr>
+<td colspan="10" class="empty">正在读取货件数据…</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="foot">
+<span id="selection">已选择 0 条</span>
+<div class="pages">
+<select id="pageSize" aria-label="每页条数">
+<option value="20">每页 20 条</option>
+<option value="50">每页 50 条</option>
+<option value="100">每页 100 条</option>
+</select>
+<button id="prev" disabled aria-label="上一页">‹</button>
+<span id="pageInfo">1 / 1</span>
+<button id="next" disabled aria-label="下一页">›</button>
+</div>
+</div>
+</section>
+<div class="legend">
+<span>填写状态、记录个数和检查日期均来自原表；本页仅查询，不修改货件数据。</span>
+<span>字段来源：fbahuojian_yunshufangshi</span>
+</div>
+</main>
+<div class="overlay" id="overlay" aria-hidden="true">
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="货件详情">
+</aside>
+</div>
+<div class="toast" id="toast">
+</div>
+<script src="{{ url_for('static', filename='js/fba_shipping.js', v='20261119') }}" defer>
+</script>
 </html>

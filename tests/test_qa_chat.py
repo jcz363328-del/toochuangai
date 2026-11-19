@@ -1,5 +1,7 @@
 import tempfile
 import io
+import sys
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
@@ -16,6 +18,33 @@ class ChatTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.store = ChatStore(self.tmp.name)
         self.chat = self.store.create("alice")
+
+    def test_render_captures_script_namespace_when_main_module_is_replaced(self):
+        namespace = dict(site.__dict__, __name__='__main__')
+        render = types.FunctionType(site.render_openrouter_feature.__code__, namespace)
+        with patch.dict(sys.modules, {'__main__': types.ModuleType('main')}), patch(
+                '图片.qa_chat.render') as render_chat:
+            render(site.get_feature_by_key('ai_qa_image'), site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)
+        runtime = render_chat.call_args.args[0]
+        self.assertIs(runtime.load_image_bytes_from_url, site.load_image_bytes_from_url)
+        self.assertIs(runtime.submit_feature_job, site.submit_feature_job)
+        # A later rerun must not change dependencies held by a fragment callback.
+        namespace['load_image_bytes_from_url'] = None
+        self.assertTrue(callable(runtime.load_image_bytes_from_url))
+        image = io.BytesIO()
+        Image.new('RGB', (8, 8), 'red').save(image, format='PNG')
+        source = site.image_bytes_to_data_url(image.getvalue())
+        saved = self.store.save_image(runtime, 'alice', source)
+        self.assertEqual(Path(saved).read_bytes(), image.getvalue())
+
+    def test_worker_captures_script_namespace_when_main_module_is_replaced(self):
+        namespace = dict(site.__dict__, __name__='__main__')
+        worker = types.FunctionType(site.run_queued_feature_job.__code__, namespace)
+        with patch.dict(sys.modules, {'__main__': types.ModuleType('main')}), patch(
+                '图片.qa_chat.run_chat_job', return_value={'images': ['result']}) as run:
+            self.assertEqual(worker({'qa_turn_id': 'turn'}), {'images': ['result']})
+        runtime = run.call_args.args[0]
+        self.assertIs(runtime.load_image_bytes_from_url, site.load_image_bytes_from_url)
 
     def test_account_isolation_and_recovery(self):
         turn = self.store.add("alice", self.chat, "画一朵花", [], "model")

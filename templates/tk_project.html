@@ -91,8 +91,8 @@
 </div>
 {%- endmacro %}
 
-{% macro mini_card(name, desc, href, icon) -%}
-<div class="mini-card" data-href="{{ href }}" data-menu="{{ name }}">
+{% macro mini_card(name, desc, href, icon, permission='') -%}
+<div class="mini-card" data-href="{{ href }}" data-menu="{{ name }}" data-permission="{{ permission }}">
     <div class="mini-icon"><i class="{{ icon }}"></i></div>
     <div class="mini-text">
         <p class="mini-name">{{ name }}</p>
@@ -138,7 +138,7 @@
             </div>
             <div class="mini-grid">
                 {% if has_dashboard_82 %}{{ mini_card('82号店看板', '实时数据看板', url_for('tk_dashboard.tk_dashboard_82_page'), 'fas fa-chart-line') }}{% endif %}
-                {% if has_dashboard_full %}{{ mini_card('数据看板汇总', '汇总各类数据', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie') }}{% endif %}
+                {% if has_dashboard_full %}{{ mini_card('TK整体看板', '查看TK项目整体经营数据与关键指标', url_for('tk_dashboard.tk_dashboard_page'), 'fas fa-chart-pie', 'tk_dashboard_full') }}{% endif %}
                 {% if has_total %}{{ mini_card('深圳数据看板', '深圳团队数据汇总', url_for('tk_dashboard.tk_dashboard_sz_page'), 'fas fa-chart-line') }}{% endif %}
                 {% if has_total %}{{ mini_card('深圳数据看板', '深圳团队数据汇总', url_for('tk_dashboard.tk_dashboard_sz_page'), 'fas fa-chart-line') }}{% endif %}
                 {% if has_gmv_ratio %}{{ mini_card('视频、商品卡、达人GMV占比', 'GMV占比分析', url_for('tk_dashboard.tk_gmv_ratio_page'), 'fas fa-chart-pie') }}{% endif %}
