@@ -392,20 +392,6 @@
             </div>
             {% endif %}
 
-            <!-- 模特排队功能 -->
-            <div class="dept-feature-card">
-                <div class="dept-feature-icon">
-                    <i class="fas fa-list"></i>
-                </div>
-                <h3 class="text-center mb-3">模特排队</h3>
-                <p class="text-muted text-center mb-4">查看排队人数、上传/预览视频，支持排队与取消排队操作</p>
-                <div class="text-center">
-                    <a href="{{ url_for('model_management.queue') }}" class="dept-feature-btn">
-                        <i class="fas fa-play"></i> 进入模特排队
-                    </a>
-                </div>
-            </div>
-
             {% if dept_id == 'operation_dept_1' and can_view_tk_90 %}
             <div class="dept-feature-card">
                 <div class="dept-feature-icon">
@@ -505,7 +491,7 @@
                 </div>
             </div>
             {% endif %}
-            {% if dept_id == 'general_office' %}
+            {% if dept_id in ['general_office', 'operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'operation_dept_7'] %}
             {% if can_business_analysis|default(true) %}
             <div class="dept-feature-card" data-permission="business_analysis">
                 <div class="dept-feature-icon">
@@ -524,20 +510,6 @@
             {% endif %}
 
             {% if dept_id == 'tech_dept' %}
-            <!-- 技术部：模特库管理 -->
-            <div class="dept-feature-card">
-                <div class="dept-feature-icon">
-                    <i class="fas fa-archive"></i>
-                </div>
-                <h3 class="text-center mb-3">模特库管理</h3>
-                <p class="text-muted text-center mb-4">上传模特、编辑状态/国家/等级/备注，视频可直接预览播放</p>
-                <div class="text-center">
-                    <a href="{{ url_for('model_management.library') }}" class="dept-feature-btn">
-                        <i class="fas fa-play"></i> 进入模特库
-                    </a>
-                </div>
-            </div>
-
             <div class="dept-feature-card">
                 <div class="dept-feature-icon">
                     <i class="fas fa-envelope"></i>

@@ -50,7 +50,9 @@ class ProviderLimitTests(unittest.TestCase):
             try:
                 time.sleep(.04)
                 if kind == 'image':
-                    return self.image_response()
+                    response = Mock(status_code=202, headers={})
+                    response.json.return_value = {'id': 'existing-task', 'status': 'succeeded', 'assets': [{'url': 'https://example.test/image.png'}]}
+                    return response
                 response = Mock(status_code=200, headers={})
                 response.json.return_value = {'choices': [{'message': {'content': 'ok'}}]}
                 return response
@@ -58,7 +60,9 @@ class ProviderLimitTests(unittest.TestCase):
                 with lock:
                     active[kind] -= 1
 
-        with patch.object(site.requests, 'post', side_effect=post), ThreadPoolExecutor(max_workers=16) as executor:
+        with patch.object(site.requests, 'post', side_effect=post), \
+                patch.object(site.requests, 'get', return_value=Mock(status_code=200, content=self.image, headers={'Content-Type': 'image/png'})), \
+                ThreadPoolExecutor(max_workers=16) as executor:
             futures = []
             for _ in range(8):
                 futures.append(executor.submit(site.call_omnia_image_api, site.NANO_BANANA_MODEL, 'draw'))
@@ -80,6 +84,8 @@ class ProviderLimitTests(unittest.TestCase):
 
         def post(url, **kwargs):
             if url.endswith('/media/tasks'):
+                if kwargs['json']['model'] == site.NANO_BANANA_MODEL:
+                    nano_started.set()
                 return created
             nano_started.set()
             return self.image_response()

@@ -347,10 +347,6 @@
                 <i class="fa-solid fa-video"></i>
                 <h3>培训视频</h3>
             </div>
-            <div class="quick-card available" data-menu="模特排队" data-href="{{ url_for('model_management.queue') }}" data-search="模特排队 模特管理">
-                <i class="fa-solid fa-users"></i>
-                <h3>模特排队</h3>
-            </div>
         {% else %}
             <div class="quick-card available" data-menu="飞书登录" data-href="{{ url_for('feishu_auth') }}" data-search="飞书登录 授权">
                 <i class="fa-solid fa-right-to-bracket"></i>
@@ -468,10 +464,6 @@
                         {% endif %}
                     {% endfor %}
                 {% endfor %}
-                <div class="nav-item available" data-menu="模特排队" data-href="{{ url_for('model_management.queue') }}" data-search="模特排队 模特管理">
-                    <div class="nav-left"><i class="fa-solid fa-users"></i><span class="nav-name">模特排队</span></div>
-                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
-                </div>
             {% else %}
                 <div class="empty-tip">请先登录查看可用功能</div>
             {% endif %}
@@ -594,7 +586,7 @@
             'FBA追踪码/IEN查询': 'operation_fba_shipping', '亚马逊站内信回复智能体': 'amazon_reply_agent',
             '技术部功能': 'tech_dept', '视觉设计部功能': 'visual_design_dept', '摄影部功能': 'photography_dept', 'AI部功能': 'ai_dept',
             '仓储部组功能': 'support', '采购部功能': 'support', '总经办功能': 'support', '研发部功能': 'support', '财务部功能': 'support',
-            '人力行政部功能': 'support', '新人组功能': 'support', '深圳功能模块': 'support', '模特排队': 'support'
+            '人力行政部功能': 'support', '新人组功能': 'support', '深圳功能模块': 'support'
         };
         document.querySelectorAll('.nav-item[data-menu]').forEach(function(item) {
             const key = item.dataset.department || '';

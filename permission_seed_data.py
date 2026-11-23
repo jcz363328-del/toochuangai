@@ -86,7 +86,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "business_analysis",
         "mingcheng": "经营分析",
-        "yonghu": "郭婷；王丰慧；王淑雯；柳琳；刘星辰；张彦微；李宝菊；任真民",
+        "yonghu": "郭婷；王丰慧；王淑雯；柳琳；刘星辰；张彦微；李宝菊；杨悦",
         "bumen": "运营一部；运营二部；运营三部；运营六部；运营七部；AI部；总经办",
         "fujigongneng": "",
         "miaoshu": "经营分析入口权限；部门负责人仅看本部门，普通员工仅看本人，未命中全量权限时仅展示比例数据。",
@@ -102,7 +102,7 @@ EXTRA_PERMISSION_ROWS = [
     {
         "gongneng": "business_analysis_all",
         "mingcheng": "经营分析（全量权限）",
-        "yonghu": "周俊成；王丰慧；蔡晶；侯梁；孙洁；刘蓉蓉；李宝菊；任真民",
+        "yonghu": "周俊成；王丰慧；蔡晶；侯梁；孙洁；刘蓉蓉；李宝菊；杨悦",
         "bumen": "AI部；总经办",
         "fujigongneng": "business_analysis",
         "miaoshu": "经营分析全量数据与全部关键任务管理权限。",

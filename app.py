@@ -366,7 +366,8 @@ def _can_access_ai_workspace():
                 names = signed_state.get('departments') or []
             else:
                 names, _ = permission_manager._resolve_effective_departments(names, 'ai_dept')
-            allowed = 'AI部' in names
+            # 飞书中的同一部门已更名为“流程与AI部”，兼容历史会话的旧名称。
+            allowed = bool({'AI部', '流程与AI部'}.intersection(names))
         except Exception:
             app.logger.exception('Failed to resolve AI workspace membership')
     g.can_access_ai_workspace = allowed
@@ -14487,6 +14488,7 @@ def dashboard_workspace_catalog(accessible=None):
             'unavailable_reason': '原项目尚未配置仓储部功能页面，未虚构功能入口。' if key == 'warehouse_group' else ''})
     operations = next(group for group in groups if group['key'] == 'operations')
     for menu, endpoint, permission, icon in [
+        ('经营分析', 'business_analysis', 'business_analysis', 'fas fa-chart-pie'),
         ('我开发的产品销售', 'developer_product_sales.page', 'ai_dept', 'fas fa-box-open'),
         ('智能补货中心-亚马逊', 'daily_replenishment_operation.page', 'daily_replenishment_operation', 'fas fa-warehouse'),
     ]:
@@ -17654,12 +17656,14 @@ def _operation_page_permission_flags(user_id):
     flags = {
         'can_view_review_analysis': False,
         'can_view_amazon_reply': False,
+        'can_business_analysis': False,
     }
     if not user_id:
         return flags
     for function_name, flag_name in (
         ('review_analysis', 'can_view_review_analysis'),
         ('amazon_reply_agent', 'can_view_amazon_reply'),
+        ('business_analysis', 'can_business_analysis'),
     ):
         try:
             allowed, _ = permission_manager.check_user_permission(
@@ -18345,6 +18349,8 @@ def ai_modules():
         can_value_evaluation=has_permission('value_evaluation'),
         can_value_evaluation_admin=has_permission('value_evaluation_admin'),
         can_historical_sales=has_permission('historical_sales'),
+        can_model_library=has_permission('model_library'),
+        can_model_queue=has_permission('model_queue'),
     )
 
 @app.route('/ai/video-claw', defaults={'subpath': ''}, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
@@ -20202,6 +20208,12 @@ def permission_debug_clear():
         samesite='Lax',
     )
     return response
+
+from finance_tk_expenses import register_tk_expenses
+register_tk_expenses(app, require_permission)
+from finance_tk_payments import register_tk_payments
+register_tk_payments(app, require_permission)
+
 
 @app.route('/finance_modules')
 @require_permission('finance_dept')

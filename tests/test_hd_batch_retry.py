@@ -51,8 +51,8 @@ class HdBatchRetryTests(unittest.TestCase):
             site.run_hd_batch_generate_with_retry(generate_once, "enhance")
         self.assertEqual(len(calls), 1)
 
-    def test_hd_batch_concurrency_is_capped_below_previous_three_way_load(self) -> None:
-        self.assertEqual(site.HD_BATCH_MAX_API_CONCURRENCY, 2)
+    def test_hd_batch_uses_single_concurrency_for_dedicated_upscale(self) -> None:
+        self.assertEqual(site.HD_BATCH_MAX_API_CONCURRENCY, 1)
 
     def test_cpu_overload_message_is_not_reported_as_missing_channel(self) -> None:
         message = site.format_omnia_error_message(

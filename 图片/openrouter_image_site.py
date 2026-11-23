@@ -40,6 +40,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from secret_settings import image_site_config_namespace, relocate_storage_path, sql_server_config
 import prepress_check_service
 from 图片.request_limits import admitted_job, get_request_limiter, limited_request, request_wait_callback
+from 图片.image_downloads import build_image_attachment_header, is_managed_static_image_url, resolve_local_static_image_source
+from 图片.multi_reference_composer import MULTI_REFERENCE_COMPOSER_FEATURE_KEY
 from 图片.a_plus_reference_lab import (
     A_PLUS_REFERENCE_LAB_FEATURE_KEY,
     A_PLUS_REFERENCE_LAB_MAX_PRODUCT_IMAGES,
@@ -70,7 +72,7 @@ OMNIAKEY_MEDIA_TASKS_URL = f"{OMNIAKEY_API_BASE}/v1/media/tasks"
 OMNIAKEY_CHAT_COMPLETIONS_URL = f"{OMNIAKEY_API_BASE}/v1/chat/completions"
 NANO_BANANA_MODEL = "gemini-nano-banana-2.1"
 DEFAULT_MODEL = NANO_BANANA_MODEL
-# 历史遗留的 Nano Banana 变体统一收敛到 NANO_BANANA_MODEL，使用 OmniaKey Images API。
+# 历史遗留的 Nano Banana 变体统一收敛到 NANO_BANANA_MODEL，使用 OmniaKey 异步任务 API。
 NANO_BANANA_MODEL_ALIASES = (
     "gemini-nano-banana",
     "google/gemini-nano-banana",
@@ -135,6 +137,7 @@ HISTORY_DIR = APP_DIR / "history"
 HISTORY_IMAGES_DIR = HISTORY_DIR / "images"
 HISTORY_FILE = HISTORY_DIR / "records.json"
 OPENROUTER_ERROR_LOG_FILE = PROJECT_ROOT / "logs" / "openrouter_errors.jsonl"
+OMNIAKEY_TASK_RECEIPTS_FILE = PROJECT_ROOT / "logs" / "omnia_image_tasks.jsonl"
 MAX_HISTORY_RECORDS = 120
 HISTORY_PAGE_SIZE = 20
 DB_HISTORY_TABLE = "AI_TuPian"
@@ -192,15 +195,14 @@ OMNIAKEY_TASK_TIMEOUT_SECONDS = 600
 OMNIAKEY_TASK_POLL_INTERVAL_SECONDS = 3
 OMNIAKEY_MEDIA_MAX_ATTEMPTS = 2
 OMNIAKEY_MEDIA_RETRY_DELAYS = (4,)
-OMNIAKEY_MEDIA_TRANSIENT_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+OMNIAKEY_MEDIA_TRANSIENT_STATUS_CODES = {408, 425, 429, *range(500, 600)}
 OMNIAKEY_INPUT_TOTAL_BUDGET_BYTES = 620_000
 OMNIAKEY_INPUT_MIN_BUDGET_BYTES = 48_000
 OMNIAKEY_MAX_INPUT_IMAGE_EDGE = 4096
 REMOVE_EYELASHES_IMAGE_RESOLUTION = "2K"
 REMOVE_EYELASHES_MAX_API_CONCURRENCY = 1
-# 批量高清固定使用原生 4K，三路并发会把 OmniaKey 上游打到 CPU 过载/无可用渠道。
-# 降到 2 路并配合任务级重试，牺牲少量速度换取整批成功率。
-HD_BATCH_MAX_API_CONCURRENCY = 2
+# 批量高清与即梦超清共用专用接口，按服务商单并发串行处理。
+HD_BATCH_MAX_API_CONCURRENCY = 1
 HD_BATCH_TRANSIENT_MAX_ATTEMPTS = 3
 HD_BATCH_TRANSIENT_RETRY_DELAYS = (8, 20)
 REMOVE_EYELASHES_REMOVE_ALL_PROMPT = (
@@ -857,6 +859,16 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         self.canvas_directory = str(canvas_directory or INFINITE_CANVAS_BUILD_DIR)
         super().__init__(*args, directory=self.upload_directory, **kwargs)
 
+    def send_response(self, code: int, message: str | None = None) -> None:
+        self._response_status = int(code)
+        self._response_content_type = ""
+        super().send_response(code, message)
+
+    def send_header(self, keyword: str, value: str) -> None:
+        if keyword.lower() == "content-type":
+            self._response_content_type = str(value)
+        super().send_header(keyword, value)
+
     def do_GET(self) -> None:
         request_url = urllib.parse.urlsplit(self.path)
         request_path = urllib.parse.unquote(request_url.path or "/").rstrip("/")
@@ -933,10 +945,16 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
             self.send_header("Pragma", "no-cache")
             self.send_header("Expires", "0")
-        if str((query.get("download") or [""])[0]).strip() == "1":
-            file_name = Path(urllib.parse.unquote(request_url.path or "")).name or "image.png"
-            encoded_name = urllib.parse.quote(file_name)
-            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{encoded_name}")
+        attachment = build_image_attachment_header(
+            self.path,
+            status_code=getattr(self, "_response_status", 0),
+            content_type=getattr(self, "_response_content_type", ""),
+            method=self.command,
+        )
+        if attachment:
+            self.send_header("Content-Disposition", attachment)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
         super().end_headers()
 
     def serve_infinite_canvas_omnia_asset(self, query_text: str) -> None:
@@ -1693,26 +1711,17 @@ FEATURES = [
     {
         "key": "hd_batch",
         "name": "模特图批量高清",
-        "summary": "保持原图尺寸与色彩，只提升清晰度与细节",
-        "mode": "openrouter",
+        "summary": "专用超清增强，保留原图内容并按原尺寸输出",
+        "mode": "portrait_upscale",
+        "model": JIMENG_HD_MODEL_NAME,
         "output_mode": "image",
         "min_images": 1,
         "max_output_images": 1,
-        "description": "高清增强，最终宽高、色温和色调与对应原图完全一致，不裁剪、不扩图、不改变画幅或色彩。",
+        "fixed_output_count": 1,
+        "description": "使用专用超清流程增强原图，保留人物、商品和背景内容；每张原图输出一张结果，最终宽高与原图一致。",
         "default_prompt": (
-            "请基于输入图片进行高清修复和细节增强，只提升清晰度，不要改变人物身份、五官比例、脸型、表情、发型和构图。"
-            + PORTRAIT_HD_SKIN_LOCK_RULES
-            + PORTRAIT_HD_COLOR_LOCK_RULES
-            + "最终画布必须与第1张原图的像素宽度和像素高度分别完全一致；禁止裁剪、扩图、补边、旋转、拉伸、改变宽高比或重新取景，原图上下左右四边的全部内容都必须完整保留。"
-            + "眼部和睫毛是最重要的区域，只提升清晰度，不改变眼睛大小、眼型、眼神或睫毛形态。"
-            "增强目标："
-            "1. 皮肤只提升原有细节的可见清晰度，原有肤色、肤质、毛孔、斑点、痣、痘印和细纹必须全部保留，不得美颜或修饰。"
-            "2. 重点增强眼部区域：睫毛根根分明、自然纤细、不要变成假睫毛或夸张妆感。"
-            "3. 提升眉毛、眼线边缘、虹膜高光、眼周皮肤纹理的清晰度。"
-            "4. 如果提供肤质参考图，只参考清晰度与细节解析水平，不能参考或迁移其肤色和肤质。"
-            "5. 发丝、唇部边缘、鼻翼、面部轮廓保持自然锐利。"
-            "6. 不添加文字、水印、滤镜边框，不改变背景主体关系。"
-            "输出一张自然、真实、商业修图级的人像高清图。"
+            "仅使用每张原图进行专用超清增强，保留原图内容、比例与边界。"
+            "不使用生图模型或其他人物参考图；每张输出一张结果，最终像素宽高与原图一致。"
         )
     },
     {
@@ -1985,14 +1994,16 @@ FEATURES = [
         "max_output_images": 1,
         "target_size": (1464, 1000),
         "target_size_text": "1464*1000",
-        "description": "第 1 张上传 A+ 首屏参考图，只作为风格与调性参考；后续上传同一位目标模特的身份参考图。版式允许在合理范围内重新组织，输出固定 1464×1000。",
+        "description": "第 1 张上传 A+ 首屏风格参考图，后续上传同一位目标模特的参考图。优先保留目标模特原始姿势，自然融合画面并自动补全缺失局部，输出固定 1464×1000。",
         "default_prompt": (
-            "请执行电商 A+ 首屏的风格复刻与指定模特替换。输入图片中的第 1 张是 A+ 首屏参考图，只提供风格与整体调性；后续图片全部是同一位目标模特的身份参考图。"
+            "请执行电商 A+ 首屏的风格复刻与指定模特替换。输入图片中的第 1 张是 A+ 首屏参考图，只提供风格与整体调性；后续图片提供同一位目标模特的身份与原始姿态。"
             "请参考第 1 张图的整体视觉风格，包括配色倾向、光影氛围、质感与材质表现、字体气质、装饰语言和版面节奏，输出一张风格接近的 A+ 首屏。"
             "不需要逐像素复刻原版式：允许在保证商业设计合理、信息层级清晰的前提下重新组织版面，调整元素的位置、大小和疏密关系，让画面更自然协调。"
             "把参考图中出现的所有模特统一替换为后续图片提供的同一位目标模特。必须稳定保持目标模特的身份、脸型、五官、肤色、发型和辨识度，不得混入原模特的面部特征，不得出现多个不同身份的人物。"
             "目标模特必须自然融入新画面：光线方向、色温、反差、景深、透视比例、服装质感和背景氛围要与画面一致，边缘过渡自然，不得出现抠图感、拼贴感、生硬贴脸或悬浮的边缘。"
-            "目标模特可以适配原图的姿势、视线、景别和裁切方式，但姿势和构图要符合人体结构与透视关系，不要求与原图完全一致。"
+            "优先保留目标模特参考图本身的原始姿势、肢体动作、身体朝向和头部朝向，让她以原有姿态自然融入画面；不必模仿首屏风格参考图中原模特的姿势，也不要为了复刻风格而刻意改动作、扭转身体或强行摆成相同姿势。"
+            "可根据目标模特原有姿态调整人物位置、等比大小、构图留白、背景和周边元素，使光影、透视、接触阴影与遮挡关系自然协调。多张目标模特图中，选择最清晰且适合构图的一张作为姿态依据，其余图片用于补充身份和局部细节，不得拼凑互相冲突的肢体动作。"
+            "若目标模特素材因裁切或遮挡缺少头发、肩颈、手臂、手部、身体或服装边缘，应沿现有姿态、人体结构、透视和服装走向自动自然补全融入画面所需的缺失局部；已完整可见的部位保持一致，延续同一人物的肤色、服饰和质感，衔接无断层，不得改变身份、五官或额外增加肢体。"
             "参考图中的商品、Logo、可读文案、排版位置和品牌视觉，如未被用户明确要求替换，必须完整保留；不得改写文字、编造卖点、参数、认证或品牌信息。"
             "最终只输出一张完整成品图，精确尺寸为 1464×1000 像素。画面必须覆盖四边，无白边、黑边、截图界面、对话框、水印、拼贴接缝或候选方案。"
             "使用高清商业修图质量，人物面部、发丝、商品、文字和细节清晰锐利，禁止模糊、畸形、重复肢体、乱码、低分辨率和过度磨皮。"
@@ -2058,6 +2069,18 @@ FEATURES = [
             "请基于参考图的视觉风格，生成一张同风格的电商 A+ 首屏创意图片。"
             "只借鉴参考图的构图节奏、色调关系、光影氛围、材质质感与设计语言，不照搬其中的品牌、文字和商品。"
         ),
+    },
+    {
+        "key": MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
+        "name": "多图参考创作",
+        "summary": "逐图反推，挑选六类参考内容，组合提示词生成底图",
+        "mode": "openrouter",
+        "output_mode": "image",
+        "min_images": 0,
+        "max_input_images": 10,
+        "max_output_images": 4,
+        "description": "分别反推多张参考图，自选背景、主体、辅助元素、装饰、字体和质感，组合成新提示词后生成底图。",
+        "default_prompt": "",
     },
     {
         "key": MAIN_IMAGE_A_PLUS_FEATURE_KEY,
@@ -6261,35 +6284,66 @@ def build_history_download_public_url(image_source: str) -> str:
     if not normalized_source:
         return ""
     if normalized_source.startswith(("http://", "https://")):
-        return normalized_source
+        if is_managed_static_image_url(
+            normalized_source, (get_history_public_base_url(), get_jimeng_public_upload_base_url())
+        ):
+            return normalized_source
+        # A provider URL may reject browser CORS or expire. Publish the exact
+        # original through our own asset server, without altering signed URLs.
+        original_bytes, original_mime = load_image_bytes_from_url(normalized_source)
+        with Image.open(io.BytesIO(original_bytes)) as original_image:
+            original_mime = Image.MIME.get(original_image.format or "", original_mime)
+        normalized_source = image_bytes_to_data_url(original_bytes, original_mime or "image/png")
     upload_base_url = get_jimeng_public_upload_base_url()
     if not upload_base_url:
         return normalized_source
     upload_dir = ensure_jimeng_upload_dir() / "history_downloads"
     upload_dir.mkdir(parents=True, exist_ok=True)
-    source_path = Path(normalized_source)
-    if source_path.exists() and source_path.is_file():
-        target_name = source_path.name
-        target_path = upload_dir / target_name
+    # Decode data URLs before touching the filesystem: an original's base64
+    # payload is much longer than the OS filename limit.
+    decoded = decode_data_url(normalized_source)
+    source_path = Path(normalized_source) if decoded is None else None
+    if source_path is not None and source_path.exists() and source_path.is_file():
+        # History files already have a public route that preserves directories.
+        # Flattening them into a basename-only cache can serve another original.
         try:
-            if not target_path.exists() or target_path.stat().st_size != source_path.stat().st_size:
-                target_path.write_bytes(source_path.read_bytes())
+            source_path.resolve().relative_to(DB_IMAGE_DIR.resolve())
+            public_url = convert_history_path_to_public_url(str(source_path))
+            if public_url.startswith(("http://", "https://")):
+                source_stat = source_path.stat()
+                separator = "&" if "?" in public_url else "?"
+                return f"{public_url}{separator}v={source_stat.st_mtime_ns}-{source_stat.st_size}"
+        except (OSError, ValueError):
+            pass
+        image_bytes = source_path.read_bytes()
+        target_name = f"history_download_{hashlib.sha256(image_bytes).hexdigest()}{source_path.suffix.lower()}"
+        target_path = upload_dir / target_name
+        temporary_path = target_path.with_name(f".{target_name}.{uuid4().hex}.tmp")
+        try:
+            if not target_path.exists():
+                temporary_path.write_bytes(image_bytes)
+                temporary_path.replace(target_path)
         except Exception:
             return normalized_source
+        finally:
+            temporary_path.unlink(missing_ok=True)
         encoded_parts = "/".join(urllib.parse.quote(part) for part in ("history_downloads", target_name))
         return f"{upload_base_url}/{encoded_parts}"
-    decoded = decode_data_url(normalized_source)
     if decoded is None:
         return normalized_source
     image_bytes, mime_type = decoded
     extension = get_image_extension_from_mime(mime_type or "image/png")
-    file_name = f"history_download_{hashlib.sha1(image_bytes).hexdigest()[:16]}{extension}"
+    file_name = f"history_download_{hashlib.sha256(image_bytes).hexdigest()}{extension}"
     target_path = upload_dir / file_name
+    temporary_path = target_path.with_name(f".{file_name}.{uuid4().hex}.tmp")
     try:
         if not target_path.exists():
-            target_path.write_bytes(image_bytes)
+            temporary_path.write_bytes(image_bytes)
+            temporary_path.replace(target_path)
     except Exception:
         return normalized_source
+    finally:
+        temporary_path.unlink(missing_ok=True)
     encoded_parts = "/".join(urllib.parse.quote(part) for part in ("history_downloads", file_name))
     return f"{upload_base_url}/{encoded_parts}"
 
@@ -9735,6 +9789,7 @@ def is_hd_batch_transient_error(error: Any) -> bool:
     if any(
         marker in normalized
         for marker in ("invalid_input", "content not allowed", "not supported",
+                       "content_filter", "image_recitation", "copyright", "protected content",
                        "provider_submit_uncertain", "查询图片任务失败", "图片任务等待超时")
     ):
         return False
@@ -9890,6 +9945,8 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
             if uploaded_files_override is None
             else list(uploaded_files_override)
         )
+        if feature_key == "hd_batch":
+            return call_portrait_hd_upscale(list(active_uploaded_group[:1]))
         if feature_key == JIMENG_HD_FEATURE_KEY:
             return call_jimeng_hd_upscale(uploaded_files=list(active_uploaded_group[:1]))
         if is_ark_seedream_model(str(job_context.get("model") or "")):
@@ -9898,25 +9955,11 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
                 uploaded_files=list(active_uploaded_group),
             )
         if is_jimeng_model(str(job_context.get("model") or "")):
-            if feature_key == "hd_batch":
-                return call_jimeng_portrait_hd(
-                    prompt=prompt_text,
-                    aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                    uploaded_files=list(active_uploaded_group),
-                    feature_key=feature_key,
-                )
             return call_jimeng_v40(
                 prompt=prompt_text,
                 aspect_ratio=request_aspect_ratio,
                 uploaded_files=list(active_uploaded_group),
                 feature_key=feature_key,
-            )
-        if feature_key == "hd_batch" and str(job_context.get("output_mode") or "") == "image":
-            return call_openrouter_portrait_hd(
-                model=str(job_context["model"]),
-                prompt=prompt_text,
-                aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                uploaded_files=list(active_uploaded_group),
             )
         if feature_key == "remove_eyelashes":
             source_aspect_ratio = request_aspect_ratio
@@ -12338,6 +12381,12 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
     if job_id:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
+    if feature_key == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+        from 图片.multi_reference_composer import run_job
+        result = run_job(SimpleNamespace(**globals()), job_context)
+        if job_context.get("composer_action") == "analyze":
+            return result
+        return finalize_feature_job_result(job_context, result, job_id)
     if feature_key == A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY:
         return finalize_feature_job_result(job_context, run_hero_reverse_job(job_context), job_id)
     if (feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
@@ -12548,25 +12597,19 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
         if job_id:
             set_task_progress(job_id, 18, "正在请求模型生成结果")
         feature_key = str((job_context.get("feature") or {}).get("key") or "")
-        if feature_key == JIMENG_HD_FEATURE_KEY or feature_mode == "jimeng_upscale":
+        if feature_key == "hd_batch":
+            result = call_portrait_hd_upscale(list(job_context.get("uploaded_files") or [])[:1])
+        elif feature_key == JIMENG_HD_FEATURE_KEY or feature_mode == "jimeng_upscale":
             result = call_jimeng_hd_upscale(
                 uploaded_files=list(job_context.get("uploaded_files") or [])[:1],
             )
         elif feature_mode == "jimeng" or is_jimeng_model(str(job_context.get("model") or "")):
-            if feature_key == "hd_batch":
-                result = call_jimeng_portrait_hd(
-                    prompt=str(job_context["prompt"]),
-                    aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                    uploaded_files=list(job_context.get("uploaded_files") or []),
-                    feature_key=feature_key,
-                )
-            else:
-                result = call_jimeng_v40(
-                    prompt=str(job_context["prompt"]),
-                    aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                    uploaded_files=list(job_context.get("uploaded_files") or []),
-                    feature_key=feature_key,
-                )
+            result = call_jimeng_v40(
+                prompt=str(job_context["prompt"]),
+                aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
+                uploaded_files=list(job_context.get("uploaded_files") or []),
+                feature_key=feature_key,
+            )
         else:
             analysis_palette: list[dict[str, Any]] = []
             request_prompt = str(job_context["prompt"])
@@ -12607,13 +12650,6 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
                 result["requested_aspect_ratio"] = request_aspect_ratio
                 result["layout_skill_id"] = str(job_context.get("a_plus_layout_skill_id") or "")
                 result["layout_skill_skeleton_used"] = skill_skeleton_used
-            elif feature_key == "hd_batch" and str(job_context.get("output_mode") or "") == "image":
-                result = call_openrouter_portrait_hd(
-                    model=str(job_context["model"]),
-                    prompt=str(job_context["prompt"]),
-                    aspect_ratio=str(job_context.get("aspect_ratio") or DEFAULT_ASPECT_RATIO),
-                    uploaded_files=list(job_context["uploaded_files"]),
-                )
             else:
                 result = call_openrouter(
                     model=str(job_context["model"]),
@@ -12728,7 +12764,7 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
     job_context = dict(job_context)
     job_context["job_id"] = job_id
     feature_key = str(feature.get("key") or "").strip()
-    is_jimeng_hd_job = feature_key == JIMENG_HD_FEATURE_KEY
+    is_jimeng_hd_job = feature_key in {"hd_batch", JIMENG_HD_FEATURE_KEY}
     queue_key = (
         JIMENG_HD_GLOBAL_QUEUE_KEY
         if is_jimeng_hd_job
@@ -12850,6 +12886,10 @@ def store_completed_background_job_result(
     job_info.pop("completion_pending", None)
     job_info.pop("completion_started_at", None)
     job_info.pop("completion_start_progress", None)
+    if feature_key == MULTI_REFERENCE_COMPOSER_FEATURE_KEY and "multi_reference_analysis" in result:
+        from 图片.multi_reference_composer import accept_analysis_result
+        accept_analysis_result(st.session_state, result)
+        return
     frontend_result = prepare_result_for_frontend(result)
     st.session_state.feature_results[feature_key] = frontend_result
     if feature_key == A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY and result.get("hero_reverse_batch"):
@@ -15935,6 +15975,47 @@ def call_jimeng_hd_upscale(uploaded_files: list[Any] | None = None) -> dict[str,
     result["channel"] = "即梦智能超清 · 原生 8K"
     result["resolution"] = JIMENG_HD_API_RESOLUTION
     result["req_key"] = JIMENG_HD_UPSCALE_REQ_KEY
+    result["task_id"] = task_id
+    return result
+
+
+def call_portrait_hd_upscale(uploaded_files: list[Any]) -> dict[str, Any]:
+    """仅向超清接口发送原图；结果按原尺寸输出，不混入其他人物参考图。"""
+    if not uploaded_files:
+        raise RuntimeError("批量高清失败：请先上传原图。")
+    source = uploaded_files[0]
+    target_size = get_uploaded_input_dimensions(source)
+    result = dict(call_jimeng_hd_upscale(uploaded_files=[source]))
+    try:
+        return finalize_portrait_upscale_result(result, target_size)
+    except Exception as exc:
+        task_note = f"（任务 {result['task_id']}）" if result.get("task_id") else ""
+        raise ImageOutcomeUnknown(
+            f"专用超清原任务已完成{task_note}，但结果处理失败，未自动重新提交。请联系管理员恢复原结果。原因：{exc}"
+        ) from exc
+
+
+def finalize_portrait_upscale_result(result: dict[str, Any], target_size: tuple[int, int]) -> dict[str, Any]:
+    images = []
+    for image_url in list(result.get("images") or []):
+        data, _mime = load_image_bytes_from_url(str(image_url))
+        with Image.open(io.BytesIO(data)) as image:
+            image = ImageOps.exif_transpose(image)
+            width, height = image.size
+            target_width, target_height = target_size
+            # 只容许接口输出尺寸取整带来的约 1px 比例误差，拒绝裁剪主体。
+            if (abs(round(width * target_height / height) - target_width) > 1
+                    and abs(round(height * target_width / width) - target_height) > 1):
+                raise RuntimeError("专用超清返回的画幅与原图不一致，本次未裁剪或拉伸，请联系管理员核查原任务。")
+            image = image.convert("RGB")
+            if image.size != target_size:
+                image = image.resize(target_size, Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            image.save(output, format="PNG")
+        images.append(image_bytes_to_data_url(output.getvalue(), "image/png"))
+    if not images:
+        raise RuntimeError("专用超清未返回图片。")
+    result.update(images=images[:1], target_size=target_size, channel="即梦专用超清 · 原图尺寸输出")
     return result
 
 
@@ -16144,6 +16225,13 @@ def format_openrouter_error_message(error_message: Any) -> str:
 def format_omnia_error_message(error_message: Any) -> str:
     raw_message = str(error_message or "").strip()
     normalized_message = raw_message.lower()
+    if any(marker in normalized_message for marker in ("image_recitation", "copyright", "protected content")):
+        task = re.search(r"task[_-][A-Za-z0-9_-]+", raw_message)
+        suffix = f"（任务 {task.group(0)}）" if task else ""
+        return (
+            "OmniaKey 模型认为生成结果可能复现受保护内容，已停止生成，未返回图片。"
+            "这可能是误判；如使用自有或已授权素材，请联系服务商复核。本次未自动重试。" + suffix
+        )
     if "同步生图" in raw_message and "未自动重新提交" in raw_message:
         return raw_message
     if "图片任务等待超时" in raw_message or "查询图片任务失败" in raw_message:
@@ -16169,7 +16257,7 @@ def format_omnia_error_message(error_message: Any) -> str:
         return "OmniaKey 当前没有可用渠道服务该模型，系统已自动降低并发并重试；请稍后重新提交。"
     if "http 413" in normalized_message or "request body too large" in normalized_message or "1mb" in normalized_message:
         return "OmniaKey 请求体超过 1MB 上限，请降低输入图片尺寸后重试。"
-    if "safety" in normalized_message or "blocked" in normalized_message or "审核" in raw_message:
+    if any(marker in normalized_message for marker in ("content_filter", "content filter", "safety", "blocked")) or "审核" in raw_message:
         return "OmniaKey 返回内容审核拦截，未提供图片结果；这不一定表示输入违规。请检查图片和提示词，正常内容仍被拒绝时请联系服务商排查。"
     if "timeout" in normalized_message or "timed out" in normalized_message or "超时" in raw_message:
         return "OmniaKey 任务等待超时，请稍后重新提交。"
@@ -16472,9 +16560,9 @@ def call_omnia_image_api(
     max_attempts: int | None = None,
 ) -> dict[str, Any]:
     omnia_model = resolve_omnia_image_model(model)
-    if omnia_model == NANO_BANANA_MODEL:
-        return call_omnia_sync_image_api(omnia_model, prompt, uploaded_files, aspect_ratio, resolution)
-    return call_omnia_media_image_api(model, prompt, uploaded_files, aspect_ratio, resolution, max_attempts)
+    # 同步 Images 接口会在长时间生图时被服务商网关以 524 中断。
+    # 异步提交立即取得任务 ID，后续仅查询原任务，不回退到同步接口。
+    return call_omnia_media_image_api(omnia_model or model, prompt, uploaded_files, aspect_ratio, resolution, max_attempts)
 
 
 @limited_request("omnia_image")
@@ -16497,6 +16585,8 @@ def call_omnia_media_image_api(
     operation = "edit" if prepared_files else "generate"
     parameters: dict[str, Any] = {}
     normalized_aspect_ratio = str(aspect_ratio or "").strip()
+    if omnia_model == NANO_BANANA_MODEL and normalized_aspect_ratio not in GEMINI_IMAGE_ASPECT_RATIOS:
+        normalized_aspect_ratio = get_uploaded_input_closest_aspect_ratio(prepared_files[0], "1:1") if prepared_files else "1:1"
     if normalized_aspect_ratio in GEMINI_IMAGE_ASPECT_RATIOS:
         parameters["aspect_ratio"] = normalized_aspect_ratio
     normalized_resolution = str(resolution or "").strip().upper()
@@ -16585,6 +16675,44 @@ def call_omnia_media_image_api(
     if not task_id:
         raise OmniaImageOutcomeUnknown("OmniaKey 提交响应没有任务 ID，远端结果尚未确认，未自动重新提交。")
 
+    # logs 已挂载持久化目录。只保存回执，避免写入密钥、提示词或参考图。
+    receipt = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "task_id": task_id,
+        "model": omnia_model,
+        "resolution": normalized_resolution,
+        "idempotency_key": headers["Idempotency-Key"],
+    }
+    try:
+        OMNIAKEY_TASK_RECEIPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with _OPENROUTER_ERROR_LOG_LOCK:
+            with OMNIAKEY_TASK_RECEIPTS_FILE.open("a", encoding="utf-8") as receipt_file:
+                receipt_file.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+    except OSError as exc:
+        raise OmniaImageOutcomeUnknown(
+            f"OmniaKey 任务已提交（任务 {task_id}），但回执保存失败，未自动重新提交。请继续查询原任务。"
+        ) from exc
+    return collect_omnia_image_task(task_id, create_data, api_key, omnia_model, normalized_resolution)
+
+
+@limited_request("omnia_image")
+def resume_omnia_image_task(task_id: str, model: str = NANO_BANANA_MODEL, resolution: str = "") -> dict[str, Any]:
+    """恢复已提交任务的查询和下载，不创建新的付费生图任务。"""
+    task_id = str(task_id or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", task_id):
+        raise ValueError("OmniaKey 任务编号无效。")
+    api_key = load_omnia_api_key()
+    if not api_key:
+        raise RuntimeError("OmniaKey 未配置 OMNIAKEY_API_KEY，请联系管理员完成配置。")
+    omnia_model = resolve_omnia_image_model(model)
+    if not omnia_model:
+        raise ValueError("OmniaKey 生图模型无效。")
+    return collect_omnia_image_task(task_id, {"status": "queued"}, api_key, omnia_model, str(resolution or "").strip().upper())
+
+
+def collect_omnia_image_task(
+    task_id: str, create_data: dict[str, Any], api_key: str, omnia_model: str, normalized_resolution: str,
+) -> dict[str, Any]:
     deadline = time.monotonic() + OMNIAKEY_TASK_TIMEOUT_SECONDS
     task_data: dict[str, Any] = dict(create_data or {})
     poll_failures = 0
@@ -17058,6 +17186,9 @@ def decode_data_url(data_url: str) -> tuple[bytes, str] | None:
 
 
 def image_bytes_to_data_url(image_bytes: bytes, mime_type: str = "image/png") -> str:
+    if not str(mime_type or "").lower().startswith("image/"):
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            mime_type = Image.MIME.get(image.format or "", "image/png")
     encoded = base64.b64encode(image_bytes).decode("utf-8")
     return f"data:{mime_type};base64,{encoded}"
 
@@ -17066,6 +17197,18 @@ def load_image_bytes_from_url(image_url: str) -> tuple[bytes, str]:
     decoded = decode_data_url(image_url)
     if decoded:
         return decoded
+    normalized_url = str(image_url or "").strip()
+    if urllib.parse.urlsplit(normalized_url).path.startswith(
+        (f"{HISTORY_STATIC_ROUTE_PREFIX}/", f"{JIMENG_UPLOAD_ROUTE_PREFIX}/")
+    ):
+        saved_original = resolve_local_static_image_source(
+            normalized_url,
+            history_directory=DB_IMAGE_DIR,
+            upload_directory=ensure_jimeng_upload_dir(),
+            public_base_urls=(get_history_public_base_url(), get_jimeng_public_upload_base_url()),
+        )
+        if saved_original is not None:
+            return saved_original.read_bytes(), mimetypes.guess_type(saved_original.name)[0] or "image/png"
     local_path = Path(image_url)
     if not image_url.startswith(("http://", "https://")) and local_path.exists() and local_path.is_file():
         mime_type = mimetypes.guess_type(local_path.name)[0] or "image/png"
@@ -17083,7 +17226,14 @@ def load_image_bytes_from_url(image_url: str) -> tuple[bytes, str]:
             or "r2.dev" in normalized_url
         )
         with get_request_limiter().slot("download"):
-            response = requests.get(image_url, **get_external_request_kwargs(timeout=(15, 120), use_proxy=use_proxy))
+            try:
+                response = requests.get(image_url, **get_external_request_kwargs(timeout=(15, 120), use_proxy=False))
+            except requests.RequestException:
+                if not use_proxy or not REQUEST_PROXIES:
+                    raise
+                # Asset GETs are safe to retry. The legacy desktop SOCKS proxy
+                # may be unavailable inside Docker, so never require it first.
+                response = requests.get(image_url, **get_external_request_kwargs(timeout=(15, 120), use_proxy=True))
         response.raise_for_status()
     except requests.RequestException as exc:
         raise RuntimeError(f"图片下载失败：无法下载模型返回的图片地址。{exc}") from exc
@@ -18464,7 +18614,7 @@ def build_gallery_preview_data_url(image_bytes: bytes, mime_type: str) -> tuple[
 def build_gallery_item(
     image_source: str,
     compress_preview: bool = True,
-    include_full_src: bool = False,
+    include_full_src: bool = True,
     full_image_source: str = "",
     direct_src: bool = False,
     embed_full_src: bool = False,
@@ -18491,6 +18641,8 @@ def build_gallery_item(
         original_full_src = normalized_image_source
         try:
             image_bytes, mime_type = load_image_bytes_from_url(normalized_image_source)
+            if not normalized_image_source.startswith(("http://", "https://")):
+                original_full_src = image_bytes_to_data_url(image_bytes, mime_type or "image/png")
         except Exception:
             fallback_item: dict[str, Any] = {
                 "src": normalized_image_source,
@@ -18522,16 +18674,32 @@ def build_gallery_item(
     if include_full_src:
         normalized_full_src = str(full_image_source or "").strip()
         if normalized_full_src:
-            if embed_full_src and not normalized_full_src.startswith("data:"):
+            full_url = urllib.parse.urlsplit(normalized_full_src)
+            is_remote_original = full_url.scheme in {"http", "https"} and not is_managed_static_image_url(
+                normalized_full_src, (get_history_public_base_url(), get_jimeng_public_upload_base_url())
+            )
+            if (embed_full_src or is_remote_original) and not normalized_full_src.startswith("data:"):
                 try:
-                    full_image_bytes, full_mime_type = load_image_bytes_from_url(normalized_full_src)
+                    if normalized_full_src == normalized_image_source:
+                        full_image_bytes, full_mime_type = image_bytes, mime_type
+                    else:
+                        full_image_bytes, full_mime_type = load_image_bytes_from_url(normalized_full_src)
                     item["full_src"] = image_bytes_to_data_url(full_image_bytes, full_mime_type or "image/png")
                 except Exception:
                     item["full_src"] = normalized_full_src
             else:
                 item["full_src"] = normalized_full_src
         elif original_full_src:
-            item["full_src"] = original_full_src
+            # Provider asset URLs can display in <img> yet reject browser fetch
+            # through CORS. We already have their untouched original bytes.
+            source_url = urllib.parse.urlsplit(normalized_image_source)
+            is_remote_original = source_url.scheme in {"http", "https"} and not is_managed_static_image_url(
+                normalized_image_source, (get_history_public_base_url(), get_jimeng_public_upload_base_url())
+            )
+            item["full_src"] = (
+                image_bytes_to_data_url(image_bytes, mime_type or "image/png")
+                if is_remote_original else original_full_src
+            )
         elif not compress_preview:
             item["full_src"] = preview_src
     return item
@@ -18546,7 +18714,7 @@ def render_zoomable_image_gallery(
     max_width_percent: int = 100,
     context_delete_token: str | None = None,
     compress_preview: bool = True,
-    include_full_src: bool = False,
+    include_full_src: bool = True,
     full_images: list[str] | None = None,
     download_names: list[str] | None = None,
     direct_src: bool = False,
@@ -18574,24 +18742,21 @@ def render_zoomable_image_gallery(
                 download_name = str(normalized_download_names[index] or "").strip()
                 if download_name:
                     item["download_name"] = download_name
+            if not item.get("download_name") and str(item.get("full_src") or "").startswith("data:"):
+                original_mime = str(item["full_src"]).split(";", 1)[0].removeprefix("data:")
+                extension = get_image_extension_from_mime(original_mime)
+                item["download_name"] = f"{component_key}_{index + 1}{extension}"
             items.append(item)
     if not items:
         return
     gap = 12
-    row_count = max(math.ceil(len(items) / max(columns, 1)), 1)
-    estimated_thumb_height = thumb_height or 120
-    base_height = row_count * estimated_thumb_height + max(row_count - 1, 0) * gap
-    if thumb_height is None and columns == 1:
-        assumed_column_width = max(math.ceil(520 * max_width_percent / 100), 80)
-        natural_heights = [
-            math.ceil(assumed_column_width * item["height"] / item["width"])
-            for item in items
-            if item.get("width", 0) > 0 and item.get("height", 0) > 0
-        ]
-        if natural_heights:
-            base_height = max(base_height, min(max(natural_heights) + 24, 1200))
     thumb_style = f"height: {thumb_height}px;" if thumb_height else "height: auto;"
     payload = json.dumps(items, ensure_ascii=False)
+    managed_image_hosts = json.dumps(sorted({
+        urllib.parse.urlsplit(base).hostname for base in
+        (get_history_public_base_url(), get_jimeng_public_upload_base_url())
+        if urllib.parse.urlsplit(base).hostname
+    }))
     delete_token = json.dumps(str(context_delete_token or ""))
     allow_native_download = json.dumps(bool(allow_native_image_download))
     html_content = f"""
@@ -18671,21 +18836,6 @@ def render_zoomable_image_gallery(
         }}
       }})();
 
-      function setFrameHeight_{component_key}(value) {{
-        try {{
-          if (window.frameElement) {{
-            window.frameElement.style.height = value + "px";
-          }}
-        }} catch (e) {{}}
-      }}
-
-      function updateFrameHeight_{component_key}() {{
-        const root = document.getElementById("{component_key}");
-        if (!root) return;
-        const nextHeight = Math.max(root.scrollHeight + 12, {base_height});
-        setFrameHeight_{component_key}(nextHeight);
-      }}
-
       function normalizeViewerSrc_{component_key}(src) {{
         const raw = String(src || "").trim();
         if (!raw || raw.startsWith("data:")) {{
@@ -18694,10 +18844,15 @@ def render_zoomable_image_gallery(
         try {{
           const parsed = new URL(raw, hostWindow_{component_key}.location.href);
           const isStaticImageRoute =
-            parsed.pathname.startsWith("{HISTORY_STATIC_ROUTE_PREFIX}/") ||
-            parsed.pathname.startsWith("{JIMENG_UPLOAD_ROUTE_PREFIX}/");
+            (parsed.hostname === hostWindow_{component_key}.location.hostname || {managed_image_hosts}.includes(parsed.hostname)) &&
+            (parsed.pathname.startsWith("{HISTORY_STATIC_ROUTE_PREFIX}/") ||
+            parsed.pathname.startsWith("{JIMENG_UPLOAD_ROUTE_PREFIX}/"));
           if (!isStaticImageRoute) {{
             return parsed.toString();
+          }}
+          if ({json.dumps(os.getenv("TC_SINGLE_PORT") == "1")}) {{
+            return new URL(parsed.pathname + parsed.search + parsed.hash,
+              hostWindow_{component_key}.location.origin).toString();
           }}
           const currentProtocol = hostWindow_{component_key}.location.protocol || parsed.protocol;
           const currentHostname = hostWindow_{component_key}.location.hostname || parsed.hostname;
@@ -18726,7 +18881,67 @@ def render_zoomable_image_gallery(
         }}
       }}
 
+      async function downloadOriginal_{component_key}(src, name, saveAs = false) {{
+        const originalSrc = normalizeViewerSrc_{component_key}(src);
+        const originalName = name || "original.png";
+        const clickDownload = (href) => {{
+          const link = hostDoc_{component_key}.createElement("a");
+          link.href = href;
+          link.download = originalName;
+          const viewer = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
+          const dialog = window.frameElement && window.frameElement.closest('dialog, [role="dialog"]');
+          const linkHost = viewer && viewer.classList.contains("active") ? viewer : (dialog || hostDoc_{component_key}.body);
+          linkHost.appendChild(link);
+          link.click();
+          link.remove();
+        }};
+        try {{
+          if (!originalSrc) throw new Error("missing original");
+          const parsed = new URL(originalSrc, hostWindow_{component_key}.location.href);
+          const isStaticImageRoute =
+            (parsed.hostname === hostWindow_{component_key}.location.hostname || {managed_image_hosts}.includes(parsed.hostname)) &&
+            (parsed.pathname.startsWith("{HISTORY_STATIC_ROUTE_PREFIX}/") ||
+            parsed.pathname.startsWith("{JIMENG_UPLOAD_ROUTE_PREFIX}/"));
+          const canSaveAs = saveAs && typeof hostWindow_{component_key}.showSaveFilePicker === "function";
+          if (isStaticImageRoute && !canSaveAs) {{
+            // Let the server stream the original as an attachment. This stays
+            // within the user's click and avoids CORS/blob and memory limits.
+            parsed.searchParams.set("download", "1");
+            parsed.searchParams.set("filename", originalName);
+            clickDownload(parsed.toString());
+            return;
+          }}
+          // Open the picker before awaiting a network request: browsers require
+          // the original user gesture, which a slow fetch would otherwise lose.
+          const handle = canSaveAs
+            ? await hostWindow_{component_key}.showSaveFilePicker({{suggestedName: originalName}})
+            : null;
+          const response = await hostWindow_{component_key}.fetch(originalSrc);
+          if (!response.ok) throw new Error("original HTTP " + response.status);
+          const blob = await response.blob();
+          if (!blob.size || !blob.type.toLowerCase().startsWith("image/")) {{
+            throw new Error("invalid original image response");
+          }}
+          if (handle) {{
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return;
+          }}
+          const blobUrl = hostWindow_{component_key}.URL.createObjectURL(blob);
+          clickDownload(blobUrl);
+          hostWindow_{component_key}.setTimeout(() => hostWindow_{component_key}.URL.revokeObjectURL(blobUrl), 60000);
+        }} catch (error) {{
+          if (error && error.name === "AbortError") return;
+          showEagleToast_{component_key}("原图下载失败，请刷新后重试；原文件可能已被移除。");
+        }}
+      }}
+
       function ensureEagleUi_{component_key}() {{
+        const activeViewer = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
+        const activeDialog = window.frameElement && window.frameElement.closest('dialog, [role="dialog"]');
+        const uiHost = activeViewer && activeViewer.classList.contains("active")
+          ? activeViewer : (activeDialog || hostDoc_{component_key}.body);
         if (!hostDoc_{component_key}.getElementById("lashforge-eagle-style")) {{
           const style = hostDoc_{component_key}.createElement("style");
           style.id = "lashforge-eagle-style";
@@ -18779,10 +18994,10 @@ def render_zoomable_image_gallery(
           const menu = hostDoc_{component_key}.createElement("div");
           menu.id = "lashforge-eagle-menu";
           menu.innerHTML = ''
-            + '<button type="button" id="lashforge-download-image">下载图片</button>'
-            + '<button type="button" id="lashforge-save-as-image">另存为...</button>'
+            + '<button type="button" id="lashforge-download-image">下载原图</button>'
+            + '<button type="button" id="lashforge-save-as-image">原图另存为...</button>'
             + '<button type="button" id="lashforge-save-to-eagle">保存到 Eagle</button>';
-          hostDoc_{component_key}.body.appendChild(menu);
+          uiHost.appendChild(menu);
           hostWindow_{component_key}.__lashforgeEagleMenuState = {{}};
           const hideMenu = () => {{
             menu.style.display = "none";
@@ -18796,85 +19011,12 @@ def render_zoomable_image_gallery(
           menu.querySelector("#lashforge-download-image").addEventListener("click", async () => {{
             const state = hostWindow_{component_key}.__lashforgeEagleMenuState || {{}};
             hideMenu();
-            if (!state.src) {{
-              return;
-            }}
-            try {{
-              const response = await hostWindow_{component_key}.fetch(state.src);
-              if (!response.ok) {{
-                throw new Error("fetch failed");
-              }}
-              const blob = await response.blob();
-              const blobUrl = hostWindow_{component_key}.URL.createObjectURL(blob);
-              const link = hostDoc_{component_key}.createElement("a");
-              link.href = blobUrl;
-              link.download = state.name || "{component_key}.png";
-              hostDoc_{component_key}.body.appendChild(link);
-              link.click();
-              link.remove();
-              hostWindow_{component_key}.setTimeout(() => {{
-                hostWindow_{component_key}.URL.revokeObjectURL(blobUrl);
-              }}, 1200);
-            }} catch (error) {{
-              try {{
-                const link = hostDoc_{component_key}.createElement("a");
-                link.href = state.src;
-                link.download = state.name || "{component_key}.png";
-                link.target = "_blank";
-                link.rel = "noopener noreferrer";
-                hostDoc_{component_key}.body.appendChild(link);
-                link.click();
-                link.remove();
-              }} catch (fallbackError) {{
-                showEagleToast_{component_key}("下载触发失败，请重试");
-              }}
-            }}
+            await downloadOriginal_{component_key}(state.src, state.name);
           }});
           menu.querySelector("#lashforge-save-as-image").addEventListener("click", async () => {{
             const state = hostWindow_{component_key}.__lashforgeEagleMenuState || {{}};
             hideMenu();
-            if (!state.src) {{
-              return;
-            }}
-            try {{
-              const response = await hostWindow_{component_key}.fetch(state.src);
-              if (!response.ok) {{
-                throw new Error("fetch failed");
-              }}
-              const blob = await response.blob();
-              const suggestedName = state.name || "{component_key}.png";
-              const mimeType = blob.type || "image/png";
-              if (typeof hostWindow_{component_key}.showSaveFilePicker === "function") {{
-                const extension = suggestedName.includes(".") ? suggestedName.split(".").pop() : "png";
-                const handle = await hostWindow_{component_key}.showSaveFilePicker({{
-                  suggestedName,
-                  types: [{{
-                    description: "Image File",
-                    accept: {{
-                      [mimeType]: ["." + extension]
-                    }}
-                  }}]
-                }});
-                const writable = await handle.createWritable();
-                await writable.write(blob);
-                await writable.close();
-                showEagleToast_{component_key}("已另存为图片");
-                return;
-              }}
-              const blobUrl = hostWindow_{component_key}.URL.createObjectURL(blob);
-              const link = hostDoc_{component_key}.createElement("a");
-              link.href = blobUrl;
-              link.download = suggestedName;
-              hostDoc_{component_key}.body.appendChild(link);
-              link.click();
-              link.remove();
-              hostWindow_{component_key}.setTimeout(() => {{
-                hostWindow_{component_key}.URL.revokeObjectURL(blobUrl);
-              }}, 1200);
-              showEagleToast_{component_key}("当前环境不支持另存为弹窗，已改为下载");
-            }} catch (error) {{
-              showEagleToast_{component_key}("另存为失败，请重试");
-            }}
+            await downloadOriginal_{component_key}(state.src, state.name, true);
           }});
           menu.querySelector("#lashforge-save-to-eagle").addEventListener("click", async () => {{
             const state = hostWindow_{component_key}.__lashforgeEagleMenuState || {{}};
@@ -18936,7 +19078,7 @@ def render_zoomable_image_gallery(
         if (!hostDoc_{component_key}.getElementById("lashforge-eagle-toast")) {{
           const toast = hostDoc_{component_key}.createElement("div");
           toast.id = "lashforge-eagle-toast";
-          hostDoc_{component_key}.body.appendChild(toast);
+          uiHost.appendChild(toast);
         }}
       }}
 
@@ -18944,6 +19086,12 @@ def render_zoomable_image_gallery(
         ensureEagleUi_{component_key}();
         const toast = hostDoc_{component_key}.getElementById("lashforge-eagle-toast");
         if (!toast) return;
+        const viewer = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
+        const dialog = window.frameElement && window.frameElement.closest('dialog, [role="dialog"]');
+        const toastHost = viewer && viewer.classList.contains("active") ? viewer : (dialog || hostDoc_{component_key}.body);
+        if (toast.parentElement !== toastHost) toastHost.appendChild(toast);
+        toast.inert = false;
+        toast.removeAttribute("inert");
         toast.textContent = String(message || "");
         toast.style.opacity = "1";
         hostWindow_{component_key}.clearTimeout(hostWindow_{component_key}.__lashforgeEagleToastTimer);
@@ -18977,6 +19125,16 @@ def render_zoomable_image_gallery(
         ensureEagleUi_{component_key}();
         const menu = hostDoc_{component_key}.getElementById("lashforge-eagle-menu");
         if (!menu) return;
+        // A modal dialog is in the browser's top layer. A menu on body is
+        // inert behind it, regardless of z-index. Keep it with its target.
+        const viewer = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
+        const frame = window.frameElement;
+        const dialog = frame && frame.closest('dialog, [role="dialog"]');
+        const menuHost = viewer && viewer.classList.contains("active")
+          ? viewer : (dialog || hostDoc_{component_key}.body);
+        if (menu.parentElement !== menuHost) menuHost.appendChild(menu);
+        menu.inert = false;
+        menu.removeAttribute("inert");
         const normalizedSrc = normalizeViewerSrc_{component_key}(src);
         hostWindow_{component_key}.__lashforgeEagleMenuState = {{
           src: normalizedSrc,
@@ -19042,14 +19200,20 @@ def render_zoomable_image_gallery(
             #lashforge-fullscreen-close:hover {{
               background: rgba(239, 68, 68, 0.92);
             }}
+            #lashforge-fullscreen-download {{
+              position: fixed; top: 18px; right: 72px; z-index: 1000000;
+              border: 1px solid rgba(255,255,255,.7); border-radius: 10px;
+              background: #0f172a; color: white; padding: 11px 16px; cursor: pointer;
+            }}
           `;
           hostDoc_{component_key}.head.appendChild(style);
         }}
         if (!hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer")) {{
           const overlay = hostDoc_{component_key}.createElement("div");
           overlay.id = "lashforge-fullscreen-viewer";
-          overlay.innerHTML = '<button id="lashforge-fullscreen-close" type="button" aria-label="关闭预览" title="关闭">×</button><img id="lashforge-fullscreen-image" src="" alt="preview" />';
-          hostDoc_{component_key}.body.appendChild(overlay);
+          overlay.innerHTML = '<button id="lashforge-fullscreen-download" type="button">下载原图</button><button id="lashforge-fullscreen-close" type="button" aria-label="关闭预览" title="关闭">×</button><img id="lashforge-fullscreen-image" src="" alt="preview" />';
+          const activeDialog = window.frameElement && window.frameElement.closest('dialog, [role="dialog"]');
+          (activeDialog || hostDoc_{component_key}.body).appendChild(overlay);
 
           const state = {{
             scale: 1,
@@ -19165,17 +19329,6 @@ def render_zoomable_image_gallery(
             state.dragging = false;
             image.classList.remove("dragging");
           }});
-          image.addEventListener("contextmenu", (event) => {{
-            if (!overlay.classList.contains("active")) return;
-            if (!{allow_native_download}) {{
-              event.preventDefault();
-              showEagleToast_{component_key}("此处仅供预览，请使用页面上的 PSD 下载按钮");
-              return;
-            }}
-            if (!event.altKey) return;
-            event.preventDefault();
-            openEagleMenu_{component_key}(event, image.src, 0);
-          }});
 
           hostDoc_{component_key}.addEventListener("keydown", (event) => {{
             if (event.key === "Escape") {{
@@ -19259,8 +19412,10 @@ def render_zoomable_image_gallery(
         }}
       }}
 
-      function openFullscreen_{component_key}(src) {{
+      function openFullscreen_{component_key}(src, index = 0) {{
         ensureOverlay_{component_key}();
+        const previousMenu = hostDoc_{component_key}.getElementById("lashforge-eagle-menu");
+        if (previousMenu) previousMenu.style.display = "none";
         const overlay = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
         // Keep the viewer inside the active history dialog so its modal
         // backdrop and focus trap do not cover or disable the preview.
@@ -19271,9 +19426,32 @@ def render_zoomable_image_gallery(
           if (dialog) viewerHost = dialog;
         }} catch (e) {{}}
         if (overlay.parentElement !== viewerHost) viewerHost.appendChild(overlay);
+        // Modal managers can leave body-mounted UI inert after it is moved.
+        // Only clear this component's owned nodes, never the page backdrop.
+        overlay.inert = false;
+        overlay.removeAttribute("inert");
         const image = hostDoc_{component_key}.getElementById("lashforge-fullscreen-image");
         const state = hostWindow_{component_key}.__lashforgeFullscreenState;
         image.src = normalizeViewerSrc_{component_key}(src);
+        // Rebind the shared viewer on every open, including its originating
+        // gallery and image index. Never retain the first card's download name.
+        const downloadSrc = image.src;
+        const downloadName = deriveEagleFileName_{component_key}(downloadSrc, index);
+        image.oncontextmenu = (event) => {{
+          if (!{allow_native_download}) {{ event.preventDefault(); return; }}
+          event.preventDefault();
+          openEagleMenu_{component_key}(event, downloadSrc, index);
+        }};
+        let downloadButton = overlay.querySelector("#lashforge-fullscreen-download");
+        if (!downloadButton) {{
+          downloadButton = hostDoc_{component_key}.createElement("button");
+          downloadButton.id = "lashforge-fullscreen-download";
+          downloadButton.type = "button";
+          downloadButton.textContent = "下载原图";
+          overlay.prepend(downloadButton);
+        }}
+        downloadButton.hidden = !{allow_native_download};
+        downloadButton.onclick = () => downloadOriginal_{component_key}(downloadSrc, downloadName);
         state.scale = 1;
         state.offsetX = 0;
         state.offsetY = 0;
@@ -19298,15 +19476,13 @@ def render_zoomable_image_gallery(
         const img = document.createElement("img");
         img.src = item.src;
         img.className = "zoom-thumb";
-        img.onload = () => updateFrameHeight_{component_key}();
-        img.onclick = () => openFullscreen_{component_key}(item.full_src || item.src);
+        img.onclick = () => openFullscreen_{component_key}(item.full_src || item.src, index);
         img.oncontextmenu = (event) => {{
           if (!{allow_native_download}) {{
             event.preventDefault();
             showEagleToast_{component_key}("此处仅供预览，请使用页面上的 PSD 下载按钮");
             return;
           }}
-          if (!event.altKey) return;
           event.preventDefault();
           openEagleMenu_{component_key}(event, item.full_src || item.src, index);
         }};
@@ -19335,12 +19511,11 @@ def render_zoomable_image_gallery(
         grid_{component_key}.appendChild(wrap);
       }});
 
-      setTimeout(updateFrameHeight_{component_key}, 0);
     </script>
     """
     st.iframe(
         html_content,
-        height=base_height,
+        height="content",
         width="stretch",
     )
 
@@ -19678,6 +19853,7 @@ def render_result_preview(
     images: list[str],
     show_title: bool = True,
     download_images: list[str] | None = None,
+    max_width_percent: int = 25,
 ) -> None:
     if show_title:
         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
@@ -19700,7 +19876,7 @@ def render_result_preview(
             thumb_height=None,
             component_key="result_viewer",
             fit_mode="contain",
-            max_width_percent=25,
+            max_width_percent=max_width_percent,
             compress_preview=True,
             include_full_src=True,
             full_images=normalized_download_images,
@@ -19804,6 +19980,11 @@ def render_before_after_compare_gallery(
         return
     component_key = re.sub(r"[^a-zA-Z0-9_]", "_", f"compare_{feature_key}_{len(pairs)}")
     payload = json.dumps(pairs, ensure_ascii=False)
+    managed_image_hosts = json.dumps(sorted({
+        urllib.parse.urlsplit(base).hostname for base in
+        (get_history_public_base_url(), get_jimeng_public_upload_base_url())
+        if urllib.parse.urlsplit(base).hostname
+    }))
     row_height = 672
     html_content = f"""
     <div id="{component_key}" class="compare-gallery-root"></div>
@@ -19966,9 +20147,14 @@ def render_before_after_compare_gallery(
         try {{
           const parsed = new URL(raw, hostWindow_{component_key}.location.href);
           const isStaticImageRoute =
-            parsed.pathname.startsWith("{HISTORY_STATIC_ROUTE_PREFIX}/") ||
-            parsed.pathname.startsWith("{JIMENG_UPLOAD_ROUTE_PREFIX}/");
+            (parsed.hostname === hostWindow_{component_key}.location.hostname || {managed_image_hosts}.includes(parsed.hostname)) &&
+            (parsed.pathname.startsWith("{HISTORY_STATIC_ROUTE_PREFIX}/") ||
+            parsed.pathname.startsWith("{JIMENG_UPLOAD_ROUTE_PREFIX}/"));
           if (!isStaticImageRoute) return parsed.toString();
+          if ({json.dumps(os.getenv("TC_SINGLE_PORT") == "1")}) {{
+            return new URL(parsed.pathname + parsed.search + parsed.hash,
+              hostWindow_{component_key}.location.origin).toString();
+          }}
           const currentProtocol = hostWindow_{component_key}.location.protocol || parsed.protocol;
           const currentHostname = hostWindow_{component_key}.location.hostname || parsed.hostname;
           const currentPort = parsed.port ? ":" + parsed.port : "";
@@ -20030,7 +20216,8 @@ def render_before_after_compare_gallery(
         overlay = hostDoc_{component_key}.createElement("div");
         overlay.id = "lashforge-fullscreen-viewer";
         overlay.innerHTML = '<button id="lashforge-fullscreen-close" type="button" aria-label="关闭预览" title="关闭">×</button><img id="lashforge-fullscreen-image" src="" alt="preview" />';
-        hostDoc_{component_key}.body.appendChild(overlay);
+        const activeDialog = window.frameElement && window.frameElement.closest('dialog, [role="dialog"]');
+        (activeDialog || hostDoc_{component_key}.body).appendChild(overlay);
         const state = {{
           scale: 1,
           offsetX: 0,
@@ -20139,6 +20326,13 @@ def render_before_after_compare_gallery(
       }};
       const openCompareFullscreen_{component_key} = (src) => {{
         const overlay = ensureCompareFullscreen_{component_key}();
+        const dialog = window.frameElement && window.frameElement.closest('dialog, [role="dialog"]');
+        const viewerHost = dialog || hostDoc_{component_key}.body;
+        if (overlay.parentElement !== viewerHost) viewerHost.appendChild(overlay);
+        overlay.inert = false;
+        overlay.removeAttribute("inert");
+        const previousMenu = hostDoc_{component_key}.getElementById("lashforge-eagle-menu");
+        if (previousMenu) previousMenu.style.display = "none";
         const image = hostDoc_{component_key}.getElementById("lashforge-fullscreen-image");
         const state = hostWindow_{component_key}.__lashforgeFullscreenState || {{}};
         state.scale = 1;
@@ -20147,6 +20341,35 @@ def render_before_after_compare_gallery(
         state.dragging = false;
         hostWindow_{component_key}.__lashforgeFullscreenState = state;
         image.src = normalizeNativeResultSrc_{component_key}(src);
+        // The viewer is shared with history/results. Clear their stale image
+        // handler and bind this comparison's untouched original on every open.
+        image.oncontextmenu = null;
+        const currentSrc = image.src;
+        const currentPair = pairs_{component_key}.find(pair => (pair.view || pair.result) === src) || {{}};
+        const downloadName = currentPair.download_name || "original.png";
+        let downloadButton = overlay.querySelector("#lashforge-fullscreen-download");
+        if (!downloadButton) {{
+          downloadButton = hostDoc_{component_key}.createElement("button");
+          downloadButton.id = "lashforge-fullscreen-download";
+          downloadButton.type = "button";
+          overlay.prepend(downloadButton);
+        }}
+        downloadButton.textContent = "下载原图";
+        downloadButton.hidden = false;
+        downloadButton.style.cssText = "position:fixed;top:18px;right:72px;z-index:1000000;border:1px solid #94a3b8;border-radius:10px;background:#0f172a;color:white;padding:11px 16px;cursor:pointer";
+        downloadButton.onclick = () => {{
+          const url = new URL(currentSrc, hostWindow_{component_key}.location.href);
+          if (url.protocol === "http:" || url.protocol === "https:") {{
+            url.searchParams.set("download", "1");
+            url.searchParams.set("filename", downloadName);
+          }}
+          const link = hostDoc_{component_key}.createElement("a");
+          link.href = url.toString();
+          link.download = downloadName;
+          overlay.appendChild(link);
+          link.click();
+          link.remove();
+        }};
         image.classList.remove("dragging");
         image.style.transform = "translate(0px, 0px) scale(1)";
         overlay.classList.add("active");
@@ -20557,7 +20780,6 @@ def render_history_gallery(
         ):
             for selection_key in selection_keys:
                 st.session_state[selection_key] = True
-            st.rerun()
     with toolbar_columns[1]:
         if st.button(
             "取消全选",
@@ -20567,7 +20789,6 @@ def render_history_gallery(
         ):
             for selection_key in selection_keys:
                 st.session_state[selection_key] = False
-            st.rerun()
     selected_count = sum(bool(st.session_state.get(selection_key, False)) for selection_key in selection_keys)
     with toolbar_columns[2]:
         st.caption(f"已选择 {selected_count} / {len(items)} 张；勾选后可下载一个 ZIP 压缩包。")
@@ -23958,6 +24179,10 @@ def render_prepress_check_feature(feature: dict[str, Any]) -> None:
 
 
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
+    if feature.get("key") == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+        from 图片.multi_reference_composer import render
+        render(SimpleNamespace(**globals()), feature)
+        return
     if feature.get("key") == "ai_qa_image":
         from 图片.qa_chat import render
         render(SimpleNamespace(**globals()), feature, model, aspect_ratio)
@@ -23978,8 +24203,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     feature_mode = str(feature.get("mode") or "openrouter")
     model_options_for_feature = MODEL_OPTIONS
     if feature.get("key") == "hd_batch":
-        default_model_for_feature = NANO_BANANA_MODEL
-        model_options_for_feature = [NANO_BANANA_MODEL]
+        default_model_for_feature = JIMENG_HD_MODEL_NAME
+        model_options_for_feature = [JIMENG_HD_MODEL_NAME]
     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
         default_model_for_feature = JIMENG_HD_MODEL_NAME
         model_options_for_feature = [JIMENG_HD_MODEL_NAME]
@@ -24008,7 +24233,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     selected_output_count = default_output_count
     supports_batch_multi_upload = feature["key"] in BATCH_MULTI_IMAGE_FEATURE_KEYS
     supports_remove_eyelashes = feature["key"] == "remove_eyelashes"
-    supports_skin_reference = feature["key"] == "hd_batch"
     supports_skin_tone_reference = feature["key"] == "skin_tone"
     supports_pupil_color_reference = feature["key"] == "pupil_color_change"
     supports_eye_shape_reference = feature["key"] == "eye_shape_change"
@@ -24033,8 +24257,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     supports_background_texture = feature["key"] == BACKGROUND_TEXTURE_FEATURE_KEY
     supports_outpaint = feature["key"] == "outpaint"
     supports_image_resize = feature["key"] == "image_resize"
-    model_reference_files = get_model_reference_files() if supports_skin_reference else []
-    skin_texture_reference_files = get_skin_texture_reference_files() if supports_skin_reference else []
     result = st.session_state.feature_results.get(feature["key"]) or {}
     job_info = st.session_state.background_jobs.get(feature["key"]) or {}
     help_text = "可上传 JPG / PNG / WEBP。"
@@ -24168,7 +24390,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     if feature.get("key") == JIMENG_HD_FEATURE_KEY:
         meta_items.append('<span class="meta-pill">保持原图比例、构图与内容</span>')
     elif feature.get("key") == "hd_batch":
-        meta_items.append('<span class="meta-pill">肤色肤质、色温色调锁定 · 参考图仅用于清晰度</span>')
+        meta_items.append('<span class="meta-pill">专用超清 · 仅使用原图 · 每张返回一张结果</span>')
     if supports_outpaint:
         meta_items.append('<span class="meta-pill">支持上下左右独立扩展</span>')
     if default_output_count > 0 and not supports_outpaint:
@@ -24188,7 +24410,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
         workflow_steps = ("上传原图", "提交 8K 超清", "查看结果")
     elif feature.get("key") == "hd_batch":
-        workflow_steps = ("上传图片", "补充参考", "开始处理", "查看结果")
+        workflow_steps = ("上传图片", "专用超清", "查看结果")
     elif supports_background_texture:
         workflow_steps = ("上传原图", "选择背景质感", "补充描述", "开始生成", "查看结果")
     elif supports_image_smart_analysis:
@@ -24261,8 +24483,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         background_texture_prompt = ""
         local_retouch_prompt = ""
         batch_source_files: list[Any] = []
-        hd_skin_reference_file = None
-        hd_skin_texture_reference_file: Path | None = None
         outpaint_top_px = OUTPAINT_DEFAULT_EXTENSION_PX
         outpaint_bottom_px = OUTPAINT_DEFAULT_EXTENSION_PX
         outpaint_left_px = OUTPAINT_DEFAULT_EXTENSION_PX
@@ -24547,44 +24767,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "切换到“移动原图位置”后只调整 X/Y 坐标，目标宽高和比例保持不变。"
                     "提交精度为 1px，原图不缩放、不拉伸。"
                 )
-            if supports_skin_reference:
-                st.markdown('<div class="skin-reference-grid-marker"></div>', unsafe_allow_html=True)
-                skin_upload_col, skin_gallery_col = st.columns([1, 1], gap="small")
-                with skin_upload_col:
-                    st.markdown('<div class="panel-subtitle">肤质参考（可选）</div>', unsafe_allow_html=True)
-                    hd_skin_reference_file = render_single_image_uploader(
-                        "上传肤质参考图",
-                        key=f"hd_skin_reference_{feature['key']}",
-                        help_text="不上传时默认使用 outputs/reference/参考1.png；上传后所有主图都会使用这张新参考图。",
-                    )
-                with skin_gallery_col:
-                    st.markdown('<div class="panel-subtitle">参考图库</div>', unsafe_allow_html=True)
-                    if skin_texture_reference_files:
-                        selected_skin_texture_name = st.selectbox(
-                            "选择肌肤质感参考图",
-                            options=["不使用", *[path.name for path in skin_texture_reference_files]],
-                            index=0,
-                            key=f"hd_skin_texture_gallery_select_{feature['key']}",
-                            label_visibility="collapsed",
-                        )
-                        if selected_skin_texture_name != "不使用":
-                            hd_skin_texture_reference_file = next(
-                                (path for path in skin_texture_reference_files if path.name == selected_skin_texture_name),
-                                None,
-                            )
-                            if hd_skin_texture_reference_file is not None:
-                                st.caption(f"当前图库参考图：{hd_skin_texture_reference_file.name}。优先级高于手动上传。")
-                                render_zoomable_image_gallery(
-                                    [uploaded_input_to_data_url(hd_skin_texture_reference_file)],
-                                    columns=1,
-                                    thumb_height=120,
-                                    component_key=f"hd_skin_texture_gallery_preview_{feature['key']}",
-                                    fit_mode="cover",
-                                    max_width_percent=58,
-                                )
-                    else:
-                        st.caption("未找到 `肌肤质感参考` 文件夹中的可用图片，将继续使用上传参考图或默认参考图。")
-                st.markdown('<div class="skin-reference-grid-end"></div>', unsafe_allow_html=True)
         elif supports_image_smart_analysis:
             st.markdown('<div class="panel-subtitle">待分析主图（1 张）</div>', unsafe_allow_html=True)
             uploaded_file = render_single_image_uploader(
@@ -24618,15 +24800,15 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             amazon_source_files = render_multi_image_uploader(
                 "上传 A+ 参考图与目标模特图",
                 key=f"a_plus_style_model_replace_uploader_{feature['key']}",
-                help_text="第 1 张上传 A+ 首屏参考图，只作风格参考；第 2–6 张上传同一位目标模特的正脸、半身或全身参考图。",
+                help_text="第 1 张上传 A+ 首屏风格参考图；第 2–6 张上传同一位目标模特的正脸、半身或全身图，优先保留目标模特原始姿势，缺失局部自动补全。",
                 max_files=6,
                 allow_reorder=True,
             )
             st.markdown(
-                '<div class="slot-helper">图片顺序很重要：第 1 张决定风格调性；后续图片只锁定目标模特身份。</div>',
+                '<div class="slot-helper">第 1 张提供风格调性；后续图片提供目标模特身份与原始姿态，人物自然融合即可。</div>',
                 unsafe_allow_html=True,
             )
-            st.info("固定输出 1464×1000 px；版式允许在合理范围内重新组织，参考图中的原模特会被替换为目标模特。")
+            st.info("优先保留目标模特原始姿势，自动补全缺失局部并匹配画面光影与透视；版式可灵活调整，固定输出 1464×1000 px。")
             st.markdown('<div class="panel-subtitle">补充要求（可选）</div>', unsafe_allow_html=True)
             if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
                 primary_action_slot = st.empty()
@@ -26428,10 +26610,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     "只在下方连续纯色留白内自由组合卖点，保持底稿原始尺寸、原始首屏位置和边界。"
                     "允许对卖点进行自由编排，但不编造信息，不重复卖点，不改变首屏任何人物、文字、商品、色彩或布局。"
                 )
-            selected_hd_reference_input = hd_skin_texture_reference_file or hd_skin_reference_file
-            if feature["key"] == "hd_batch" and selected_hd_reference_input is not None:
-                batch_groups = [[item, selected_hd_reference_input] for item in files]
-            elif supports_batch_multi_upload and not batch_groups:
+            if supports_batch_multi_upload and not batch_groups:
                 batch_groups = [[item] for item in files]
             if using_jimeng_for_request and batch_groups and any(len(group) > JIMENG_MAX_INPUT_IMAGES for group in batch_groups):
                 st.warning(f"当前这组 Agent 请求中有图片数量超过 {JIMENG_MAX_INPUT_IMAGES} 张，请减少参考图数量后再试。")
@@ -26614,6 +26793,7 @@ SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "智能创作",
         (
+            MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
             "ai_qa_image",
             IMAGE_SMART_ANALYSIS_FEATURE_KEY,
         ),

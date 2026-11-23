@@ -107,6 +107,7 @@ class WorkspaceIntegrationTests(unittest.TestCase):
 
     def test_operations_entries_keep_independent_permissions_without_ai_membership(self):
         required_permissions = {
+            '经营分析': 'business_analysis',
             '我开发的产品销售': 'ai_dept',
             '智能补货中心-亚马逊': 'daily_replenishment_operation',
         }
@@ -135,6 +136,27 @@ class WorkspaceIntegrationTests(unittest.TestCase):
                 self.assertEqual(entry['allowed'], 'historical_sales' in grants)
                 self.assertEqual(entry['required_permissions'], ['historical_sales'])
 
+    def test_model_tools_are_only_in_ai_catalog_with_independent_permissions(self):
+        expected = {
+            '模特排队': ('/model/queue', 'model_queue'),
+            '模特库管理': ('/model/library', 'model_library'),
+        }
+        for menu, (href, permission) in expected.items():
+            with self.subTest(menu=menu):
+                body = self.catalog([permission])
+                entries = [
+                    (group['key'], item)
+                    for group in body['groups']
+                    for item in group['items']
+                    if item['href'] == href
+                ]
+                self.assertEqual(len(entries), 1)
+                group_key, entry = entries[0]
+                self.assertEqual(group_key, 'ai_dept')
+                self.assertEqual(entry['menu'], menu)
+                self.assertTrue(entry['allowed'])
+                self.assertEqual(entry['required_permissions'], [permission])
+
     def test_ai_page_denies_non_members_despite_individual_ai_permission(self):
         with site.app.test_request_context('/ai_modules'):
             site.session['feishu_user_id'] = 'test_non_ai'
@@ -152,6 +174,23 @@ class WorkspaceIntegrationTests(unittest.TestCase):
             site.session['feishu_user_id'] = 'test_ai'
             with patch.object(site.permission_manager, 'get_user_departments', return_value=[{'name': 'AI部'}]), patch.object(site.permission_manager, 'check_user_permission', return_value=(True, 'AI部')):
                 self.assertIn('AI部功能', site.ai_modules())
+
+    def test_renamed_ai_department_can_enter_ai_page_and_catalog(self):
+        with site.app.test_request_context('/ai_modules'):
+            site.session['feishu_user_id'] = 'test_renamed_ai'
+            with patch.object(site.permission_manager, 'get_user_departments', return_value=[{'name': '流程与AI部'}]), patch.object(site.permission_manager, 'check_user_permission', return_value=(True, '部门权限')):
+                self.assertTrue(site._can_access_ai_workspace())
+                self.assertIn('AI部功能', site.ai_modules())
+                with patch.object(site.permission_manager, 'get_permission_records', return_value=PERMISSION_CONFIG):
+                    body = site.dashboard_workspace_catalog([]).get_json()
+                self.assertIn('ai_dept', {group['key'] for group in body['groups']})
+
+    def test_renamed_ai_member_still_honors_signed_department_simulation(self):
+        with site.app.test_request_context('/ai_modules'):
+            site.session['feishu_user_id'] = 'test_renamed_ai'
+            site.g.permission_debug_state = {'departments': ['运营一部']}
+            with patch.object(site.permission_manager, 'get_user_departments', return_value=[{'name': '流程与AI部'}]):
+                self.assertFalse(site._can_access_ai_workspace())
 
     def test_signed_non_ai_simulation_hides_ai_workspace(self):
         with site.app.test_request_context('/ai_modules'):

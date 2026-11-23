@@ -28,14 +28,13 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         feature = site.get_feature_by_key("hd_batch")
         self.assertIsNotNone(feature)
         assert feature is not None
-        prompt = str(feature["default_prompt"])
+        prompt = site.build_portrait_hd_prompt("")
 
         for rule in (
             "肤色与肤质锁定是本次高清处理的最高优先级",
             "禁止提亮、压暗、增白、变黄、变红或统一肤色",
             "毛孔、皮肤颗粒、油脂光泽",
             "禁止磨皮、美颜、祛斑、去痣",
-            "原有肤色、肤质、毛孔、斑点、痣、痘印和细纹必须全部保留",
             "整张画面的色温与色调锁定也是本次高清处理的最高优先级",
             "整体与局部色温、冷暖关系、综合色调、色相、白平衡",
             "禁止自动白平衡、自动校色、调色、重新定色",
@@ -69,14 +68,11 @@ class PortraitHdSkinLockTests(unittest.TestCase):
             prompt.index("请把皮肤变白并磨皮"),
         )
 
-    def test_hd_page_keeps_reference_uploader_without_verbose_model_caption(self) -> None:
+    def test_hd_page_uses_dedicated_upscale_without_reference_uploader(self) -> None:
         render_source = inspect.getsource(site.render_openrouter_feature)
 
-        self.assertIn('supports_skin_reference = feature["key"] == "hd_batch"', render_source)
-        self.assertIn("肤质参考图（可选，1 张）", render_source)
-        self.assertIn("PORTRAIT_HD_SKIN_LOCK_RULES", render_source)
-        self.assertIn("PORTRAIT_HD_COLOR_LOCK_RULES", render_source)
-        self.assertIn("参考图仅用于清晰度", render_source)
+        self.assertNotIn("hd_skin_reference_", render_source)
+        self.assertIn("专用超清 · 仅使用原图", render_source)
         self.assertNotIn("当前使用 Nano Banana 2 做高清增强", render_source)
         self.assertNotIn("当前使用火山引擎即梦智能超清专用接口", render_source)
 
@@ -95,8 +91,8 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         assert portrait_feature is not None
         assert jimeng_feature is not None
 
-        self.assertEqual(portrait_feature["name"], "模特图批量高清")
-        self.assertEqual(portrait_feature["mode"], "openrouter")
+        self.assertEqual(portrait_feature["name"], "批量高清")
+        self.assertEqual(portrait_feature["mode"], "portrait_upscale")
         self.assertEqual(jimeng_feature["name"], "即梦超清")
         self.assertEqual(jimeng_feature["mode"], "jimeng_upscale")
         self.assertEqual(jimeng_feature["model"], site.JIMENG_HD_MODEL_NAME)
@@ -301,32 +297,65 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         portrait_hd.assert_not_called()
         self.assertEqual(result["images"], ["https://example.com/8k.png"])
 
-    def test_portrait_hd_feature_still_uses_original_generation_pipeline(self) -> None:
-        source = self.make_image_input((320, 480))
+    def test_portrait_hd_uses_dedicated_upscale_with_only_the_source(self) -> None:
+        source = self.make_image_input((32, 48))
+        reference = self.make_image_input((16, 16))
+        upscaled = self.make_image_input((64, 96))
+        url = site.image_bytes_to_data_url(upscaled["data"], "image/png")
         with (
-            patch.object(site, "call_jimeng_hd_upscale") as upscale,
-            patch.object(
-                site,
-                "call_openrouter_portrait_hd",
-                return_value={"images": ["https://example.com/portrait-hd.png"], "text": ""},
-            ) as portrait_hd,
+            patch.object(site, "call_jimeng_hd_upscale", return_value={"images": [url]}) as upscale,
+            patch.object(site, "call_openrouter_portrait_hd") as generation,
+            patch.object(site, "call_openrouter") as generic_generation,
         ):
-            result = site.process_batch_group(
-                {
-                    "feature": {"key": "hd_batch", "mode": "openrouter"},
-                    "model": site.NANO_BANANA_MODEL,
-                    "prompt": "只做高清",
-                    "output_mode": "image",
-                    "aspect_ratio": "自动",
-                    "max_output_images": 1,
-                },
-                [source],
-                1,
-            )
+            result = site.process_batch_group({
+                "feature": {"key": "hd_batch", "mode": "portrait_upscale"},
+                "model": site.NANO_BANANA_MODEL, "prompt": "unused", "output_mode": "image",
+                "aspect_ratio": "自动", "max_output_images": 1,
+            }, [source, reference], 1)
+        upscale.assert_called_once_with(uploaded_files=[source])
+        generation.assert_not_called()
+        generic_generation.assert_not_called()
+        self.assertEqual(self.read_result_size(result["images"][0]), (32, 48))
 
-        upscale.assert_not_called()
-        portrait_hd.assert_called_once()
-        self.assertEqual(result["images"], ["https://example.com/portrait-hd.png"])
+    def test_dedicated_upscale_rejects_a_changed_frame_without_cropping(self) -> None:
+        source = self.make_image_input((32, 48))
+        wrong_frame = self.make_image_input((96, 48))
+        url = site.image_bytes_to_data_url(wrong_frame["data"], "image/png")
+        with patch.object(site, "call_jimeng_hd_upscale", return_value={"images": [url]}):
+            with self.assertRaisesRegex(RuntimeError, "画幅与原图不一致"):
+                site.call_portrait_hd_upscale([source])
+
+    def test_completed_upscale_is_not_resubmitted_after_download_failure(self) -> None:
+        source = self.make_image_input((32, 48))
+        with (
+            patch.object(site, "call_jimeng_hd_upscale", return_value={"images": ["https://example.test/result.png"], "task_id": "existing-task"}) as upscale,
+            patch.object(site, "load_image_bytes_from_url", side_effect=RuntimeError("download timeout")),
+        ):
+            with self.assertRaisesRegex(site.ImageOutcomeUnknown, "existing-task"):
+                site.run_hd_batch_generate_with_retry(lambda prompt: site.call_portrait_hd_upscale([source]), "unused")
+        upscale.assert_called_once()
+
+    def test_batch_and_single_jobs_use_dedicated_upscale_and_keep_every_source(self) -> None:
+        sources = [self.make_image_input((32, 48)), self.make_image_input((40, 20))]
+        for batch in (False, True):
+            context = {
+                "feature": {"key": "hd_batch", "mode": "portrait_upscale"}, "model": site.NANO_BANANA_MODEL,
+                "prompt": "unused", "output_mode": "image", "uploaded_files": [sources[0]],
+                "aspect_ratio": "自动", "max_output_images": 1,
+            }
+            if batch:
+                context["batch_groups"] = [[source] for source in sources]
+            with (
+                self.subTest(batch=batch),
+                patch.object(site, "call_jimeng_hd_upscale", side_effect=lambda uploaded_files: {"images": [site.uploaded_input_to_data_url(uploaded_files[0])]}) as upscale,
+                patch.object(site, "call_openrouter_images_api") as generation,
+                patch.object(site, "finalize_feature_job_result", side_effect=lambda context, result, job_id: result),
+            ):
+                result = site._run_feature_job_once(context)
+            self.assertEqual(upscale.call_count, 2 if batch else 1)
+            generation.assert_not_called()
+            expected = [(32, 48), (40, 20)] if batch else [(32, 48)]
+            self.assertEqual([self.read_result_size(image) for image in result["images"]], expected)
 
     def test_hd_prompt_locks_canvas_to_source_dimensions_without_cropping(self) -> None:
         source = self.make_image_input((137, 91))

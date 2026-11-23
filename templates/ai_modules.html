@@ -508,6 +508,18 @@
                 </ul>
                 <div style="text-align:center;margin-top:20px"><a href="{{ url_for('ai_group_performance.page') }}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 打开查询</a></div>
             </div>
+            <div class="module-card" data-permission="model_queue" data-allowed="{{ 'true' if can_model_queue else 'false' }}">
+                <div class="module-icon"><i class="fas fa-list-ol"></i></div>
+                <h3>模特排队</h3>
+                <p>查看排队进度，提交、暂停或取消模特视频任务</p>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('model_management.queue') }}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 进入模特排队</a></div>
+            </div>
+            <div class="module-card" data-permission="model_library" data-allowed="{{ 'true' if can_model_library else 'false' }}">
+                <div class="module-icon"><i class="fas fa-users-gear"></i></div>
+                <h3>模特库管理</h3>
+                <p>维护模特资料、视频、状态、国家、等级和备注</p>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('model_management.library') }}" style="display:inline-block;background:linear-gradient(135deg,#0f766e,#2563eb);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-play"></i> 进入模特库</a></div>
+            </div>
             <!-- 更新 -->
             <div class="module-card" data-permission="admin_functions" data-allowed="{{ 'true' if can_ai_full else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>

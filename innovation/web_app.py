@@ -3395,6 +3395,17 @@ def submit_to_meeting():
         }), 500
 
 
+# 评分视图可能因流转/评审关联而返回同一项目的多行。奖励以项目为单位，
+# 明细、汇总和兑换校验必须使用同一口径，不能将关联行重复计入积分。
+_PROJECT_POINTS_SQL = """
+    SELECT 编号, 发起人, MAX(标题) AS 标题, MAX(发起时间) AS 发起时间,
+           MAX(CASE WHEN ISNUMERIC(ISNULL(最高分, 0)) = 1
+                    THEN CAST(ISNULL(最高分, 0) AS INT) ELSE 0 END) AS 最高分
+    FROM v_quanyuanchuangxin
+    GROUP BY 编号, 发起人
+"""
+
+
 @app.route('/api/update_user_points_summary', methods=['POST'])
 def update_user_points_summary():
     """统计并更新用户积分汇总到创新_消费表"""
@@ -3413,7 +3424,7 @@ def update_user_points_summary():
         # 1. 计算年度积分（当年获得的总积分）
         annual_points_sql = f"""
             SELECT SUM(最高分) as annual_points
-            FROM v_quanyuanchuangxin 
+            FROM ({_PROJECT_POINTS_SQL}) project_points
             WHERE 发起人 = '{user_name}' 
             AND YEAR(发起时间) = {current_year}
             AND 最高分 IS NOT NULL AND 最高分 > 0
@@ -3433,7 +3444,7 @@ def update_user_points_summary():
         # 2. 计算历史总积分（所有年份获得的总积分）
         total_points_sql = f"""
             SELECT COALESCE(SUM(最高分), 0) as total_points
-            FROM v_quanyuanchuangxin 
+            FROM ({_PROJECT_POINTS_SQL}) project_points
             WHERE 发起人 = '{user_name}'
             AND 最高分 IS NOT NULL AND 最高分 > 0
         """
@@ -3543,7 +3554,7 @@ def batch_update_all_users_points():
             # 计算该用户的积分统计
             annual_points_sql = f"""
                 SELECT COALESCE(SUM(最高分), 0) as annual_points
-                FROM v_quanyuanchuangxin
+                FROM ({_PROJECT_POINTS_SQL}) project_points
                 WHERE 发起人 = '{user_name}' 
                 AND YEAR(发起时间) = {current_year}
                 AND 最高分 IS NOT NULL AND 最高分 > 0
@@ -3562,7 +3573,7 @@ def batch_update_all_users_points():
 
             total_points_sql = f"""
                 SELECT COALESCE(SUM(最高分), 0) as total_points
-                FROM v_quanyuanchuangxin 
+                FROM ({_PROJECT_POINTS_SQL}) project_points
                 WHERE 发起人 = '{user_name}'
                 AND 最高分 IS NOT NULL AND 最高分 > 0
             """
@@ -3663,7 +3674,7 @@ def get_user_points():
         # 1. 计算年度积分 - 放宽条件
         annual_points_sql = f"""
               SELECT COALESCE(SUM(最高分), 0) as annual_points
-            FROM v_quanyuanchuangxin 
+            FROM ({_PROJECT_POINTS_SQL}) project_points
             WHERE 发起人 = '{user_esc}'
             AND YEAR(发起时间) = {current_year}
             AND 最高分 IS NOT NULL AND 最高分 > 0
@@ -3691,7 +3702,7 @@ def get_user_points():
         # 2. 计算历史总积分 - 放宽条件
         total_points_sql = f"""
             SELECT COALESCE(SUM(最高分), 0) as annual_points
-            FROM v_quanyuanchuangxin 
+            FROM ({_PROJECT_POINTS_SQL}) project_points
             WHERE 发起人 = '{user_esc}'
 
             AND 最高分 IS NOT NULL AND 最高分 > 0
@@ -3877,14 +3888,14 @@ def exchange_reward():
             current_year = datetime.now().year
             annual_points_sql = f"""
                 SELECT COALESCE(SUM(最高分), 0) as annual_points
-                FROM v_quanyuanchuangxin 
+                FROM ({_PROJECT_POINTS_SQL}) project_points
                 WHERE 发起人 = '{user_esc}' 
                 AND YEAR(发起时间) = {current_year}
                 AND 最高分 IS NOT NULL AND 最高分 > 0
             """
             total_points_sql = f"""
                 SELECT COALESCE(SUM(最高分), 0) as total_points
-                FROM v_quanyuanchuangxin 
+                FROM ({_PROJECT_POINTS_SQL}) project_points
                 WHERE 发起人 = '{user_esc}'
                 AND 最高分 IS NOT NULL AND 最高分 > 0
             """
@@ -4028,7 +4039,7 @@ def get_point_records():
                 '创新项目' as source,
                 CONCAT('创新项目评分获得积分 - 项目编号:', v.编号, ' - ', COALESCE(v.标题, '未知项目')) as description,
                 COALESCE(v.标题, '未知项目') as project_title
-            FROM v_quanyuanchuangxin v
+            FROM ({_PROJECT_POINTS_SQL}) v
             WHERE v.发起人 = '{user_esc}'
               AND ISNUMERIC(ISNULL(v.最高分, 0)) = 1
               AND CAST(ISNULL(v.最高分, 0) AS INT) > 0
@@ -4140,7 +4151,7 @@ def get_point_records():
             SELECT
                 COALESCE(SUM(CASE WHEN ISNUMERIC(ISNULL(最高分, 0)) = 1 THEN CAST(ISNULL(最高分, 0) AS INT) ELSE 0 END), 0) AS earned_sum,
                 COALESCE(COUNT(CASE WHEN ISNUMERIC(ISNULL(最高分, 0)) = 1 AND CAST(ISNULL(最高分, 0) AS INT) > 0 THEN 1 END), 0) AS earned_count
-            FROM v_quanyuanchuangxin
+            FROM ({_PROJECT_POINTS_SQL}) project_points
             WHERE 发起人 = '{user_esc}'
         """
         spent_stats_sql = f"""

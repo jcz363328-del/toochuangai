@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import io
+import json
+from pathlib import Path
+import tempfile
 import unittest
 from contextlib import ExitStack
 from unittest.mock import Mock, patch
@@ -19,6 +22,9 @@ class OmniaTaskRecoveryTests(unittest.TestCase):
         self.enterContext(patch('图片.request_limits.get_request_limiter', return_value=limiter))
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
+        folder = self.stack.enter_context(tempfile.TemporaryDirectory())
+        self.receipts = Path(folder) / "receipts.jsonl"
+        self.stack.enter_context(patch.object(site, "OMNIAKEY_TASK_RECEIPTS_FILE", self.receipts))
         self.stack.enter_context(patch.object(site, "load_omnia_api_key", return_value="test-key"))
         self.stack.enter_context(patch.object(site.time, "sleep"))
         self.stack.enter_context(patch.object(site, "record_background_job_error"))
@@ -44,7 +50,54 @@ class OmniaTaskRecoveryTests(unittest.TestCase):
         return response
 
     def generate(self, prompt: str = "draw a blue square") -> dict:
-        return site.call_omnia_media_image_api(site.NANO_BANANA_MODEL, prompt)
+        return site.call_omnia_image_api(site.NANO_BANANA_MODEL, prompt)
+
+    def test_default_nano_uses_async_task_and_persists_recovery_receipt(self) -> None:
+        self.get.side_effect = [self.completed, self.asset]
+        result = self.generate()
+        self.assertEqual(self.post.call_args.args[0], site.OMNIAKEY_MEDIA_TASKS_URL)
+        payload = self.post.call_args.kwargs["json"]
+        self.assertEqual(payload["parameters"]["aspect_ratio"], "1:1")
+        self.assertTrue(result["images"][0].startswith("data:image/png;base64,"))
+        receipt = json.loads(self.receipts.read_text(encoding="utf-8"))
+        self.assertEqual(receipt["task_id"], self.TASK_ID)
+        self.assertEqual(receipt["idempotency_key"], self.post.call_args.kwargs["headers"]["Idempotency-Key"])
+        self.assertNotIn("test-key", self.receipts.read_text())
+        self.assertNotIn("draw a blue square", self.receipts.read_text())
+
+    def test_reference_orientation_and_all_images_survive_async_transport(self) -> None:
+        output = io.BytesIO()
+        Image.new("RGB", (240, 160)).save(output, format="PNG")
+        upload = {"data": output.getvalue(), "name": "landscape.png", "type": "image/png"}
+        self.get.side_effect = [self.completed, self.asset]
+        site.call_omnia_image_api(site.NANO_BANANA_MODEL, "edit", [upload, upload], resolution="2K")
+        payload = self.post.call_args.kwargs["json"]
+        self.assertEqual(payload["operation"], "edit")
+        self.assertEqual(payload["parameters"], {"aspect_ratio": "3:2", "image_size": "2K"})
+        self.assertEqual(len(payload["input"]["images"]), 2)
+
+    def test_resume_existing_task_only_queries_and_downloads(self) -> None:
+        self.get.side_effect = [self.completed, self.asset]
+        result = site.resume_omnia_image_task(self.TASK_ID)
+        self.post.assert_not_called()
+        self.assertTrue(self.get.call_args_list[0].args[0].endswith("/" + self.TASK_ID))
+        self.assertEqual(site.decode_data_url(result["images"][0])[0], self.image_bytes)
+
+    def test_submit_524_retry_reuses_the_same_key_and_body(self) -> None:
+        self.post.side_effect = [self.response(524, {}), self.response(202, {"id": self.TASK_ID, "status": "queued"})]
+        self.get.side_effect = [self.completed, self.asset]
+        self.generate()
+        self.assertEqual(self.post.call_count, 2)
+        first, second = self.post.call_args_list
+        self.assertEqual(first.kwargs["headers"]["Idempotency-Key"], second.kwargs["headers"]["Idempotency-Key"])
+        self.assertEqual(first.kwargs["json"], second.kwargs["json"])
+
+    def test_receipt_write_failure_preserves_task_id_without_resubmitting(self) -> None:
+        with patch.object(Path, "open", side_effect=OSError("disk unavailable")):
+            with self.assertRaisesRegex(site.OmniaImageOutcomeUnknown, self.TASK_ID):
+                site.run_hd_batch_generate_with_retry(self.generate, "draw")
+        self.post.assert_called_once()
+        self.get.assert_not_called()
 
     def assert_single_submission_and_same_task_queries(self, queries: int) -> None:
         self.post.assert_called_once()
@@ -58,6 +111,7 @@ class OmniaTaskRecoveryTests(unittest.TestCase):
         failures = (
             self.response(503, {"error": {"message": "busy"}}),
             self.response(429, {"error": {"message": "rate limited"}}),
+            self.response(524, {}),
             site.requests.ConnectionError("connection reset"),
         )
         for failure in failures:
@@ -111,6 +165,26 @@ class OmniaTaskRecoveryTests(unittest.TestCase):
                     site.run_hd_batch_generate_with_retry(self.generate, "draw a blue square")
                 self.assert_single_submission_and_same_task_queries(4)
                 self.assertEqual(self.get.call_count, 4)
+
+    def test_copyright_rejection_is_explained_and_never_resubmitted(self) -> None:
+        self.get.return_value = self.response(200, {
+            "id": self.TASK_ID, "status": "failed",
+            "error": {"code": "content_filter", "detail": "finishReason=IMAGE_RECITATION",
+                      "message": "The request may involve copyrighted or otherwise protected content.",
+                      "reason": "copyright", "retryable": False},
+        })
+        with self.assertRaises(RuntimeError) as caught:
+            site.run_hd_batch_generate_with_retry(self.generate, "enhance")
+        message = site.format_user_facing_error_message(
+            "OmniaKey 原生 4K 调用失败。为避免画质降级，本次未使用聊天兼容通道或本地放大。原因：" + str(caught.exception)
+        )
+        self.assertIn("受保护内容", message)
+        self.assertIn("误判", message)
+        self.assertIn(self.TASK_ID, message)
+        self.assertNotIn("4K 调用失败", message)
+        self.assertFalse(site.is_hd_batch_transient_error(str(caught.exception) + " provider_submit_rejected"))
+        self.assert_single_submission_and_same_task_queries(1)
+        self.assertEqual(self.get.call_count, 1)
 
     def test_wrapped_uncertain_result_is_not_treated_as_retryable(self) -> None:
         original = site.OmniaImageOutcomeUnknown("HTTP 504")

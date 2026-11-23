@@ -31,9 +31,12 @@ color:#3563ae;
 border-radius:6px;
 padding:5px 9px;
 font-size:12px}
-main{max-width:1600px;
+main{width:100%;
 margin:auto;
-padding:30px 36px}
+padding:30px clamp(16px,2vw,40px)}
+tr[data-row-detail]{cursor:pointer}
+tr[data-row-detail]:hover td{background:#edf4ff}
+tr[data-row-detail]:focus-visible{outline:2px solid #2862e5;outline-offset:-2px}
 h1{font-size:27px;
 margin:0 0 9px;
 letter-spacing:-.7px}
@@ -315,6 +318,10 @@ opacity:.5}
 
 @media(max-width:900px){.table-wrap{max-height:60dvh;
 min-height:300px}
+.toolbar,.foot{flex-wrap:wrap;gap:12px}
+.tabs{overflow-x:auto;white-space:nowrap}
+.search{min-width:0;flex-basis:100%;max-width:none}
+header{height:auto;min-height:64px;padding:12px 20px;flex-wrap:wrap}
 }
 
 </style><header>
@@ -394,7 +401,7 @@ min-height:300px}
 <div class="toolbar">
 <span id="resultCount">正在读取货件数据…</span>
 <span>
-<span id="updatedAt">数据每 30 秒更新缓存</span>　·　点击详情查看完整信息</span>
+<span id="updatedAt">数据每 30 秒更新缓存</span>　·　点击任意货件行查看完整信息</span>
 </div>
 <div class="table-wrap" tabindex="0" aria-label="货件列表，可横向及纵向滚动">
 <table>
@@ -449,6 +456,6 @@ min-height:300px}
 </div>
 <div class="toast" id="toast">
 </div>
-<script src="{{ url_for('static', filename='js/fba_shipping.js', v='20261119') }}" defer>
+<script src="{{ url_for('static', filename='js/fba_shipping.js', v='20261119-layout-2') }}" defer>
 </script>
 </html>

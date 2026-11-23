@@ -135,6 +135,27 @@ class WorkspaceCatalogTests(unittest.TestCase):
         allowed_group = next(g for g in allowed_body['groups'] if g['key'] == 'general_office')
         self.assertTrue(next(i for i in allowed_group['items'] if i['menu'] == '经营分析')['allowed'])
 
+    def test_business_analysis_is_in_operations_and_follows_its_own_permission(self):
+        self.configure_full_catalog()
+        with self.app.test_request_context():
+            session['feishu_user_id'] = 'member'
+            for grants in ([], [{'function_name': 'business_analysis'}]):
+                body = self.catalog(grants).get_json()
+                operations = next(group for group in body['groups'] if group['key'] == 'operations')
+                matches = [item for item in operations['items'] if item['menu'] == '经营分析']
+                self.assertEqual(len(matches), 1)
+                self.assertEqual(matches[0]['required_permissions'], ['business_analysis'])
+                self.assertEqual(matches[0]['allowed'], bool(grants))
+
+    def test_operations_detail_pages_show_business_analysis_only_when_granted(self):
+        self.configure_full_catalog()
+        template = self.app.jinja_env.get_template('operation_dept.html')
+        for dept in ('operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'operation_dept_7'):
+            for granted in (False, True):
+                with self.subTest(department=dept, granted=granted):
+                    html = template.render(dept_id=dept, dept_name=dept, can_business_analysis=granted)
+                    self.assertEqual('<h3 class="text-center mb-3">经营分析</h3>' in html, granted)
+
     def test_dashboards_belong_to_tk_and_shenzhen_with_original_permissions(self):
         self.configure_full_catalog()
         with self.app.test_request_context():

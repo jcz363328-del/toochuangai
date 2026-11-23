@@ -42,7 +42,7 @@
         const stats = data.stats;
         for (const key of ['total','filled','issues','checked']) $(key).textContent = stats[key].toLocaleString();
         for (const [id, key] of [['tabAll','total'],['tabIssue','issues'],['tabFilled','filled'],['tabUnchecked','unchecked']]) $(id).textContent = stats[key].toLocaleString();
-        $('rows').innerHTML = records.map((r, index) => `<tr class="${r.issues.length ? 'attention' : ''}">
+        $('rows').innerHTML = records.map((r, index) => `<tr class="${r.issues.length ? 'attention' : ''}" data-row-detail="${index}" tabindex="0" aria-label="查看货件 ${esc(r.id)} 详情">
             <td><input type="checkbox" class="check rowcheck" data-key="${esc(r.key)}" aria-label="选择货件 ${esc(r.id)}"></td>
             <td><b>${esc(r.shop) || '—'}</b><span class="sub code cargo">${esc(r.id) || '—'}</span></td>
             <td><span class="tag ${r.ship.includes('海运') ? 'blue' : ''}">${esc(r.ship) || '—'}</span></td>
@@ -89,8 +89,8 @@
         $('overlay').setAttribute('aria-hidden', 'true');
         returnFocus?.focus();
     }
-    function detail(r) {
-        returnFocus = document.activeElement;
+    function detail(r, trigger = document.activeElement) {
+        returnFocus = trigger;
         $('drawer').innerHTML = `<button class="close" id="close" aria-label="关闭详情">×</button><span class="crumb">货件详情</span><h2 class="code">${esc(r.id)}</h2><p>${esc(r.shop)} · ${esc(r.ship)}</p>
             <div class="detail-grid"><div><label>填写状态 · 原表标记</label><span class="tag ${r.filled ? 'green' : ''}">${r.filled ? '已填写 · Y' : esc(r.status) || '未标记 · 空值'}</span></div><div><label>追踪码个数 · 数据库记录</label>${r.n ?? '—'}</div><div><label>检查日期</label>${esc(r.check) || '尚未记录'}</div><div><label>导入时间</label>${esc(r.date) || '—'}</div><div><label>小包裹</label>${esc(r.package) || '—'}</div><div><label>记录序号</label>${esc(r.key)}</div></div>
             ${r.issues.length ? `<div class="note" style="margin:0;color:#b4822e;background:#fff9ec">${esc(r.issues.join('；'))}</div>` : ''}
@@ -118,7 +118,16 @@
     }
     $('rows').onclick = event => {
         const button = event.target.closest('[data-detail]');
-        if (button) detail(records[Number(button.dataset.detail)]);
+        if (button) { detail(records[Number(button.dataset.detail)], button); return; }
+        if (event.target.closest('input,button,a,select,textarea,label') || event.target.closest('td')?.cellIndex === 0) return;
+        if (window.getSelection()?.toString()) return;
+        const row = event.target.closest('tr[data-row-detail]');
+        if (row) detail(records[Number(row.dataset.rowDetail)], row);
+    };
+    $('rows').onkeydown = event => {
+        if (!event.target.matches('tr[data-row-detail]') || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        detail(records[Number(event.target.dataset.rowDetail)], event.target);
     };
     $('rows').onchange = event => {
         if (!event.target.matches('.rowcheck')) return;

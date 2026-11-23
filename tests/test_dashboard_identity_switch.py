@@ -137,7 +137,6 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
             "ABA 排名看板",
             "年会精彩瞬间",
             "培训视频",
-            "模特排队",
         )
         for menu in default_menus:
             self.assertGreaterEqual(

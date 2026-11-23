@@ -279,12 +279,12 @@ PERMISSION_CONFIG = {
     },
     'model_library': {
         'name': '模特库管理',
-        'allowed_departments': ['技术部', 'AI部', '总经办'],
+        'allowed_departments': ['AI部', '总经办'],
         'description': '模特信息管理与视频上传'
     },
     'model_queue': {
         'name': '模特排队',
-        'allowed_departments': 'all',
+        'allowed_departments': ['AI部', '总经办'],
         'description': '模特排队与视频完成管理'
     },
     'admin_functions': {

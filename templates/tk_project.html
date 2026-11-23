@@ -79,7 +79,6 @@
 {% set has_monthly_target_import = 'tk_monthly_target_import' in ns.fnames %}
 {% set has_seedance = 'tk_project_seedance' in ns.fnames %}
 {% set has_invite_monitor = 'tk_invite_monitor' in ns.fnames %}
-{% set has_model_queue = 'model_queue' in ns.fnames %}
 {% set has_customer_service = 'tk_customer_service' in ns.fnames %}
 {% set has_tiktok_replenishment = 'daily_replenishment_tiktok' in ns.fnames %}
 
@@ -174,7 +173,6 @@
                 {% if can_view_joint_dashboard %}{{ mini_card('联营店铺看板', '按店铺授权查看', url_for('tk_dashboard.tk_dashboard_project_page'), 'fas fa-chart-area') }}{% endif %}
                 {% if has_invite_monitor %}{{ mini_card('邀请ID实时监控', '邀请码实时预警', url_for('tk_invite_monitor'), 'fas fa-id-badge') }}{% endif %}
                 {% if has_invite_monitor %}{{ mini_card('12小时之内未检查的邀请码', '有待检查邀请码', url_for('tk_invite_monitor') ~ '#unchecked_12h', 'fas fa-triangle-exclamation') }}{% endif %}
-                {% if has_model_queue %}{{ mini_card('模特排队', '模特排队与排队', url_for('model_management.queue'), 'fas fa-user-friends') }}{% endif %}
             </div>
         </div>
     </div>

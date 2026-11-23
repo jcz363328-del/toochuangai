@@ -398,23 +398,6 @@ function directExchange(rewardId) {
     }
 }
 
-// 加载积分记录
-function loadPointRecords() {
-    axios.get('/innovation/api/get_point_records')
-        .then(response => {
-            if (response.data.success) {
-                displayPointRecords(response.data.data.records);
-            } else {
-                document.getElementById('pointRecords').innerHTML = '<p class="text-muted">暂无积分记录</p>';
-            }
-        })
-        .catch(error => {
-            console.error('加载积分记录失败:', error);
-            document.getElementById('pointRecords').innerHTML = '<p class="text-muted">加载失败</p>';
-        });
-}
-
-// 显示积分记录
 // 显示积分记录
 function displayPointRecords(records) {
     const container = document.getElementById('pointRecords');
@@ -512,7 +495,7 @@ function loadPointRecords() {
                 displayPointRecords(data.records);
 
                 // 更新统计信息
-                if (data.stats) {
+                if (data.stats && data.records.length > 0) {
                     document.getElementById('stats-earned').textContent = data.stats.total_earned;
                     document.getElementById('stats-spent').textContent = data.stats.total_spent;
                     document.getElementById('stats-earn-count').textContent = data.stats.earn_count;
