@@ -5,6 +5,14 @@
     const api = '/api/operation/fba_shipping_methods';
     let tab = 'all', page = 1, pages = 1, records = [], selected = new Set(), loading = false;
     let controller, revision = 0, timer, returnFocus;
+    const cacheKey = `fba-shipping-v1:${document.documentElement.dataset.cacheUser}`;
+    let cache = {queries: {}, options: null, state: null};
+    try { cache = JSON.parse(sessionStorage.getItem(cacheKey)) || cache; } catch (_) {}
+    function saveCache() {
+        cache.state = Object.fromEntries(['search','shop','shipping','status','sort','pageSize'].map(id => [id, $(id).value]));
+        Object.assign(cache.state, {tab, page});
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(cache)); } catch (_) {}
+    }
     function params() {
         const p = new URLSearchParams({tab, page: String(page), page_size: $('pageSize').value});
         for (const [id, key] of [['search','q'],['shop','dian'],['shipping','shipping'],['status','status'],['sort','sort']]) {
@@ -28,6 +36,7 @@
         $('prev').disabled = loading || page <= 1;
         $('next').disabled = loading || page >= pages;
         $('export').disabled = loading;
+        $('refresh').disabled = loading;
         $('allCheck').disabled = loading || records.length === 0;
     }
     function dateParts(value) {
@@ -58,26 +67,41 @@
         selected.clear();
         selection();
     }
-    async function load(reset = false) {
+    async function load(reset = false, force = false) {
         if (reset) page = 1;
         const serial = ++revision;
         if (controller) controller.abort();
         controller = new AbortController();
+        const query = params().toString();
+        if (!force && cache.queries[query]) {
+            loading = false;
+            render(cache.queries[query]);
+            saveCache(); controls();
+            return;
+        }
         loading = true;
         selected.clear(); records = [];
         selection(); controls();
         $('resultCount').textContent = '正在读取货件数据…';
         $('rows').innerHTML = '<tr><td colspan="10" class="empty">正在读取货件数据…</td></tr>';
         try {
-            const response = await fetch(`${api}?${params()}`, {signal: controller.signal, credentials:'same-origin'});
+            const response = await fetch(`${api}?${query}${force ? '&refresh=1' : ''}`, {signal: controller.signal, credentials:'same-origin'});
             if (response.redirected) throw new Error('登录已过期，请刷新页面重新登录');
             const payload = await response.json();
             if (!response.ok || !payload.success) throw new Error(payload.message || '读取失败，请检查访问权限');
-            if (serial === revision) render(payload.data);
+            if (serial === revision) {
+                if (force) cache.queries = {};
+                cache.queries[query] = payload.data;
+                // Bound session storage while retaining recently viewed result pages.
+                const keys = Object.keys(cache.queries);
+                if (keys.length > 20) delete cache.queries[keys[0]];
+                render(payload.data);
+                saveCache();
+            }
         } catch (error) {
             if (error.name !== 'AbortError' && serial === revision) {
                 $('rows').innerHTML = `<tr><td colspan="10" class="empty" style="color:#bb6b45">${esc(error.message)}</td></tr>`;
-                $('resultCount').textContent = '数据读取失败，可点击重置筛选重试';
+                $('resultCount').textContent = '数据读取失败，可点击刷新数据重试';
                 for (const key of ['total','filled','issues','checked','tabAll','tabIssue','tabFilled','tabUnchecked']) $(key).textContent = '—';
             }
         } finally {
@@ -147,6 +171,11 @@
         document.querySelectorAll('[data-tab]').forEach(t => t.classList.toggle('active', t === b));
         load(true);
     }; });
+    $('refresh').onclick = async () => {
+        clearTimeout(timer);
+        await load(false, true);
+        await options(true);
+    };
     $('reset').onclick = () => {
         clearTimeout(timer);
         for (const id of ['search','shop','shipping','status']) $(id).value = '';
@@ -178,16 +207,34 @@
             toast('导出完成');
         } catch (e) { toast(e.message); } finally { $('export').disabled = false; }
     };
-    async function options() {
+    function renderOptions(data) {
+        for (const [id, key] of [['shop','shops'],['shipping','shipping_methods']]) {
+            const value = $(id).value;
+            $(id).options.length = 1;
+            for (const item of data[key]) $(id).add(new Option(item, item));
+            $(id).value = value;
+        }
+    }
+    async function options(force = false) {
+        if (!force && cache.options) { renderOptions(cache.options); return; }
         try {
             const response = await fetch(`${api}/shops`, {credentials:'same-origin'});
             const payload = await response.json();
             if (!response.ok || !payload.success) throw new Error('筛选选项加载失败');
-            for (const [id, key] of [['shop','shops'],['shipping','shipping_methods']]) {
-                for (const value of payload.data[key]) $(id).add(new Option(value, value));
-            }
+            cache.options = payload.data;
+            renderOptions(payload.data);
+            saveCache();
         } catch (_) { toast('筛选选项暂不可用，可继续搜索货件'); }
     }
-    options();
-    load();
+    async function init() {
+        const state = cache.state;
+        await options();
+        if (state) {
+            for (const id of ['search','shop','shipping','status','sort','pageSize']) $(id).value = state[id];
+            tab = state.tab; page = state.page;
+            document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+        }
+        await load();
+    }
+    init();
 })();

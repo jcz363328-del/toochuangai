@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-cache-user="{{ session.get('feishu_user_id', '') }}">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FBA货件追踪 / IEN - 图创AI</title><style>
@@ -338,6 +338,7 @@ header{height:auto;min-height:64px;padding:12px 20px;flex-wrap:wrap}
 <p>集中查询亚马逊追踪码与 IEN，快速定位待处理货件。</p>
 </div>
 <div class="actions">
+<button class="btn" id="refresh">↻ 刷新数据</button>
 <button class="btn" id="reset">↻ 重置筛选</button>
 <button class="btn primary" id="export">↓ 导出当前结果</button>
 </div>
@@ -456,6 +457,6 @@ header{height:auto;min-height:64px;padding:12px 20px;flex-wrap:wrap}
 </div>
 <div class="toast" id="toast">
 </div>
-<script src="{{ url_for('static', filename='js/fba_shipping.js', v='20261119-layout-2') }}" defer>
+<script src="{{ url_for('static', filename='js/fba_shipping.js', v='20261123-cache-1') }}" defer>
 </script>
 </html>

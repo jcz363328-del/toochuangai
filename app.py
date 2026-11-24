@@ -17862,7 +17862,7 @@ def api_operation_fba_shipping_methods():
         return jsonify({'success': False, 'message': '无权限访问运营部门数据'}), 403
     try:
         from fba_shipping_service import load_snapshot, payload
-        return jsonify({'success': True, 'data': payload(load_snapshot(sf_db), request.args)})
+        return jsonify({'success': True, 'data': payload(load_snapshot(sf_db, force=request.args.get('refresh') == '1'), request.args)})
     except (ValueError, TypeError):
         return jsonify({'success': False, 'message': '分页参数无效'}), 400
     except Exception:
