@@ -1,0 +1,27 @@
+--- before-poster.py
++++ ../../图片/poster_fusion.py
+@@ -41,7 +41,23 @@
+ 
+ def render_image_slot(api, label, key, height=320):
+     from 图片.upload_frames import render_file_frame
+-    return render_file_frame(api, label, key=key, type=["jpg", "jpeg", "png", "webp"], frame_height=height)
++    # Native uploader values are discarded when this feature is not rendered.
++    # Keep each role in the same account-scoped cache as the other image tools.
++    cached_files = api.load_upload_cache(key, max_files=1)
++    uploaded = render_file_frame(
++        api, label, key=api.get_uploader_widget_key(key),
++        type=["jpg", "jpeg", "png", "webp"], frame_height=height,
++        preview_files=cached_files, remove_button_key=f"clear_upload_{key}",
++    )
++    if uploaded is not None:
++        api.save_upload_cache(key, [uploaded])
++        api.reset_upload_widget(key)
++        api.st.rerun()
++    if api.st.button("清空上传", key=f"clear_upload_{key}", type="secondary"):
++        api.clear_upload_cache(key)
++        api.reset_upload_widget(key)
++        api.st.rerun()
++    return cached_files[0] if cached_files else None
+ 
+ 
+ def render(api, feature):

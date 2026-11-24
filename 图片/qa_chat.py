@@ -333,10 +333,10 @@ def render_conversation(site, store, account, chat, default_model, ratio):
                         busy = True
                         if queue_state.get("state") == "running":
                             progress = site.get_task_progress(turn["job"]) or {}
-                            st.status(str(progress.get("stage") or "正在生成图片…"), state="running")
+                            st.markdown(site.build_running_job_spinner_html(0, str(progress.get("stage") or "正在生成图片…")), unsafe_allow_html=True)
                         else:
                             ahead = int(queue_state.get("ahead_count") or 0)
-                            st.info(f"排队中，当前账号前面还有 {ahead} 个任务。" if ahead else "排队中，等待可用生成名额。")
+                            st.markdown(site.build_running_job_spinner_html(0, f"排队中，当前账号前面还有 {ahead} 个任务。" if ahead else "排队中，等待可用生成名额。"), unsafe_allow_html=True)
                     elif status == "error":
                         st.error(site.format_user_facing_error_message(turn["error"] or "生成失败，请重试"))
                     else:

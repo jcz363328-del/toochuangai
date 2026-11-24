@@ -18986,10 +18986,13 @@ def render_first_screen_material_uploader(key: str, *, hero: bool = False) -> li
     files = load_upload_cache(key, max_files=limit)
     with st.container(border=True, key="fusion_hero" if hero else "fusion_materials"):
         st.markdown(
-            f'<div class="fusion-panel-heading"><strong>{"首屏底稿" if hero else "卖点素材"}</strong>'
-            f'<span>{len(files)} / {limit}</span></div>', unsafe_allow_html=True,
+            '<div class="fusion-panel-header"><div class="fusion-panel-heading">'
+            f'<strong>{"首屏底稿" if hero else "卖点素材"}</strong>'
+            f'<span>{len(files)} / {limit}</span></div>'
+            '<div class="fusion-panel-description">'
+            f'{"首屏内容原样保留" if hero else "拖动调整顺序，按优先级提取卖点"}'
+            '</div></div>', unsafe_allow_html=True,
         )
-        st.caption("首屏内容原样保留" if hero else "拖动调整顺序，按优先级提取卖点")
         with st.container(height=540, border=False):
             for start in range(0, limit, 1 if hero else 3):
                 columns = st.columns(1 if hero else 3, gap="small")
@@ -23596,7 +23599,10 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
         .st-key-fusion_settings [data-baseweb="textarea"] {border:1px solid #303958!important;border-radius:10px;background:#091325!important;}
         .st-key-fusion_settings [data-testid="stHorizontalBlock"] {align-items:end;}
         .st-key-fusion_settings [data-testid="stColumn"] {min-width:0!important;}
-        .fusion-panel-heading {display:flex;justify-content:space-between;align-items:center;color:#f1f3ff;font-size:16px;}
+        .fusion-panel-header {display:flex;flex-direction:column;gap:6px;padding-bottom:10px;}
+        .fusion-panel-heading {display:flex;justify-content:space-between;align-items:center;gap:12px;color:#f1f3ff;font-size:16px;line-height:1.5;}
+        .fusion-panel-heading strong {display:block;line-height:1.5;}
+        .fusion-panel-description {color:#aeb9d7;font-size:12px;line-height:1.5;white-space:normal;overflow-wrap:anywhere;}
         .fusion-panel-heading span {border:1px solid #36415d;border-radius:18px;padding:2px 12px;font-size:12px;color:#c8cde5;}
         .fusion-empty-slot {height:112px;border:1px dashed #49547c;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aeb9d7;font-size:12px;background:#10192e;}
         .fusion-empty-slot span {font-size:25px;color:#a995ff;margin-bottom:8px;}

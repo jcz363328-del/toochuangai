@@ -1,0 +1,5 @@
+2026-11-24 16:15:06.488 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-11-24 16:15:06.489 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-11-24 16:15:06.490 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-11-24 16:15:06.491 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+{"files_verified": 9, "channels": 5, "concurrency": 5, "balance_percent": 42.80299999999999, "pending_calls": 0, "active_calls": 0, "call_records": 0, "usage_refresh_ok": true, "generation_requests_sent_by_verification": 0}

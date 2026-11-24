@@ -1,0 +1,22 @@
+[
+  {
+    "name": "omnia_cost_ledger.py",
+    "before": "421ec54ef69f40e134a56bc2e29538aa04fd6b493ebdb9b7d98559e00c2da110",
+    "after": "8f79525be806b61137187e47e7348370675c4646b3bb7b50be553b5013520955"
+  },
+  {
+    "name": "omnia_service.py",
+    "before": "4d1f886034ed01e598bff0e2ee41bda514c1ab696feea113a4a6e0a81ffbcabb",
+    "after": "c2b2441f3e153bb612642294de8344f1faf354b3ade4d1c09d05453783a25d5b"
+  },
+  {
+    "name": "balance_provider.py",
+    "before": "4f8849d424eaaa3ccd51c18e8d0cb3ed5b97327e6572ab23c6a2b8290bc24d4c",
+    "after": "fba8fa5aad9ab849ea4075b1dcfb0ffb805389bf5af80219267ed4fb138fa6c2"
+  },
+  {
+    "name": "balance_view.py",
+    "before": "ff40e3587b726803ba8f7a36a22f2858237624212c1f8d087a14f70371240d4c",
+    "after": "55d5cffdbc61bfc387632c411d9d1fe57ee7e98042d810e80d069ebada190f37"
+  }
+]

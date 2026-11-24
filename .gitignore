@@ -85,3 +85,8 @@ Thumbs.db
 
 # Runtime error payloads
 /logs/
+
+# Local browser QA runtime
+/outputs/qa-browser-binaries/
+/outputs/qa-browser-deps/
+/outputs/download-e2e/deps/

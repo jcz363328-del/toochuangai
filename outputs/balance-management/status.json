@@ -1,0 +1,26 @@
+{
+  "feature": "小哈余额管理",
+  "basis": "真实平台账户剩余额度 / 100 USD * 100；界面只显示百分比",
+  "completed": [
+    "percentage-only view",
+    "bounded server-side percentage cache",
+    "manual refresh and stale fallback",
+    "isolated runtime/image route patches"
+  ],
+  "validation": {
+    "cache_and_view_tests": 21,
+    "routing_tests": 5,
+    "runtime_and_image_baselines_checked": true
+  },
+  "production_deployed": false,
+  "account_access_verified": false,
+  "blocked_by": [
+    "Configured generation API key received 401 from official account endpoints",
+    "Computer-use runtime failed to initialize",
+    "Existing project-test browser cannot access provider: ERR_NETWORK_ACCESS_DENIED"
+  ],
+  "browser_login": "User logged into Edge; no user login data extracted or persisted",
+  "temporary_test_tab_closed": true,
+  "next_requirement": "Supported read-only account balance authorization or a working connection to the existing logged-in browser",
+  "actual_amounts_or_credentials_in_artifacts": false
+}

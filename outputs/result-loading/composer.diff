@@ -1,0 +1,8 @@
+--- 
++++ 
+@@ -303,4 +303,4 @@
+         st.rerun()
+     st.subheader("⑤ 底图结果")
+     result = st.session_state.get("feature_results", {}).get(feature["key"]) or {}
+-    api.render_result_preview(list(result.get("images") or []), show_title=False, max_width_percent=100)
++    api.render_result_preview(list(result.get("images") or []), show_title=False, max_width_percent=100, feature_key=feature["key"])

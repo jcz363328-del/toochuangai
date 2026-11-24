@@ -1,0 +1,22 @@
+[
+  {
+    "case": "result second",
+    "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=result.png",
+    "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+  },
+  {
+    "case": "data original",
+    "url": "blob:http://127.0.0.1:18580/847f7bad-8e86-4709-b2e3-1bf5ef4e8bdd",
+    "sha256": "b0c073fd5f89e80d9e1a484f8b6e0b1dd0b34b711a75dc3db5245e3bd3741ac4"
+  },
+  {
+    "case": "remote original without CORS",
+    "url": "blob:http://127.0.0.1:18580/074ec189-2ceb-411d-9f17-6880b83f987f",
+    "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+  },
+  {
+    "case": "compare enlarged",
+    "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=result.png",
+    "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+  }
+]

@@ -1,0 +1,42 @@
+--- 
++++ 
+@@ -909,6 +909,12 @@
+         if request_path == model_hd_path:
+             from 图片.canvas_api_proxy import serve_legacy_canvas_request
+             serve_legacy_canvas_request(self, SimpleNamespace(**globals()), request_url.query, self.serve_infinite_canvas_model_hd)
++            return
++        if request_path == f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/reference-node":
++            from 图片.canvas_api_proxy import serve_legacy_canvas_request
++            from 图片.canvas_reference import serve
++            serve_legacy_canvas_request(self, SimpleNamespace(**globals()), request_url.query,
++                                        lambda query: serve(self, SimpleNamespace(**globals()), query))
+             return
+         image_feature_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/image-feature"
+         if request_path == image_feature_path:
+@@ -2120,6 +2126,7 @@
+     {
+         "key": MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
+         "name": "多图参考创作",
++        "hidden": True,
+         "summary": "逐图反推，挑选六类参考内容，组合提示词生成底图",
+         "mode": "openrouter",
+         "output_mode": "image",
+@@ -24024,8 +24031,8 @@
+         render(SimpleNamespace(**globals()), feature)
+         return
+     if feature.get("key") == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+-        from 图片.multi_reference_composer import render
+-        render(SimpleNamespace(**globals()), feature)
++        from 图片.a_plus_canvas import render
++        render(SimpleNamespace(**globals()), get_feature_by_key("a_plus_canvas"), model, aspect_ratio)
+         return
+     if feature.get("key") == "ai_qa_image":
+         from 图片.qa_chat import render
+@@ -26629,7 +26636,6 @@
+         (
+             "a_plus_canvas",
+             "poster_fusion",
+-            MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
+             A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY,
+             AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
+             A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,

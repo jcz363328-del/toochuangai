@@ -15,7 +15,8 @@ class ManualElementQueueTests(unittest.TestCase):
         self.limiter = RequestLimiter(Path(folder) / "limits.sqlite3", poll_interval=.01)
         self.enterContext(patch("图片.request_limits.get_request_limiter", return_value=self.limiter))
         self.enterContext(patch.object(site, "get_request_limiter", return_value=self.limiter))
-        with patch.dict(os.environ, {"XIAOHA_JOB_WORKERS": "2", "XIAOHA_ACCOUNT_QUEUE_LIMIT": "8"}):
+        with patch.dict(os.environ, {"XIAOHA_JOB_WORKERS": "2", "XIAOHA_ACCOUNT_QUEUE_LIMIT": "8",
+                                     "XIAOHA_ACCOUNT_CONCURRENCY": "1"}):
             self.runtime = site.TaskRuntime()
         self.addCleanup(self.runtime.shutdown)
         self.state = {"auth_username": "alice", "analysis": {"template_signature": "template", "elements": []}}

@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "business_analysis": {
+      "id": 101,
+      "function_name": "business_analysis",
+      "gongneng": "business_analysis",
+      "yonghu": "郭婷；王丰慧；王淑雯；柳琳；刘星辰；张彦微；李宝菊；任真民",
+      "bumen": "运营一部；运营二部；运营三部；运营六部；运营七部；流程与AI部；总经办",
+      "fujigongneng": "",
+      "name": "经营分析",
+      "description": "经营分析入口权限；部门负责人仅看本部门，普通员工仅看本人，未命中全量权限时仅展示比例数据。",
+      "enabled": true
+    },
+    "business_analysis_all": {
+      "id": 102,
+      "function_name": "business_analysis_all",
+      "gongneng": "business_analysis_all",
+      "yonghu": "周俊成；侯梁；孙洁；刘蓉蓉；蔡晶；王丰慧；李宝菊；任真民；陈梦昭；王秀玲",
+      "bumen": "流程与AI部；总经办",
+      "fujigongneng": "business_analysis",
+      "name": "经营分析（全量权限）",
+      "description": "经营分析全量数据与全部关键任务管理权限。",
+      "enabled": true
+    }
+  },
+  "people": [
+    {
+      "user_id": "ou_f6ab7ffde7bde7a9af75db4e8c19bb10",
+      "name": "杨悦"
+    }
+  ],
+  "overrides": []
+}

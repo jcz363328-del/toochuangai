@@ -1,0 +1,3 @@
+FROM toochuangai-single:latest
+COPY permission_seed_data.py /app/permission_seed_data.py
+COPY migrations/20261123_transfer_business_analysis_to_yang_yue.py /app/migrations/20261123_transfer_business_analysis_to_yang_yue.py

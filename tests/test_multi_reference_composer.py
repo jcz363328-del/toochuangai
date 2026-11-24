@@ -134,7 +134,7 @@ st.session_state.setdefault('fixture_files', [
     {'name':'subject.png','type':'image/png','data':b'subject'}])
 if page == 'composer':
     with patch.object(site, 'render_multi_image_uploader', return_value=st.session_state.fixture_files), patch.object(site, 'render_result_preview'):
-        site.render_openrouter_feature(site.get_feature_by_key(composer.MULTI_REFERENCE_COMPOSER_FEATURE_KEY), site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)
+        composer.render(site, site.get_feature_by_key(composer.MULTI_REFERENCE_COMPOSER_FEATURE_KEY))
 '''
 
 

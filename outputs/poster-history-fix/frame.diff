@@ -1,0 +1,12 @@
+--- before-frames.py
++++ ../../图片/upload_frames.py
+@@ -49,7 +49,8 @@
+                         + ';window.parent.document.head.appendChild(s);s.remove();</script>', height=0)
+         message = ('拖入更多图片 · 点击选图 · Ctrl+V 粘贴' if multiple else '拖入新图片替换 · 点击选图 · Ctrl+V 粘贴') if shown else '＋\\a 拖入图片到此框\\a 或点击选图 · Ctrl+V 粘贴'
+         if has_preview:
+-            message = '点击放大 · 右击下载或更换 · 拖入 / Ctrl+V 替换'
++            message = ('点击放大 · 右键下载、更换或移除' if remove_button_key
++                       else '点击放大 · 右击下载或更换 · 拖入 / Ctrl+V 替换')
+         allowed = set(kwargs.get('type') or [])
+         image_types = {'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tif', 'tiff', 'gif'}
+         if allowed - image_types:

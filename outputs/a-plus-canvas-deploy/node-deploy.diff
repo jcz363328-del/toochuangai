@@ -1,0 +1,89 @@
+--- 
+
++++ 
+
+@@ -271,7 +271,10 @@
+
+     INFINITE_CANVAS_MODEL_HD_METHOD_SEEDREAM,
+ }
+ INFINITE_CANVAS_IMAGE_FEATURE_MAX_REQUEST_BYTES = 80 * 1024 * 1024
++from 图片.canvas_a_plus import FEATURE_KEYS as CANVAS_A_PLUS_FEATURE_KEYS
++
+ INFINITE_CANVAS_IMAGE_FEATURE_KEYS = {
++    *CANVAS_A_PLUS_FEATURE_KEYS,
+     "product_retouch",
+     "product_retouch_local",
+     "background_cutout",
+@@ -880,6 +883,10 @@
+
+             from 图片.canvas_api_proxy import serve_canvas_api
+             serve_canvas_api(self, SimpleNamespace(**globals()), request_path[len(proxy_prefix):], "GET")
+             return
++        if request_path == f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/a-plus-psd":
++            from 图片.canvas_a_plus import serve_psd
++            serve_psd(self, SimpleNamespace(**globals()), request_url.query)
++            return
+         bootstrap_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/bootstrap-config"
+         if request_path == bootstrap_path:
+             self.serve_infinite_canvas_bootstrap(request_url.query)
+@@ -1320,7 +1327,10 @@
+
+             if not isinstance(raw_images, list) or not raw_images:
+                 raise ValueError("请先提供 1 张待处理原图")
+             source_inputs: list[dict[str, Any]] = []
+-            for image_index, raw_image in enumerate(raw_images[:INFINITE_CANVAS_MAX_INPUT_IMAGES], start=1):
++            if feature_key in CANVAS_A_PLUS_FEATURE_KEYS and len(raw_images) > int(feature.get("max_input_images") or 10):
++                raise ValueError("连接的A+素材图片过多，请减少连线")
++            image_limit = int(feature.get("max_input_images") or 10) if feature_key in CANVAS_A_PLUS_FEATURE_KEYS else INFINITE_CANVAS_MAX_INPUT_IMAGES
++            for image_index, raw_image in enumerate(raw_images[:image_limit], start=1):
+                 decoded_image = decode_data_url(str(raw_image or "").strip())
+                 if not decoded_image:
+                     raise ValueError(f"无法读取第 {image_index} 张输入图片")
+@@ -1334,6 +1344,18 @@
+
+                         "type": mime_type,
+                     }
+                 )
++            if feature_key in CANVAS_A_PLUS_FEATURE_KEYS:
++                from 图片.canvas_a_plus import run_node, prepare_psd_download
++                result = run_node(SimpleNamespace(**globals()), feature, source_inputs,
++                                  str(payload.get("prompt") or "").strip()[:10000], username)
++                images = []
++                for image_url in result.get("images") or []:
++                    data, mime = load_image_bytes_from_url(str(image_url))
++                    images.append(image_bytes_to_data_url(data, mime or "image/png"))
++                self.send_json({"success": True, "image": images[0], "images": images,
++                                "featureName": feature["name"], "text": str(result.get("text") or ""),
++                                "psdUrl": prepare_psd_download(SimpleNamespace(**globals()), result, username)})
++                return
+             if feature_key in INFINITE_CANVAS_IMAGE_FEATURE_REFERENCE_KEYS and len(source_inputs) < 2:
+                 raise ValueError(f"{str(feature.get('name') or '当前功能')}还需要连接至少 1 张参考图")
+             if feature_key in INFINITE_CANVAS_IMAGE_FEATURE_SINGLE_INPUT_KEYS:
+@@ -1533,7 +1555,7 @@
+
+     return urllib.parse.urlunsplit((scheme, netloc, HISTORY_STATIC_ROUTE_PREFIX, "", ""))
+ 
+ 
+-def build_infinite_canvas_url(public_app_url: str, static_port: int, username: str) -> str:
++def build_infinite_canvas_url(public_app_url: str, static_port: int, username: str, workspace: str = "") -> str:
+     static_port = int(os.getenv("JIMENG_PUBLIC_PORT") or static_port)
+     raw_url = str(public_app_url or "").strip() or DEFAULT_PUBLIC_APP_URL
+     parsed = urllib.parse.urlsplit(raw_url)
+@@ -1556,6 +1578,7 @@
+
+             AUTH_QUERY_TOKEN_KEY: build_auth_token(normalized_username),
+             "embed": "true",
+             "build": canvas_version,
++            **({"workspace": "a_plus"} if workspace == "a_plus" else {}),
+         }
+     )
+     return urllib.parse.urlunsplit(
+@@ -22844,6 +22867,7 @@
+
+         str(runtime_settings.get("public_app_url") or DEFAULT_PUBLIC_APP_URL),
+         static_port,
+         str(st.session_state.get("auth_username") or "访客"),
++        workspace="a_plus" if feature.get("key") == "a_plus_canvas" else "",
+     )
+ 
+     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)

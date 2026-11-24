@@ -1,0 +1,28 @@
+{
+  "business_analysis": {
+    "users": "郭婷；王丰慧；王淑雯；柳琳；刘星辰；张彦微；李宝菊；杨悦",
+    "verified": {
+      "任真民": {
+        "personal_grant": false,
+        "reason": ""
+      },
+      "杨悦": {
+        "personal_grant": true,
+        "reason": "权限表：个人权限通过（杨悦）"
+      }
+    }
+  },
+  "business_analysis_all": {
+    "users": "周俊成；侯梁；孙洁；刘蓉蓉；蔡晶；王丰慧；李宝菊；杨悦；陈梦昭；王秀玲",
+    "verified": {
+      "任真民": {
+        "personal_grant": false,
+        "reason": ""
+      },
+      "杨悦": {
+        "personal_grant": true,
+        "reason": "权限表：个人权限通过（杨悦）"
+      }
+    }
+  }
+}

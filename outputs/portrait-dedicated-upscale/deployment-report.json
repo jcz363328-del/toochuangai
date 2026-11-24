@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-21",
+  "deployed": true,
+  "user_choice": "Keep original content and use a dedicated upscaling workflow",
+  "container": "toochuangai-single-app-1",
+  "image": "toochuangai-single:portrait-dedicated-20261121",
+  "main_sha256": "287904bb4b4c3ab883bbc3409bd335afcab2692e2a51998261e034a95c1f0d14",
+  "changes": [
+    "Batch HD uses the dedicated Jimeng super-resolution endpoint with only the corresponding source image",
+    "No text-to-image generation, extra portrait references or prompt input in this workflow",
+    "One PNG per source at the source pixel dimensions; reject materially changed aspect ratio without cropping",
+    "Batch HD and 8K upscaling share the global serial queue",
+    "A completed upscale is never resubmitted because result processing or download failed"
+  ],
+  "validation": {
+    "tests_passed": 79,
+    "real_dedicated_probe_seconds": 112.3,
+    "real_dedicated_probe_dimensions": [
+      5461,
+      8192
+    ],
+    "real_dedicated_probe_task_id": "12170722113486279667",
+    "live_result_processing": "384x576 PNG, original task queried without a new paid submission",
+    "live_and_latest_image_hash": "matched",
+    "health": "all services healthy",
+    "intake_restored": true
+  },
+  "limitations": [
+    "Super-resolution may adjust fine textures or colors; pixel-identical preservation is not guaranteed",
+    "The user portrait itself was not resubmitted; verification used a synthetic image",
+    "Existing 8K feature retains the vendor output dimensions; Batch HD returns original source dimensions"
+  ]
+}

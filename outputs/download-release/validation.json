@@ -1,0 +1,31 @@
+{
+  "download_unit_tests": {
+    "count": 32,
+    "result": "passed_in_linux_release_image"
+  },
+  "browser_runtime": "Streamlit 1.67.0",
+  "real_http_download_checks": 23,
+  "additional_default_proxy_asset_checks": 4,
+  "browser_reports": [
+    "outputs/download-e2e/report.json",
+    "outputs/download-e2e/report-extra.json"
+  ],
+  "deployment": "deployed_and_production_download_verified",
+  "unrelated_baseline_failure": {
+    "test": "test_outpaint_natural_blend.NaturalOutpaintTests.test_unrepaired_rectangular_join_is_retried_then_blocked",
+    "baseline_image": "toochuangai-single:original-downloads-20261120",
+    "reproduced_on_baseline": true
+  },
+  "deployed_at_local": "2026-11-20T16:01:04",
+  "release_image": "toochuangai-single:download-repair-20261120",
+  "main_sha256": "b6b6384898f8a4c5646910e6b9fa12215b3c03be536534829c3ce4ddfe5bbbdd",
+  "production_checks": [
+    "UI and static health 200",
+    "Nginx original download exact SHA256",
+    "UTF-8 filename",
+    "original dimensions 2051x2000",
+    "local original read",
+    "missing original returns404 without attachment",
+    "maintenance disabled"
+  ]
+}

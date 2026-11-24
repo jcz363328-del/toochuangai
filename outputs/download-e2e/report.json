@@ -1,0 +1,238 @@
+{
+  "checks": [
+    {
+      "case": "QA initial download button 1",
+      "filename": "result.png",
+      "url": "http://127.0.0.1:18580/media/d8f78ebd8f221affb4fc9158fae7b807.bin",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "QA initial download button 2",
+      "filename": "result.png",
+      "url": "http://127.0.0.1:18580/media/54d0dc3bb84dd181d17087f8a07536d6.bin",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    },
+    {
+      "case": "QA initial download button 3",
+      "filename": "photo.jpg",
+      "url": "http://127.0.0.1:18580/media/bb2399c9caf9308ca61b1beb93765e98.bin",
+      "sha256": "b0c073fd5f89e80d9e1a484f8b6e0b1dd0b34b711a75dc3db5245e3bd3741ac4"
+    },
+    {
+      "case": "history image 1 button",
+      "filename": "原图_1.png",
+      "url": "http://127.0.0.1:18580/history_images/a/result.png?v=1795159183071076900-97221&download=1&filename=%E5%8E%9F%E5%9B%BE_1.png",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "history image 1 context",
+      "filename": "原图_1.png",
+      "url": "http://127.0.0.1:18580/history_images/a/result.png?v=1795159183071076900-97221&download=1&filename=%E5%8E%9F%E5%9B%BE_1.png",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "history image 1 save_as",
+      "filename": "原图_1.png",
+      "url": "http://127.0.0.1:18580/history_images/a/result.png?v=1795159183071076900-97221&download=1&filename=%E5%8E%9F%E5%9B%BE_1.png",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "history image 2 button",
+      "filename": "原图_2.png",
+      "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=%E5%8E%9F%E5%9B%BE_2.png",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    },
+    {
+      "case": "history image 2 context",
+      "filename": "原图_2.png",
+      "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=%E5%8E%9F%E5%9B%BE_2.png",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    },
+    {
+      "case": "history image 2 save_as",
+      "filename": "原图_2.png",
+      "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=%E5%8E%9F%E5%9B%BE_2.png",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    },
+    {
+      "case": "history image 3 button",
+      "filename": "原图_3.jpg",
+      "url": "http://127.0.0.1:18580/history_images/c/photo.jpg?v=1795159183186409000-641611&download=1&filename=%E5%8E%9F%E5%9B%BE_3.jpg",
+      "sha256": "b0c073fd5f89e80d9e1a484f8b6e0b1dd0b34b711a75dc3db5245e3bd3741ac4"
+    },
+    {
+      "case": "history image 3 context",
+      "filename": "原图_3.jpg",
+      "url": "http://127.0.0.1:18580/history_images/c/photo.jpg?v=1795159183186409000-641611&download=1&filename=%E5%8E%9F%E5%9B%BE_3.jpg",
+      "sha256": "b0c073fd5f89e80d9e1a484f8b6e0b1dd0b34b711a75dc3db5245e3bd3741ac4"
+    },
+    {
+      "case": "history image 3 save_as",
+      "filename": "原图_3.jpg",
+      "url": "http://127.0.0.1:18580/history_images/c/photo.jpg?v=1795159183186409000-641611&download=1&filename=%E5%8E%9F%E5%9B%BE_3.jpg",
+      "sha256": "b0c073fd5f89e80d9e1a484f8b6e0b1dd0b34b711a75dc3db5245e3bd3741ac4"
+    },
+    {
+      "case": "history thumbnail context",
+      "filename": "原图_1.png",
+      "url": "http://127.0.0.1:18580/history_images/a/result.png?v=1795159183071076900-97221&download=1&filename=%E5%8E%9F%E5%9B%BE_1.png",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "history ZIP all 3 originals",
+      "filename": "history_images_20261120_155006_3.zip"
+    },
+    {
+      "case": "history reopened second image",
+      "filename": "原图_2.png",
+      "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=%E5%8E%9F%E5%9B%BE_2.png",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    },
+    {
+      "case": "QA download button 1",
+      "filename": "result.png",
+      "url": "http://127.0.0.1:18580/media/d8f78ebd8f221affb4fc9158fae7b807.bin",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "QA download button 2",
+      "filename": "result.png",
+      "url": "http://127.0.0.1:18580/media/54d0dc3bb84dd181d17087f8a07536d6.bin",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    },
+    {
+      "case": "QA download button 3",
+      "filename": "photo.jpg",
+      "url": "http://127.0.0.1:18580/media/bb2399c9caf9308ca61b1beb93765e98.bin",
+      "sha256": "b0c073fd5f89e80d9e1a484f8b6e0b1dd0b34b711a75dc3db5245e3bd3741ac4"
+    },
+    {
+      "case": "result enlarged 1",
+      "filename": "result.png",
+      "url": "http://127.0.0.1:18580/history_images/a/result.png?v=1795159183071076900-97221&download=1&filename=result.png",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "result enlarged 2",
+      "filename": "result.png",
+      "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=result.png",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    },
+    {
+      "case": "data original",
+      "filename": "e2e_data_original_1.jpg",
+      "url": "blob:http://127.0.0.1:18580/5f0ae436-702d-4a4f-80e5-12e44b88d3d1",
+      "sha256": "b0c073fd5f89e80d9e1a484f8b6e0b1dd0b34b711a75dc3db5245e3bd3741ac4"
+    },
+    {
+      "case": "remote original without CORS",
+      "filename": "e2e_remote_original_1.png",
+      "url": "blob:http://127.0.0.1:18580/27e5b025-a305-4a9e-b7d7-cd6c30f012af",
+      "sha256": "71dad2040ebbe140bce2c35ad234d5eb2f2a1c43e105d6e52770650cd45289a6"
+    },
+    {
+      "case": "compare enlarged after regular gallery",
+      "filename": "result.png",
+      "url": "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421&download=1&filename=result.png",
+      "sha256": "c21664236aa739850a3aca6140494b6410e6d5d74f0e2b5bf692e924bd578968"
+    }
+  ],
+  "requests": [
+    "http://127.0.0.1:18580/",
+    "http://127.0.0.1:18580/static/media/SourceSansVF-Upright.ttf.BsWL4Kly.woff2",
+    "http://127.0.0.1:18580/static/js/index.DormvYxC.js",
+    "http://127.0.0.1:18580/static/js/rolldown-runtime.BCiCTKAo.js",
+    "http://127.0.0.1:18580/static/js/emotion-is-prop-valid.esm.CkL99N7j.js",
+    "http://127.0.0.1:18580/static/js/emotion-styled.browser.esm.DdOkyKg_.js",
+    "http://127.0.0.1:18580/static/js/loglevel.DMC__dHv.js",
+    "http://127.0.0.1:18580/static/js/react-dom.Dzbslgj4.js",
+    "http://127.0.0.1:18580/static/js/emotion-react.browser.esm.Dz233AqG.js",
+    "http://127.0.0.1:18580/static/js/src.ClCGuae5.js",
+    "http://127.0.0.1:18580/static/js/opacities.Blb4Ho7_.js",
+    "http://127.0.0.1:18580/static/js/types.DosXGzv6.js",
+    "http://127.0.0.1:18580/static/js/protobuf.D55wl0P7.js",
+    "http://127.0.0.1:18580/static/js/isSymbol.CmW3dkoN.js",
+    "http://127.0.0.1:18580/static/js/toString.tRXNBxtF.js",
+    "http://127.0.0.1:18580/static/js/isArrayLike.Crw2F5li.js",
+    "http://127.0.0.1:18580/static/js/_isIterateeCall.BUStsXAd.js",
+    "http://127.0.0.1:18580/static/js/isArrayLikeObject.B3Zf3PTL.js",
+    "http://127.0.0.1:18580/static/js/merge.UVaQM33U.js",
+    "http://127.0.0.1:18580/static/js/_baseFlatten.IOj0lc7G.js",
+    "http://127.0.0.1:18580/static/js/last.DfjdtCRp.js",
+    "http://127.0.0.1:18580/static/js/utils.ob4wbeQt.js",
+    "http://127.0.0.1:18580/static/js/UriUtil.CZTdJmE_.js",
+    "http://127.0.0.1:18580/static/js/useCrossOriginAttribute.bh_PwhC9.js",
+    "http://127.0.0.1:18580/static/js/useEmotionTheme.CMOlE5Fg.js",
+    "http://127.0.0.1:18580/static/js/styled-components.XLtagUku.js",
+    "http://127.0.0.1:18580/static/js/useFloatingOverlay.DbDkOVFr.js",
+    "http://127.0.0.1:18580/static/js/Tooltip.BGkP9bdt.js",
+    "http://127.0.0.1:18580/static/js/lib.DTkPmFNq.js",
+    "http://127.0.0.1:18580/static/js/lib.BRCtjBvA.js",
+    "http://127.0.0.1:18580/static/js/lib.BsvoAB7F.js",
+    "http://127.0.0.1:18580/static/js/space-separated-tokens.tMK6mh18.js",
+    "http://127.0.0.1:18580/static/js/ErrorElement.CdpA6bz6.js",
+    "http://127.0.0.1:18580/static/js/preload-helper.CRzLMJPS.js",
+    "http://127.0.0.1:18580/static/js/StreamlitMarkdown.oOG-xoxw.js",
+    "http://127.0.0.1:18580/static/js/_baseIsEqual.sdZCjgvS.js",
+    "http://127.0.0.1:18580/static/js/_baseProperty.BV6HSwpm.js",
+    "http://127.0.0.1:18580/static/js/_baseEach.PLhpSRgM.js",
+    "http://127.0.0.1:18580/static/js/utils.BJVSE7F9.js",
+    "http://127.0.0.1:18580/static/js/FlexContext.BkFprQkj.js",
+    "http://127.0.0.1:18580/static/js/Icon.D6z6tTSi.js",
+    "http://127.0.0.1:18580/static/js/DynamicIcon.DBX1tTbE.js",
+    "http://127.0.0.1:18580/static/js/useDescription.BB3ShmHg.js",
+    "http://127.0.0.1:18580/static/js/Text.RYl_ExSr.js",
+    "http://127.0.0.1:18580/static/js/shim.DT7uHSse.js",
+    "http://127.0.0.1:18580/static/js/useCollection.DU7tSg4K.js",
+    "http://127.0.0.1:18580/static/js/useLabel.BAkLcsHg.js",
+    "http://127.0.0.1:18580/static/js/LiveAnnouncer.CRX7YBAA.js",
+    "http://127.0.0.1:18580/static/js/NumberFormatter.nhsGk7J2.js",
+    "http://127.0.0.1:18580/static/js/number.CgCAQqZj.js",
+    "http://127.0.0.1:18580/static/js/ProgressBar.BbP4hvQX.js",
+    "http://127.0.0.1:18580/static/js/BaseButton.GsR4p1Eu.js",
+    "http://127.0.0.1:18580/static/js/FormClearHelper.uMwNzhNQ.js",
+    "http://127.0.0.1:18580/static/js/useTimeout.odDhD3su.js",
+    "http://127.0.0.1:18580/static/js/useResizeObserver.CWV4GVHX.js",
+    "http://127.0.0.1:18580/static/js/index.esm.CnlgfcEa.js",
+    "http://127.0.0.1:18580/static/js/Check.esm.SwE3eUIH.js",
+    "http://127.0.0.1:18580/static/js/ContentCopy.esm.C1nEcpQW.js",
+    "http://127.0.0.1:18580/static/js/Toolbar.IoDGB_NU.js",
+    "http://127.0.0.1:18580/static/js/useCopyToClipboard.Cdni2W2w.js",
+    "http://127.0.0.1:18580/static/js/useRequiredContext.fKi1tqMI.js",
+    "http://127.0.0.1:18580/static/css/index.C1JORDN2.css",
+    "http://127.0.0.1:18580/static/media/MaterialSymbols-Rounded.nEdyypZU.woff2",
+    "http://127.0.0.1:18580/_stcore/health",
+    "http://127.0.0.1:18580/_stcore/host-config",
+    "http://127.0.0.1:18580/favicon.png",
+    "http://127.0.0.1:18580/static/js/Button.CORxUu4r.js",
+    "http://127.0.0.1:18580/static/js/IFrame.DoeBhz7M.js",
+    "http://127.0.0.1:18580/static/js/IFrameUtil.PlC_b34Z.js",
+    "http://127.0.0.1:18580/static/js/DownloadButton.DdynO2sY.js",
+    "http://127.0.0.1:18580/static/js/createDownloadLinkElement.CbtBGf4k.js",
+    "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421",
+    "http://127.0.0.1:18580/media/d8f78ebd8f221affb4fc9158fae7b807.bin",
+    "http://127.0.0.1:18580/media/54d0dc3bb84dd181d17087f8a07536d6.bin",
+    "http://127.0.0.1:18580/media/bb2399c9caf9308ca61b1beb93765e98.bin",
+    "http://127.0.0.1:18580/static/js/Checkbox.CaT4asBe.js",
+    "http://127.0.0.1:18580/static/js/useFormValidation.D2i_isRP.js",
+    "http://127.0.0.1:18580/static/js/useFormReset.Dsqx1XhY.js",
+    "http://127.0.0.1:18580/static/js/useSlot.CXZFle1D.js",
+    "http://127.0.0.1:18580/static/js/WidgetLabelHelpIconInline.COAzYW2l.js",
+    "http://127.0.0.1:18580/static/js/styled-components.kM4tXvFQ.js",
+    "http://127.0.0.1:18580/static/js/useBasicWidgetState.8xeaSejc.js",
+    "http://127.0.0.1:18580/static/js/checkboxIndicatorStyles.Cz7_ncjO.js",
+    "http://127.0.0.1:18580/static/js/rehype-raw.DgJ5HSkU.js",
+    "http://127.0.0.1:18580/static/js/hastscript.BRLGlqm4.js",
+    "http://127.0.0.1:18580/static/js/web-namespaces.BxZ_GhEx.js",
+    "http://127.0.0.1:18580/static/js/remark-emoji.CE8lxIK6.js",
+    "http://127.0.0.1:18580/static/js/lib.CQXimEhy.js",
+    "http://127.0.0.1:18580/history_images/a/result.png?v=1795159183071076900-97221",
+    "http://127.0.0.1:18580/history_images/b/result.png?v=1795159183168892400-97421",
+    "http://127.0.0.1:18580/history_images/c/photo.jpg?v=1795159183186409000-641611",
+    "http://127.0.0.1:18580/media/f5ef77b7c8beff150b8c482153976968.zip",
+    "http://127.0.0.1:18580/media/d8f78ebd8f221affb4fc9158fae7b807.bin",
+    "http://127.0.0.1:18580/media/54d0dc3bb84dd181d17087f8a07536d6.bin",
+    "http://127.0.0.1:18580/media/bb2399c9caf9308ca61b1beb93765e98.bin"
+  ],
+  "errors": []
+}

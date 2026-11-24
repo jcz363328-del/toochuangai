@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TK费用导入 - 财务部</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#182033;font:14px 'Microsoft YaHei',sans-serif}main{max-width:1440px;margin:auto;padding:24px}header{display:flex;justify-content:space-between;align-items:center}h1{font-size:22px}h2{font-size:17px;margin-top:0}section{background:white;border:1px solid #e2e8f2;border-radius:12px;padding:22px;margin:18px 0}p{color:#64748b;line-height:1.8}button,.back{background:#4f6df5;color:white;border:0;border-radius:7px;padding:10px 18px;cursor:pointer;text-decoration:none}button:disabled{opacity:.5;cursor:wait}input,select{padding:9px;border:1px solid #cbd5e1;border-radius:6px;max-width:100%}.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.scroll{overflow:auto;margin-top:18px}table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:11px;text-align:left;border-bottom:1px solid #e2e8f0}th{background:#f8fafc}.message{white-space:pre-wrap;margin-top:14px}.error{color:#b91c1c}label{display:inline-flex;gap:8px;align-items:center}
+</style></head>
+<body><main><header><h1>TK费用导入</h1><a class="back" href="{{ url_for('finance_modules') }}">返回财务部</a></header>
+<section><h2>导入费用</h2><p>支持原工作簿的“费用导入”sheet（从第4行读取），也支持第一行是表头的独立xlsx表格。<br>广告费用列顺序：日期、店铺、国、广告花费、备注。其他费用列顺序：日期、店、项目、国、费用额、备注。<br>广告费用校验TT店铺并检查重复正数费用；其他费用允许负数冲销。整批校验通过后写入，其他费用重复提交会再次入账。</p>
+<form id="importForm" class="controls"><label>导入类型<select name="kind"><option value="advertising">广告花费</option><option value="other">其他费用</option></select></label><input type="file" name="file" accept=".xlsx,.xlsm" required aria-label="费用Excel文件"><button>导入费用</button></form><div id="importMessage" class="message" role="status"></div></section>
+<section><h2>费用查询</h2><form id="queryForm" class="controls"><label>开始日期<input type="date" name="start_date" required></label><label>结束日期<input type="date" name="end_date" required></label><button>查询</button></form><div id="queryMessage" class="message" role="status"></div><div class="scroll"><table><thead><tr><th>日期</th><th>店</th><th>国</th><th>项目</th><th>费用</th><th>备注</th><th>登记人</th><th>登记时间</th></tr></thead><tbody id="expenseRows"></tbody></table></div></section>
+</main><script>
+const endpoint='/api/finance/tk_expenses';
+const now=new Date(), year=now.getFullYear(), month=String(now.getMonth()+1).padStart(2,'0');
+document.querySelector('[name=start_date]').value=`${year}-${month}-01`;
+document.querySelector('[name=end_date]').value=`${year}-${month}-${String(now.getDate()).padStart(2,'0')}`;
+async function run(form,box,action){const button=form.querySelector('button');button.disabled=true;box.classList.remove('error');box.textContent='正在处理…';try{await action();}catch(error){box.classList.add('error');box.textContent=error.message;}finally{button.disabled=false;}}
+async function readResponse(response){if(!response.headers.get('content-type')?.includes('application/json'))throw Error('登录已过期或服务暂不可用，请刷新页面');const data=await response.json();if(!response.ok||!data.success)throw Error(data.message||'操作失败');return data;}
+document.getElementById('importForm').addEventListener('submit',event=>{event.preventDefault();const form=event.currentTarget,box=document.getElementById('importMessage');run(form,box,async()=>{const data=await readResponse(await fetch(endpoint,{method:'POST',body:new FormData(form)}));box.textContent=data.message;form.querySelector('[name=file]').value='';});});
+document.getElementById('queryForm').addEventListener('submit',event=>{event.preventDefault();const form=event.currentTarget,box=document.getElementById('queryMessage'),body=document.getElementById('expenseRows');body.replaceChildren();run(form,box,async()=>{const params=new URLSearchParams(new FormData(form));if(params.get('start_date')>params.get('end_date'))throw Error('开始日期不能晚于结束日期');const data=await readResponse(await fetch(endpoint+'?'+params));const fragment=document.createDocumentFragment();for(const row of data.data){const tr=document.createElement('tr');for(const value of row){const td=document.createElement('td');td.textContent=value??'';tr.appendChild(td);}fragment.appendChild(tr);}body.appendChild(fragment);box.textContent=data.data.length?`共 ${data.data.length} 条`:'所选日期没有费用记录';});});
+</script></body></html>

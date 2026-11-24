@@ -1,0 +1,359 @@
+--- 
+
++++ 
+
+@@ -18575,7 +18575,7 @@
+
+                             reset_upload_widget(widget_key)
+                             st.rerun()
+             st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
+-            replacement_upload = st.file_uploader(
++            replacement_upload = render_frame_uploader(
+                 "替换图片",
+                 type=["png", "jpg", "jpeg", "webp"],
+                 key=get_replace_uploader_widget_key(widget_key, item_index),
+@@ -19570,6 +19570,11 @@
+
+     )
+ 
+ 
++def render_frame_uploader(label: str, **kwargs):
++    from 图片.upload_frames import render_file_frame
++    return render_file_frame(SimpleNamespace(**globals()), label, **kwargs)
++
++
+ def render_single_image_uploader(
+     label: str,
+     key: str,
+@@ -19578,40 +19583,24 @@
+
+     cached_files = load_upload_cache(key, max_files=1)
+     active_uploaded = cached_files[0] if cached_files else None
+ 
+-    with st.container(height=400, border=False):
+-        if active_uploaded is not None:
+-            def single_preview(uploaded_input: Any, item_index: int, component_key: str) -> None:
+-                render_zoomable_image_gallery(
+-                    [uploaded_input_to_data_url(uploaded_input)], columns=1, thumb_height=320,
+-                    component_key=component_key, fit_mode="contain", max_width_percent=100,
+-                )
+-            render_uploaded_preview_card(active_uploaded, key, 0, f"single_preview_{key}", preview_renderer=single_preview)
+-        else:
+-            st.markdown('<div class="upload-main-empty" style="height:350px"><div class="empty-icon">＋</div><div class="empty-title">上传参考图片</div></div>', unsafe_allow_html=True)
+-
+-    action_left, action_right = st.columns([1, 1], gap="small")
+-    with action_left:
+-        uploaded = st.file_uploader(
+-            "重新上传" if active_uploaded is not None else "上传图片",
+-            type=["png", "jpg", "jpeg", "webp"],
+-            key=get_uploader_widget_key(key),
+-            help=help_text or None,
+-            label_visibility="collapsed",
+-        )
+-        if uploaded is not None:
+-            replacement_index = consume_pending_upload_replacement(key)
+-            if replacement_index is not None and active_uploaded is not None:
+-                replace_upload_cache_item(key, replacement_index, uploaded)
+-            else:
+-                save_upload_cache(key, [uploaded])
+-            reset_upload_widget(key)
+-            st.rerun()
+-
+-    with action_right:
+-        if st.button("清空上传", key=f"clear_upload_{key}", use_container_width=True, type="secondary"):
+-            clear_upload_cache(key)
+-            reset_upload_widget(key)
+-            st.rerun()
++    uploaded = render_frame_uploader(
++        label, type=["png", "jpg", "jpeg", "webp"],
++        key=get_uploader_widget_key(key), preview_files=cached_files, frame_height=350,
++        help=help_text or None, label_visibility="collapsed",
++    )
++    if uploaded is not None:
++        consume_pending_upload_replacement(key)
++        save_upload_cache(key, [uploaded])
++        reset_upload_widget(key)
++        st.rerun()
++    if active_uploaded is not None:
++        with st.popover("放大查看"):
++            render_zoomable_image_gallery([uploaded_input_to_data_url(active_uploaded)], columns=1,
++                thumb_height=500, component_key=f"single_preview_{key}", fit_mode="contain", max_width_percent=100)
++    if st.button("清空上传", key=f"clear_upload_{key}", type="secondary"):
++        clear_upload_cache(key)
++        reset_upload_widget(key)
++        st.rerun()
+ 
+     st.caption("支持 Ctrl+V 直接粘贴图片到当前上传区域")
+     return active_uploaded
+@@ -19625,21 +19614,10 @@
+
+     cached_files = load_upload_cache(key, max_files=1)
+     active_uploaded = cached_files[0] if cached_files else None
+ 
+-    if active_uploaded is not None:
+-        render_zoomable_image_gallery(
+-            [uploaded_input_to_data_url(active_uploaded)],
+-            columns=1,
+-            thumb_height=112,
+-            component_key=f"compact_element_preview_{key}",
+-            fit_mode="contain",
+-            max_width_percent=100,
+-        )
+-        st.caption(f"已选：{get_uploaded_file_name(active_uploaded)}")
+-
+-    uploaded = st.file_uploader(
++    uploaded = render_frame_uploader(
+         "更换素材" if active_uploaded is not None else label,
+         type=["png", "jpg", "jpeg", "webp"],
+-        key=get_uploader_widget_key(key),
++        key=get_uploader_widget_key(key), preview_files=cached_files, frame_height=220,
+         help=help_text or None,
+         label_visibility="collapsed",
+     )
+@@ -19662,94 +19640,17 @@
+
+ 
+ 
+ def render_first_screen_material_uploader(key: str, *, hero: bool = False) -> list[Any]:
+-    """Fixed material canvas with compact, accessible per-image actions."""
+-    limit = 1 if hero else 9
+-    files = load_upload_cache(key, max_files=limit)
++    """The A+ material area shares the same paste/drop frames as other features."""
+     with st.container(border=True, key="fusion_hero" if hero else "fusion_materials"):
+-        st.markdown(
+-            '<div class="fusion-panel-header"><div class="fusion-panel-heading">'
+-            f'<strong>{"首屏底稿" if hero else "卖点素材"}</strong>'
+-            f'<span>{len(files)} / {limit}</span></div>'
+-            '<div class="fusion-panel-description">'
+-            f'{"首屏内容原样保留" if hero else "拖动调整顺序，按优先级提取卖点"}'
+-            '</div></div>', unsafe_allow_html=True,
+-        )
+-        with st.container(height=540, border=False):
+-            for start in range(0, limit, 1 if hero else 3):
+-                columns = st.columns(1 if hero else 3, gap="small")
+-                for offset, column in enumerate(columns):
+-                    index = start + offset
+-                    with column:
+-                        if index >= len(files):
+-                            st.markdown(
+-                                f'<div class="fusion-empty-slot {"fusion-empty-hero" if hero else ""}">'
+-                                '<span>＋</span>等待上传</div>',
+-                                unsafe_allow_html=True,
+-                            )
+-                            with st.popover("上传底稿" if hero else "添加素材", use_container_width=True):
+-                                additions = st.file_uploader(
+-                                    "选择图片", type=["png", "jpg", "jpeg", "webp"],
+-                                    accept_multiple_files=not hero,
+-                                    key=f"{get_uploader_widget_key(key)}_slot_{index}",
+-                                )
+-                                if additions:
+-                                    new_files = [additions] if hero else list(additions)
+-                                    save_upload_cache(key, (files + new_files)[:limit])
+-                                    reset_upload_widget(key)
+-                                    st.rerun()
+-                            continue
+-                        with st.container(key=f"fusion_card_{key}_{index}"):
+-                            st.markdown(
+-                                f'<div class="upload-preview-root" data-upload-widget="{html.escape(key, quote=True)}" '
+-                                f'data-upload-index="{index}" data-upload-sortable="{str(not hero).lower()}"></div>',
+-                                unsafe_allow_html=True,
+-                            )
+-                            render_zoomable_image_gallery(
+-                                [uploaded_input_to_data_url(files[index])], columns=1,
+-                                thumb_height=470 if hero else 112,
+-                                component_key=f"fusion_preview_{key}_{index}",
+-                                fit_mode="contain", max_width_percent=100,
+-                            )
+-                            with st.popover("替换 / 移除" if hero else f"{index + 1:02d} · 操作", use_container_width=True):
+-                                st.caption("点击图片可放大查看")
+-                                replacement = st.file_uploader(
+-                                    "替换图片", type=["png", "jpg", "jpeg", "webp"],
+-                                    key=get_replace_uploader_widget_key(key, index),
+-                                )
+-                                if replacement is not None:
+-                                    replace_upload_cache_item(key, index, replacement)
+-                                    reset_upload_widget(key)
+-                                    st.rerun()
+-                                if not hero:
+-                                    for target, label in ((index - 1, "← 前移"), (index + 1, "后移 →")):
+-                                        if st.button(label, key=f"fusion_move_{key}_{index}_{target}", disabled=not 0 <= target < len(files)):
+-                                            reorder_upload_cache_item(key, index, target)
+-                                            reset_upload_widget(key)
+-                                            st.rerun()
+-                                if st.button("移除图片", key=f"fusion_remove_{key}_{index}"):
+-                                    remove_upload_cache_item(key, index)
+-                                    reset_upload_widget(key)
+-                                    st.rerun()
+-        upload_col, clear_col = st.columns([3, 1], gap="small")
+-        with upload_col:
+-            st.markdown('<div class="upload-more-marker"></div>', unsafe_allow_html=True)
+-            uploaded = st.file_uploader(
+-                "替换底稿" if hero and files else "上传底稿" if hero else "添加素材",
+-                type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=not hero,
+-                key=get_uploader_widget_key(key), label_visibility="collapsed",
+-            )
+-            if uploaded:
+-                additions = [uploaded] if hero else list(uploaded)
+-                save_upload_cache(key, (additions if hero else files + additions)[:limit])
+-                reset_upload_widget(key)
+-                st.rerun()
+-        with clear_col:
+-            if st.button("清空", key=f"fusion_clear_{key}", use_container_width=True, disabled=not files):
+-                clear_upload_cache(key)
+-                reset_upload_widget(key)
+-                st.rerun()
+-        st.caption("支持 Ctrl+V 粘贴 · 点击图片放大" if hero else "最多 9 张 · 支持 Ctrl+V 粘贴")
+-    return files
++        st.markdown("**首屏底稿**" if hero else "**卖点素材 · 最多9张**")
++        if hero:
++            uploaded = render_single_image_uploader("首屏底稿", key)
++            return [uploaded] if uploaded is not None else []
++        return render_multi_image_uploader(
++            "卖点素材", key, max_files=9, preview_slot_count=3,
++            allow_reorder=True, preview_area_height=440,
++            help_text="拖入或粘贴图片，按优先级调整素材顺序。",
++        )
+ 
+ 
+ def render_multi_image_uploader(
+@@ -19765,77 +19666,36 @@
+
+     cached_files = load_upload_cache(key, max_files=max_files)
+     active_uploaded_files = cached_files
+ 
+-    # Reserve the same space for empty and populated galleries. Extra images
+-    # scroll inside this area instead of moving the controls below the uploader.
+-    preview_area_height = preview_area_height or (560 if preview_renderer is not None else 420)
+-    preview_area = st.container(height=preview_area_height, border=False) if preview_area_height else st.container()
+-    with preview_area:
+-        if active_uploaded_files:
+-            st.markdown(
+-                '<div class="upload-summary-row">'
+-                '<strong>已上传图片</strong>'
+-                f'<span>{len(active_uploaded_files)} / {max_files} 张</span>'
+-                '</div>',
+-                unsafe_allow_html=True,
+-            )
+-            render_uploaded_gallery(
+-                active_uploaded_files,
+-                "",
+-                widget_key=key,
+-                slot_count=preview_slot_count or max_files,
+-                preview_renderer=preview_renderer,
+-                allow_reorder=allow_reorder,
+-            )
+-            if allow_reorder and len(active_uploaded_files) > 1:
+-                st.caption("按住图片左上角的“优先级”标签拖拽，或点击前移/后移，调整生成时的参考顺序。")
++    if active_uploaded_files:
++        preview_area_height = preview_area_height or (560 if preview_renderer is not None else 420)
++        with st.container(height=preview_area_height, border=False):
++            render_uploaded_gallery(active_uploaded_files, "", key, preview_renderer=preview_renderer,
++                                    slot_count=preview_slot_count or min(max_files, 5), allow_reorder=allow_reorder)
++    uploaded_files = render_frame_uploader(
++        label, type=["png", "jpg", "jpeg", "webp"], key=get_uploader_widget_key(key),
++        help=help_text or None, label_visibility="collapsed", accept_multiple_files=True,
++        frame_height=200 if active_uploaded_files else 350,
++    ) or []
++    if uploaded_files:
++        current_cache = load_upload_cache(key, max_files=max_files)
++        replacement_index = consume_pending_upload_replacement(key)
++        if replacement_index is not None and uploaded_files:
++            combined = list(current_cache)
++            if replacement_index < len(combined):
++                combined[replacement_index] = list(uploaded_files)[0]
++            else:
++                combined.append(list(uploaded_files)[0])
+         else:
+-            st.markdown(
+-                f'<div class="upload-main-empty" style="height:{preview_area_height - 16}px">'
+-                '<div class="empty-icon">＋</div>'
+-                '<div class="empty-title">添加需要处理的图片</div>'
+-                f'<div class="empty-subtitle">支持批量上传，最多 {max_files} 张</div>'
+-                '</div>',
+-                unsafe_allow_html=True,
+-            )
+-
+-    action_left, action_right = st.columns([1.4, 0.6], gap="small")
+-    with action_left:
+-        st.markdown(
+-            '<div class="upload-more-marker"></div>'
+-            if active_uploaded_files
+-            else '<div class="upload-add-marker"></div>',
+-            unsafe_allow_html=True,
+-        )
+-        uploaded_files = st.file_uploader(
+-            "继续上传" if active_uploaded_files else "上传图片",
+-            type=["png", "jpg", "jpeg", "webp"],
+-            key=get_uploader_widget_key(key),
+-            help=help_text or None,
+-            label_visibility="collapsed",
+-            accept_multiple_files=True,
+-        ) or []
+-        
+-        if uploaded_files:
+-            current_cache = load_upload_cache(key, max_files=max_files)
+-            replacement_index = consume_pending_upload_replacement(key)
+-            if replacement_index is not None and uploaded_files:
+-                combined = list(current_cache)
+-                if replacement_index < len(combined):
+-                    combined[replacement_index] = list(uploaded_files)[0]
+-                else:
+-                    combined.append(list(uploaded_files)[0])
+-            else:
+-                combined = current_cache + list(uploaded_files)
+-            combined = combined[:max_files]
+-            save_upload_cache(key, combined)
+-            reset_upload_widget(key)
+-            st.rerun()
+-
+-    with action_right:
+-        if st.button("清空上传", key=f"clear_upload_{key}", use_container_width=True, type="secondary"):
+-            clear_upload_cache(key)
+-            reset_upload_widget(key)
+-            st.rerun()
++            combined = current_cache + list(uploaded_files)
++        combined = combined[:max_files]
++        save_upload_cache(key, combined)
++        reset_upload_widget(key)
++        st.rerun()
++
++    if st.button("清空上传", key=f"clear_upload_{key}", type="secondary"):
++        clear_upload_cache(key)
++        reset_upload_widget(key)
++        st.rerun()
+ 
+     st.caption("支持 Ctrl+V 直接粘贴图片到当前上传区域")
+     return active_uploaded_files
+@@ -19851,18 +19711,12 @@
+
+             active_uploaded = cached_files[0] if cached_files else None
+             
+             if active_uploaded is not None:
+-                render_uploaded_preview_card(
+-                    active_uploaded,
+-                    widget_key=slot_key,
+-                    item_index=0,
+-                    component_key=f"upload_preview_{slot_key}_0",
+-                )
+                 uploaded_files.append(active_uploaded)
+-            
+-            uploaded = st.file_uploader(
++
++            uploaded = render_frame_uploader(
+                 "重新上传" if active_uploaded else "上传参考图",
+                 type=["png", "jpg", "jpeg", "webp"],
+-                key=get_uploader_widget_key(slot_key),
++                key=get_uploader_widget_key(slot_key), preview_files=cached_files, frame_height=220,
+                 label_visibility="collapsed",
+             )
+             if uploaded is not None:
+@@ -24164,7 +24018,7 @@
+
+         unsafe_allow_html=True,
+     )
+     st.info("建议一次上传完整的转曲 AI、PDF 和截图；也可以直接上传包含这些文件的 ZIP。")
+-    uploaded_files = st.file_uploader(
++    uploaded_files = render_frame_uploader(
+         "上传印前源文件",
+         type=["ai", "pdf", "zip", "png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"],
+         accept_multiple_files=True,

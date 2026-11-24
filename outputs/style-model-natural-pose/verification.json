@@ -1,0 +1,14 @@
+{
+  "feature": "a_plus_style_model_replace",
+  "behavior": [
+    "prefer target model original pose",
+    "natural lighting perspective and occlusion",
+    "complete cropped or occluded missing regions"
+  ],
+  "tests_passed": 26,
+  "health": "all services healthy",
+  "image": "toochuangai-single:style-model-natural-pose-20261123",
+  "rollback_image": "toochuangai-single:before-style-model-natural-pose-20261123",
+  "source_sha256": "fc835a53c3ae6f4ad686bdb82b3a937d45bdf843ade0ce3524f7e9e67ef31331",
+  "live_paid_generation_test": false
+}

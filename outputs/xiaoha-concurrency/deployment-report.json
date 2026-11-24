@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-19",
+  "image": "toochuangai-single:concurrency-20261119",
+  "latest_updated": true,
+  "image_digest": "sha256:0a041121409f77561f80cdbf34e676278ba7e9316cc98dc56d8aef15c547d542",
+  "services": ["xiaoha", "xiaoha-static"],
+  "pre_deploy": {"qa_active_turns": 0, "idle_worker_stack_checks": 3},
+  "regression": {"total": 203, "passed": 196, "baseline_failures_reproduced": 7},
+  "docker_cross_process_tests": {"total": 22, "passed": 22},
+  "health": {"web": "ok", "static": "ok", "canvas_ready": true},
+  "canvas": {"backend_proxy": true, "model_count": 7, "invalid_model_status": 400},
+  "limiter": {"active": 0, "waiting": 0, "draining": false, "omnia_limit": 2, "omnia_image_limit": 1},
+  "paid_requests_in_this_change": 0,
+  "hashes": {
+    "openrouter_image_site.py": "ad1552d6bcef414c9d6509e4b3914b82097cf60a3c3ce96d51347e7cd11fd428",
+    "qa_chat.py": "0b4813c2e35536ec102b7263b531fca2599a88103ab50a06cd5df8e2cad53b2d",
+    "request_limits.py": "ceb668b79d4a0726d64c9571a6f300c2bb84c4cc24463809f06ae5b0febc7b79",
+    "canvas_api_proxy.py": "9b0286a8b3ae4beda2cea361e00b08c2ac8bbf888ded421244b14c0e2efe0a4a"
+  }
+}

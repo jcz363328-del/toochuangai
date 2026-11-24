@@ -1,0 +1,38 @@
+--- before-site.py
++++ openrouter_image_site.py
+@@ -18708,6 +18708,7 @@
+     direct_src: bool = False,
+     embed_full_src: bool = False,
+     allow_native_image_download: bool = True,
++    native_fullscreen_context_menu: bool = False,
+ ) -> None:
+     items: list[dict[str, Any]] = []
+     normalized_full_images = list(full_images or [])
+@@ -18747,6 +18748,7 @@
+     }))
+     delete_token = json.dumps(str(context_delete_token or ""))
+     allow_native_download = json.dumps(bool(allow_native_image_download))
++    native_fullscreen_menu = json.dumps(bool(native_fullscreen_context_menu))
+     html_content = f"""
+     <div id="{component_key}" class="zoom-gallery-root" style="max-width: {max_width_percent}%; margin: 0 auto;">
+       <div class="zoom-gallery-grid" style="grid-template-columns: repeat({columns}, minmax(0, 1fr)); gap: {gap}px;">
+@@ -19435,8 +19437,9 @@
+         const downloadName = deriveEagleFileName_{component_key}(downloadSrc, index);
+         image.oncontextmenu = (event) => {{
+           if (!{allow_native_download}) {{ event.preventDefault(); return; }}
+-          // Eagle's official browser extension uses Alt + right-click.
+-          if (event.altKey) return;
++          // History originals use the browser menu so Copy Image also works
++          // on HTTP pages without the JavaScript clipboard API.
++          if ({native_fullscreen_menu} || event.altKey) return;
+           event.preventDefault();
+           openEagleMenu_{component_key}(event, downloadSrc, index);
+         }};
+@@ -20691,6 +20694,7 @@
+                     full_images=[fullscreen_href or str(item.get("display_image") or "")],
+                     download_names=[str(item.get("download_name") or "")],
+                     embed_full_src=False,
++                    native_fullscreen_context_menu=True,
+                 )
+                 if enable_a_plus_crop_downloads and download_source:
+                     render_main_image_a_plus_crop_downloads(

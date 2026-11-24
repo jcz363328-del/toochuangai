@@ -1,0 +1,21 @@
+--- 
++++ 
+@@ -13219,7 +13219,18 @@
+     st.session_state.background_jobs = latest_by_feature
+ 
+ 
++def inject_processing_transition() -> None:
++    script = (APP_DIR / "processing_transition.js").read_text(encoding="utf-8-sig")
++    script = script.replace("__XIAOHA_LOADING_HTML__", json.dumps(build_running_job_spinner_html(0, "正在提交处理，请稍候")))
++    components.html(
++        '<script>const s=window.parent.document.createElement("script");s.textContent='
++        + json.dumps(script).replace("</", r"<\/")
++        + ';window.parent.document.head.appendChild(s);s.remove();</script>', height=0,
++    )
++
++
+ def inject_app_styles() -> None:
++    inject_processing_transition()
+     st.markdown(
+         """
+         <style>

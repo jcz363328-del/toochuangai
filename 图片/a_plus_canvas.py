@@ -1,0 +1,9 @@
+"""Open the dedicated A+ node canvas."""
+FEATURE_KEY = "a_plus_canvas"
+
+
+def render(api, feature, model, aspect_ratio):
+    if api.st.button("多图参考历史记录", key="a_plus_canvas_reference_history"):
+        api.render_fusion_history_dialog(api.get_feature_by_key(api.MULTI_REFERENCE_COMPOSER_FEATURE_KEY))
+    api.st.caption("参考图反推：每个节点放1张图片，输出可编辑文案；选择各份文案的背景、主体、装饰等内容，连入“文案组合生图”自由组合。也可添加其他A+功能节点继续处理。")
+    api.render_replacement_infinite_canvas_feature(feature)

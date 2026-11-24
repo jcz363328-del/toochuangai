@@ -110,7 +110,7 @@ function StoreRankingGrid({ rows, canViewAmounts }: {
 
   return (
     <div className="fiscal-person-list" aria-label="店铺达成率完整排名">
-      <div className="fiscal-person-head"><span>排名</span><span>店铺 / 负责人 / 所属部门</span><span>达成进度（标线 100%）</span><span>实际金额</span><span>达成率</span><span>缺口</span></div>
+      <div className="fiscal-person-head"><span>排名</span><span>店铺 / 负责人 / 所属部门</span><span>达成进度（标线 100%）</span><span>实际金额</span><span>目标金额</span><span>达成率</span><span>缺口</span></div>
       <ol>
         {rows.map((row) => {
           const progressWidth = Math.min(Math.max(((row.achievementRate ?? 0) / progressScale) * 100, 0), 100);
@@ -127,6 +127,7 @@ function StoreRankingGrid({ rows, canViewAmounts }: {
                 <em style={{ left: `${goalPosition}%` }} aria-hidden="true" />
               </span>
               <span className="fiscal-person-actual">{amountLabel(row.actual, canViewAmounts)}</span>
+              <span className="fiscal-person-actual">{amountLabel(row.ytdTarget, canViewAmounts)}</span>
               <strong className={(row.achievementRate ?? 0) >= 1 ? "is-achieved" : "is-unmet"}>{percent(row.achievementRate, 1)}</strong>
               <span className={(row.gapRate ?? row.gap ?? 0) <= 0 ? "is-ahead" : "is-gap"}>{gapLabel(row.gap, canViewAmounts, row.gapRate)}</span>
             </li>

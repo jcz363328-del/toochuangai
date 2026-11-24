@@ -1,0 +1,783 @@
+
+    <div id="second" class="zoom-gallery-root" style="max-width: 100%; margin: 0 auto;">
+      <div class="zoom-gallery-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+      </div>
+    </div>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      .zoom-gallery-grid {
+        display: grid;
+      }
+      .zoom-thumb-wrap {
+        position: relative;
+        width: 100%;
+      }
+      .zoom-thumb {
+        width: 100%;
+        height: 100px;
+        object-fit: contain;
+        display: block;
+        cursor: zoom-in;
+        background: transparent;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        box-sizing: border-box;
+      }
+      .zoom-thumb-delete {
+        appearance: none;
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        z-index: 3;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.92);
+        background: rgba(255, 77, 90, 0.96);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
+        user-select: none;
+        backdrop-filter: blur(3px);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.34);
+        opacity: 1;
+      }
+      .zoom-thumb-delete:hover {
+        background: rgba(255, 36, 74, 1);
+        border-color: rgba(255, 255, 255, 1);
+        color: #ffffff;
+      }
+    </style>
+    <script>
+      const images_second = [{"src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAQrBkADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFgEBAQEAAAAAAAAAAAAAAAAAAAYI/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AmEBstOgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//Z", "width": 2400, "height": 1600, "full_src": "http://history.test/original/b.png", "download_name": "b-original.png"}];
+      const grid_second = document.querySelector("#second .zoom-gallery-grid");
+      const hostWindow_second = (() => {
+        try {
+          return window.parent;
+        } catch (e) {
+          return window;
+        }
+      })();
+      const hostDoc_second = (() => {
+        try {
+          return window.parent.document;
+        } catch (e) {
+          return document;
+        }
+      })();
+
+      function setFrameHeight_second(value) {
+        try {
+          if (window.frameElement) {
+            window.frameElement.style.height = value + "px";
+          }
+        } catch (e) {}
+      }
+
+      function updateFrameHeight_second() {
+        const root = document.getElementById("second");
+        if (!root) return;
+        const nextHeight = Math.max(root.scrollHeight + 12, 100);
+        setFrameHeight_second(nextHeight);
+      }
+
+      function normalizeViewerSrc_second(src) {
+        const raw = String(src || "").trim();
+        if (!raw || raw.startsWith("data:")) {
+          return raw;
+        }
+        try {
+          const parsed = new URL(raw, hostWindow_second.location.href);
+          const isStaticImageRoute =
+            parsed.pathname.startsWith("/history_images/") ||
+            parsed.pathname.startsWith("/jimeng_uploads/");
+          if (!isStaticImageRoute) {
+            return parsed.toString();
+          }
+          const currentProtocol = hostWindow_second.location.protocol || parsed.protocol;
+          const currentHostname = hostWindow_second.location.hostname || parsed.hostname;
+          const currentPort = parsed.port ? ":" + parsed.port : "";
+          return `${currentProtocol}//${currentHostname}${currentPort}${parsed.pathname}${parsed.search}${parsed.hash}`;
+        } catch (e) {
+          return raw;
+        }
+      }
+
+      function deriveEagleFileName_second(src, index) {
+        const fallbackName = "second_" + String(index + 1) + ".png";
+        const configuredName = String(
+          (images_second[index] && images_second[index].download_name) || ""
+        ).trim();
+        if (configuredName) return configuredName;
+        const raw = String(src || "").trim();
+        if (!raw) return fallbackName;
+        if (raw.startsWith("data:")) return fallbackName;
+        try {
+          const parsed = new URL(raw, hostWindow_second.location.href);
+          const baseName = decodeURIComponent((parsed.pathname || "").split("/").pop() || "").trim();
+          return baseName || fallbackName;
+        } catch (e) {
+          return fallbackName;
+        }
+      }
+
+      function ensureEagleUi_second() {
+        if (!hostDoc_second.getElementById("lashforge-eagle-style")) {
+          const style = hostDoc_second.createElement("style");
+          style.id = "lashforge-eagle-style";
+          style.textContent = `
+            #lashforge-eagle-menu {
+              position: fixed;
+              min-width: 168px;
+              padding: 6px;
+              border-radius: 12px;
+              background: rgba(9, 17, 35, 0.96);
+              border: 1px solid rgba(126, 166, 255, 0.22);
+              box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+              z-index: 1000001;
+              display: none;
+            }
+            #lashforge-eagle-menu button {
+              width: 100%;
+              border: 0;
+              border-radius: 9px;
+              background: transparent;
+              color: #eef4ff;
+              padding: 9px 10px;
+              text-align: left;
+              font-size: 13px;
+              cursor: pointer;
+            }
+            #lashforge-eagle-menu button:hover {
+              background: rgba(126, 166, 255, 0.16);
+            }
+            #lashforge-eagle-toast {
+              position: fixed;
+              right: 18px;
+              bottom: 18px;
+              z-index: 1000002;
+              padding: 10px 14px;
+              border-radius: 12px;
+              background: rgba(9, 17, 35, 0.94);
+              border: 1px solid rgba(126, 166, 255, 0.22);
+              color: #eef4ff;
+              font-size: 12px;
+              box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+              opacity: 0;
+              pointer-events: none;
+              transition: opacity .16s ease;
+            }
+          `;
+          hostDoc_second.head.appendChild(style);
+        }
+        if (!hostDoc_second.getElementById("lashforge-eagle-menu")) {
+          const menu = hostDoc_second.createElement("div");
+          menu.id = "lashforge-eagle-menu";
+          menu.innerHTML = ''
+            + '<button type="button" id="lashforge-download-image">下载原图</button>'
+            + '<button type="button" id="lashforge-save-as-image">原图另存为...</button>'
+            + '<button type="button" id="lashforge-save-to-eagle">保存到 Eagle</button>';
+          hostDoc_second.body.appendChild(menu);
+          hostWindow_second.__lashforgeEagleMenuState = {};
+          const hideMenu = () => {
+            menu.style.display = "none";
+          };
+          hostDoc_second.addEventListener("click", hideMenu, true);
+          hostDoc_second.addEventListener("scroll", hideMenu, true);
+          hostWindow_second.addEventListener("blur", hideMenu);
+          hostDoc_second.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") hideMenu();
+          }, true);
+          menu.querySelector("#lashforge-download-image").addEventListener("click", async () => {
+            const state = hostWindow_second.__lashforgeEagleMenuState || {};
+            hideMenu();
+            if (!state.src) {
+              return;
+            }
+            try {
+              const response = await hostWindow_second.fetch(state.src);
+              if (!response.ok) {
+                throw new Error("fetch failed");
+              }
+              const blob = await response.blob();
+              const blobUrl = hostWindow_second.URL.createObjectURL(blob);
+              const link = hostDoc_second.createElement("a");
+              link.href = blobUrl;
+              link.download = state.name || "second.png";
+              hostDoc_second.body.appendChild(link);
+              link.click();
+              link.remove();
+              hostWindow_second.setTimeout(() => {
+                hostWindow_second.URL.revokeObjectURL(blobUrl);
+              }, 1200);
+            } catch (error) {
+              try {
+                const link = hostDoc_second.createElement("a");
+                link.href = state.src;
+                link.download = state.name || "second.png";
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                hostDoc_second.body.appendChild(link);
+                link.click();
+                link.remove();
+              } catch (fallbackError) {
+                showEagleToast_second("下载触发失败，请重试");
+              }
+            }
+          });
+          menu.querySelector("#lashforge-save-as-image").addEventListener("click", async () => {
+            const state = hostWindow_second.__lashforgeEagleMenuState || {};
+            hideMenu();
+            if (!state.src) {
+              return;
+            }
+            try {
+              const response = await hostWindow_second.fetch(state.src);
+              if (!response.ok) {
+                throw new Error("fetch failed");
+              }
+              const blob = await response.blob();
+              const suggestedName = state.name || "second.png";
+              const mimeType = blob.type || "image/png";
+              if (typeof hostWindow_second.showSaveFilePicker === "function") {
+                const extension = suggestedName.includes(".") ? suggestedName.split(".").pop() : "png";
+                const handle = await hostWindow_second.showSaveFilePicker({
+                  suggestedName,
+                  types: [{
+                    description: "Image File",
+                    accept: {
+                      [mimeType]: ["." + extension]
+                    }
+                  }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                showEagleToast_second("已另存为图片");
+                return;
+              }
+              const blobUrl = hostWindow_second.URL.createObjectURL(blob);
+              const link = hostDoc_second.createElement("a");
+              link.href = blobUrl;
+              link.download = suggestedName;
+              hostDoc_second.body.appendChild(link);
+              link.click();
+              link.remove();
+              hostWindow_second.setTimeout(() => {
+                hostWindow_second.URL.revokeObjectURL(blobUrl);
+              }, 1200);
+              showEagleToast_second("当前环境不支持另存为弹窗，已改为下载");
+            } catch (error) {
+              showEagleToast_second("另存为失败，请重试");
+            }
+          });
+          menu.querySelector("#lashforge-save-to-eagle").addEventListener("click", async () => {
+            const state = hostWindow_second.__lashforgeEagleMenuState || {};
+            hideMenu();
+            if (!state.src) {
+              return;
+            }
+            const eagleTraceId = "eagle-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
+            const requestBody = {
+              url: state.src,
+              name: state.name || "second.png",
+              website: hostWindow_second.location.href,
+              modificationTime: Date.now()
+            };
+            try {
+              // #region debug-point B:eagle-save-start
+              reportEagleDebug_second("B", "[DEBUG] Eagle save started", {
+                pageUrl: hostWindow_second.location.href,
+                imageUrl: state.src,
+                imageName: requestBody.name,
+                hasAltKey: !!(hostWindow_second.event && hostWindow_second.event.altKey),
+                userAgent: hostWindow_second.navigator.userAgent
+              }, eagleTraceId);
+              // #endregion
+              const response = await hostWindow_second.fetch("http://localhost:41595/api/item/addFromURL", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify(requestBody)
+              });
+              const result = await response.json().catch(() => ({}));
+              // #region debug-point C:eagle-save-response
+              reportEagleDebug_second("C", "[DEBUG] Eagle save response", {
+                ok: response.ok,
+                statusCode: response.status,
+                statusText: response.statusText,
+                resultStatus: result && result.status ? result.status : "",
+                resultMessage: result && result.message ? result.message : ""
+              }, eagleTraceId);
+              // #endregion
+              if (!response.ok || (result && result.status && result.status !== "success")) {
+                throw new Error((result && (result.message || result.status)) || "保存失败");
+              }
+              showEagleToast_second("已保存到 Eagle");
+            } catch (error) {
+              // #region debug-point D:eagle-save-error
+              reportEagleDebug_second("D", "[DEBUG] Eagle save failed", {
+                errorName: error && error.name ? error.name : "",
+                errorMessage: error && error.message ? error.message : String(error || ""),
+                imageUrl: state.src,
+                pageUrl: hostWindow_second.location.href
+              }, eagleTraceId);
+              // #endregion
+              showEagleToast_second("保存到 Eagle 失败，请确认 Eagle 正在运行");
+            }
+          });
+        }
+        if (!hostDoc_second.getElementById("lashforge-eagle-toast")) {
+          const toast = hostDoc_second.createElement("div");
+          toast.id = "lashforge-eagle-toast";
+          hostDoc_second.body.appendChild(toast);
+        }
+      }
+
+      function showEagleToast_second(message) {
+        ensureEagleUi_second();
+        const toast = hostDoc_second.getElementById("lashforge-eagle-toast");
+        if (!toast) return;
+        toast.textContent = String(message || "");
+        toast.style.opacity = "1";
+        hostWindow_second.clearTimeout(hostWindow_second.__lashforgeEagleToastTimer);
+        hostWindow_second.__lashforgeEagleToastTimer = hostWindow_second.setTimeout(() => {
+          toast.style.opacity = "0";
+        }, 1800);
+      }
+
+      function reportEagleDebug_second(hypothesisId, msg, data, traceId) {
+        // #region debug-point A:eagle-save-report
+        hostWindow_second.fetch("http://127.0.0.1:7777/event", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            sessionId: "eagle-save-feishu",
+            runId: "pre-fix",
+            hypothesisId,
+            location: "openrouter_image_site.py:eagle-menu",
+            msg,
+            data: data || {},
+            traceId: traceId || "",
+            ts: Date.now()
+          })
+        }).catch(() => {});
+        // #endregion
+      }
+
+      function openEagleMenu_second(event, src, index) {
+        ensureEagleUi_second();
+        const menu = hostDoc_second.getElementById("lashforge-eagle-menu");
+        if (!menu) return;
+        // A modal dialog is in the browser's top layer. A menu on body is
+        // inert behind it, regardless of z-index. Keep it with its target.
+        const viewer = hostDoc_second.getElementById("lashforge-fullscreen-viewer");
+        const frame = window.frameElement;
+        const dialog = frame && frame.closest('dialog, [role="dialog"]');
+        const menuHost = viewer && viewer.classList.contains("active")
+          ? viewer : (dialog || hostDoc_second.body);
+        if (menu.parentElement !== menuHost) menuHost.appendChild(menu);
+        const normalizedSrc = normalizeViewerSrc_second(src);
+        hostWindow_second.__lashforgeEagleMenuState = {
+          src: normalizedSrc,
+          name: deriveEagleFileName_second(normalizedSrc, index)
+        };
+        const menuWidth = 168;
+        const menuHeight = 126;
+        const maxLeft = Math.max((hostWindow_second.innerWidth || 0) - menuWidth - 12, 12);
+        const maxTop = Math.max((hostWindow_second.innerHeight || 0) - menuHeight - 12, 12);
+        menu.style.left = Math.min(Math.max(event.clientX, 12), maxLeft) + "px";
+        menu.style.top = Math.min(Math.max(event.clientY, 12), maxTop) + "px";
+        menu.style.display = "block";
+      }
+
+      function ensureOverlay_second() {
+        if (!hostDoc_second.getElementById("lashforge-fullscreen-style")) {
+          const style = hostDoc_second.createElement("style");
+          style.id = "lashforge-fullscreen-style";
+          style.textContent = `
+            #lashforge-fullscreen-viewer {
+              position: fixed;
+              inset: 0;
+              z-index: 999999;
+              background: rgba(3, 8, 22, 0.96);
+              display: none;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+            }
+            #lashforge-fullscreen-viewer.active {
+              display: flex;
+            }
+            #lashforge-fullscreen-viewer img {
+              max-width: 96vw;
+              max-height: 96vh;
+              object-fit: contain;
+              transform-origin: center center;
+              transition: transform 0.08s linear;
+              user-select: none;
+              -webkit-user-drag: none;
+              cursor: grab;
+            }
+            #lashforge-fullscreen-viewer img.dragging {
+              cursor: grabbing;
+            }
+            #lashforge-fullscreen-close {
+              position: fixed;
+              top: 18px;
+              right: 18px;
+              z-index: 1000000;
+              width: 42px;
+              height: 42px;
+              border-radius: 999px;
+              border: 1px solid rgba(255, 255, 255, 0.7);
+              background: rgba(15, 23, 42, 0.86);
+              color: #ffffff;
+              font-size: 28px;
+              line-height: 38px;
+              text-align: center;
+              cursor: pointer;
+              box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+            }
+            #lashforge-fullscreen-close:hover {
+              background: rgba(239, 68, 68, 0.92);
+            }
+            #lashforge-fullscreen-download {
+              position: fixed; top: 18px; right: 72px; z-index: 1000000;
+              border: 1px solid rgba(255,255,255,.7); border-radius: 10px;
+              background: #0f172a; color: white; padding: 11px 16px; cursor: pointer;
+            }
+          `;
+          hostDoc_second.head.appendChild(style);
+        }
+        if (!hostDoc_second.getElementById("lashforge-fullscreen-viewer")) {
+          const overlay = hostDoc_second.createElement("div");
+          overlay.id = "lashforge-fullscreen-viewer";
+          overlay.innerHTML = '<button id="lashforge-fullscreen-download" type="button">下载原图</button><button id="lashforge-fullscreen-close" type="button" aria-label="关闭预览" title="关闭">×</button><img id="lashforge-fullscreen-image" src="" alt="preview" />';
+          hostDoc_second.body.appendChild(overlay);
+
+          const state = {
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            dragging: false,
+            dragStartX: 0,
+            dragStartY: 0,
+            dragOriginX: 0,
+            dragOriginY: 0,
+            pointerId: null,
+          };
+          hostWindow_second.__lashforgeFullscreenState = state;
+
+          const image = overlay.querySelector("img");
+          const applyTransform = () => {
+            image.style.transform =
+              "translate(" + state.offsetX + "px, " + state.offsetY + "px) scale(" + state.scale + ")";
+          };
+          const resetTransform = () => {
+            state.scale = 1;
+            state.offsetX = 0;
+            state.offsetY = 0;
+            state.dragging = false;
+            image.classList.remove("dragging");
+            applyTransform();
+          };
+          const closeOverlay = () => {
+            // A captured pointer can otherwise keep the image as the active
+            // target and make the close button/overlay appear unresponsive.
+            if (state.pointerId !== null && image.releasePointerCapture) {
+              try { image.releasePointerCapture(state.pointerId); } catch (e) {}
+            }
+            overlay.classList.remove("active");
+            resetTransform();
+            state.pointerId = null;
+          };
+          const closeButton = overlay.querySelector("#lashforge-fullscreen-close");
+          if (closeButton) {
+            closeButton.addEventListener("pointerdown", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (state.pointerId !== null && image.releasePointerCapture) {
+                try { image.releasePointerCapture(state.pointerId); } catch (e) {}
+              }
+              state.pointerId = null;
+              state.dragging = false;
+              image.classList.remove("dragging");
+              closeOverlay();
+            });
+            closeButton.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              closeOverlay();
+            });
+          }
+
+          overlay.addEventListener("click", (event) => {
+            if (event.target === overlay) {
+              closeOverlay();
+            }
+          });
+
+          overlay.addEventListener("wheel", (event) => {
+            if (!overlay.classList.contains("active")) return;
+            event.preventDefault();
+            if (event.deltaY < 0) {
+              state.scale = Math.min(state.scale + 0.16, 6);
+            } else {
+              state.scale = Math.max(state.scale - 0.16, 0.35);
+            }
+            applyTransform();
+          }, { passive: false });
+
+          image.addEventListener("pointerdown", (event) => {
+            if (!overlay.classList.contains("active")) return;
+            if (event.button !== 0) return;
+            event.preventDefault();
+            state.dragging = true;
+            state.dragStartX = event.clientX;
+            state.dragStartY = event.clientY;
+            state.dragOriginX = state.offsetX;
+            state.dragOriginY = state.offsetY;
+            state.pointerId = event.pointerId;
+            image.classList.add("dragging");
+            if (image.setPointerCapture) {
+              image.setPointerCapture(event.pointerId);
+            }
+          });
+
+          image.addEventListener("pointermove", (event) => {
+            if (!state.dragging) return;
+            event.preventDefault();
+            state.offsetX = state.dragOriginX + (event.clientX - state.dragStartX);
+            state.offsetY = state.dragOriginY + (event.clientY - state.dragStartY);
+            applyTransform();
+          });
+
+          const stopDragging = (event) => {
+            if (!state.dragging) return;
+            state.dragging = false;
+            image.classList.remove("dragging");
+            if (event && image.releasePointerCapture) {
+              try {
+                image.releasePointerCapture(event.pointerId);
+              } catch (e) {}
+            }
+          };
+
+          image.addEventListener("pointerup", stopDragging);
+          image.addEventListener("pointercancel", stopDragging);
+          image.addEventListener("lostpointercapture", () => {
+            state.dragging = false;
+            image.classList.remove("dragging");
+          });
+
+          hostDoc_second.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+              closeOverlay();
+            }
+          });
+        }
+        const activeOverlay = hostDoc_second.getElementById("lashforge-fullscreen-viewer");
+        const activeImage = hostDoc_second.getElementById("lashforge-fullscreen-image");
+        if (activeOverlay && activeImage) {
+          if (!hostWindow_second.__lashforgeFullscreenState) {
+            hostWindow_second.__lashforgeFullscreenState = {
+              scale: 1,
+              offsetX: 0,
+              offsetY: 0,
+              dragging: false,
+              dragStartX: 0,
+              dragStartY: 0,
+              dragOriginX: 0,
+              dragOriginY: 0,
+              pointerId: null,
+            };
+          }
+          const resetActiveFullscreen = () => {
+            const state = hostWindow_second.__lashforgeFullscreenState || {};
+            state.scale = 1;
+            state.offsetX = 0;
+            state.offsetY = 0;
+            state.dragging = false;
+            activeImage.classList.remove("dragging");
+            activeImage.style.transform = "translate(0px, 0px) scale(1)";
+          };
+          const closeActiveFullscreen = () => {
+            const state = hostWindow_second.__lashforgeFullscreenState || {};
+            if (state.pointerId !== null && activeImage.releasePointerCapture) {
+              try { activeImage.releasePointerCapture(state.pointerId); } catch (e) {}
+            }
+            activeOverlay.classList.remove("active");
+            resetActiveFullscreen();
+            state.pointerId = null;
+          };
+          hostWindow_second.__lashforgeCloseFullscreen = closeActiveFullscreen;
+          const activeCloseButton = activeOverlay.querySelector("#lashforge-fullscreen-close");
+          if (activeCloseButton) {
+            activeCloseButton.onpointerdown = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              const state = hostWindow_second.__lashforgeFullscreenState || {};
+              if (state.pointerId !== null && activeImage.releasePointerCapture) {
+                try { activeImage.releasePointerCapture(state.pointerId); } catch (e) {}
+              }
+              state.pointerId = null;
+              state.dragging = false;
+              activeImage.classList.remove("dragging");
+              closeActiveFullscreen();
+            };
+            activeCloseButton.onclick = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              closeActiveFullscreen();
+            };
+          }
+          activeOverlay.onclick = (event) => {
+            if (event.target === activeOverlay) {
+              closeActiveFullscreen();
+            }
+          };
+          if (hostWindow_second.__lashforgeFullscreenKeyHandler) {
+            try {
+              hostDoc_second.removeEventListener("keydown", hostWindow_second.__lashforgeFullscreenKeyHandler, true);
+            } catch (e) {}
+          }
+          hostWindow_second.__lashforgeFullscreenKeyHandler = (event) => {
+            if (event.key === "Escape" && activeOverlay.classList.contains("active")) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              closeActiveFullscreen();
+            }
+          };
+          hostDoc_second.addEventListener("keydown", hostWindow_second.__lashforgeFullscreenKeyHandler, true);
+        }
+      }
+
+      function openFullscreen_second(src, index = 0) {
+        ensureOverlay_second();
+        const previousMenu = hostDoc_second.getElementById("lashforge-eagle-menu");
+        if (previousMenu) previousMenu.style.display = "none";
+        const overlay = hostDoc_second.getElementById("lashforge-fullscreen-viewer");
+        // Keep the viewer inside the active history dialog so its modal
+        // backdrop and focus trap do not cover or disable the preview.
+        let viewerHost = hostDoc_second.body;
+        try {
+          const frame = window.frameElement;
+          const dialog = frame && frame.closest('dialog, [role="dialog"]');
+          if (dialog) viewerHost = dialog;
+        } catch (e) {}
+        if (overlay.parentElement !== viewerHost) viewerHost.appendChild(overlay);
+        const image = hostDoc_second.getElementById("lashforge-fullscreen-image");
+        const state = hostWindow_second.__lashforgeFullscreenState;
+        image.src = normalizeViewerSrc_second(src);
+        // Rebind the shared viewer on every open, including its originating
+        // gallery and image index. Never retain the first card's download name.
+        const downloadSrc = image.src;
+        const downloadName = deriveEagleFileName_second(downloadSrc, index);
+        image.oncontextmenu = (event) => {
+          if (!true) { event.preventDefault(); return; }
+          event.preventDefault();
+          openEagleMenu_second(event, downloadSrc, index);
+        };
+        let downloadButton = overlay.querySelector("#lashforge-fullscreen-download");
+        if (!downloadButton) {
+          downloadButton = hostDoc_second.createElement("button");
+          downloadButton.id = "lashforge-fullscreen-download";
+          downloadButton.type = "button";
+          downloadButton.textContent = "下载原图";
+          overlay.prepend(downloadButton);
+        }
+        downloadButton.hidden = !true;
+        downloadButton.onclick = async () => {
+          try {
+            const response = await hostWindow_second.fetch(downloadSrc);
+            if (!response.ok) throw new Error("original unavailable");
+            const blob = await response.blob();
+            if (!blob.type.startsWith("image/")) throw new Error("not an image");
+            const blobUrl = hostWindow_second.URL.createObjectURL(blob);
+            const link = hostDoc_second.createElement("a");
+            link.href = blobUrl;
+            link.download = downloadName;
+            overlay.appendChild(link);
+            link.click();
+            link.remove();
+            hostWindow_second.setTimeout(() => hostWindow_second.URL.revokeObjectURL(blobUrl), 1200);
+          } catch (error) {
+            hostWindow_second.alert("原图下载失败，请关闭预览后重新打开再试。");
+          }
+        };
+        state.scale = 1;
+        state.offsetX = 0;
+        state.offsetY = 0;
+        state.dragging = false;
+        image.classList.remove("dragging");
+        image.style.transform = "translate(0px, 0px) scale(1)";
+        overlay.classList.add("active");
+      }
+
+      function buildDeleteUrl_second() {
+        const deleteToken = "";
+        if (!deleteToken) return "";
+        const currentUrl = new URL(hostWindow_second.location.href);
+        currentUrl.searchParams.set("delete_upload", deleteToken);
+        return currentUrl.toString();
+      }
+
+      images_second.forEach((item, index) => {
+        const wrap = document.createElement("div");
+        wrap.className = "zoom-thumb-wrap";
+
+        const img = document.createElement("img");
+        img.src = item.src;
+        img.className = "zoom-thumb";
+        img.onload = () => updateFrameHeight_second();
+        img.onclick = () => openFullscreen_second(item.full_src || item.src, index);
+        img.oncontextmenu = (event) => {
+          if (!true) {
+            event.preventDefault();
+            showEagleToast_second("此处仅供预览，请使用页面上的 PSD 下载按钮");
+            return;
+          }
+          event.preventDefault();
+          openEagleMenu_second(event, item.full_src || item.src, index);
+        };
+        wrap.appendChild(img);
+
+        if ("") {
+          const deleteButton = document.createElement("button");
+          deleteButton.type = "button";
+          deleteButton.className = "zoom-thumb-delete";
+          deleteButton.title = "删除当前图片";
+          deleteButton.textContent = "×";
+          deleteButton.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+          });
+          deleteButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const deleteUrl = buildDeleteUrl_second();
+            if (deleteUrl) {
+              hostWindow_second.location.href = deleteUrl;
+            }
+          });
+          wrap.appendChild(deleteButton);
+        }
+
+        grid_second.appendChild(wrap);
+      });
+
+      setTimeout(updateFrameHeight_second, 0);
+    </script>
+    

@@ -1,0 +1,212 @@
+--- 
++++ 
+@@ -7746,93 +7746,27 @@
+ 
+ 
+ def build_running_job_spinner_html(progress_value: int, progress_stage: str) -> str:
+-    normalized_progress = max(1, min(int(progress_value), 99))
++    # Keep the argument for existing callers; loading is intentionally indeterminate.
+     safe_stage = html.escape(str(progress_stage or "正在处理中").strip() or "正在处理中")
+     return f"""
+     <style>
+-      .xiaoha-task-spinner-card {{
+-        display: flex;
+-        align-items: center;
+-        gap: 14px;
+-        width: 100%;
+-        box-sizing: border-box;
+-        padding: 14px 16px;
+-        margin: 4px 0 10px;
+-        border: 1px solid rgba(126, 96, 255, 0.22);
+-        border-radius: 14px;
+-        background: linear-gradient(135deg, rgba(126, 96, 255, 0.10), rgba(18, 31, 55, 0.44));
+-      }}
+-      .xiaoha-task-spinner-circle {{
+-        position: relative;
+-        width: 48px;
+-        height: 48px;
+-        flex: 0 0 48px;
+-        display: grid;
+-        place-items: center;
+-      }}
+-      .xiaoha-task-spinner-orbit {{
+-        position: absolute;
+-        inset: 0;
+-        box-sizing: border-box;
+-        border: 4px solid rgba(126, 96, 255, 0.18);
+-        border-top-color: #8d78ff;
+-        border-right-color: #39d7c5;
+-        border-radius: 50%;
+-        animation: xiaoha-task-spinner-rotate 0.9s linear infinite;
+-      }}
+-      .xiaoha-task-spinner-value {{
+-        color: #f5f7ff;
+-        font-size: 11px;
+-        line-height: 1;
+-        font-weight: 800;
+-        letter-spacing: -0.2px;
+-      }}
+-      .xiaoha-task-spinner-stage {{
+-        color: #f5f7ff;
+-        font-size: 14px;
+-        line-height: 1.45;
+-        font-weight: 750;
+-      }}
+-      .xiaoha-task-spinner-subtitle {{
+-        margin-top: 3px;
+-        color: rgba(214, 219, 255, 0.68);
+-        font-size: 12px;
+-        line-height: 1.35;
+-      }}
+-      @keyframes xiaoha-task-spinner-rotate {{
+-        to {{ transform: rotate(360deg); }}
+-      }}
+-      @media (prefers-reduced-motion: reduce) {{
+-        .xiaoha-task-spinner-orbit {{ animation-duration: 1.8s; }}
+-      }}
++    .result-empty.xiaoha-result-loading {{min-height:350px;display:flex;flex-direction:column;
++      align-items:center;justify-content:center;gap:16px;box-sizing:border-box;text-align:center;
++      border:1px dashed #7165ac;border-radius:12px;background:#0a1326;padding:28px;}}
++    .xiaoha-result-orbit {{width:46px;height:46px;flex-shrink:0;border:3px solid #30284e;
++      border-top-color:#a18aff;border-right-color:#58cbbf;border-radius:50%;
++      animation:xiaoha-result-turn .9s linear infinite;}}
++    .xiaoha-result-loading .empty-title {{color:#e9e6ff;overflow-wrap:anywhere;}}
++    .xiaoha-result-loading .empty-subtitle {{color:#aab5d1;}}
++    @keyframes xiaoha-result-turn {{to {{transform:rotate(360deg);}}}}
++    @media(prefers-reduced-motion:reduce) {{.xiaoha-result-orbit {{animation:none;}}}}
+     </style>
+-    <div class="xiaoha-task-spinner-card" role="status" aria-live="polite">
+-      <div class="xiaoha-task-spinner-circle" aria-hidden="true">
+-        <div class="xiaoha-task-spinner-orbit"></div>
+-        <span class="xiaoha-task-spinner-value">{normalized_progress}%</span>
+-      </div>
+-      <div>
+-        <div class="xiaoha-task-spinner-stage">{safe_stage}</div>
+-        <div class="xiaoha-task-spinner-subtitle">任务在后台运行，状态会自动更新</div>
+-      </div>
++    <div class="result-empty xiaoha-result-loading" role="status" aria-live="polite">
++      <div class="xiaoha-result-orbit" aria-hidden="true"></div>
++      <div class="empty-title">{safe_stage}</div>
++      <div class="empty-subtitle">完成后将在这里显示结果，可切换到其他功能</div>
+     </div>
+     """
+-
+-
+-@st.fragment(run_every="1s")
+-def _render_running_job_status_legacy(feature_key: str) -> None:
+-    sync_background_jobs()
+-    current_job = st.session_state.background_jobs.get(feature_key) or {}
+-    status = str(current_job.get("status") or "").strip().lower()
+-    if status == "running":
+-        progress_value = max(1, min(int(current_job.get("progress") or 1), 99))
+-        progress_stage = str(current_job.get("stage") or "正在处理中").strip() or "正在处理中"
+-        st.markdown(
+-            build_running_job_spinner_html(progress_value, progress_stage),
+-            unsafe_allow_html=True,
+-        )
+-        return
+-    st.rerun()
+ 
+ 
+ def build_queued_job_card_html(job_info: dict[str, Any]) -> str:
+@@ -7884,28 +7818,26 @@
+ 
+ 
+ @st.fragment(run_every="1s")
+-def render_running_job_status(feature_key: str) -> None:
++def render_running_job_status(feature_key: str, in_result: bool = False) -> None:
+     sync_background_jobs()
+-    current_job = st.session_state.background_jobs.get(feature_key) or {}
++    current_job = st.session_state.get("background_jobs", {}).get(feature_key) or {}
+     status = str(current_job.get("status") or "").strip().lower()
+     if status not in {"queued", "running"}:
+         st.rerun()
+         return
+-    if status == "queued":
+-        st.markdown(build_queued_job_card_html(current_job), unsafe_allow_html=True)
+-    else:
+-        progress_value = max(1, min(int(current_job.get("progress") or 1), 99))
+-        progress_stage = str(current_job.get("stage") or "正在处理").strip() or "正在处理"
+-        st.markdown(
+-            build_running_job_spinner_html(progress_value, progress_stage),
+-            unsafe_allow_html=True,
+-        )
+-    queue_html = build_job_queue_overview_html(
+-        get_active_session_background_jobs(),
+-        str(current_job.get("job_id") or ""),
+-    )
+-    if queue_html:
+-        st.markdown(queue_html, unsafe_allow_html=True)
++    # Existing header calls retain background polling without adding a status banner.
++    if in_result:
++        stage = "任务排队中，等待开始" if status == "queued" else str(current_job.get("stage") or "正在生成，请稍候")
++        st.markdown(build_running_job_spinner_html(0, stage), unsafe_allow_html=True)
++
++
++def render_result_loading(feature_key: str = "") -> bool:
++    key = feature_key or str(st.session_state.get("selected_feature_key") or "")
++    job = st.session_state.get("background_jobs", {}).get(key) or {}
++    if str(job.get("status") or "").lower() not in {"queued", "running"}:
++        return False
++    render_running_job_status(key, in_result=True)
++    return True
+ 
+ 
+ def get_external_request_kwargs(
+@@ -19728,9 +19660,12 @@
+     show_title: bool = True,
+     download_images: list[str] | None = None,
+     max_width_percent: int = 25,
++    feature_key: str = "",
+ ) -> None:
+     if show_title:
+         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
++    if render_result_loading(feature_key):
++        return
+     if not images:
+         st.markdown(
+             """
+@@ -22051,7 +21986,9 @@
+                 )
+             except Exception:
+                 st.caption("原图预览暂时无法显示。")
+-        if result.get("images"):
++        if render_result_loading(feature_key):
++            pass
++        elif result.get("images"):
+             st.markdown('<div class="panel-subtitle">AI 抠图透明 PNG 结果</div>', unsafe_allow_html=True)
+             result_id = re.sub(r"[^a-zA-Z0-9_]", "_", str(result.get("result_id") or "latest"))
+             render_zoomable_image_gallery(
+@@ -22582,7 +22519,9 @@
+     with right_col:
+         st.markdown('<div class="result-block-title">⑤ 生成结果</div>', unsafe_allow_html=True)
+         batches = list(state.get("batches") or [])
+-        if not batches:
++        if render_result_loading(feature_key):
++            pass
++        elif not batches:
+             render_result_preview([], show_title=False)
+             st.caption("完成分析与批量生成后，这里会出现同风格结果图，可按批次回看与筛选。")
+         else:
+@@ -22990,7 +22929,9 @@
+             result_images,
+             list(result.get("history_records") or []),
+         )
+-        if result_images and result_captions:
++        if render_result_loading(feature["key"]):
++            pass
++        elif result_images and result_captions:
+             render_result_preview_with_captions(
+                 result_images,
+                 result_captions,
+@@ -25770,7 +25711,9 @@
+                     ),
+                 )
+         with result_view_container:
+-            if supports_image_smart_analysis:
++            if render_result_loading(feature["key"]):
++                pass
++            elif supports_image_smart_analysis:
+                 render_image_smart_analysis_report(
+                     result,
+                     str(job_info.get("status") or ""),

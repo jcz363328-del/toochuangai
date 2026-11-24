@@ -1,0 +1,123 @@
+--- production
++++ local
+@@ -1745,17 +1745,17 @@
+     {
+         "key": "hd_batch",
+         "name": "模特图批量高清",
+-        "summary": "专用超清增强，保留原图内容并按原尺寸输出",
+-        "mode": "portrait_upscale",
+-        "model": JIMENG_HD_MODEL_NAME,
++        "summary": "Nano Banana 2.1 高清增强，按原图尺寸输出",
++        "mode": "portrait_hd",
++        "model": NANO_BANANA_MODEL,
+         "output_mode": "image",
+         "min_images": 1,
+         "max_output_images": 1,
+         "fixed_output_count": 1,
+-        "description": "使用专用超清流程增强原图，保留人物、商品和背景内容；每张原图输出一张结果，最终宽高与原图一致。",
++        "description": "使用 Nano Banana 2.1 增强原图清晰度，保留人物、商品和背景内容；每张原图输出一张结果，最终宽高与原图一致。",
+         "default_prompt": (
+-            "仅使用每张原图进行专用超清增强，保留原图内容、比例与边界。"
+-            "不使用生图模型或其他人物参考图；每张输出一张结果，最终像素宽高与原图一致。"
++            "仅使用每张原图进行高清增强，保留原图内容、比例与边界。"
++            "使用 Nano Banana 2.1，不使用其他人物参考图；每张输出一张结果，最终像素宽高与原图一致。"
+         )
+     },
+     {
+@@ -9993,7 +9993,7 @@
+             else list(uploaded_files_override)
+         )
+         if feature_key == "hd_batch":
+-            return call_portrait_hd_upscale(list(active_uploaded_group[:1]))
++            return call_portrait_hd_upscale(list(active_uploaded_group[:1]), prompt=prompt_text)
+         if feature_key == JIMENG_HD_FEATURE_KEY:
+             return call_jimeng_hd_upscale(uploaded_files=list(active_uploaded_group[:1]))
+         if is_ark_seedream_model(str(job_context.get("model") or "")):
+@@ -12648,7 +12648,7 @@
+             set_task_progress(job_id, 18, "正在请求模型生成结果")
+         feature_key = str((job_context.get("feature") or {}).get("key") or "")
+         if feature_key == "hd_batch":
+-            result = call_portrait_hd_upscale(list(job_context.get("uploaded_files") or [])[:1])
++            result = call_portrait_hd_upscale(list(job_context.get("uploaded_files") or [])[:1], prompt=str(job_context.get("prompt") or ""))
+         elif feature_key == JIMENG_HD_FEATURE_KEY or feature_mode == "jimeng_upscale":
+             result = call_jimeng_hd_upscale(
+                 uploaded_files=list(job_context.get("uploaded_files") or [])[:1],
+@@ -12791,6 +12791,8 @@
+             return
+         labels = {"omnia_image": "OmniaKey 生图", "omnia_text": "OmniaKey 分析", "ark": "即梦生图", "jimeng": "即梦超清"}
+         label = labels.get(group, "模型")
++        if group == "omnia_image" and str((job_context.get("feature") or {}).get("key") or "") == "hd_batch":
++            label = "Nano Banana 2.1"
+         runtime = get_task_runtime()
+         with runtime.lock:
+             progress = runtime.progress.setdefault(job_id, {"percent": 3})
+@@ -12814,7 +12816,7 @@
+     job_context = dict(job_context)
+     job_context["job_id"] = job_id
+     feature_key = str(feature.get("key") or "").strip()
+-    is_jimeng_hd_job = feature_key in {"hd_batch", JIMENG_HD_FEATURE_KEY}
++    is_jimeng_hd_job = feature_key == JIMENG_HD_FEATURE_KEY
+     queue_key = (
+         JIMENG_HD_GLOBAL_QUEUE_KEY
+         if is_jimeng_hd_job
+@@ -16029,20 +16031,17 @@
+     return result
+ 
+ 
+-def call_portrait_hd_upscale(uploaded_files: list[Any]) -> dict[str, Any]:
+-    """仅向超清接口发送原图；结果按原尺寸输出，不混入其他人物参考图。"""
++def call_portrait_hd_upscale(uploaded_files: list[Any], *, prompt: str = "") -> dict[str, Any]:
++    """批量高清固定使用 Nano Banana 2.1，仅发送当前原图。"""
+     if not uploaded_files:
+         raise RuntimeError("批量高清失败：请先上传原图。")
+-    source = uploaded_files[0]
+-    target_size = get_uploaded_input_dimensions(source)
+-    result = dict(call_jimeng_hd_upscale(uploaded_files=[source]))
+-    try:
+-        return finalize_portrait_upscale_result(result, target_size)
+-    except Exception as exc:
+-        task_note = f"（任务 {result['task_id']}）" if result.get("task_id") else ""
+-        raise ImageOutcomeUnknown(
+-            f"专用超清原任务已完成{task_note}，但结果处理失败，未自动重新提交。请联系管理员恢复原结果。原因：{exc}"
+-        ) from exc
++    return call_openrouter_portrait_hd(
++        model=NANO_BANANA_MODEL,
++        prompt=prompt,
++        aspect_ratio=DEFAULT_ASPECT_RATIO,
++        uploaded_files=[uploaded_files[0]],
++        source_only=True,
++    )
+ 
+ 
+ def finalize_portrait_upscale_result(result: dict[str, Any], target_size: tuple[int, int]) -> dict[str, Any]:
+@@ -16114,8 +16113,9 @@
+     prompt: str,
+     aspect_ratio: str,
+     uploaded_files: list[Any] | None = None,
++    source_only: bool = False,
+ ) -> dict[str, Any]:
+-    portrait_inputs = get_portrait_hd_inputs(uploaded_files)
++    portrait_inputs = list(uploaded_files or [])[:1] if source_only else get_portrait_hd_inputs(uploaded_files)
+     source_input = portrait_inputs[0]
+     source_aspect_ratio = get_uploaded_input_closest_aspect_ratio(source_input, fallback=aspect_ratio)
+     hd_prompt = (
+@@ -24084,8 +24084,8 @@
+     feature_mode = str(feature.get("mode") or "openrouter")
+     model_options_for_feature = MODEL_OPTIONS
+     if feature.get("key") == "hd_batch":
+-        default_model_for_feature = JIMENG_HD_MODEL_NAME
+-        model_options_for_feature = [JIMENG_HD_MODEL_NAME]
++        default_model_for_feature = NANO_BANANA_MODEL
++        model_options_for_feature = [NANO_BANANA_MODEL]
+     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
+         default_model_for_feature = JIMENG_HD_MODEL_NAME
+         model_options_for_feature = [JIMENG_HD_MODEL_NAME]
+@@ -24271,7 +24271,7 @@
+     if feature.get("key") == JIMENG_HD_FEATURE_KEY:
+         meta_items.append('<span class="meta-pill">保持原图比例、构图与内容</span>')
+     elif feature.get("key") == "hd_batch":
+-        meta_items.append('<span class="meta-pill">专用超清 · 仅使用原图 · 每张返回一张结果</span>')
++        meta_items.append('<span class="meta-pill">Nano Banana 2.1 · 仅使用原图 · 每张返回一张结果</span>')
+     if supports_outpaint:
+         meta_items.append('<span class="meta-pill">支持上下左右独立扩展</span>')
+     if default_output_count > 0 and not supports_outpaint:

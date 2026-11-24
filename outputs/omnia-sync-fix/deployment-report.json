@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-19",
+  "provider": "OmniaKey",
+  "model": "gemini-nano-banana-2.1",
+  "deployed": true,
+  "container": "toochuangai-single-app-1",
+  "service": "xiaoha",
+  "image_tag": "toochuangai-single:omnia-sync-20261119",
+  "main_sha256": "09745f64490151256b19106321282c681849a535848e995ec8ee83a4d76188ae",
+  "health": "ok",
+  "changes": [
+    "Nano Banana 2.1 uses OmniaKey synchronous Images endpoints instead of the repeatedly failing media-task worker.",
+    "Generation sends JSON; editing sends multipart image or image[] files.",
+    "Convert aspect ratio and resolution into explicit pixel size; automatic edits follow the first reference ratio.",
+    "Unknown submission outcomes do not automatically create a second paid request.",
+    "Transient media polling failures retry the same task ID; failed polling preserves the ID."
+  ],
+  "validation": {
+    "omnia_tests": 22,
+    "qa_chat_tests": 10,
+    "hd_retry_tests": 6,
+    "real_text_generation": "passed, 1024x1024",
+    "real_single_reference_edit": "passed, red square changed to blue, 1024x1024, 124.5 seconds",
+    "real_two_reference_chat_edit": "passed, 1024x1024, 38.0 seconds, completed record and image saved to a temporary chat database",
+    "deployed_adapter": "verified OmniaKey route; OpenRouter credential loader not called",
+    "runtime_and_latest_image_hash": "matched"
+  },
+  "limits": [
+    "Other image models retain their existing media-task transport; their upstream availability has not been repaired by this change.",
+    "One user request started at 16:08:44 local time was interrupted by the service restart. Its remote task ID was not persisted by the previous implementation, so its remote outcome could not be recovered. It was not automatically resubmitted; its existing record now states the uncertainty."
+  ]
+}

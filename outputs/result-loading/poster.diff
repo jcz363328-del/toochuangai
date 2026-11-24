@@ -1,0 +1,8 @@
+--- 
++++ 
+@@ -94,4 +94,4 @@
+     if busy:
+         api.render_running_job_status(FEATURE_KEY)
+     result = st.session_state.get("feature_results", {}).get(FEATURE_KEY) or {}
+-    api.render_result_preview(list(result.get("images") or []), show_title=False, max_width_percent=100)
++    api.render_result_preview(list(result.get("images") or []), show_title=False, max_width_percent=100, feature_key=feature["key"])

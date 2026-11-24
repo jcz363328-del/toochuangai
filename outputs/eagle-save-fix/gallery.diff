@@ -1,0 +1,132 @@
+--- production-gallery
++++ local-gallery
+@@ -317,54 +317,60 @@
+             if (!state.src) {{
+               return;
+             }}
+-            const eagleTraceId = "eagle-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
+-            const requestBody = {{
+-              url: state.src,
+-              name: state.name || "{component_key}.png",
+-              website: hostWindow_{component_key}.location.href,
+-              modificationTime: Date.now()
+-            }};
++            const saveButton = menu.querySelector("#lashforge-save-to-eagle");
++            if (saveButton.disabled) return;
++            saveButton.disabled = true;
++            let stage = "image";
+             try {{
+-              // #region debug-point B:eagle-save-start
+-              reportEagleDebug_{component_key}("B", "[DEBUG] Eagle save started", {{
+-                pageUrl: hostWindow_{component_key}.location.href,
+-                imageUrl: state.src,
+-                imageName: requestBody.name,
+-                hasAltKey: !!(hostWindow_{component_key}.event && hostWindow_{component_key}.event.altKey),
+-                userAgent: hostWindow_{component_key}.navigator.userAgent
+-              }}, eagleTraceId);
+-              // #endregion
++              showEagleToast_{component_key}("正在保存到 Eagle…");
++              // Read with the browser session: Eagle cannot resolve blob URLs or
++              // access images protected by this site's login cookies.
++              const imageResponse = await hostWindow_{component_key}.fetch(state.src, {{
++                credentials: "same-origin",
++                signal: hostWindow_{component_key}.AbortSignal.timeout(60000)
++              }});
++              if (!imageResponse.ok) throw new Error("原图读取失败（" + imageResponse.status + "）");
++              const blob = await imageResponse.blob();
++              if (!blob.size || !blob.type.startsWith("image/")) {{
++                throw new Error("原图不可用或登录已过期，请刷新页面后重试");
++              }}
++              const imageData = await new Promise((resolve, reject) => {{
++                const reader = new hostWindow_{component_key}.FileReader();
++                reader.onload = () => resolve(reader.result);
++                reader.onerror = () => reject(new Error("原图读取失败"));
++                reader.readAsDataURL(blob);
++              }});
++              stage = "eagle";
++              // A plain-text JSON body matches Eagle's API example and avoids
++              // the extra application/json CORS preflight on the local service.
+               const response = await hostWindow_{component_key}.fetch("http://localhost:41595/api/item/addFromURL", {{
+                 method: "POST",
+-                headers: {{
+-                  "Content-Type": "application/json"
+-                }},
+-                body: JSON.stringify(requestBody)
++                body: JSON.stringify({{
++                  url: imageData,
++                  name: state.name || "{component_key}.png",
++                  website: hostWindow_{component_key}.location.href,
++                  modificationTime: Date.now()
++                }}),
++                signal: hostWindow_{component_key}.AbortSignal.timeout(60000)
+               }});
+-              const result = await response.json().catch(() => ({{}}));
+-              // #region debug-point C:eagle-save-response
+-              reportEagleDebug_{component_key}("C", "[DEBUG] Eagle save response", {{
+-                ok: response.ok,
+-                statusCode: response.status,
+-                statusText: response.statusText,
+-                resultStatus: result && result.status ? result.status : "",
+-                resultMessage: result && result.message ? result.message : ""
+-              }}, eagleTraceId);
+-              // #endregion
+-              if (!response.ok || (result && result.status && result.status !== "success")) {{
+-                throw new Error((result && (result.message || result.status)) || "保存失败");
++              stage = "response";
++              const result = await response.json();
++              if (!response.ok || !result || result.status !== "success") {{
++                throw new Error((result && (result.message || result.status)) || "Eagle 返回异常（" + response.status + "）");
+               }}
+               showEagleToast_{component_key}("已保存到 Eagle");
+             }} catch (error) {{
+-              // #region debug-point D:eagle-save-error
+-              reportEagleDebug_{component_key}("D", "[DEBUG] Eagle save failed", {{
+-                errorName: error && error.name ? error.name : "",
+-                errorMessage: error && error.message ? error.message : String(error || ""),
+-                imageUrl: state.src,
+-                pageUrl: hostWindow_{component_key}.location.href
+-              }}, eagleTraceId);
+-              // #endregion
+-              showEagleToast_{component_key}("保存到 Eagle 失败，请确认 Eagle 正在运行");
++              let message = error && error.message ? error.message : "未知错误";
++              if (stage === "eagle") {{
++                message = error && error.name === "TimeoutError"
++                  ? "Eagle 响应超时，请先检查素材库是否已保存"
++                  : "无法连接本机 Eagle，请确认已启动，并允许浏览器访问本地网络";
++              }} else if (stage === "image" && error && error.name === "TypeError") {{
++                message = "无法读取原图，请刷新页面后重试";
++              }}
++              showEagleToast_{component_key}("保存到 Eagle 失败：" + message);
++            }} finally {{
++              saveButton.disabled = false;
+             }}
+           }});
+         }}
+@@ -391,27 +397,6 @@
+         hostWindow_{component_key}.__lashforgeEagleToastTimer = hostWindow_{component_key}.setTimeout(() => {{
+           toast.style.opacity = "0";
+         }}, 1800);
+-      }}
+-
+-      function reportEagleDebug_{component_key}(hypothesisId, msg, data, traceId) {{
+-        // #region debug-point A:eagle-save-report
+-        hostWindow_{component_key}.fetch("http://127.0.0.1:7777/event", {{
+-          method: "POST",
+-          headers: {{
+-            "Content-Type": "application/json"
+-          }},
+-          body: JSON.stringify({{
+-            sessionId: "eagle-save-feishu",
+-            runId: "pre-fix",
+-            hypothesisId,
+-            location: "openrouter_image_site.py:eagle-menu",
+-            msg,
+-            data: data || {{}},
+-            traceId: traceId || "",
+-            ts: Date.now()
+-          }})
+-        }}).catch(() => {{}});
+-        // #endregion
+       }}
+ 
+       function openEagleMenu_{component_key}(event, src, index) {{

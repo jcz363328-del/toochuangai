@@ -218,6 +218,7 @@ def generate_canvas_images(site, endpoint, payload, files):
 
 def proxy_canvas_text(handler, site, endpoint, payload):
     from 图片.request_limits import get_request_limiter
+    from 图片.omnia_service import managed_omnia_context, record_omnia_provider_status
 
     if str(payload.get("model") or "") not in site.INFINITE_CANVAS_TEXT_MODELS:
         raise CanvasRequestError("画布不支持该文字模型")
@@ -228,7 +229,14 @@ def proxy_canvas_text(handler, site, endpoint, payload):
         raise CanvasRequestError("OmniaKey 未配置", 503)
     # Keep the original responses/chat payload, including history and tools.
     # The slot covers the entire streamed response, not only the HTTP headers.
-    with get_request_limiter().slot("omnia_text"):
+    with get_request_limiter().slot("omnia_text"), managed_omnia_context(
+        primary_key=api_key, model=str(payload.get("model") or ""),
+        api_base=site.OMNIAKEY_API_BASE,
+    ):
+        # The managed context pins this request to one pool credential
+        # until the upstream body is drained and accounting completes.
+        api_key = site.load_omnia_api_key()
+        record_omnia_provider_status("uncertain")
         try:
             response = requests.post(
                 site.OMNIAKEY_API_BASE.rstrip("/") + "/v1" + endpoint,
@@ -241,6 +249,7 @@ def proxy_canvas_text(handler, site, endpoint, payload):
             raise RuntimeError("OmniaKey 文字请求连接中断或等待超时，远端结果尚未确认，未自动重新提交。") from exc
         with response as upstream:
             if upstream.status_code == 429:
+                record_omnia_provider_status("rejected")
                 # Surface rejection to the limiter before writing any headers,
                 # so its account-wide cooldown also covers canvas text traffic.
                 raise CanvasRequestError("OmniaKey 请求过多（HTTP 429），请稍后重试", 429)
@@ -249,6 +258,8 @@ def proxy_canvas_text(handler, site, endpoint, payload):
                     f"OmniaKey 文字请求返回 HTTP {upstream.status_code}，远端结果尚未确认，未自动重新提交。",
                     upstream.status_code,
                 )
+            if upstream.status_code >= 400:
+                record_omnia_provider_status("rejected")
             handler.send_response(upstream.status_code)
             handler.send_header("Content-Type", upstream.headers.get("Content-Type", "application/json"))
             handler.send_header("Cache-Control", "no-store")
@@ -273,6 +284,14 @@ def proxy_canvas_text(handler, site, endpoint, payload):
                 # Release through the limiter's uncertain-outcome cooldown.
                 # The caller closes the existing response without new headers.
                 raise RuntimeError("OmniaKey 流连接中断，远端结果尚未确认，未自动重新提交。") from exc
+            if upstream.status_code >= 400:
+                # Preserve the original error body already sent to the
+                # browser while recording this call as failed.
+                raise CanvasRequestError(
+                    f"OmniaKey 文字请求失败（HTTP {upstream.status_code}）",
+                    upstream.status_code,
+                )
+            record_omnia_provider_status("success")
 
 
 def serve_canvas_api(handler, site, endpoint, method="POST"):

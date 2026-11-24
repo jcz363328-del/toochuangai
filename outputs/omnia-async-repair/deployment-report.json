@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-21",
+  "deployed": true,
+  "container": "toochuangai-single-app-1",
+  "processes": [
+    "xiaoha",
+    "xiaoha-static"
+  ],
+  "main_sha256": "d544c910810140411824aa608deb4cdff31761bb48dd9436b0f2ecf72167205a",
+  "image": "toochuangai-single:omnia-async-20261121",
+  "latest_tag_updated": true,
+  "changes": [
+    "Default Nano Banana generation and editing now use asynchronous media tasks",
+    "Submission retries reuse one idempotency key; polling handles all transient 5xx including 524",
+    "Accepted task receipts persist in logs; resume_omnia_image_task only queries and downloads an existing task"
+  ],
+  "validation": {
+    "targeted_tests_passed": 61,
+    "additional_tests": 106,
+    "additional_existing_failures": 4,
+    "same_failures_on_before_code": true,
+    "text_generation_seconds": 15,
+    "reference_edit_seconds": 21.5,
+    "reference_edit_dimensions": [
+      1024,
+      1024
+    ],
+    "existing_task_recovery": "passed on deployed code",
+    "service_health": "all services healthy",
+    "live_and_latest_image_hash": "matched"
+  },
+  "limitations": [
+    "Original synchronous requests without task IDs cannot be recovered locally",
+    "Existing task recovery returns image results and does not rerun a complete multi-stage workflow",
+    "The legacy synchronous adapter used by explicit-size canvas requests remains unchanged"
+  ]
+}

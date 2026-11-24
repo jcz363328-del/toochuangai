@@ -1,0 +1,5 @@
+2026-11-24 16:39:37.009 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-11-24 16:39:37.010 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-11-24 16:39:37.011 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-11-24 16:39:37.011 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+{"files_verified": 4, "channels": 5, "snapshots": [{"percent": 42.74499999999999, "error": false, "pending_calls": 0, "active_calls": 0, "call_records": 3, "refunded_call": {"resolution": "4K", "channel": 1, "outcome": "failed", "cost_percent": 0.0, "refund_percent": 0.039}}, {"percent": 42.74499999999999, "error": false, "pending_calls": 0, "active_calls": 0, "call_records": 3, "refunded_call": {"resolution": "4K", "channel": 1, "outcome": "failed", "cost_percent": 0.0, "refund_percent": 0.039}}], "refund_idempotent": true, "generation_requests_sent_by_verification": 0}

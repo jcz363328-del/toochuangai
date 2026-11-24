@@ -1,0 +1,119 @@
+--- image/_run_feature_job_once
++++ runtime/_run_feature_job_once
+@@ -3,6 +3,9 @@
+     if job_id:
+         set_task_progress(job_id, 5, "准备上传图片")
+     feature_key = str((job_context.get("feature") or {}).get("key") or "")
++    if feature_key == "poster_fusion":
++        from 图片.poster_fusion import run_job
++        return finalize_feature_job_result(job_context, run_job(SimpleNamespace(**globals()), job_context), job_id)
+     if feature_key == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+         from 图片.multi_reference_composer import run_job
+         result = run_job(SimpleNamespace(**globals()), job_context)
+@@ -220,7 +223,7 @@
+             set_task_progress(job_id, 18, "正在请求模型生成结果")
+         feature_key = str((job_context.get("feature") or {}).get("key") or "")
+         if feature_key == "hd_batch":
+-            result = call_portrait_hd_upscale(list(job_context.get("uploaded_files") or [])[:1])
++            result = call_portrait_hd_upscale(list(job_context.get("uploaded_files") or [])[:1], prompt=str(job_context.get("prompt") or ""))
+         elif feature_key == JIMENG_HD_FEATURE_KEY or feature_mode == "jimeng_upscale":
+             result = call_jimeng_hd_upscale(
+                 uploaded_files=list(job_context.get("uploaded_files") or [])[:1],
+
+--- image/render_openrouter_feature
++++ runtime/render_openrouter_feature
+@@ -1,7 +1,15 @@
+ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
++    if feature.get("key") == "a_plus_canvas":
++        from 图片.a_plus_canvas import render
++        render(SimpleNamespace(**globals()), feature, model, aspect_ratio)
++        return
++    if feature.get("key") == "poster_fusion":
++        from 图片.poster_fusion import render
++        render(SimpleNamespace(**globals()), feature)
++        return
+     if feature.get("key") == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+-        from 图片.multi_reference_composer import render
+-        render(SimpleNamespace(**globals()), feature)
++        from 图片.a_plus_canvas import render
++        render(SimpleNamespace(**globals()), get_feature_by_key("a_plus_canvas"), model, aspect_ratio)
+         return
+     if feature.get("key") == "ai_qa_image":
+         from 图片.qa_chat import render
+@@ -23,8 +31,8 @@
+     feature_mode = str(feature.get("mode") or "openrouter")
+     model_options_for_feature = MODEL_OPTIONS
+     if feature.get("key") == "hd_batch":
+-        default_model_for_feature = JIMENG_HD_MODEL_NAME
+-        model_options_for_feature = [JIMENG_HD_MODEL_NAME]
++        default_model_for_feature = NANO_BANANA_MODEL
++        model_options_for_feature = [NANO_BANANA_MODEL]
+     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
+         default_model_for_feature = JIMENG_HD_MODEL_NAME
+         model_options_for_feature = [JIMENG_HD_MODEL_NAME]
+@@ -210,7 +218,7 @@
+     if feature.get("key") == JIMENG_HD_FEATURE_KEY:
+         meta_items.append('<span class="meta-pill">保持原图比例、构图与内容</span>')
+     elif feature.get("key") == "hd_batch":
+-        meta_items.append('<span class="meta-pill">专用超清 · 仅使用原图 · 每张返回一张结果</span>')
++        meta_items.append('<span class="meta-pill">Nano Banana 2.1 · 仅使用原图 · 每张返回一张结果</span>')
+     if supports_outpaint:
+         meta_items.append('<span class="meta-pill">支持上下左右独立扩展</span>')
+     if default_output_count > 0 and not supports_outpaint:
+@@ -616,16 +624,16 @@
+                 label_visibility="collapsed",
+             )
+         elif supports_a_plus_style_model_replace:
+-            st.markdown('<div class="panel-subtitle">A+ 首屏风格参考图 + 目标模特图（2–6 张）</div>', unsafe_allow_html=True)
++            st.markdown('<div class="panel-subtitle">A+ 首屏风格参考图 + 一张目标模特图</div>', unsafe_allow_html=True)
+             amazon_source_files = render_multi_image_uploader(
+                 "上传 A+ 参考图与目标模特图",
+                 key=f"a_plus_style_model_replace_uploader_{feature['key']}",
+-                help_text="第 1 张上传 A+ 首屏风格参考图；第 2–6 张上传同一位目标模特的正脸、半身或全身图，优先保留目标模特原始姿势，缺失局部自动补全。",
+-                max_files=6,
++                help_text="第 1 张上传 A+ 首屏风格参考图；第 2 张上传一张目标模特图（正脸、半身或全身），优先保留目标模特原始姿势，缺失局部自动补全。",
++                max_files=2,
+                 allow_reorder=True,
+             )
+             st.markdown(
+-                '<div class="slot-helper">第 1 张提供风格调性；后续图片提供目标模特身份与原始姿态，人物自然融合即可。</div>',
++                '<div class="slot-helper">第 1 张提供风格调性；第 2 张提供目标模特身份与原始姿态，人物自然融合即可。</div>',
+                 unsafe_allow_html=True,
+             )
+             st.info("优先保留目标模特原始姿势，自动补全缺失局部并匹配画面光影与透视；版式可灵活调整，固定输出 1464×1000 px。")
+@@ -1707,7 +1715,9 @@
+                     ),
+                 )
+         with result_view_container:
+-            if supports_image_smart_analysis:
++            if render_result_loading(feature["key"]):
++                pass
++            elif supports_image_smart_analysis:
+                 render_image_smart_analysis_report(
+                     result,
+                     str(job_info.get("status") or ""),
+@@ -2238,7 +2248,7 @@
+                     PORTRAIT_HD_SKIN_LOCK_RULES
+                     + PORTRAIT_HD_COLOR_LOCK_RULES
+                     + "第1张图必须作为唯一主体，不允许改变人物身份、五官比例、脸型、表情、发型和构图。"
+-                    "最终结果的像素宽度和像素高度必须分别与当前第1张原图完全一致，只提升清晰度；禁止裁剪、扩图、补边、旋转、拉伸、改变宽高比或重新取景，原图四边内容必须全部保留。"
++                    "保持当前第1张原图的完整构图与宽高比，使用原生 4K 高清输出，不要缩回上传图尺寸；禁止裁剪、扩图、补边、旋转、拉伸或重新取景，原图四边内容必须全部保留。"
+                     "如果存在第2张图，第2张图仍作为高清参考图，但只用于参考清晰度、分辨率和细节解析水平。"
+                     "严禁从第2张图借用或迁移肤色、肤质、毛孔状态、皮肤光泽、颗粒感、斑点、妆容、脸型、五官、眼睛、表情、发型、服饰、背景、色温、色调、白平衡、曝光、对比度、光线颜色、色彩风格或人物身份。"
+                     "批量时上传几张主图，就只返回几张高清结果图；每张主图只允许对应1张结果图。"
+
+--- image/render_result_preview
++++ runtime/render_result_preview
+@@ -3,9 +3,12 @@
+     show_title: bool = True,
+     download_images: list[str] | None = None,
+     max_width_percent: int = 25,
++    feature_key: str = "",
+ ) -> None:
+     if show_title:
+         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
++    if render_result_loading(feature_key):
++        return
+     if not images:
+         st.markdown(
+             """

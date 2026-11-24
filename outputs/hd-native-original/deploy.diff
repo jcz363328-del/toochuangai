@@ -1,0 +1,80 @@
+--- 
++++ 
+@@ -1745,17 +1745,17 @@
+     {
+         "key": "hd_batch",
+         "name": "模特图批量高清",
+-        "summary": "Nano Banana 2.1 高清增强，按原图尺寸输出",
++        "summary": "Nano Banana 2.1 高清增强，保留生成原始分辨率",
+         "mode": "portrait_hd",
+         "model": NANO_BANANA_MODEL,
+         "output_mode": "image",
+         "min_images": 1,
+         "max_output_images": 1,
+         "fixed_output_count": 1,
+-        "description": "使用 Nano Banana 2.1 增强原图清晰度，保留人物、商品和背景内容；每张原图输出一张结果，最终宽高与原图一致。",
++        "description": "使用 Nano Banana 2.1 增强原图清晰度，保留人物、商品和背景内容；每张原图输出一张结果，保留模型生成结果的原始像素宽高。",
+         "default_prompt": (
+             "仅使用每张原图进行高清增强，保留原图内容、比例与边界。"
+-            "使用 Nano Banana 2.1，不使用其他人物参考图；每张输出一张结果，最终像素宽高与原图一致。"
++            "使用 Nano Banana 2.1，不使用其他人物参考图；每张输出一张结果，保留模型生成结果的原始像素宽高。"
+         )
+     },
+     {
+@@ -15975,6 +15975,7 @@
+         aspect_ratio=DEFAULT_ASPECT_RATIO,
+         uploaded_files=[uploaded_files[0]],
+         source_only=True,
++        preserve_native_resolution=True,
+     )
+ 
+ 
+@@ -16048,15 +16049,19 @@
+     aspect_ratio: str,
+     uploaded_files: list[Any] | None = None,
+     source_only: bool = False,
++    preserve_native_resolution: bool = False,
+ ) -> dict[str, Any]:
+     portrait_inputs = list(uploaded_files or [])[:1] if source_only else get_portrait_hd_inputs(uploaded_files)
+     source_input = portrait_inputs[0]
+     source_aspect_ratio = get_uploaded_input_closest_aspect_ratio(source_input, fallback=aspect_ratio)
+-    hd_prompt = (
+-        build_portrait_hd_prompt(prompt)
+-        + "\n\n"
+-        + build_portrait_hd_size_instruction(source_input)
+-    )
++    hd_prompt = build_portrait_hd_prompt(prompt)
++    if preserve_native_resolution:
++        hd_prompt = hd_prompt.replace(
++            "最终画布的像素宽度和像素高度必须分别与第1张原图完全一致，只提升清晰度。",
++            "保持原图宽高比、完整构图和内容，以原生 4K 分辨率输出高清结果，不要缩回上传图尺寸。",
++        )
++    else:
++        hd_prompt += "\n\n" + build_portrait_hd_size_instruction(source_input)
+     try:
+         result = call_openrouter_images_api(
+             model=model,
+@@ -16065,8 +16070,12 @@
+             uploaded_files=portrait_inputs,
+             resolution=PORTRAIT_HD_DEFAULT_IMAGE_SIZE,
+         )
+-        result = finalize_portrait_hd_result(result, source_input)
+-        result["channel"] = "Images API 高清增强 · 原图尺寸输出"
++        if preserve_native_resolution:
++            # Keep provider originals byte-for-byte; history and downloads save these sources.
++            result["channel"] = "Nano Banana 2.1 · 原生高清原图"
++        else:
++            result = finalize_portrait_hd_result(result, source_input)
++            result["channel"] = "Images API 高清增强 · 原图尺寸输出"
+         return result
+     except Exception as exc:
+         if is_omnia_image_outcome_unknown(exc):
+@@ -26244,7 +26253,7 @@
+                     PORTRAIT_HD_SKIN_LOCK_RULES
+                     + PORTRAIT_HD_COLOR_LOCK_RULES
+                     + "第1张图必须作为唯一主体，不允许改变人物身份、五官比例、脸型、表情、发型和构图。"
+-                    "最终结果的像素宽度和像素高度必须分别与当前第1张原图完全一致，只提升清晰度；禁止裁剪、扩图、补边、旋转、拉伸、改变宽高比或重新取景，原图四边内容必须全部保留。"
++                    "保持当前第1张原图的完整构图与宽高比，使用原生 4K 高清输出，不要缩回上传图尺寸；禁止裁剪、扩图、补边、旋转、拉伸或重新取景，原图四边内容必须全部保留。"
+                     "如果存在第2张图，第2张图仍作为高清参考图，但只用于参考清晰度、分辨率和细节解析水平。"
+                     "严禁从第2张图借用或迁移肤色、肤质、毛孔状态、皮肤光泽、颗粒感、斑点、妆容、脸型、五官、眼睛、表情、发型、服饰、背景、色温、色调、白平衡、曝光、对比度、光线颜色、色彩风格或人物身份。"
+                     "批量时上传几张主图，就只返回几张高清结果图；每张主图只允许对应1张结果图。"

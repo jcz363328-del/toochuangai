@@ -1,0 +1,1024 @@
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图创AI系统 - 主控制台</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Microsoft YaHei', Arial, sans-serif; background: #f7f9fc; color: #111827; min-height: 100vh; }
+        .topbar { height: 70px; background: #fff; border-bottom: 1px solid #eef2f7; display: flex; align-items: center; }
+        .topbar-inner { width: min(96vw, 1320px); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .brand-wrap { display:flex; align-items:center; gap:10px; }
+        .brand { font-size: 34px; color: #5b7cff; font-weight: 700; }
+        .brand-title { font-size: 34px; color: #111827; font-weight: 700; letter-spacing: 0.02em; }
+        .right-tools { display: flex; align-items: center; gap: 12px; }
+        .search-wrap { width: 300px; height: 40px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+        .search-wrap i { color: #9ca3af; font-size: 14px; }
+        .search-wrap input { border: 0; outline: none; width: 100%; font-size: 14px; color: #111827; background: transparent; }
+        .user-tag { min-width: 88px; padding: 8px 10px; border-radius: 8px; background: #f3f4f6; font-size: 12px; color: #4b5563; text-align: center; white-space: nowrap; }
+        .user-tier-group { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+        .store-tier-list { display: inline-flex; align-items: center; gap: 5px; max-width: 250px; overflow-x: auto; scrollbar-width: none; }
+        .store-tier-list::-webkit-scrollbar { display: none; }
+        .store-tier-chip { display: inline-flex; align-items: center; gap: 4px; padding: 7px 9px; border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff; color: #4338ca; font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .store-tier-chip i { color: #5b7cff; }
+        .user-rebind {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #eef2ff;
+            color: #4338ca;
+            text-decoration: none;
+            font-size: 12px;
+            border: 1px solid #c7d2fe;
+            white-space: nowrap;
+        }
+        .user-rebind:hover {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+        .identity-switch-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border: 1px solid #5b7cff;
+            border-radius: 8px;
+            background: #5b7cff;
+            color: #fff;
+            font-family: inherit;
+            font-size: 12px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .identity-switch-trigger:hover { background: #4f6ee8; border-color: #4f6ee8; }
+        .identity-switch-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.46);
+        }
+        .identity-switch-modal.open { display: flex; }
+        .identity-switch-dialog {
+            width: min(440px, 100%);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: #fff;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+        }
+        .identity-switch-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 20px 20px 14px; }
+        .identity-switch-title { margin: 0; font-size: 19px; color: #111827; }
+        .identity-switch-subtitle { margin: 6px 0 0; color: #64748b; font-size: 12px; line-height: 1.55; }
+        .identity-switch-close { width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 8px; background: #f3f4f6; color: #64748b; font-size: 18px; cursor: pointer; }
+        .identity-switch-body { padding: 0 20px 18px; }
+        .identity-current { margin-bottom: 12px; padding: 9px 11px; border-radius: 9px; background: #f8fafc; color: #475569; font-size: 12px; }
+        .identity-search { position: relative; }
+        .identity-search > i { position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 13px; }
+        .identity-search input { width: 100%; height: 40px; padding: 0 12px 0 36px; border: 1px solid #dbe2ea; border-radius: 9px; outline: none; font-family: inherit; font-size: 14px; }
+        .identity-search input:focus { border-color: #7690ff; box-shadow: 0 0 0 3px rgba(91, 124, 255, 0.12); }
+        .identity-search-results { min-height: 88px; max-height: 260px; margin-top: 10px; overflow-y: auto; border: 1px solid #edf1f7; border-radius: 10px; }
+        .identity-result-empty { padding: 28px 14px; color: #94a3b8; font-size: 13px; text-align: center; line-height: 1.5; }
+        .identity-result { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-bottom: 1px solid #f1f5f9; background: #fff; font-family: inherit; text-align: left; cursor: pointer; }
+        .identity-result:last-child { border-bottom: 0; }
+        .identity-result:hover, .identity-result.selected { background: #eef2ff; }
+        .identity-avatar { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: #dfe6ff; color: #405dd8; font-size: 13px; font-weight: 700; }
+        .identity-result-name { color: #172033; font-size: 14px; font-weight: 600; }
+        .identity-result-meta { margin-top: 2px; color: #94a3b8; font-size: 11px; }
+        .identity-switch-status { min-height: 18px; margin-top: 9px; color: #64748b; font-size: 12px; }
+        .identity-switch-status.error { color: #b91c1c; }
+        .identity-switch-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid #eef2f7; background: #fbfcfe; }
+        .identity-switch-footer .restore { margin-right: auto; color: #c2410c; }
+        .identity-dialog-btn { padding: 8px 14px; border: 1px solid #dbe2ea; border-radius: 8px; background: #fff; color: #475569; font-family: inherit; font-size: 13px; cursor: pointer; }
+        .identity-dialog-btn.primary { border-color: #5b7cff; background: #5b7cff; color: #fff; }
+        .identity-dialog-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .page { width: min(96vw, 1320px); margin: 0 auto; padding: 18px 0 24px; }
+        .dashboard-layout { display: grid; grid-template-columns: 212px minmax(0, 1fr); gap: 22px; align-items: start; }
+        .side-nav { position: sticky; top: 18px; display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid #e8edf5; border-radius: 14px; background: #fff; box-shadow: 0 8px 24px rgba(37, 61, 112, 0.05); }
+        .side-nav-title { padding: 6px 10px 10px; color: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+        .side-nav-item { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 11px; border: 0; border-radius: 9px; background: transparent; color: #475569; font: inherit; font-size: 14px; text-align: left; cursor: pointer; transition: all .18s ease; }
+        .side-nav-item i { width: 18px; color: #7990f6; text-align: center; }
+        .side-nav-item:hover, .side-nav-item.active { background: #eef2ff; color: #405dd8; font-weight: 600; }
+        .side-nav-divider { height: 1px; margin: 5px 2px; background: #eef2f7; }
+        .dashboard-content { min-width: 0; }
+        .section-title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; color: #111827; margin: 8px 0 14px; }
+        .section-title i { color: #5b7cff; font-size: 15px; }
+        .quick-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .quick-card { background: #fff; border: 1px solid #edf1f7; border-radius: 12px; min-height: 132px; padding: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; transition: all 0.2s ease; }
+        .quick-card.available { cursor: pointer; }
+        .quick-card.available:hover { border-color: #cbd5ff; box-shadow: 0 8px 18px rgba(59, 130, 246, 0.12); transform: translateY(-2px); }
+        .quick-card i { color: #5b7cff; font-size: 28px; margin-bottom: 12px; }
+        .quick-card h3 { margin: 0; font-size: 18px; font-weight: 600; color: #111827; }
+        .quick-card.user-favorite, .quick-card.has-favorite-control { position: relative; }
+        .quick-card.favorite-hidden { display: none !important; }
+        .favorite-remove { position: absolute; top: 9px; right: 10px; width: 30px; height: 30px; border: 0; border-radius: 8px; background: #eef2ff; color: #5b7cff; cursor: pointer; font-size: 15px; }
+        .favorite-remove:hover { background: #dfe6ff; color: #405dd8; }
+        .quick-empty { grid-column: 1 / -1; padding: 20px; border: 1px dashed #cbd5e1; border-radius: 12px; color: #94a3b8; text-align: center; }
+        .divider { height: 1px; background: #edf1f7; margin: 8px 0 18px; }
+        .panel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .panel[data-dept="operations"] { grid-column: 1 / -1; }
+        .panel { background: #fff; border: 1px solid #edf1f7; border-radius: 12px; padding: 12px; }
+        .panel-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 18px; font-weight: 700; color: #1f2937; }
+        .panel-hd i { color: #5b7cff; font-size: 15px; }
+        .nav-item { height: 52px; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; transition: background-color 0.2s ease; }
+        .nav-item:first-of-type { border-top: 0; }
+        .nav-item.available { cursor: pointer; }
+        .nav-item.available:hover { background: #f8faff; }
+        .nav-left { display: flex; align-items: center; gap: 9px; min-width: 0; }
+        .nav-left i { width: 20px; text-align: center; color: #5b7cff; font-size: 15px; }
+        .nav-name { font-size: 16px; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .nav-right { display: flex; align-items: center; gap: 6px; color: #94a3b8; font-size: 13px; }
+        .favorite-toggle { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #94a3b8; cursor: pointer; font-size: 15px; }
+        .favorite-toggle:hover { background: #eef2ff; color: #5b7cff; }
+        .favorite-toggle.active { color: #5b7cff; }
+        .nav-item[data-allowed="false"] .favorite-toggle { display: none; }
+        .empty-tip { padding: 20px 8px; color: #9ca3af; font-size: 13px; text-align: center; }
+        .hidden-by-search { display: none !important; }
+        .department-hidden { display: none !important; }
+        .footer { text-align: center; color: #c3cad8; padding: 22px 0 12px; font-size: 12px; }
+        @media (max-width: 1200px) {
+            .quick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .panel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .brand, .brand-title { font-size: 28px; }
+        }
+        @media (max-width: 768px) {
+            .dashboard-layout { grid-template-columns: 1fr; gap: 12px; }
+            .side-nav { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .side-nav-title, .side-nav-divider { grid-column: 1 / -1; }
+            .search-wrap { width: 210px; }
+            .quick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .panel-grid { grid-template-columns: 1fr; }
+            .brand, .brand-title { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+{% macro resolve_href(fname) -%}
+{%- if fname == 'innovation_proposals' -%}{{ url_for('innovation_proposals.innovation_proposals') }}
+{%- elif fname == 'xiaotu_qa' -%}{{ url_for('dashboard_xiaotu_report_center') }}
+{%- elif fname == 'business_analysis' -%}{{ url_for('business_analysis') }}
+{%- elif fname == 'tk_project_group' -%}{{ url_for('tk_project') }}
+{%- elif fname == 'tk_customer_service' -%}{{ url_for('tk_customer_service') }}
+{%- elif fname == 'general_office' -%}{{ url_for('general_office') }}
+{%- elif fname == 'operation_dept_1' -%}{{ url_for('operation_dept_1') }}
+{%- elif fname == 'operation_dept_2' -%}{{ url_for('operation_dept_2') }}
+{%- elif fname == 'operation_dept_3' -%}{{ url_for('operation_dept_3') }}
+{%- elif fname == 'operation_dept_6' -%}{{ url_for('operation_dept_6') }}
+{%- elif fname == 'operation_dept_7' -%}{{ url_for('operation_dept_7') }}
+{%- elif fname == 'operation_fba_shipping' -%}{{ url_for('operation_fba_shipping_methods_page') }}
+{%- elif fname == 'tech_dept' -%}{{ url_for('tech_dept') }}
+{%- elif fname == 'rd_dept' -%}{{ url_for('rd_dept') }}
+{%- elif fname == 'visual_design_dept' -%}{{ url_for('visual_design_dept') }}
+{%- elif fname == 'photography_dept' -%}{{ url_for('photography_dept') }}
+{%- elif fname == 'ai_dept' -%}{{ url_for('ai_modules') }}
+{%- elif fname == 'amazon_reply_agent' -%}{{ url_for('amazon_reply_agent') }}
+{%- elif fname == 'finance_dept' -%}{{ url_for('finance_modules') }}
+{%- elif fname == 'hr_admin_dept' -%}{{ url_for('hr_admin_modules') }}
+{%- elif fname == 'newcomer_group' -%}{{ url_for('newcomer_group') }}
+{%- elif fname == 'shenzhen_dept' -%}{{ url_for('shenzhen_dept') }}
+{%- elif fname == 'procurement_dept' -%}{{ url_for('procurement_dept') }}
+{%- else -%}{%- endif -%}
+{%- endmacro %}
+
+{% macro resolve_icon(fname) -%}
+{%- if fname == 'innovation_proposals' -%}fa-regular fa-lightbulb
+{%- elif fname == 'xiaotu_qa' -%}fa-regular fa-file-lines
+{%- elif fname == 'business_analysis' -%}fa-solid fa-chart-line
+{%- elif fname == 'operation_fba_shipping' -%}fa-solid fa-ship
+{%- elif fname == 'tk_project_group' -%}fa-solid fa-diagram-project
+{%- elif fname == 'warehouse_group' -%}fa-solid fa-warehouse
+{%- elif fname == 'tk_customer_service' -%}fa-solid fa-headset
+{%- elif fname == 'general_office' -%}fa-solid fa-crown
+{%- elif 'operation' in fname -%}fa-solid fa-list-check
+{%- elif fname == 'tech_dept' -%}fa-solid fa-code
+{%- elif fname == 'visual_design_dept' -%}fa-solid fa-palette
+{%- elif fname == 'photography_dept' -%}fa-solid fa-camera
+{%- elif fname == 'ai_dept' -%}fa-solid fa-robot
+{%- elif fname == 'amazon_reply_agent' -%}fa-solid fa-envelope-open-text
+{%- elif fname == 'finance_dept' -%}fa-solid fa-calculator
+{%- elif fname == 'hr_admin_dept' -%}fa-solid fa-users
+{%- elif fname == 'newcomer_group' -%}fa-solid fa-user-plus
+{%- elif fname == 'shenzhen_dept' -%}fa-solid fa-building
+{%- elif fname == 'rd_dept' -%}fa-solid fa-flask
+{%- elif fname == 'procurement_dept' -%}fa-solid fa-cart-shopping
+{%- else -%}fa-solid fa-circle-dot
+{%- endif -%}
+{%- endmacro %}
+
+<div class="topbar">
+    <div class="topbar-inner">
+        <div class="brand-wrap">
+            <i class="fas fa-brain brand"></i>
+            <div class="brand-title">图创AI系统</div>
+        </div>
+        <div class="right-tools">
+            <label class="search-wrap">
+                <i class="fas fa-search"></i>
+                <input id="featureSearch" type="text" placeholder="搜索功能">
+            </label>
+            {% if user_id %}
+            <div class="user-tier-group">
+                <div class="user-tag">{{ permission_debug_user_name or user_name or '用户' }}</div>
+                {% if dashboard_store_tiers %}
+                <div class="store-tier-list" title="店铺等级数据日期：{{ dashboard_store_tier_date }}">
+                    {% for item in dashboard_store_tiers %}
+                    <span class="store-tier-chip"><i class="fas fa-store"></i>{{ item.store }}号店 · {{ item.tier }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <a class="user-rebind" href="{{ url_for('reauth') }}">
+                <i class="fas fa-rotate-right"></i>
+                <span>重新绑定身份</span>
+            </a>
+            {% if can_switch_identity %}
+            <button class="identity-switch-trigger" id="identitySwitchTrigger" type="button">
+                <i class="fas fa-right-left"></i>
+                <span>切换身份</span>
+            </button>
+            {% endif %}
+            {% else %}
+            <a class="user-tag" style="text-decoration:none;" href="{{ url_for('feishu_auth') }}">飞书登录</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div style="margin-bottom:12px;">
+        {% for category, message in messages %}
+        <div style="padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:8px;
+            {% if category == 'error' %}background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;
+            {% elif category == 'success' %}background:#dcfce7;color:#166534;border:1px solid #bbf7d0;
+            {% elif category == 'warning' %}background:#fef9c3;color:#854d0e;border:1px solid #fde68a;
+            {% else %}background:#e0e7ff;color:#3730a3;border:1px solid #c7d2fe;{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {% if permission_debug_departments or permission_debug_user_name %}
+    <div style="background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+            <i class="fas fa-user-shield"></i>
+            {% if permission_debug_user_name %}
+            当前为模拟用户：{{ permission_debug_user_name }}{% if permission_debug_departments %}（{{ permission_debug_departments | join('、') }}）{% endif %}
+            {% else %}
+            当前为模拟身份：{{ permission_debug_departments | join('、') }}
+            {% endif %}
+        </div>
+        <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('ai_modules') }}" style="text-decoration:none;background:#fff;color:#7c2d12;border:1px solid #fdba74;border-radius:999px;padding:5px 12px;font-size:12px;">去权限切换页</a>
+            <a href="{{ url_for('permission_debug_clear') }}" style="text-decoration:none;background:#ea580c;color:#fff;border-radius:999px;padding:5px 12px;font-size:12px;">恢复真实身份</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="dashboard-layout">
+    <aside class="side-nav" aria-label="部门导航">
+        <div class="side-nav-title">功能导航</div>
+        <button class="side-nav-item active" type="button" data-department="all"><i class="fa-solid fa-table-columns"></i><span>总览</span></button>
+        <button class="side-nav-item" type="button" data-department="favorites"><i class="fa-regular fa-star"></i><span>我的收藏</span></button>
+        <div class="side-nav-divider"></div>
+        <button class="side-nav-item" type="button" data-department="all"><i class="fa-regular fa-folder"></i><span>全部部门</span></button>
+        <button class="side-nav-item" type="button" data-department="business"><i class="fa-solid fa-briefcase"></i><span>业务管理</span></button>
+        <button class="side-nav-item" type="button" data-department="tk_project_group"><i class="fa-solid fa-diagram-project"></i><span>内容生产工厂</span></button>
+        <button class="side-nav-item" type="button" data-department="operation_dept_1"><i class="fa-solid fa-list-check"></i><span>运营一部</span></button>
+        <button class="side-nav-item" type="button" data-department="operation_dept_2"><i class="fa-solid fa-list-check"></i><span>运营二部</span></button>
+        <button class="side-nav-item" type="button" data-department="operation_dept_3"><i class="fa-solid fa-list-check"></i><span>运营三部</span></button>
+        <button class="side-nav-item" type="button" data-department="operation_dept_6"><i class="fa-solid fa-list-check"></i><span>运营六部</span></button>
+        <button class="side-nav-item" type="button" data-department="operation_dept_7"><i class="fa-solid fa-list-check"></i><span>运营七部</span></button>
+        <button class="side-nav-item" type="button" data-department="operation_fba_shipping"><i class="fa-solid fa-ship"></i><span>FBA货件运输</span></button>
+        <button class="side-nav-item" type="button" data-department="amazon_reply_agent"><i class="fa-solid fa-headset"></i><span>客服</span></button>
+        <button class="side-nav-item" type="button" data-department="tech_dept"><i class="fa-solid fa-code"></i><span>技术部</span></button>
+        <button class="side-nav-item" type="button" data-department="visual_design_dept"><i class="fa-solid fa-palette"></i><span>视觉设计部</span></button>
+        <button class="side-nav-item" type="button" data-department="photography_dept"><i class="fa-solid fa-camera"></i><span>摄影部</span></button>
+        {% if can_access_ai_workspace %}
+        <button class="side-nav-item" type="button" data-department="ai_dept"><i class="fa-solid fa-robot"></i><span>AI部</span></button>
+        {% endif %}
+        <button class="side-nav-item" type="button" data-department="support"><i class="fa-regular fa-user"></i><span>支持职能</span></button>
+    </aside>
+    <main class="dashboard-content" id="dashboard-overview">
+    <div class="section-title"><i class="fa-regular fa-star"></i>我的收藏</div>
+    <div class="quick-grid" id="quickFavorites">
+        {% if user_id %}
+            <div class="quick-card available" data-menu="创新提案管理" data-href="{{ url_for('innovation_proposals.innovation_proposals') }}" data-search="创新提案管理 创新提案">
+                <i class="fa-regular fa-lightbulb"></i>
+                <h3>创新提案管理</h3>
+            </div>
+            <div class="quick-card available" data-menu="报告智能体" data-href="{{ url_for('dashboard_xiaotu_report_center') }}" data-search="报告智能体 日报 周报 月报">
+                <i class="fa-regular fa-file-lines"></i>
+                <h3>报告智能体</h3>
+            </div>
+            {% if can_value_evaluation %}
+            <div class="quick-card available" data-menu="360价值评价" data-href="{{ url_for('value_evaluation.page') }}" data-search="360价值评价 价值表现 评分 反馈">
+                <i class="fa-solid fa-people-arrows"></i>
+                <h3>360价值评价</h3>
+            </div>
+            {% endif %}
+            <div class="quick-card available" data-menu="Seedance 视频生成" data-href="{{ url_for('seedance_web.seedance_web_index') }}" data-search="Seedance 视频生成 AI视频 视频生成">
+                <i class="fa-solid fa-film"></i>
+                <h3>Seedance 视频生成</h3>
+            </div>
+            <div class="quick-card available" data-menu="Listing 生成智能体" data-href="{{ url_for('listing_agent.index') }}" data-search="Listing 生成智能体 Amazon 亚马逊 文案 关键词">
+                <i class="fa-solid fa-list-check"></i>
+                <h3>Listing 生成智能体</h3>
+            </div>
+            <div class="quick-card available" data-menu="ABA 排名看板" data-href="{{ url_for('listing_agent.aba_ranking_dashboard') }}" data-search="ABA 排名看板 Amazon 关键词 排名 点击 转化">
+                <i class="fa-solid fa-chart-column"></i>
+                <h3>ABA 排名看板</h3>
+            </div>
+            <div class="quick-card available" data-menu="年会精彩瞬间" data-href="{{ url_for('annual_moments') }}" data-search="年会精彩瞬间 年会 图片 视频 相册">
+                <i class="fa-solid fa-images"></i>
+                <h3>年会精彩瞬间</h3>
+            </div>
+            <div class="quick-card available" data-menu="培训视频" data-href="{{ url_for('training_videos') }}" data-search="培训视频 在线预览">
+                <i class="fa-solid fa-video"></i>
+                <h3>培训视频</h3>
+            </div>
+            <div class="quick-card available" data-menu="模特排队" data-href="{{ url_for('model_management.queue') }}" data-search="模特排队 模特管理">
+                <i class="fa-solid fa-users"></i>
+                <h3>模特排队</h3>
+            </div>
+        {% else %}
+            <div class="quick-card available" data-menu="飞书登录" data-href="{{ url_for('feishu_auth') }}" data-search="飞书登录 授权">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                <h3>飞书登录</h3>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-title"><i class="fa-solid fa-diamond"></i>全功能</div>
+    <div class="panel-grid">
+        <div class="panel" id="panel-business" data-dept="business">
+            <div class="panel-hd"><i class="fa-regular fa-folder"></i>业务管理</div>
+            {% if user_id %}
+                {% set biz_order = ['innovation_proposals', 'xiaotu_qa', 'tk_customer_service'] %}
+                {% for key in biz_order %}
+                    {% for func in accessible_functions %}
+                        {% if func.function_name == key %}
+                            {% set href = resolve_href(func.function_name)|trim %}
+                            <div class="nav-item {{ 'available' if href else '' }}" data-department="{{ func.function_name }}" data-allowed="{{ 'true' if func.is_allowed else 'false' }}" data-menu="{{ func.name }}" data-href="{{ href }}" data-search="{{ (func.name ~ ' ' ~ (func.description or ''))|lower }}">
+                                <div class="nav-left"><i class="{{ resolve_icon(func.function_name) }}"></i><span class="nav-name">{{ func.name }}</span></div>
+                                <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+                {% if can_value_evaluation %}
+                <div class="nav-item available" data-menu="360价值评价" data-href="{{ url_for('value_evaluation.page') }}" data-search="360价值评价 价值表现 评分 反馈">
+                    <div class="nav-left"><i class="fa-solid fa-people-arrows"></i><span class="nav-name">360价值评价</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-tip">请先登录查看可用功能</div>
+            {% endif %}
+        </div>
+
+        <div class="panel" id="panel-operations" data-dept="operations">
+            <div class="panel-hd"><i class="fa-solid fa-list"></i>运营TK管理</div>
+            {% if user_id %}
+                {% set ops_order = ['tk_project_group', 'operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'operation_dept_7', 'operation_fba_shipping', 'amazon_reply_agent'] %}
+                {% for key in ops_order %}
+                    {% for func in accessible_functions %}
+                        {% if func.function_name == key %}
+                            {% set href = resolve_href(func.function_name)|trim %}
+                            <div class="nav-item {{ 'available' if href else '' }}" data-department="{{ func.function_name }}" data-allowed="{{ 'true' if func.is_allowed else 'false' }}" data-menu="{{ func.name }}" data-href="{{ href }}" data-search="{{ (func.name ~ ' ' ~ (func.description or ''))|lower }}">
+                                <div class="nav-left"><i class="{{ resolve_icon(func.function_name) }}"></i><span class="nav-name">{{ func.name }}</span></div>
+                                <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-tip">请先登录查看可用功能</div>
+            {% endif %}
+        </div>
+
+        <div class="panel" id="panel-tech" data-dept="tech">
+            <div class="panel-hd"><i class="fa-solid fa-code"></i>技术与内容</div>
+            {% if user_id %}
+                {% set tech_order = ['tech_dept', 'visual_design_dept', 'photography_dept', 'ai_dept'] %}
+                {% for key in tech_order %}
+                    {% for func in accessible_functions %}
+                        {% if func.function_name == key %}
+                            {% set href = resolve_href(func.function_name)|trim %}
+                            <div class="nav-item {{ 'available' if href else '' }}" data-department="{{ func.function_name }}" data-allowed="{{ 'true' if func.is_allowed else 'false' }}" data-menu="{{ func.name }}" data-href="{{ href }}" data-search="{{ (func.name ~ ' ' ~ (func.description or ''))|lower }}">
+                                <div class="nav-left"><i class="{{ resolve_icon(func.function_name) }}"></i><span class="nav-name">{{ func.name }}</span></div>
+                                <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+                <div class="nav-item available" data-menu="Seedance 视频生成" data-href="{{ url_for('seedance_web.seedance_web_index') }}" data-search="Seedance 视频生成 AI视频 视频生成">
+                    <div class="nav-left"><i class="fa-solid fa-film"></i><span class="nav-name">Seedance 视频生成</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+                <div class="nav-item available" data-menu="Listing 生成智能体" data-href="{{ url_for('listing_agent.index') }}" data-search="Listing 生成智能体 Amazon 亚马逊 文案 关键词">
+                    <div class="nav-left"><i class="fa-solid fa-list-check"></i><span class="nav-name">Listing 生成智能体</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+                <div class="nav-item available" data-menu="ABA 排名看板" data-href="{{ url_for('listing_agent.aba_ranking_dashboard') }}" data-search="ABA 排名看板 Amazon 关键词 排名 点击 转化">
+                    <div class="nav-left"><i class="fa-solid fa-chart-column"></i><span class="nav-name">ABA 排名看板</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+                <div class="nav-item available" data-allowed="{{ 'true' if can_video_claw else 'false' }}" data-menu="VideoClaw AI视频创作" data-href="{{ url_for('video_claw') }}" data-search="VideoClaw AI视频创作 剧本 分镜 视频生成">
+                    <div class="nav-left"><i class="fa-solid fa-clapperboard"></i><span class="nav-name">VideoClaw AI视频创作</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+                <div class="nav-item available" data-menu="年会精彩瞬间" data-href="{{ url_for('annual_moments') }}" data-search="年会精彩瞬间 年会 图片 视频 相册">
+                    <div class="nav-left"><i class="fa-solid fa-images"></i><span class="nav-name">年会精彩瞬间</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+                <div class="nav-item available" data-menu="培训视频" data-href="{{ url_for('training_videos') }}" data-search="培训视频 在线预览">
+                    <div class="nav-left"><i class="fa-solid fa-video"></i><span class="nav-name">培训视频</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+            {% else %}
+                <div class="empty-tip">请先登录查看可用功能</div>
+            {% endif %}
+        </div>
+
+        <div class="panel" id="panel-support" data-dept="support">
+            <div class="panel-hd"><i class="fa-regular fa-user"></i>支持职能</div>
+            {% if user_id %}
+                {% set sup_order = ['warehouse_group', 'procurement_dept', 'general_office', 'rd_dept', 'finance_dept', 'hr_admin_dept', 'newcomer_group', 'shenzhen_dept'] %}
+                {% for key in sup_order %}
+                    {% for func in accessible_functions %}
+                        {% if func.function_name == key %}
+                            {% set href = resolve_href(func.function_name)|trim %}
+                            <div class="nav-item {{ 'available' if href else '' }}" data-department="{{ func.function_name }}" data-allowed="{{ 'true' if func.is_allowed else 'false' }}" data-menu="{{ func.name }}" data-href="{{ href }}" data-search="{{ (func.name ~ ' ' ~ (func.description or ''))|lower }}">
+                                <div class="nav-left"><i class="{{ resolve_icon(func.function_name) }}"></i><span class="nav-name">{{ func.name }}</span></div>
+                                <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+                <div class="nav-item available" data-menu="模特排队" data-href="{{ url_for('model_management.queue') }}" data-search="模特排队 模特管理">
+                    <div class="nav-left"><i class="fa-solid fa-users"></i><span class="nav-name">模特排队</span></div>
+                    <div class="nav-right"><i class="fas fa-angle-right"></i></div>
+                </div>
+            {% else %}
+                <div class="empty-tip">请先登录查看可用功能</div>
+            {% endif %}
+        </div>
+    </div>
+
+    </main>
+    </div>
+
+    <footer class="footer">© 2025 图创AI系统</footer>
+</div>
+
+{% if can_switch_identity %}
+<div class="identity-switch-modal" id="identitySwitchModal" role="dialog" aria-modal="true" aria-labelledby="identitySwitchTitle">
+    <div class="identity-switch-dialog">
+        <div class="identity-switch-header">
+            <div>
+                <h2 class="identity-switch-title" id="identitySwitchTitle">切换成员身份</h2>
+                <p class="identity-switch-subtitle">搜索并选择任意飞书成员，首页与功能权限将按该成员的身份显示。此操作只影响当前会话。</p>
+            </div>
+            <button class="identity-switch-close" id="identitySwitchClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="identity-switch-body">
+            <div class="identity-current">
+                真实身份：{{ user_name }}
+                {% if permission_debug_user_name %} · 当前模拟：{{ permission_debug_user_name }}{% endif %}
+            </div>
+            <div class="identity-search">
+                <i class="fas fa-search"></i>
+                <input id="identityMemberSearch" type="text" placeholder="输入成员姓名搜索" autocomplete="off">
+            </div>
+            <div class="identity-search-results" id="identitySearchResults">
+                <div class="identity-result-empty">输入姓名后开始搜索飞书成员</div>
+            </div>
+            <div class="identity-switch-status" id="identitySwitchStatus" aria-live="polite"></div>
+        </div>
+        <div class="identity-switch-footer">
+            {% if permission_debug_user_name %}
+            <button class="identity-dialog-btn restore" id="identityRestoreBtn" type="button">恢复真实身份</button>
+            {% endif %}
+            <button class="identity-dialog-btn" id="identitySwitchCancel" type="button">取消</button>
+            <button class="identity-dialog-btn primary" id="identitySwitchConfirm" type="button" disabled>确认切换</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div id="dev-panel" style="position: fixed; bottom: 20px; right: 20px; background: #f0f0f0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 12px; z-index: 1000; display: none;">
+    <h4 style="margin: 0 0 10px 0; color: #333;">开发者调试面板</h4>
+    <div style="display: flex; flex-direction: column; gap: 5px;">
+        <a href="/dev/login/bd" style="padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; text-align: center;">BD部用户</a>
+        <a href="/dev/login/video" style="padding: 5px 10px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; text-align: center;">短视频部用户</a>
+        <a href="/dev/login/manager" style="padding: 5px 10px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; text-align: center;">总经办用户</a>
+        <a href="/dev/login/ai" style="padding: 5px 10px; background: #6f42c1; color: white; text-decoration: none; border-radius: 4px; text-align: center;">AI部用户</a>
+        <a href="/dev/login/normal" style="padding: 5px 10px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px; text-align: center;">普通员工</a>
+        <a href="/dev/login/developer" style="padding: 5px 10px; background: #fd7e14; color: white; text-decoration: none; border-radius: 4px; text-align: center;">开发者</a>
+    </div>
+    <button onclick="document.getElementById('dev-panel').style.display='none'" style="position: absolute; top: 5px; right: 8px; background: none; border: none; font-size: 16px; cursor: pointer;">×</button>
+</div>
+<script>
+    function _logMenuClick(menu, href) {
+        const payload = JSON.stringify({menu: menu || '', href: href || ''});
+        try {
+            if (navigator.sendBeacon) {
+                const blob = new Blob([payload], {type: 'application/json'});
+                navigator.sendBeacon('/api/menu_click', blob);
+                return;
+            }
+        } catch (e) {}
+        try {
+            fetch('/api/menu_click', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: payload,
+                keepalive: true
+            }).catch(() => {});
+        } catch (e) {}
+    }
+
+    function bindClickableElements() {
+        document.querySelectorAll('[data-href][data-menu]').forEach(el => {
+            if (el.dataset.clickBound === 'true') return;
+            const href = (el.getAttribute('data-href') || '').trim();
+            const menu = (el.getAttribute('data-menu') || '').trim();
+            if (!href) return;
+            el.dataset.clickBound = 'true';
+            el.addEventListener('click', function() {
+                if (el.getAttribute('data-allowed') === 'false') {
+                    window.alert('暂无该功能权限，请联系管理员开通。');
+                    return;
+                }
+                if (menu) _logMenuClick(menu, href);
+                window.location.href = href;
+            });
+        });
+    }
+
+    function bindSearch() {
+        const input = document.getElementById('featureSearch');
+        if (!input) return;
+        input.addEventListener('input', function() {
+            const key = String(input.value || '').toLowerCase().trim();
+            document.querySelectorAll('[data-search]').forEach(el => {
+                const text = String(el.getAttribute('data-search') || '').toLowerCase();
+                if (!key || text.includes(key)) {
+                    el.classList.remove('hidden-by-search');
+                } else {
+                    el.classList.add('hidden-by-search');
+                }
+            });
+        });
+    }
+
+    function bindSideNavigation() {
+        const businessKeys = new Set(['innovation_proposals', 'xiaotu_qa', 'business_analysis', 'tk_customer_service']);
+        const labelDepartments = {
+            '创新提案管理': 'business', '报告智能体': 'business', '经营分析': 'business', '客服': 'business', '360价值评价': 'business',
+            '内容生产工厂': 'tk_project_group', '运营一部功能': 'operation_dept_1', '运营二部功能': 'operation_dept_2',
+            '运营三部功能': 'operation_dept_3', '运营六部功能': 'operation_dept_6', '运营七部功能': 'operation_dept_7',
+            'FBA追踪码/IEN查询': 'operation_fba_shipping', '亚马逊站内信回复智能体': 'amazon_reply_agent',
+            '技术部功能': 'tech_dept', '视觉设计部功能': 'visual_design_dept', '摄影部功能': 'photography_dept', 'AI部功能': 'ai_dept',
+            '仓储部组功能': 'support', '采购部功能': 'support', '总经办功能': 'support', '研发部功能': 'support', '财务部功能': 'support',
+            '人力行政部功能': 'support', '新人组功能': 'support', '深圳功能模块': 'support', '模特排队': 'support'
+        };
+        document.querySelectorAll('.nav-item[data-menu]').forEach(function(item) {
+            const key = item.dataset.department || '';
+            item.dataset.department = businessKeys.has(key) ? 'business' : (labelDepartments[item.dataset.menu] || key || 'all');
+        });
+        document.querySelectorAll('.side-nav-item[data-department]').forEach(function(button) {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.side-nav-item').forEach(function(item) { item.classList.remove('active'); });
+                button.classList.add('active');
+                const department = button.dataset.department;
+                if (department === 'favorites') {
+                    document.querySelectorAll('.nav-item[data-menu]').forEach(function(item) { item.classList.remove('department-hidden'); });
+                    document.getElementById('quickFavorites').scrollIntoView({behavior: 'smooth', block: 'start'});
+                    return;
+                }
+                document.querySelectorAll('.nav-item[data-menu]').forEach(function(item) {
+                    item.classList.toggle('department-hidden', department !== 'all' && item.dataset.department !== department);
+                });
+                document.querySelector('.dashboard-content').scrollIntoView({behavior: 'smooth', block: 'start'});
+            });
+        });
+    }
+
+    function initFavorites() {
+        const grid = document.getElementById('quickFavorites');
+        if (!grid) return;
+        const userKey = {{ (permission_debug_user_name or user_id or user_name or 'guest')|tojson }};
+        // Feature-hub favorites are persisted in localStorage.  Keep their
+        // permission key alongside the display label so a stale favorite
+        // cannot bypass the current dashboard permission result.
+        const allowedFunctions = new Set({{ (dashboard_allowed_functions or [])|tojson }});
+        const permissionByMenu = Object.freeze({
+            '日常补货': 'daily_replenishment',
+            '智能补货中心-运营': 'daily_replenishment_operation',
+            '智能补货中心-亚马逊': 'daily_replenishment_operation',
+            '智能补货中心-Tiktok': 'daily_replenishment_tiktok',
+            '组别经营数据': 'ai_group_performance',
+            'VideoClaw AI视频创作': 'video_claw',
+            'MAGIC AD 广告监控': 'ads_monitor',
+            '历史销售数据曲线': 'historical_sales',
+            '360价值评价': 'value_evaluation',
+            '360价值评价管理': 'value_evaluation_admin',
+        });
+        const storageKey = `dashboard_favorites:${userKey}`;
+        const secondaryStorageKey = `dashboard_favorite_items:${userKey}`;
+        const hiddenDefaultsStorageKey = `dashboard_hidden_default_favorites:${userKey}`;
+        const defaultMenus = new Set(
+            Array.from(grid.querySelectorAll('.quick-card[data-menu]'))
+                .map(card => (card.dataset.menu || '').trim())
+                .filter(Boolean)
+        );
+        const sources = new Map();
+        document.querySelectorAll('.nav-item[data-menu][data-href]').forEach(item => {
+            const menu = (item.dataset.menu || '').trim();
+            const href = (item.dataset.href || '').trim();
+            if (!menu || !href) return;
+            const icon = item.querySelector('.nav-left i');
+            sources.set(menu, {
+                menu,
+                href,
+                search: item.dataset.search || menu,
+                allowed: item.dataset.allowed !== 'false',
+                permission: item.dataset.permission || '',
+                iconClass: icon ? icon.className : 'fa-solid fa-star'
+            });
+        });
+
+        function loadSaved() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                return Array.isArray(parsed) ? parsed.filter(value => typeof value === 'string') : [];
+            } catch (_) {
+                return [];
+            }
+        }
+
+        let saved = loadSaved();
+        function loadSecondaryItems() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(secondaryStorageKey) || '[]');
+                return Array.isArray(parsed)
+                    ? parsed.filter(item => item && item.menu && item.href).map(item =>
+                        item.menu === '智能补货中心-运营'
+                            ? {...item, menu: '智能补货中心-亚马逊', search: '智能补货中心-亚马逊'}
+                            : item)
+                    : [];
+            } catch (_) {
+                return [];
+            }
+        }
+        let secondaryItems = loadSecondaryItems();
+        function loadHiddenDefaults() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(hiddenDefaultsStorageKey) || '[]');
+                return Array.isArray(parsed) ? parsed.filter(value => typeof value === 'string') : [];
+            } catch (_) {
+                return [];
+            }
+        }
+        let hiddenDefaults = loadHiddenDefaults();
+        const save = () => {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+            localStorage.setItem(hiddenDefaultsStorageKey, JSON.stringify(hiddenDefaults));
+        };
+
+        function removeAddedCards() {
+            grid.querySelectorAll('.quick-card.user-favorite, .quick-empty').forEach(node => node.remove());
+        }
+
+        function render() {
+            removeAddedCards();
+            const hiddenDefaultSet = new Set(hiddenDefaults);
+            const active = new Set([
+                ...saved,
+                ...Array.from(defaultMenus).filter(menu => !hiddenDefaultSet.has(menu))
+            ]);
+            grid.querySelectorAll('.quick-card:not(.user-favorite)[data-menu]').forEach(card => {
+                const menu = (card.dataset.menu || '').trim();
+                if (!menu) return;
+                card.classList.add('has-favorite-control');
+                card.classList.toggle('favorite-hidden', hiddenDefaultSet.has(menu));
+                let removeButton = card.querySelector('.favorite-remove');
+                if (!removeButton) {
+                    removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'favorite-remove';
+                    removeButton.setAttribute('aria-label', '从常用功能移除');
+                    removeButton.title = '从常用功能移除';
+                    removeButton.innerHTML = '<i class="fa-solid fa-star"></i>';
+                    removeButton.addEventListener('click', event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const currentMenu = (card.dataset.menu || '').trim();
+                        if (!currentMenu) return;
+                        hiddenDefaults = Array.from(new Set([...hiddenDefaults, currentMenu]));
+                        save();
+                        render();
+                    });
+                    card.appendChild(removeButton);
+                }
+            });
+            document.querySelectorAll('.favorite-toggle').forEach(button => {
+                const selected = active.has(button.dataset.menu || '');
+                button.classList.toggle('active', selected);
+                button.innerHTML = selected ? '<i class="fa-solid fa-star"></i>' : '<i class="fa-regular fa-star"></i>';
+                button.setAttribute('aria-label', selected ? '取消收藏' : '加入常用功能');
+                button.title = selected ? '取消收藏' : '加入常用功能';
+            });
+            saved.forEach(menu => {
+                if (defaultMenus.has(menu)) return;
+                const source = sources.get(menu);
+                if (!source || !source.allowed) return;
+                const card = document.createElement('div');
+                card.className = 'quick-card available user-favorite';
+                card.dataset.menu = source.menu;
+                card.dataset.href = source.href;
+                card.dataset.search = source.search;
+                card.dataset.allowed = 'true';
+                card.innerHTML = `<button class="favorite-remove" type="button" aria-label="取消收藏" title="取消收藏"><i class="fa-solid fa-star"></i></button><i class="${source.iconClass}"></i><h3></h3>`;
+                card.querySelector('h3').textContent = source.menu;
+                card.querySelector('.favorite-remove').addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    saved = saved.filter(value => value !== source.menu);
+                    save();
+                    render();
+                });
+                grid.appendChild(card);
+            });
+            secondaryItems.forEach(source => {
+                if (!source || !source.menu || !source.href) return;
+                if (defaultMenus.has(source.menu) || saved.includes(source.menu)) return;
+                const permission = String(source.permission || permissionByMenu[source.menu] || '').trim();
+                const currentSource = sources.get(source.menu);
+                // A permission-bearing favorite is checked against the live
+                // server result.  Legacy entries without a permission key are
+                // retained only when the same menu is present in the current
+                // dashboard catalog; unknown stale entries stay hidden.
+                if (permission) {
+                    if (!allowedFunctions.has(permission)) return;
+                } else if (!currentSource || !currentSource.allowed) {
+                    return;
+                }
+                const card = document.createElement('div');
+                card.className = 'quick-card available user-favorite';
+                card.dataset.menu = source.menu;
+                card.dataset.href = source.href;
+                card.dataset.search = source.search || source.menu;
+                card.dataset.allowed = 'true';
+                if (permission) card.dataset.permission = permission;
+                card.innerHTML = `<button class="favorite-remove" type="button" aria-label="取消收藏" title="取消收藏"><i class="fa-solid fa-star"></i></button><i class="${source.iconClass || 'fa-solid fa-star'}"></i><h3></h3>`;
+                card.querySelector('h3').textContent = source.menu;
+                card.querySelector('.favorite-remove').addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const sourceId = source.id || `${source.menu}::${source.href}`;
+                    secondaryItems = secondaryItems.filter(item => (item.id || `${item.menu}::${item.href}`) !== sourceId);
+                    localStorage.setItem(secondaryStorageKey, JSON.stringify(secondaryItems));
+                    render();
+                });
+                grid.appendChild(card);
+            });
+            bindClickableElements();
+        }
+
+        document.querySelectorAll('.nav-item[data-menu][data-href]').forEach(item => {
+            if (item.dataset.allowed === 'false') return;
+            const menu = (item.dataset.menu || '').trim();
+            if (!menu) return;
+            const right = item.querySelector('.nav-right');
+            if (!right) return;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'favorite-toggle';
+            button.dataset.menu = menu;
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (defaultMenus.has(menu)) {
+                    hiddenDefaults = hiddenDefaults.includes(menu)
+                        ? hiddenDefaults.filter(value => value !== menu)
+                        : [...hiddenDefaults, menu];
+                } else {
+                    saved = saved.includes(menu)
+                        ? saved.filter(value => value !== menu)
+                        : [...saved, menu];
+                }
+                save();
+                render();
+            });
+            right.insertBefore(button, right.firstChild);
+        });
+        render();
+    }
+
+    function bindIdentitySwitcher() {
+        const trigger = document.getElementById('identitySwitchTrigger');
+        const modal = document.getElementById('identitySwitchModal');
+        if (!trigger || !modal) return;
+
+        const closeBtn = document.getElementById('identitySwitchClose');
+        const cancelBtn = document.getElementById('identitySwitchCancel');
+        const confirmBtn = document.getElementById('identitySwitchConfirm');
+        const restoreBtn = document.getElementById('identityRestoreBtn');
+        const input = document.getElementById('identityMemberSearch');
+        const results = document.getElementById('identitySearchResults');
+        const status = document.getElementById('identitySwitchStatus');
+        let selectedMember = null;
+        let searchTimer = null;
+        let searchRequestId = 0;
+
+        function setStatus(message, isError) {
+            status.textContent = message || '';
+            status.classList.toggle('error', !!isError);
+        }
+
+        function setEmpty(message) {
+            results.innerHTML = '';
+            const empty = document.createElement('div');
+            empty.className = 'identity-result-empty';
+            empty.textContent = message;
+            results.appendChild(empty);
+        }
+
+        function selectMember(member, row) {
+            selectedMember = member;
+            results.querySelectorAll('.identity-result').forEach(function(item) {
+                item.classList.toggle('selected', item === row);
+            });
+            input.value = member.name || '';
+            confirmBtn.disabled = false;
+            setStatus('已选择：' + (member.name || '飞书成员'), false);
+        }
+
+        function renderMembers(members) {
+            results.innerHTML = '';
+            if (!members.length) {
+                setEmpty('未找到匹配成员，请输入更完整的姓名');
+                return;
+            }
+            members.forEach(function(member) {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'identity-result';
+
+                const avatar = document.createElement('span');
+                avatar.className = 'identity-avatar';
+                avatar.textContent = String(member.name || '成').slice(0, 1);
+
+                const textWrap = document.createElement('span');
+                const name = document.createElement('div');
+                name.className = 'identity-result-name';
+                name.textContent = member.name || '未命名成员';
+                const meta = document.createElement('div');
+                meta.className = 'identity-result-meta';
+                const memberId = String(member.open_id || '');
+                meta.textContent = '飞书成员' + (memberId ? ' · ' + memberId.slice(-6) : '');
+                textWrap.appendChild(name);
+                textWrap.appendChild(meta);
+                row.appendChild(avatar);
+                row.appendChild(textWrap);
+                row.addEventListener('click', function() { selectMember(member, row); });
+                results.appendChild(row);
+            });
+        }
+
+        function searchMembers() {
+            const keyword = String(input.value || '').trim();
+            selectedMember = null;
+            confirmBtn.disabled = true;
+            setStatus('', false);
+            if (!keyword) {
+                setEmpty('输入姓名后开始搜索飞书成员');
+                return;
+            }
+            const requestId = ++searchRequestId;
+            setEmpty('正在搜索…');
+            fetch('/api/dashboard/identity-switch/members?q=' + encodeURIComponent(keyword), {
+                headers: {'Accept': 'application/json'}
+            })
+                .then(function(response) {
+                    return response.json().then(function(body) {
+                        return {ok: response.ok, body: body};
+                    });
+                })
+                .then(function(result) {
+                    if (requestId !== searchRequestId) return;
+                    if (!result.ok || !result.body || !result.body.success) {
+                        throw new Error((result.body && result.body.message) || '搜索失败');
+                    }
+                    renderMembers(Array.isArray(result.body.data) ? result.body.data : []);
+                })
+                .catch(function(error) {
+                    if (requestId !== searchRequestId) return;
+                    setEmpty('成员搜索失败');
+                    setStatus(error && error.message ? error.message : '搜索失败，请稍后重试', true);
+                });
+        }
+
+        function closeModal() {
+            modal.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        trigger.addEventListener('click', function() {
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            setTimeout(function() { input.focus(); }, 0);
+        });
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) closeModal();
+        });
+        input.addEventListener('input', function() {
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(searchMembers, 260);
+        });
+        input.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && selectedMember && !confirmBtn.disabled) {
+                event.preventDefault();
+                confirmBtn.click();
+            }
+        });
+        confirmBtn.addEventListener('click', function() {
+            if (!selectedMember) return;
+            const originalText = confirmBtn.textContent;
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '切换中…';
+            setStatus('正在读取成员权限…', false);
+            fetch('/api/dashboard/identity-switch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+                body: JSON.stringify({
+                    user_name: selectedMember.name || '',
+                    open_id: selectedMember.open_id || '',
+                    selection_token: selectedMember.selection_token || ''
+                })
+            })
+                .then(function(response) {
+                    return response.json().then(function(body) {
+                        return {ok: response.ok, body: body};
+                    });
+                })
+                .then(function(result) {
+                    if (!result.ok || !result.body || !result.body.success) {
+                        throw new Error((result.body && result.body.message) || '身份切换失败');
+                    }
+                    setStatus(result.body.message || '切换成功，正在刷新…', false);
+                    window.location.reload();
+                })
+                .catch(function(error) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = originalText;
+                    setStatus(error && error.message ? error.message : '身份切换失败，请稍后重试', true);
+                });
+        });
+        if (restoreBtn) {
+            restoreBtn.addEventListener('click', function() {
+                restoreBtn.disabled = true;
+                restoreBtn.textContent = '恢复中…';
+                window.location.href = '{{ url_for("permission_debug_clear") }}';
+            });
+        }
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal.classList.contains('open')) closeModal();
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+            const panel = document.getElementById('dev-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+    });
+
+    initFavorites();
+    bindClickableElements();
+    bindSearch();
+    bindSideNavigation();
+    bindIdentitySwitcher();
+</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_workspace.css') }}?v=20261110-audit">
+<script id="workspaceCatalog" type="application/json">{{ (workspace_catalog or {})|tojson }}</script>
+<script src="{{ url_for('static', filename='js/dashboard_workspace.js') }}?v=20261110-ai-private"></script>
+</body>
+</html>

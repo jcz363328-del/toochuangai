@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import ExitStack
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "图片"))
@@ -28,7 +29,8 @@ def _process_request(path, running, maximum, lock, start, ready):
 
 
 def _crashed_request(path, ready):
-    limiter = limits.RequestLimiter(path, lease_seconds=0.5, poll_interval=0.01)
+    limiter = limits.RequestLimiter(path, group_limits={"omnia_image": 1},
+                                    lease_seconds=0.5, poll_interval=0.01)
     with limiter.slot("omnia_image"):
         ready.set()
         os._exit(0)
@@ -42,7 +44,25 @@ class RequestLimiterTests(unittest.TestCase):
         self.limiter = self.make_limiter()
 
     def make_limiter(self, **kwargs):
+        # These queue/lease tests deliberately saturate one image slot.
+        # Production defaults are covered separately with five real slots.
+        kwargs.setdefault("group_limits", {"omnia_image": 1})
         return limits.RequestLimiter(self.path, poll_interval=0.01, **kwargs)
+
+    def test_defaults_admit_five_images_and_share_five_provider_slots_with_text(self):
+        with patch.dict(os.environ, {}, clear=True):
+            limiter = limits.RequestLimiter(self.path, poll_interval=0.01, queue_timeout=0.04)
+        self.assertEqual(limiter.group_limits["omnia_image"], 5)
+        self.assertEqual(limiter.provider_limit, 5)
+        for groups in (("omnia_image",) * 5, ("omnia_image",) * 3 + ("omnia_text",) * 2):
+            with self.subTest(groups=groups), ExitStack() as stack:
+                for group in groups:
+                    stack.enter_context(limiter.slot(group))
+                self.assertEqual(limiter.snapshot()["active"], 5)
+                with self.assertRaises(limits.RequestQueueTimeout):
+                    with limiter.slot("omnia_image"):
+                        self.fail("A sixth provider call was admitted")
+            self.assertEqual(limiter.snapshot()["active"], 0)
 
     def wait_for(self, predicate, timeout=3):
         end = time.monotonic() + timeout
@@ -98,7 +118,7 @@ class RequestLimiterTests(unittest.TestCase):
         self.assertEqual(order, [0, 1, 2, 3])
 
     def test_provider_limit_and_download_isolation(self):
-        limiter = self.make_limiter(model_limit=2, queue_timeout=0.06)
+        limiter = self.make_limiter(model_limit=2, provider_limit=2, queue_timeout=0.06)
         with limiter.slot("omnia_text"), limiter.slot("omnia_text"):
             with self.assertRaises(limits.RequestQueueTimeout):
                 with limiter.slot("omnia_image"):
@@ -112,7 +132,7 @@ class RequestLimiterTests(unittest.TestCase):
                 self.assertEqual(state["groups"]["download"]["active"], 1)
 
     def test_omnia_provider_limit_is_configurable_and_bounded(self):
-        for value, expected in (("4", 4), ("99", 16), ("0", 1), ("invalid", 2)):
+        for value, expected in (("4", 4), ("99", 5), ("0", 1), ("invalid", 5)):
             with self.subTest(value=value), patch.dict(os.environ, {"XIAOHA_OMNIA_CONCURRENCY": value}):
                 self.assertEqual(self.make_limiter().provider_limit, expected)
                 self.assertEqual(self.make_limiter(provider_limit=3).provider_limit, 3)

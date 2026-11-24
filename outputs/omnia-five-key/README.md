@@ -1,0 +1,15 @@
+# Xiaoha five-channel usage accounting
+
+The five credentials share one account balance. The private baseline was captured once from the user's confirmed balance and each credential's cumulative usage. The UI exposes only percentages on a fixed 100 USD scale, plus individual call records. The application records provider usage; it does not issue a separate payment or account debit.
+
+Runtime credentials and the immutable starting baseline live under the existing bind-mounted `图片/history/.credentials/` directory. They are excluded from source control, Docker build context and the static image server. Neither credentials nor balance amounts are present in this release bundle. Do not reset or overwrite the baseline on restart.
+
+`omnia_key_pool.py` leases one credential for each complete request across processes. `request_limits.py` admits at most five Omnia calls globally. `TaskRuntime` permits five jobs from one account. A sixth call waits. Image retries retain their credential and idempotency key; task recovery reuses its original credential and ledger entry, including recovery from the JSONL receipt if binding was interrupted.
+
+`omnia_service.py` reads key-scoped cumulative usage before and after a call. `omnia_cost_ledger.py` persists the aggregate balance and individual accounting windows in SQLite. Calls with delayed or ambiguous usage remain pending. Pending entries are reconciled only while the corresponding credential is exclusively held and no later call makes attribution ambiguous. Local validation and definite request rejection can settle zero usage. A failed download does not erase a successful generation charge.
+
+The balance is based on the confirmed starting balance and activity on the five configured keys. Recharges, other credentials' activity, counter resets and unexpected refunds require reconciliation with the provider. A decreasing cumulative counter retains the prior balance and reports a refresh error instead of inventing a refund.
+
+Validation: 235 tests passed against the production runtime source and its existing dependencies, including actual application adapters with simulated provider responses, five simultaneous calls, sixth-call queuing, independent costs, rejection, timeout, delayed billing, process recovery, streaming and the percentage-only UI. No paid generation was sent by tests. The independently patched Docker image passed 233 of the same tests; two pre-existing spinner presentation assertions also fail unchanged on the prior image. The current runtime's spinner remains unchanged and passes those assertions.
+
+Deployment patches runtime and image baselines independently to preserve their existing differences. `deploy_when_idle.py` drains new request admission, waits for running/queued work to finish, verifies source hashes, installs the overlay and restarts only `xiaoha` and `xiaoha-static`. `verify_live.py` verifies installed hashes, five configured channels, concurrency defaults and read-only provider usage. The `deployment-report.json` file records completion and image identity.

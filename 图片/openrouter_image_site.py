@@ -40,6 +40,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from secret_settings import image_site_config_namespace, relocate_storage_path, sql_server_config
 import prepress_check_service
 from 图片.request_limits import admitted_job, get_request_limiter, limited_request, request_wait_callback
+from 图片.omnia_key_pool import current_omnia_credential
+from 图片.omnia_service import (
+    managed_omnia_call, record_omnia_task, record_omnia_provider_status,
+    current_omnia_call_metadata, record_omnia_model,
+)
 from 图片.image_downloads import build_image_attachment_header, is_managed_static_image_url, resolve_local_static_image_source
 from 图片.multi_reference_composer import MULTI_REFERENCE_COMPOSER_FEATURE_KEY
 from 图片.a_plus_reference_lab import (
@@ -142,6 +147,7 @@ MAX_HISTORY_RECORDS = 120
 HISTORY_PAGE_SIZE = 20
 DB_HISTORY_TABLE = "AI_TuPian"
 XIAOHA_DASHBOARD_KEY = "__usage_dashboard__"
+XIAOHA_BALANCE_KEY = "__balance__"
 XIAOHA_DEFAULT_FEATURE_KEY = "hd_batch"
 XIAOHA_DASHBOARD_HISTORY_DAYS = 7
 XIAOHA_DASHBOARD_CACHE_SECONDS = 60
@@ -200,9 +206,9 @@ OMNIAKEY_INPUT_TOTAL_BUDGET_BYTES = 620_000
 OMNIAKEY_INPUT_MIN_BUDGET_BYTES = 48_000
 OMNIAKEY_MAX_INPUT_IMAGE_EDGE = 4096
 REMOVE_EYELASHES_IMAGE_RESOLUTION = "2K"
-REMOVE_EYELASHES_MAX_API_CONCURRENCY = 1
+REMOVE_EYELASHES_MAX_API_CONCURRENCY = 5
 # 批量高清与即梦超清共用专用接口，按服务商单并发串行处理。
-HD_BATCH_MAX_API_CONCURRENCY = 1
+HD_BATCH_MAX_API_CONCURRENCY = 5
 HD_BATCH_TRANSIENT_MAX_ATTEMPTS = 3
 HD_BATCH_TRANSIENT_RETRY_DELAYS = (8, 20)
 REMOVE_EYELASHES_REMOVE_ALL_PROMPT = (
@@ -271,7 +277,10 @@ INFINITE_CANVAS_MODEL_HD_METHODS = {
     INFINITE_CANVAS_MODEL_HD_METHOD_SEEDREAM,
 }
 INFINITE_CANVAS_IMAGE_FEATURE_MAX_REQUEST_BYTES = 80 * 1024 * 1024
+from 图片.canvas_a_plus import FEATURE_KEYS as CANVAS_A_PLUS_FEATURE_KEYS
+
 INFINITE_CANVAS_IMAGE_FEATURE_KEYS = {
+    *CANVAS_A_PLUS_FEATURE_KEYS,
     "product_retouch",
     "product_retouch_local",
     "background_cutout",
@@ -386,8 +395,8 @@ OUTPAINT_SEAM_STRENGTH_THRESHOLD = 2.2
 OUTPAINT_SEAM_RATIO_THRESHOLD = 2.2
 OUTPAINT_MULTISCALE_SEAM_STRENGTH_THRESHOLD = 8.0
 OUTPAINT_MULTISCALE_SEAM_RATIO_THRESHOLD = 1.65
-MAX_BATCH_API_CONCURRENCY = 4
-DEFAULT_BATCH_API_CONCURRENCY = 4
+MAX_BATCH_API_CONCURRENCY = 5
+DEFAULT_BATCH_API_CONCURRENCY = 5
 JIMENG_MAX_API_CONCURRENCY = 1
 JIMENG_HD_GLOBAL_QUEUE_KEY = "__jimeng_hd_global_queue__"
 JIMENG_CONCURRENT_LIMIT_RETRY_COUNT = 6
@@ -643,7 +652,7 @@ _OPENROUTER_REMOVE_EYELASHES_LOCK = Lock()
 _OPENROUTER_ERROR_LOG_LOCK = Lock()
 
 class TaskRuntime:
-    """Bounded worker pool with fair FIFO scheduling for each account."""
+    """Bounded concurrent jobs with FIFO per account and fair shared capacity."""
 
     def __init__(self) -> None:
         def setting(name: str, default: int, maximum: int) -> int:
@@ -652,7 +661,10 @@ class TaskRuntime:
             except (TypeError, ValueError):
                 return default
 
-        self.max_workers = setting("XIAOHA_JOB_WORKERS", 4, 16)
+        self.max_workers = setting("XIAOHA_JOB_WORKERS", 5, 16)
+        self.max_account_workers = min(
+            self.max_workers, setting("XIAOHA_ACCOUNT_CONCURRENCY", 5, 5)
+        )
         self.max_outstanding_jobs = setting("XIAOHA_JOB_QUEUE_LIMIT", 64, 4096)
         self.max_account_jobs = setting("XIAOHA_ACCOUNT_QUEUE_LIMIT", 8, 256)
         self.completed_limit = setting("XIAOHA_COMPLETED_JOB_LIMIT", 256, 4096)
@@ -668,7 +680,8 @@ class TaskRuntime:
         self.lock = Lock()
         self._pending: dict[str, tuple[Any, tuple[Any, ...]]] = {}
         self._ready_accounts: list[str] = []
-        self._running_accounts: set[str] = set()
+        self._running_accounts: dict[str, int] = {}
+        self._running_jobs: set[str] = set()
         self._completed: dict[str, float] = {}
         self._closed = False
 
@@ -710,20 +723,27 @@ class TaskRuntime:
 
     def _dispatch_locked(self) -> None:
         self._clean_canceled_locked()
-        while self._ready_accounts and len(self._running_accounts) < self.max_workers:
-            account = self._ready_accounts.pop(0)
+        while self._ready_accounts and len(self._running_jobs) < self.max_workers:
+            candidate = next((
+                index for index, account in enumerate(self._ready_accounts)
+                if self._running_accounts.get(account, 0) < (
+                    1 if account == JIMENG_HD_GLOBAL_QUEUE_KEY else self.max_account_workers
+                )
+            ), None)
+            if candidate is None:
+                break
+            account = self._ready_accounts.pop(candidate)
             order = self.generation_orders.get(account, [])
-            # Canceled jobs are never passed to a model callback.
-            while order and self.futures[order[0]].cancelled():
-                canceled_id = order.pop(0)
-                self._pending.pop(canceled_id, None)
-                self._completed[canceled_id] = time.monotonic()
-            if not order:
-                self.generation_orders.pop(account, None)
+            # Running jobs stay in generation_orders for quota/progress lookup;
+            # only the first still-pending job is eligible for dispatch.
+            job_id = next((item for item in order if item in self._pending), None)
+            if job_id is None:
                 continue
-            job_id = order[0]
             callback, args = self._pending.pop(job_id)
-            self._running_accounts.add(account)
+            self._running_jobs.add(job_id)
+            self._running_accounts[account] = self._running_accounts.get(account, 0) + 1
+            if any(item in self._pending for item in order):
+                self._ready_accounts.append(account)
             self.generation_executor.submit(
                 self._run_generation_job, account, job_id, self.futures[job_id], callback, args
             )
@@ -743,10 +763,19 @@ class TaskRuntime:
                 order = self.generation_orders.get(account, [])
                 if job_id in order:
                     order.remove(job_id)
-                self._running_accounts.discard(account)
-                if order:
-                    self._ready_accounts.append(account)
+                self._running_jobs.discard(job_id)
+                remaining = self._running_accounts.get(account, 1) - 1
+                if remaining:
+                    self._running_accounts[account] = remaining
                 else:
+                    self._running_accounts.pop(account, None)
+                # Give accounts that waited during this job the next turn.
+                # A busy account can still fill every otherwise-idle slot.
+                if account in self._ready_accounts:
+                    self._ready_accounts.remove(account)
+                if any(item in self._pending for item in order):
+                    self._ready_accounts.append(account)
+                if not order:
                     self.generation_orders.pop(account, None)
                 self._completed[job_id] = time.monotonic()
                 self._dispatch_locked()
@@ -784,7 +813,7 @@ class TaskRuntime:
             self.job_queue_keys[job_id] = account
             self._pending[job_id] = (callback, args)
             self.generation_orders.setdefault(account, []).append(job_id)
-            if account not in self._running_accounts and account not in self._ready_accounts:
+            if account not in self._ready_accounts:
                 self._ready_accounts.append(account)
             self._dispatch_locked()
             return future
@@ -797,7 +826,7 @@ class TaskRuntime:
             if future.done():
                 state = "canceled" if future.cancelled() else "completed"
                 return {"state": state, "ahead_count": 0, "queue_position": 0}
-            if future.running():
+            if future.running() or job_id in self._running_jobs:
                 return {"state": "running", "ahead_count": 0, "queue_position": 0}
             account = self.job_queue_keys.get(job_id, "")
             before = 0
@@ -880,6 +909,10 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             from 图片.canvas_api_proxy import serve_canvas_api
             serve_canvas_api(self, SimpleNamespace(**globals()), request_path[len(proxy_prefix):], "GET")
             return
+        if request_path == f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/a-plus-psd":
+            from 图片.canvas_a_plus import serve_psd
+            serve_psd(self, SimpleNamespace(**globals()), request_url.query)
+            return
         bootstrap_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/bootstrap-config"
         if request_path == bootstrap_path:
             self.serve_infinite_canvas_bootstrap(request_url.query)
@@ -902,6 +935,12 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
         if request_path == model_hd_path:
             from 图片.canvas_api_proxy import serve_legacy_canvas_request
             serve_legacy_canvas_request(self, SimpleNamespace(**globals()), request_url.query, self.serve_infinite_canvas_model_hd)
+            return
+        if request_path == f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/reference-node":
+            from 图片.canvas_api_proxy import serve_legacy_canvas_request
+            from 图片.canvas_reference import serve
+            serve_legacy_canvas_request(self, SimpleNamespace(**globals()), request_url.query,
+                                        lambda query: serve(self, SimpleNamespace(**globals()), query))
             return
         image_feature_path = f"{INFINITE_CANVAS_STATIC_ROUTE_PREFIX}/api/image-feature"
         if request_path == image_feature_path:
@@ -1320,7 +1359,10 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
             if not isinstance(raw_images, list) or not raw_images:
                 raise ValueError("请先提供 1 张待处理原图")
             source_inputs: list[dict[str, Any]] = []
-            for image_index, raw_image in enumerate(raw_images[:INFINITE_CANVAS_MAX_INPUT_IMAGES], start=1):
+            if feature_key in CANVAS_A_PLUS_FEATURE_KEYS and len(raw_images) > int(feature.get("max_input_images") or 10):
+                raise ValueError("连接的A+素材图片过多，请减少连线")
+            image_limit = int(feature.get("max_input_images") or 10) if feature_key in CANVAS_A_PLUS_FEATURE_KEYS else INFINITE_CANVAS_MAX_INPUT_IMAGES
+            for image_index, raw_image in enumerate(raw_images[:image_limit], start=1):
                 decoded_image = decode_data_url(str(raw_image or "").strip())
                 if not decoded_image:
                     raise ValueError(f"无法读取第 {image_index} 张输入图片")
@@ -1334,6 +1376,18 @@ class JimengStaticRequestHandler(SimpleHTTPRequestHandler):
                         "type": mime_type,
                     }
                 )
+            if feature_key in CANVAS_A_PLUS_FEATURE_KEYS:
+                from 图片.canvas_a_plus import run_node, prepare_psd_download
+                result = run_node(SimpleNamespace(**globals()), feature, source_inputs,
+                                  str(payload.get("prompt") or "").strip()[:10000], username)
+                images = []
+                for image_url in result.get("images") or []:
+                    data, mime = load_image_bytes_from_url(str(image_url))
+                    images.append(image_bytes_to_data_url(data, mime or "image/png"))
+                self.send_json({"success": True, "image": images[0], "images": images,
+                                "featureName": feature["name"], "text": str(result.get("text") or ""),
+                                "psdUrl": prepare_psd_download(SimpleNamespace(**globals()), result, username)})
+                return
             if feature_key in INFINITE_CANVAS_IMAGE_FEATURE_REFERENCE_KEYS and len(source_inputs) < 2:
                 raise ValueError(f"{str(feature.get('name') or '当前功能')}还需要连接至少 1 张参考图")
             if feature_key in INFINITE_CANVAS_IMAGE_FEATURE_SINGLE_INPUT_KEYS:
@@ -1533,7 +1587,7 @@ def build_history_static_base_url(public_app_url: str, static_port: int) -> str:
     return urllib.parse.urlunsplit((scheme, netloc, HISTORY_STATIC_ROUTE_PREFIX, "", ""))
 
 
-def build_infinite_canvas_url(public_app_url: str, static_port: int, username: str) -> str:
+def build_infinite_canvas_url(public_app_url: str, static_port: int, username: str, workspace: str = "") -> str:
     static_port = int(os.getenv("JIMENG_PUBLIC_PORT") or static_port)
     raw_url = str(public_app_url or "").strip() or DEFAULT_PUBLIC_APP_URL
     parsed = urllib.parse.urlsplit(raw_url)
@@ -1556,6 +1610,7 @@ def build_infinite_canvas_url(public_app_url: str, static_port: int, username: s
             AUTH_QUERY_TOKEN_KEY: build_auth_token(normalized_username),
             "embed": "true",
             "build": canvas_version,
+            **({"workspace": "a_plus"} if workspace == "a_plus" else {}),
         }
     )
     return urllib.parse.urlunsplit(
@@ -1640,6 +1695,17 @@ FEATURES = [
         "default_prompt": "按设计部印前检查流程生成逐项合规报告。",
     },
     {
+        "key": "a_plus_canvas",
+        "name": "A+画布",
+        "summary": "在画布中整理A+素材，集中使用A+创作工具",
+        "mode": "canvas",
+        "output_mode": "image",
+        "min_images": 0,
+        "max_output_images": 0,
+        "description": "集中使用画布和A+相关创作功能。",
+        "default_prompt": "",
+    },
+    {
         "key": "infinite_canvas",
         "name": "无限画布",
         "summary": "上传图片后自由组合已有功能",
@@ -1711,17 +1777,17 @@ FEATURES = [
     {
         "key": "hd_batch",
         "name": "模特图批量高清",
-        "summary": "专用超清增强，保留原图内容并按原尺寸输出",
-        "mode": "portrait_upscale",
-        "model": JIMENG_HD_MODEL_NAME,
+        "summary": "Nano Banana 2.1 高清增强，保留生成原始分辨率",
+        "mode": "portrait_hd",
+        "model": NANO_BANANA_MODEL,
         "output_mode": "image",
         "min_images": 1,
         "max_output_images": 1,
         "fixed_output_count": 1,
-        "description": "使用专用超清流程增强原图，保留人物、商品和背景内容；每张原图输出一张结果，最终宽高与原图一致。",
+        "description": "使用 Nano Banana 2.1 增强原图清晰度，保留人物、商品和背景内容；每张原图输出一张结果，保留模型生成结果的原始像素宽高。",
         "default_prompt": (
-            "仅使用每张原图进行专用超清增强，保留原图内容、比例与边界。"
-            "不使用生图模型或其他人物参考图；每张输出一张结果，最终像素宽高与原图一致。"
+            "仅使用每张原图进行高清增强，保留原图内容、比例与边界。"
+            "使用 Nano Banana 2.1，不使用其他人物参考图；每张输出一张结果，保留模型生成结果的原始像素宽高。"
         )
     },
     {
@@ -1985,24 +2051,24 @@ FEATURES = [
     },
     {
         "key": A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,
-        "name": "A+首屏风格复刻",
+        "name": "A+首屏风格复刻—替换模特",
         "summary": "参考首屏风格调性，把其中所有模特替换为指定模特",
         "mode": "openrouter",
         "output_mode": "image",
         "min_images": 2,
-        "max_input_images": 6,
+        "max_input_images": 2,
         "max_output_images": 1,
         "target_size": (1464, 1000),
         "target_size_text": "1464*1000",
-        "description": "第 1 张上传 A+ 首屏风格参考图，后续上传同一位目标模特的参考图。优先保留目标模特原始姿势，自然融合画面并自动补全缺失局部，输出固定 1464×1000。",
+        "description": "第 1 张上传 A+ 首屏风格参考图，第 2 张上传唯一一张目标模特图。优先保留目标模特原始姿势，自然融合画面并自动补全缺失局部，输出固定 1464×1000。",
         "default_prompt": (
-            "请执行电商 A+ 首屏的风格复刻与指定模特替换。输入图片中的第 1 张是 A+ 首屏参考图，只提供风格与整体调性；后续图片提供同一位目标模特的身份与原始姿态。"
+            "请执行电商 A+ 首屏的风格复刻与指定模特替换。输入图片中的第 1 张是 A+ 首屏参考图，只提供风格与整体调性；第 2 张提供目标模特的身份与原始姿态。"
             "请参考第 1 张图的整体视觉风格，包括配色倾向、光影氛围、质感与材质表现、字体气质、装饰语言和版面节奏，输出一张风格接近的 A+ 首屏。"
             "不需要逐像素复刻原版式：允许在保证商业设计合理、信息层级清晰的前提下重新组织版面，调整元素的位置、大小和疏密关系，让画面更自然协调。"
-            "把参考图中出现的所有模特统一替换为后续图片提供的同一位目标模特。必须稳定保持目标模特的身份、脸型、五官、肤色、发型和辨识度，不得混入原模特的面部特征，不得出现多个不同身份的人物。"
+            "把参考图中出现的所有模特统一替换为第 2 张提供的目标模特。必须稳定保持目标模特的身份、脸型、五官、肤色、发型和辨识度，不得混入原模特的面部特征，不得出现多个不同身份的人物。"
             "目标模特必须自然融入新画面：光线方向、色温、反差、景深、透视比例、服装质感和背景氛围要与画面一致，边缘过渡自然，不得出现抠图感、拼贴感、生硬贴脸或悬浮的边缘。"
             "优先保留目标模特参考图本身的原始姿势、肢体动作、身体朝向和头部朝向，让她以原有姿态自然融入画面；不必模仿首屏风格参考图中原模特的姿势，也不要为了复刻风格而刻意改动作、扭转身体或强行摆成相同姿势。"
-            "可根据目标模特原有姿态调整人物位置、等比大小、构图留白、背景和周边元素，使光影、透视、接触阴影与遮挡关系自然协调。多张目标模特图中，选择最清晰且适合构图的一张作为姿态依据，其余图片用于补充身份和局部细节，不得拼凑互相冲突的肢体动作。"
+            "可根据目标模特原有姿态调整人物位置、等比大小、构图留白、背景和周边元素，使光影、透视、接触阴影与遮挡关系自然协调。仅使用第 2 张目标模特图作为身份和姿态依据，不得拼凑其他人物的肢体动作。"
             "若目标模特素材因裁切或遮挡缺少头发、肩颈、手臂、手部、身体或服装边缘，应沿现有姿态、人体结构、透视和服装走向自动自然补全融入画面所需的缺失局部；已完整可见的部位保持一致，延续同一人物的肤色、服饰和质感，衔接无断层，不得改变身份、五官或额外增加肢体。"
             "参考图中的商品、Logo、可读文案、排版位置和品牌视觉，如未被用户明确要求替换，必须完整保留；不得改写文字、编造卖点、参数、认证或品牌信息。"
             "最终只输出一张完整成品图，精确尺寸为 1464×1000 像素。画面必须覆盖四边，无白边、黑边、截图界面、对话框、水印、拼贴接缝或候选方案。"
@@ -2012,7 +2078,7 @@ FEATURES = [
     {
         "key": A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY,
         "name": "A+首屏卖点融合",
-        "summary": "首屏原样保留，拆解卖点素材并统一设计整张 A+ 长图",
+        "summary": "底稿元素原样保留，只在空白区自然加入完整卖点",
         "mode": "openrouter",
         "output_mode": "image",
         "min_images": 2,
@@ -2020,15 +2086,14 @@ FEATURES = [
         "max_output_images": 1,
         "target_size": (1464, 2400),
         "target_size_text": "",
-        "description": "参考完整首屏统一设计，将后续素材中的真实卖点拆解后自由组合；程序保留首屏原始像素，最终尺寸和比例跟随底稿。",
+        "description": "第一张底稿的所有已有元素保持不变且不受遮挡；只在安全空白区域加入完整、合适的卖点素材，放不下则省略，不裁切、不强行填满。尺寸和比例跟随底稿。",
         "default_prompt": (
-            "请生成一张完整连续的电商 A+ 长图。输入图片中的第 1 张是最终首屏底稿，后续图片是同一商品的主图、细节图和卖点素材图。"
-            "第 1 张图片的首屏区域必须作为不可编辑的原始画面完整保留：不得重绘、改字、调色、裁切、缩放、拉伸、移动、重排、替换或覆盖首屏中的人物、商品、包装、Logo、可读文案、主色、背景氛围、装饰语言、构图关系和视觉层级；用户补充要求明确指定删除或修改的文字、文案及其他元素时除外。"
-            "从后续多张主图中识别并提取真实可见的产品卖点、功能细节、材质、结构、配件、使用方式、规格与可读文案，只在底稿下方纯色留白内自由组合填充，允许重排、错落布局和自由组合，禁止把参考主图整张机械堆叠；首屏已有画面完全不变。"
-            "只能使用上传图片中明确存在的信息，禁止编造功效、参数、认证、折扣、承诺、配件或品牌文案；相同卖点只表达一次。"
-            "最终画布必须严格沿用第 1 张图片的像素尺寸和宽高比例，不得裁切、补边、拉伸或改变画布方向。首屏之后只在第 1 张图片已有的下方留白或可用区域排布后续卖点，不能覆盖或改变首屏。"
-            "整张 A+ 必须是一张连续设计，不得出现硬切分、拼贴接缝、重复背景、独立海报堆叠或白边黑边。保持统一品牌色、字体气质、光影、材质、留白和阅读节奏。"
-            "商品外观、包装、Logo、颜色、比例、结构和可读文字必须准确清晰；任何标题、正文、商品和 Logo 都不能被画布边缘截断。"
+            "第1张图是不可修改的完整A+底稿，所有人物、商品、文字、Logo、背景装饰、侧边和页脚均原样保留，不得重绘、移动、调色、删改、裁切、重排或遮挡任何已有元素。"
+            "只在第1张图真实空白且能完整容纳元素的区域，选择性加入后续卖点素材，不要求用完全部素材。"
+            "被采用的元素和必要信息必须完整，不裁切、不截断、不遮挡、不拉伸；只能合理等比缩小，若太大、比例不适合或缩小后难以辨认，则整体省略。"
+            "新增元素与底稿统一色彩、光影、字体气质及视觉层级，保持适当间距和自然留白，不强行填满、不做机械拼贴、不与原有设计冲突。"
+            "只使用真实可见的卖点和文案，不编造信息、不重复已有内容。补充要求仅适用于新增素材，不能改变底稿保护规则。"
+            "最终画布沿用第1张图的原始像素尺寸和宽高比例，不扩图、不裁图，输出一张自然协调的完整A+。"
         ),
     },
     {
@@ -2071,8 +2136,22 @@ FEATURES = [
         ),
     },
     {
+        "key": "poster_fusion",
+        "name": "海报融合",
+        "summary": "以第1张海报为主体，融合后3张风格与元素",
+        "mode": "openrouter",
+        "output_mode": "image",
+        "min_images": 4,
+        "max_input_images": 4,
+        "max_output_images": 1,
+        "fixed_output_count": 1,
+        "description": "1张主体海报与3张风格参考，自然融合光影、材质和装饰，生成一张丰富且连贯的海报。",
+        "default_prompt": "以第1张海报为主体，融合后3张的风格和辅助元素，统一光影与透视，禁止简单拼贴。",
+    },
+    {
         "key": MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
         "name": "多图参考创作",
+        "hidden": True,
         "summary": "逐图反推，挑选六类参考内容，组合提示词生成底图",
         "mode": "openrouter",
         "output_mode": "image",
@@ -5616,6 +5695,9 @@ def load_api_key() -> str:
 
 
 def load_omnia_api_key() -> str:
+    credential = current_omnia_credential()
+    if credential is not None:
+        return credential.api_key
     env_key = os.getenv("OMNIAKEY_API_KEY", "").strip()
     if env_key:
         return env_key
@@ -7699,93 +7781,27 @@ def render_main_image_a_plus_manual_element_job_status(
 
 
 def build_running_job_spinner_html(progress_value: int, progress_stage: str) -> str:
-    normalized_progress = max(1, min(int(progress_value), 99))
+    # Keep the argument for existing callers; loading is intentionally indeterminate.
     safe_stage = html.escape(str(progress_stage or "正在处理中").strip() or "正在处理中")
     return f"""
     <style>
-      .xiaoha-task-spinner-card {{
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        width: 100%;
-        box-sizing: border-box;
-        padding: 14px 16px;
-        margin: 4px 0 10px;
-        border: 1px solid rgba(126, 96, 255, 0.22);
-        border-radius: 14px;
-        background: linear-gradient(135deg, rgba(126, 96, 255, 0.10), rgba(18, 31, 55, 0.44));
-      }}
-      .xiaoha-task-spinner-circle {{
-        position: relative;
-        width: 48px;
-        height: 48px;
-        flex: 0 0 48px;
-        display: grid;
-        place-items: center;
-      }}
-      .xiaoha-task-spinner-orbit {{
-        position: absolute;
-        inset: 0;
-        box-sizing: border-box;
-        border: 4px solid rgba(126, 96, 255, 0.18);
-        border-top-color: #8d78ff;
-        border-right-color: #39d7c5;
-        border-radius: 50%;
-        animation: xiaoha-task-spinner-rotate 0.9s linear infinite;
-      }}
-      .xiaoha-task-spinner-value {{
-        color: #f5f7ff;
-        font-size: 11px;
-        line-height: 1;
-        font-weight: 800;
-        letter-spacing: -0.2px;
-      }}
-      .xiaoha-task-spinner-stage {{
-        color: #f5f7ff;
-        font-size: 14px;
-        line-height: 1.45;
-        font-weight: 750;
-      }}
-      .xiaoha-task-spinner-subtitle {{
-        margin-top: 3px;
-        color: rgba(214, 219, 255, 0.68);
-        font-size: 12px;
-        line-height: 1.35;
-      }}
-      @keyframes xiaoha-task-spinner-rotate {{
-        to {{ transform: rotate(360deg); }}
-      }}
-      @media (prefers-reduced-motion: reduce) {{
-        .xiaoha-task-spinner-orbit {{ animation-duration: 1.8s; }}
-      }}
+    .result-empty.xiaoha-result-loading {{min-height:350px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:16px;box-sizing:border-box;text-align:center;
+      border:1px dashed #7165ac;border-radius:12px;background:#0a1326;padding:28px;}}
+    .xiaoha-result-orbit {{width:46px;height:46px;flex-shrink:0;border:3px solid #30284e;
+      border-top-color:#a18aff;border-right-color:#58cbbf;border-radius:50%;
+      animation:xiaoha-result-turn .9s linear infinite;}}
+    .xiaoha-result-loading .empty-title {{color:#e9e6ff;overflow-wrap:anywhere;}}
+    .xiaoha-result-loading .empty-subtitle {{color:#aab5d1;}}
+    @keyframes xiaoha-result-turn {{to {{transform:rotate(360deg);}}}}
+    @media(prefers-reduced-motion:reduce) {{.xiaoha-result-orbit {{animation:none;}}}}
     </style>
-    <div class="xiaoha-task-spinner-card" role="status" aria-live="polite">
-      <div class="xiaoha-task-spinner-circle" aria-hidden="true">
-        <div class="xiaoha-task-spinner-orbit"></div>
-        <span class="xiaoha-task-spinner-value">{normalized_progress}%</span>
-      </div>
-      <div>
-        <div class="xiaoha-task-spinner-stage">{safe_stage}</div>
-        <div class="xiaoha-task-spinner-subtitle">任务在后台运行，状态会自动更新</div>
-      </div>
+    <div class="result-empty xiaoha-result-loading" role="status" aria-live="polite">
+      <div class="xiaoha-result-orbit" aria-hidden="true"></div>
+      <div class="empty-title">{safe_stage}</div>
+      <div class="empty-subtitle">完成后将在这里显示结果，可切换到其他功能</div>
     </div>
     """
-
-
-@st.fragment(run_every="1s")
-def _render_running_job_status_legacy(feature_key: str) -> None:
-    sync_background_jobs()
-    current_job = st.session_state.background_jobs.get(feature_key) or {}
-    status = str(current_job.get("status") or "").strip().lower()
-    if status == "running":
-        progress_value = max(1, min(int(current_job.get("progress") or 1), 99))
-        progress_stage = str(current_job.get("stage") or "正在处理中").strip() or "正在处理中"
-        st.markdown(
-            build_running_job_spinner_html(progress_value, progress_stage),
-            unsafe_allow_html=True,
-        )
-        return
-    st.rerun()
 
 
 def build_queued_job_card_html(job_info: dict[str, Any]) -> str:
@@ -7837,28 +7853,26 @@ def build_job_queue_overview_html(active_jobs: list[dict[str, Any]], current_job
 
 
 @st.fragment(run_every="1s")
-def render_running_job_status(feature_key: str) -> None:
+def render_running_job_status(feature_key: str, in_result: bool = False) -> None:
     sync_background_jobs()
-    current_job = st.session_state.background_jobs.get(feature_key) or {}
+    current_job = st.session_state.get("background_jobs", {}).get(feature_key) or {}
     status = str(current_job.get("status") or "").strip().lower()
     if status not in {"queued", "running"}:
         st.rerun()
         return
-    if status == "queued":
-        st.markdown(build_queued_job_card_html(current_job), unsafe_allow_html=True)
-    else:
-        progress_value = max(1, min(int(current_job.get("progress") or 1), 99))
-        progress_stage = str(current_job.get("stage") or "正在处理").strip() or "正在处理"
-        st.markdown(
-            build_running_job_spinner_html(progress_value, progress_stage),
-            unsafe_allow_html=True,
-        )
-    queue_html = build_job_queue_overview_html(
-        get_active_session_background_jobs(),
-        str(current_job.get("job_id") or ""),
-    )
-    if queue_html:
-        st.markdown(queue_html, unsafe_allow_html=True)
+    # Existing header calls retain background polling without adding a status banner.
+    if in_result:
+        stage = "任务排队中，等待开始" if status == "queued" else str(current_job.get("stage") or "正在生成，请稍候")
+        st.markdown(build_running_job_spinner_html(0, stage), unsafe_allow_html=True)
+
+
+def render_result_loading(feature_key: str = "") -> bool:
+    key = feature_key or str(st.session_state.get("selected_feature_key") or "")
+    job = st.session_state.get("background_jobs", {}).get(key) or {}
+    if str(job.get("status") or "").lower() not in {"queued", "running"}:
+        return False
+    render_running_job_status(key, in_result=True)
+    return True
 
 
 def get_external_request_kwargs(
@@ -8441,6 +8455,16 @@ def build_xiaoha_usage_dashboard_html(dashboard_data: dict[str, Any]) -> str:
     </body>
     </html>
     """
+
+
+def render_xiaoha_balance_management() -> None:
+    from 图片.balance_view import render_balance_management
+    from 图片.balance_provider import load_balance_snapshot
+
+    render_balance_management(
+        SimpleNamespace(st=st),
+        lambda force=False: load_balance_snapshot(force=force, primary_loader=load_omnia_api_key),
+    )
 
 
 def render_xiaoha_usage_dashboard() -> None:
@@ -9946,7 +9970,7 @@ def process_batch_group(job_context: dict[str, Any], uploaded_group: list[Any], 
             else list(uploaded_files_override)
         )
         if feature_key == "hd_batch":
-            return call_portrait_hd_upscale(list(active_uploaded_group[:1]))
+            return call_portrait_hd_upscale(list(active_uploaded_group[:1]), prompt=prompt_text)
         if feature_key == JIMENG_HD_FEATURE_KEY:
             return call_jimeng_hd_upscale(uploaded_files=list(active_uploaded_group[:1]))
         if is_ark_seedream_model(str(job_context.get("model") or "")):
@@ -12007,7 +12031,7 @@ def detect_first_screen_fill_bounds(source: Image.Image) -> tuple[int, int]:
                 best = (start, end)
             start = None
     if best[1] - best[0] < max(16, round(rgb.height * .1)):
-        raise RuntimeError("无法自动确认下方填充区域，请填写“首屏保留高度”，指定从哪里开始填充；背景不限颜色。")
+        raise RuntimeError("未检测到足够的安全填充区域，请使用留白更充足的底稿；不会自动覆盖已有元素。")
     return best
 
 
@@ -12016,64 +12040,135 @@ def detect_first_screen_fill_start(source: Image.Image) -> int:
 
 
 def build_first_screen_fill_mask(source: Image.Image, manual_start: int = 0) -> Image.Image:
-    """Grow the connected background into sloping/curved blank areas, preserving artwork."""
-    if manual_start:
-        if not 0 < manual_start < source.height:
-            raise RuntimeError("首屏保留高度必须小于底稿总高度。")
-        mask = Image.new('L', source.size, 0)
-        ImageDraw.Draw(mask).rectangle((0, manual_start, source.width-1, source.height-1), fill=255)
-        return mask
+    """Only connected, low-detail background is editable, including below the hero."""
+    if manual_start and not 0 < manual_start < source.height:
+        raise RuntimeError("填充起始高度必须小于底稿总高度。")
     start, end = detect_first_screen_fill_bounds(source)
     rgb = source.convert('RGB')
-    center_x, seed_y = source.width // 2, (start + end) // 2
-    background = rgb.getpixel((center_x, seed_y))
-    channels = [ImageChops.difference(channel, Image.new('L', rgb.size, color))
-                for channel, color in zip(rgb.split(), background)]
-    distance = ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2])
-    eligible = distance.point(lambda value: 255 if value <= 60 else 0)
-    # Do not cross footer artwork or wander into unrelated blank header margins.
-    ImageDraw.Draw(eligible).rectangle((0, 0, source.width-1, max(0, int(source.height*.08)-1)), fill=0)
+    margin = max(1, source.width // 10)
+    background = ImageStat.Stat(rgb.crop((margin, start, source.width-margin, end))).median
+    channels = rgb.split()
+    distances = [ImageChops.difference(channel, Image.new('L', rgb.size, round(color)))
+                 for channel, color in zip(channels, background)]
+    distance = ImageChops.lighter(ImageChops.lighter(distances[0], distances[1]), distances[2])
+    eligible = distance.point(lambda value: 255 if value <= 24 else 0)
+    # Low-contrast type and thin decorations also count as original content.
+    ranges = [ImageChops.subtract(channel.filter(ImageFilter.MaxFilter(5)),
+                                 channel.filter(ImageFilter.MinFilter(5))) for channel in channels]
+    detail = ImageChops.lighter(ImageChops.lighter(ranges[0], ranges[1]), ranges[2])
+    eligible = ImageChops.multiply(eligible, detail.point(lambda value: 255 if value <= 1 else 0))
+    draw = ImageDraw.Draw(eligible)
+    draw.rectangle((0, 0, source.width-1, max(0, int(source.height*.08)-1)), fill=0)
     if end < source.height:
-        ImageDraw.Draw(eligible).rectangle((0, end, source.width-1, source.height-1), fill=0)
-    ImageDraw.floodfill(eligible, (center_x, seed_y), 128, thresh=0)
-    mask = eligible.point(lambda value: 255 if value == 128 else 0)
-    # Once below the hero, the whole selling-point canvas is editable. Side
-    # textures and old footer artwork belong to that canvas, not the locked hero.
-    pixels = mask.load()
-    column_starts = []
-    for x in range(source.width):
-        first = next((y for y in range(int(source.height*.08), seed_y+1)
-                      if pixels[x,y]), None)
-        if first is not None:
-            column_starts.append(first)
-    full_width_start = max(start, max(column_starts, default=start))
-    ImageDraw.Draw(mask).rectangle((0, full_width_start, source.width-1, source.height-1), fill=255)
+        draw.rectangle((0, end, source.width-1, source.height-1), fill=0)
+    # An enclosed, flat foreground can resemble the background. Seed from the
+    # outer perimeter, never from its center, and require the component to span
+    # the candidate background bounds. Ambiguous disconnected patches stay locked.
+    candidate_bounds = eligible.getbbox()
+    if candidate_bounds is None:
+        raise RuntimeError("未检测到可以安全添加卖点的空白区域，请使用留白更充足的底稿。")
+    x0, y0, x1, y1 = candidate_bounds
+    # Tie the background to the original detection band, not to the surviving
+    # eligible pixels: a flat object on a textured/gradient background is not blank.
+    if (x0 > margin or x1 < source.width-margin
+            or y0 > start+3 or y1 < end-3):
+        raise RuntimeError("无法确认足够连续的安全空白区域，请使用留白更充足的底稿；已有元素不会被覆盖。")
+    pixels = eligible.load()
+    perimeter = [(x, y0) for x in range(x0, x1)]
+    perimeter += [(x, y1-1) for x in range(x0, x1)]
+    perimeter += [(x0, y) for y in range(y0+1, y1-1)]
+    perimeter += [(x1-1, y) for y in range(y0+1, y1-1)]
+    mask = None
+    components_checked = 0
+    for seed in perimeter:
+        if pixels[seed] != 255:
+            continue
+        components_checked += 1
+        if components_checked > 16:
+            break
+        ImageDraw.floodfill(eligible, seed, 128, thresh=0)
+        component = eligible.point(lambda value: 255 if value == 128 else 0)
+        if component.getbbox() == candidate_bounds:
+            mask = component
+            break
+        # Visited components cannot be considered a second time.
+        eligible = eligible.point(lambda value: 0 if value == 128 else value)
+        pixels = eligible.load()
+    if mask is None:
+        raise RuntimeError("无法确认连续安全的空白区域，请使用留白更充足的底稿；已有元素不会被覆盖。")
+    # Add breathing room around every original element, including side/footer art.
+    padding = max(2, min(16, round(source.width*.005)))
+    mask = mask.filter(ImageFilter.MinFilter(padding*2+1))
+    draw = ImageDraw.Draw(mask)
+    draw.rectangle((0, 0, source.width-1, padding-1), fill=0)
+    draw.rectangle((0, source.height-padding, source.width-1, source.height-1), fill=0)
+    draw.rectangle((0, 0, padding-1, source.height-1), fill=0)
+    draw.rectangle((source.width-padding, 0, source.width-1, source.height-1), fill=0)
+    # A manual height can only restrict the detected safe area, never unlock art.
+    if manual_start:
+        draw.rectangle((0, 0, source.width-1, manual_start-1), fill=0)
     return mask
 
 
+
+def find_first_screen_safe_region(mask: Image.Image) -> tuple[int, int, int, int]:
+    """Largest usable all-white rectangle; never clip generated elements with a mask."""
+    width, height = mask.size
+    min_width = max(16, round(width*.15))
+    min_height = max(16, round(height*.08))
+    rows = memoryview(mask.convert('L').tobytes())
+    heights = [0] * (width+1)
+    best_area, best = 0, None
+    for y in range(height):
+        stack = []
+        for x in range(width+1):
+            heights[x] = heights[x]+1 if x < width and rows[y*width+x] == 255 else 0
+            while stack and heights[stack[-1]] > heights[x]:
+                rectangle_height = heights[stack.pop()]
+                left = stack[-1]+1 if stack else 0
+                rectangle_width = x-left
+                # Avoid tiny slivers even when their total area looks large.
+                usable_width = min(rectangle_width, rectangle_height*6)
+                usable_height = min(rectangle_height, rectangle_width*6)
+                area = usable_width*usable_height
+                if usable_width >= min_width and usable_height >= min_height and area > best_area:
+                    best_area = area
+                    inset = (rectangle_width-usable_width)//2
+                    best = (left+inset, y+1-usable_height, left+inset+usable_width, y+1)
+            stack.append(x)
+    if best is None:
+        raise RuntimeError("底稿没有足够完整的空白区域容纳卖点素材；请使用留白更充足的底稿，原有元素不会被覆盖。")
+    return best
+
+
 def fit_selling_points_region(image: Image.Image, size: tuple[int, int], background) -> Image.Image:
-    """Keep all generated content, using clean color rather than sampled edge bands."""
+    """Contain the entire generated design; keep the original background in any padding."""
     image = ImageOps.exif_transpose(image).convert('RGBA')
     fitted = ImageOps.contain(image, size, Image.Resampling.LANCZOS)
-    canvas = Image.new('RGBA', size, tuple(background) + (255,))
-    canvas.paste(fitted, ((size[0]-fitted.width)//2, (size[1]-fitted.height)//2))
+    if isinstance(background, Image.Image):
+        canvas = background.convert('RGBA').copy()
+        if canvas.size != size:
+            raise ValueError("卖点背景尺寸必须与安全区域一致。")
+    else:
+        canvas = Image.new('RGBA', size, tuple(background) + (255,))
+    canvas.alpha_composite(fitted, ((size[0]-fitted.width)//2, (size[1]-fitted.height)//2))
     return canvas
 
 
 def preserve_first_screen_pixels(image_url: str, uploaded_input: Any) -> str:
-    """Restore original hero pixels after generation; only bottom blank rows may change."""
+    """Keep the same original-content lock for legacy callers."""
     with Image.open(io.BytesIO(get_uploaded_file_bytes(uploaded_input))) as image:
-        source = ImageOps.exif_transpose(image).convert("RGBA")
-    start = detect_first_screen_fill_start(source)
-    generated_bytes, _mime = load_image_bytes_from_url(image_url)
-    with Image.open(io.BytesIO(generated_bytes)) as image:
-        generated = ImageOps.exif_transpose(image).convert("RGBA")
-        if generated.size != source.size:
-            generated = generated.resize(source.size, Image.Resampling.LANCZOS)
-    generated.paste(source.crop((0, 0, source.width, start)), (0, 0))
+        source = ImageOps.exif_transpose(image).convert('RGBA')
+    bounds = find_first_screen_safe_region(build_first_screen_fill_mask(source))
+    data, _mime = load_image_bytes_from_url(image_url)
+    with Image.open(io.BytesIO(data)) as image:
+        # Legacy input is an entire design, so contain it instead of cropping it.
+        designed = fit_selling_points_region(image, (bounds[2]-bounds[0], bounds[3]-bounds[1]), source.crop(bounds))
+    canvas = source.copy()
+    canvas.paste(designed, bounds[:2])
     output = io.BytesIO()
-    generated.save(output, format="PNG")
-    return image_bytes_to_data_url(output.getvalue(), "image/png")
+    canvas.save(output, format='PNG')
+    return image_bytes_to_data_url(output.getvalue(), 'image/png')
 
 
 def selling_points_bottom_blank_fraction(image: Image.Image) -> float:
@@ -12090,73 +12185,51 @@ def selling_points_bottom_blank_fraction(image: Image.Image) -> float:
 
 
 def request_selling_points_layout(model, prompt, inputs, size, background):
-    for attempt in range(2):
-        result = call_openrouter_images_api(
-            model=model, prompt=prompt, uploaded_files=inputs,
-            aspect_ratio=select_closest_aspect_ratio(size),
-            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
-        )
-        valid = bool(result.get('images'))
-        for url in result.get('images') or []:
-            data, _ = load_image_bytes_from_url(url)
-            with Image.open(io.BytesIO(data)) as image:
-                candidate = fit_selling_points_region(image,size,background)
-                valid = valid and selling_points_bottom_blank_fraction(candidate) < .12
-        if valid:
-            return result
-        prompt += "\n质量修正：上一版底部留白过大。重新分配各卖点模块的大小与间距，覆盖至少88%的高度，末组信息接近底部且保持完整，禁止留下大块空尾。"
-    task_id = str((result.get('raw') or {}).get('id') or '')
-    raise RuntimeError(f"卖点排版检查未通过：底部留白过大，已自动重新排版一次。任务编号：{task_id or '未提供'}，请调整素材数量或输出高度后重试。")
+    # Sparse layouts are valid. Never request another paid generation to fill space.
+    result = call_openrouter_images_api(
+        model=model, prompt=prompt, uploaded_files=inputs,
+        aspect_ratio=select_closest_aspect_ratio(size),
+        resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+    )
+    if not result.get('images'):
+        raise RuntimeError("卖点区域未返回图片。")
+    return result
 
 
 def run_first_screen_selling_points_job(job_context: dict[str, Any]) -> dict[str, Any]:
-    """Design in full-canvas context, then restore every protected original pixel."""
-    files = list(job_context.get("uploaded_files") or [])
+    """Add a complete design inside confirmed blank space; leave the base intact."""
+    files = list(job_context.get('uploaded_files') or [])
     if len(files) < 2:
         raise RuntimeError("请上传首屏底稿和至少一张卖点素材图。")
     with Image.open(io.BytesIO(get_uploaded_file_bytes(files[0]))) as image:
-        source = ImageOps.exif_transpose(image).convert("RGBA")
+        source = ImageOps.exif_transpose(image).convert('RGBA')
     manual_start = int(job_context.get('a_plus_first_screen_keep_height') or 0)
     fill_mask = build_first_screen_fill_mask(source, manual_start)
-    bounds = fill_mask.getbbox()
-    if bounds is None:
-        raise RuntimeError("无法识别填充区域，请手动设置首屏保留高度。")
+    bounds = find_first_screen_safe_region(fill_mask)
     left, top, right, bottom = bounds
     region_size = (right-left, bottom-top)
-    region_mask = fill_mask.crop(bounds)
-    # The tapered part is useful for visual continuity, but complete text needs
-    # a full-width safe area below the lowest protected edge.
-    safe_row = next((y for y in range(top,bottom)
-                     if fill_mask.crop((0,y,source.width,y+1)).getextrema() == (255,255)), bottom)
-    text_top = min(region_size[1]-1, safe_row-top + max(12,source.width//40))
-    background = tuple(int(v) for v in ImageStat.Stat(source.convert('RGB'), fill_mask).median)
-    background_hex = '#%02x%02x%02x' % background
-    guide = source.crop(bounds).convert('RGB')
-    guide.paste((30,30,30), (0,0,*region_size), ImageChops.invert(region_mask))
+    background = source.crop(bounds)
     guide_bytes = io.BytesIO()
-    guide.save(guide_bytes, format='PNG')
-    guide_input = {'data':guide_bytes.getvalue(), 'name':'fill-area-guide.png', 'type':'image/png'}
+    background.save(guide_bytes, format='PNG')
+    guide_input = {'data': guide_bytes.getvalue(), 'name': 'fill-area-guide.png', 'type': 'image/png'}
+    margin = max(4, round(min(region_size)*.04))
     prompt = (
-        f"为一张 {source.width}×{source.height} 的完整 A+ 长图设计后续卖点区域。本次只输出 {region_size[0]}×{region_size[1]} 的卖点画布，不输出整张长图或重复首屏。"
-        "第1张是完整底稿，仅供理解品牌、首屏构图与视觉衔接，首屏由系统原样保留，不要在本次输出中绘制其人物、标题和主视觉。"
-        "第2张是本次输出尺寸的可编辑区域示意图：深灰色区域最终会被原首屏遮住，其余部分才可设计；示意图仅用于理解边界，不得出现在成品中。"
-        f"关键安全区：输出画布从顶部到第 {text_top} 像素只安排背景、纹理和不承载重要信息的衔接装饰，禁止放标题、正文、对比标签或关键产品细节；完整信息从 y={text_top} 以下开始排版。"
-        "从第3张开始是卖点素材库，不是现成排版模板。"
-        f"以第1张首屏为整体设计的锚点，延续其品牌色、字体气质、装饰语言、光影和阅读动线；背景色参考 {background_hex}，允许协调的渐变或轻纹理。"
-        "沿示意图的斜线或曲线边界填满可用区域，禁止改为水平起排后留下三角形空白；"
-        "斜边附近可安排花纹、局部产品细节和视觉引导，完整标题和关键文字必须放在较宽的可用区域内，不能被遮罩截断。"
-        "先梳理全部素材中真实存在的独立卖点、产品细节、眼部对比、使用场景、规格和可读文案，去重后完整编入设计；不得无故丢失独立重要信息。"
-        "跨素材按语义去重：同一眼部特写不得在不同位置重复，一组Before/After只各用一张，不再额外加入同眼睛横幅；同一产品视角、长度规格组和使用场景组各出现一次，优先使用空间展示不同信息。首屏已经表达的主标题不在下方重复做第二个主视觉。"
-        "把这些元素从素材原海报中拆解出来，自由重组大小、位置、疏密和层级，允许创意穿插、错落和视觉呼应；不要沿用各素材原来的框架、边框和背景。"
-        "让首屏与卖点自然连成一张有创意的完整作品，重点内容完整清楚，边缘和转折衔接顺畅，不做几个独立海报的上下拼接。"
-        "禁止整张参考海报照搬堆叠，禁止边框、斜纹装饰边、硬接缝和重复信息；不编造文案或参数。"
-        "卖点区的左右两侧和底部属于本次完整设计范围，必须干净连续，不复制素材海报的毛边、黑色碎条、残留字、旧页脚或重复Logo；禁止用镜像和拉伸纹理填充边缘。"
-        "合理铺满整个目标区域，模块分布到接近底部，只保留适度呼吸空间，禁止底部大面积空白。"
-        "不拉伸人物、商品或文字。以下补充要求仅适用于本次下方卖点区：\n"
-        + str(job_context.get('a_plus_first_screen_requirements') or '')
+        f"任务：在一张 {source.width}×{source.height} 的 A+ 底稿空白区域中自然加入合适的卖点元素。"
+        f"本次只输出 {region_size[0]}×{region_size[1]} 的局部卖点画布，对应底稿 x={left}..{right}、y={top}..{bottom} 的空白位置，不输出或重画整张底稿。"
+        "第1张是不可修改的完整底稿，仅用于理解现有内容与品牌风格。其任何人物、商品、包装、文字、Logo、边框、装饰、侧边和页脚都必须原样保留；禁止修改、移动、重绘或遮挡任何原有元素。"
+        "第2张是允许添加内容的空白区域原始背景，须延续其背景颜色、渐变和纹理，四边与原底稿自然衔接；不得画边框、拼接线、卡片底板或突兀色块。"
+        "第3张起是可选卖点素材库。先判断完整元素的比例、信息价值和可用空间，只选适合此区域且不与原图冲突的元素；不要求用完所有素材。"
+        "被选中的商品、人物、眼部对比、文字、Logo、图标及完整信息组合必须完整保留，不裁切、不截断、不遮挡、不拉伸、不变形。"
+        "允许将完整元素等比缩小并调整新增元素之间的位置，但必须保持细节和文字可读；太大、比例不合适、缩小后不清楚或无法完整放下的元素，整项省略，不要截取局部，不要挤塞。"
+        f"关键安全区：所有新增元素与四边至少保留 {margin} 像素呼吸空间，元素之间互不重叠遮挡，禁止出血、贴边和跨出区域。"
+        "新增内容的色彩、字体气质、光影和视觉层级与第1张协调，主体优先，布局克制、自然，保留合理留白；可以少放，不必填满，不追求素材数量和覆盖率。"
+        "只使用素材中真实可见的信息，不编造卖点、参数、认证、功效或文案；相同商品视角、元素、文案和卖点在整张图中只能出现一次，底稿已有的信息不再重复。"
+        "可去掉素材原海报的纯背景以独立使用完整元素，但不能切掉元素本体、文字或其必要信息；无法完整分离的组合应整体保留或整体不采用。"
+        "输出前检查完整性和留白：宁可减少元素，也不能为了填空间损坏素材，最终是一张无冲突、自然融合的 A+。\n"
+        + build_a_plus_first_screen_user_override(str(job_context.get('a_plus_first_screen_requirements') or ''))
     )
     result = request_selling_points_layout(
-        str(job_context['model']), prompt, [files[0],guide_input,*files[1:]], region_size, background,
+        str(job_context['model']), prompt, [files[0], guide_input, *files[1:]], region_size, background,
     )
     outputs = []
     for url in result.get('images') or []:
@@ -12164,7 +12237,8 @@ def run_first_screen_selling_points_job(job_context: dict[str, Any]) -> dict[str
         with Image.open(io.BytesIO(data)) as image:
             designed = fit_selling_points_region(image, region_size, background)
         canvas = source.copy()
-        canvas.paste(designed, (left,top), region_mask)
+        # The whole rectangle is blank. No irregular mask can cut through a new element.
+        canvas.paste(designed, (left, top))
         buffer = io.BytesIO()
         canvas.save(buffer, format='PNG')
         outputs.append(image_bytes_to_data_url(buffer.getvalue(), 'image/png'))
@@ -12172,6 +12246,7 @@ def run_first_screen_selling_points_job(job_context: dict[str, Any]) -> dict[str
         raise RuntimeError("卖点区域未返回图片。")
     result['images'] = outputs
     result['target_size'] = list(source.size)
+    result['first_screen_fill_bounds'] = list(bounds)
     return result
 
 
@@ -12381,6 +12456,9 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
     if job_id:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
+    if feature_key == "poster_fusion":
+        from 图片.poster_fusion import run_job
+        return finalize_feature_job_result(job_context, run_job(SimpleNamespace(**globals()), job_context), job_id)
     if feature_key == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
         from 图片.multi_reference_composer import run_job
         result = run_job(SimpleNamespace(**globals()), job_context)
@@ -12389,8 +12467,7 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
         return finalize_feature_job_result(job_context, result, job_id)
     if feature_key == A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY:
         return finalize_feature_job_result(job_context, run_hero_reverse_job(job_context), job_id)
-    if (feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
-            and job_context.get("a_plus_first_screen_workflow_stage") != "hero"):
+    if feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY:
         result = run_first_screen_selling_points_job(job_context)
         return finalize_feature_job_result(job_context, result, job_id)
     if feature_key == AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY:
@@ -12598,7 +12675,7 @@ def _run_feature_job_once(job_context: dict[str, Any]) -> dict[str, Any]:
             set_task_progress(job_id, 18, "正在请求模型生成结果")
         feature_key = str((job_context.get("feature") or {}).get("key") or "")
         if feature_key == "hd_batch":
-            result = call_portrait_hd_upscale(list(job_context.get("uploaded_files") or [])[:1])
+            result = call_portrait_hd_upscale(list(job_context.get("uploaded_files") or [])[:1], prompt=str(job_context.get("prompt") or ""))
         elif feature_key == JIMENG_HD_FEATURE_KEY or feature_mode == "jimeng_upscale":
             result = call_jimeng_hd_upscale(
                 uploaded_files=list(job_context.get("uploaded_files") or [])[:1],
@@ -12741,6 +12818,8 @@ def run_queued_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
             return
         labels = {"omnia_image": "OmniaKey 生图", "omnia_text": "OmniaKey 分析", "ark": "即梦生图", "jimeng": "即梦超清"}
         label = labels.get(group, "模型")
+        if group == "omnia_image" and str((job_context.get("feature") or {}).get("key") or "") == "hd_batch":
+            label = "Nano Banana 2.1"
         runtime = get_task_runtime()
         with runtime.lock:
             progress = runtime.progress.setdefault(job_id, {"percent": 3})
@@ -12764,7 +12843,9 @@ def submit_feature_job(feature: dict[str, Any], job_context: dict[str, Any]) -> 
     job_context = dict(job_context)
     job_context["job_id"] = job_id
     feature_key = str(feature.get("key") or "").strip()
-    is_jimeng_hd_job = feature_key in {"hd_batch", JIMENG_HD_FEATURE_KEY}
+    if feature_key == "hd_batch":
+        job_context["model"] = NANO_BANANA_MODEL
+    is_jimeng_hd_job = feature_key == JIMENG_HD_FEATURE_KEY
     queue_key = (
         JIMENG_HD_GLOBAL_QUEUE_KEY
         if is_jimeng_hd_job
@@ -13233,7 +13314,18 @@ def sync_background_jobs() -> None:
     st.session_state.background_jobs = latest_by_feature
 
 
+def inject_processing_transition() -> None:
+    script = (APP_DIR / "processing_transition.js").read_text(encoding="utf-8-sig")
+    script = script.replace("__XIAOHA_LOADING_HTML__", json.dumps(build_running_job_spinner_html(0, "正在提交处理，请稍候")))
+    components.html(
+        '<script>const s=window.parent.document.createElement("script");s.textContent='
+        + json.dumps(script).replace("</", r"<\/")
+        + ';window.parent.document.head.appendChild(s);s.remove();</script>', height=0,
+    )
+
+
 def inject_app_styles() -> None:
+    inject_processing_transition()
     st.markdown(
         """
         <style>
@@ -14083,6 +14175,11 @@ def inject_app_styles() -> None:
             font-size: 0.82rem;
             font-weight: 600;
             margin: 0.2rem 0 0.26rem;
+        }
+        /* Streamlit compensates Markdown paragraphs with a negative bottom
+           margin. These HTML headings need their full height in normal flow. */
+        [data-testid="stMarkdownContainer"]:has(> :is(.panel-subtitle, .result-block-title, .section-kicker)) {
+            margin-bottom: 0 !important;
         }
         .upload-main-empty, .result-empty {
             min-height: 188px;
@@ -15516,26 +15613,15 @@ def inject_upload_reorder_support() -> None:
 
 
 def build_a_plus_first_screen_user_override(custom_prompt: str) -> str:
-    """Make the user's editable A+ goal win over preservation defaults."""
-    normalized = str(custom_prompt or "").strip()
+    """Scope optional instructions to new material while retaining the immutable base."""
+    normalized = str(custom_prompt or '').strip()
     if not normalized:
-        return ""
-    sections = [
-        "【用户编辑目标｜最高优先级】以下要求是本次生成必须执行的最终编辑指令；若与前文关于保留参考图文案、文字或版式细节的要求冲突，以本段为准。",
+        return ''
+    return '\n'.join([
+        '【新增卖点补充要求】以下要求仅适用于空白区域中新加入的素材及布局：',
         normalized,
-    ]
-    remove_text_pattern = re.compile(
-        r"(?:去掉|去除|删除|移除|不要|不保留|清除|抹掉|擦除).{0,12}(?:文字|文案|文本|字幕|字样|标语)"
-        r"|(?:文字|文案|文本|字幕|字样|标语).{0,12}(?:去掉|去除|删除|移除|不要|不保留|清除|抹掉|擦除)",
-        re.IGNORECASE,
-    )
-    if remove_text_pattern.search(normalized):
-        sections.append(
-            "已识别为去文字任务：必须删除用户所指参考图中的全部目标文字，不得照抄、重绘、近似复刻或换一种字体保留；"
-            "删除后用周围背景、纹理、光影和材质自然补全原文字区域，最终对应区域不得残留可读字符、乱码、文字轮廓或水印痕迹。"
-        )
-    sections.append("完成生成前必须逐项核对上述用户要求，不能只执行默认模板规则。")
-    return "\n".join(sections)
+        '【底稿保护优先】补充要求不得修改、删除、重绘或遮挡第1张底稿任何已有元素；去文字、改色、重排等要求只能作用于新增卖点素材。无法满足时省略对应新增元素，不能突破完整保留、禁止裁切和空间限制。',
+    ])
 
 
 def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str, extra_notes: str) -> str:
@@ -15979,20 +16065,18 @@ def call_jimeng_hd_upscale(uploaded_files: list[Any] | None = None) -> dict[str,
     return result
 
 
-def call_portrait_hd_upscale(uploaded_files: list[Any]) -> dict[str, Any]:
-    """仅向超清接口发送原图；结果按原尺寸输出，不混入其他人物参考图。"""
+def call_portrait_hd_upscale(uploaded_files: list[Any], *, prompt: str = "") -> dict[str, Any]:
+    """批量高清固定使用 Nano Banana 2.1，仅发送当前原图。"""
     if not uploaded_files:
         raise RuntimeError("批量高清失败：请先上传原图。")
-    source = uploaded_files[0]
-    target_size = get_uploaded_input_dimensions(source)
-    result = dict(call_jimeng_hd_upscale(uploaded_files=[source]))
-    try:
-        return finalize_portrait_upscale_result(result, target_size)
-    except Exception as exc:
-        task_note = f"（任务 {result['task_id']}）" if result.get("task_id") else ""
-        raise ImageOutcomeUnknown(
-            f"专用超清原任务已完成{task_note}，但结果处理失败，未自动重新提交。请联系管理员恢复原结果。原因：{exc}"
-        ) from exc
+    return call_openrouter_portrait_hd(
+        model=NANO_BANANA_MODEL,
+        prompt=prompt,
+        aspect_ratio=DEFAULT_ASPECT_RATIO,
+        uploaded_files=[uploaded_files[0]],
+        source_only=True,
+        preserve_native_resolution=True,
+    )
 
 
 def finalize_portrait_upscale_result(result: dict[str, Any], target_size: tuple[int, int]) -> dict[str, Any]:
@@ -16064,15 +16148,20 @@ def call_openrouter_portrait_hd(
     prompt: str,
     aspect_ratio: str,
     uploaded_files: list[Any] | None = None,
+    source_only: bool = False,
+    preserve_native_resolution: bool = False,
 ) -> dict[str, Any]:
-    portrait_inputs = get_portrait_hd_inputs(uploaded_files)
+    portrait_inputs = list(uploaded_files or [])[:1] if source_only else get_portrait_hd_inputs(uploaded_files)
     source_input = portrait_inputs[0]
     source_aspect_ratio = get_uploaded_input_closest_aspect_ratio(source_input, fallback=aspect_ratio)
-    hd_prompt = (
-        build_portrait_hd_prompt(prompt)
-        + "\n\n"
-        + build_portrait_hd_size_instruction(source_input)
-    )
+    hd_prompt = build_portrait_hd_prompt(prompt)
+    if preserve_native_resolution:
+        hd_prompt = hd_prompt.replace(
+            "最终画布的像素宽度和像素高度必须分别与第1张原图完全一致，只提升清晰度。",
+            "保持原图宽高比、完整构图和内容，以原生 4K 分辨率输出高清结果，不要缩回上传图尺寸。",
+        )
+    else:
+        hd_prompt += "\n\n" + build_portrait_hd_size_instruction(source_input)
     try:
         result = call_openrouter_images_api(
             model=model,
@@ -16081,8 +16170,12 @@ def call_openrouter_portrait_hd(
             uploaded_files=portrait_inputs,
             resolution=PORTRAIT_HD_DEFAULT_IMAGE_SIZE,
         )
-        result = finalize_portrait_hd_result(result, source_input)
-        result["channel"] = "Images API 高清增强 · 原图尺寸输出"
+        if preserve_native_resolution:
+            # Keep provider originals byte-for-byte; history and downloads save these sources.
+            result["channel"] = "Nano Banana 2.1 · 原生高清原图"
+        else:
+            result = finalize_portrait_hd_result(result, source_input)
+            result["channel"] = "Images API 高清增强 · 原图尺寸输出"
         return result
     except Exception as exc:
         if is_omnia_image_outcome_unknown(exc):
@@ -16434,6 +16527,7 @@ class OmniaImageOutcomeUnknown(ImageOutcomeUnknown):
 
 
 @limited_request("omnia_image")
+@managed_omnia_call(kind="image", resume=False)
 def call_omnia_sync_image_api(
     model: str,
     prompt: str,
@@ -16443,6 +16537,7 @@ def call_omnia_sync_image_api(
     *,
     size: str = "",
 ) -> dict[str, Any]:
+    record_omnia_provider_status("rejected")
     api_key = load_omnia_api_key()
     if not api_key:
         raise RuntimeError("OmniaKey 未配置 OMNIAKEY_API_KEY，请联系管理员完成配置。")
@@ -16487,6 +16582,7 @@ def call_omnia_sync_image_api(
         request_body = {"json": payload}
     # OmniaKey's synchronous Images API bypasses the failing media-task worker.
     # Its idempotency behavior is not documented, so submit exactly once.
+    record_omnia_provider_status("uncertain")
     try:
         response = requests.post(
             f"{OMNIAKEY_API_BASE}/v1/images/{endpoint}",
@@ -16522,10 +16618,12 @@ def call_omnia_sync_image_api(
     if not isinstance(data, dict):
         raise OmniaImageOutcomeUnknown("OmniaKey 同步生图响应格式异常，未自动重新提交。" + request_note)
     if response.status_code >= 400 or data.get("error"):
+        record_omnia_provider_status("rejected" if response.status_code >= 400 else "failed")
         raise RuntimeError(
             f"OmniaKey 同步生图失败（HTTP {response.status_code}）："
             + redact_background_error_text(build_omnia_task_error_message(data)) + request_note
         )
+    record_omnia_provider_status("success")
     images = []
     for item in data.get("data") or []:
         if not isinstance(item, dict):
@@ -16566,6 +16664,7 @@ def call_omnia_image_api(
 
 
 @limited_request("omnia_image")
+@managed_omnia_call(kind="image", resume=False)
 def call_omnia_media_image_api(
     model: str,
     prompt: str,
@@ -16574,6 +16673,7 @@ def call_omnia_media_image_api(
     resolution: str = "",
     max_attempts: int | None = None,
 ) -> dict[str, Any]:
+    record_omnia_provider_status("rejected")
     omnia_model = resolve_omnia_image_model(model)
     if not omnia_model:
         raise RuntimeError(f"OmniaKey 不支持该生图模型：{model}")
@@ -16620,6 +16720,7 @@ def call_omnia_media_image_api(
     normalized_max_attempts = max(int(max_attempts or OMNIAKEY_MEDIA_MAX_ATTEMPTS), 1)
     response = None
     last_request_error: requests.RequestException | None = None
+    record_omnia_provider_status("uncertain")
     for attempt_index in range(normalized_max_attempts):
         try:
             response = requests.post(
@@ -16665,6 +16766,7 @@ def call_omnia_media_image_api(
     except Exception as exc:
         raise OmniaImageOutcomeUnknown(f"OmniaKey 提交响应无法解析（HTTP {response.status_code}），未自动重新提交。") from exc
     if response.status_code >= 400:
+        record_omnia_provider_status("rejected")
         raise RuntimeError(
             f"OmniaKey 创建图片任务失败（HTTP {response.status_code}）：{build_omnia_task_error_message(create_data)}"
         )
@@ -16682,6 +16784,7 @@ def call_omnia_media_image_api(
         "model": omnia_model,
         "resolution": normalized_resolution,
         "idempotency_key": headers["Idempotency-Key"],
+        **current_omnia_call_metadata(),
     }
     try:
         OMNIAKEY_TASK_RECEIPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -16692,10 +16795,17 @@ def call_omnia_media_image_api(
         raise OmniaImageOutcomeUnknown(
             f"OmniaKey 任务已提交（任务 {task_id}），但回执保存失败，未自动重新提交。请继续查询原任务。"
         ) from exc
+    try:
+        record_omnia_task(task_id)
+    except Exception as exc:
+        raise OmniaImageOutcomeUnknown(
+            f"OmniaKey 任务已提交（任务 {task_id}），通道回执关联失败，请继续查询原任务，未自动重新提交。"
+        ) from exc
     return collect_omnia_image_task(task_id, create_data, api_key, omnia_model, normalized_resolution)
 
 
 @limited_request("omnia_image")
+@managed_omnia_call(kind="image", resume=True)
 def resume_omnia_image_task(task_id: str, model: str = NANO_BANANA_MODEL, resolution: str = "") -> dict[str, Any]:
     """恢复已提交任务的查询和下载，不创建新的付费生图任务。"""
     task_id = str(task_id or "").strip()
@@ -16719,8 +16829,10 @@ def collect_omnia_image_task(
     while time.monotonic() < deadline:
         status = str(task_data.get("status") or "").strip().lower()
         if status == "succeeded":
+            record_omnia_provider_status("success")
             break
         if status in {"failed", "canceled", "cancelled"}:
+            record_omnia_provider_status("failed")
             error = RuntimeError(
                 f"OmniaKey 图片任务失败（任务 {task_id}）：{build_omnia_task_error_message(task_data)}"
             )
@@ -16938,12 +17050,14 @@ def call_ark_seedream_images_api(
 
 
 @limited_request("omnia_text")
+@managed_omnia_call(kind="text", resume=False)
 def call_omnia_chat_api(
     model: str,
     prompt: str,
     uploaded_files: list[Any],
 ) -> dict[str, Any]:
     """Call OmniKey's OpenAI-compatible chat endpoint for text and vision work."""
+    record_omnia_provider_status("rejected")
     api_key = load_omnia_api_key()
     if not api_key:
         raise RuntimeError("OmniaKey 未配置 OMNIAKEY_API_KEY，请联系管理员完成配置。")
@@ -16967,6 +17081,8 @@ def call_omnia_chat_api(
 
     last_error: RuntimeError | None = None
     for index, candidate_model in enumerate(candidate_models):
+        record_omnia_model(candidate_model)
+        record_omnia_provider_status("uncertain")
         try:
             response = requests.post(
                 OMNIAKEY_CHAT_COMPLETIONS_URL,
@@ -16996,6 +17112,7 @@ def call_omnia_chat_api(
                 raise ImageOutcomeUnknown(
                     f"OmniaKey 文字响应无法解析（HTTP {response.status_code}），远端结果尚未确认，未自动重新提交。"
                 ) from exc
+            record_omnia_provider_status("rejected")
             last_error = RuntimeError(f"OmniaKey 响应解析失败（HTTP {response.status_code}）。")
             should_fallback = response.status_code in {425, 429}
         else:
@@ -17015,6 +17132,7 @@ def call_omnia_chat_api(
                 raise ImageOutcomeUnknown(
                     f"OmniaKey 文字请求返回 HTTP {response.status_code}，远端结果尚未确认，未自动重新提交。"
                 )
+            record_omnia_provider_status("rejected" if explicit_rejection or 400 <= response.status_code < 500 else "failed")
             last_error = RuntimeError(
                 f"OmniaKey 请求失败（HTTP {response.status_code}）：{redact_background_error_text(error_message)}"
             )
@@ -18481,60 +18599,32 @@ def render_uploaded_preview_card(
     allow_reorder: bool = False,
     item_count: int = 1,
 ) -> None:
-    preview_container = st.container()
-    with preview_container:
-        st.markdown(
-            f"""
-            <div
-                class="upload-preview-root"
-                data-upload-widget="{html.escape(widget_key, quote=True)}"
-                data-upload-index="{item_index}"
-                data-upload-sortable="{'true' if allow_reorder else 'false'}"
-            ></div>
-            """,
-            unsafe_allow_html=True,
-        )
-        if preview_renderer is not None:
-            preview_renderer(uploaded_input, item_index, component_key)
-        else:
-            render_zoomable_image_gallery(
-                [uploaded_input_to_data_url(uploaded_input)],
-                columns=1,
-                thumb_height=150,
-                component_key=component_key,
-                fit_mode="contain",
-                max_width_percent=100,
-            )
-        with st.popover("图片操作", use_container_width=True):
-            if st.button("移除图片", key=f"delete_upload_{component_key}_{item_index}", use_container_width=True):
-                remove_upload_cache_item(widget_key, item_index)
-                reset_upload_widget(widget_key)
-                st.rerun()
-            if allow_reorder and item_count > 1:
-                for column, label, target in zip(
-                    st.columns(2), ("←前移", "后移→"), (item_index - 1, item_index + 1)
-                ):
-                    with column:
-                        if st.button(
-                            label,
-                            key=f"reorder_{component_key}_{target}",
-                            disabled=not 0 <= target < item_count,
-                            use_container_width=True,
-                        ):
-                            reorder_upload_cache_item(widget_key, item_index, target)
-                            reset_upload_widget(widget_key)
-                            st.rerun()
-            st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
-            replacement_upload = st.file_uploader(
-                "替换图片",
-                type=["png", "jpg", "jpeg", "webp"],
-                key=get_replace_uploader_widget_key(widget_key, item_index),
-                label_visibility="collapsed",
-            )
-            if replacement_upload is not None:
-                replace_upload_cache_item(widget_key, item_index, replacement_upload)
-                reset_upload_widget(widget_key)
-                st.rerun()
+    replacement_upload = render_frame_uploader(
+        f"第 {item_index + 1} 张图片", type=["png", "jpg", "jpeg", "webp"],
+        key=get_replace_uploader_widget_key(widget_key, item_index),
+        preview_files=[uploaded_input], frame_height=300,
+        remove_button_key=f"delete_upload_{component_key}_{item_index}",
+        label_visibility="collapsed",
+    )
+    if replacement_upload is not None:
+        replace_upload_cache_item(widget_key, item_index, replacement_upload)
+        reset_upload_widget(widget_key)
+        st.rerun()
+    if preview_renderer is not None:
+        preview_renderer(uploaded_input, item_index, component_key)
+    controls = st.columns(3 if allow_reorder and item_count > 1 else 1)
+    with controls[0]:
+        if st.button("移除", key=f"delete_upload_{component_key}_{item_index}", help="移除这张图片"):
+            remove_upload_cache_item(widget_key, item_index)
+            reset_upload_widget(widget_key)
+            st.rerun()
+    if allow_reorder and item_count > 1:
+        for column, label, target in zip(controls[1:], ("← 前移", "后移 →"), (item_index - 1, item_index + 1)):
+            with column:
+                if st.button(label, key=f"reorder_{component_key}_{target}", disabled=not 0 <= target < item_count):
+                    reorder_upload_cache_item(widget_key, item_index, target)
+                    reset_upload_widget(widget_key)
+                    st.rerun()
 
 
 def render_uploaded_previews(uploaded_file: Any | None, widget_key: str) -> None:
@@ -18560,7 +18650,7 @@ def render_uploaded_gallery(
     if not files:
         st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
         return
-    columns_per_row = min(max(slot_count, 1), 5)
+    columns_per_row = min(max(slot_count, 1), len(files), 3)
     for row_start in range(0, len(files), columns_per_row):
         columns = st.columns(columns_per_row)
         for column_index, column in enumerate(columns):
@@ -18720,6 +18810,7 @@ def render_zoomable_image_gallery(
     direct_src: bool = False,
     embed_full_src: bool = False,
     allow_native_image_download: bool = True,
+    native_fullscreen_context_menu: bool = False,
 ) -> None:
     items: list[dict[str, Any]] = []
     normalized_full_images = list(full_images or [])
@@ -18759,6 +18850,7 @@ def render_zoomable_image_gallery(
     }))
     delete_token = json.dumps(str(context_delete_token or ""))
     allow_native_download = json.dumps(bool(allow_native_image_download))
+    native_fullscreen_menu = json.dumps(bool(native_fullscreen_context_menu))
     html_content = f"""
     <div id="{component_key}" class="zoom-gallery-root" style="max-width: {max_width_percent}%; margin: 0 auto;">
       <div class="zoom-gallery-grid" style="grid-template-columns: repeat({columns}, minmax(0, 1fr)); gap: {gap}px;">
@@ -18937,6 +19029,16 @@ def render_zoomable_image_gallery(
         }}
       }}
 
+      async function eagleFetch_{component_key}(url, options) {{
+        const controller = new hostWindow_{component_key}.AbortController();
+        const timeout = hostWindow_{component_key}.setTimeout(() => controller.abort(), 60000);
+        try {{
+          return await hostWindow_{component_key}.fetch(url, {{...options, signal: controller.signal}});
+        }} finally {{
+          hostWindow_{component_key}.clearTimeout(timeout);
+        }}
+      }}
+
       function ensureEagleUi_{component_key}() {{
         const activeViewer = hostDoc_{component_key}.getElementById("lashforge-fullscreen-viewer");
         const activeDialog = window.frameElement && window.frameElement.closest('dialog, [role="dialog"]');
@@ -18990,9 +19092,12 @@ def render_zoomable_image_gallery(
           `;
           hostDoc_{component_key}.head.appendChild(style);
         }}
+        const existingMenu = hostDoc_{component_key}.getElementById("lashforge-eagle-menu");
+        if (existingMenu && existingMenu.dataset.version !== "20261124-2") existingMenu.remove();
         if (!hostDoc_{component_key}.getElementById("lashforge-eagle-menu")) {{
           const menu = hostDoc_{component_key}.createElement("div");
           menu.id = "lashforge-eagle-menu";
+          menu.dataset.version = "20261124-2";
           menu.innerHTML = ''
             + '<button type="button" id="lashforge-download-image">下载原图</button>'
             + '<button type="button" id="lashforge-save-as-image">原图另存为...</button>'
@@ -19024,54 +19129,70 @@ def render_zoomable_image_gallery(
             if (!state.src) {{
               return;
             }}
-            const eagleTraceId = "eagle-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
-            const requestBody = {{
-              url: state.src,
-              name: state.name || "{component_key}.png",
-              website: hostWindow_{component_key}.location.href,
-              modificationTime: Date.now()
-            }};
+            const saveButton = menu.querySelector("#lashforge-save-to-eagle");
+            if (saveButton.disabled) return;
+            saveButton.disabled = true;
+            let stage = "connect";
             try {{
-              // #region debug-point B:eagle-save-start
-              reportEagleDebug_{component_key}("B", "[DEBUG] Eagle save started", {{
-                pageUrl: hostWindow_{component_key}.location.href,
-                imageUrl: state.src,
-                imageName: requestBody.name,
-                hasAltKey: !!(hostWindow_{component_key}.event && hostWindow_{component_key}.event.altKey),
-                userAgent: hostWindow_{component_key}.navigator.userAgent
-              }}, eagleTraceId);
-              // #endregion
-              const response = await hostWindow_{component_key}.fetch("http://localhost:41595/api/item/addFromURL", {{
-                method: "POST",
-                headers: {{
-                  "Content-Type": "application/json"
-                }},
-                body: JSON.stringify(requestBody)
+              if (!hostWindow_{component_key}.isSecureContext) {{
+                showEagleToast_{component_key}("当前 HTTP 页面无法直连 Eagle。请放大原图后按 Alt + 右键，用 Eagle 浏览器扩展保存；也可下载原图后导入。", 12000);
+                return;
+              }}
+              showEagleToast_{component_key}("正在保存到 Eagle…");
+              // Request local access while the click is still fresh, before
+              // spending time loading a large original image.
+              const info = await eagleFetch_{component_key}("http://localhost:41595/api/application/info", {{
+                targetAddressSpace: "loopback"
               }});
-              const result = await response.json().catch(() => ({{}}));
-              // #region debug-point C:eagle-save-response
-              reportEagleDebug_{component_key}("C", "[DEBUG] Eagle save response", {{
-                ok: response.ok,
-                statusCode: response.status,
-                statusText: response.statusText,
-                resultStatus: result && result.status ? result.status : "",
-                resultMessage: result && result.message ? result.message : ""
-              }}, eagleTraceId);
-              // #endregion
-              if (!response.ok || (result && result.status && result.status !== "success")) {{
-                throw new Error((result && (result.message || result.status)) || "保存失败");
+              if (!info.ok) throw new Error("Eagle 连接失败（" + info.status + "）");
+              stage = "image";
+              // Read with the browser session: Eagle cannot resolve blob URLs or
+              // access images protected by this site's login cookies.
+              const imageResponse = await eagleFetch_{component_key}(state.src, {{
+                credentials: "same-origin"
+              }});
+              if (!imageResponse.ok) throw new Error("原图读取失败（" + imageResponse.status + "）");
+              const blob = await imageResponse.blob();
+              if (!blob.size || !blob.type.startsWith("image/")) {{
+                throw new Error("原图不可用或登录已过期，请刷新页面后重试");
+              }}
+              const imageData = await new Promise((resolve, reject) => {{
+                const reader = new hostWindow_{component_key}.FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error("原图读取失败"));
+                reader.readAsDataURL(blob);
+              }});
+              stage = "eagle";
+              // A plain-text JSON body matches Eagle's API example and avoids
+              // the extra application/json CORS preflight on the local service.
+              const response = await eagleFetch_{component_key}("http://localhost:41595/api/item/addFromURL", {{
+                method: "POST",
+                targetAddressSpace: "loopback",
+                body: JSON.stringify({{
+                  url: imageData,
+                  name: state.name || "{component_key}.png",
+                  website: hostWindow_{component_key}.location.href,
+                  modificationTime: Date.now()
+                }})
+              }});
+              stage = "response";
+              const result = await response.json();
+              if (!response.ok || !result || result.status !== "success") {{
+                throw new Error((result && (result.message || result.status)) || "Eagle 返回异常（" + response.status + "）");
               }}
               showEagleToast_{component_key}("已保存到 Eagle");
             }} catch (error) {{
-              // #region debug-point D:eagle-save-error
-              reportEagleDebug_{component_key}("D", "[DEBUG] Eagle save failed", {{
-                errorName: error && error.name ? error.name : "",
-                errorMessage: error && error.message ? error.message : String(error || ""),
-                imageUrl: state.src,
-                pageUrl: hostWindow_{component_key}.location.href
-              }}, eagleTraceId);
-              // #endregion
-              showEagleToast_{component_key}("保存到 Eagle 失败，请确认 Eagle 正在运行");
+              let message = error && error.message ? error.message : "未知错误";
+              if (stage === "eagle" || stage === "connect") {{
+                message = error && error.name === "AbortError"
+                  ? "Eagle 响应超时，请先检查素材库是否已保存"
+                  : "无法连接本机 Eagle，请确认已启动，并允许浏览器访问本地网络";
+              }} else if (stage === "image" && error && error.name === "TypeError") {{
+                message = "无法读取原图，请刷新页面后重试";
+              }}
+              showEagleToast_{component_key}("保存到 Eagle 失败：" + message, 8000);
+            }} finally {{
+              saveButton.disabled = false;
             }}
           }});
         }}
@@ -19082,7 +19203,7 @@ def render_zoomable_image_gallery(
         }}
       }}
 
-      function showEagleToast_{component_key}(message) {{
+      function showEagleToast_{component_key}(message, duration = 1800) {{
         ensureEagleUi_{component_key}();
         const toast = hostDoc_{component_key}.getElementById("lashforge-eagle-toast");
         if (!toast) return;
@@ -19097,28 +19218,7 @@ def render_zoomable_image_gallery(
         hostWindow_{component_key}.clearTimeout(hostWindow_{component_key}.__lashforgeEagleToastTimer);
         hostWindow_{component_key}.__lashforgeEagleToastTimer = hostWindow_{component_key}.setTimeout(() => {{
           toast.style.opacity = "0";
-        }}, 1800);
-      }}
-
-      function reportEagleDebug_{component_key}(hypothesisId, msg, data, traceId) {{
-        // #region debug-point A:eagle-save-report
-        hostWindow_{component_key}.fetch("http://127.0.0.1:7777/event", {{
-          method: "POST",
-          headers: {{
-            "Content-Type": "application/json"
-          }},
-          body: JSON.stringify({{
-            sessionId: "eagle-save-feishu",
-            runId: "pre-fix",
-            hypothesisId,
-            location: "openrouter_image_site.py:eagle-menu",
-            msg,
-            data: data || {{}},
-            traceId: traceId || "",
-            ts: Date.now()
-          }})
-        }}).catch(() => {{}});
-        // #endregion
+        }}, duration);
       }}
 
       function openEagleMenu_{component_key}(event, src, index) {{
@@ -19439,6 +19539,9 @@ def render_zoomable_image_gallery(
         const downloadName = deriveEagleFileName_{component_key}(downloadSrc, index);
         image.oncontextmenu = (event) => {{
           if (!{allow_native_download}) {{ event.preventDefault(); return; }}
+          // History originals use the browser menu so Copy Image also works
+          // on HTTP pages without the JavaScript clipboard API.
+          if ({native_fullscreen_menu} || event.altKey) return;
           event.preventDefault();
           openEagleMenu_{component_key}(event, downloadSrc, index);
         }};
@@ -19520,6 +19623,11 @@ def render_zoomable_image_gallery(
     )
 
 
+def render_frame_uploader(label: str, **kwargs):
+    from 图片.upload_frames import render_file_frame
+    return render_file_frame(SimpleNamespace(**globals()), label, **kwargs)
+
+
 def render_single_image_uploader(
     label: str,
     key: str,
@@ -19528,40 +19636,21 @@ def render_single_image_uploader(
     cached_files = load_upload_cache(key, max_files=1)
     active_uploaded = cached_files[0] if cached_files else None
 
-    with st.container(height=400, border=False):
-        if active_uploaded is not None:
-            def single_preview(uploaded_input: Any, item_index: int, component_key: str) -> None:
-                render_zoomable_image_gallery(
-                    [uploaded_input_to_data_url(uploaded_input)], columns=1, thumb_height=320,
-                    component_key=component_key, fit_mode="contain", max_width_percent=100,
-                )
-            render_uploaded_preview_card(active_uploaded, key, 0, f"single_preview_{key}", preview_renderer=single_preview)
-        else:
-            st.markdown('<div class="upload-main-empty" style="height:350px"><div class="empty-icon">＋</div><div class="empty-title">上传参考图片</div></div>', unsafe_allow_html=True)
-
-    action_left, action_right = st.columns([1, 1], gap="small")
-    with action_left:
-        uploaded = st.file_uploader(
-            "重新上传" if active_uploaded is not None else "上传图片",
-            type=["png", "jpg", "jpeg", "webp"],
-            key=get_uploader_widget_key(key),
-            help=help_text or None,
-            label_visibility="collapsed",
-        )
-        if uploaded is not None:
-            replacement_index = consume_pending_upload_replacement(key)
-            if replacement_index is not None and active_uploaded is not None:
-                replace_upload_cache_item(key, replacement_index, uploaded)
-            else:
-                save_upload_cache(key, [uploaded])
-            reset_upload_widget(key)
-            st.rerun()
-
-    with action_right:
-        if st.button("清空上传", key=f"clear_upload_{key}", use_container_width=True, type="secondary"):
-            clear_upload_cache(key)
-            reset_upload_widget(key)
-            st.rerun()
+    uploaded = render_frame_uploader(
+        label, type=["png", "jpg", "jpeg", "webp"],
+        key=get_uploader_widget_key(key), preview_files=cached_files, frame_height=350,
+        remove_button_key=f"clear_upload_{key}",
+        help=help_text or None, label_visibility="collapsed",
+    )
+    if uploaded is not None:
+        consume_pending_upload_replacement(key)
+        save_upload_cache(key, [uploaded])
+        reset_upload_widget(key)
+        st.rerun()
+    if st.button("清空上传", key=f"clear_upload_{key}", type="secondary"):
+        clear_upload_cache(key)
+        reset_upload_widget(key)
+        st.rerun()
 
     st.caption("支持 Ctrl+V 直接粘贴图片到当前上传区域")
     return active_uploaded
@@ -19575,21 +19664,10 @@ def render_compact_element_image_uploader(
     cached_files = load_upload_cache(key, max_files=1)
     active_uploaded = cached_files[0] if cached_files else None
 
-    if active_uploaded is not None:
-        render_zoomable_image_gallery(
-            [uploaded_input_to_data_url(active_uploaded)],
-            columns=1,
-            thumb_height=112,
-            component_key=f"compact_element_preview_{key}",
-            fit_mode="contain",
-            max_width_percent=100,
-        )
-        st.caption(f"已选：{get_uploaded_file_name(active_uploaded)}")
-
-    uploaded = st.file_uploader(
+    uploaded = render_frame_uploader(
         "更换素材" if active_uploaded is not None else label,
         type=["png", "jpg", "jpeg", "webp"],
-        key=get_uploader_widget_key(key),
+        key=get_uploader_widget_key(key), preview_files=cached_files, frame_height=220,
         help=help_text or None,
         label_visibility="collapsed",
     )
@@ -19612,94 +19690,17 @@ def render_compact_element_image_uploader(
 
 
 def render_first_screen_material_uploader(key: str, *, hero: bool = False) -> list[Any]:
-    """Fixed material canvas with compact, accessible per-image actions."""
-    limit = 1 if hero else 9
-    files = load_upload_cache(key, max_files=limit)
+    """The A+ material area shares the same paste/drop frames as other features."""
     with st.container(border=True, key="fusion_hero" if hero else "fusion_materials"):
-        st.markdown(
-            '<div class="fusion-panel-header"><div class="fusion-panel-heading">'
-            f'<strong>{"首屏底稿" if hero else "卖点素材"}</strong>'
-            f'<span>{len(files)} / {limit}</span></div>'
-            '<div class="fusion-panel-description">'
-            f'{"首屏内容原样保留" if hero else "拖动调整顺序，按优先级提取卖点"}'
-            '</div></div>', unsafe_allow_html=True,
+        st.markdown("**首屏底稿**" if hero else "**卖点素材 · 最多9张**")
+        if hero:
+            uploaded = render_single_image_uploader("首屏底稿", key)
+            return [uploaded] if uploaded is not None else []
+        return render_multi_image_uploader(
+            "卖点素材", key, max_files=9, preview_slot_count=3,
+            allow_reorder=True, preview_area_height=440,
+            help_text="拖入或粘贴图片，按优先级调整素材顺序。",
         )
-        with st.container(height=540, border=False):
-            for start in range(0, limit, 1 if hero else 3):
-                columns = st.columns(1 if hero else 3, gap="small")
-                for offset, column in enumerate(columns):
-                    index = start + offset
-                    with column:
-                        if index >= len(files):
-                            st.markdown(
-                                f'<div class="fusion-empty-slot {"fusion-empty-hero" if hero else ""}">'
-                                '<span>＋</span>等待上传</div>',
-                                unsafe_allow_html=True,
-                            )
-                            with st.popover("上传底稿" if hero else "添加素材", use_container_width=True):
-                                additions = st.file_uploader(
-                                    "选择图片", type=["png", "jpg", "jpeg", "webp"],
-                                    accept_multiple_files=not hero,
-                                    key=f"{get_uploader_widget_key(key)}_slot_{index}",
-                                )
-                                if additions:
-                                    new_files = [additions] if hero else list(additions)
-                                    save_upload_cache(key, (files + new_files)[:limit])
-                                    reset_upload_widget(key)
-                                    st.rerun()
-                            continue
-                        with st.container(key=f"fusion_card_{key}_{index}"):
-                            st.markdown(
-                                f'<div class="upload-preview-root" data-upload-widget="{html.escape(key, quote=True)}" '
-                                f'data-upload-index="{index}" data-upload-sortable="{str(not hero).lower()}"></div>',
-                                unsafe_allow_html=True,
-                            )
-                            render_zoomable_image_gallery(
-                                [uploaded_input_to_data_url(files[index])], columns=1,
-                                thumb_height=470 if hero else 112,
-                                component_key=f"fusion_preview_{key}_{index}",
-                                fit_mode="contain", max_width_percent=100,
-                            )
-                            with st.popover("替换 / 移除" if hero else f"{index + 1:02d} · 操作", use_container_width=True):
-                                st.caption("点击图片可放大查看")
-                                replacement = st.file_uploader(
-                                    "替换图片", type=["png", "jpg", "jpeg", "webp"],
-                                    key=get_replace_uploader_widget_key(key, index),
-                                )
-                                if replacement is not None:
-                                    replace_upload_cache_item(key, index, replacement)
-                                    reset_upload_widget(key)
-                                    st.rerun()
-                                if not hero:
-                                    for target, label in ((index - 1, "← 前移"), (index + 1, "后移 →")):
-                                        if st.button(label, key=f"fusion_move_{key}_{index}_{target}", disabled=not 0 <= target < len(files)):
-                                            reorder_upload_cache_item(key, index, target)
-                                            reset_upload_widget(key)
-                                            st.rerun()
-                                if st.button("移除图片", key=f"fusion_remove_{key}_{index}"):
-                                    remove_upload_cache_item(key, index)
-                                    reset_upload_widget(key)
-                                    st.rerun()
-        upload_col, clear_col = st.columns([3, 1], gap="small")
-        with upload_col:
-            st.markdown('<div class="upload-more-marker"></div>', unsafe_allow_html=True)
-            uploaded = st.file_uploader(
-                "替换底稿" if hero and files else "上传底稿" if hero else "添加素材",
-                type=["png", "jpg", "jpeg", "webp"], accept_multiple_files=not hero,
-                key=get_uploader_widget_key(key), label_visibility="collapsed",
-            )
-            if uploaded:
-                additions = [uploaded] if hero else list(uploaded)
-                save_upload_cache(key, (additions if hero else files + additions)[:limit])
-                reset_upload_widget(key)
-                st.rerun()
-        with clear_col:
-            if st.button("清空", key=f"fusion_clear_{key}", use_container_width=True, disabled=not files):
-                clear_upload_cache(key)
-                reset_upload_widget(key)
-                st.rerun()
-        st.caption("支持 Ctrl+V 粘贴 · 点击图片放大" if hero else "最多 9 张 · 支持 Ctrl+V 粘贴")
-    return files
 
 
 def render_multi_image_uploader(
@@ -19715,77 +19716,35 @@ def render_multi_image_uploader(
     cached_files = load_upload_cache(key, max_files=max_files)
     active_uploaded_files = cached_files
 
-    # Reserve the same space for empty and populated galleries. Extra images
-    # scroll inside this area instead of moving the controls below the uploader.
-    preview_area_height = preview_area_height or (560 if preview_renderer is not None else 420)
-    preview_area = st.container(height=preview_area_height, border=False) if preview_area_height else st.container()
-    with preview_area:
-        if active_uploaded_files:
-            st.markdown(
-                '<div class="upload-summary-row">'
-                '<strong>已上传图片</strong>'
-                f'<span>{len(active_uploaded_files)} / {max_files} 张</span>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-            render_uploaded_gallery(
-                active_uploaded_files,
-                "",
-                widget_key=key,
-                slot_count=preview_slot_count or max_files,
-                preview_renderer=preview_renderer,
-                allow_reorder=allow_reorder,
-            )
-            if allow_reorder and len(active_uploaded_files) > 1:
-                st.caption("按住图片左上角的“优先级”标签拖拽，或点击前移/后移，调整生成时的参考顺序。")
-        else:
-            st.markdown(
-                f'<div class="upload-main-empty" style="height:{preview_area_height - 16}px">'
-                '<div class="empty-icon">＋</div>'
-                '<div class="empty-title">添加需要处理的图片</div>'
-                f'<div class="empty-subtitle">支持批量上传，最多 {max_files} 张</div>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-
-    action_left, action_right = st.columns([1.4, 0.6], gap="small")
-    with action_left:
-        st.markdown(
-            '<div class="upload-more-marker"></div>'
-            if active_uploaded_files
-            else '<div class="upload-add-marker"></div>',
-            unsafe_allow_html=True,
-        )
-        uploaded_files = st.file_uploader(
-            "继续上传" if active_uploaded_files else "上传图片",
-            type=["png", "jpg", "jpeg", "webp"],
-            key=get_uploader_widget_key(key),
-            help=help_text or None,
-            label_visibility="collapsed",
-            accept_multiple_files=True,
-        ) or []
-        
-        if uploaded_files:
-            current_cache = load_upload_cache(key, max_files=max_files)
-            replacement_index = consume_pending_upload_replacement(key)
-            if replacement_index is not None and uploaded_files:
-                combined = list(current_cache)
-                if replacement_index < len(combined):
-                    combined[replacement_index] = list(uploaded_files)[0]
-                else:
-                    combined.append(list(uploaded_files)[0])
+    if active_uploaded_files:
+        with st.container():
+            render_uploaded_gallery(active_uploaded_files, "", key, preview_renderer=preview_renderer,
+                                    slot_count=preview_slot_count or min(max_files, 5), allow_reorder=allow_reorder)
+    uploaded_files = render_frame_uploader(
+        label, type=["png", "jpg", "jpeg", "webp"], key=get_uploader_widget_key(key),
+        help=help_text or None, label_visibility="collapsed", accept_multiple_files=True,
+        frame_height=200 if active_uploaded_files else 350,
+    ) or []
+    if uploaded_files:
+        current_cache = load_upload_cache(key, max_files=max_files)
+        replacement_index = consume_pending_upload_replacement(key)
+        if replacement_index is not None and uploaded_files:
+            combined = list(current_cache)
+            if replacement_index < len(combined):
+                combined[replacement_index] = list(uploaded_files)[0]
             else:
-                combined = current_cache + list(uploaded_files)
-            combined = combined[:max_files]
-            save_upload_cache(key, combined)
-            reset_upload_widget(key)
-            st.rerun()
+                combined.append(list(uploaded_files)[0])
+        else:
+            combined = current_cache + list(uploaded_files)
+        combined = combined[:max_files]
+        save_upload_cache(key, combined)
+        reset_upload_widget(key)
+        st.rerun()
 
-    with action_right:
-        if st.button("清空上传", key=f"clear_upload_{key}", use_container_width=True, type="secondary"):
-            clear_upload_cache(key)
-            reset_upload_widget(key)
-            st.rerun()
+    if st.button("清空上传", key=f"clear_upload_{key}", type="secondary"):
+        clear_upload_cache(key)
+        reset_upload_widget(key)
+        st.rerun()
 
     st.caption("支持 Ctrl+V 直接粘贴图片到当前上传区域")
     return active_uploaded_files
@@ -19801,18 +19760,12 @@ def render_reference_slot_uploaders(slot_prefix: str, slot_count: int = 5) -> li
             active_uploaded = cached_files[0] if cached_files else None
             
             if active_uploaded is not None:
-                render_uploaded_preview_card(
-                    active_uploaded,
-                    widget_key=slot_key,
-                    item_index=0,
-                    component_key=f"upload_preview_{slot_key}_0",
-                )
                 uploaded_files.append(active_uploaded)
-            
-            uploaded = st.file_uploader(
+
+            uploaded = render_frame_uploader(
                 "重新上传" if active_uploaded else "上传参考图",
                 type=["png", "jpg", "jpeg", "webp"],
-                key=get_uploader_widget_key(slot_key),
+                key=get_uploader_widget_key(slot_key), preview_files=cached_files, frame_height=220,
                 label_visibility="collapsed",
             )
             if uploaded is not None:
@@ -19854,9 +19807,12 @@ def render_result_preview(
     show_title: bool = True,
     download_images: list[str] | None = None,
     max_width_percent: int = 25,
+    feature_key: str = "",
 ) -> None:
     if show_title:
         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
+    if render_result_loading(feature_key):
+        return
     if not images:
         st.markdown(
             """
@@ -20840,6 +20796,7 @@ def render_history_gallery(
                     full_images=[fullscreen_href or str(item.get("display_image") or "")],
                     download_names=[str(item.get("download_name") or "")],
                     embed_full_src=False,
+                    native_fullscreen_context_menu=True,
                 )
                 if enable_a_plus_crop_downloads and download_source:
                     render_main_image_a_plus_crop_downloads(
@@ -22177,7 +22134,9 @@ def render_background_cutout_feature(feature: dict[str, Any]) -> None:
                 )
             except Exception:
                 st.caption("原图预览暂时无法显示。")
-        if result.get("images"):
+        if render_result_loading(feature_key):
+            pass
+        elif result.get("images"):
             st.markdown('<div class="panel-subtitle">AI 抠图透明 PNG 结果</div>', unsafe_allow_html=True)
             result_id = re.sub(r"[^a-zA-Z0-9_]", "_", str(result.get("result_id") or "latest"))
             render_zoomable_image_gallery(
@@ -22708,7 +22667,9 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
     with right_col:
         st.markdown('<div class="result-block-title">⑤ 生成结果</div>', unsafe_allow_html=True)
         batches = list(state.get("batches") or [])
-        if not batches:
+        if render_result_loading(feature_key):
+            pass
+        elif not batches:
             render_result_preview([], show_title=False)
             st.caption("完成分析与批量生成后，这里会出现同风格结果图，可按批次回看与筛选。")
         else:
@@ -22817,6 +22778,7 @@ def render_replacement_infinite_canvas_feature(feature: dict[str, Any]) -> None:
         str(runtime_settings.get("public_app_url") or DEFAULT_PUBLIC_APP_URL),
         static_port,
         str(st.session_state.get("auth_username") or "访客"),
+        workspace="a_plus" if feature.get("key") == "a_plus_canvas" else "",
     )
 
     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
@@ -23115,7 +23077,9 @@ def render_infinite_canvas_feature(feature: dict[str, Any], model: str, aspect_r
             result_images,
             list(result.get("history_records") or []),
         )
-        if result_images and result_captions:
+        if render_result_loading(feature["key"]):
+            pass
+        elif result_images and result_captions:
             render_result_preview_with_captions(
                 result_images,
                 result_captions,
@@ -24113,7 +24077,7 @@ def render_prepress_check_feature(feature: dict[str, Any]) -> None:
         unsafe_allow_html=True,
     )
     st.info("建议一次上传完整的转曲 AI、PDF 和截图；也可以直接上传包含这些文件的 ZIP。")
-    uploaded_files = st.file_uploader(
+    uploaded_files = render_frame_uploader(
         "上传印前源文件",
         type=["ai", "pdf", "zip", "png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"],
         accept_multiple_files=True,
@@ -24179,9 +24143,17 @@ def render_prepress_check_feature(feature: dict[str, Any]) -> None:
 
 
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
-    if feature.get("key") == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
-        from 图片.multi_reference_composer import render
+    if feature.get("key") == "a_plus_canvas":
+        from 图片.a_plus_canvas import render
+        render(SimpleNamespace(**globals()), feature, model, aspect_ratio)
+        return
+    if feature.get("key") == "poster_fusion":
+        from 图片.poster_fusion import render
         render(SimpleNamespace(**globals()), feature)
+        return
+    if feature.get("key") == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+        from 图片.a_plus_canvas import render
+        render(SimpleNamespace(**globals()), get_feature_by_key("a_plus_canvas"), model, aspect_ratio)
         return
     if feature.get("key") == "ai_qa_image":
         from 图片.qa_chat import render
@@ -24203,8 +24175,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     feature_mode = str(feature.get("mode") or "openrouter")
     model_options_for_feature = MODEL_OPTIONS
     if feature.get("key") == "hd_batch":
-        default_model_for_feature = JIMENG_HD_MODEL_NAME
-        model_options_for_feature = [JIMENG_HD_MODEL_NAME]
+        default_model_for_feature = NANO_BANANA_MODEL
+        model_options_for_feature = [NANO_BANANA_MODEL]
     elif feature.get("key") == JIMENG_HD_FEATURE_KEY:
         default_model_for_feature = JIMENG_HD_MODEL_NAME
         model_options_for_feature = [JIMENG_HD_MODEL_NAME]
@@ -24390,7 +24362,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
     if feature.get("key") == JIMENG_HD_FEATURE_KEY:
         meta_items.append('<span class="meta-pill">保持原图比例、构图与内容</span>')
     elif feature.get("key") == "hd_batch":
-        meta_items.append('<span class="meta-pill">专用超清 · 仅使用原图 · 每张返回一张结果</span>')
+        meta_items.append('<span class="meta-pill">Nano Banana 2.1 · 仅使用原图 · 每张返回一张结果</span>')
     if supports_outpaint:
         meta_items.append('<span class="meta-pill">支持上下左右独立扩展</span>')
     if default_output_count > 0 and not supports_outpaint:
@@ -24796,16 +24768,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 label_visibility="collapsed",
             )
         elif supports_a_plus_style_model_replace:
-            st.markdown('<div class="panel-subtitle">A+ 首屏风格参考图 + 目标模特图（2–6 张）</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-subtitle">A+ 首屏风格参考图 + 一张目标模特图</div>', unsafe_allow_html=True)
             amazon_source_files = render_multi_image_uploader(
                 "上传 A+ 参考图与目标模特图",
                 key=f"a_plus_style_model_replace_uploader_{feature['key']}",
-                help_text="第 1 张上传 A+ 首屏风格参考图；第 2–6 张上传同一位目标模特的正脸、半身或全身图，优先保留目标模特原始姿势，缺失局部自动补全。",
-                max_files=6,
+                help_text="第 1 张上传 A+ 首屏风格参考图；第 2 张上传一张目标模特图（正脸、半身或全身），优先保留目标模特原始姿势，缺失局部自动补全。",
+                max_files=2,
                 allow_reorder=True,
             )
             st.markdown(
-                '<div class="slot-helper">第 1 张提供风格调性；后续图片提供目标模特身份与原始姿态，人物自然融合即可。</div>',
+                '<div class="slot-helper">第 1 张提供风格调性；第 2 张提供目标模特身份与原始姿态，人物自然融合即可。</div>',
                 unsafe_allow_html=True,
             )
             st.info("优先保留目标模特原始姿势，自动补全缺失局部并匹配画面光影与透视；版式可灵活调整，固定输出 1464×1000 px。")
@@ -24820,6 +24792,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 label_visibility="collapsed",
             )
         elif supports_a_plus_first_screen_selling_points:
+            st.caption("底稿已有元素不变、不遮挡；只在空白区域加入完整卖点，放不下的素材会省略，不强行填满。")
             hero_upload_key = f"a_plus_first_screen_hero_uploader_{feature['key']}"
             selling_points_upload_key = f"a_plus_first_screen_selling_only_uploader_{feature['key']}"
             legacy_upload_key = f"a_plus_first_screen_selling_points_uploader_{feature['key']}"
@@ -24851,9 +24824,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     st.text_input("当前模型", value=get_model_display_name(active_model), disabled=True, key="fusion_current_model")
                 with height_col:
                     st.number_input(
-                        "首屏保留高度（px，0 为自动识别）", min_value=0, max_value=30000,
+                        "填充起始高度（px，0 为自动识别）", min_value=0, max_value=30000,
                         value=0, step=1, key=f"first_screen_keep_height_{feature['key']}",
-                        help="自动识别不准时，填写原图中首屏结束的位置；该位置以上保持不变。",
+                        help="仅允许在此高度以下的安全空白区域加入素材；原图任何已有元素仍保持不变，不会因设置高度而被覆盖。",
                     )
                 if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
                     primary_action_slot = st.empty()
@@ -25887,7 +25860,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     ),
                 )
         with result_view_container:
-            if supports_image_smart_analysis:
+            if render_result_loading(feature["key"]):
+                pass
+            elif supports_image_smart_analysis:
                 render_image_smart_analysis_report(
                     result,
                     str(job_info.get("status") or ""),
@@ -26418,7 +26393,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                     PORTRAIT_HD_SKIN_LOCK_RULES
                     + PORTRAIT_HD_COLOR_LOCK_RULES
                     + "第1张图必须作为唯一主体，不允许改变人物身份、五官比例、脸型、表情、发型和构图。"
-                    "最终结果的像素宽度和像素高度必须分别与当前第1张原图完全一致，只提升清晰度；禁止裁剪、扩图、补边、旋转、拉伸、改变宽高比或重新取景，原图四边内容必须全部保留。"
+                    "保持当前第1张原图的完整构图与宽高比，使用原生 4K 高清输出，不要缩回上传图尺寸；禁止裁剪、扩图、补边、旋转、拉伸或重新取景，原图四边内容必须全部保留。"
                     "如果存在第2张图，第2张图仍作为高清参考图，但只用于参考清晰度、分辨率和细节解析水平。"
                     "严禁从第2张图借用或迁移肤色、肤质、毛孔状态、皮肤光泽、颗粒感、斑点、妆容、脸型、五官、眼睛、表情、发型、服饰、背景、色温、色调、白平衡、曝光、对比度、光线颜色、色彩风格或人物身份。"
                     "批量时上传几张主图，就只返回几张高清结果图；每张主图只允许对应1张结果图。"
@@ -26567,19 +26542,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 )
             feature_for_request = dict(feature)
             if supports_a_plus_first_screen_selling_points:
-                if a_plus_first_screen_workflow_stage == "hero":
-                    feature_for_request["default_prompt"] = (
-                        "只生成电商 A+ 的首屏主视觉，不生成下方卖点区。严格保留上传图中真实存在的商品、人物、包装、Logo、可读文案、品牌色和核心识别元素，但用户补充要求明确指定删除或修改的文字和元素除外。"
-                        "重新组织为清晰、有焦点的商业首屏。禁止编造商品、功效、参数、认证或文案；相同元素只出现一次。"
-                        "画面必须铺满画布，无白边黑边，所有商品、文字和 Logo 完整可见，不得被边缘截断。"
-                    )
-                elif a_plus_first_screen_workflow_stage == "selling_points":
-                    feature_for_request["default_prompt"] = (
-                        "输入图片中的第 1 张是已经确定的 A+ 首屏底稿，必须作为最终长图顶部的不可编辑原始画面完整保留，不得重新设计、删减、裁切、改字、调色、缩放、拉伸、移动、重排、替换或覆盖其中的任何元素；用户补充要求明确指定删除或修改的文字和元素必须按要求处理。"
-                        "从第 2 张开始是同一商品的主图、细节图和卖点图。只在第 1 张首屏下方已有的留白或可用区域补充卖点内容，不得覆盖首屏，不得改变首屏边界，并延续首屏的品牌色、字体气质、光影、材质、留白和视觉节奏，形成一张无接缝的连续 A+ 长图。"
-                        "只使用上传图片中真实可见的信息；禁止编造功效、参数、认证、承诺、配件或品牌文案。相同商品视角、元素、文案和卖点在整张图中只能出现一次。"
-                        "优先展示证据清晰且互不重复的卖点、材质、结构、使用方式和规格；最终画布必须沿用第 1 张图片的实际像素尺寸和宽高比例，不得裁切、补边、拉伸、改变画布方向或在底部追加额外尺寸；所有商品、文字和 Logo 必须完整清晰，不得被画布边缘截断。"
-                    )
+                feature_for_request["default_prompt"] = feature["default_prompt"]
             if supports_remove_eyelashes:
                 feature_for_request["default_prompt"] = (
                     REMOVE_EYELASHES_PRESERVE_BASIC_PROMPT
@@ -26606,9 +26569,9 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             if (supports_a_plus_first_screen_selling_points
                     and a_plus_first_screen_workflow_stage != "hero"):
                 final_prompt += (
-                    "\n\n最终硬性规则：第1张底稿首屏已有内容完全不变，任何补充要求不得覆盖此规则。"
-                    "只在下方连续纯色留白内自由组合卖点，保持底稿原始尺寸、原始首屏位置和边界。"
-                    "允许对卖点进行自由编排，但不编造信息，不重复卖点，不改变首屏任何人物、文字、商品、色彩或布局。"
+                    "\n\n最终硬性规则：第1张底稿的所有已有元素完全不变且不受遮挡，任何补充要求不得覆盖此规则。"
+                    "只在确认安全的空白区域选择性加入完整卖点，保持整张底稿尺寸、位置和已有元素。"
+                    "素材必须完整不裁切、不遮挡；太大或放不下则省略，允许少放和留白，不编造或重复信息，不改变底稿任何元素。"
                 )
             if supports_batch_multi_upload and not batch_groups:
                 batch_groups = [[item] for item in files]
@@ -26781,6 +26744,8 @@ SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "A+",
         (
+            "a_plus_canvas",
+            "poster_fusion",
             A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY,
             AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
             A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,
@@ -26793,7 +26758,6 @@ SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "智能创作",
         (
-            MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
             "ai_qa_image",
             IMAGE_SMART_ANALYSIS_FEATURE_KEY,
         ),
@@ -26821,7 +26785,10 @@ def render_side_menu(current_feature: dict[str, Any] | None = None) -> None:
     ungrouped_features = [feature for feature in visible_features if str(feature["key"]) not in grouped_keys]
     if ungrouped_features:
         groups.append(("其他功能", ungrouped_features))
-    groups.append(("状态与数据", [{"key": XIAOHA_DASHBOARD_KEY, "name": "数据看板"}]))
+    groups.append(("状态与数据", [
+        {"key": XIAOHA_DASHBOARD_KEY, "name": "数据看板"},
+        {"key": XIAOHA_BALANCE_KEY, "name": "余额管理"},
+    ]))
     selected_key = str(st.session_state.selected_feature_key or "")
     for group_name, group_features in groups:
         with st.expander(
@@ -26896,7 +26863,7 @@ def main() -> None:
         authenticate_requested_user()
     visible_features = get_visible_features()
     feature_keys = {feature["key"] for feature in visible_features}
-    allowed_page_keys = feature_keys | {XIAOHA_DASHBOARD_KEY}
+    allowed_page_keys = feature_keys | {XIAOHA_DASHBOARD_KEY, XIAOHA_BALANCE_KEY}
     if st.session_state.selected_feature_key not in allowed_page_keys:
         st.session_state.selected_feature_key = (
             XIAOHA_DEFAULT_FEATURE_KEY
@@ -26924,6 +26891,8 @@ def main() -> None:
     with st.container():
         if st.session_state.selected_feature_key == XIAOHA_DASHBOARD_KEY:
             render_xiaoha_usage_dashboard()
+        elif st.session_state.selected_feature_key == XIAOHA_BALANCE_KEY:
+            render_xiaoha_balance_management()
         elif current_feature is not None:
             render_openrouter_feature(current_feature, model=DEFAULT_MODEL, aspect_ratio=DEFAULT_ASPECT_RATIO)
 

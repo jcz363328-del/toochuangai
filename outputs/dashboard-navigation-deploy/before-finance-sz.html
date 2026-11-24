@@ -1,0 +1,273 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深圳看板 - 图创AI系统</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: #f5f7fa; margin: 0; }
+        .header { background: linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%); color: #fff; padding: 15px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header-content { max-width: 1200px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; }
+        .header-title { display: flex; align-items: center; gap: 10px; }
+        .header-title i { font-size: 1.6rem; }
+        .header-title h1 { font-size: 1.35rem; margin: 0; }
+        .nav-links a { color: #fff; text-decoration: none; font-size: 0.95rem; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px 40px; }
+        .panel { background: #fff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); padding: 24px 24px 30px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; }
+        .panel-title { font-size: 1.2rem; font-weight: 600; color: #333; }
+        .panel-subtitle { font-size: 0.9rem; color: #888; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 800px; }
+        th, td { border: 1px solid #e4e7ed; padding: 8px 10px; text-align: center; font-size: 0.9rem; }
+        th { background: #f2f6fc; font-weight: 600; color: #555; }
+        td:first-child, th:first-child { text-align: left; }
+        .row-group { background: #f9fafc; font-weight: 600; color: #444; }
+        .row-sub { color: #555; }
+        .row-sub-indent { padding-left: 24px; }
+        .row-sub-indent-deep { padding-left: 36px; }
+        .unit-tag { font-size: 0.8rem; color: #999; margin-left: 8px; }
+    </style>
+    <link href="{{ url_for('static', filename='css/unified_theme.css') }}" rel="stylesheet">
+</head>
+<body>
+<header class="header">
+    <div class="header-content">
+        <div class="header-title">
+            <i class="fas fa-chart-line"></i>
+            <h1>深圳看板</h1>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('general_office') }}">返回总经办</a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                深圳团队月度损益概览
+                <span class="unit-tag">单位：人民币</span>
+            </div>
+            <div class="panel-subtitle">
+                <span>当前展示所选基准月份起的连续 6 个月，初始数值为 --</span>
+                <span>
+                    基准月份：
+                    <input type="month" id="baseMonth" value="2026-01" style="padding:3px 6px; font-size:0.85rem;">
+                </span>
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                <tr>
+                    <th>项目</th>
+                    <th data-month-col>2026.1</th>
+                    <th data-month-col>2026.2</th>
+                    <th data-month-col>2026.3</th>
+                    <th data-month-col>2026.4</th>
+                    <th data-month-col>2026.5</th>
+                    <th data-month-col>2026.6</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr class="row-sub" data-cat="收入">
+                    <td title="收入：深圳团队当月收入（具体口径待确认）">收入</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-group" data-cat="支出">
+                    <td title="支出 = 经营成本 + 固定成本 + 变动成本">支出</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-group" data-cat="变动成本">
+                    <td class="row-sub-indent" title="变动成本 = 产品成本 + 头程 + 尾程 + 广告费 + 平台费 + 推广费">变动成本</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=产品成本">产品成本</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=头程">头程</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=尾程">尾程</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=广告费">广告费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=平台费">平台费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=推广费">推广费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-group" data-cat="经营成本">
+                    <td class="row-sub-indent" title="经营成本 = 营运费 + 办公费 + 差旅费 + 交通费 + 培训费 + 员工福利 + 物业水电 + 税金 + 商标专利费">经营成本</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="营运费">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=营运费">营运费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="办公费">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=办公费">办公费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="差旅费">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=差旅费">差旅费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="交通费">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=交通费">交通费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="培训费">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=培训费">培训费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="员工福利">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=员工福利">员工福利</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="物业水电">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=物业水电">物业水电</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="税金">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=税金">税金</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="商标专利费">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=商标专利费">商标专利费</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-group" data-cat="固定成本">
+                    <td class="row-sub-indent" title="固定成本 = 房屋租金 + 人力成本">固定成本</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="房屋租金">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=房屋租金">房屋租金</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="人力成本">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=人力成本">人力成本</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-group" data-cat="毛利">
+                    <td class="row-sub-indent" title="毛利 = 收入 - 变动成本">毛利</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="除所得税前利润">
+                    <td class="row-sub-indent-deep" title="除所得税前利润 = 收入 - 支出">除所得税前利润</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="所得税">
+                    <td class="row-sub-indent-deep" title="数据来源：财务_费用明细，费用类别=所得税">所得税</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="月度税后净利润">
+                    <td class="row-sub-indent-deep" title="月度税后净利润 = 除所得税前利润 - 所得税">月度税后净利润</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                <tr class="row-sub" data-cat="年度税后净利润">
+                    <td class="row-sub-indent-deep" title="年度税后净利润 = 当前年份已发生月份的月度税后净利润之和；若该年已有12个月数据，则为当年12个月月度税后净利润之和">年度税后净利润</td>
+                    <td>--</td><td>--</td><td>--</td><td>--</td><td>--</td><td>--</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<script>
+    function updateMonthHeaders(base) {
+        var d;
+        if (base) {
+            d = new Date(base + "-01");
+        } else {
+            d = new Date();
+        }
+        if (isNaN(d.getTime())) {
+            return;
+        }
+        var headers = document.querySelectorAll("[data-month-col]");
+        for (var i = 0; i < headers.length; i++) {
+            var dt = new Date(d.getFullYear(), d.getMonth() + i, 1);
+            var y = dt.getFullYear();
+            var m = dt.getMonth() + 1;
+            headers[i].textContent = y + "." + m;
+        }
+    }
+
+    function loadSzExpenses(base) {
+        var month = base;
+        if (!month) {
+            var input = document.getElementById("baseMonth");
+            if (input && input.value) {
+                month = input.value;
+            }
+        }
+        if (!month) {
+            return;
+        }
+        fetch('/api/finance/sz_expenses?base_month=' + encodeURIComponent(month))
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+                if (!j || !j.success) {
+                    return;
+                }
+                var months = j.months || [];
+                var data = j.data || {};
+                var tbody = document.querySelector(".table-wrapper tbody");
+                if (!tbody) {
+                    return;
+                }
+                var rows = tbody.querySelectorAll("tr[data-cat]");
+                var monthCount = months.length;
+                rows.forEach(function (row) {
+                    var cat = row.getAttribute("data-cat");
+                    var vals = data[cat] || [];
+                    var tds = row.querySelectorAll("td");
+                    for (var i = 1; i < tds.length && i <= monthCount; i++) {
+                        var v = vals[i - 1];
+                        if (typeof v === "number") {
+                            tds[i].textContent = v.toFixed(2);
+                        } else if (v) {
+                            tds[i].textContent = v;
+                        } else {
+                            tds[i].textContent = "--";
+                        }
+                    }
+                });
+            })
+            .catch(function () {
+            });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var input = document.getElementById("baseMonth");
+        if (input) {
+            if (!input.value) {
+                var now = new Date();
+                var mm = String(now.getMonth() + 1).padStart(2, "0");
+                input.value = now.getFullYear() + "-" + mm;
+            }
+            updateMonthHeaders(input.value);
+            loadSzExpenses(input.value);
+            input.addEventListener("change", function () {
+                var val = this.value;
+                updateMonthHeaders(val);
+                loadSzExpenses(val);
+            });
+        }
+    });
+</script>
+</body>
+</html>

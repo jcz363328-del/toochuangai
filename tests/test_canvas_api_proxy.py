@@ -62,6 +62,7 @@ def fake_site():
 class CanvasApiProxyTests(unittest.TestCase):
     def setUp(self):
         self.events = []
+        self.provider_statuses = []
 
         @contextmanager
         def slot(group):
@@ -72,9 +73,124 @@ class CanvasApiProxyTests(unittest.TestCase):
                 self.events.append("exit:" + group)
 
         self.limits = SimpleNamespace(RequestQueueFull=QueueFull, get_request_limiter=lambda: SimpleNamespace(slot=slot), admitted_job=nullcontext)
-        self.module_patch = patch.dict(sys.modules, {"图片.request_limits": self.limits})
+        service = SimpleNamespace(managed_omnia_context=lambda **kwargs: nullcontext(),
+                                  record_omnia_provider_status=self.provider_statuses.append)
+        self.module_patch = patch.dict(sys.modules, {"图片.request_limits": self.limits,
+                                                    "图片.omnia_service": service})
         self.module_patch.start()
         self.addCleanup(self.module_patch.stop)
+
+    def test_pooled_credential_and_accounting_cover_complete_stream_even_after_disconnect(self):
+        for disconnect in (False, True):
+            with self.subTest(disconnect=disconnect):
+                self.events.clear()
+                self.provider_statuses.clear()
+                active = {"key": "server-only-secret"}
+                site = fake_site()
+                site.load_omnia_api_key = lambda: active["key"]
+
+                @contextmanager
+                def managed(**kwargs):
+                    self.assertEqual(kwargs["primary_key"], "server-only-secret")
+                    self.assertEqual(kwargs["model"], "text")
+                    self.assertEqual(kwargs["api_base"], "https://api.omniakey.com")
+                    self.events.append("enter:managed")
+                    active["key"] = "pooled-server-secret"
+                    try:
+                        yield
+                        self.events.append("settle:success")
+                    finally:
+                        active["key"] = "server-only-secret"
+                        self.events.append("exit:managed")
+
+                handler = FakeHandler({"model": "text", "stream": True})
+                if disconnect:
+                    handler.wfile = Mock()
+                    handler.wfile.write.side_effect = BrokenPipeError()
+                upstream = Mock(status_code=200, headers={"Content-Type": "text/event-stream"})
+                upstream.__enter__ = Mock(return_value=upstream)
+                upstream.__exit__ = Mock(side_effect=lambda *args: self.events.append("close-upstream"))
+
+                def chunks(**kwargs):
+                    self.assertEqual(active["key"], "pooled-server-secret")
+                    yield b"data: first\n\n"
+                    self.assertEqual(active["key"], "pooled-server-secret")
+                    self.events.append("drained")
+                    yield b"data: [DONE]\n\n"
+
+                upstream.iter_content.side_effect = chunks
+                with patch.dict(sys.modules, {"图片.omnia_service": SimpleNamespace(
+                        managed_omnia_context=managed, record_omnia_provider_status=self.provider_statuses.append)}), \
+                     patch.object(proxy.requests, "post", return_value=upstream) as post:
+                    proxy.serve_canvas_api(handler, site, "/responses")
+                self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer pooled-server-secret")
+                self.assertEqual(self.events, ["enter:omnia_text", "enter:managed", "drained",
+                                              "close-upstream", "settle:success", "exit:managed", "exit:omnia_text"])
+                self.assertNotIn("pooled-server-secret", str(handler.sent_headers))
+                self.assertEqual(self.provider_statuses, ["uncertain", "success"])
+
+    def test_upstream_4xx_body_is_preserved_but_accounting_records_failure(self):
+        captured = []
+
+        @contextmanager
+        def managed(**kwargs):
+            try:
+                yield
+                captured.append("success")
+            except BaseException as exc:
+                captured.append(exc)
+                raise
+
+        handler = FakeHandler({"model": "text", "stream": False})
+        upstream = Mock(status_code=403, headers={"Content-Type": "application/json"})
+        upstream.__enter__ = Mock(return_value=upstream)
+        upstream.__exit__ = Mock(return_value=False)
+        body = b'{"error":{"message":"model not allowed"}}'
+        upstream.iter_content.return_value = iter([body])
+        with patch.dict(sys.modules, {"图片.omnia_service": SimpleNamespace(
+                managed_omnia_context=managed, record_omnia_provider_status=self.provider_statuses.append)}), \
+             patch.object(proxy.requests, "post", return_value=upstream) as post:
+            proxy.serve_canvas_api(handler, fake_site(), "/responses")
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(handler.status, 403)
+        self.assertEqual(handler.wfile.getvalue(), body)
+        self.assertIsNone(handler.json)
+        self.assertEqual(len(captured), 1)
+        self.assertIsInstance(captured[0], proxy.CanvasRequestError)
+        self.assertEqual(captured[0].status, 403)
+        self.assertEqual(self.provider_statuses, ["uncertain", "rejected"])
+
+    def test_stream_interruption_exits_accounting_as_unknown_without_resubmit(self):
+        captured = []
+
+        @contextmanager
+        def managed(**kwargs):
+            try:
+                yield
+                captured.append("success")
+            except BaseException as exc:
+                captured.append(exc)
+                raise
+
+        handler = FakeHandler({"model": "text", "stream": True})
+        upstream = Mock(status_code=200, headers={"Content-Type": "text/event-stream"})
+        upstream.__enter__ = Mock(return_value=upstream)
+        upstream.__exit__ = Mock(return_value=False)
+
+        def chunks(**kwargs):
+            yield b"data: partial\n\n"
+            raise proxy.requests.ConnectionError("interrupted")
+
+        upstream.iter_content.side_effect = chunks
+        with patch.dict(sys.modules, {"图片.omnia_service": SimpleNamespace(
+                managed_omnia_context=managed, record_omnia_provider_status=self.provider_statuses.append)}), \
+             patch.object(proxy.requests, "post", return_value=upstream) as post:
+            proxy.serve_canvas_api(handler, fake_site(), "/responses")
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(len(captured), 1)
+        self.assertIn("未自动重新提交", str(captured[0]))
+        self.assertIsNone(handler.json)
+        self.assertEqual(self.provider_statuses, ["uncertain"])
 
     def test_app_token_authentication_never_requires_provider_key(self):
         token = proxy.build_canvas_token("测试用户", "sig:测试用户")
@@ -219,6 +335,7 @@ class CanvasApiProxyTests(unittest.TestCase):
         self.assertIn("429", handler.json["error"]["message"])
         self.assertEqual(self.events, ["enter:omnia_text", "exit:omnia_text"])
         upstream.iter_content.assert_not_called()
+        self.assertEqual(self.provider_statuses, ["uncertain", "rejected"])
 
     def test_text_post_timeout_is_unknown_outcome_and_not_retried(self):
         for failure in (proxy.requests.Timeout(), proxy.requests.RequestException("transport failed")):
@@ -231,6 +348,7 @@ class CanvasApiProxyTests(unittest.TestCase):
 
     def test_text_server_error_is_unknown_outcome_before_stream_headers(self):
         for status in (408, 500, 502, 504):
+            self.provider_statuses.clear()
             handler = FakeHandler({"model": "text", "stream": True})
             upstream = Mock(status_code=status)
             upstream.__enter__ = Mock(return_value=upstream)
@@ -241,6 +359,7 @@ class CanvasApiProxyTests(unittest.TestCase):
             self.assertEqual(handler.status, status)
             self.assertFalse(handler._canvas_response_started)
             self.assertIn("未自动重新提交", str(upstream.__exit__.call_args.args[1]))
+            self.assertEqual(self.provider_statuses, ["uncertain"])
 
     def test_stream_failure_leaves_unknown_outcome_without_second_response(self):
         handler = FakeHandler({"model": "text", "stream": True})

@@ -19,7 +19,8 @@ class ProviderLimitTests(unittest.TestCase):
         self.stack = self.enterContext(ExitStack())
         folder = self.stack.enter_context(tempfile.TemporaryDirectory())
         self.limiter = RequestLimiter(Path(folder) / 'limits.sqlite3', poll_interval=.01,
-                                      queue_timeout=10, uncertain_cooldown=0)
+                                      queue_timeout=10, uncertain_cooldown=0,
+                                      group_limits={"omnia_image": 1}, provider_limit=2)
         self.stack.enter_context(patch('图片.request_limits.get_request_limiter', return_value=self.limiter))
         self.stack.enter_context(patch.object(site, 'get_request_limiter', return_value=self.limiter))
         self.stack.enter_context(patch.object(site, 'load_omnia_api_key', return_value='test'))

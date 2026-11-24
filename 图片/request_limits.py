@@ -20,7 +20,7 @@ import uuid
 
 
 DEFAULT_GROUP_LIMITS = {
-    "omnia_image": 1,
+    "omnia_image": 5,
     "omnia_text": 2,
     "ark": 2,
     "jimeng": 1,
@@ -30,6 +30,7 @@ DEFAULT_GROUP_LIMITS = {
 _wait_callback = ContextVar("xiaoha_request_wait_callback", default=None)
 _admitted_depth = ContextVar("xiaoha_request_admitted_depth", default=0)
 _logger = logging.getLogger(__name__)
+_limiter_init_lock = threading.Lock()
 
 
 class RequestQueueFull(RuntimeError):
@@ -77,7 +78,7 @@ class RequestLimiter:
                             _env_number("XIAOHA_MODEL_CONCURRENCY", 6, 1, 64))
         self.provider_limit = (
             max(1, int(provider_limit)) if provider_limit is not None else
-            _env_number("XIAOHA_OMNIA_CONCURRENCY", 2, 1, 16)
+            _env_number("XIAOHA_OMNIA_CONCURRENCY", 5, 1, 5)
         )
         self.max_waiting = (int(max_waiting) if max_waiting is not None else
                             _env_number("XIAOHA_MAX_WAITING", 64, 1, 4096))
@@ -92,7 +93,15 @@ class RequestLimiter:
         self.uncertain_cooldown = max(0, float(uncertain_cooldown))
         self.rate_limit_cooldown = max(0, float(rate_limit_cooldown))
         with closing(self._connect()) as connection:
-            connection.execute("PRAGMA journal_mode=WAL")
+            deadline = time.monotonic() + 10
+            while True:
+                try:
+                    connection.execute("PRAGMA journal_mode=WAL")
+                    break
+                except sqlite3.OperationalError as exc:
+                    if not any(word in str(exc).lower() for word in ("locked", "busy")) or time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.05)
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS request_tickets (
                     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -380,7 +389,8 @@ def _cached_limiter(path):
 def get_request_limiter():
     path = str(Path(os.environ.get("XIAOHA_REQUEST_DB") or
                     Path(__file__).parent / "history" / "request_limits.sqlite3").resolve())
-    return _cached_limiter(path)
+    with _limiter_init_lock:
+        return _cached_limiter(path)
 
 
 def ensure_accepting():

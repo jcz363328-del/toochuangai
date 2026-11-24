@@ -1,0 +1,12 @@
+{
+  "passed": [
+    "success",
+    "login",
+    "offline",
+    "rejected",
+    "invalid_response",
+    "http",
+    "old_menu"
+  ],
+  "count": 7
+}

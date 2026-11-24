@@ -1,0 +1,1 @@
+[["ID", "int"], ["Dian", "nvarchar"], ["DanHao", "nvarchar"], ["YunShuFangShi", "nvarchar"], ["XiaoBaoGuo", "nvarchar"], ["WuLiuDanHao", "nvarchar"], ["DaoRuShiJian", "datetime"], ["Ien", "nvarchar"], ["HuoJianDanHao", "nvarchar"], ["ShiFouTianXie", "nchar"], ["ZhuiZongMaGeShu", "int"], ["JianChaRiQi", "datetime"]]

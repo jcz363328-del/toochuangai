@@ -1,0 +1,5 @@
+        /* Streamlit compensates Markdown paragraphs with a negative bottom
+           margin. These HTML headings need their full height in normal flow. */
+        [data-testid="stMarkdownContainer"]:has(> :is(.panel-subtitle, .result-block-title, .section-kicker)) {
+            margin-bottom: 0 !important;
+        }

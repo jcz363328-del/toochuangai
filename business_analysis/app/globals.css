@@ -1759,7 +1759,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
 .fiscal-person-head,
 .fiscal-person-list li {
   display: grid;
-  grid-template-columns: 52px minmax(260px, 340px) minmax(240px, 1fr) 110px 100px 130px;
+  grid-template-columns: 52px minmax(260px, 340px) minmax(240px, 1fr) 110px 110px 100px 130px;
   gap: 12px;
   align-items: center;
 }
@@ -1900,7 +1900,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   .fiscal-department-content { grid-template-columns: 1fr; }
   .fiscal-ranking-chart { padding: 12px 0 0; border-top: 1px solid var(--line); border-left: 0; }
   .fiscal-person-head,
-  .fiscal-person-list li { grid-template-columns: 42px minmax(220px, 280px) minmax(150px, 1fr) 90px 76px 98px; gap: 8px; }
+  .fiscal-person-list li { grid-template-columns: 42px minmax(220px, 280px) minmax(150px, 1fr) 90px 90px 76px 98px; gap: 8px; }
 }
 
 @media (max-width: 680px) {
@@ -1962,7 +1962,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   .fiscal-person-list { margin: 2px -12px -10px; }
   .fiscal-detail-label { padding-inline: 1px; }
   .fiscal-person-head,
-  .fiscal-person-list li { grid-template-columns: 36px minmax(190px, 250px) minmax(90px, 1fr) 84px 62px 86px; gap: 6px; }
+  .fiscal-person-list li { grid-template-columns: 36px minmax(190px, 250px) minmax(90px, 1fr) 84px 84px 62px 86px; gap: 6px; }
 }
 
 @media (max-width: 720px) {
@@ -1997,7 +1997,7 @@ td small { margin-top: 1px; color: var(--muted); font-size: 8px; }
   .fiscal-person-head span:nth-child(3),
   .fiscal-person-progress { display: none; }
   .fiscal-person-head,
-  .fiscal-person-list li { grid-template-columns: 32px minmax(80px, 1fr) 70px 58px 82px; gap: 5px; padding-inline: 8px; }
+  .fiscal-person-list li { grid-template-columns: 32px minmax(80px, 1fr) 70px 70px 58px 82px; gap: 5px; padding-inline: 8px; }
   .fiscal-person-name { flex-wrap: wrap; gap: 2px 7px; }
   .fiscal-person-name b { width: 100%; }
 }

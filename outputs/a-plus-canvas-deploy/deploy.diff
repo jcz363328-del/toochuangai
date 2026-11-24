@@ -1,0 +1,44 @@
+--- 
+
++++ 
+
+@@ -1638,6 +1638,17 @@
+
+         "max_output_images": 0,
+         "description": "检查 CMYK、2mm 出血、300dpi、字体转曲、文件名、页面尺寸及包装视觉规范。",
+         "default_prompt": "按设计部印前检查流程生成逐项合规报告。",
++    },
++    {
++        "key": "a_plus_canvas",
++        "name": "A+画布",
++        "summary": "在画布中整理A+素材，集中使用A+创作工具",
++        "mode": "canvas",
++        "output_mode": "image",
++        "min_images": 0,
++        "max_output_images": 0,
++        "description": "集中使用画布和A+相关创作功能。",
++        "default_prompt": "",
+     },
+     {
+         "key": "infinite_canvas",
+@@ -24195,6 +24206,10 @@
+
+ 
+ 
+ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
++    if feature.get("key") == "a_plus_canvas":
++        from 图片.a_plus_canvas import render
++        render(SimpleNamespace(**globals()), feature, model, aspect_ratio)
++        return
+     if feature.get("key") == "poster_fusion":
+         from 图片.poster_fusion import render
+         render(SimpleNamespace(**globals()), feature)
+@@ -26801,6 +26816,7 @@
+
+     (
+         "A+",
+         (
++            "a_plus_canvas",
+             A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY,
+             AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
+             A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,

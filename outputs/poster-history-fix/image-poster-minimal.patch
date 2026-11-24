@@ -1,0 +1,59 @@
+--- a/图片/openrouter_image_site.py
++++ b/图片/openrouter_image_site.py
+@@ -2071,6 +2071,19 @@
+         ),
+     },
+     {
++        "key": "poster_fusion",
++        "name": "海报融合",
++        "summary": "以第1张海报为主体，融合后3张风格与元素",
++        "mode": "openrouter",
++        "output_mode": "image",
++        "min_images": 4,
++        "max_input_images": 4,
++        "max_output_images": 1,
++        "fixed_output_count": 1,
++        "description": "1张主体海报与3张风格参考，自然融合光影、材质和装饰，生成一张丰富且连贯的海报。",
++        "default_prompt": "以第1张海报为主体，融合后3张的风格和辅助元素，统一光影与透视，禁止简单拼贴。",
++    },
++    {
+         "key": MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
+         "name": "多图参考创作",
+         "summary": "逐图反推，挑选六类参考内容，组合提示词生成底图",
+@@ -12381,6 +12394,9 @@
+     if job_id:
+         set_task_progress(job_id, 5, "准备上传图片")
+     feature_key = str((job_context.get("feature") or {}).get("key") or "")
++    if feature_key == "poster_fusion":
++        from 图片.poster_fusion import run_job
++        return finalize_feature_job_result(job_context, run_job(SimpleNamespace(**globals()), job_context), job_id)
+     if feature_key == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+         from 图片.multi_reference_composer import run_job
+         result = run_job(SimpleNamespace(**globals()), job_context)
+@@ -19869,6 +19885,7 @@
+     show_title: bool = True,
+     download_images: list[str] | None = None,
+     max_width_percent: int = 25,
++    feature_key: str = "",
+ ) -> None:
+     if show_title:
+         st.markdown('<div class="result-block-title">结果图预览</div>', unsafe_allow_html=True)
+@@ -24194,6 +24211,10 @@
+ 
+ 
+ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
++    if feature.get("key") == "poster_fusion":
++        from 图片.poster_fusion import render
++        render(SimpleNamespace(**globals()), feature)
++        return
+     if feature.get("key") == MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+         from 图片.multi_reference_composer import render
+         render(SimpleNamespace(**globals()), feature)
+@@ -26796,6 +26817,7 @@
+     (
+         "A+",
+         (
++            "poster_fusion",
+             A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY,
+             AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
+             A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,

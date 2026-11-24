@@ -1,0 +1,26 @@
+{
+  "feature": "multi_reference_composer",
+  "menu": "小哈 → 智能创作 → 多图参考创作",
+  "automated_tests": {
+    "passed": 98,
+    "runtime": "production Python/Streamlit 1.67, offline container"
+  },
+  "browser_checks": [
+    "separate per-image analysis",
+    "cross-image component selection",
+    "manual prompt editing",
+    "base-image generation with offline provider",
+    "stale selection blocked",
+    "1440px and 390px layouts"
+  ],
+  "existing_baseline_failures": [
+    "shared-image-workbench test expects an obsolete AI chat history button",
+    "UI stability test expects an obsolete exact column_ratio source string"
+  ],
+  "live_paid_provider_calls": false,
+  "container": "toochuangai-single-app-1",
+  "health": "all services healthy",
+  "image": "toochuangai-single:multi-reference-composer-20261123",
+  "backup_main": "outputs/multi-reference-composer/before-openrouter_image_site.py",
+  "rollback_image": "toochuangai-single:before-multi-reference-composer-20261123"
+}

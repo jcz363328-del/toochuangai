@@ -1,23 +1,162 @@
 from __future__ import annotations
 
+import ast
 import os
 import threading
 import time
 import unittest
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import patch
 
-from 图片 import openrouter_image_site as site
+def load_runtime_class():
+    # Exercise the actual scheduler without importing Streamlit or credentials.
+    # A replacement source can be checked before it is applied to main.
+    path = Path(os.environ.get("XIAOHA_TASK_RUNTIME_SOURCE") or
+                Path(__file__).resolve().parents[1] / "图片" / "openrouter_image_site.py")
+    module = ast.parse(path.read_text(encoding="utf-8-sig"))
+    runtime = next(node for node in module.body
+                   if isinstance(node, ast.ClassDef) and node.name == "TaskRuntime")
+    namespace = {"os": os, "time": time, "Lock": threading.Lock,
+                 "ThreadPoolExecutor": ThreadPoolExecutor, "Future": Future, "Any": Any,
+                 "JIMENG_HD_GLOBAL_QUEUE_KEY": "__jimeng_hd_global_queue__"}
+    exec(compile(ast.Module(body=[runtime], type_ignores=[]), str(path), "exec"), namespace)
+    return namespace["TaskRuntime"]
+
+
+site = SimpleNamespace(TaskRuntime=load_runtime_class())
 
 
 class TaskRuntimeConcurrencyTests(unittest.TestCase):
     def runtime(self, **settings):
-        values = {"XIAOHA_JOB_WORKERS": "2", "XIAOHA_JOB_QUEUE_LIMIT": "64", "XIAOHA_ACCOUNT_QUEUE_LIMIT": "8"}
+        values = {"XIAOHA_JOB_WORKERS": "2", "XIAOHA_ACCOUNT_CONCURRENCY": "5",
+                  "XIAOHA_JOB_QUEUE_LIMIT": "64", "XIAOHA_ACCOUNT_QUEUE_LIMIT": "8"}
         values.update({k: str(v) for k, v in settings.items()})
         with patch.dict(os.environ, values):
             runtime = site.TaskRuntime()
         self.addCleanup(runtime.shutdown)
         return runtime
+
+    def test_default_five_jobs_from_one_account_run_and_sixth_queues(self):
+        with patch.dict(os.environ, {}, clear=True):
+            runtime = site.TaskRuntime()
+        self.addCleanup(runtime.shutdown)
+        self.assertEqual(runtime.max_workers, 5)
+        gates = [threading.Event() for _ in range(6)]
+        started = [threading.Event() for _ in range(6)]
+
+        def work(index):
+            started[index].set()
+            gates[index].wait(3)
+            return index
+
+        try:
+            futures = [runtime.submit_generation_job("same", str(i), work, i) for i in range(6)]
+            for index in range(5):
+                self.assertTrue(started[index].wait(1))
+                self.assertEqual(runtime.get_generation_queue_state(str(index))["state"], "running")
+            self.assertFalse(started[5].is_set())
+            self.assertEqual(runtime.get_generation_queue_state("5"),
+                             {"state": "queued", "ahead_count": 5, "queue_position": 6})
+            gates[0].set()
+            self.assertTrue(started[5].wait(1))
+        finally:
+            for gate in gates:
+                gate.set()
+        self.assertEqual([future.result(3) for future in futures], list(range(6)))
+
+    def test_other_account_gets_released_slot_before_busy_account_backlog(self):
+        runtime = self.runtime(XIAOHA_JOB_WORKERS=5, XIAOHA_ACCOUNT_QUEUE_LIMIT=16)
+        gates = [threading.Event() for _ in range(5)]
+        started = [threading.Event() for _ in range(5)]
+        other_gate = threading.Event()
+        other_started = threading.Event()
+        order = []
+        guard = threading.Lock()
+
+        def work(name):
+            with guard:
+                order.append(name)
+            if name.startswith("a") and int(name[1:]) < 5:
+                index = int(name[1:])
+                started[index].set()
+                gates[index].wait(3)
+            if name == "b0":
+                other_started.set()
+                other_gate.wait(3)
+
+        try:
+            futures = [runtime.submit_generation_job("a", f"a{i}", work, f"a{i}") for i in range(8)]
+            self.assertTrue(all(event.wait(1) for event in started))
+            other = runtime.submit_generation_job("b", "b0", work, "b0")
+            self.assertEqual(runtime.get_generation_queue_state("b0")["state"], "queued")
+            gates[0].set()
+            self.assertTrue(other_started.wait(2))
+            self.assertNotIn("a5", order)
+            for gate in gates:
+                gate.set()
+            other_gate.set()
+            other.result(2)
+            for future in futures:
+                future.result(2)
+            self.assertLess(order.index("b0"), order.index("a5"))
+        finally:
+            for gate in gates:
+                gate.set()
+            other_gate.set()
+
+    def test_account_limit_and_jimeng_single_slot_are_respected(self):
+        runtime = self.runtime(XIAOHA_JOB_WORKERS=5, XIAOHA_ACCOUNT_CONCURRENCY=2)
+        gate = threading.Event()
+        try:
+            futures = [runtime.submit_generation_job("a", f"a{i}", gate.wait, 3) for i in range(3)]
+            special = [runtime.submit_generation_job("__jimeng_hd_global_queue__", f"j{i}", gate.wait, 3)
+                       for i in range(2)]
+            self.assertEqual(runtime.get_generation_queue_state("a1")["state"], "running")
+            self.assertEqual(runtime.get_generation_queue_state("a2")["state"], "queued")
+            self.assertEqual(runtime.get_generation_queue_state("j0")["state"], "running")
+            self.assertEqual(runtime.get_generation_queue_state("j1")["state"], "queued")
+            other = runtime.submit_generation_job("b", "b0", gate.wait, 3)
+            self.assertEqual(runtime.get_generation_queue_state("b0")["state"], "running")
+        finally:
+            gate.set()
+        for future in futures + special + [other]:
+            future.result(3)
+
+    def test_failed_job_releases_one_of_five_slots_and_keeps_other_progress(self):
+        runtime = self.runtime(XIAOHA_JOB_WORKERS=5)
+        gate = threading.Event()
+        fail_gate = threading.Event()
+        queued_started = threading.Event()
+
+        def failing():
+            fail_gate.wait(3)
+            raise ValueError("expected")
+
+        try:
+            failed = runtime.submit_generation_job("same", "fail", failing)
+            peers = [runtime.submit_generation_job("same", f"peer{i}", gate.wait, 3) for i in range(4)]
+            runtime.progress.update({f"peer{i}": {"percent": 42} for i in range(4)})
+            queued = runtime.submit_generation_job("same", "queued", queued_started.set)
+            self.assertEqual(runtime.get_generation_queue_state("queued")["state"], "queued")
+            fail_gate.set()
+            with self.assertRaisesRegex(ValueError, "expected"):
+                failed.result(2)
+            self.assertTrue(queued_started.wait(2))
+            queued.result(2)
+            self.assertEqual(runtime.get_generation_queue_state("fail")["state"], "completed")
+            self.assertEqual(runtime.get_generation_queue_state("unknown")["state"], "missing")
+            self.assertTrue(all(runtime.progress[f"peer{i}"]["percent"] == 42 for i in range(4)))
+            runtime.release_generation_job("peer0")
+            self.assertIn("peer0", runtime.futures)
+            self.assertEqual(runtime.progress["peer0"]["percent"], 42)
+        finally:
+            fail_gate.set()
+            gate.set()
+        for future in peers:
+            future.result(3)
 
     def test_global_workers_are_bounded_across_many_accounts(self):
         runtime = self.runtime()

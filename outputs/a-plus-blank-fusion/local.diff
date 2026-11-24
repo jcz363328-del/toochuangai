@@ -1,0 +1,443 @@
+--- before-local.py
++++ openrouter_image_site.py
+@@ -2052,7 +2052,7 @@
+     {
+         "key": A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY,
+         "name": "A+首屏卖点融合",
+-        "summary": "首屏原样保留，拆解卖点素材并统一设计整张 A+ 长图",
++        "summary": "底稿元素原样保留，只在空白区自然加入完整卖点",
+         "mode": "openrouter",
+         "output_mode": "image",
+         "min_images": 2,
+@@ -2060,15 +2060,14 @@
+         "max_output_images": 1,
+         "target_size": (1464, 2400),
+         "target_size_text": "",
+-        "description": "参考完整首屏统一设计，将后续素材中的真实卖点拆解后自由组合；程序保留首屏原始像素，最终尺寸和比例跟随底稿。",
++        "description": "第一张底稿的所有已有元素保持不变且不受遮挡；只在安全空白区域加入完整、合适的卖点素材，放不下则省略，不裁切、不强行填满。尺寸和比例跟随底稿。",
+         "default_prompt": (
+-            "请生成一张完整连续的电商 A+ 长图。输入图片中的第 1 张是最终首屏底稿，后续图片是同一商品的主图、细节图和卖点素材图。"
+-            "第 1 张图片的首屏区域必须作为不可编辑的原始画面完整保留：不得重绘、改字、调色、裁切、缩放、拉伸、移动、重排、替换或覆盖首屏中的人物、商品、包装、Logo、可读文案、主色、背景氛围、装饰语言、构图关系和视觉层级；用户补充要求明确指定删除或修改的文字、文案及其他元素时除外。"
+-            "从后续多张主图中识别并提取真实可见的产品卖点、功能细节、材质、结构、配件、使用方式、规格与可读文案，只在底稿下方纯色留白内自由组合填充，允许重排、错落布局和自由组合，禁止把参考主图整张机械堆叠；首屏已有画面完全不变。"
+-            "只能使用上传图片中明确存在的信息，禁止编造功效、参数、认证、折扣、承诺、配件或品牌文案；相同卖点只表达一次。"
+-            "最终画布必须严格沿用第 1 张图片的像素尺寸和宽高比例，不得裁切、补边、拉伸或改变画布方向。首屏之后只在第 1 张图片已有的下方留白或可用区域排布后续卖点，不能覆盖或改变首屏。"
+-            "整张 A+ 必须是一张连续设计，不得出现硬切分、拼贴接缝、重复背景、独立海报堆叠或白边黑边。保持统一品牌色、字体气质、光影、材质、留白和阅读节奏。"
+-            "商品外观、包装、Logo、颜色、比例、结构和可读文字必须准确清晰；任何标题、正文、商品和 Logo 都不能被画布边缘截断。"
++            "第1张图是不可修改的完整A+底稿，所有人物、商品、文字、Logo、背景装饰、侧边和页脚均原样保留，不得重绘、移动、调色、删改、裁切、重排或遮挡任何已有元素。"
++            "只在第1张图真实空白且能完整容纳元素的区域，选择性加入后续卖点素材，不要求用完全部素材。"
++            "被采用的元素和必要信息必须完整，不裁切、不截断、不遮挡、不拉伸；只能合理等比缩小，若太大、比例不适合或缩小后难以辨认，则整体省略。"
++            "新增元素与底稿统一色彩、光影、字体气质及视觉层级，保持适当间距和自然留白，不强行填满、不做机械拼贴、不与原有设计冲突。"
++            "只使用真实可见的卖点和文案，不编造信息、不重复已有内容。补充要求仅适用于新增素材，不能改变底稿保护规则。"
++            "最终画布沿用第1张图的原始像素尺寸和宽高比例，不扩图、不裁图，输出一张自然协调的完整A+。"
+         ),
+     },
+     {
+@@ -11993,7 +11992,7 @@
+                 best = (start, end)
+             start = None
+     if best[1] - best[0] < max(16, round(rgb.height * .1)):
+-        raise RuntimeError("无法自动确认下方填充区域，请填写“首屏保留高度”，指定从哪里开始填充；背景不限颜色。")
++        raise RuntimeError("未检测到足够的安全填充区域，请使用留白更充足的底稿；不会自动覆盖已有元素。")
+     return best
+ 
+ 
+@@ -12002,64 +12001,135 @@
+ 
+ 
+ def build_first_screen_fill_mask(source: Image.Image, manual_start: int = 0) -> Image.Image:
+-    """Grow the connected background into sloping/curved blank areas, preserving artwork."""
+-    if manual_start:
+-        if not 0 < manual_start < source.height:
+-            raise RuntimeError("首屏保留高度必须小于底稿总高度。")
+-        mask = Image.new('L', source.size, 0)
+-        ImageDraw.Draw(mask).rectangle((0, manual_start, source.width-1, source.height-1), fill=255)
+-        return mask
++    """Only connected, low-detail background is editable, including below the hero."""
++    if manual_start and not 0 < manual_start < source.height:
++        raise RuntimeError("填充起始高度必须小于底稿总高度。")
+     start, end = detect_first_screen_fill_bounds(source)
+     rgb = source.convert('RGB')
+-    center_x, seed_y = source.width // 2, (start + end) // 2
+-    background = rgb.getpixel((center_x, seed_y))
+-    channels = [ImageChops.difference(channel, Image.new('L', rgb.size, color))
+-                for channel, color in zip(rgb.split(), background)]
+-    distance = ImageChops.lighter(ImageChops.lighter(channels[0], channels[1]), channels[2])
+-    eligible = distance.point(lambda value: 255 if value <= 60 else 0)
+-    # Do not cross footer artwork or wander into unrelated blank header margins.
+-    ImageDraw.Draw(eligible).rectangle((0, 0, source.width-1, max(0, int(source.height*.08)-1)), fill=0)
++    margin = max(1, source.width // 10)
++    background = ImageStat.Stat(rgb.crop((margin, start, source.width-margin, end))).median
++    channels = rgb.split()
++    distances = [ImageChops.difference(channel, Image.new('L', rgb.size, round(color)))
++                 for channel, color in zip(channels, background)]
++    distance = ImageChops.lighter(ImageChops.lighter(distances[0], distances[1]), distances[2])
++    eligible = distance.point(lambda value: 255 if value <= 24 else 0)
++    # Low-contrast type and thin decorations also count as original content.
++    ranges = [ImageChops.subtract(channel.filter(ImageFilter.MaxFilter(5)),
++                                 channel.filter(ImageFilter.MinFilter(5))) for channel in channels]
++    detail = ImageChops.lighter(ImageChops.lighter(ranges[0], ranges[1]), ranges[2])
++    eligible = ImageChops.multiply(eligible, detail.point(lambda value: 255 if value <= 1 else 0))
++    draw = ImageDraw.Draw(eligible)
++    draw.rectangle((0, 0, source.width-1, max(0, int(source.height*.08)-1)), fill=0)
+     if end < source.height:
+-        ImageDraw.Draw(eligible).rectangle((0, end, source.width-1, source.height-1), fill=0)
+-    ImageDraw.floodfill(eligible, (center_x, seed_y), 128, thresh=0)
+-    mask = eligible.point(lambda value: 255 if value == 128 else 0)
+-    # Once below the hero, the whole selling-point canvas is editable. Side
+-    # textures and old footer artwork belong to that canvas, not the locked hero.
+-    pixels = mask.load()
+-    column_starts = []
+-    for x in range(source.width):
+-        first = next((y for y in range(int(source.height*.08), seed_y+1)
+-                      if pixels[x,y]), None)
+-        if first is not None:
+-            column_starts.append(first)
+-    full_width_start = max(start, max(column_starts, default=start))
+-    ImageDraw.Draw(mask).rectangle((0, full_width_start, source.width-1, source.height-1), fill=255)
++        draw.rectangle((0, end, source.width-1, source.height-1), fill=0)
++    # An enclosed, flat foreground can resemble the background. Seed from the
++    # outer perimeter, never from its center, and require the component to span
++    # the candidate background bounds. Ambiguous disconnected patches stay locked.
++    candidate_bounds = eligible.getbbox()
++    if candidate_bounds is None:
++        raise RuntimeError("未检测到可以安全添加卖点的空白区域，请使用留白更充足的底稿。")
++    x0, y0, x1, y1 = candidate_bounds
++    # Tie the background to the original detection band, not to the surviving
++    # eligible pixels: a flat object on a textured/gradient background is not blank.
++    if (x0 > margin or x1 < source.width-margin
++            or y0 > start+3 or y1 < end-3):
++        raise RuntimeError("无法确认足够连续的安全空白区域，请使用留白更充足的底稿；已有元素不会被覆盖。")
++    pixels = eligible.load()
++    perimeter = [(x, y0) for x in range(x0, x1)]
++    perimeter += [(x, y1-1) for x in range(x0, x1)]
++    perimeter += [(x0, y) for y in range(y0+1, y1-1)]
++    perimeter += [(x1-1, y) for y in range(y0+1, y1-1)]
++    mask = None
++    components_checked = 0
++    for seed in perimeter:
++        if pixels[seed] != 255:
++            continue
++        components_checked += 1
++        if components_checked > 16:
++            break
++        ImageDraw.floodfill(eligible, seed, 128, thresh=0)
++        component = eligible.point(lambda value: 255 if value == 128 else 0)
++        if component.getbbox() == candidate_bounds:
++            mask = component
++            break
++        # Visited components cannot be considered a second time.
++        eligible = eligible.point(lambda value: 0 if value == 128 else value)
++        pixels = eligible.load()
++    if mask is None:
++        raise RuntimeError("无法确认连续安全的空白区域，请使用留白更充足的底稿；已有元素不会被覆盖。")
++    # Add breathing room around every original element, including side/footer art.
++    padding = max(2, min(16, round(source.width*.005)))
++    mask = mask.filter(ImageFilter.MinFilter(padding*2+1))
++    draw = ImageDraw.Draw(mask)
++    draw.rectangle((0, 0, source.width-1, padding-1), fill=0)
++    draw.rectangle((0, source.height-padding, source.width-1, source.height-1), fill=0)
++    draw.rectangle((0, 0, padding-1, source.height-1), fill=0)
++    draw.rectangle((source.width-padding, 0, source.width-1, source.height-1), fill=0)
++    # A manual height can only restrict the detected safe area, never unlock art.
++    if manual_start:
++        draw.rectangle((0, 0, source.width-1, manual_start-1), fill=0)
+     return mask
+ 
+ 
++
++def find_first_screen_safe_region(mask: Image.Image) -> tuple[int, int, int, int]:
++    """Largest usable all-white rectangle; never clip generated elements with a mask."""
++    width, height = mask.size
++    min_width = max(16, round(width*.15))
++    min_height = max(16, round(height*.08))
++    rows = memoryview(mask.convert('L').tobytes())
++    heights = [0] * (width+1)
++    best_area, best = 0, None
++    for y in range(height):
++        stack = []
++        for x in range(width+1):
++            heights[x] = heights[x]+1 if x < width and rows[y*width+x] == 255 else 0
++            while stack and heights[stack[-1]] > heights[x]:
++                rectangle_height = heights[stack.pop()]
++                left = stack[-1]+1 if stack else 0
++                rectangle_width = x-left
++                # Avoid tiny slivers even when their total area looks large.
++                usable_width = min(rectangle_width, rectangle_height*6)
++                usable_height = min(rectangle_height, rectangle_width*6)
++                area = usable_width*usable_height
++                if usable_width >= min_width and usable_height >= min_height and area > best_area:
++                    best_area = area
++                    inset = (rectangle_width-usable_width)//2
++                    best = (left+inset, y+1-usable_height, left+inset+usable_width, y+1)
++            stack.append(x)
++    if best is None:
++        raise RuntimeError("底稿没有足够完整的空白区域容纳卖点素材；请使用留白更充足的底稿，原有元素不会被覆盖。")
++    return best
++
++
+ def fit_selling_points_region(image: Image.Image, size: tuple[int, int], background) -> Image.Image:
+-    """Keep all generated content, using clean color rather than sampled edge bands."""
++    """Contain the entire generated design; keep the original background in any padding."""
+     image = ImageOps.exif_transpose(image).convert('RGBA')
+     fitted = ImageOps.contain(image, size, Image.Resampling.LANCZOS)
+-    canvas = Image.new('RGBA', size, tuple(background) + (255,))
+-    canvas.paste(fitted, ((size[0]-fitted.width)//2, (size[1]-fitted.height)//2))
++    if isinstance(background, Image.Image):
++        canvas = background.convert('RGBA').copy()
++        if canvas.size != size:
++            raise ValueError("卖点背景尺寸必须与安全区域一致。")
++    else:
++        canvas = Image.new('RGBA', size, tuple(background) + (255,))
++    canvas.alpha_composite(fitted, ((size[0]-fitted.width)//2, (size[1]-fitted.height)//2))
+     return canvas
+ 
+ 
+ def preserve_first_screen_pixels(image_url: str, uploaded_input: Any) -> str:
+-    """Restore original hero pixels after generation; only bottom blank rows may change."""
++    """Keep the same original-content lock for legacy callers."""
+     with Image.open(io.BytesIO(get_uploaded_file_bytes(uploaded_input))) as image:
+-        source = ImageOps.exif_transpose(image).convert("RGBA")
+-    start = detect_first_screen_fill_start(source)
+-    generated_bytes, _mime = load_image_bytes_from_url(image_url)
+-    with Image.open(io.BytesIO(generated_bytes)) as image:
+-        generated = ImageOps.exif_transpose(image).convert("RGBA")
+-        if generated.size != source.size:
+-            generated = generated.resize(source.size, Image.Resampling.LANCZOS)
+-    generated.paste(source.crop((0, 0, source.width, start)), (0, 0))
++        source = ImageOps.exif_transpose(image).convert('RGBA')
++    bounds = find_first_screen_safe_region(build_first_screen_fill_mask(source))
++    data, _mime = load_image_bytes_from_url(image_url)
++    with Image.open(io.BytesIO(data)) as image:
++        # Legacy input is an entire design, so contain it instead of cropping it.
++        designed = fit_selling_points_region(image, (bounds[2]-bounds[0], bounds[3]-bounds[1]), source.crop(bounds))
++    canvas = source.copy()
++    canvas.paste(designed, bounds[:2])
+     output = io.BytesIO()
+-    generated.save(output, format="PNG")
+-    return image_bytes_to_data_url(output.getvalue(), "image/png")
++    canvas.save(output, format='PNG')
++    return image_bytes_to_data_url(output.getvalue(), 'image/png')
+ 
+ 
+ def selling_points_bottom_blank_fraction(image: Image.Image) -> float:
+@@ -12076,73 +12146,51 @@
+ 
+ 
+ def request_selling_points_layout(model, prompt, inputs, size, background):
+-    for attempt in range(2):
+-        result = call_openrouter_images_api(
+-            model=model, prompt=prompt, uploaded_files=inputs,
+-            aspect_ratio=select_closest_aspect_ratio(size),
+-            resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
+-        )
+-        valid = bool(result.get('images'))
+-        for url in result.get('images') or []:
+-            data, _ = load_image_bytes_from_url(url)
+-            with Image.open(io.BytesIO(data)) as image:
+-                candidate = fit_selling_points_region(image,size,background)
+-                valid = valid and selling_points_bottom_blank_fraction(candidate) < .12
+-        if valid:
+-            return result
+-        prompt += "\n质量修正：上一版底部留白过大。重新分配各卖点模块的大小与间距，覆盖至少88%的高度，末组信息接近底部且保持完整，禁止留下大块空尾。"
+-    task_id = str((result.get('raw') or {}).get('id') or '')
+-    raise RuntimeError(f"卖点排版检查未通过：底部留白过大，已自动重新排版一次。任务编号：{task_id or '未提供'}，请调整素材数量或输出高度后重试。")
++    # Sparse layouts are valid. Never request another paid generation to fill space.
++    result = call_openrouter_images_api(
++        model=model, prompt=prompt, uploaded_files=inputs,
++        aspect_ratio=select_closest_aspect_ratio(size),
++        resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
++    )
++    if not result.get('images'):
++        raise RuntimeError("卖点区域未返回图片。")
++    return result
+ 
+ 
+ def run_first_screen_selling_points_job(job_context: dict[str, Any]) -> dict[str, Any]:
+-    """Design in full-canvas context, then restore every protected original pixel."""
+-    files = list(job_context.get("uploaded_files") or [])
++    """Add a complete design inside confirmed blank space; leave the base intact."""
++    files = list(job_context.get('uploaded_files') or [])
+     if len(files) < 2:
+         raise RuntimeError("请上传首屏底稿和至少一张卖点素材图。")
+     with Image.open(io.BytesIO(get_uploaded_file_bytes(files[0]))) as image:
+-        source = ImageOps.exif_transpose(image).convert("RGBA")
++        source = ImageOps.exif_transpose(image).convert('RGBA')
+     manual_start = int(job_context.get('a_plus_first_screen_keep_height') or 0)
+     fill_mask = build_first_screen_fill_mask(source, manual_start)
+-    bounds = fill_mask.getbbox()
+-    if bounds is None:
+-        raise RuntimeError("无法识别填充区域，请手动设置首屏保留高度。")
++    bounds = find_first_screen_safe_region(fill_mask)
+     left, top, right, bottom = bounds
+     region_size = (right-left, bottom-top)
+-    region_mask = fill_mask.crop(bounds)
+-    # The tapered part is useful for visual continuity, but complete text needs
+-    # a full-width safe area below the lowest protected edge.
+-    safe_row = next((y for y in range(top,bottom)
+-                     if fill_mask.crop((0,y,source.width,y+1)).getextrema() == (255,255)), bottom)
+-    text_top = min(region_size[1]-1, safe_row-top + max(12,source.width//40))
+-    background = tuple(int(v) for v in ImageStat.Stat(source.convert('RGB'), fill_mask).median)
+-    background_hex = '#%02x%02x%02x' % background
+-    guide = source.crop(bounds).convert('RGB')
+-    guide.paste((30,30,30), (0,0,*region_size), ImageChops.invert(region_mask))
++    background = source.crop(bounds)
+     guide_bytes = io.BytesIO()
+-    guide.save(guide_bytes, format='PNG')
+-    guide_input = {'data':guide_bytes.getvalue(), 'name':'fill-area-guide.png', 'type':'image/png'}
++    background.save(guide_bytes, format='PNG')
++    guide_input = {'data': guide_bytes.getvalue(), 'name': 'fill-area-guide.png', 'type': 'image/png'}
++    margin = max(4, round(min(region_size)*.04))
+     prompt = (
+-        f"为一张 {source.width}×{source.height} 的完整 A+ 长图设计后续卖点区域。本次只输出 {region_size[0]}×{region_size[1]} 的卖点画布，不输出整张长图或重复首屏。"
+-        "第1张是完整底稿，仅供理解品牌、首屏构图与视觉衔接，首屏由系统原样保留，不要在本次输出中绘制其人物、标题和主视觉。"
+-        "第2张是本次输出尺寸的可编辑区域示意图：深灰色区域最终会被原首屏遮住，其余部分才可设计；示意图仅用于理解边界，不得出现在成品中。"
+-        f"关键安全区：输出画布从顶部到第 {text_top} 像素只安排背景、纹理和不承载重要信息的衔接装饰，禁止放标题、正文、对比标签或关键产品细节；完整信息从 y={text_top} 以下开始排版。"
+-        "从第3张开始是卖点素材库，不是现成排版模板。"
+-        f"以第1张首屏为整体设计的锚点，延续其品牌色、字体气质、装饰语言、光影和阅读动线；背景色参考 {background_hex}，允许协调的渐变或轻纹理。"
+-        "沿示意图的斜线或曲线边界填满可用区域，禁止改为水平起排后留下三角形空白；"
+-        "斜边附近可安排花纹、局部产品细节和视觉引导，完整标题和关键文字必须放在较宽的可用区域内，不能被遮罩截断。"
+-        "先梳理全部素材中真实存在的独立卖点、产品细节、眼部对比、使用场景、规格和可读文案，去重后完整编入设计；不得无故丢失独立重要信息。"
+-        "跨素材按语义去重：同一眼部特写不得在不同位置重复，一组Before/After只各用一张，不再额外加入同眼睛横幅；同一产品视角、长度规格组和使用场景组各出现一次，优先使用空间展示不同信息。首屏已经表达的主标题不在下方重复做第二个主视觉。"
+-        "把这些元素从素材原海报中拆解出来，自由重组大小、位置、疏密和层级，允许创意穿插、错落和视觉呼应；不要沿用各素材原来的框架、边框和背景。"
+-        "让首屏与卖点自然连成一张有创意的完整作品，重点内容完整清楚，边缘和转折衔接顺畅，不做几个独立海报的上下拼接。"
+-        "禁止整张参考海报照搬堆叠，禁止边框、斜纹装饰边、硬接缝和重复信息；不编造文案或参数。"
+-        "卖点区的左右两侧和底部属于本次完整设计范围，必须干净连续，不复制素材海报的毛边、黑色碎条、残留字、旧页脚或重复Logo；禁止用镜像和拉伸纹理填充边缘。"
+-        "合理铺满整个目标区域，模块分布到接近底部，只保留适度呼吸空间，禁止底部大面积空白。"
+-        "不拉伸人物、商品或文字。以下补充要求仅适用于本次下方卖点区：\n"
+-        + str(job_context.get('a_plus_first_screen_requirements') or '')
++        f"任务：在一张 {source.width}×{source.height} 的 A+ 底稿空白区域中自然加入合适的卖点元素。"
++        f"本次只输出 {region_size[0]}×{region_size[1]} 的局部卖点画布，对应底稿 x={left}..{right}、y={top}..{bottom} 的空白位置，不输出或重画整张底稿。"
++        "第1张是不可修改的完整底稿，仅用于理解现有内容与品牌风格。其任何人物、商品、包装、文字、Logo、边框、装饰、侧边和页脚都必须原样保留；禁止修改、移动、重绘或遮挡任何原有元素。"
++        "第2张是允许添加内容的空白区域原始背景，须延续其背景颜色、渐变和纹理，四边与原底稿自然衔接；不得画边框、拼接线、卡片底板或突兀色块。"
++        "第3张起是可选卖点素材库。先判断完整元素的比例、信息价值和可用空间，只选适合此区域且不与原图冲突的元素；不要求用完所有素材。"
++        "被选中的商品、人物、眼部对比、文字、Logo、图标及完整信息组合必须完整保留，不裁切、不截断、不遮挡、不拉伸、不变形。"
++        "允许将完整元素等比缩小并调整新增元素之间的位置，但必须保持细节和文字可读；太大、比例不合适、缩小后不清楚或无法完整放下的元素，整项省略，不要截取局部，不要挤塞。"
++        f"关键安全区：所有新增元素与四边至少保留 {margin} 像素呼吸空间，元素之间互不重叠遮挡，禁止出血、贴边和跨出区域。"
++        "新增内容的色彩、字体气质、光影和视觉层级与第1张协调，主体优先，布局克制、自然，保留合理留白；可以少放，不必填满，不追求素材数量和覆盖率。"
++        "只使用素材中真实可见的信息，不编造卖点、参数、认证、功效或文案；相同商品视角、元素、文案和卖点在整张图中只能出现一次，底稿已有的信息不再重复。"
++        "可去掉素材原海报的纯背景以独立使用完整元素，但不能切掉元素本体、文字或其必要信息；无法完整分离的组合应整体保留或整体不采用。"
++        "输出前检查完整性和留白：宁可减少元素，也不能为了填空间损坏素材，最终是一张无冲突、自然融合的 A+。\n"
++        + build_a_plus_first_screen_user_override(str(job_context.get('a_plus_first_screen_requirements') or ''))
+     )
+     result = request_selling_points_layout(
+-        str(job_context['model']), prompt, [files[0],guide_input,*files[1:]], region_size, background,
++        str(job_context['model']), prompt, [files[0], guide_input, *files[1:]], region_size, background,
+     )
+     outputs = []
+     for url in result.get('images') or []:
+@@ -12150,7 +12198,8 @@
+         with Image.open(io.BytesIO(data)) as image:
+             designed = fit_selling_points_region(image, region_size, background)
+         canvas = source.copy()
+-        canvas.paste(designed, (left,top), region_mask)
++        # The whole rectangle is blank. No irregular mask can cut through a new element.
++        canvas.paste(designed, (left, top))
+         buffer = io.BytesIO()
+         canvas.save(buffer, format='PNG')
+         outputs.append(image_bytes_to_data_url(buffer.getvalue(), 'image/png'))
+@@ -12158,6 +12207,7 @@
+         raise RuntimeError("卖点区域未返回图片。")
+     result['images'] = outputs
+     result['target_size'] = list(source.size)
++    result['first_screen_fill_bounds'] = list(bounds)
+     return result
+ 
+ 
+@@ -12378,8 +12428,7 @@
+         return finalize_feature_job_result(job_context, result, job_id)
+     if feature_key == A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY:
+         return finalize_feature_job_result(job_context, run_hero_reverse_job(job_context), job_id)
+-    if (feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY
+-            and job_context.get("a_plus_first_screen_workflow_stage") != "hero"):
++    if feature_key == A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY:
+         result = run_first_screen_selling_points_job(job_context)
+         return finalize_feature_job_result(job_context, result, job_id)
+     if feature_key == AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY:
+@@ -15525,26 +15574,15 @@
+ 
+ 
+ def build_a_plus_first_screen_user_override(custom_prompt: str) -> str:
+-    """Make the user's editable A+ goal win over preservation defaults."""
+-    normalized = str(custom_prompt or "").strip()
++    """Scope optional instructions to new material while retaining the immutable base."""
++    normalized = str(custom_prompt or '').strip()
+     if not normalized:
+-        return ""
+-    sections = [
+-        "【用户编辑目标｜最高优先级】以下要求是本次生成必须执行的最终编辑指令；若与前文关于保留参考图文案、文字或版式细节的要求冲突，以本段为准。",
++        return ''
++    return '\n'.join([
++        '【新增卖点补充要求】以下要求仅适用于空白区域中新加入的素材及布局：',
+         normalized,
+-    ]
+-    remove_text_pattern = re.compile(
+-        r"(?:去掉|去除|删除|移除|不要|不保留|清除|抹掉|擦除).{0,12}(?:文字|文案|文本|字幕|字样|标语)"
+-        r"|(?:文字|文案|文本|字幕|字样|标语).{0,12}(?:去掉|去除|删除|移除|不要|不保留|清除|抹掉|擦除)",
+-        re.IGNORECASE,
+-    )
+-    if remove_text_pattern.search(normalized):
+-        sections.append(
+-            "已识别为去文字任务：必须删除用户所指参考图中的全部目标文字，不得照抄、重绘、近似复刻或换一种字体保留；"
+-            "删除后用周围背景、纹理、光影和材质自然补全原文字区域，最终对应区域不得残留可读字符、乱码、文字轮廓或水印痕迹。"
+-        )
+-    sections.append("完成生成前必须逐项核对上述用户要求，不能只执行默认模板规则。")
+-    return "\n".join(sections)
++        '【底稿保护优先】补充要求不得修改、删除、重绘或遮挡第1张底稿任何已有元素；去文字、改色、重排等要求只能作用于新增卖点素材。无法满足时省略对应新增元素，不能突破完整保留、禁止裁切和空间限制。',
++    ])
+ 
+ 
+ def build_prompt(feature: dict[str, Any], custom_prompt: str, aspect_ratio: str, extra_notes: str) -> str:
+@@ -24690,6 +24728,7 @@
+                 label_visibility="collapsed",
+             )
+         elif supports_a_plus_first_screen_selling_points:
++            st.caption("底稿已有元素不变、不遮挡；只在空白区域加入完整卖点，放不下的素材会省略，不强行填满。")
+             hero_upload_key = f"a_plus_first_screen_hero_uploader_{feature['key']}"
+             selling_points_upload_key = f"a_plus_first_screen_selling_only_uploader_{feature['key']}"
+             legacy_upload_key = f"a_plus_first_screen_selling_points_uploader_{feature['key']}"
+@@ -24721,9 +24760,9 @@
+                     st.text_input("当前模型", value=get_model_display_name(active_model), disabled=True, key="fusion_current_model")
+                 with height_col:
+                     st.number_input(
+-                        "首屏保留高度（px，0 为自动识别）", min_value=0, max_value=30000,
++                        "填充起始高度（px，0 为自动识别）", min_value=0, max_value=30000,
+                         value=0, step=1, key=f"first_screen_keep_height_{feature['key']}",
+-                        help="自动识别不准时，填写原图中首屏结束的位置；该位置以上保持不变。",
++                        help="仅允许在此高度以下的安全空白区域加入素材；原图任何已有元素仍保持不变，不会因设置高度而被覆盖。",
+                     )
+                 if not supports_a_plus_first_screen_selling_points and primary_action_slot is None:
+                     primary_action_slot = st.empty()
+@@ -26439,19 +26478,7 @@
+                 )
+             feature_for_request = dict(feature)
+             if supports_a_plus_first_screen_selling_points:
+-                if a_plus_first_screen_workflow_stage == "hero":
+-                    feature_for_request["default_prompt"] = (
+-                        "只生成电商 A+ 的首屏主视觉，不生成下方卖点区。严格保留上传图中真实存在的商品、人物、包装、Logo、可读文案、品牌色和核心识别元素，但用户补充要求明确指定删除或修改的文字和元素除外。"
+-                        "重新组织为清晰、有焦点的商业首屏。禁止编造商品、功效、参数、认证或文案；相同元素只出现一次。"
+-                        "画面必须铺满画布，无白边黑边，所有商品、文字和 Logo 完整可见，不得被边缘截断。"
+-                    )
+-                elif a_plus_first_screen_workflow_stage == "selling_points":
+-                    feature_for_request["default_prompt"] = (
+-                        "输入图片中的第 1 张是已经确定的 A+ 首屏底稿，必须作为最终长图顶部的不可编辑原始画面完整保留，不得重新设计、删减、裁切、改字、调色、缩放、拉伸、移动、重排、替换或覆盖其中的任何元素；用户补充要求明确指定删除或修改的文字和元素必须按要求处理。"
+-                        "从第 2 张开始是同一商品的主图、细节图和卖点图。只在第 1 张首屏下方已有的留白或可用区域补充卖点内容，不得覆盖首屏，不得改变首屏边界，并延续首屏的品牌色、字体气质、光影、材质、留白和视觉节奏，形成一张无接缝的连续 A+ 长图。"
+-                        "只使用上传图片中真实可见的信息；禁止编造功效、参数、认证、承诺、配件或品牌文案。相同商品视角、元素、文案和卖点在整张图中只能出现一次。"
+-                        "优先展示证据清晰且互不重复的卖点、材质、结构、使用方式和规格；最终画布必须沿用第 1 张图片的实际像素尺寸和宽高比例，不得裁切、补边、拉伸、改变画布方向或在底部追加额外尺寸；所有商品、文字和 Logo 必须完整清晰，不得被画布边缘截断。"
+-                    )
++                feature_for_request["default_prompt"] = feature["default_prompt"]
+             if supports_remove_eyelashes:
+                 feature_for_request["default_prompt"] = (
+                     REMOVE_EYELASHES_PRESERVE_BASIC_PROMPT
+@@ -26478,9 +26505,9 @@
+             if (supports_a_plus_first_screen_selling_points
+                     and a_plus_first_screen_workflow_stage != "hero"):
+                 final_prompt += (
+-                    "\n\n最终硬性规则：第1张底稿首屏已有内容完全不变，任何补充要求不得覆盖此规则。"
+-                    "只在下方连续纯色留白内自由组合卖点，保持底稿原始尺寸、原始首屏位置和边界。"
+-                    "允许对卖点进行自由编排，但不编造信息，不重复卖点，不改变首屏任何人物、文字、商品、色彩或布局。"
++                    "\n\n最终硬性规则：第1张底稿的所有已有元素完全不变且不受遮挡，任何补充要求不得覆盖此规则。"
++                    "只在确认安全的空白区域选择性加入完整卖点，保持整张底稿尺寸、位置和已有元素。"
++                    "素材必须完整不裁切、不遮挡；太大或放不下则省略，允许少放和留白，不编造或重复信息，不改变底稿任何元素。"
+                 )
+             if supports_batch_multi_upload and not batch_groups:
+                 batch_groups = [[item] for item in files]

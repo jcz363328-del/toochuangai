@@ -1,0 +1,112 @@
+--- 
+
++++ 
+
+@@ -18531,60 +18531,31 @@
+
+     allow_reorder: bool = False,
+     item_count: int = 1,
+ ) -> None:
+-    preview_container = st.container()
+-    with preview_container:
+-        st.markdown(
+-            f"""
+-            <div
+-                class="upload-preview-root"
+-                data-upload-widget="{html.escape(widget_key, quote=True)}"
+-                data-upload-index="{item_index}"
+-                data-upload-sortable="{'true' if allow_reorder else 'false'}"
+-            ></div>
+-            """,
+-            unsafe_allow_html=True,
+-        )
+-        if preview_renderer is not None:
+-            preview_renderer(uploaded_input, item_index, component_key)
+-        else:
+-            render_zoomable_image_gallery(
+-                [uploaded_input_to_data_url(uploaded_input)],
+-                columns=1,
+-                thumb_height=150,
+-                component_key=component_key,
+-                fit_mode="contain",
+-                max_width_percent=100,
+-            )
+-        with st.popover("图片操作", use_container_width=True):
+-            if st.button("移除图片", key=f"delete_upload_{component_key}_{item_index}", use_container_width=True):
+-                remove_upload_cache_item(widget_key, item_index)
+-                reset_upload_widget(widget_key)
+-                st.rerun()
+-            if allow_reorder and item_count > 1:
+-                for column, label, target in zip(
+-                    st.columns(2), ("←前移", "后移→"), (item_index - 1, item_index + 1)
+-                ):
+-                    with column:
+-                        if st.button(
+-                            label,
+-                            key=f"reorder_{component_key}_{target}",
+-                            disabled=not 0 <= target < item_count,
+-                            use_container_width=True,
+-                        ):
+-                            reorder_upload_cache_item(widget_key, item_index, target)
+-                            reset_upload_widget(widget_key)
+-                            st.rerun()
+-            st.markdown('<div class="upload-replace-uploader-marker" style="display:none;"></div>', unsafe_allow_html=True)
+-            replacement_upload = render_frame_uploader(
+-                "替换图片",
+-                type=["png", "jpg", "jpeg", "webp"],
+-                key=get_replace_uploader_widget_key(widget_key, item_index),
+-                label_visibility="collapsed",
+-            )
+-            if replacement_upload is not None:
+-                replace_upload_cache_item(widget_key, item_index, replacement_upload)
+-                reset_upload_widget(widget_key)
+-                st.rerun()
++    replacement_upload = render_frame_uploader(
++        f"第 {item_index + 1} 张图片", type=["png", "jpg", "jpeg", "webp"],
++        key=get_replace_uploader_widget_key(widget_key, item_index),
++        preview_files=[uploaded_input], frame_height=300,
++        label_visibility="collapsed",
++    )
++    if replacement_upload is not None:
++        replace_upload_cache_item(widget_key, item_index, replacement_upload)
++        reset_upload_widget(widget_key)
++        st.rerun()
++    if preview_renderer is not None:
++        preview_renderer(uploaded_input, item_index, component_key)
++    controls = st.columns(3 if allow_reorder and item_count > 1 else 1)
++    with controls[0]:
++        if st.button("移除", key=f"delete_upload_{component_key}_{item_index}", help="移除这张图片"):
++            remove_upload_cache_item(widget_key, item_index)
++            reset_upload_widget(widget_key)
++            st.rerun()
++    if allow_reorder and item_count > 1:
++        for column, label, target in zip(controls[1:], ("← 前移", "后移 →"), (item_index - 1, item_index + 1)):
++            with column:
++                if st.button(label, key=f"reorder_{component_key}_{target}", disabled=not 0 <= target < item_count):
++                    reorder_upload_cache_item(widget_key, item_index, target)
++                    reset_upload_widget(widget_key)
++                    st.rerun()
+ 
+ 
+ def render_uploaded_previews(uploaded_file: Any | None, widget_key: str) -> None:
+@@ -18610,7 +18581,7 @@
+
+     if not files:
+         st.markdown(f'<div class="slot-helper">{empty_text}</div>', unsafe_allow_html=True)
+         return
+-    columns_per_row = min(max(slot_count, 1), 5)
++    columns_per_row = min(max(slot_count, 1), len(files), 3)
+     for row_start in range(0, len(files), columns_per_row):
+         columns = st.columns(columns_per_row)
+         for column_index, column in enumerate(columns):
+@@ -19667,8 +19638,7 @@
+
+     active_uploaded_files = cached_files
+ 
+     if active_uploaded_files:
+-        preview_area_height = preview_area_height or (560 if preview_renderer is not None else 420)
+-        with st.container(height=preview_area_height, border=False):
++        with st.container():
+             render_uploaded_gallery(active_uploaded_files, "", key, preview_renderer=preview_renderer,
+                                     slot_count=preview_slot_count or min(max_files, 5), allow_reorder=allow_reorder)
+     uploaded_files = render_frame_uploader(

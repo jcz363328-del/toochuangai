@@ -1,0 +1,34 @@
+{
+  "deployed_service": "toochuangai-single-app-1:xiaoha",
+  "date": "2026-11-24",
+  "release_image": "toochuangai-single:poster-history-20261124",
+  "release_id": "sha256:099d7793c7b16e3ef76f41170912ac52087846ef9219beb9b77c2e57445fc17c",
+  "rollback_image": "toochuangai-single:before-poster-history-20261124",
+  "runtime_files": [
+    {
+      "name": "openrouter_image_site.py",
+      "before": "d0ec03d48790344e720309ce3b704dd8b6b633f87bad54d9a7f2b5fab2c307c5",
+      "after": "e2157162b23f3f035bc6fbf193ad3910ad8a52ea79d926efa9e29a337c2aac3e"
+    },
+    {
+      "name": "poster_fusion.py",
+      "before": "7f09ad5bb1014ba82d1ac7ddd94ff8fedf9a9b589f4ca5a85de68a5a302a88cd",
+      "after": "40672e719ab28d25d532275fa0c5d8891ada4e0a6450d0e038aec1d6b75020e0"
+    },
+    {
+      "name": "upload_frames.py",
+      "before": "48f3bc00ea3428ccd87a5c035b388c5ce3cfe19a7701608538a9d0c8962ecda9",
+      "after": "f14e0c03086e64c0699495c40fb37206423f497ef4ac473d85b06327858d37ec"
+    }
+  ],
+  "validation": [
+    "12 focused unittest cases passed in production Python environment",
+    "Browser: four roles retain original data after navigation",
+    "Browser: independently delete all roles; deletion stays absent after navigation",
+    "Browser: reupload and right-click replacement persist",
+    "Browser: history enlarged original 600x400 instead of 90x60 thumbnail; native contextmenu not prevented",
+    "Packaged image: registration, menu, worker dispatch, empty-page render and native menu smoke passed",
+    "Live xiaoha running, HTTP health ok, deployed file hashes match tested release, request admission restored"
+  ],
+  "test_fixture_stopped": true
+}

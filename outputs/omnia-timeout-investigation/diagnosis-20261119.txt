@@ -1,0 +1,24 @@
+OmniaKey 生图超时排查报告
+时间：2026-11-19 15:11:32—15:14:32（北京时间）
+
+测试：从运行 Docker 容器直接调用 POST /v1/media/tasks，各创建一次任务。
+相同提示词：A small red paper boat on a plain white background.
+operation=generate，parameters={}，未附带图片，绕过前端、问答上下文和本地生图封装。
+
+Nano Banana 2.1：gemini-nano-banana-2.1
+任务：task_SjOWHL7rM6wbRohlCPozTKNVsUTyFUoQ
+创建 HTTP 202；上游运行 180 秒后 failed；asset_count=0；retry_count=0。
+
+GPT：gpt-image-2.5-flare
+任务：task_FQ7MKh1a9OoeSxb18O9VsQYcQSZkqVPJ
+创建 HTTP 202；上游运行 180 秒后 failed；asset_count=0；retry_count=0。
+
+两次错误相同：
+code=provider_submit_uncertain
+message=The task timed out before it completed.
+reason=timeout
+retryable=true
+
+结论：最小纯文字请求也在多个模型上触发同样的上游超时，问题已定位至当前账号经 OmniaKey 媒体任务接口的上游处理链路，无法仅归因于 Nano Banana、问答前端、参考图大小或本地 600 秒等待设置。
+尚不能区分服务商整体故障、当前账号渠道配置问题或两模型共用的上游处理环节，需 OmniaKey 根据以上任务编号查询内部日志。
+只执行用户授权的两次真实测试，未提交更多生图任务。计费与退款情况未核实。

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import os
 import threading
 import unittest
 from unittest.mock import patch
@@ -86,7 +87,8 @@ class BackgroundTaskProgressTests(unittest.TestCase):
             def __setattr__(self, name: str, value) -> None:
                 self[name] = value
 
-        runtime = site.TaskRuntime()
+        with patch.dict(os.environ, {"XIAOHA_ACCOUNT_CONCURRENCY": "1"}):
+            runtime = site.TaskRuntime()
         first_started = threading.Event()
         release_first = threading.Event()
         call_count = 0
@@ -127,7 +129,8 @@ class BackgroundTaskProgressTests(unittest.TestCase):
             runtime.shutdown(wait=True)
 
     def test_same_account_generation_jobs_wait_in_fifo_order(self) -> None:
-        runtime = site.TaskRuntime()
+        with patch.dict(os.environ, {"XIAOHA_ACCOUNT_CONCURRENCY": "1"}):
+            runtime = site.TaskRuntime()
         first_started = threading.Event()
         release_first = threading.Event()
         second_started = threading.Event()
@@ -214,15 +217,16 @@ class BackgroundTaskProgressTests(unittest.TestCase):
     def test_running_status_uses_an_animated_circular_progress_indicator(self) -> None:
         spinner_html = site.build_running_job_spinner_html(42, "正在生成 A+ <首屏>")
 
-        self.assertIn("xiaoha-task-spinner-orbit", spinner_html)
+        self.assertIn("xiaoha-result-orbit", spinner_html)
         self.assertIn("rotate(360deg)", spinner_html)
-        self.assertIn("42%", spinner_html)
+        self.assertNotIn("42%", spinner_html)
+        self.assertIn("result-empty xiaoha-result-loading", spinner_html)
         self.assertIn("正在生成 A+ &lt;首屏&gt;", spinner_html)
         self.assertNotIn("<首屏>", spinner_html)
 
-    def test_spinner_progress_is_clamped_to_running_range(self) -> None:
-        self.assertIn("99%", site.build_running_job_spinner_html(100, "即将完成"))
-        self.assertIn("1%", site.build_running_job_spinner_html(0, "正在准备"))
+    def test_spinner_has_no_percentage_for_any_backend_progress(self) -> None:
+        for progress in (0, 1, 42, 99, 100):
+            self.assertNotIn(f">{progress}%<", site.build_running_job_spinner_html(progress, "正在处理"))
 
     def test_running_progress_advances_in_small_steps_between_backend_stages(self) -> None:
         self.assertEqual(site.calculate_smooth_running_progress(1, 5), 3)

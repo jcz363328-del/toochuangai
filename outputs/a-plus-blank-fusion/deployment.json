@@ -1,0 +1,22 @@
+{
+  "service": "toochuangai-single-app-1:xiaoha",
+  "date": "2026-11-24",
+  "image": "toochuangai-single:a-plus-blank-20261124",
+  "image_id": "sha256:e35c6682b7279baf88c751d1d9730436edc9af07ec4065b5ed8cf0eef1793d5f",
+  "rollback_image": "toochuangai-single:before-a-plus-blank-20261124",
+  "runtime_files": [
+    {
+      "name": "openrouter_image_site.py",
+      "before": "e2157162b23f3f035bc6fbf193ad3910ad8a52ea79d926efa9e29a337c2aac3e",
+      "after": "0b3519c88e73039c2c418c63e0bffb5fd51f49744180fe43fbd7272e781a6b38"
+    }
+  ],
+  "validation": [
+    "24 focused runtime regressions passed",
+    "19 packaged image regressions passed",
+    "1464x2400 synthetic composite preserves all pixels outside safe bounds",
+    "Live health ok and source SHA verified",
+    "Request admission restored"
+  ],
+  "provider_generation_invoked": false
+}
