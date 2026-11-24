@@ -1,3 +1,4 @@
+import { isAPlusWorkspace } from "@/lib/canvas/workspace";
 import { App, Button, Form, Input, Modal, Progress, Select, Tabs } from "antd";
 import { CircleAlert, Cloud, Plus, RefreshCw, Trash2, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -37,9 +38,10 @@ const apiFormatOptions: Array<{ label: string; value: ApiCallFormat }> = [
     { label: "Gemini", value: "gemini" },
 ];
 
-const webdavDomainKeys: AppSyncDomainKey[] = ["canvas", "assets", "image-workbench", "video-workbench"];
+const webdavDomainKeys: AppSyncDomainKey[] = [isAPlusWorkspace ? "a-plus-canvas" : "canvas", "assets", "image-workbench", "video-workbench"];
 const webdavDomainLabels: Record<AppSyncDomainKey, string> = {
     canvas: "画布",
+    "a-plus-canvas": "A+画布",
     assets: "我的素材",
     "image-workbench": "生图工作台",
     "video-workbench": "视频创作台",

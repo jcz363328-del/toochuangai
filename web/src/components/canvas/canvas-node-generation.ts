@@ -162,7 +162,7 @@ async function imageToDataUrlForDetection(image: ReferenceImage) {
 }
 
 function readNodeTextInput(node: CanvasNodeData) {
-    if (node.type === CanvasNodeType.Text) return node.metadata?.content || node.metadata?.prompt || "";
+    if (node.type === CanvasNodeType.Text) return node.metadata?.referenceAnalysis ? node.metadata.content || "" : node.metadata?.content || node.metadata?.prompt || "";
     return node.metadata?.prompt || "";
 }
 

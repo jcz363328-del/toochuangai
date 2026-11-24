@@ -1,3 +1,4 @@
+import { isAPlusWorkspace } from "@/lib/canvas/workspace";
 import { imageToDataUrl } from "@/services/image-storage";
 import type { CanvasModelHdMethod, CanvasXiaohaImageFeature } from "@/types/canvas";
 import type { ReferenceImage } from "@/types/image";
@@ -20,8 +21,22 @@ export type XiaohaImageFeatureOption = {
     fixedEngine?: boolean;
 };
 
-export const DEFAULT_XIAOHA_IMAGE_FEATURE: CanvasXiaohaImageFeature = "modelHd";
+export const A_PLUS_IMAGE_FEATURE_OPTIONS: XiaohaImageFeatureOption[] = [
+    { value: "reference_reverse", label: "参考图反推", fixedEngine: true },
+    { value: "reference_compose", label: "文案组合生图", fixedEngine: true },
+    { value: "main_image_a_plus", label: "主图生A+", fixedEngine: true },
+    { value: "a_plus_reference_lab", label: "A+版式参考实验室", fixedEngine: true },
+    { value: "a_plus_style_model_replace", label: "A+首屏风格复刻—替换模特", fixedEngine: true, requiresReference: true },
+    { value: "a_plus_first_screen_selling_points", label: "首屏+卖点融合", fixedEngine: true, requiresReference: true },
+    { value: "amazon_to_walmart_a_plus", label: "亚马逊A+改沃尔玛A+", fixedEngine: true },
+    { value: "a_plus_hero_style_reverse", label: "A+首屏风格反推", fixedEngine: true },
+    { value: "amazon_a_plus", label: "自由创作PSD", fixedEngine: true },
+];
+export const isAPlusFeature = (value: string) => A_PLUS_IMAGE_FEATURE_OPTIONS.some((item) => item.value === value);
+
+export const DEFAULT_XIAOHA_IMAGE_FEATURE: CanvasXiaohaImageFeature = isAPlusWorkspace ? "main_image_a_plus" : "modelHd";
 export const XIAOHA_IMAGE_FEATURE_OPTIONS: XiaohaImageFeatureOption[] = [
+    ...A_PLUS_IMAGE_FEATURE_OPTIONS,
     { value: "product_retouch", label: "产品图精修 · Nano Banana 2.1", fixedEngine: true, requiresReference: true },
     { value: "product_retouch_local", label: "局部瑕疵修复 · Nano Banana 2.1", fixedEngine: true, promptRequired: true },
     { value: "modelHd", label: "模特高清" },
@@ -39,6 +54,8 @@ export const XIAOHA_IMAGE_FEATURE_OPTIONS: XiaohaImageFeatureOption[] = [
     { value: "ai_qa_image", label: "AI问答生图", promptRequired: true },
 ];
 
+export const workspaceImageFeatureOptions = isAPlusWorkspace ? A_PLUS_IMAGE_FEATURE_OPTIONS : XIAOHA_IMAGE_FEATURE_OPTIONS;
+
 export function getXiaohaImageFeatureOption(value: CanvasXiaohaImageFeature) {
     return XIAOHA_IMAGE_FEATURE_OPTIONS.find((option) => option.value === value) || XIAOHA_IMAGE_FEATURE_OPTIONS[0];
 }
@@ -46,6 +63,8 @@ export function getXiaohaImageFeatureOption(value: CanvasXiaohaImageFeature) {
 type ModelHdResponse = {
     success?: boolean;
     image?: string;
+    images?: string[];
+    psdUrl?: string;
     message?: string;
     featureName?: string;
     channel?: string;
@@ -118,6 +137,32 @@ export async function requestXiaohaImageFeature(
         throw new Error(payload.message || `图片功能请求失败（HTTP ${response.status}）`);
     }
     return payload.image;
+}
+
+export async function requestXiaohaAPlusFeature(references: ReferenceImage[], feature: CanvasXiaohaImageFeature, prompt: string, signal?: AbortSignal) {
+    const images = await Promise.all(references.map((reference) => imageToDataUrl({ dataUrl: reference.dataUrl, storageKey: reference.storageKey })));
+    if (!images.length || images.some((image) => !image)) throw new Error("请连接可读取的A+素材图片");
+    const response = await fetch(xiaohaApiUrl("image-feature"), {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ feature, images, prompt: prompt.trim() }), signal,
+    });
+    const payload = (await response.json().catch(() => ({}))) as ModelHdResponse;
+    if (!response.ok || !payload.success || !payload.images?.length) throw new Error(payload.message || `A+处理失败（HTTP ${response.status}）`);
+    return { images: payload.images, psdUrl: payload.psdUrl };
+}
+
+export async function requestXiaohaReferenceNode(action: "analyze" | "generate", references: ReferenceImage[], prompt: string, signal?: AbortSignal) {
+    const images = await Promise.all(references.map((ref) => imageToDataUrl({ dataUrl: ref.dataUrl, storageKey: ref.storageKey })));
+    if (images.some((image) => !image)) throw new Error("无法读取参考图");
+    const response = await fetch(xiaohaApiUrl("reference-node"), {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ action, images, prompt }), signal,
+    });
+    const payload = await response.json() as { success?: boolean; message?: string; text?: string; analysis?: Record<string, string>; images?: string[] };
+    if (!response.ok || !payload.success) throw new Error(payload.message || `参考节点处理失败（HTTP ${response.status}）`);
+    if (action === "analyze" && (!payload.text || !payload.analysis)) throw new Error("未返回完整逆向文案");
+    if (action === "generate" && !payload.images?.length) throw new Error("未返回生成结果");
+    return payload;
 }
 
 export async function recordCanvasImageUsage(action: "image_generation" | "image_edit" | "image_generation_retry" | "image_edit_retry", model: string, imageCount: number) {

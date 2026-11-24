@@ -1,3 +1,4 @@
+import { isAPlusFeature } from "@/services/api/xiaoha";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, Group, Image as ImageIcon, Music2, RefreshCw, Star, Video } from "lucide-react";
@@ -497,11 +498,11 @@ function TextContent({ node, theme, isEditingContent, textareaRef, mentionRefere
                 }}
                 onMouseDown={(event) => event.stopPropagation()}
                 onPointerDown={(event) => event.stopPropagation()}
-                title="用文本生图"
-                aria-label="用文本生图"
+                title={node.metadata?.referenceAnalysis ? "创建文案组合节点" : "用文本生图"}
+                aria-label={node.metadata?.referenceAnalysis ? "创建文案组合节点" : "用文本生图"}
             >
                 <ImageIcon className="size-3.5" />
-                生图
+                {node.metadata?.referenceAnalysis ? "组合生图" : "生图"}
             </button>
             {isEditingContent ? (
                 <CanvasResourceMentionTextarea
@@ -573,13 +574,13 @@ function ImageNodeContent(props: NodeContentRendererProps) {
     );
 }
 
-function EmptyImageContent({ theme, isBatchRoot, batchCount, batchExpanded, batchOpening, batchRecovering, onToggleBatch }: NodeContentRendererProps) {
+function EmptyImageContent({ node, theme, isBatchRoot, batchCount, batchExpanded, batchOpening, batchRecovering, onToggleBatch }: NodeContentRendererProps) {
     const content = (
         <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: theme.node.placeholder }}>
             <div className="flex size-14 items-center justify-center rounded-2xl" style={{ background: theme.toolbar.activeBg }}>
                 <ImageIcon className="size-6 opacity-30" />
             </div>
-            <span className="text-[10px] tracking-[0.18em] opacity-50">空图片节点</span>
+            <span className="px-3 text-center text-xs opacity-70">{isAPlusFeature(node.metadata?.imageFunction || "") ? node.metadata?.imageFunction === "reference_reverse" ? "上传1张参考图或连接图片后反推" : node.metadata?.imageFunction === "reference_compose" ? "连接逆向文案后组合生图" : `${node.title} · 连接素材后运行` : "空图片节点"}</span>
         </div>
     );
     if (isBatchRoot)

@@ -1,3 +1,4 @@
+import { isAPlusWorkspace } from "@/lib/canvas/workspace";
 import localforage from "localforage";
 
 import { getMediaBlob, resolveMediaUrl, setMediaBlob } from "@/services/file-storage";
@@ -10,7 +11,7 @@ import type { CanvasProject } from "@/stores/canvas/use-canvas-store";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 
 type StoredLog = Record<string, unknown> & { id?: string };
-export type AppSyncDomainKey = "canvas" | "assets" | "image-workbench" | "video-workbench";
+export type AppSyncDomainKey = "canvas" | "a-plus-canvas" | "assets" | "image-workbench" | "video-workbench";
 type DomainKey = AppSyncDomainKey;
 type CanvasDomainData = { projects: CanvasProject[] };
 type AssetDomainData = { assets: Asset[] };
@@ -86,8 +87,8 @@ export async function syncAppDataToWebdav(config: WebdavSyncConfig, onProgress?:
 
     const [canvas, assets, imageLogs, videoLogs] = await Promise.all([
         syncDomain<CanvasDomainData>(config, onProgress, {
-            key: "canvas",
-            label: "画布",
+            key: isAPlusWorkspace ? "a-plus-canvas" : "canvas",
+            label: isAPlusWorkspace ? "A+画布" : "画布",
             emptyData: { projects: [] },
             localData: async () => ({ projects: useCanvasStore.getState().projects }),
             mergeData: (local, remote) => ({ projects: mergeById(local.projects, remote.projects, "updatedAt") }),

@@ -1,3 +1,4 @@
+import { isAPlusWorkspace } from "@/lib/canvas/workspace";
 import { create } from "zustand";
 import { persist, type PersistStorage, type StorageValue } from "zustand/middleware";
 
@@ -88,8 +89,13 @@ export const useAssetStore = create<AssetStore>()(
             cleanupImages: (extra) => {
                 window.setTimeout(async () => {
                     const { useCanvasStore } = await import("@/stores/canvas/use-canvas-store");
-                    await cleanupUnusedImages({ assets: get().assets, projects: useCanvasStore.getState().projects, extra });
-                    await cleanupUnusedMedia({ assets: get().assets, projects: useCanvasStore.getState().projects, extra });
+                    // Both libraries share image blobs; never collect the other workspace's assets.
+                    const otherKey = isAPlusWorkspace ? "infinite-canvas:canvas_store" : "infinite-canvas:a_plus_canvas_store";
+                    const stored = await localForageStorage.getItem(otherKey);
+                    const otherWorkspace = stored ? JSON.parse(stored) : null;
+                    const used = { assets: get().assets, projects: useCanvasStore.getState().projects, otherWorkspace, extra };
+                    await cleanupUnusedImages(used);
+                    await cleanupUnusedMedia(used);
                 }, 0);
             },
         }),

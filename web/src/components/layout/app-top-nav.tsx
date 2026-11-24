@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAgentStore } from "@/stores/use-agent-store";
 
 export function AppTopNav() {
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const autoConnectRef = useRef(false);
     const agentToken = useAgentStore((state) => state.token);
@@ -37,7 +37,7 @@ export function AppTopNav() {
                 <header className="sticky top-0 z-20 h-14 shrink-0 border-b border-stone-200 bg-background/90 backdrop-blur-xl dark:border-stone-800">
                     <div className="mx-auto flex h-full max-w-7xl items-stretch justify-between gap-5 px-6">
                         <div className="flex min-w-0 items-center">
-                            <Link to="/canvas" aria-label="进入我的画布" className="flex h-full shrink-0 items-center text-stone-950 transition hover:text-stone-600 dark:text-stone-100 dark:hover:text-stone-300">
+                            <Link to={`/canvas${search}`} aria-label="进入我的画布" className="flex h-full shrink-0 items-center text-stone-950 transition hover:text-stone-600 dark:text-stone-100 dark:hover:text-stone-300">
                                 <span
                                     className="size-5 shrink-0 bg-current"
                                     style={{
@@ -64,7 +64,7 @@ export function AppTopNav() {
                                     return (
                                         <Link
                                             key={tool.slug}
-                                            to={`/${tool.slug}`}
+                                            to={`/${tool.slug}${search}`}
                                             className={cn(
                                                 "relative flex h-14 shrink-0 items-center gap-2 text-sm leading-6 transition after:absolute after:inset-x-0 after:bottom-0 after:h-px",
                                                 active

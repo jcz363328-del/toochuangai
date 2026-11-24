@@ -1,3 +1,5 @@
+import { resolveMediaUrl } from "@/services/file-storage";
+import { saveAs } from "file-saver";
 import { useEffect, useState } from "react";
 import { ArrowUp, LoaderCircle, Settings2, Square } from "lucide-react";
 import { Button, InputNumber, Popover, Select } from "antd";
@@ -9,7 +11,8 @@ import {
     getXiaohaImageFeatureOption,
     IMAGE_PROCESSING_MODEL_OPTIONS,
     MODEL_HD_METHOD_OPTIONS,
-    XIAOHA_IMAGE_FEATURE_OPTIONS,
+    workspaceImageFeatureOptions,
+    isAPlusFeature,
 } from "@/services/api/xiaoha";
 import { defaultConfig, modelAvailableForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { canvasThemes } from "@/lib/canvas-theme";
@@ -51,7 +54,11 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
     const isModelHd = imageFeature === "modelHd";
     const modelHdMethod = node.metadata?.modelHdMethod || DEFAULT_MODEL_HD_METHOD;
     const connectedImageCount = mentionReferences.filter((reference) => reference.kind === "image" && reference.nodeId !== node.id).length;
-    const hasRequiredReference = !imageFeatureOption.requiresReference || connectedImageCount > 0;
+    const isReferenceCompose = imageFeature === "reference_compose";
+    const isReferenceReverse = imageFeature === "reference_reverse";
+    const hasTextInputs = mentionReferences.some((reference) => reference.kind === "text" && reference.nodeId !== node.id);
+    const hasInputImage = isReferenceCompose ? hasTextInputs : isReferenceReverse ? connectedImageCount + Number(hasImageContent) === 1 : hasImageContent || (isAPlusFeature(imageFeature) && connectedImageCount > 0);
+    const hasRequiredReference = !imageFeatureOption.requiresReference || connectedImageCount >= (hasImageContent ? 1 : 2);
     const outpaintTotal =
         Number(node.metadata?.outpaintTop ?? 100) +
         Number(node.metadata?.outpaintBottom ?? 100) +
@@ -73,15 +80,33 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
         const text = prompt.trim();
         if (
             isRunning ||
-            (isXiaohaImage && (!hasImageContent || !hasRequiredReference || (imageFeatureOption.promptRequired && !text) || (imageFeature === "outpaint" && outpaintTotal <= 0))) ||
+            (isXiaohaImage && (!hasInputImage || !hasRequiredReference || (imageFeatureOption.promptRequired && !text) || (imageFeature === "outpaint" && outpaintTotal <= 0))) ||
             (!isXiaohaImage && !text)
         ) return;
         onGenerate(node.id, mode, text);
         setPrompt("");
     };
     const canSubmit = isXiaohaImage
-        ? hasImageContent && hasRequiredReference && (!imageFeatureOption.promptRequired || Boolean(prompt.trim())) && (imageFeature !== "outpaint" || outpaintTotal > 0)
+        ? hasInputImage && hasRequiredReference && (!imageFeatureOption.promptRequired || Boolean(prompt.trim())) && (imageFeature !== "outpaint" || outpaintTotal > 0)
         : Boolean(prompt.trim());
+
+    if (node.metadata?.referenceAnalysis && node.type === CanvasNodeType.Text) {
+        const analysis = node.metadata.referenceAnalysis;
+        const fields = node.metadata.referenceFields || ["prompt"];
+        const options = [["prompt", "完整文案"], ["background", "背景"], ["subject", "主体"], ["supporting_elements", "辅助元素"], ["decoration", "装饰"], ["typography", "字体"], ["texture", "质感"]];
+        return <div className="rounded-2xl border p-3" style={{ background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.node.text }}
+            onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onWheel={(event) => event.stopPropagation()}>
+            <p className="mb-2 text-xs">选择输出内容，再将此文案节点连入“文案组合生图”。可双击节点或在下方编辑。</p>
+            <div className="mb-3 flex flex-wrap gap-3">{options.map(([key, label]) => <label key={key} className="flex items-center gap-1 text-xs">
+                <input type="checkbox" checked={fields.includes(key)} disabled={!analysis[key]} onChange={(event) => {
+                    const selected = event.target.checked ? key === "prompt" ? ["prompt"] : [...fields.filter((field) => field !== "prompt"), key] : fields.filter((field) => field !== key);
+                    const content = options.filter(([field]) => selected.includes(field)).map(([field, title]) => field === "prompt" ? analysis[field] : `${title}：${analysis[field]}`).join("\n\n");
+                    onConfigChange(node.id, { referenceFields: selected, content });
+                }} />{label}
+            </label>)}</div>
+            <textarea aria-label="输出到下游的逆向文案" className="h-40 w-full resize-y rounded-lg border p-2 text-sm" style={{ background: theme.node.fill, borderColor: theme.node.stroke, color: theme.node.text }} value={node.metadata.content || ""} onChange={(event) => onConfigChange(node.id, { content: event.target.value })} />
+        </div>;
+    }
 
     return (
         <div
@@ -96,7 +121,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                     <Select
                         className="min-w-0 flex-1"
                         value={imageFeature}
-                        options={XIAOHA_IMAGE_FEATURE_OPTIONS.map((option) => ({
+                        options={workspaceImageFeatureOptions.map((option) => ({
                             value: option.value,
                             label: `${option.label}${option.requiresReference ? " · 需参考图" : ""}`,
                         }))}
@@ -119,6 +144,13 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                 </div>
             ) : null}
 
+            {node.metadata?.psdFile ? <Button className="mb-2" onClick={async () => {
+                const url = await resolveMediaUrl(node.metadata?.psdFile?.storageKey);
+                if (url) saveAs(await (await fetch(url)).blob(), `${node.title || "A-plus"}.psd`);
+            }}>下载分层PSD</Button> : null}
+            {isXiaohaImage && isAPlusFeature(imageFeature) ? <p className="mb-2 text-xs" style={{ color: theme.node.text }}>
+                {isReferenceReverse ? "上传一张图片或连接一个图片节点，输出可编辑的逆向文案；多张图请分别添加反推节点。" : isReferenceCompose ? "把多份逆向文案连入此节点，自由选择各自的背景、主体、装饰等内容后组合生图。不发送参考图。" : "按连接顺序读取图片；第1张为主体/底稿，后续为参考或卖点。沃尔玛转换只连接1张完整A+。"}
+            </p> : null}
             <CanvasResourceMentionTextarea
                 value={prompt}
                 references={mentionReferences}
@@ -126,7 +158,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                 onSubmit={submit}
                 className="thin-scrollbar h-24 w-full resize-none rounded-xl border px-3 py-2 text-sm leading-5 outline-none"
                 style={{ background: theme.node.fill, borderColor: theme.node.stroke, color: theme.node.text }}
-                placeholder={promptPlaceholder(mode, hasImageContent, hasTextContent, imageFeature, imageFeatureOption.label, hasRequiredReference)}
+                placeholder={promptPlaceholder(mode, hasInputImage, hasTextContent, imageFeature, imageFeatureOption.label, hasRequiredReference)}
             />
 
             <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
@@ -134,7 +166,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                     {!isXiaohaImage ? <CanvasPromptLibrary onSelect={updatePrompt} /> : (
                         <span className="truncate text-xs opacity-60">{hasRequiredReference ? imageFeatureOption.label : "请先连接参考图"}</span>
                     )}
-                    {mode === "video" ? (
+                    {isXiaohaImage && isAPlusFeature(imageFeature) ? <span className="text-xs opacity-60">{isReferenceReverse ? "视觉反推" : "Nano Banana 2.1"}</span> : mode === "video" ? (
                         <>
                             <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability="video" onMissingConfig={() => openConfigDialog(true)} />
                             <CanvasVideoSettingsPopover config={config} buttonClassName="!h-10 !max-w-[170px] !justify-start !rounded-full !px-3" onConfigChange={(key, value) => onConfigChange(node.id, videoConfigPatch(key, value))} />
@@ -154,7 +186,7 @@ export function CanvasNodePromptPanel({ node, isRunning, onPromptChange, onConfi
                     danger={isRunning}
                     disabled={!isRunning && !canSubmit}
                     onClick={() => (isRunning ? onStop(node.id) : submit())}
-                    aria-label={isRunning ? "停止生成" : "生成"}
+                    aria-label={isRunning ? "停止生成" : isReferenceReverse ? "反推文案" : isReferenceCompose ? "组合生图" : "生成"}
                 >
                     <span className="flex items-center gap-1.5">
                         {isRunning ? (
@@ -213,6 +245,8 @@ function promptPlaceholder(
 ) {
     if (mode === "video") return "描述要生成的视频内容";
     if (mode === "audio") return "描述要生成的音频内容";
+    if (mode === "image" && imageFeature === "reference_compose") return "可选：补充构图、风格或画面文案要求；连入的文本会一起参与生成";
+    if (mode === "image" && imageFeature === "reference_reverse") return "可选：填写这张图的分析侧重点";
     if (mode === "image" && !hasImageContent) return "请先上传或生成一张待处理原图";
     if (mode === "image" && !hasRequiredReference) return `${featureLabel}需要把至少 1 张参考图连接到当前图片节点`;
     if (imageFeature === "modelHd") return "可选：补充模特高清要求；人物、肤色、色调和构图会保持不变";

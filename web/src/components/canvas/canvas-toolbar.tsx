@@ -1,3 +1,6 @@
+import { A_PLUS_IMAGE_FEATURE_OPTIONS } from "@/services/api/xiaoha";
+import type { CanvasXiaohaImageFeature } from "@/types/canvas";
+import { isAPlusWorkspace } from "@/lib/canvas/workspace";
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode, RefObject } from "react";
 import { useRef, useState } from "react";
 import { Button, Segmented, Switch } from "antd";
@@ -19,6 +22,7 @@ export function CanvasToolbar({
     onAddText,
     onAddConfig,
     onAddModelHd,
+    onAddAPlus,
     onAddGroup,
     onUndo,
     onRedo,
@@ -41,6 +45,7 @@ export function CanvasToolbar({
     onAddText: () => void;
     onAddConfig: () => void;
     onAddModelHd: () => void;
+    onAddAPlus: (feature: CanvasXiaohaImageFeature) => void;
     onAddGroup: () => void;
     onUndo: () => void;
     onRedo: () => void;
@@ -142,7 +147,13 @@ export function CanvasToolbar({
             {modulesOpen ? (
                 <div className="pointer-events-auto absolute bottom-[72px] z-30 w-[286px] -translate-x-1/2 rounded-xl border p-2.5 shadow-xl backdrop-blur" style={{ left: "50%", background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.toolbar.item }}>
                     <div className="px-1 pb-2 text-sm font-medium opacity-65">功能模块</div>
-                    <button
+                    {A_PLUS_IMAGE_FEATURE_OPTIONS.map((option) => (
+                        <button key={option.value} type="button" className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm"
+                            style={{ color: theme.toolbar.activeText }} onClick={() => { onAddAPlus(option.value); setModulesOpen(false); }}>
+                            <Sparkles className="size-4" />{option.label}
+                        </button>
+                    ))}
+                    {!isAPlusWorkspace ? <button
                         type="button"
                         className="flex w-full cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-left transition"
                         style={{ background: theme.toolbar.itemHover, borderColor: theme.toolbar.border, color: theme.toolbar.activeText }}
@@ -156,7 +167,7 @@ export function CanvasToolbar({
                             <strong className="block text-sm">模特高清</strong>
                             <span className="mt-1 block text-xs leading-5 opacity-60">Nano Banana 2.1 锁定人物、肤色与构图，只提升清晰度</span>
                         </span>
-                    </button>
+                    </button> : null}
                 </div>
             ) : null}
 

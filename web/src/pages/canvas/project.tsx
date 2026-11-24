@@ -1,3 +1,4 @@
+import { canvasWorkspaceTitle } from "@/lib/canvas/workspace";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent as ReactChangeEvent, DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -7,6 +8,9 @@ import { saveAs } from "file-saver";
 import { requestEdit, requestGeneration, requestImageQuestion } from "@/services/api/image";
 import {
     DEFAULT_MODEL_HD_METHOD,
+    isAPlusFeature,
+    requestXiaohaAPlusFeature,
+    requestXiaohaReferenceNode,
     DEFAULT_XIAOHA_IMAGE_FEATURE,
     getXiaohaImageFeatureOption,
     IMAGE_PROCESSING_MODEL_OPTIONS,
@@ -892,6 +896,23 @@ function InfiniteCanvasPage() {
         setDialogNodeId(moduleNode.id);
     }, [getCanvasCenter]);
 
+    const createAPlusModule = useCallback((feature: import("@/types/canvas").CanvasXiaohaImageFeature) => {
+        const compose = feature === "reference_compose";
+        const sources = nodesRef.current.filter((node) => selectedNodeIdsRef.current.has(node.id) && node.type === (compose ? CanvasNodeType.Text : CanvasNodeType.Image) && node.metadata?.content);
+        const groups = feature === "reference_reverse" && sources.length ? sources.map((source) => [source]) : [sources];
+        const center = getCanvasCenter();
+        const modules = groups.map((inputs, index) => {
+            const node = createCanvasNode(CanvasNodeType.Image, { x: center.x, y: center.y + index * 350 }, { imageFunction: feature, model: "gemini-nano-banana-2.1", status: NODE_STATUS_IDLE, prompt: "" });
+            node.title = getXiaohaImageFeatureOption(feature).label;
+            return { node, inputs };
+        });
+        setNodes((prev) => [...prev, ...modules.map(({ node }) => node)]);
+        setConnections((prev) => [...prev, ...modules.flatMap(({ node, inputs }) => inputs.map((source) => ({ id: nanoid(), fromNodeId: source.id, toNodeId: node.id })))]);
+        setSelectedNodeIds(new Set(modules.map(({ node }) => node.id)));
+        setSelectedConnectionId(null);
+        setDialogNodeId(modules[0].node.id);
+    }, [getCanvasCenter]);
+
     const deleteNodes = useCallback(
         (ids: Set<string>) => {
             if (!ids.size) return;
@@ -1128,7 +1149,7 @@ function InfiniteCanvasPage() {
     }, [applyHistory]);
 
     const createAndOpenProject = useCallback(() => {
-        const id = createProject(`无限画布 ${useCanvasStore.getState().projects.length + 1}`);
+        const id = createProject(`${canvasWorkspaceTitle} ${useCanvasStore.getState().projects.length + 1}`);
         navigate(`/canvas/${id}${navigationQuery}`);
     }, [createProject, navigate, navigationQuery]);
 
@@ -1261,7 +1282,7 @@ function InfiniteCanvasPage() {
         if (wasClick && clickedNodeId) {
             const clickedNode = nodesRef.current.find((node) => node.id === clickedNodeId);
             if (clickedNode?.type === CanvasNodeType.Text) {
-                setDialogNodeId((current) => (current === clickedNodeId ? current : null));
+                setDialogNodeId((current) => clickedNode.metadata?.referenceAnalysis ? clickedNodeId : current === clickedNodeId ? current : null);
             } else if (clickedNode?.type !== CanvasNodeType.Group) {
                 setDialogNodeId(clickedNodeId);
             }
@@ -2155,6 +2176,7 @@ function InfiniteCanvasPage() {
                 : sourceNode?.metadata?.imageFunction && sourceNode.metadata.imageFunction !== "generate"
                   ? sourceNode.metadata.imageFunction
                   : DEFAULT_XIAOHA_IMAGE_FEATURE;
+            const isReferenceNode = imageFeature === "reference_reverse" || imageFeature === "reference_compose";
             const imageFeatureOption = getXiaohaImageFeatureOption(imageFeature);
             const modelHdMethod = sourceNode?.metadata?.modelHdMethod || DEFAULT_MODEL_HD_METHOD;
             const sourceImage: ReferenceImage | undefined = isXiaohaImage && sourceNode?.metadata?.content
@@ -2173,7 +2195,7 @@ function InfiniteCanvasPage() {
                 ? connectedSourceImages.slice(0, 1)
                 : sourceImage
                   ? [sourceImage, ...connectedSourceImages.filter((image) => image.id !== sourceImage.id)]
-                  : [];
+                  : isAPlusFeature(imageFeature) ? connectedSourceImages : [];
             if (!isXiaohaImageRequest && !isAiConfigReady(generationConfig, generationConfig.model)) {
                 openConfigDialog(true);
                 return;
@@ -2191,7 +2213,7 @@ function InfiniteCanvasPage() {
             );
             const generationContext = isXiaohaImageRequest ? rawGenerationContext : await hydrateNodeGenerationContext(rawGenerationContext);
             const detectionImages = isXiaohaImageRequest ? xiaohaSourceImages : generationContext.referenceImages;
-            if (detectionImages.length) {
+            if (detectionImages.length && !isReferenceNode) {
                 try {
                     const result = await detectPublicFigures(detectionImages, runController.signal);
                     if (result.detected) {
@@ -2216,7 +2238,7 @@ function InfiniteCanvasPage() {
                 setRunningNodeId(null);
                 return;
             }
-            const markSourceStatus = sourceNode?.type !== CanvasNodeType.Image && !editingTextNode;
+            const markSourceStatus = isReferenceNode || (sourceNode?.type !== CanvasNodeType.Image && !editingTextNode);
             const statusPrompt = sourceNode?.type === CanvasNodeType.Config ? effectivePrompt : prompt;
             if (!effectivePrompt && (mode === "text" || mode === "audio")) {
                 finishGenerationRequest(nodeId, runController);
@@ -2227,6 +2249,39 @@ function InfiniteCanvasPage() {
             if (markSourceStatus) setNodes((prev) => prev.map((node) => (node.id === nodeId ? { ...node, metadata: { ...node.metadata, prompt: statusPrompt, status: NODE_STATUS_LOADING, errorDetails: undefined } } : node)));
 
             try {
+                if (isReferenceNode) {
+                    const analyze = imageFeature === "reference_reverse";
+                    const textInputs = buildNodeGenerationInputs(nodeId, nodesRef.current, connectionsRef.current).filter((input) => input.type === "text");
+                    if (analyze && xiaohaSourceImages.length !== 1) throw new Error("每个反推节点只接收一张图片，请分别创建节点");
+                    if (!analyze && !textInputs.length) throw new Error("请把逆向文案节点连接到组合节点");
+                    const id = nanoid();
+                    const type = analyze ? CanvasNodeType.Text : CanvasNodeType.Image;
+                    const output = createCanvasNode(type, {
+                        x: (sourceNode?.position.x || 0) + (sourceNode?.width || 300) + 96,
+                        y: sourceNode?.position.y || 0,
+                    }, { status: NODE_STATUS_LOADING, referenceSourceNodeId: nodeId, prompt: effectivePrompt });
+                    output.position = { x: (sourceNode?.position.x || 0) + (sourceNode?.width || 300) + 96, y: sourceNode?.position.y || 0 };
+                    output.id = id;
+                    output.title = analyze ? `${sourceNode?.title || "参考图"} · 逆向文案` : "文案组合结果";
+                    pendingChildIds = [id];
+                    setNodes((prev) => [...prev.map((node) => node.id === nodeId ? { ...node, metadata: { ...node.metadata, status: NODE_STATUS_LOADING, errorDetails: undefined } } : node), output]);
+                    setConnections((prev) => [...prev, { id: nanoid(), fromNodeId: nodeId, toNodeId: id }]);
+                    setSelectedNodeIds(new Set([id]));
+                    setSelectedConnectionId(null);
+                    startGenerationRequest(id, nodeId, nodeId, runController);
+                    const response = await requestXiaohaReferenceNode(analyze ? "analyze" : "generate", analyze ? xiaohaSourceImages : [], effectivePrompt, runController.signal);
+                    if (runController.signal.aborted) return;
+                    const uploaded = !analyze ? await uploadImage(response.images![0]) : null;
+                    const imageSize = uploaded ? fitNodeSize(uploaded.width, uploaded.height, NODE_DEFAULT_SIZE[CanvasNodeType.Image].width, NODE_DEFAULT_SIZE[CanvasNodeType.Image].height) : {};
+                    setNodes((prev) => prev.map((node) => node.id === id ? {
+                        ...node, ...imageSize, metadata: { ...node.metadata,
+                            ...(uploaded ? imageMetadata(uploaded) : { content: response.text, referenceAnalysis: response.analysis, referenceFields: ["prompt"] }),
+                            status: NODE_STATUS_SUCCESS, errorDetails: undefined,
+                        },
+                    } : node.id === nodeId ? { ...node, metadata: { ...node.metadata, status: NODE_STATUS_SUCCESS, errorDetails: undefined } } : node));
+                    if (analyze) setDialogNodeId(id);
+                    return;
+                }
                 if (isXiaohaImageRequest) {
                     if (!xiaohaSourceImages.length) throw new Error(isModelHdModule ? "请先把 1 张待处理原图连接到模特高清模块" : "请先在图片节点中上传或生成一张待处理原图");
                     if (imageFeatureOption.requiresReference && xiaohaSourceImages.length < 2) {
@@ -2235,7 +2290,7 @@ function InfiniteCanvasPage() {
                     const outputId = nanoid();
                     const imageConfig = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
                     const parentPosition = sourceNode?.position || { x: 0, y: 0 };
-                    const featurePrompt = isModelHdModule ? (sourceNode?.metadata?.composerContent ?? sourceNode?.metadata?.prompt ?? "").trim() : prompt.trim();
+                    const featurePrompt = isModelHdModule ? (sourceNode?.metadata?.composerContent ?? sourceNode?.metadata?.prompt ?? "").trim() : isAPlusFeature(imageFeature) ? effectivePrompt : prompt.trim();
                     const modelLabel = (imageFeature === "modelHd" ? MODEL_HD_METHOD_OPTIONS : IMAGE_PROCESSING_MODEL_OPTIONS).find((option) => option.value === modelHdMethod)?.label;
                     const actionLabel = imageFeatureOption.fixedEngine || !modelLabel ? imageFeatureOption.label : `${imageFeatureOption.label} · ${modelLabel}`;
                     const outpaintSettings = {
@@ -2286,25 +2341,37 @@ function InfiniteCanvasPage() {
                     setSelectedConnectionId(null);
                     const controller = startGenerationRequest(outputId, nodeId, nodeId, runController);
                     try {
-                        const image = await requestXiaohaImageFeature(
+                        const aPlusResult = isAPlusFeature(imageFeature) ? await requestXiaohaAPlusFeature(xiaohaSourceImages, imageFeature, featurePrompt, controller.signal) : null;
+                        const outputImages = aPlusResult?.images || [await requestXiaohaImageFeature(
                             xiaohaSourceImages,
                             imageFeature,
                             featurePrompt,
                             controller.signal,
                             modelHdMethod,
                             outpaintSettings,
-                        );
-                        const uploaded = await uploadImage(image);
+                        )];
+                        const uploaded = await uploadImage(outputImages[0]);
+                        const psdFile = aPlusResult?.psdUrl ? await uploadMediaFile(aPlusResult.psdUrl, "psd") : undefined;
                         const imageSize = fitNodeSize(uploaded.width, uploaded.height, imageConfig.width, imageConfig.height);
                         setNodes((prev) =>
                             prev.map((node) =>
                                 node.id === outputId
-                                    ? { ...node, width: imageSize.width, height: imageSize.height, metadata: { ...node.metadata, ...imageMetadata(uploaded) } }
+                                    ? { ...node, width: imageSize.width, height: imageSize.height, metadata: { ...node.metadata, ...imageMetadata(uploaded), psdFile } }
                                     : node.id === nodeId
                                         ? { ...node, metadata: { ...node.metadata, status: NODE_STATUS_SUCCESS, errorDetails: undefined } }
                                       : node,
                             ),
                         );
+                        for (const [index, image] of outputImages.slice(1).entries()) {
+                            const extra = await uploadImage(image);
+                            const size = fitNodeSize(extra.width, extra.height, imageConfig.width, imageConfig.height);
+                            const extraId = nanoid();
+                            setNodes((prev) => [...prev, { id: extraId, type: CanvasNodeType.Image,
+                                title: `${actionLabel} · 第${index + 2}张`,
+                                position: { x: parentPosition.x + (sourceNode?.width || imageConfig.width) + 96, y: parentPosition.y + (index + 1) * (imageConfig.height + 80) },
+                                width: size.width, height: size.height, metadata: { ...imageMetadata(extra), imageFunction: imageFeature, model: "gemini-nano-banana-2.1", sourceTitle } }]);
+                            setConnections((prev) => [...prev, { id: nanoid(), fromNodeId: nodeId, toNodeId: extraId }]);
+                        }
                         message.success(`${actionLabel}处理完成`);
                     } finally {
                         finishGenerationRequest(outputId, controller);
@@ -2598,6 +2665,7 @@ function InfiniteCanvasPage() {
                 );
             } finally {
                 finishGenerationRequest(nodeId, runController);
+                pendingChildIds.forEach((id) => finishGenerationRequest(id, runController));
                 setRunningNodeId(null);
             }
         },
@@ -2609,6 +2677,13 @@ function InfiniteCanvasPage() {
 
     const handleRetryNode = useCallback(
         async (node: CanvasNodeData) => {
+            const referenceSource = node.metadata?.referenceSourceNodeId
+                ? nodesRef.current.find((item) => item.id === node.metadata?.referenceSourceNodeId)
+                : node;
+            if (referenceSource?.metadata?.imageFunction === "reference_reverse" || referenceSource?.metadata?.imageFunction === "reference_compose") {
+                await generateNodeRef.current?.(referenceSource.id, "image", referenceSource.metadata?.prompt || "");
+                return;
+            }
             const sourceNode = findRetrySourceNode(node.id, nodesRef.current, connectionsRef.current) || node;
             const batchRoot = node.metadata?.batchRootId ? nodesRef.current.find((item) => item.id === node.metadata?.batchRootId) : null;
             const savedImageMetadata = node.type === CanvasNodeType.Image ? { ...batchRoot?.metadata, ...node.metadata } : undefined;
@@ -2728,6 +2803,18 @@ function InfiniteCanvasPage() {
             }
             const sourceNode = nodesRef.current.find((item) => item.id === node.id);
             if (!sourceNode) return;
+            if (sourceNode.metadata?.referenceAnalysis) {
+                const module = createCanvasNode(CanvasNodeType.Image, { x: 0, y: 0 }, { imageFunction: "reference_compose", status: NODE_STATUS_IDLE, prompt: "" });
+                module.position = { x: sourceNode.position.x + sourceNode.width + 96, y: sourceNode.position.y };
+                module.title = "文案组合生图";
+                const inputs = nodesRef.current.filter((item) => item.type === CanvasNodeType.Text && item.metadata?.content && (selectedNodeIdsRef.current.has(item.id) || item.id === sourceNode.id));
+                setNodes((prev) => [...prev, module]);
+                setConnections((prev) => [...prev, ...inputs.map((item) => ({ id: nanoid(), fromNodeId: item.id, toNodeId: module.id }))]);
+                setSelectedNodeIds(new Set([module.id]));
+                setSelectedConnectionId(null);
+                setDialogNodeId(module.id);
+                return;
+            }
             const nodeSize = getNodeSpec(CanvasNodeType.Config);
             const configNode = createCanvasNode(
                 CanvasNodeType.Config,
@@ -2830,7 +2917,7 @@ function InfiniteCanvasPage() {
                     onCancelTitleEditing={() => setTitleEditing(false)}
                     canUndo={historyState.canUndo}
                     canRedo={historyState.canRedo}
-                    onHome={() => navigate(`/${navigationQuery}`)}
+                    onHome={() => navigate(`/canvas${navigationQuery}`)}
                     onProjects={() => navigate(`/canvas${navigationQuery}`)}
                     onCreateProject={createAndOpenProject}
                     onDeleteProject={deleteCurrentProject}
@@ -3049,6 +3136,7 @@ function InfiniteCanvasPage() {
                     onAddText={() => createNode(CanvasNodeType.Text)}
                     onAddConfig={() => createNode(CanvasNodeType.Config)}
                     onAddModelHd={createModelHdModule}
+                    onAddAPlus={createAPlusModule}
                     onAddGroup={() => createNode(CanvasNodeType.Group)}
                     onUndo={undoCanvas}
                     onRedo={redoCanvas}

@@ -37,11 +37,24 @@ export type CanvasXiaohaImageFeature =
     | "pupil_color_change"
     | "eye_shape_change"
     | "three_view"
-    | "ai_qa_image";
+    | "ai_qa_image"
+    | "main_image_a_plus"
+    | "a_plus_reference_lab"
+    | "a_plus_style_model_replace"
+    | "a_plus_first_screen_selling_points"
+    | "amazon_to_walmart_a_plus"
+    | "a_plus_hero_style_reverse"
+    | "amazon_a_plus"
+    | "reference_reverse"
+    | "reference_compose";
 export type CanvasImageFunction = "generate" | CanvasXiaohaImageFeature;
 export type CanvasModelHdMethod = "nano-banana-2" | "seedream-5-pro";
 
 export type CanvasNodeMetadata = {
+    referenceAnalysis?: Record<string, string>;
+    referenceFields?: string[];
+    referenceSourceNodeId?: string;
+    psdFile?: { storageKey: string };
     content?: string;
     composerContent?: string;
     prompt?: string;
