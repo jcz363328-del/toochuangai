@@ -353,6 +353,9 @@ def _current_user_has_permission(function_name, user_id=None):
 
 
 def _can_access_ai_workspace():
+    if is_local_superadmin() and session.get('feishu_user_id') and not getattr(g, 'permission_debug_state', None) and not session.get('permission_debug_user_open_id'):
+        g.can_access_ai_workspace = True
+        return True
     cached = getattr(g, 'can_access_ai_workspace', None)
     if cached is not None:
         return cached

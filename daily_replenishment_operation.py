@@ -21,7 +21,7 @@ from openpyxl.comments import Comment
 
 import daily_replenishment as base
 import sellfox_purchase
-from department_permissions import require_permission
+from department_permissions import require_permission, is_local_superadmin
 from bjc import dui_db
 from tools import escape_sql_literal
 
@@ -49,6 +49,11 @@ def _normalized_store(value: Any) -> str:
 
 def get_store_permissions(user_name: str, *, query_executor=base.sf_db) -> dict[str, Any]:
     """按飞书用户名读取 DianQuanXian：2=阅读，1=增删改。"""
+    if has_request_context() and is_local_superadmin() and session.get('feishu_user_id') and not getattr(g, 'permission_debug_state', None) and not session.get('permission_debug_user_open_id'):
+        rows = query_executor("SELECT DISTINCT Dian FROM dbo.DianQuanXian WHERE Dian IS NOT NULL") or []
+        stores = {_normalized_store(row[0] if isinstance(row, (list, tuple)) else row) for row in rows}
+        stores.discard('')
+        return {"read_stores": stores, "write_stores": stores, "can_write": True}
     normalized_name = str(user_name or "").split("（", 1)[0].strip()
     if not normalized_name:
         return {"read_stores": set(), "write_stores": set(), "can_write": False}

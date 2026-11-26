@@ -1352,7 +1352,7 @@ class FeishuPermissionManager:
         debug_user = self._get_debug_user_from_session()
         # 本地超级管理员用于联调时没有真实的 AI 部归属，但仍应能够切换到
         # 权限调试页选择的部门，否则页面权限和专项承接部门判定会出现分歧。
-        can_use_debug = 'AI部' in real_departments or is_local_superadmin()
+        can_use_debug = bool({'AI部', '流程与AI部'}.intersection(real_departments)) or is_local_superadmin() or isinstance(getattr(g, 'permission_debug_state', None), dict)
         if can_use_debug and (debug_departments or debug_user.get('name')):
             return list(debug_departments), True
         return real_departments, False
@@ -1862,7 +1862,7 @@ class FeishuPermissionManager:
 
     def check_user_permission(self, user_id, function_name):
         """按“部门优先、个人补充、子功能只向上点亮父级”检查权限。"""
-        if user_id and is_local_superadmin():
+        if user_id and is_local_superadmin() and not self._get_debug_user_from_session().get('open_id'):
             return True, '本地开发最高权限'
         function_name = str(function_name or "").strip()
         records = self.get_permission_records()
@@ -2106,7 +2106,7 @@ class FeishuPermissionManager:
         直接命中的子功能会向上补齐父级导航，但不会向下放开兄弟节点。
         """
         records = self.get_permission_records()
-        if user_id and is_local_superadmin():
+        if user_id and is_local_superadmin() and not self._get_debug_user_from_session().get('open_id'):
             return [
                 dict(function_name=name, name=row.get('name') or name,
                      description=row.get('description') or '',

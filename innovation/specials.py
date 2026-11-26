@@ -8,7 +8,7 @@ import math
 import os
 import uuid
 
-from flask import jsonify, render_template, request, session, url_for
+from flask import jsonify, render_template, request, session, url_for, g
 
 from bjc import dui_db, sf_db
 from innovation.special_support import (
@@ -78,16 +78,17 @@ def _media_urls(value):
 
 
 def _current_user() -> dict[str, str]:
-    raw_department = session.get('user_department')
+    state = getattr(g, 'permission_debug_state', None) or {}
+    raw_department = state.get('departments') if state else session.get('user_department')
     if isinstance(raw_department, (list, tuple, set)):
         department = ', '.join(str(item or '').strip() for item in raw_department if str(item or '').strip())
     else:
         department = str(raw_department or '').strip()
     return {
-        'user_id': str(session.get('feishu_user_id') or '').strip(),
-        'user_name': _get_current_feishu_user_name(),
+        'user_id': str(state.get('user_open_id') or session.get('feishu_user_id') or '').strip(),
+        'user_name': state.get('user_name') or _get_current_feishu_user_name(),
         'department': department or get_special_user_department(str(session.get('feishu_user_id') or '')),
-        'avatar': str(session.get('feishu_avatar') or '').strip(),
+        'avatar': '' if state else str(session.get('feishu_avatar') or '').strip(),
     }
 
 
