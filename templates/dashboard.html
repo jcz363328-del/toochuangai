@@ -620,6 +620,7 @@
         const allowedFunctions = new Set({{ (dashboard_allowed_functions or [])|tojson }});
         const permissionByMenu = Object.freeze({
             '日常补货': 'daily_replenishment',
+            '智能补货中心-AI版': 'replenishment_vben',
             '智能补货中心-运营': 'daily_replenishment_operation',
             '智能补货中心-亚马逊': 'daily_replenishment_operation',
             '智能补货中心-Tiktok': 'daily_replenishment_tiktok',

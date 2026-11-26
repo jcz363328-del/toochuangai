@@ -17,6 +17,7 @@ def _joined(values):
 
 
 CORE_PARENT_MAP = {
+    "replenishment_vben": "ai_dept",
     "video_claw": "ai_dept",
     "daily_replenishment": "ai_dept",
     "daily_replenishment_tiktok": "tk_project_group",

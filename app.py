@@ -6,7 +6,7 @@ import asyncio
 import concurrent.futures
 import time
 from threading import Lock, Thread
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory, send_file, g, stream_with_context
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, send_from_directory, send_file, g, stream_with_context, abort
 from openai import OpenAI
 from datetime import datetime, timedelta, date
 from collections import Counter
@@ -50,6 +50,7 @@ from bjc import sf_db, dui_db
 from innovation.message_service import MessageService
 from innovation.pending_reminder import innovation_pending_reminder
 from tk_customer_service_reminder import tk_customer_service_tracking_reminder
+from lunch_push import lunch_push
 from shenzhen_total import compute_shenzhen_expenses
 from knowledge_base_service import knowledge_base_bp, kb_service
 from feishu_skill_bridge import bootstrap_lark_cli_skills_env, get_skill_root_candidates
@@ -4969,6 +4970,10 @@ def check_feishu_user():
             tk_customer_service_tracking_reminder.start()
         except Exception:
             pass
+        try:
+            lunch_push.start()
+        except Exception:
+            app.logger.exception('订餐推送线程启动失败')
     _safe_debug_print(f"\n=== 请求中间件检查 ===")
     _safe_debug_print(f"请求路径: {request.path}")
     _safe_debug_print(f"请求端点: {request.endpoint}")
@@ -18342,6 +18347,7 @@ def ai_modules():
         user_name=user_name,
         can_ai_full=has_permission('admin_functions'),
         can_daily_replenishment=has_permission('daily_replenishment'),
+        can_replenishment_vben=has_permission('replenishment_vben'),
         can_group_performance=has_permission('ai_group_performance'),
         can_business_analysis=has_permission('business_analysis'),
         can_ads_monitor=has_permission('ads_monitor'),
@@ -18352,6 +18358,85 @@ def ai_modules():
         can_model_library=has_permission('model_library'),
         can_model_queue=has_permission('model_queue'),
     )
+
+@app.route('/ai/lunch-push')
+def lunch_push_page():
+    if not _can_access_ai_workspace():
+        return '仅AI部成员可访问AI部功能。', 403
+    from lunch_push import GROUPS, next_trigger
+    return render_template('lunch_push.html', groups=GROUPS,
+        next_run=next_trigger().strftime('%Y-%m-%d %H:%M'),
+        enabled=env('TC_BACKGROUND_JOBS', '1') == '1' and env('LUNCH_PUSH_ENABLED', '1') == '1')
+
+
+@app.route('/api/ai/lunch-push', methods=['GET', 'POST'])
+def lunch_push_api():
+    if not _can_access_ai_workspace():
+        return jsonify(success=False, message='仅AI部成员可访问AI部功能。'), 403
+    try:
+        if request.method == 'POST':
+            payload = request.get_json(silent=True) or {}
+            if payload.get('action') not in ('test', 'send'):
+                return jsonify(success=False, message='不支持的操作'), 400
+            result = lunch_push.run_once(test=payload['action'] == 'test')
+            success = all(item['status'] != 'failed' for item in result)
+            return jsonify(success=success, results=result), 200 if success else 502
+        entries = lunch_push.preview()
+        for entry in entries:
+            entry.pop('card', None)
+            if entry['image']:
+                entry['image'] = url_for('lunch_push_image', filename=entry['image'])
+        return jsonify(success=True, entries=entries, records=lunch_push.records(),
+                       scheduler_error=lunch_push.last_error)
+    except Exception:
+        app.logger.exception('订餐推送操作失败')
+        return jsonify(success=False, message='订餐推送操作失败，请查看服务日志。'), 500
+
+
+@app.route('/api/ai/lunch-push/image/<filename>')
+def lunch_push_image(filename):
+    if not _can_access_ai_workspace():
+        return '无权访问', 403
+    from lunch_push import now_local
+    if filename not in {f'{scope}_{meal}_grid.png' for scope in ('all', 'tk') for meal in ('堂食', '盒饭')}:
+        abort(404)
+    path = lunch_push.storage / 'images' / now_local().date().isoformat() / filename
+    if not path.is_file():
+        abort(404)
+    response = send_file(path, mimetype='image/png', max_age=0)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/ai/replenishment-vben')
+@require_permission('replenishment_vben')
+def replenishment_vben_page():
+    if not _can_access_ai_workspace():
+        return '仅AI部成员可访问AI部功能。', 403
+    response = send_file(os.path.join(app.static_folder, 'replenishment-vben', 'index.html'), max_age=0)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/api/ai/replenishment-vben/config')
+@require_permission('replenishment_vben')
+def replenishment_vben_config():
+    if not _can_access_ai_workspace():
+        return jsonify(success=False, message='仅AI部成员可访问AI部功能。'), 403
+    import daily_replenishment_operation as operation
+    _, access = operation.scoped_query_executor(operation._current_user_name())
+    response = jsonify(success=True, can_write=bool(access.get('can_write')),
+        write_stores=sorted(access.get('write_stores') or []),
+        user_name=session.get('feishu_user_name', ''),
+        data_url=url_for('daily_replenishment_operation.data'),
+        quantity_url=url_for('daily_replenishment_operation.update_order_quantities'),
+        refresh_url=url_for('daily_replenishment_operation.refresh'),
+        purchase_url=url_for('daily_replenishment_operation.purchase_plan'),
+        trend_url=url_for('daily_replenishment_operation.sales_trend'),
+        sea_url=url_for('daily_replenishment_operation.sea_shipping_recommendations'))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
 
 @app.route('/ai/video-claw', defaults={'subpath': ''}, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
 @app.route('/ai/video-claw/<path:subpath>', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
@@ -21767,6 +21852,7 @@ if __name__ == '__main__':
         _start_xiaotu_report_reminder_thread_once()
         innovation_pending_reminder.start()
         tk_customer_service_tracking_reminder.start()
+        lunch_push.start()
     app.run(debug=debug_mode, host='127.0.0.1' if local_superadmin else '0.0.0.0', port=8000, use_reloader=False)
 # 飞书原生视频消息接口的上传限制低于大文件上传需求，超过约 30MB 会被接口拒绝。
 FEISHU_NATIVE_VIDEO_MAX_BYTES = 30 * 1024 * 1024

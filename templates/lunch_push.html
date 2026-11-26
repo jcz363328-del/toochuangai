@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>每日订餐推送</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#1e293b;font:15px/1.6 'Microsoft YaHei',sans-serif}main{max-width:1150px;margin:28px auto;padding:0 20px}a{color:#2563eb;text-decoration:none}header{display:flex;justify-content:space-between;align-items:center}h1{font-size:26px;margin:8px 0}h2{font-size:18px;margin:0 0 10px}.panel,.card{background:white;border:1px solid #dbe2eb;border-radius:12px;padding:20px;margin:16px 0}.muted{color:#64748b}.routes{display:grid;grid-template-columns:1fr 1fr;gap:16px}.routes p{margin:6px 0}.actions{display:flex;gap:10px;flex-wrap:wrap}button{padding:10px 18px;border:1px solid #cbd5e1;border-radius:7px;background:white;color:#334155;cursor:pointer}button.primary{background:#2563eb;color:white;border-color:#2563eb}button:disabled{opacity:.5;cursor:wait}#status{min-height:28px;margin:12px 0;color:#334155}.cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}.card{padding:0;overflow:hidden;margin:0}.card h2{padding:12px 16px;background:#1e40af;color:white;font-size:17px}.card.tk h2{background:#a34d09}.card p{margin:12px 16px}.card img{width:100%;display:block;padding:0 14px 14px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:9px;border:1px solid #dbe2eb;text-align:left}th{background:#eef2f8}.scroll{overflow:auto}.error{color:#b91c1c}@media(max-width:760px){.routes,.cards{grid-template-columns:1fr}header{align-items:start;gap:12px}}
+</style></head><body><main>
+<header><div><h1>每日订餐推送</h1><span class="muted">当天订餐数据 · 部门汇总 · 每人一格</span></div><a href="{{ url_for('ai_modules') }}">返回AI部功能</a></header>
+<section class="panel"><h2>每天 09:25 自动推送</h2>
+<p>北京时间（周末同样执行）。每次实时查询当天已确认订餐，排除教师。</p>
+<p class="muted">{{ '自动推送已启用' if enabled else '自动推送未启用，请检查服务配置' }} · 下次计划：{{ next_run }}（北京时间）</p>
+<div class="routes">{% for scope, group in groups.items() %}<div><strong>{{ '整体堂食 / 整体盒饭' if scope == 'all' else 'TK堂食 / TK盒饭' }}</strong><p>{{ group[0] }}</p></div>{% endfor %}</div>
+<p class="muted">整体名单包含 TK；TK 按原部门“内容生产工厂”筛选。无订餐时发送空名单提示。当天成功发送的卡片不会重复发送；失败会在 10:00 前自动重试，最多 5 次。</p>
+<div class="actions"><button class="primary" id="refresh">刷新今日预览</button><button id="test">测试发给周俊成</button><button id="send">补发今日群消息</button></div>
+<p class="muted">补发仅处理未成功发送的卡片。测试消息与正式群消息分别记录，每天各发送一次。</p></section>
+<div id="status" role="status" aria-live="polite"></div><div class="cards" id="cards"></div>
+<section class="panel"><h2>最近发送记录</h2><div class="scroll"><table><thead><tr><th>时间</th><th>范围</th><th>形式</th><th>接收方</th><th>人数</th><th>状态</th><th>尝试</th><th>错误</th></tr></thead><tbody id="records"></tbody></table></div></section>
+</main><script>
+const endpoint={{ url_for('lunch_push_api')|tojson }};
+const groupNames={{ groups|tojson }};
+function node(tag,text){const el=document.createElement(tag);el.textContent=text;return el;}
+async function requestData(options){const response=await fetch(endpoint,options);const data=await response.json();if(!response.ok||!data.success)throw Error(data.message||JSON.stringify(data.results||'操作失败'));return data;}
+function busy(value){document.querySelectorAll('button').forEach(b=>b.disabled=value);}
+async function refresh(){
+ const data=await requestData();const cards=document.getElementById('cards');cards.replaceChildren();
+ data.entries.forEach(entry=>{const card=document.createElement('section');card.className='card '+entry.scope;card.append(node('h2',`今日${entry.scope==='tk'?'TK':'整体'}${entry.meal}订餐名单`));card.append(node('p',`订餐总人数：${entry.count} 人`));card.append(node('p','发送到：'+entry.group));if(entry.image){const img=document.createElement('img');img.src=entry.image+'?t='+Date.now();img.alt='部门人数和人员分格名单';card.append(img);}else{card.append(node('p','今日暂无订餐人员'));}cards.append(card);});
+ const records=document.getElementById('records');records.replaceChildren();data.records.forEach(row=>{const tr=document.createElement('tr');const recipient=row.recipient.startsWith('ou_')?'周俊成（测试）':groupNames[row.scope][0];[row.updated_at.slice(0,19).replace('T',' '),row.scope==='tk'?'TK':'整体',row.meal,recipient,row.count,row.status==='sent'?'已发送':'失败',row.attempts,row.error||'—'].forEach(v=>tr.append(node('td',v)));records.append(tr);});
+ if(data.scheduler_error)throw Error('定时推送异常：'+data.scheduler_error);
+}
+async function act(action){busy(true);const status=document.getElementById('status');status.textContent=action?'正在查询并发送…':'正在读取今日数据…';try{if(action){const data=await requestData({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});const sent=data.results.filter(x=>x.status==='sent').length;status.textContent=`完成：发送 ${sent} 张，其余已发送或达到重试上限。`;}await refresh();if(!action)status.textContent='今日预览已更新';}catch(error){status.textContent=error.message;status.className='error';}finally{busy(false);}}
+document.getElementById('refresh').onclick=()=>act();document.getElementById('test').onclick=()=>act('test');document.getElementById('send').onclick=()=>act('send');act();
+</script></body></html>

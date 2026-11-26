@@ -225,6 +225,11 @@ PERMISSION_CONFIG = {
         'allowed_departments': ['AI部'],
         'description': 'AI功能卡片中的日常补货工作台，仅允许 AI部访问'
     },
+    'replenishment_vben': {
+        'name': '智能补货中心-AI版',
+        'allowed_departments': ['AI部', '流程与AI部'],
+        'description': 'AI部独立Vue补货中心，按店铺权限查看库存和逐行动态销量走势'
+    },
     'daily_replenishment_operation': {
         'name': '智能补货中心-亚马逊',
         'allowed_departments': ['运营部', 'AI部', '总经办'],

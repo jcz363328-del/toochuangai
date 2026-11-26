@@ -70,10 +70,20 @@ class PosterFusionTests(unittest.TestCase):
         self.assertIn('禁止直接拼贴', call.call_args.kwargs['prompt'])
         self.assertEqual(result['images'], ['one'])
 
+    def test_two_and_three_images_reach_provider_without_padding(self):
+        for count in (2, 3):
+            with self.subTest(count=count):
+                files = [{'name': str(i)} for i in range(count)]
+                call = Mock(return_value={'images': ['result']})
+                api = SimpleNamespace(NANO_BANANA_MODEL='model', call_openrouter_images_api=call)
+                fusion.run_job(api, {'uploaded_files': files})
+                self.assertEqual(call.call_args.kwargs['uploaded_files'], files)
+                self.assertNotIn('恰好4张', call.call_args.kwargs['prompt'])
+
     def test_missing_or_extra_reference_never_calls_provider(self):
         call = Mock()
         api = SimpleNamespace(NANO_BANANA_MODEL='model', call_openrouter_images_api=call)
-        for count in [0, 1, 3, 5]:
+        for count in [0, 1, 5]:
             with self.subTest(count=count), self.assertRaises(ValueError):
                 fusion.run_job(api, {'uploaded_files': [{}] * count})
         call.assert_not_called()
@@ -131,6 +141,7 @@ def reset(key):
     st.session_state[state_key] = st.session_state.get(state_key, 0) + 1
 def submit(feature, context):
     st.session_state['submitted'] = context
+    st.session_state['submit_count'] = st.session_state.get('submit_count', 0) + 1
 api = SimpleNamespace(st=st, NANO_BANANA_MODEL='test',
     normalize_uploaded_input=normalize,
     load_upload_cache=lambda key, **kw: st.session_state.upload_cache.get(key, []),
@@ -166,10 +177,20 @@ if current == '海报融合':
         app.radio(key='test_feature').set_value('海报融合').run()
         self.assertFalse(next(b for b in app.button if b.key == "poster_fusion_generate").disabled)
         self.assertEqual(len(app.session_state['upload_cache']), 4)
-        for missing in ['poster_fusion_primary', 'poster_fusion_reference_2', 'poster_fusion_reference_3', 'poster_fusion_reference_4']:
+        # Optional reference slots may be empty, including gaps in slot order.
+        for key, expected in [('poster_fusion_reference_2', 3), ('poster_fusion_reference_3', 2)]:
+            app.button(key='clear_upload_' + key).click().run()
+            before_count = app.session_state['submit_count']
+            app.button(key='poster_fusion_generate').click().run()
+            self.assertEqual(app.session_state['submit_count'], before_count + 1)
+            self.assertEqual(len(app.session_state['submitted']['uploaded_files']), expected)
+            self.assertIn('primary', app.session_state['submitted']['uploaded_files'][0]['name'])
+        for missing in ['poster_fusion_reference_4', 'poster_fusion_primary']:
             app.button(key='clear_upload_' + missing).click().run()
-            self.assertTrue(next(b for b in app.button if b.key == "poster_fusion_generate").disabled)
-            self.assertNotIn(missing, app.session_state['upload_cache'])
+            before_count = app.session_state['submit_count']
+            app.button(key='poster_fusion_generate').click().run()
+            self.assertTrue(any("请先补齐素材" in warning.value for warning in app.warning))
+            self.assertEqual(app.session_state['submit_count'], before_count)
         self.assertFalse(list(app.exception))
 
 

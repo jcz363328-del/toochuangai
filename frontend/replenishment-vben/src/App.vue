@@ -1,0 +1,110 @@
+<script setup lang="ts">
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { Button, ConfigProvider, Drawer, Input, InputNumber, Modal, Select, Switch, Tag, Tooltip, message } from 'ant-design-vue';
+import CountTo from './vendor/count-to.vue';
+import SalesTrend from './SalesTrend.vue';
+type Row = { id:string; index:number; operator:string; afterDays?:number; writable?:boolean; trend?:{date:string;qty:number}[]; trendError?:boolean; recommended?:boolean; sku: string; name: string; store: string; status: string; ocean: boolean; sales: number; fba: number; domestic: number; transit: number; days: number; suggested: number; quantity: number; price: number };
+const demo = location.hostname==='127.0.0.1' && new URLSearchParams(location.search).get('demo')==='1';
+const rows = ref<Row[]>(demo ? Array.from({length: 36}, (_, i) => {
+  const sales = [18.6,12.4,9.8,14.6,6.8,2.1][i%6]!;
+  const days = [0,8,22,28,18,60][i%6]!;
+  const quantity = [720,480,360,600,240,0][i%6]!;
+  return {id:String(i),index:i,operator:'演示运营',writable:true,trend:Array.from({length:15},(_,d)=>({date:`2026-11-${String(9+d).padStart(2,'0')}`,qty:Math.max(0,Math.round(sales*(.55+(Math.sin(d*.7+i)+1)*.35)))})),sku: `TC-${1024+i*112}`, name: ['抽屉收纳盒','桌面置物架','厨房密封罐','衣柜收纳篮','浴室置物架','桌面收纳盒'][i%6]!, store: i%3 ? '美国一店':'美国二店', status: ['断货','低库存','待下单','待下单','待下单','清货'][i%6]!, ocean: i%3===1, sales, days, fba: Math.round(sales*days), domestic: 240+i*20, transit: i%4===0 ? 120:0, suggested: quantity, quantity, price: [12,26,18,16,24,9][i%6]! };
+}) : []);
+const baseline = ref(Object.fromEntries(rows.value.map(r => [r.id,r.quantity])));
+const query = ref(''), status = ref('全部'), store = ref('全部店铺'), page = ref(1), busy = ref(false), selected = ref<string[]>([]), active = ref<Row>(), drawer = ref(false), plan = ref(false), params = ref(false), columnsOpen = ref(false), showDomestic = ref(true), collapsed = ref(false), compact = ref(false);
+const targetDays = ref(45), leadDays = ref(15), safetyDays = ref(7), updated = ref('09:30:00');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const filters = ['全部','断货','低库存','待下单','清货','海运 SKU','推荐海运'];
+const count = (s:string) => rows.value.filter(r => s==='全部' || (s==='海运 SKU' ? r.ocean : s==='推荐海运' ? (demo ? !r.ocean && r.sales>20 : r.recommended) : r.status===s)).length;
+const filtered = computed(() => rows.value.filter(r => (status.value==='全部' || (status.value==='海运 SKU' ? r.ocean : status.value==='推荐海运' ? (demo ? !r.ocean && r.sales>20 : r.recommended) : r.status===status.value)) && (store.value==='全部店铺' || r.store===store.value) && `${r.sku} ${r.name}`.toLowerCase().includes(query.value.toLowerCase())));
+const visible = computed(() => filtered.value.slice((page.value-1)*10,page.value*10));
+const pages = computed(() => Math.max(1,Math.ceil(filtered.value.length/10)));
+const dirty = computed(() => rows.value.filter(r=>r.quantity!==baseline.value[r.id]));
+const total = computed(()=> rows.value.reduce((s,r)=>s+r.quantity,0));
+const chosen = computed(()=>rows.value.filter(r=>selected.value.includes(r.id)));
+const chosenTotal = computed(()=>chosen.value.reduce((s,r)=>s+r.quantity,0));
+const amount = computed(()=>chosen.value.reduce((s,r)=>s+r.quantity*r.price,0));
+function setStatus(s:string) { status.value=s;page.value=1; }
+function toggle(r:Row) { selected.value=selected.value.includes(r.id) ? selected.value.filter(s=>s!==r.id): [...selected.value,r.id]; }
+function toggleAll(e:Event) { const checked=(e.target as HTMLInputElement).checked; selected.value=checked ? [...new Set([...selected.value,...visible.value.map(r=>r.id)])] : selected.value.filter(s=>!visible.value.some(r=>r.id===s)); }
+function undo() { rows.value.forEach(r=>r.quantity=baseline.value[r.id]);message.info('已撤销未同步修改'); }
+async function sync() { await saveQuantities(); }
+async function refresh() {
+ if(dirty.value.length){message.warning('请先同步或撤销修改');return;}
+ if(demo){busy.value=true;await new Promise(r=>setTimeout(r,900));busy.value=false;replay.value++;message.success('演示数据已刷新');return;}
+ if(!canWrite.value)return;
+ busy.value=true;
+ try {const task=await api(config.value.refresh_url,{method:'POST'});let result=task;
+  if(task.jobId){for(let i=0;i<300;i++){await new Promise(r=>setTimeout(r,1500));if(!mounted)return;result=await api(task.status_url || `${config.value.refresh_url}/${encodeURIComponent(task.jobId)}`);if(result.sheets)break;if(result.status==='failed')throw Error(result.message||'刷新失败');} }
+  if(!result.sheets)throw Error('生成任务仍在处理，请稍后点“重新加载”');applyPayload(result);message.success('补货快照已刷新');
+ }catch(e){message.error(String(e instanceof Error?e.message:e));}finally{busy.value=false;}
+}
+function inspect(r:Row) {active.value=r;drawer.value=true;}
+function exportCsv(planOnly=false) { const data=planOnly?chosen.value:filtered.value;const csv='\uFEFFSKU,店铺,状态,海运,订货量\n'+data.map(r=>[r.sku,r.store,r.status,r.ocean?'是':'否',r.quantity].join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=planOnly?'演示采购计划.csv':'补货视图.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000); }
+const config=ref<any>({}),canWrite=ref(demo),loadError=ref(''),replay=ref(0),saving=ref(false);
+let mounted=true,trendRequest=0;
+async function api(url:string,init:RequestInit={}){const response=await fetch(url,{credentials:'same-origin',cache:'no-store',...init});const body=await response.json().catch(()=>({message:'登录已失效或服务器返回非JSON响应'}));if(!response.ok||body.success===false)throw Error(body.message||`请求失败 ${response.status}`);return body;}
+function applyPayload(payload:any){
+ const sheet=payload.sheets?.['日常补货'];if(!sheet)throw Error('快照缺少日常补货工作表');
+ const columns=sheet.columns||[];const idx=(name:string)=>columns.indexOf(name);
+ const get=(row:any[],name:string)=>idx(name)<0?undefined:row[idx(name)];const n=(value:any)=>Number(value)||0;
+ const history=payload.sheets?.['近15天销量'];const trendMap=new Map<string,any[]>((history?.rows||[]).map((r:any[])=>[String(r[0]),(history.columns||[]).slice(1).map((date:string,i:number)=>({date,qty:n(r[i+1])}))]));
+ const recommendations=new Set((payload.sheets?.['推荐海运']?.rows||[]).map((r:any[])=>String(r[0])));
+ rows.value=(sheet.rows||[]).map((row:any[],index:number)=>{const sku=String(get(row,'SKU')||'');const marks=new Set(Object.values(sheet.styles?.[String(index)]||{}).flat());const sales=n(get(row,'日均销量')),domestic=n(get(row,'总库存')),fba=n(get(row,'FBA可售量')),transit=n(get(row,'待到货')),days=n(get(row,'含待到货量的可售天数')),quantity=n(get(row,'订货量')),store=String(get(row,'店铺')||'');return {id:String(index),index,sku,operator:String(get(row,'运营')||''),name:String(get(row,'分类')||''),store,sales,domestic,fba,transit,days,quantity,suggested:quantity,afterDays:n(get(row,'订货后可售天数')),price:0,ocean:marks.has('mark-ocean'),status:marks.has('mark-clearance')?'清货':domestic+fba+transit===0&&sales>0?'断货':sales>0&&days<30||marks.has('mark-low-stock')?'低库存':quantity>0?'待下单':'正常',writable:canWrite.value&&(config.value.write_stores||[]).includes(store),recommended:recommendations.has(sku),trend:trendMap.get(sku)};});
+ baseline.value=Object.fromEntries(rows.value.map(r=>[r.id,r.quantity]));selected.value=[];page.value=1;active.value=undefined;drawer.value=false;
+ updated.value=payload.snapshot?.modified_at||'已载入';loadError.value='';replay.value++;
+ if(!history)void loadTrends();
+}
+async function loadTrends(){const requestId=++trendRequest;for(let offset=0;offset<rows.value.length;offset+=200){if(!mounted||requestId!==trendRequest)return;const batch=rows.value.slice(offset,offset+200);try{const response=await api(config.value.trend_url+'?'+new URLSearchParams({skus:[...new Set(batch.map(r=>r.sku))].join(',')}));if(requestId!==trendRequest)return;batch.forEach(r=>r.trend=response.series?.[r.sku]);}catch{batch.forEach(r=>r.trendError=true);}}}
+async function load(){if(dirty.value.length){message.warning('请先同步或撤销修改');return;}busy.value=true;try{if(!demo){config.value=await api('/api/ai/replenishment-vben/config');canWrite.value=config.value.can_write;applyPayload(await api(config.value.data_url));}}catch(e){loadError.value=e instanceof Error?e.message:String(e);}finally{busy.value=false;}}
+async function saveQuantities(){if(demo){baseline.value=Object.fromEntries(rows.value.map(r=>[r.id,r.quantity]));message.success('演示：已同步');return;}if(!canWrite.value||!dirty.value.length)return;saving.value=true;try{const response=await api(config.value.quantity_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({changes:dirty.value.map(r=>({index:r.index,sku:r.sku,store:r.store,operator:r.operator,quantity:r.quantity}))})});applyPayload(response);message.success('订货量已保存');}catch(e){message.error(e instanceof Error?e.message:String(e));}finally{saving.value=false;}}
+async function downloadPlan(){if(demo){exportCsv(true);plan.value=false;return;}if(!canWrite.value)return;try{const response=await fetch(config.value.purchase_url,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:chosen.value.filter(r=>r.quantity>10&&r.writable).map(r=>({index:r.index,quantity:r.quantity}))})});if(!response.ok){const err=await response.json();throw Error(err.message||'采购计划导出失败');}const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download='下单导入.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);plan.value=false;baseline.value=Object.fromEntries(rows.value.map(r=>[r.id,r.quantity]));await load();}catch(e){message.error(e instanceof Error?e.message:String(e));}}
+async function addOcean(){try{if(!demo){await api(config.value.sea_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skus:chosen.value.map(r=>r.sku)})});await load();}else{chosen.value.forEach(r=>r.ocean=true);selected.value=[];}message.success('已加入海运管理');}catch(e){message.error(e instanceof Error?e.message:String(e));}}
+onMounted(load);onBeforeUnmount(()=>{mounted=false;trendRequest++;});
+
+</script>
+
+<template>
+<ConfigProvider :theme="{token:{colorPrimary:'#3166e8',borderRadius:6,fontFamily:'Inter, Microsoft YaHei, sans-serif',fontSize:14},components:{Button:{controlHeight:34},Input:{controlHeight:34}}}">
+<div class="shell" :class="{collapsed,compact}">
+ <aside class="sidebar">
+  <div class="brand"><span class="brandmark">T</span><span class="navtext">图创 AI<span class="brand-sub">运营工作台</span></span></div>
+  <div class="nav-caption navtext">补货管理</div>
+  <button class="nav active" @click="setStatus('全部')"><span class="nav-icon">▦</span><span class="navtext">智能补货中心</span><span class="navtext nav-end">⌄</span></button>
+  <div class="nav-caption navtext">SKU 状态</div>
+  <button v-for="s in filters" :key="s" class="filter" :class="{selected:status===s}" @click="setStatus(s)"><span class="filter-mark" :class="{'ocean-dot':s==='海运 SKU'}"></span><span class="navtext">{{s}}</span><span class="navtext count">{{count(s)}}</span></button>
+  <div class="sidebar-note navtext"><span class="blue-key"></span>蓝色 SKU 为海运管理商品</div>
+  <div class="sidebar-bottom"><div class="avatar">运</div><div class="navtext">运营人员<small>演示工作空间</small></div></div>
+ </aside>
+ <section class="workspace">
+  <header class="header"><button class="icon-button" aria-label="收起导航" @click="collapsed=!collapsed">☰</button><span class="breadcrumb">运营管理 <span>/</span> 智能补货中心</span><div class="header-end"><span class="demo-pill">{{demo?'交互演示':'AI部工作台'}}</span><Tooltip title="调整显示密度"><button class="icon-button" @click="compact=!compact" aria-label="调整显示密度">☷</button></Tooltip><span class="avatar small">运</span></div></header>
+  <div class="tabbar"><span class="route-tab">智能补货中心 <span>·</span></span></div>
+  <main>
+   <div class="page-heading"><div><div class="eyebrow">INVENTORY WORKSPACE</div><h1>智能补货中心 <span>亚马逊</span></h1><p>近15天销量走势 · 库存洞察与补货决策</p></div><div class="actions"><Button @click="load">重新加载</Button><Button @click="replay++">重播走势</Button><Button :disabled="!canWrite || !dirty.length" :loading="saving" @click="sync">同步订货量 <span v-if="dirty.length" class="mini-count">{{dirty.length}}</span></Button><Button :disabled="!canWrite || !chosen.some(r=>r.quantity>10 && r.writable)" @click="plan=true">生成采购计划</Button><Button type="primary" :loading="busy" :disabled="!canWrite" @click="refresh">刷新数据</Button></div></div>
+   <div class="metadata"><span class="live-dot"></span> 数据已载入 <span class="divider">/</span> 今日 {{updated}} <span class="divider">/</span> 销量截止 11-23 <span class="divider">/</span> {{new Set(rows.map(r=>r.store)).size}} 家店铺 <span class="metadata-end">{{demo?'演示数据 · 不连接生产系统':(canWrite?'可编辑':'只读权限')}}</span></div>
+   <div v-if="loadError" class="load-error" role="alert">{{loadError}}<Button type="link" @click="load">重试</Button></div><section class="metrics">
+    <div class="metric"><span>参与计算 SKU</span><div class="metric-value"><CountTo :end-val="rows.length" :duration="900" :disabled="reduceMotion"/><small>个</small></div><span class="metric-note">当前店铺在售商品</span><span class="metric-icon">▦</span></div>
+    <div class="metric"><span>断货 / 低库存</span><div class="metric-value"><span class="danger">{{count('断货')}}</span><span class="slash">/</span><span class="warning">{{count('低库存')}}</span></div><span class="metric-note">优先关注库存风险</span><span class="metric-icon amber">!</span></div>
+    <div class="metric"><span>建议补货量</span><div class="metric-value"><CountTo :end-val="rows.reduce((s,r)=>s+r.suggested,0)" :duration="1100" :disabled="reduceMotion"/><small>件</small></div><span class="metric-note">目标覆盖 {{targetDays}} 天</span><span class="metric-icon">▤</span></div>
+    <div class="metric"><span>本次订货量</span><div class="metric-value"><CountTo :end-val="total" :duration="700" :disabled="reduceMotion"/><small>件</small></div><span class="metric-note">{{dirty.length ? `${dirty.length} 项修改待同步` : '所有修改已同步'}}</span><span class="metric-icon">✓</span></div>
+   </section>
+   <section class="data-panel">
+    <div class="sheet-tabs"><button class="sheet-tab selected" @click="setStatus('全部')">智能补货</button><button class="sheet-tab" @click="setStatus('海运 SKU')">海运 SKU <span>{{count('海运 SKU')}}</span></button><span class="sheet-tabs-end">订货口径 {{targetDays}} 天</span></div>
+    <div class="table-toolbar"><div class="table-title">补货明细 <span>{{filtered.length}} 个 SKU</span><Transition name="fade"><span v-if="dirty.length" class="pending">{{dirty.length}} 项待同步</span></Transition></div><div class="table-tools"><Input v-model:value="query" allow-clear placeholder="搜索 SKU / 产品名称" @change="page=1"><template #prefix><span class="search-icon">⌕</span></template></Input><Select v-model:value="store" :options="['全部店铺',...new Set(rows.map(r=>r.store))].map(value=>({value}))" @change="page=1"/><Tooltip title="显示或隐藏国内库存列"><Button @click="columnsOpen=!columnsOpen">列设置</Button></Tooltip><Button @click="exportCsv(false)">导出</Button></div></div>
+    <Transition name="fade"><div v-if="columnsOpen" class="column-settings">显示国内库存 <Switch v-model:checked="showDomestic" size="small"/><span>列设置仅影响当前视图</span></div></Transition>
+    <div class="table-scroll" :class="{refreshing:busy}"><div v-if="busy" class="refresh-line"></div><table><thead><tr><th class="check-col"><input type="checkbox" aria-label="选择本页" :checked="visible.length>0 && visible.every(r=>selected.includes(r.id))" @change="toggleAll"></th><th>商品 / SKU</th><th>店铺</th><th>状态</th><th class="num">日均销量</th><th class="trend-head">近15天销量走势</th><th class="num">FBA 库存</th><th v-if="showDomestic" class="num">国内库存</th><th class="num">在途</th><th class="num">可售天数</th><th class="num">建议订货</th><th class="num order-head">订货量</th><th class="num">订货后天数</th></tr></thead>
+     <TransitionGroup tag="tbody" name="row"><tr v-for="r in visible" :key="r.id" :class="{'checked-row':selected.includes(r.id)}"><td><input type="checkbox" :aria-label="`选择 ${r.sku}`" :checked="selected.includes(r.id)" @change="toggle(r)"></td><td><button class="sku-button" :class="{ocean:r.ocean}" @click="inspect(r)">{{r.sku}}</button><div class="product-name">{{r.name}}</div></td><td class="muted">{{r.store}}</td><td><Tag :bordered="false" :color="r.status==='断货'?'error':r.status==='低库存'?'warning':r.status==='清货'?'default':'success'">{{r.status}}</Tag></td><td class="num">{{r.sales.toFixed(1)}}</td><td class="trend-cell"><SalesTrend :values="r.trend" :ocean="r.ocean" :replay="replay" :error="r.trendError"/></td><td class="num">{{r.fba.toLocaleString()}}</td><td v-if="showDomestic" class="num">{{r.domestic.toLocaleString()}}</td><td class="num" :class="{muted:!r.transit}">{{r.transit||'—'}}</td><td class="num" :class="{danger:r.days===0,warning:r.days>0&&r.days<15}">{{r.days}} <small>天</small></td><td class="num">{{r.suggested.toLocaleString()}}</td><td class="num quantity-cell"><InputNumber v-model:value="r.quantity" :disabled="!r.writable || saving || busy" :min="0" :max="999999" :precision="0" :controls="false" :bordered="false" :aria-label="`${r.sku} 订货量`" @change="r.quantity=Math.max(0,Number(r.quantity)||0)" @keydown.esc="r.quantity=baseline[r.id]" @press-enter="($event.target as HTMLInputElement).blur()"/><Tooltip v-if="r.quantity!==baseline[r.id]" title="已修改，待同步；Esc 撤销"><span class="dirty-dot"></span></Tooltip></td><td class="num">{{r.sales>0?Math.round((r.domestic+r.fba+r.transit+r.quantity)/r.sales):'—'}} <small>天</small></td></tr></TransitionGroup>
+    </table><div v-if="!visible.length" class="empty">没有匹配的商品<Button type="link" @click="query='';store='全部店铺';setStatus('全部')">重置筛选</Button></div></div>
+    <footer class="table-footer"><span>显示 {{filtered.length?(page-1)*10+1:0}}–{{Math.min(page*10,filtered.length)}} 条，共 {{filtered.length}} 条</span><Button v-if="dirty.length" type="link" size="small" @click="undo">撤销修改</Button><span class="edit-hint">点击 SKU 查看明细 · 悬停曲线查看当日销量</span><div class="pagination"><button :disabled="page===1" @click="page--" aria-label="上一页">‹</button><button v-for="p in pages" :key="p" :class="{current:page===p}" @click="page=p">{{p}}</button><button :disabled="page===pages" @click="page++" aria-label="下一页">›</button></div></footer>
+   </section>
+   <Transition name="selection"><div v-if="selected.length" class="selection-bar"><span>已选 <b>{{selected.length}}</b> 个 SKU</span><span class="divider">|</span><span>订货合计 <b>{{chosenTotal.toLocaleString()}}</b> 件</span><Button type="link" @click="selected=[]">取消选择</Button><div class="selection-end"><Button v-if="status==='推荐海运' && canWrite" @click="addOcean">加入海运</Button><Button type="primary" :disabled="!canWrite || !chosen.some(r=>r.quantity>10 && r.writable)" @click="plan=true">预览采购计划</Button></div></div></Transition>
+   <div class="page-foot">基于 Vue Vben Admin · Vue 3 + Ant Design Vue <span>蓝色 SKU 表示海运商品</span></div>
+  </main>
+ </section>
+</div>
+<Drawer v-model:open="drawer" :width="480" title="SKU 明细" :destroy-on-close="true"><template v-if="active"><div class="detail-top"><div class="eyebrow">补货决策</div><h2 :class="{ocean:active.ocean}">{{active.sku}}</h2><p>{{active.name}} · {{active.store}}</p><Tag v-if="active.ocean" color="blue">海运管理</Tag><Tag>{{active.status}}</Tag></div><div class="detail-verdict"><span>建议订货</span><strong>{{active.suggested.toLocaleString()}} <small>件</small></strong><p>{{active.status==='清货'?'当前商品处于清货状态，建议不下单。':`按照 ${targetDays} 天目标覆盖，结合销量、可用库存与在途计算。`}}</p></div><div class="detail-grid"><div><span>日均销量</span><b>{{active.sales}}</b></div><div><span>FBA 库存</span><b>{{active.fba}}</b></div><div><span>在途数量</span><b>{{active.transit}}</b></div><div><span>可售天数</span><b>{{active.days}} 天</b></div></div><h3>本次订货</h3><div class="detail-edit"><InputNumber v-model:value="active.quantity" :disabled="!active.writable || saving || busy" :min="0" :max="999999" :precision="0" :controls="false" @change="active.quantity=Math.max(0,Number(active.quantity)||0)"/><span>件</span></div><p class="muted">修改会同步反映在主表，确认后请点击“同步订货量”。</p><div class="demo-note">销量走势来自近15天快照；蓝色 SKU 属于海运管理范围。</div></template></Drawer>
+<Modal v-model:open="plan" title="采购计划预览" :width="680" ok-text="导出采购计划" cancel-text="继续调整" @ok="downloadPlan"><div class="plan-summary"><div>已选 SKU<strong>{{chosen.length}}</strong></div><div>采购数量<strong>{{chosen.filter(r=>r.quantity>10&&r.writable).reduce((s,r)=>s+r.quantity,0).toLocaleString()}} 件</strong></div><div>导出规则<strong>订货量 &gt; 10 件</strong></div></div><div class="plan-list"><div v-for="r in chosen" :key="r.id"><span :class="{ocean:r.ocean}">{{r.sku}}</span><span>{{r.name}}</span><b>{{r.quantity}} 件</b></div></div><p class="demo-note">{{demo?'演示模式，仅导出CSV':'仅导出可写店铺且订货量大于10件的已选明细，生成原系统下单导入模板。'}}</p></Modal>
+<Modal v-model:open="params" title="运营参数" ok-text="应用到演示" cancel-text="关闭" @ok="params=false;message.info('已更新展示口径；演示建议量为固定样例，未执行真实算法')"><div class="param-row"><label>目标覆盖天数</label><InputNumber v-model:value="targetDays" :min="1" :max="180" :precision="0"/></div><div class="param-row"><label>采购交期</label><InputNumber v-model:value="leadDays" :min="1" :max="120" :precision="0"/></div><div class="param-row"><label>安全库存天数</label><InputNumber v-model:value="safetyDays" :min="0" :max="60" :precision="0"/></div><p class="demo-note">仅演示参数交互，不运行生产补货算法。</p></Modal>
+</ConfigProvider>
+</template>

@@ -507,21 +507,16 @@ class NaturalOutpaintTests(unittest.TestCase):
         self.assertNotIn("value / 50", consume_source)
         self.assertIn('"step": OUTPAINT_DRAG_STEP_PX', preview_source)
 
-    def test_outpaint_ui_exposes_exact_directional_pixel_inputs(self) -> None:
+    def test_outpaint_ui_uses_canvas_controls_and_docked_clear_button(self) -> None:
         render_source = inspect.getsource(site.render_openrouter_feature)
 
-        self.assertIn("最终输出尺寸（可直接输入）", render_source)
-        self.assertIn('"最终宽度（px）"', render_source)
-        self.assertIn('"最终高度（px）"', render_source)
-        self.assertIn('"应用目标尺寸"', render_source)
-        self.assertIn("requested_target_width - selected_source_width", render_source)
-        self.assertIn("requested_target_height - selected_source_height", render_source)
-        self.assertIn("精确扩展像素（可直接输入）", render_source)
-        self.assertIn('"上扩展（px）"', render_source)
-        self.assertIn('"下扩展（px）"', render_source)
-        self.assertIn('"左扩展（px）"', render_source)
-        self.assertIn('"右扩展（px）"', render_source)
-        self.assertIn("最终文件严格输出", render_source)
+        self.assertNotIn("最终输出尺寸（可直接输入）", render_source)
+        self.assertNotIn("精确扩展像素（可直接输入）", render_source)
+        self.assertNotIn('"应用目标尺寸"', render_source)
+        self.assertIn("show_clear_button=not supports_outpaint", render_source)
+        self.assertIn("with clear_col:", render_source)
+        self.assertIn("clear_upload_cache(upload_key)", render_source)
+        self.assertIn("reset_upload_widget(upload_key)", render_source)
         self.assertIn('"target_width": locked_target_width', render_source)
         self.assertIn('"target_height": locked_target_height', render_source)
 

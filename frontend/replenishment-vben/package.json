@@ -1,0 +1,1 @@
+{"name":"toochuang-replenishment-vben","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1 --port 5679","build":"vite build"},"dependencies":{"vue":"3.5.41","ant-design-vue":"4.2.6","@vueuse/core":"14.3.0"},"devDependencies":{"vite":"8.3.8","@vitejs/plugin-vue":"6.0.10","typescript":"6.0.3"}}

@@ -2138,15 +2138,15 @@ FEATURES = [
     {
         "key": "poster_fusion",
         "name": "海报融合",
-        "summary": "以第1张海报为主体，融合后3张风格与元素",
+        "summary": "以第1张海报为主体，融合1～3张参考图的风格与元素",
         "mode": "openrouter",
         "output_mode": "image",
-        "min_images": 4,
+        "min_images": 2,
         "max_input_images": 4,
         "max_output_images": 1,
         "fixed_output_count": 1,
-        "description": "1张主体海报与3张风格参考，自然融合光影、材质和装饰，生成一张丰富且连贯的海报。",
-        "default_prompt": "以第1张海报为主体，融合后3张的风格和辅助元素，统一光影与透视，禁止简单拼贴。",
+        "description": "1张主体海报与1～3张风格参考，自然融合光影、材质和装饰，生成一张丰富且连贯的海报。",
+        "default_prompt": "以第1张海报为主体，融合1～3张参考图的风格和辅助元素，统一光影与透视，禁止简单拼贴。",
     },
     {
         "key": MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
@@ -13325,6 +13325,8 @@ def inject_processing_transition() -> None:
 
 
 def inject_app_styles() -> None:
+    from 图片.action_dock import inject_action_dock_styles
+    inject_action_dock_styles(st)
     inject_processing_transition()
     st.markdown(
         """
@@ -19712,6 +19714,7 @@ def render_multi_image_uploader(
     preview_slot_count: int | None = None,
     allow_reorder: bool = False,
     preview_area_height: int | None = None,
+    show_clear_button: bool = True,
 ) -> list[Any]:
     cached_files = load_upload_cache(key, max_files=max_files)
     active_uploaded_files = cached_files
@@ -19741,7 +19744,7 @@ def render_multi_image_uploader(
         reset_upload_widget(key)
         st.rerun()
 
-    if st.button("清空上传", key=f"clear_upload_{key}", type="secondary"):
+    if show_clear_button and st.button("清空上传", key=f"clear_upload_{key}", type="secondary"):
         clear_upload_cache(key)
         reset_upload_widget(key)
         st.rerun()
@@ -20917,7 +20920,8 @@ def render_image_workbench_header(feature: dict[str, Any], badge: str = "AI 增�
     body:has(.workbench-page-marker) [data-testid="stPopoverButton"] {background:#101b31!important;color:#dce2f8!important;border:1px solid #303958!important;border-radius:9px!important;}
     .st-key-workbench_settings {background:#0c1529;border-color:#303958!important;}
     .st-key-workbench_action_dock {position:fixed;bottom:0;left:0;right:0;z-index:1000;background:rgba(12,20,40,.98);border-radius:0!important;padding:12px 28px!important;border-top:1px solid #3c4169!important;}
-    body:has(.workbench-page-marker) section[data-testid="stMain"] .block-container {padding-bottom:110px;}
+    body:has(.workbench-page-marker) section[data-testid="stMain"] .block-container {padding-bottom:130px!important;}
+    body:has(.workbench-page-marker) div[data-testid="stVerticalBlock"]:has(> :is([data-testid="stElementContainer"], [data-testid="element-container"]) .feature-workbench-left-marker) {padding-bottom:130px!important;scroll-padding-bottom:130px;}
     div[data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .workbench-right-marker) {height:100%;min-height:0;}
     [data-testid="stLayoutWrapper"]:has(> .st-key-workbench_results), .st-key-workbench_results {flex:1!important;min-height:420px;}
     .st-key-workbench_results > [data-testid="stElementContainer"]:has(.result-empty) {flex:1!important;height:100%;}
@@ -22526,12 +22530,13 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
             height=86,
             placeholder="例如：保留人物姿势只换背景；希望更高级、更冷色调；必须出现大理石台面。",
         )
-        analyze_clicked = st.button(
-            "① 逆向分析参考图",
-            key=f"analyze_{feature_key}",
-            type="primary",
-            use_container_width=True,
-        )
+        with action_dock:
+            analyze_clicked = st.button(
+                "① 逆向分析参考图",
+                key=f"analyze_{feature_key}",
+                type="primary",
+                use_container_width=True,
+            )
         if analyze_clicked:
             if reference_file is None:
                 st.warning("请先上传 1 张参考图。")
@@ -22571,11 +22576,12 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
             height=230,
             placeholder="分析完成后自动填入，也可以手动编写或调整。",
         )
-        optimize_clicked = st.button(
-            "智能优化与补充提示词",
-            key=f"optimize_{feature_key}",
-            use_container_width=True,
-        )
+        with action_dock:
+            optimize_clicked = st.button(
+                "智能优化与补充提示词",
+                key=f"optimize_{feature_key}",
+                use_container_width=True,
+            )
         if optimize_clicked:
             current_prompt = str(st.session_state.get(prompt_key) or "").strip()
             if not current_prompt:
@@ -22730,11 +22736,12 @@ def render_a_plus_hero_style_reverse_feature(feature: dict[str, Any]) -> None:
                 height=96,
                 placeholder="例如：光影更通透、色温偏冷、背景换成大理石台面、人物表情更自然。",
             )
-            refine_clicked = st.button(
-                "③ 以选中方案为基础二次优化生成",
-                key=f"refine_{feature_key}",
-                use_container_width=True,
-            )
+            with action_dock:
+                refine_clicked = st.button(
+                    "③ 以选中方案为基础二次优化生成",
+                    key=f"refine_{feature_key}",
+                    use_container_width=True,
+                )
             if refine_clicked:
                 refine_requirement = str(st.session_state.get(refine_key) or "").strip()
                 if not refine_requirement:
@@ -24089,13 +24096,14 @@ def render_prepress_check_feature(feature: dict[str, Any]) -> None:
         options=["自动识别 / 其他", "包装盒", "底卡", "信息贴"],
         key="prepress_material_type",
     )
-    run_clicked = st.button(
-        "开始印前检查",
-        type="primary",
-        use_container_width=True,
-        disabled=not bool(uploaded_files),
-        key="run_prepress_check",
-    )
+    with st.container(key="workbench_action_dock", border=True):
+        run_clicked = st.button(
+            "开始印前检查",
+            type="primary",
+            use_container_width=True,
+            disabled=not bool(uploaded_files),
+            key="run_prepress_check",
+        )
     if run_clicked:
         session_key = f"web-{uuid4().hex}"
         try:
@@ -24480,9 +24488,6 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
             outpaint_left_key = f"outpaint_left_{feature['key']}"
             outpaint_right_key = f"outpaint_right_{feature['key']}"
             outpaint_drag_mode_key = f"outpaint_drag_mode_v2_{feature['key']}"
-            outpaint_target_width_key = f"outpaint_target_width_{feature['key']}"
-            outpaint_target_height_key = f"outpaint_target_height_{feature['key']}"
-            outpaint_target_sync_key = f"outpaint_target_sync_{feature['key']}"
             if supports_outpaint:
                 outpaint_defaults_key = f"outpaint_defaults_{OUTPAINT_MAX_CANVAS_MULTIPLIER}x_{OUTPAINT_DEFAULT_EXTENSION_PX}_{feature['key']}"
                 if not st.session_state.get(outpaint_defaults_key):
@@ -24531,6 +24536,7 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                 max_files=BATCH_MULTI_IMAGE_MAX_FILES,
                 preview_renderer=outpaint_preview_renderer,
                 preview_slot_count=1 if supports_outpaint else None,
+                show_clear_button=not supports_outpaint,
             )
             if supports_remove_eyelashes:
                 preserve_basic_eyelashes = st.checkbox(
@@ -24569,176 +24575,8 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                         st.session_state[outpaint_bottom_key] = outpaint_bottom_px
                         st.session_state[outpaint_left_key] = outpaint_left_px
                         st.session_state[outpaint_right_key] = outpaint_right_px
-                        direction_limits = get_outpaint_extension_limits(batch_source_files[0])
-                        selected_source_width, selected_source_height = get_uploaded_input_dimensions(
-                            batch_source_files[0]
-                        )
-                        current_target_width, current_target_height = get_outpaint_target_canvas_size(
-                            batch_source_files[0],
-                            outpaint_top_px,
-                            outpaint_bottom_px,
-                            outpaint_left_px,
-                            outpaint_right_px,
-                        )
-                        target_sync_value = (
-                            f"{source_signature}:{current_target_width}x{current_target_height}"
-                        )
-                        if st.session_state.get(outpaint_target_sync_key) != target_sync_value:
-                            st.session_state[outpaint_target_width_key] = current_target_width
-                            st.session_state[outpaint_target_height_key] = current_target_height
-                            st.session_state[outpaint_target_sync_key] = target_sync_value
-
-                        st.markdown(
-                            '<div class="panel-subtitle">最终输出尺寸（可直接输入）</div>',
-                            unsafe_allow_html=True,
-                        )
-                        target_width_col, target_height_col, apply_target_col = st.columns(
-                            [1, 1, 0.72]
-                        )
-                        with target_width_col:
-                            requested_target_width = int(
-                                st.number_input(
-                                    "最终宽度（px）",
-                                    min_value=selected_source_width,
-                                    max_value=selected_source_width * OUTPAINT_MAX_CANVAS_MULTIPLIER,
-                                    step=1,
-                                    key=outpaint_target_width_key,
-                                )
-                            )
-                        with target_height_col:
-                            requested_target_height = int(
-                                st.number_input(
-                                    "最终高度（px）",
-                                    min_value=selected_source_height,
-                                    max_value=selected_source_height * OUTPAINT_MAX_CANVAS_MULTIPLIER,
-                                    step=1,
-                                    key=outpaint_target_height_key,
-                                )
-                            )
-                        with apply_target_col:
-                            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-                            apply_exact_target = st.button(
-                                "应用目标尺寸",
-                                key=f"apply_outpaint_target_{feature['key']}",
-                                use_container_width=True,
-                            )
-                        if apply_exact_target:
-                            def split_extension(
-                                total_extension: int,
-                                first_current: int,
-                                second_current: int,
-                                side_limit: int,
-                            ) -> tuple[int, int]:
-                                current_total = first_current + second_current
-                                first_share = (
-                                    first_current / float(current_total)
-                                    if current_total > 0
-                                    else 0.5
-                                )
-                                first_value = int(round(total_extension * first_share))
-                                first_value = max(0, min(side_limit, first_value))
-                                second_value = total_extension - first_value
-                                if second_value > side_limit:
-                                    second_value = side_limit
-                                    first_value = total_extension - second_value
-                                return first_value, second_value
-
-                            horizontal_extension = requested_target_width - selected_source_width
-                            vertical_extension = requested_target_height - selected_source_height
-                            outpaint_left_px, outpaint_right_px = split_extension(
-                                horizontal_extension,
-                                outpaint_left_px,
-                                outpaint_right_px,
-                                int(direction_limits["left"]),
-                            )
-                            outpaint_top_px, outpaint_bottom_px = split_extension(
-                                vertical_extension,
-                                outpaint_top_px,
-                                outpaint_bottom_px,
-                                int(direction_limits["top"]),
-                            )
-                            st.session_state[outpaint_top_key] = outpaint_top_px
-                            st.session_state[outpaint_bottom_key] = outpaint_bottom_px
-                            st.session_state[outpaint_left_key] = outpaint_left_px
-                            st.session_state[outpaint_right_key] = outpaint_right_px
-                            st.session_state[outpaint_target_sync_key] = (
-                                f"{source_signature}:{requested_target_width}x{requested_target_height}"
-                            )
-                            st.rerun()
-
-                        st.markdown(
-                            '<div class="panel-subtitle">精确扩展像素（可直接输入）</div>',
-                            unsafe_allow_html=True,
-                        )
-                        top_input_col, bottom_input_col, left_input_col, right_input_col = st.columns(4)
-                        with top_input_col:
-                            outpaint_top_px = int(
-                                st.number_input(
-                                    "上扩展（px）",
-                                    min_value=0,
-                                    max_value=int(direction_limits["top"]),
-                                    step=1,
-                                    key=outpaint_top_key,
-                                )
-                            )
-                        with bottom_input_col:
-                            outpaint_bottom_px = int(
-                                st.number_input(
-                                    "下扩展（px）",
-                                    min_value=0,
-                                    max_value=int(direction_limits["bottom"]),
-                                    step=1,
-                                    key=outpaint_bottom_key,
-                                )
-                            )
-                        with left_input_col:
-                            outpaint_left_px = int(
-                                st.number_input(
-                                    "左扩展（px）",
-                                    min_value=0,
-                                    max_value=int(direction_limits["left"]),
-                                    step=1,
-                                    key=outpaint_left_key,
-                                )
-                            )
-                        with right_input_col:
-                            outpaint_right_px = int(
-                                st.number_input(
-                                    "右扩展（px）",
-                                    min_value=0,
-                                    max_value=int(direction_limits["right"]),
-                                    step=1,
-                                    key=outpaint_right_key,
-                                )
-                            )
-                        outpaint_top_px, outpaint_bottom_px, outpaint_left_px, outpaint_right_px = clamp_outpaint_extensions(
-                            batch_source_files[0],
-                            outpaint_top_px,
-                            outpaint_bottom_px,
-                            outpaint_left_px,
-                            outpaint_right_px,
-                        )
-                        selected_target_width, selected_target_height = get_outpaint_target_canvas_size(
-                            batch_source_files[0],
-                            outpaint_top_px,
-                            outpaint_bottom_px,
-                            outpaint_left_px,
-                            outpaint_right_px,
-                        )
-                        st.caption(
-                            "提交尺寸已锁定："
-                            f"原图 {selected_source_width}×{selected_source_height}px ＋ "
-                            f"上 {outpaint_top_px}px、下 {outpaint_bottom_px}px、"
-                            f"左 {outpaint_left_px}px、右 {outpaint_right_px}px；"
-                            f"最终文件严格输出 {selected_target_width}×{selected_target_height}px。"
-                        )
                     except Exception:
                         pass
-                st.caption(
-                    "默认使用“调整扩图范围”：拖动紫色边线或四角会实时改变目标画布尺寸和比例；"
-                    "切换到“移动原图位置”后只调整 X/Y 坐标，目标宽高和比例保持不变。"
-                    "提交精度为 1px，原图不缩放、不拉伸。"
-                )
         elif supports_image_smart_analysis:
             st.markdown('<div class="panel-subtitle">待分析主图（1 张）</div>', unsafe_allow_html=True)
             uploaded_file = render_single_image_uploader(
@@ -25769,7 +25607,16 @@ def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio:
                             format_func=get_model_display_name, key=f"model_select_{feature['key']}",
                         )
             with shared_action_dock:
-                status_col, action_col = st.columns([2, 1], vertical_alignment="center")
+                if supports_outpaint:
+                    status_col, clear_col, action_col = st.columns([2, 0.5, 1], vertical_alignment="center")
+                    with clear_col:
+                        upload_key = f"batch_uploader_{feature['key']}"
+                        if st.button("清空上传", key=f"clear_upload_{upload_key}", type="secondary", use_container_width=True):
+                            clear_upload_cache(upload_key)
+                            reset_upload_widget(upload_key)
+                            st.rerun()
+                else:
+                    status_col, action_col = st.columns([2, 1], vertical_alignment="center")
                 with status_col:
                     st.caption(f"{feature['name']} · {'任务处理中，可继续加入队列' if has_active_job else '设置完成后开始处理'}")
                 with action_col:

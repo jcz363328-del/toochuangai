@@ -451,6 +451,13 @@
             <h3 class="directory-heading"><i class="fas fa-layer-group"></i>功能模块</h3>
             <p class="directory-copy">按需选择功能，快速进入对应工作台</p>
         <div class="modules-grid">
+            <div class="module-card">
+                <div class="module-icon"><i class="fas fa-utensils"></i></div>
+                <h3>每日订餐推送</h3>
+                <p>每天北京时间 9:25，将当天堂食、盒饭名单分别推送到公司群与内容生产工厂群。</p>
+                <ul class="feature-list"><li>部门人数汇总与人员分格名单</li><li>查看今日预览和发送记录</li><li>支持测试与失败补发，避免重复发送</li></ul>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('lunch_push_page') }}">查看订餐推送</a></div>
+            </div>
             {% if can_historical_sales %}
             <div class="module-card" data-permission="historical_sales" data-allowed="true">
                 <div class="coming-soon-badge">NEW</div>
@@ -477,6 +484,14 @@
                 <div style="text-align:center;margin-top:20px"><a href="{{ url_for('value_evaluation.admin_page') }}" style="display:inline-block;background:linear-gradient(135deg,#0f766e,#2563eb);color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600"><i class="fas fa-gear"></i> 进入管理</a></div>
             </div>
             {% endif %}
+            <div class="module-card" data-permission="replenishment_vben" data-allowed="{{ 'true' if can_replenishment_vben else 'false' }}">
+                <div class="coming-soon-badge">NEW</div>
+                <div class="module-icon"><i class="fas fa-chart-line"></i></div>
+                <h3>智能补货中心-AI版</h3>
+                <p>Vue 补货工作台，逐条查看近15天销量动态走势</p>
+                <ul class="feature-list"><li>销量曲线从左到右动态展开</li><li>海运 SKU 蓝色字体标识</li><li>按店铺权限筛选、编辑订货量</li><li>确认采购明细并导出下单模板</li></ul>
+                <div style="text-align:center;margin-top:20px"><a href="{{ url_for('replenishment_vben_page') }}" style="display:inline-block;background:#3166e8;color:white;padding:12px 30px;border-radius:25px;text-decoration:none;font-weight:600">打开智能补货中心-AI版</a></div>
+            </div>
             <!-- 日常补货 -->
             <div class="module-card" data-permission="daily_replenishment" data-allowed="{{ 'true' if can_daily_replenishment else 'false' }}">
                 <div class="coming-soon-badge">NEW</div>
