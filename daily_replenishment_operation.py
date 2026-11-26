@@ -20,6 +20,7 @@ from openpyxl import load_workbook
 from openpyxl.comments import Comment
 
 import daily_replenishment as base
+import sellfox_purchase
 from department_permissions import require_permission
 from bjc import dui_db
 from tools import escape_sql_literal
@@ -448,7 +449,7 @@ def generate_operation_dataset(source: Path | None = None, *, query_executor=bas
     notes = query_executor(
         "/* daily_replenishment:clearance_notes */\n"
         "SELECT SKU,BeiZhu FROM dbo.ChanPinBeiZhu "
-        "WHERE YorN='Y' AND BeiZhu LIKE N'清货登记：%' ORDER BY RiQi"
+        "WHERE YorN='Y' AND (BeiZhu LIKE N'清货登记：%' OR BeiZhu LIKE N'运营备注：%') ORDER BY RiQi"
     ) or []
     by_sku: dict[str, list[str]] = {}
     for sku, note in notes:
@@ -1182,6 +1183,139 @@ COMMIT TRANSACTION;""", params=(sku, sku, note, stamp, sku, sku, stamp, note, us
         return jsonify(success=False, message=f"登记清货失败：{exc}"), 500
 
 
+@daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/notes")
+@require_permission(PERMISSION_NAME)
+def add_note():
+    user_name = _current_user_name()
+    _, access = scoped_query_executor(user_name)
+    if not user_name or not access.get("can_write"):
+        return jsonify(success=False, message="当前用户没有添加备注的权限"), 403
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(success=False, message="请输入 SKU 和备注"), 400
+    sku, note = str(body.get("sku") or "").strip(), str(body.get("note") or "").strip()
+    if not sku or not note or len(note) > 1000:
+        return jsonify(success=False, message="请选择 SKU 并输入 1–1000 字的备注"), 400
+    try:
+        with _refresh_lock:
+            snapshot, is_shared = _resolve_snapshot_for_user(user_name)
+            if snapshot is None:
+                return jsonify(success=False, message="请先生成今日快照"), 404
+            payload = load_snapshot(snapshot)
+            main = payload["sheets"][base.SHEET_NAME]
+            columns = main["columns"]
+            sku_col, store_col, remark_col = (columns.index(name) for name in ("SKU", "店铺", "备注"))
+            matching = [i for i, row in enumerate(main["rows"])
+                        if str(row[sku_col] or "").strip() == sku]
+            if not any(_normalized_store(main["rows"][i][store_col]) in access.get("write_stores", set()) for i in matching):
+                return jsonify(success=False, message="该 SKU 不在当前可写店铺范围内"), 403
+            stamp = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
+            dui_db("INSERT INTO dbo.ChanPinBeiZhu (SKU,RiQi,BeiZhu,TianJiaRen,YorN) VALUES (%s,%s,%s,%s,'Y')",
+                   params=(sku, stamp, f"运营备注：{note}（{user_name} · {stamp}）", user_name))
+            if is_shared:
+                own = get_snapshot_path(user_name=user_name)
+                own.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(snapshot, own)
+                snapshot = own
+            workbook = load_workbook(snapshot)
+            temp_path = None
+            try:
+                ws = workbook[base.SHEET_NAME]
+                for index in matching:
+                    previous = str(main["rows"][index][remark_col] or "")
+                    entry = f"运营备注：{note}（{user_name} · {stamp}）"
+                    base._write_literal(ws.cell(index + 2, remark_col + 1), "\n".join(filter(None, [previous, entry])))
+                with tempfile.NamedTemporaryFile(dir=snapshot.parent, suffix=".xlsx", delete=False) as tmp:
+                    temp_path = Path(tmp.name)
+                workbook.save(temp_path)
+                os.replace(temp_path, snapshot)
+            finally:
+                workbook.close()
+                if temp_path:
+                    temp_path.unlink(missing_ok=True)
+            updated = load_snapshot(snapshot)
+            cache_snapshot_payload(snapshot, updated)
+            result = _scope_snapshot_payload(updated, access)
+            meta = _snapshot_payload(snapshot, user_name=user_name)
+            _attach_client_cache_meta(meta, snapshot, user_name, access)
+            result.update(snapshot=meta, stores=sorted(access["read_stores"]), success=True, message="备注已保存")
+        return jsonify(result)
+    except Exception:
+        current_app.logger.exception("Failed to add replenishment note")
+        return jsonify(success=False, message="保存备注失败，请稍后重试"), 500
+
+
+@daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/ab-product")
+@require_permission(PERMISSION_NAME)
+def set_ab_product():
+    user_name = _current_user_name()
+    _, access = scoped_query_executor(user_name)
+    if not user_name or not access.get("can_write"):
+        return jsonify(success=False, message="当前用户没有设置 AB 品的权限"), 403
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(success=False, message="请输入 SKU、分组号和款号"), 400
+    sku = str(body.get("sku") or "").strip()
+    group, kind = body.get("group"), body.get("type")
+    if (not sku or type(group) is not int or not 1 <= group <= 2147483647
+            or type(kind) is not int or kind not in (1, 2)):
+        return jsonify(success=False, message="分组号必须为正整数，款号须为 A 品（1）或 B 品（2）"), 400
+    try:
+        with _refresh_lock:
+            snapshot, is_shared = _resolve_snapshot_for_user(user_name)
+            if snapshot is None:
+                return jsonify(success=False, message="请先生成今日快照"), 404
+            payload = load_snapshot(snapshot)
+            main = payload["sheets"][base.SHEET_NAME]
+            columns = main["columns"]
+            sku_col, store_col, ab_col = (columns.index(name) for name in ("SKU", "店铺", "AB品"))
+            matching = [i for i, row in enumerate(main["rows"])
+                        if str(row[sku_col] or "").strip() == sku]
+            if not any(_normalized_store(main["rows"][i][store_col]) in access.get("write_stores", set()) for i in matching):
+                return jsonify(success=False, message="该 SKU 不在当前可写店铺范围内"), 403
+            dui_db("""SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+IF EXISTS (SELECT 1 FROM dbo.ABPin WITH (UPDLOCK,HOLDLOCK) WHERE SKU=%s AND FenZu=%s)
+    UPDATE dbo.ABPin SET XuHao=%s WHERE SKU=%s AND FenZu=%s;
+ELSE
+    INSERT INTO dbo.ABPin (SKU,FenZu,XuHao) VALUES (%s,%s,%s);
+COMMIT TRANSACTION;""", params=(sku, group, kind, sku, group, sku, group, kind))
+            records = base.sf_db(
+                "SELECT MIN(CONVERT(NVARCHAR(10),FenZu)+'-'+CONVERT(NVARCHAR(10),XuHao)) FROM dbo.ABPin WHERE SKU=N'"
+                + escape_sql_literal(sku) + "'"
+            ) or []
+            ab_value = str(records[0][0]) if records and records[0][0] else f"{group}-{kind}"
+            if is_shared:
+                own = get_snapshot_path(user_name=user_name)
+                own.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(snapshot, own)
+                snapshot = own
+            workbook = load_workbook(snapshot)
+            temp_path = None
+            try:
+                ws = workbook[base.SHEET_NAME]
+                for index in matching:
+                    base._write_literal(ws.cell(index + 2, ab_col + 1), ab_value)
+                with tempfile.NamedTemporaryFile(dir=snapshot.parent, suffix=".xlsx", delete=False) as tmp:
+                    temp_path = Path(tmp.name)
+                workbook.save(temp_path)
+                os.replace(temp_path, snapshot)
+            finally:
+                workbook.close()
+                if temp_path:
+                    temp_path.unlink(missing_ok=True)
+            updated = load_snapshot(snapshot)
+            cache_snapshot_payload(snapshot, updated)
+            result = _scope_snapshot_payload(updated, access)
+            meta = _snapshot_payload(snapshot, user_name=user_name)
+            _attach_client_cache_meta(meta, snapshot, user_name, access)
+            result.update(snapshot=meta, stores=sorted(access["read_stores"]), success=True, message="AB 品已保存；请生成 / 刷新快照以应用补货规则")
+        return jsonify(result)
+    except Exception:
+        current_app.logger.exception("Failed to set replenishment AB product")
+        return jsonify(success=False, message="保存 AB 品失败，请稍后重试"), 500
+
+
 @daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/order-quantities")
 @require_permission(PERMISSION_NAME)
 def update_order_quantities():
@@ -1502,6 +1636,70 @@ def _write_purchase_plan_template(rows: list[list[Any]], destination: Path) -> N
         os.replace(temp_destination, destination)
     finally:
         temp_destination.unlink(missing_ok=True)
+
+
+def _sellfox_purchase_payload(rows: list[list[Any]], user_name: str) -> dict[str, Any]:
+    items = []
+    for row in rows:
+        quantity = _coerce_order_quantity(row[8], allow_zero=False)
+        if quantity > 2147483647:
+            raise base.DailyReplenishmentError("采购数量超过赛狐接口允许的范围")
+        # Local store numbers identify several marketplaces, not a unique Sellfox shop.
+        # Keep the source store in the remark rather than sending an invalid shopName.
+        note = "；".join(filter(None, [str(row[11] or ""), f"店铺编号：{row[2]}" if row[2] else "", f"运营：{row[7]}" if row[7] else ""]))
+        item = {"sku": str(row[1]), "planNum": quantity, "note": note}
+        items.append(item)
+    items.sort(key=lambda item: (item["sku"], item["note"], item.get("partyAName", ""), item["planNum"]))
+    return {"warehouseName": PURCHASE_PLAN_WAREHOUSE, "userName": user_name,
+            "operationType": 0, "isExpediting": 0, "items": items,
+            "note": f"智能补货中心 · {user_name}"}
+
+
+@daily_replenishment_operation_bp.post("/api/ai/daily-replenishment-operation/purchase-plan/create")
+@require_permission(PERMISSION_NAME)
+def create_sellfox_purchase_plan():
+    user_name = _current_user_name()
+    _, access = scoped_query_executor(user_name)
+    if not user_name or not access.get("can_write"):
+        return jsonify(success=False, message="当前用户没有创建采购计划的权限"), 403
+    body = request.get_json(silent=True)
+    confirmations = body.get("items") if isinstance(body, dict) else None
+    if not isinstance(confirmations, list) or not confirmations:
+        return jsonify(success=False, message="请先选择采购明细"), 400
+    try:
+        with _refresh_lock:
+            snapshot, is_shared = _resolve_snapshot_for_user(user_name)
+            if snapshot is None:
+                return jsonify(success=False, message="请先生成今日快照"), 404
+            payload = _scope_snapshot_payload(load_snapshot_cached(snapshot), access)
+            main = (payload.get("sheets") or {}).get(base.SHEET_NAME) or {}
+            rows = _purchase_plan_confirmed_rows(main, confirmations)
+            store_col = main["columns"].index("店铺")
+            for raw in confirmations:
+                row = main["rows"][int(raw["index"])]
+                if _normalized_store(row[store_col]) not in access.get("write_stores", set()):
+                    return jsonify(success=False, message="所选商品含无写入权限的店铺"), 403
+            api_payload = _sellfox_purchase_payload(rows, user_name)
+            if is_shared:
+                own = get_snapshot_path(user_name=user_name)
+                own.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(snapshot, own)
+                snapshot = own
+            _save_snapshot_quantity_changes(snapshot, access, confirmations)
+        ledger = get_output_dir(create=True) / "_采购计划" / "sellfox_requests.sqlite"
+        result, reused = sellfox_purchase.create_once(api_payload, ledger)
+        return jsonify(success=True, message="该采购计划已创建，请到赛狐查看" if reused else "已在赛狐保存采购计划",
+                       data=result, reused=reused, item_count=len(rows), creator=user_name,
+                       warehouse=PURCHASE_PLAN_WAREHOUSE)
+    except base.DailyReplenishmentError as exc:
+        return jsonify(success=False, message=str(exc)), 400
+    except sellfox_purchase.PurchaseRejected as exc:
+        return jsonify(success=False, message=str(exc)), 400
+    except sellfox_purchase.PurchaseUncertain as exc:
+        return jsonify(success=False, message=str(exc), uncertain=True), 409
+    except Exception:
+        current_app.logger.exception("Failed to create Sellfox purchase plan")
+        return jsonify(success=False, message="创建采购计划失败，请联系管理员检查赛狐连接"), 500
 
 
 @daily_replenishment_operation_bp.route("/api/ai/daily-replenishment-operation/purchase-plan", methods=("GET", "POST"))

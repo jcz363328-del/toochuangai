@@ -6,11 +6,11 @@
 <title>智能补货中心-亚马逊 - 图创AI系统</title>
 <style>/* ==========================================================================
    智能补货中心-亚马逊 · 前端改版 Demo
-   设计语言：暖纸底 + 细线卡片 + 单一强调色（墨绿），数据用色只做弱底强调
+   设计语言：暖纸底 + 细线卡片 + 单一强调色（亮黄），数据用色只做弱底强调
    ========================================================================== */
 
 :root {
-    --paper: #f4f2ec;
+    --paper: #f7f7f2;
     --paper-2: #efece3;
     --surface: #ffffff;
     --surface-2: #fbfaf6;
@@ -24,10 +24,10 @@
     --muted: #857f72;
     --muted-2: #a9a294;
 
-    --accent: #2f6b53;
-    --accent-2: #24543f;
-    --accent-soft: #e9f1ec;
-    --accent-line: #cfe1d6;
+    --accent: #ffdf24;
+    --accent-2: #756000;
+    --accent-soft: #fff9cf;
+    --accent-line: #efdb78;
 
     --danger: #ad2b1f;
     --danger-soft: #fbeae7;
@@ -101,7 +101,7 @@ h1, h2, h3, h4, p { margin: 0; }
     justify-content: space-between;
     gap: 16px;
     height: 54px;
-    padding: 0 22px;
+    padding: 0 14px;
     background: rgba(255, 255, 255, .82);
     backdrop-filter: saturate(180%) blur(14px);
     border-bottom: 1px solid var(--line);
@@ -109,7 +109,7 @@ h1, h2, h3, h4, p { margin: 0; }
 
 .topbar-title {
     min-width: 0;
-    padding: 0 2px;
+    padding: 0;
 }
 .topbar-title .eyebrow {
     font-size: 9.5px;
@@ -1455,6 +1455,149 @@ td.dim { color: var(--muted); }
 .trend-sum { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; font-size: 11px; color: var(--muted); }
 .trend-sum b { color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
 
+
+/* 运营表：统一表头、数字基线与亮黄色交互层级。 */
+.brand-mark {background:#ffdf24;color:#302900;box-shadow:0 4px 12px -6px #b99900;}
+.btn.primary {background:#ffdf24;border-color:#e8c818;color:#302900;font-weight:600;}
+.btn.primary:hover {background:#ffe95c;border-color:#d4b600;}
+.grid thead th {height:82px;padding:10px 10px 8px;vertical-align:top;}
+.th-top {height:34px;align-items:center;}
+.th-name {white-space:normal;line-height:17px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.th-sort {flex-shrink:0;margin-left:auto;}
+.th-filter {margin-top:6px;}
+.numeric-heading .th-top {justify-content:flex-end;}
+.numeric-heading .th-name {text-align:right;}
+.numeric-heading .th-sort {margin-left:0;}
+.grid tbody td {height:58px;padding:6px 10px;font-variant-numeric:tabular-nums;}
+.grid.label-view tbody tr:hover td {background:#fffdef!important;}
+.grid.label-view tbody tr.is-active td {background:#fff7c2!important;}
+.grid.label-view .qty-input {text-align:right;background:#fffdf1!important;border-color:#e5dfbd!important;color:#423b20!important;-webkit-text-fill-color:#423b20!important;}
+.grid.label-view .qty-input:focus {outline:2px solid #ffed86;border-color:#b99900!important;}
+.grid.label-view .qty-input.dirty {background:#fff4a8!important;border-color:#c4a400!important;}
+.link-btn, .pop-foot button, .grid thead th.sorted .th-sort {color:var(--accent-2);}
+.sales-spark {height:54px;}
+.sales-spark:focus-visible {outline-color:#b99900;}
+.spark-heading {vertical-align:middle!important;}
+.spark-heading span {color:#8a8061;}
+
+
+/* 固定信息列与表头采用相同的对齐方式，避免短值偏向列边缘。 */
+.grid .identity-heading, .grid .identity-cell {text-align:center;}
+.grid .identity-heading .th-top {justify-content:center;position:relative;}
+.grid .identity-heading .th-name {text-align:center;}
+.grid .identity-heading .th-sort {position:absolute;right:0;margin:0;}
+.grid .identity-heading .th-filter {justify-content:center;position:relative;}
+.grid .identity-heading .th-filter .ic {position:absolute;right:4px;}
+.grid .identity-cell {border-right:1px solid #f1eee5;}
+.sku-identity {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:24px;font-weight:600;}
+.grid .clearance-action {height:24px;padding:0 8px;font-size:11px;line-height:22px;flex-shrink:0;background:#fff4a8;border:1px solid #d6b72e;color:#594600;box-shadow:none;}
+.grid .clearance-action:hover {background:#ffe35b;border-color:#ad8900;}
+.sku-statuses {gap:5px;margin-top:5px;min-height:22px;}
+.sku-status {font-size:11px;font-weight:600;line-height:20px;padding:0 7px;border:1px solid #c8d0cb;border-radius:5px;}
+.sku-status.danger {background:#ffe1de;color:#9d251c;border-color:#e99c94;}
+.sku-status.warn {background:#ffedbc;color:#805000;border-color:#e3bd5d;}
+.sku-status.order {background:#d9f0df;color:#23683d;border-color:#8fc6a0;}
+.sku-status.mute {background:#e8ecea;color:#46574d;border-color:#b7c3bb;}
+.sku-status.more {padding:0 6px;background:#e8ecea;color:#46574d;border-color:#b7c3bb;}
+.grid.label-view tbody td {height:68px;}
+
+
+/* 表头和 SKU 信息同步加强，标签完整展示。 */
+.grid thead th {height:88px;padding:10px 10px 9px;background:#f5f2e7;border-top:1px solid #e1dac3;border-bottom:2px solid #d8c982;color:#514a35;}
+.grid thead th.pin {background:#f5f2e7;}
+.grid .th-name {font-size:12px;font-weight:650;line-height:18px;-webkit-line-clamp:2;}
+.grid .th-top {height:38px;position:relative;padding-right:12px;}
+.grid .th-sort {position:absolute;right:0;margin:0;opacity:.4;}
+.grid .numeric-heading .th-name {flex:1;}
+.grid .identity-heading .th-top {padding:0 12px;}
+.grid .th-filter {height:23px;margin-top:5px;border-color:#e2decd;background:#fffdf6;color:#817963;opacity:1;}
+.grid .th-filter:hover {border-color:#bca956;background:#fff8d5;}
+.grid .spark-heading {font-size:12px;font-weight:650;}
+.grid .spark-heading span {font-weight:400;}
+.grid.label-view td.sku {padding:10px 12px;white-space:normal;overflow:visible;}
+.sku-code {font-size:13px;font-weight:700;color:#263c31;line-height:24px;overflow-wrap:anywhere;}
+.sku-identity {gap:10px;}
+.sku-statuses {flex-wrap:wrap;gap:5px;margin-top:7px;}
+.sku-status {font-size:12px;line-height:22px;padding:0 7px;}
+.grid.label-view tbody td {height:78px;}
+
+
+/* 表头由内容撑高，短字段完整显示，长字段自然换行。 */
+.grid thead th {height:auto;vertical-align:top;padding:12px 10px 10px;white-space:normal;}
+.grid .th-top {height:auto;min-height:38px;display:flex;align-items:center;padding-right:14px;}
+.grid .th-name {display:block;overflow:visible;text-overflow:clip;-webkit-line-clamp:unset;white-space:normal;word-break:normal;overflow-wrap:break-word;line-height:19px;}
+.grid .identity-heading .th-top {padding:0 10px;}
+.grid .identity-heading .th-name {white-space:nowrap;}
+.grid .th-filter {margin-top:8px;}
+.grid .sku-identity {justify-content:flex-start;}
+
+
+.grid.label-view .sku-code {font-weight:500;}
+.grid.label-view .sku-code.new-code {color:#111!important;font-weight:800;}
+.grid.label-view .sku-code.ocean-code {color:#1469d2!important;font-weight:700;}
+
+.grid .status-heading {cursor:default;}
+.status-hint {display:block;margin-top:8px;line-height:23px;font-size:11px;font-weight:400;color:#817963;}
+.grid.label-view td.status-cell {white-space:normal;padding:9px 10px;overflow:visible;}
+.status-cell .sku-statuses {margin:0;gap:5px;}
+.status-cell .sku-status.ink {background:#25221d;color:#fff;border-color:#25221d;}
+.status-cell .sku-status.blue {background:#e6f0fa;color:#1b5b98;border-color:#b4cfe8;}
+.status-cell .sku-status.orange {background:#fff0e3;color:#af530c;border-color:#efbe98;}
+.status-cell .sku-status.green {background:#e3f2e8;color:#226b43;border-color:#a9d1b7;}
+.status-cell .sku-status.line {background:#f1f0ec;color:#655e4d;border-color:#d1ccbd;font-style:italic;}
+
+/* 状态每行最多三项，后续标签自动换行。 */
+.status-cell .sku-statuses {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:5px;}
+.status-cell .sku-status {justify-content:center;white-space:normal;word-break:break-word;text-align:center;min-width:0;}
+
+/* 紧凑信息列；行高由走势与状态标签实际高度决定。 */
+.grid.label-view tbody td {height:58px;padding-top:6px;padding-bottom:6px;}
+.grid.label-view td.sku {padding:6px 10px;}
+.grid.label-view td.status-cell {padding:6px 10px;}
+.grid.label-view .sku-identity {min-height:24px;}
+.grid .th-top {min-height:38px;}
+.grid .identity-heading .th-top {padding-left:0;padding-right:10px;}
+
+/* 固定表头层级高于可滚动表头，列名完整单行显示。 */
+.grid thead th.pin {z-index:12;background:#f5f2e7;}
+.grid .th-top {display:flex;flex-wrap:nowrap;gap:5px;height:24px;min-height:24px;}
+.grid .th-name, .grid .identity-heading .th-name {white-space:nowrap;overflow:visible;overflow-wrap:normal;word-break:normal;flex:0 0 auto;}
+.grid .numeric-heading .th-name {flex:0 0 auto;}
+.grid .field-help {display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;min-width:15px;padding:0;border:1px solid #aaa18a;border-radius:50%;background:transparent;color:#82775e;font:600 10px/1 sans-serif;cursor:help;}
+.grid .field-help:hover,.grid .field-help:focus-visible {background:#ffed93;border-color:#a68a00;color:#4d410a;}
+.grid .spark-heading .th-top span {display:inline;margin:0;color:#514a35;font-size:12px;font-weight:650;}
+
+.topbar-title .replenishment-heading {display:flex;align-items:baseline;gap:10px;line-height:24px;}
+.amazon-wordmark {display:block;object-fit:contain;width:78px;height:28px;flex-shrink:0;align-self:center;transform:translateY(3px);}
+
+/* 筛选入口与列名同排，漏斗高亮表示该列已有筛选。 */
+.grid .th-top .th-filter {position:static;display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;min-width:24px;margin:0 0 0 auto;padding:4px;border:1px solid transparent;border-radius:5px;background:transparent;color:#8b826d;opacity:1;}
+.grid .th-top .th-filter .ic {position:static;width:14px;height:14px;opacity:1;}
+.grid .th-top .th-filter:hover {background:#fff6c7;border-color:#d6bd52;color:#655000;}
+.grid .th-top .th-filter.active {background:#ffe66a;border-color:#c6a819;color:#574600;}
+.grid .identity-heading .th-top {justify-content:flex-start;padding-left:0;}
+.grid .th-top {gap:5px;}
+
+/* 总库存及后续数据列统一居中。 */
+.grid .centered-heading, .grid td.centered-data {text-align:center;}
+.grid .centered-heading .th-top {justify-content:center;}
+.grid .centered-heading .th-name {text-align:center;}
+.grid .centered-heading .th-top .th-filter {margin-left:0;}
+.grid.label-view td.centered-data .qty-input {text-align:center;}
+
+.pop.cols .cols-list {min-height:0;overflow-y:auto;overscroll-behavior:contain;flex:1;}
+.pop.cols .pop-head,.pop.cols .pop-foot {flex-shrink:0;}
+
+.grid td.site-cell {white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:20px;padding:8px 10px;}
+
+.ws-context {flex-wrap:wrap;gap:10px;}
+#tablePurchasePlan {height:32px;padding:0 12px;font-size:12px;white-space:nowrap;}
+.ws-head {flex-wrap:wrap;gap:10px;}
+
+.purchase-result {margin:10px 20px;padding:12px 14px;line-height:1.7;border:1px solid #e3d284;border-radius:8px;background:#fff9dc;color:#705800;}
+.purchase-result[data-tone="success"] {background:#e8f5ec;border-color:#9fceb0;color:#23633b;}
+.purchase-result[data-tone="error"] {background:#fff0ed;border-color:#edb1a5;color:#9b382b;}
+.purchase-result[hidden] {display:none;}
 </style>
 <style>
 #fileLabel{display:none}.param-form{display:grid;gap:12px;padding:8px 0 18px}.param-form label{display:grid;gap:6px;font-size:13px;color:var(--muted)}.param-form input{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}
@@ -1490,7 +1633,7 @@ td.dim { color: var(--muted); }
         <header class="topbar">
             <div class="topbar-title">
                 <p class="eyebrow"><span class="dot-live"></span>运营版完整多表刷新 · 订货口径 45 天</p>
-                <h1>智能补货中心-亚马逊</h1>
+                <h1 class="replenishment-heading"><span>智能补货中心</span><img class="amazon-wordmark" src="{{ url_for('static', filename='branding/amazon-wordmark.png') }}" alt="Amazon" width="78" height="28"></h1>
             </div>
             <div class="topbar-right">
                 <div class="head-actions">
@@ -1505,9 +1648,9 @@ td.dim { color: var(--muted); }
                         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v14H5z"/><path d="M8 5v5h8V5M8 19v-5h8v5"/></svg>
                         同步订货量
                     </button>
-                    <button class="btn" id="shippingPlan" type="button" title="先确认采购明细，再生成采购导入模板（下单导入.xlsx）">
+                    <button class="btn" id="shippingPlan" type="button" title="确认采购明细后，直接在赛狐保存采购计划">
                         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
-                        生成采购计划
+                        在赛狐创建采购计划
                     </button>
                     <button class="btn primary" id="refresh" type="button">
                         <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.6 6.1"/><path d="M20 5v6h-6"/></svg>
@@ -1623,17 +1766,26 @@ td.dim { color: var(--muted); }
     </header>
     <div class="drawer-body" id="dBody"></div>
     <footer class="drawer-foot">
-        <button class="btn" id="dCopyRow" type="button">
+        <button class="btn" id="dClearance" type="button">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A2.5 2.5 0 0 0 12.5 3h-6A2.5 2.5 0 0 0 4 5.5v6A2.5 2.5 0 0 0 6.5 14"/></svg>
-            复制整行
+            清货
         </button>
-        <button class="btn primary" id="dCopyAdvice" type="button">
+        <button class="btn" id="dAddAB" type="button">添加 AB 品</button>
+        <button class="btn primary" id="dAddNote" type="button">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
-            复制补货建议
+            添加备注
         </button>
     </footer>
 </aside>
 
+<dialog class="dlg" id="abDialog" aria-labelledby="abTitle">
+    <div class="dlg-head"><h3 id="abTitle">添加 AB 品</h3><button class="icon-btn" id="abClose" type="button" aria-label="关闭">×</button></div>
+    <form id="abForm"><div class="param-form" style="padding:16px 20px"><label>分组号<input id="abGroup" type="number" min="1" max="2147483647" step="1" required placeholder="关联的 A、B 品填写相同分组号"></label><label>款号<select id="abType" style="padding:9px;border:1px solid var(--line);border-radius:8px;font:inherit"><option value="1">A 品（1）</option><option value="2">B 品（2）</option></select></label><small>同组商品相互关联；保存后重新生成快照以应用补货规则。</small></div><div class="drawer-foot"><button class="btn" id="abCancel" type="button">取消</button><button class="btn primary" id="abSave" type="submit">保存 AB 品</button></div></form>
+</dialog>
+<dialog class="dlg" id="noteDialog" aria-labelledby="noteTitle">
+    <div class="dlg-head"><h3 id="noteTitle">添加备注</h3><button class="icon-btn" id="noteClose" type="button" aria-label="关闭">×</button></div>
+    <form id="noteForm"><div style="padding:16px 20px"><label for="noteText">商品备注</label><textarea id="noteText" required maxlength="1000" rows="5" placeholder="输入该 SKU 的运营备注" style="display:block;width:100%;margin-top:8px;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit;resize:vertical"></textarea><small>备注将保存到商品记录，并记录添加人和时间。</small></div><div class="drawer-foot"><button class="btn" id="noteCancel" type="button">取消</button><button class="btn primary" id="noteSave" type="submit">保存备注</button></div></form>
+</dialog>
 <div class="pop" id="pop" hidden></div>
 
 <dialog class="dlg" id="legendDialog" aria-labelledby="legendTitle">
@@ -1673,7 +1825,7 @@ td.dim { color: var(--muted); }
     <div class="dlg-head">
         <div>
             <h3 id="purchasePlanTitle">采购计划明细确认</h3>
-            <p>勾选需要导出的明细，并确认最终采购数量。导出时会同步本次修改到快照。</p>
+            <p>确认采购数量后直接在赛狐保存采购计划（不提交）。仓库：青岛仓；创建人：当前登录的飞书用户。店铺编号保留在商品备注中。</p>
         </div>
         <button class="icon-btn" id="purchasePlanClose" type="button" title="关闭">×</button>
     </div>
@@ -1691,9 +1843,10 @@ td.dim { color: var(--muted); }
             <tbody id="purchasePlanBody"></tbody>
         </table>
     </div>
+    <div id="purchasePlanStatus" class="purchase-result" role="status" aria-live="polite" hidden></div>
     <footer class="purchase-foot">
         <button class="btn" id="purchasePlanCancel" type="button">取消</button>
-        <button class="btn primary" id="purchasePlanExport" type="button">确认并导出</button>
+        <button class="btn primary" id="purchasePlanExport" type="button">在赛狐创建采购计划</button>
     </footer>
 </dialog>
 
@@ -1707,7 +1860,10 @@ const CONF = {
     clearanceUrl: {{ url_for('daily_replenishment_operation.register_clearance')|tojson }},
     quantityUpdateUrl: {{ url_for('daily_replenishment_operation.update_order_quantities')|tojson }},
     seaShippingRecommendationsUrl: {{ url_for('daily_replenishment_operation.sea_shipping_recommendations')|tojson }},
+    purchaseCreateUrl: {{ url_for('daily_replenishment_operation.create_sellfox_purchase_plan')|tojson }},
     purchasePlanUrl: {{ url_for('daily_replenishment_operation.purchase_plan')|tojson }},
+    abUrl: {{ url_for('daily_replenishment_operation.set_ab_product')|tojson }},
+    noteUrl: {{ url_for('daily_replenishment_operation.add_note')|tojson }},
     trendUrl: {{ url_for('daily_replenishment_operation.sales_trend')|tojson }},
     canWrite: {{ can_write|tojson }},
     snapshot: {{ snapshot|tojson }},
@@ -1738,7 +1894,7 @@ const CONF = {
     const ICONS = {
         sort: '<path d="M12 5v14m0 0-4.5-4.5M12 19l4.5-4.5"/>',
         chevron: '<path d="m6 9 6 6 6-6"/>',
-        filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+        filter: '<path d="M3 4h18l-7 8v7l-4 2v-9L3 4z"/>',
         search: '<circle cx="11" cy="11" r="7.5"/><path d="M20.5 20.5 16.7 16.7"/>',
         alert: '<path d="M10.3 3.9 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4.5M12 17v.5"/>',
         info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.4"/>',
@@ -1792,7 +1948,7 @@ const CONF = {
         filters: {},
         sort: {},
         hidden: {},
-        quick: "all",
+        quick: "order",
         search: "",
         limit: 160,
         rows: [],
@@ -1830,7 +1986,7 @@ const CONF = {
         dBody: $("#dBody"),
         dSku: $("#dSku"),
         dChips: $("#dChips"),
-        dCopyAdvice: $("#dCopyAdvice"),
+        dAddNote: $("#dAddNote"),
         toast: $("#toast"),
         tip: $("#tip"),
         refresh: $("#refresh"),
@@ -2102,12 +2258,23 @@ const CONF = {
     }
 
     /* ------------------------------------------------------------- 列与渲染 */
+    const FIELD_HELP = {
+        "运营":"该商品所属店铺的运营负责人。", "店铺":"商品对应的店铺编号。", "分类":"商品在当前店铺中的分类。", "SKU":"商品唯一编码，蓝色表示海运商品，黑色粗体表示新品。",
+        "状态":"商品标记和运营提醒，每行最多展示三个标签。", "近15天销量走势":"快照截止日前15天的逐日销量；红色表示上涨，绿色表示下降或持平。悬停可查看每日销量，各商品独立刻度。",
+        "总库存":"快照记录的商品总库存数量。", "FBA可售量":"FBA仓库中当前可供销售的数量。", "待到货":"已安排但尚未到货的数量。", "日均销量":"销量统计区间内平均每天的销售数量。", "K值":"用于补货判断的销量变化指标，正值表示增长，负值表示下降。",
+        "可售量对应的可售天数":"FBA可售量按日均销量折算的可售天数。", "不含待到货量的可售天数":"不计待到货数量时，现有库存按日均销量折算的可售天数。", "含待到货量的可售天数":"计入待到货数量后，库存按日均销量折算的可售天数。",
+        "订货量":"本次计划订货数量，有写入权限时可修改；修改后需同步保存。", "订货后可售天数":"计入本次订货量后，按日均销量折算的库存覆盖天数。", "到FBA仓日期":"快照记录的到FBA仓日期；特殊到货说明按原记录展示。",
+        "工厂":"商品对应的工厂或供应商编号。", "备注":"商品已有备注和运营补充说明。", "类别":"商品所属的产品类别。", "AB品":"关联分组和款号，例如12-1表示第12组A品，12-2表示第12组B品。", "站点":"商品所属销售站点。"
+    };
+    const fieldHelp = (name, comment = "") => comment || FIELD_HELP[name] || (name.includes("销量") ? "当前表头标注的统计区间内销售数量。" : `当前工作表记录的${name}信息。`);
+    const helpButton = (name, comment = "") => `<button type="button" class="field-help" aria-label="${esc(name)}说明" title="${esc(fieldHelp(name, comment))}" data-tip="${esc(fieldHelp(name, comment))}">?</button>`;
+
     const PX = {
-        "运营": 58, "店铺": 44, "分类": 44, "SKU": 104,
-        "总库存": 62, "FBA可售量": 74, "待到货": 64,
+        "运营": 88, "店铺": 60, "分类": 60, "SKU": 144,
+        "总库存": 76, "FBA可售量": 88, "待到货": 76,
         "10.13-10.27销量": 96, "销量": 74, "日均销量": 74, "K值": 54,
-        "可售量对应的可售天数": 88, "不含待到货量的可售天数": 98, "含待到货量的可售天数": 98,
-        "订货量": 66, "订货后可售天数": 90, "到FBA仓日期": 94,
+        "可售量对应的可售天数": 108, "不含待到货量的可售天数": 116, "含待到货量的可售天数": 116,
+        "订货量": 88, "订货后可售天数": 106, "到FBA仓日期": 118,
         "工厂": 52, "备注": 132, "类别": 52, "AB品": 52, "站点": 58,
     };
     const pxOf = name => {
@@ -2132,13 +2299,14 @@ const CONF = {
     const isQuoteDate = v => typeof v === "string" && /到本地|到仓/.test(v);
 
     function visibleTableColumns(columns, hidden) {
-        const visible = columns.map((_, i) => i).filter(i => !hidden.has(i));
+        const visible = columns.map((_, i) => i);
         if (state.active === MAIN_SHEET) {
-            const after = columns.indexOf("日均销量");
-            const next = visible.findIndex(i => i > after);
-            visible.splice(next < 0 ? visible.length : next, 0, -1);
+            const skuIndex = columns.indexOf("SKU");
+            const statusAt = visible.findIndex(i => i > skuIndex);
+            visible.splice(statusAt < 0 ? visible.length : statusAt, 0, -2);
+            visible.splice(visible.indexOf(-2) + 1, 0, -1);
         }
-        return visible;
+        return visible.filter(i => !hidden.has(i));
     }
 
     const salesChartInstances = new Map();
@@ -2152,40 +2320,52 @@ const CONF = {
         salesChartInstances.clear();
     }
 
+    function trendTone(rowIndex) {
+        const marks = new Set(Object.values(stylesAt(rowIndex)).flat());
+        return marks.has("mark-sales-rise") ? "rise" : marks.has("mark-falling") ? "fall" : "normal";
+    }
+
     function createSalesChart(node, data, mini = true) {
         if (!window.echarts) { node.textContent = "图表加载失败，请刷新"; return null; }
         const chart = echarts.init(node, null, {renderer: "canvas"});
         const days = data.days || [];
         const dates = days.map(day => day.date);
+        const tone = node.dataset.tone === "normal" || !node.dataset.tone
+            ? ((days.at(-1)?.qty || 0) > (days[0]?.qty || 0) ? "rise" : "fall")
+            : node.dataset.tone;
+        const palette = tone === "rise"
+            ? ["#d63e35", "rgba(214,62,53,.22)", "rgba(214,62,53,.02)"]
+            : ["#238657", "rgba(35,134,87,.22)", "rgba(35,134,87,.02)"];
         chart.setOption({
-            animationDuration: 250,
-            animationDurationUpdate: 180,
-            color: ["#2f6b53"],
-            grid: mini ? {left: 4, right: 6, top: 6, bottom: 5} : {left: 34, right: 18, top: 18, bottom: 28},
+            animationDuration: 1800,
+            animationEasing: "cubicOut",
+            animationDurationUpdate: 900,
+            color: [palette[0]],
+            grid: mini ? {left: 20, right: 20, top: 8, bottom: 18} : {left: 34, right: 18, top: 18, bottom: 28},
             tooltip: {
                 trigger: "axis", renderMode: "html", appendTo: document.body,
                 className: "sales-echarts-tooltip", transitionDuration: .08,
                 backgroundColor: "rgba(255,255,255,.98)", borderColor: "#d9e5dd", padding: [10, 14],
                 textStyle: {color: "#253a30", fontSize: 12},
                 extraCssText: "box-shadow:0 8px 24px rgba(24,48,36,.14);border-radius:10px;",
-                axisPointer: {type: "line", snap: true, lineStyle: {color: "#88ac99", width: 1, type: "dashed"}},
+                axisPointer: {type: "line", snap: true, lineStyle: {color: palette[0], width: 1, type: "dashed"}},
                 formatter: params => {
                     const item = params[0];
                     return `<div style="font-size:11px;color:#7c877f;margin-bottom:6px">${esc(node.dataset.sku || "")} · ${esc(item.axisValue)}</div><div>${item.marker}销量 <strong style="font-size:17px;margin-left:12px">${fmtInt(item.value)}</strong> 件</div>`;
                 }
             },
             xAxis: {type: "category", data: dates, boundaryGap: false,
-                axisLine: {show: !mini, lineStyle: {color: "#e8e5dc"}}, axisTick: {show: false},
-                axisLabel: {show: !mini, color: "#8c918b", fontSize: 10, formatter: value => value.slice(5)},
+                axisLine: {show: true, lineStyle: {color: "#e8e5dc"}}, axisTick: {show: false},
+                axisLabel: {show: true, color: "#8c918b", fontSize: 9, hideOverlap: true, showMinLabel: true, showMaxLabel: true, interval: mini ? Math.max(1, dates.length - 2) : "auto", formatter: (value, index) => mini && index !== 0 && index !== dates.length - 1 ? "" : value.slice(5)},
                 axisPointer: {label: {show: !mini, formatter: params => params.value}}},
-            yAxis: {type: "value", min: 0, minInterval: 1, show: !mini,
-                axisLabel: {color: "#8c918b", fontSize: 10}, splitLine: {lineStyle: {color: "#f0eee8"}}},
+            yAxis: {type: "value", min: 0, minInterval: 1, splitNumber: mini ? 2 : 4, show: true,
+                axisLabel: {show: !mini, color: "#8c918b", fontSize: 10}, splitLine: {lineStyle: {color: "#f0eee8"}}},
             series: [{name: "销量", type: "line", data: days.map(day => day.qty),
-                smooth: .18, showSymbol: false, symbol: "circle", symbolSize: mini ? 5 : 7,
-                lineStyle: {width: mini ? 1.8 : 2.3, color: "#387c60"},
-                itemStyle: {color: "#387c60", borderWidth: 2, borderColor: "#fff"},
+                smooth: false, showSymbol: false, symbol: "circle", symbolSize: mini ? 5 : 7,
+                lineStyle: {width: mini ? 1.8 : 2.3, color: palette[0]},
+                itemStyle: {color: palette[0], borderWidth: 2, borderColor: "#fff"},
                 areaStyle: {color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                    {offset: 0, color: "rgba(67,140,103,.20)"}, {offset: 1, color: "rgba(67,140,103,.015)"}
+                    {offset: 0, color: palette[1]}, {offset: 1, color: palette[2]}
                 ])}, emphasis: {scale: true},
                 markLine: mini ? undefined : {silent: true, symbol: "none", lineStyle: {color: "#b29461", type: "dashed"}, label: {formatter: "日均 {c}", fontSize: 10}, data: [{type: "average", name: "日均"}]}
             }]
@@ -2193,8 +2373,8 @@ const CONF = {
         node.onkeydown = event => {
             if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
             event.preventDefault();
-            const previous = Number(node.dataset.point || 14);
-            const index = Math.max(0, Math.min(14, previous + (event.key === "ArrowRight" ? 1 : -1)));
+            const previous = Number(node.dataset.point ?? Math.max(0, days.length - 1));
+            const index = Math.max(0, Math.min(days.length - 1, previous + (event.key === "ArrowRight" ? 1 : -1)));
             node.dataset.point = String(index);
             chart.dispatchAction({type: "showTip", seriesIndex: 0, dataIndex: index});
         };
@@ -2222,11 +2402,11 @@ const CONF = {
         el.grid.querySelectorAll(".sales-spark").forEach(node => salesChartObserver.observe(node));
     }
 
-    function salesSparkline(row) {
+    function salesSparkline(row, rowIndex) {
         const sku = String(cellOf(row, "SKU") || "");
         const data = trendCache.get(sku);
         if (!data) return '<span class="spark-missing">请刷新快照</span>';
-        return `<div class="sales-spark" data-sku="${esc(sku)}" tabindex="0" role="img" aria-label="${esc(sku)} 近15天销量走势，最新 ${fmtInt(data.days[14].qty)} 件。悬停或用方向键查看逐日销量"></div>`;
+        return `<div class="sales-spark" data-tone="${trendTone(rowIndex)}" data-sku="${esc(sku)}" tabindex="0" role="img" aria-label="${esc(sku)} 近15天销量走势，最新 ${fmtInt(data.days[14].qty)} 件。悬停或用方向键查看逐日销量"></div>`;
     }
 
     function renderHead() {
@@ -2238,14 +2418,27 @@ const CONF = {
         const visible = visibleTableColumns(columns, hidden);
         let pin = 0;
         let totalPx = 0;
-        const cols = columns.map((c, i) => {
-            const w = hidden.has(i) ? 0 : (state.active === MAIN_SHEET && String(c) === "SKU" ? 176 : pxOf(String(c)));
+        const skuCol = columns.indexOf("SKU");
+        const measure = document.createElement("canvas").getContext("2d");
+        measure.font = "700 13px Inter, Microsoft YaHei, sans-serif";
+        const skuWidth = Math.max(86, Math.min(200, Math.ceil(Math.max(0, ...computeRows().slice(0, state.limit).map(({row}) => measure.measureText(String(row[skuCol] || "")).width))) + 24));
+        const cols = visible.map(i => {
+            const name = i === -2 ? "状态" : i === -1 ? "近15天销量走势" : String(columns[i]);
+            measure.font = "650 12px Inter, Microsoft YaHei, sans-serif";
+            const headerWidth = Math.ceil(measure.measureText(name).width) + 84;
+            const baseWidth = i === -2 ? 310 : i === -1 ? 188
+                : state.active === MAIN_SHEET && String(columns[i]) === "SKU" ? skuWidth : pxOf(String(columns[i]));
+            const siteWidth = name === "站点" ? Math.min(300, Math.max(110, ...computeRows().slice(0, state.limit).map(({row}) => Math.ceil(measure.measureText(String(row[i] || "")).width) + 28))) : 0;
+            const w = Math.max(baseWidth, headerWidth, siteWidth);
             totalPx += w;
-            return `<col data-i="${i}" style="width:${w}px">` + (state.active === MAIN_SHEET && String(c) === "日均销量" ? '<col style="width:188px">' : "");
+            return `<col${i >= 0 ? ` data-i="${i}"` : ""} style="width:${w}px">`;
         }).join("");
-        if (state.active === MAIN_SHEET) totalPx += 188;
         const ths = visible.map(i => {
-            if (i === -1) return '<th class="spark-heading" title="截至快照销量截止日的15天；各SKU独立刻度。悬停查看逐日销量，点击行查看详细走势。">近15天销量走势<span>逐日 · 快照数据</span></th>';
+            if (i === -2) {
+                const selected = filtersOf()[columns.length] || [];
+                return `<th class="status-heading"><div class="th-top"><span class="th-name">状态</span>${helpButton("状态")}<button type="button" class="th-filter${selected.length ? " active" : ""}" data-filter="${columns.length}" aria-label="筛选状态" aria-pressed="${selected.length ? "true" : "false"}" title="筛选状态（多选任一匹配）">${icon("filter")}</button></div></th>`;
+            }
+            if (i === -1) return `<th class="spark-heading"><div class="th-top"><span class="th-name">近15天销量走势</span>${helpButton("近15天销量走势")}</div></th>`;
             const name = String(columns[i]);
             const pinned = i < 4;
             const pinIndex = pinned ? pin++ : -1;
@@ -2255,6 +2448,7 @@ const CONF = {
             const label = !selected.length ? "全部" : selected.length === 1 ? selected[0] : `已选 ${selected.length} 项`;
             const comment = String(((sheet().header_comments || {})[i]) || "").trim();
             const classes = [
+                i < 3 ? "identity-heading" : i >= 4 ? "centered-heading" : "",
                 pinned ? "pin" : "",
                 pinned && pinIndex === 3 ? "edge" : "",
                 sorted ? `sorted${sort.dir > 0 ? " asc" : ""}` : "",
@@ -2263,15 +2457,15 @@ const CONF = {
                     style="${pinned ? `left:var(--p${pinIndex});` : ""}">
                 <div class="th-top">
                     <span class="th-name"${comment ? ` data-tip="${esc(comment)}"` : ` title="${esc(name)}"`}>${esc(name)}</span>
+                    ${helpButton(name, comment)}
+                    <button class="th-filter${selected.length ? " active" : ""}" data-filter="${i}" type="button" aria-label="筛选${esc(name)}" aria-pressed="${selected.length ? "true" : "false"}" title="筛选${esc(name)}：${esc(label)}">${icon("filter")}</button>
                     ${icon("sort", "th-sort")}
                 </div>
-                <button class="th-filter${selected.length ? " active" : ""}" data-filter="${i}" type="button" title="多选筛选：${esc(name)}">
-                    <span class="v">${esc(label)}</span>${icon("chevron")}
-                </button>
             </th>`;
         }).join("");
         el.grid.innerHTML = `<colgroup>${cols}</colgroup><thead><tr>${ths}</tr></thead><tbody></tbody>`;
-        el.grid.style.minWidth = Math.max(860, totalPx) + "px";
+        el.grid.style.minWidth = totalPx + "px";
+        el.grid.style.width = totalPx + "px";
         syncPins();
     }
 
@@ -2283,7 +2477,7 @@ const CONF = {
         });
     }
 
-    function skuStatusLabels(row, rowIndex) {
+    function statusEntries(row, rowIndex) {
         const marks = new Set(Object.values(stylesAt(rowIndex)).flat());
         const labels = [];
         const add = (key, text, tone) => { if (!labels.some(item => item.key === key)) labels.push({key, text, tone}); };
@@ -2291,16 +2485,21 @@ const CONF = {
         const stock = num(cellOf(row, "总库存")) + num(cellOf(row, "FBA可售量")) + num(cellOf(row, "待到货"));
         const days = num(cellOf(row, "含待到货量的可售天数"));
         if (stock === 0 && daily > 0) add("risk", "断货", "danger");
-        else if ((daily > 0 && days < 30) || marks.has("mark-low-stock")) add("risk", "低库存", "warn");
+        else if ((daily > 0 && days < 30) || marks.has("mark-low-stock")) add("risk", "低库存", "danger");
         if (marks.has("mark-clearance")) add("clear", "清货", "mute");
         else if (num(cellOf(row, "订货量")) > 0) add("order", "待下单", "order");
         Object.entries(MARK_LABELS).forEach(([key, value]) => {
-            if (!marks.has(key) || key === "mark-low-stock" || key === "mark-clearance") return;
-            add(key, value[0], ["danger", "warn", "orange"].includes(value[1]) ? "warn" : "mute");
+            if (!marks.has(key) || ["mark-low-stock", "mark-clearance", "mark-sales-rise", "mark-falling"].includes(key)) return;
+            add(key, value[0], value[1]);
         });
+        return labels;
+    }
+
+    function skuStatusLabels(row, rowIndex) {
+        const labels = statusEntries(row, rowIndex);
         if (!labels.length) return "";
         const all = labels.map(item => item.text).join("、");
-        return `<span class="sku-statuses" title="${esc(all)}">${labels.slice(0, 2).map(item => `<span class="sku-status ${item.tone}">${esc(item.text)}</span>`).join("")}${labels.length > 2 ? `<span class="sku-status more" title="${esc(labels.slice(2).map(item => item.text).join("、"))}">+${labels.length - 2}</span>` : ""}</span>`;
+        return `<span class="sku-statuses" title="${esc(all)}">${labels.map(item => `<span class="sku-status ${item.tone}">${esc(item.text)}</span>`).join("")}</span>`;
     }
 
     function cellRender(colName, value, rowIndex, row) {
@@ -2310,12 +2509,12 @@ const CONF = {
         let align = "";
 
         if (SKU_COLS.has(colName)) {
-            html = esc(value) + (tokens.includes("mark-clearance") ? `<span class="tag-clear">清货</span>` : "");
-            if (colName === "SKU" && state.active === MAIN_SHEET && CONF.canWrite && !tokens.includes("mark-clearance")) {
-                html += ` <button class="btn" type="button" data-clearance-row="${rowIndex}" style="padding:2px 6px;height:auto;font-size:10px">标记清货</button>`;
-            }
+            const skuMarks = new Set(Object.values(stylesAt(rowIndex)).flat());
+            const skuTone = (skuMarks.has("mark-new-product") ? " new-code" : "") + (skuMarks.has("mark-ocean") ? " ocean-code" : "");
+            html = `<span class="sku-code${skuTone}">${esc(value)}</span>` + (tokens.includes("mark-clearance") ? `<span class="tag-clear">清货</span>` : "");
+
             if (colName === "SKU" && state.active === MAIN_SHEET) {
-                html = `<span class="sku-identity">${html}</span>${skuStatusLabels(row, rowIndex)}`;
+                html = `<span class="sku-identity">${html}</span>`;
             }
             cls.push("sku");
         } else if (colName === "日均销量") {
@@ -2423,13 +2622,16 @@ const CONF = {
 
             let pin = 0;
             const tds = visible.map(i => {
-                if (i === -1) return `<td class="spark-cell">${salesSparkline(row)}</td>`;
+                if (i === -2) return `<td class="status-cell">${skuStatusLabels(row, index) || '<span class="dim">—</span>'}</td>`;
+                if (i === -1) return `<td class="spark-cell">${salesSparkline(row, index)}</td>`;
                 const name = String(columns[i]);
                 const c = cellRender(name, row[i], index, row);
+                if (name === "站点") c.cls += " site-cell";
+                if (i >= 4) c.cls += " centered-data";
                 const pinned = i < 4;
                 const pinIndex = pinned ? pin++ : -1;
                 const style = pinned ? `left:var(--p${pinIndex});` : "";
-                const pinCls = pinned ? "pin" + (pinIndex === 3 ? " edge" : "") : "";
+                const pinCls = (pinned ? "pin" + (pinIndex === 3 ? " edge" : "") : "") + (i < 3 ? " identity-cell" : "");
                 const tip = ((sheet().comments || {})[String(index)] || {})[String(i)];
                 return `<td data-col="${i}" class="${c.cls} ${c.align} ${pinCls}" style="${style}"
                         ${tip ? `data-tip="${esc(tip)}"` : ""}>${c.html}</td>`;
@@ -2467,6 +2669,10 @@ const CONF = {
             Object.values(comments[x.index] || {}).join("\r\n").toLowerCase().includes(q)
         ).filter(x => filters.every((_, i) => {
             const selected = selectedAt(i);
+            if (state.active === MAIN_SHEET && i === s.columns.length) {
+                const tags = statusEntries(x.row, x.index).map(item => item.text);
+                return !selected.length || selected.some(value => value === "无状态" ? !tags.length : tags.includes(value));
+            }
             return !selected.length || selected.includes(String(x.row[i]??''));
         }));
 
@@ -2556,13 +2762,15 @@ const CONF = {
         anchor.classList.add("on");
         const s = sheet();
         const rows = s.rows || [];
-        const values = [...new Set(rows.map(r => String(r[i] ?? "")).filter(v => v !== ""))];
-        values.sort((a, b) => a.localeCompare(b, "zh-CN", { numeric: true, sensitivity: "base" }));
+        const isStatus = state.active === MAIN_SHEET && i === s.columns.length;
+        const rowValues = (row, index) => {
+            if (!isStatus) return [String(row[i] ?? "")].filter(Boolean);
+            const labels = statusEntries(row, index).map(item => item.text);
+            return labels.length ? labels : ["无状态"];
+        };
         const counts = new Map();
-        rows.forEach(r => {
-            const v = String(r[i] ?? "");
-            if (v !== "") counts.set(v, (counts.get(v) || 0) + 1);
-        });
+        rows.forEach((row, index) => rowValues(row, index).forEach(value => counts.set(value, (counts.get(value) || 0) + 1)));
+        const values = [...counts.keys()].sort((a, b) => a.localeCompare(b, "zh-CN", {numeric:true,sensitivity:"base"}));
         const f = filtersOf()[i];
         const selected = Array.isArray(f) ? f.slice() : (f ? [f] : []);
 
@@ -2570,7 +2778,7 @@ const CONF = {
         el.pop.hidden = false;
         el.pop.innerHTML = `
             <div class="pop-head">
-                <span class="t">筛选 · ${esc(String(s.columns[i]))}</span>
+                <span class="t">筛选 · ${esc(isStatus ? "状态（多选任一匹配）" : String(s.columns[i]))}</span>
                 <span class="spacer"></span>
                 <button class="icon-btn" data-close type="button" style="width:24px;height:24px">${icon("close", "sm")}</button>
             </div>
@@ -2653,12 +2861,9 @@ const CONF = {
                 <button class="icon-btn" data-close type="button" style="width:24px;height:24px">${icon("close", "sm")}</button>
             </div>
             <div class="cols-list">
-                ${columns.map((c, i) => {
-                    const locked = i < 4;
-                    return `<label class="${locked ? "locked" : ""}">
-                        <input type="checkbox" data-col="${i}" ${locked || !hidden.has(i) ? "checked" : ""} ${locked ? "disabled" : ""}>
-                        ${esc(String(c))}${locked ? `<span style="color:var(--muted-2);font-size:10px;margin-left:auto">固定</span>` : ""}
-                    </label>`;
+                ${visibleTableColumns(columns, new Set()).map(i => {
+                    const name = i === -2 ? "状态" : i === -1 ? "近15天销量走势" : String(columns[i]);
+                    return `<label><input type="checkbox" data-col="${i}" ${!hidden.has(i) ? "checked" : ""}>${esc(name)}</label>`;
                 }).join("")}
             </div>
             <div class="pop-foot"><button data-all type="button">全部显示</button><button data-close type="button">完成</button></div>`;
@@ -2792,7 +2997,9 @@ const CONF = {
                 <table class="kv">${(s.columns || []).map((c, i) => `<tr><td>${esc(String(c))}</td><td>${esc(row[i] ?? "")}</td></tr>`).join("")}</table>
             </section>
             ${Object.keys(commentMap).length ? `<section class="dsec"><h3>批注</h3><div class="notes">${Object.entries(commentMap).map(([c, t]) => `<div class="note"><b>${esc(String(s.columns[c] ?? ""))}</b>${esc(t)}</div>`).join("")}</div></section>` : ""}`;
-        el.dCopyAdvice.hidden = true;
+        el.dAddNote.hidden = true;
+        $("#dClearance").hidden = true;
+        $("#dAddAB").hidden = true;
         el.drawer.hidden = false;
         el.scrim.hidden = false;
         renderBody();
@@ -2811,7 +3018,13 @@ const CONF = {
         const orderQtyIndex = (s.columns || []).findIndex(column => String(column) === "订货量");
         const orderReason = orderQtyIndex >= 0 ? String(commentMap[String(orderQtyIndex)] || "").trim() : "";
         if (orderReason) v.text = esc(orderReason).replaceAll("\r\n", "<br>");
-        el.dCopyAdvice.hidden = false;
+        el.dAddNote.hidden = false;
+        $("#dClearance").hidden = false;
+        $("#dAddAB").hidden = false;
+        $("#dAddAB").disabled = !CONF.canWrite;
+        el.dAddNote.disabled = !CONF.canWrite;
+        $("#dClearance").disabled = !CONF.canWrite || Object.values(stylesAt(index)).some(tokens => tokens.includes("mark-clearance"));
+        $("#dClearance").dataset.clearanceRow = String(index);
 
         el.dSku.textContent = d.sku || "—";
         el.dChips.innerHTML = [
@@ -2826,7 +3039,7 @@ const CONF = {
         const tokens = stylesAt(index);
         const tagSet = new Set();
         Object.values(tokens).forEach(list => list.forEach(t => tagSet.add(t)));
-        const tags = [...tagSet].map(t => {
+        const tags = [...tagSet].filter(t => !["mark-sales-rise", "mark-falling"].includes(t)).map(t => {
             const meta = MARK_LABELS[t];
             return meta ? `<span class="mtag ${meta[1]}"><i></i>${meta[0]}</span>` : "";
         }).join("");
@@ -2923,7 +3136,7 @@ const CONF = {
         if (!data) { box.innerHTML = '<div class="trend-empty">当前快照尚未包含逐日销量，请生成 / 刷新快照</div>'; return; }
         const meta = document.querySelector("[data-trend-meta]");
         if (meta) meta.textContent = `${data.start.slice(5)} 至 ${data.end.slice(5)} · ${data.source}口径`;
-        box.innerHTML = `<div class="trend-large" data-sku="${esc(sku)}"></div><div class="trend-sum"><span>合计 <b>${fmtInt(data.sum)}</b> 件</span><span>日均 <b>${fmtDecimal(data.avg)}</b> 件</span></div>`;
+        box.innerHTML = `<div class="trend-large" data-tone="${trendTone(state.selected?.index)}" data-sku="${esc(sku)}"></div><div class="trend-sum"><span>合计 <b>${fmtInt(data.sum)}</b> 件</span><span>日均 <b>${fmtDecimal(data.avg)}</b> 件</span></div>`;
         drawerSalesChart = createSalesChart(box.querySelector(".trend-large"), data, false);
     }
 
@@ -2933,7 +3146,7 @@ const CONF = {
         el.drawer.hidden = true;
         el.scrim.hidden = true;
         el.drawer.setAttribute("aria-hidden", "true");
-        el.dCopyAdvice.hidden = false;
+        el.dAddNote.hidden = false;
         state.selected = null;
         renderBody();
     }
@@ -3236,7 +3449,7 @@ const CONF = {
         store: "店铺",
         purchaser: "采购方",
         originalQuantity: "当前订货量",
-        quantity: "最终导出数量",
+        quantity: "最终采购数量",
     };
 
     function purchaseFilterValues(key) {
@@ -3346,7 +3559,7 @@ const CONF = {
                 <td>${esc(item.store)}</td>
                 <td>${esc(item.purchaser)}</td>
                 <td class="n">${fmtInt(item.originalQuantity ?? item.quantity)}</td>
-                <td class="n"><input type="number" min="1" step="1" inputmode="numeric" data-purchase-quantity value="${esc(item.quantity)}" aria-label="${esc(item.sku)} 最终导出数量"></td>
+                <td class="n"><input type="number" min="1" step="1" inputmode="numeric" data-purchase-quantity value="${esc(item.quantity)}" aria-label="${esc(item.sku)} 最终采购数量"></td>
             </tr>`).join("") : `<tr><td class="purchase-empty" colspan="6">${items.length ? "没有符合当前筛选条件的明细" : "没有订货量大于 10 的明细"}</td></tr>`;
     }
 
@@ -3358,7 +3571,7 @@ const CONF = {
                 <th>店铺<button class="purchase-filter-button" data-purchase-filter-button="store" type="button">全部</button></th>
                 <th>采购方<button class="purchase-filter-button" data-purchase-filter-button="purchaser" type="button">全部</button></th>
                 <th class="n">当前订货量<button class="purchase-filter-button" data-purchase-filter-button="originalQuantity" type="button">全部</button></th>
-                <th class="n">最终导出数量<button class="purchase-filter-button" data-purchase-filter-button="quantity" type="button">全部</button></th>
+                <th class="n">最终采购数量<button class="purchase-filter-button" data-purchase-filter-button="quantity" type="button">全部</button></th>
             </tr>`;
         el.purchasePlanHead.querySelectorAll("[data-purchase-filter-button]").forEach(button => {
             button.addEventListener("click", event => {
@@ -3373,6 +3586,9 @@ const CONF = {
     async function openPurchasePlanDialog() {
         if (!CONF.canWrite) { toast("当前为只读权限，不能生成采购计划", "warn"); return; }
         if (state.dirtyQuantities.size && !(await syncOrderQuantities())) return;
+        $("#purchasePlanStatus").hidden = true;
+        el.purchasePlanExport.disabled = false;
+        el.purchasePlanExport.textContent = "在赛狐创建采购计划";
         const candidates = purchaseCandidates();
         if (!candidates.length) { toast("没有订货量大于 10 的明细", "warn"); return; }
         state.purchaseItems = candidates.map(item => ({ ...item, originalQuantity: item.quantity }));
@@ -3391,16 +3607,26 @@ const CONF = {
         const selected = state.purchaseItems.filter(item => item.selected);
         if (!selected.length) { toast("请至少选择一条采购明细", "warn"); return; }
         if (selected.some(item => !Number.isInteger(item.quantity) || item.quantity <= 0)) {
-            toast("最终导出数量必须是大于 0 的整数", "warn"); return;
+            toast("最终采购数量必须是大于 0 的整数", "warn"); return;
         }
         const btn = el.purchasePlanExport;
         const html = btn.innerHTML;
+        const statusBox = $("#purchasePlanStatus");
+        const started = Date.now();
+        let completed = false;
+        statusBox.hidden = false;
+        statusBox.dataset.tone = "pending";
+        const showProgress = () => { statusBox.textContent = `正在向赛狐创建采购计划，已等待 ${Math.floor((Date.now()-started)/1000)} 秒。请勿重复提交。`; };
+        showProgress();
+        const progress = setInterval(showProgress, 1000);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 120000);
         btn.disabled = true;
         btn.classList.add("spinning");
-        btn.innerHTML = `${icon("refresh")} 导出中…`;
+        btn.innerHTML = `${icon("refresh")} 创建中…`;
         try {
-            const r = await fetch(CONF.purchasePlanUrl, {
-                method: "POST",
+            const r = await fetch(CONF.purchaseCreateUrl, {
+                method: "POST", signal: controller.signal,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     items: selected.map(item => ({ index: item.index, quantity: item.quantity, sku: item.sku, store: item.store, operator: item.purchaser })),
@@ -3411,30 +3637,28 @@ const CONF = {
                 try { message = (await r.json()).message || message; } catch (parseErr) { /* 保留默认提示 */ }
                 throw new Error(message);
             }
-            const blob = await r.blob();
-            const disposition = r.headers.get("Content-Disposition") || "";
-            const matched = /filename\*=UTF-8''([^;]+)/i.exec(disposition) || /filename="?([^";]+)"?/i.exec(disposition);
-            let name = matched ? decodeURIComponent(matched[1]) : "";
-            if (!name) {
-                const now = new Date();
-                name = `${now.getMonth() + 1}.${now.getDate()}下单导入.xlsx`;
-            }
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = name;
-            a.click();
-            URL.revokeObjectURL(url);
-            const rows = r.headers.get("X-Purchase-Plan-Rows");
-            el.purchasePlanDialog.close();
-            await load();
-            toast(`已生成 ${name}${rows ? `，共 ${rows} 行` : ""}`);
+            const result = await r.json();
+            completed = true;
+            clearInterval(progress);
+            const resultText = `${result.message}，共 ${result.item_count} 项，创建人：${result.creator}。请到赛狐采购计划中查看。`;
+            statusBox.dataset.tone = "success";
+            statusBox.textContent = resultText;
+            toast(resultText);
+            void load();
         } catch (err) {
-            toast(err instanceof TypeError ? "服务连接中断，请稍后重试" : (err?.message || "生成采购计划失败"), "warn");
+            clearInterval(progress);
+            const message = err.name === "AbortError" || err instanceof TypeError
+                ? "等待赛狐回执超时或连接中断，创建结果未确认，请先到赛狐核对，勿重复创建。"
+                : (err?.message || "创建采购计划失败");
+            statusBox.dataset.tone = "error";
+            statusBox.textContent = message;
+            toast(message, "warn");
         } finally {
-            btn.disabled = false;
+            clearInterval(progress);
+            clearTimeout(timeout);
+            btn.disabled = completed;
             btn.classList.remove("spinning");
-            btn.innerHTML = html;
+            btn.innerHTML = completed ? "已创建" : html;
         }
     }
 
@@ -3462,6 +3686,7 @@ const CONF = {
 
     /* ------------------------------------------------------------- 事件绑定 */
     el.grid.addEventListener("click", e => {
+        if (e.target.closest(".field-help")) { e.stopPropagation(); return; }
         const clearanceButton = e.target.closest("[data-clearance-row]");
         if (clearanceButton) {
             e.stopPropagation();
@@ -3610,7 +3835,7 @@ const CONF = {
 
     document.addEventListener("keydown", e => {
         if (e.key === "Escape") {
-            if (!$("#legendDialog").open) { closePop(); if (!el.drawer.hidden) closeRow(); }
+            if (!$("#legendDialog").open && !$("#noteDialog").open && !$("#abDialog").open) { closePop(); if (!el.drawer.hidden) closeRow(); }
         }
         if (e.key === "/" && !e.target.closest("input, textarea, [contenteditable=true]")) {
             e.preventDefault();
@@ -3658,24 +3883,69 @@ const CONF = {
     $("#dClose").addEventListener("click", closeRow);
     el.scrim.addEventListener("click", closeRow);
 
-    $("#dCopyRow").addEventListener("click", () => {
-        const cur = currentSelectedRow();
-        if (!cur) return;
-        const lines = (cur.sheet.columns || []).map((c, i) => `${c}：${cur.row[i] ?? ""}`).join("\r\n");
-        copy(`${cur.row[3] ?? cur.row[0] ?? ""}\r\n${lines}`, "整行已复制");
+    $("#dClearance").addEventListener("click", async () => {
+        if (!CONF.canWrite || state.selected?.sheet !== MAIN_SHEET) return;
+        await registerClearance($("#dClearance"));
+        if (state.selected) openRow(state.selected.index);
     });
-
-    el.dCopyAdvice.addEventListener("click", () => {
+    const abDialog = $("#abDialog");
+    $("#dAddAB").addEventListener("click", () => {
         const cur = currentSelectedRow();
-        if (!cur || state.selected.sheet !== MAIN_SHEET) return;
-        const d = rowInfo(cur.row);
-        const v = verdictOf(d);
-        const text = `【补货建议】${d.sku} · 店铺 ${d.store} · ${d.cat2 || d.cat}\r\n` +
-            `含待到货可售：${d.days >= 999 ? "不可计算" : d.days + " 天"}（安全线 30 天）\r\n` +
-            `建议订货：${fmtInt(d.qty || v.need)} 件\r\n` +
-            `订货后可售：${d.afterDays >= 999 ? "不可计算" : d.afterDays + " 天"}\r\n` +
-            `日均 ${fmtDecimal(d.daily)} 件 · K 值 ${d.k.toFixed(2)}`;
-        copy(text, "补货建议已复制");
+        if (!cur || !CONF.canWrite || state.selected?.sheet !== MAIN_SHEET) return;
+        const value = String(cur.row[cur.sheet.columns.indexOf("AB品")] || "");
+        const match = /^(\d+)-([12])$/.exec(value);
+        $("#abGroup").value = match ? match[1] : "";
+        $("#abType").value = match ? match[2] : "1";
+        abDialog.showModal();
+        $("#abGroup").focus();
+    });
+    $("#abClose").onclick = $("#abCancel").onclick = () => abDialog.close();
+    $("#abForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const cur = currentSelectedRow();
+        if (!cur || !CONF.canWrite || state.selected?.sheet !== MAIN_SHEET) return;
+        const sku = cur.row[cur.sheet.columns.indexOf("SKU")];
+        const group = Number($("#abGroup").value), type = Number($("#abType").value);
+        if (!Number.isInteger(group) || group < 1 || group > 2147483647) return;
+        const button = $("#abSave");
+        button.disabled = true;
+        try {
+            if (state.dirtyQuantities.size && !(await syncOrderQuantities())) return;
+            const response = await fetch(CONF.abUrl, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sku,group,type})});
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "保存 AB 品失败");
+            apply(data);
+            abDialog.close();
+            if (state.selected) openRow(state.selected.index);
+        } catch (err) { toast(err.message || "保存 AB 品失败", "warn"); }
+        finally { button.disabled = false; }
+    });
+    const noteDialog = $("#noteDialog");
+    el.dAddNote.addEventListener("click", () => {
+        if (!CONF.canWrite || state.selected?.sheet !== MAIN_SHEET) return;
+        $("#noteText").value = "";
+        noteDialog.showModal();
+        $("#noteText").focus();
+    });
+    $("#noteClose").onclick = $("#noteCancel").onclick = () => noteDialog.close();
+    $("#noteForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const cur = currentSelectedRow();
+        const note = $("#noteText").value.trim();
+        if (!cur || !note || !CONF.canWrite) return;
+        const sku = cur.row[cur.sheet.columns.indexOf("SKU")];
+        const button = $("#noteSave");
+        button.disabled = true;
+        try {
+            if (state.dirtyQuantities.size && !(await syncOrderQuantities())) return;
+            const response = await fetch(CONF.noteUrl, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({sku,note})});
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "保存备注失败");
+            apply(data);
+            noteDialog.close();
+            if (state.selected) openRow(state.selected.index);
+        } catch (err) { toast(err.message || "保存备注失败", "warn"); }
+        finally { button.disabled = false; }
     });
 
     if (el.file) {
@@ -3688,6 +3958,7 @@ const CONF = {
     if (el.refresh) el.refresh.addEventListener("click", refresh);
     if (el.saveQuantities) el.saveQuantities.addEventListener("click", syncOrderQuantities);
     if (el.shippingPlan) el.shippingPlan.addEventListener("click", openPurchasePlanDialog);
+
     el.purchasePlanBody.addEventListener("change", e => {
         const row = e.target.closest("tr[data-purchase-index]");
         if (!row) return;

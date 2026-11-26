@@ -39,6 +39,97 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
             with patch.object(operation, "scoped_query_executor", return_value=(lambda sql: [], access)):
                 return self.client.open(path, method=method, **kwargs)
 
+    def test_sellfox_create_uses_login_identity_and_server_fields(self):
+        with app_module.app.app_context():
+            dataset=build_sample_dataset()
+            dataset["rows"][0]["values"][1]=1
+            dataset["rows"][0]["values"][13]=120
+            operation.save_operation_workbook({"main":dataset,"sheets":{},"generation":{}},operation.get_shared_snapshot_path())
+        with patch.object(operation,"_purchase_plan_sku_map",return_value={"SKU-A":"BUY-A"}), patch.object(operation,"_purchase_plan_notes",return_value={}), patch.object(operation.sellfox_purchase,"create_once",return_value=({"planNo":"TEST"},False)) as create:
+            response=self.request("POST","/api/ai/daily-replenishment-operation/purchase-plan/create",json={"items":[{"index":0,"quantity":150}],"userName":"伪造用户","operationType":1})
+        self.assertEqual(200,response.status_code,response.get_json())
+        body=create.call_args.args[0]
+        self.assertEqual("测试用户",body["userName"])
+        self.assertEqual(0,body["operationType"])
+        self.assertEqual(operation.PURCHASE_PLAN_WAREHOUSE,body["warehouseName"])
+        self.assertEqual("BUY-A",body["items"][0]["sku"])
+        self.assertEqual(150,body["items"][0]["planNum"])
+        self.assertNotIn("partyAName",body["items"][0])
+        self.assertNotIn("shopName",body["items"][0])
+        self.assertIn("店铺编号：1",body["items"][0]["note"])
+
+    def test_sellfox_create_rejects_unwritable_store(self):
+        with app_module.app.app_context():
+            dataset=build_sample_dataset()
+            dataset["rows"][0]["values"][1]=1
+            dataset["rows"][0]["values"][13]=120
+            operation.save_operation_workbook({"main":dataset,"sheets":{},"generation":{}},operation.get_shared_snapshot_path())
+        access={"read_stores":{"1"},"write_stores":{"2"},"can_write":True}
+        with patch.object(app_module.permission_manager,"check_user_permission",return_value=(True,"test")), patch.object(operation,"scoped_query_executor",return_value=(None,access)), patch.object(operation,"_purchase_plan_sku_map",return_value={}), patch.object(operation,"_purchase_plan_notes",return_value={}), patch.object(operation.sellfox_purchase,"create_once") as create:
+            response=self.client.post("/api/ai/daily-replenishment-operation/purchase-plan/create",json={"items":[{"index":0,"quantity":120}]})
+        self.assertEqual(403,response.status_code)
+        create.assert_not_called()
+
+    def test_ab_product_saves_database_and_snapshot(self):
+        with app_module.app.app_context():
+            snapshot = operation.get_shared_snapshot_path()
+            dataset = build_sample_dataset()
+            dataset["rows"][0]["values"][1] = 1
+            operation.save_operation_workbook({"main": dataset, "sheets": {}, "generation": {}}, snapshot)
+        with patch.object(operation, "dui_db") as write, patch.object(base, "sf_db", return_value=[("12-2",)]):
+            response = self.request("POST", "/api/ai/daily-replenishment-operation/ab-product",
+                                    json={"sku":"SKU-A", "group":12, "type":2})
+        self.assertEqual(200, response.status_code, response.get_json())
+        main = response.get_json()["sheets"][base.SHEET_NAME]
+        self.assertEqual("12-2", main["rows"][0][main["columns"].index("AB品")])
+        self.assertIn("UPDLOCK,HOLDLOCK", write.call_args.args[0])
+        self.assertEqual(("SKU-A",12,2,"SKU-A",12,"SKU-A",12,2), write.call_args.kwargs["params"])
+        with app_module.app.app_context():
+            persisted = operation.load_snapshot(operation.get_today_snapshot(user_name="测试用户"))
+        self.assertEqual("12-2", persisted["sheets"][base.SHEET_NAME]["rows"][0][19])
+
+    def test_ab_product_rejects_bad_values_and_unwritable_sku(self):
+        with patch.object(operation, "dui_db") as write:
+            for group, kind in ((0,1),(True,1),(1.5,1),(1,3),(1,True),(2147483648,2)):
+                response = self.request("POST", "/api/ai/daily-replenishment-operation/ab-product",
+                                        json={"sku":"SKU-A", "group":group, "type":kind})
+                self.assertEqual(400, response.status_code)
+            with app_module.app.app_context():
+                operation.save_operation_workbook({"main":build_sample_dataset(),"sheets":{},"generation":{}}, operation.get_shared_snapshot_path())
+            response = self.request("POST", "/api/ai/daily-replenishment-operation/ab-product", json={"sku":"UNKNOWN","group":1,"type":1})
+            self.assertEqual(403, response.status_code)
+            write.assert_not_called()
+
+    def test_add_note_persists_actor_and_preserves_existing_remark(self):
+        with app_module.app.app_context():
+            snapshot = operation.get_shared_snapshot_path()
+            dataset = build_sample_dataset()
+            dataset["rows"][0]["values"][1] = 1
+            operation.save_operation_workbook({"main": dataset, "sheets": {}, "generation": {}}, snapshot)
+        with patch.object(operation, "dui_db") as write:
+            response = self.request("POST", "/api/ai/daily-replenishment-operation/notes",
+                                    json={"sku": "SKU-A", "note": "下周跟进", "user_name": "伪造用户"})
+        self.assertEqual(200, response.status_code, response.get_json())
+        remark = response.get_json()["sheets"][base.SHEET_NAME]["rows"][0][17]
+        self.assertIn("旧备注", remark)
+        self.assertIn("下周跟进（测试用户", remark)
+        self.assertEqual("测试用户", write.call_args.kwargs["params"][-1])
+        with app_module.app.app_context():
+            persisted = operation.load_snapshot(operation.get_today_snapshot(user_name="测试用户"))
+        self.assertEqual(remark, persisted["sheets"][base.SHEET_NAME]["rows"][0][17])
+
+    def test_add_note_rejects_invalid_input_and_unwritable_sku(self):
+        with patch.object(operation, "dui_db") as write:
+            for note in ("", " " , "字" * 1001):
+                response = self.request("POST", "/api/ai/daily-replenishment-operation/notes", json={"sku":"SKU-A", "note":note})
+                self.assertEqual(400, response.status_code)
+            with app_module.app.app_context():
+                snapshot = operation.get_shared_snapshot_path()
+                operation.save_operation_workbook({"main": build_sample_dataset(), "sheets": {}, "generation": {}}, snapshot)
+            response = self.request("POST", "/api/ai/daily-replenishment-operation/notes", json={"sku":"UNKNOWN", "note":"跟进"})
+            self.assertEqual(403, response.status_code)
+            write.assert_not_called()
+
     def test_clearance_records_actor_time_preserves_remark_and_zeroes_order(self):
         with app_module.app.app_context():
             snapshot = operation.get_shared_snapshot_path()
