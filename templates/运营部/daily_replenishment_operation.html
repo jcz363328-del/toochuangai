@@ -1598,6 +1598,17 @@ td.dim { color: var(--muted); }
 .purchase-result[data-tone="success"] {background:#e8f5ec;border-color:#9fceb0;color:#23633b;}
 .purchase-result[data-tone="error"] {background:#fff0ed;border-color:#edb1a5;color:#9b382b;}
 .purchase-result[hidden] {display:none;}
+
+.shipping-reference { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2); }
+.shipping-reference-head { display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;font-size:12px; }
+.shipping-reference-head small { font-size:10px;color:var(--muted); }
+.shipping-country { padding:9px 0;border-top:1px solid var(--line);font-size:11px;line-height:1.7; }
+.shipping-country-header { display:flex;justify-content:space-between;gap:8px;align-items:center; }
+.shipping-country-header .ok { color:#28704c; } .shipping-country-header .warn { color:#9c6b0a; } .shipping-country-header .danger { color:#b3261e; }
+.shipping-country p { margin:3px 0;color:var(--ink-2); }
+.shipping-country details { color:var(--muted);font-size:10px; }
+.shipping-country summary { cursor:pointer; }
+.shipping-reference-note { margin:7px 0 0;font-size:10px;color:var(--muted);line-height:1.6; }
 </style>
 <style>
 #fileLabel{display:none}.param-form{display:grid;gap:12px;padding:8px 0 18px}.param-form label{display:grid;gap:6px;font-size:13px;color:var(--muted)}.param-form input{padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}
@@ -1605,6 +1616,36 @@ td.dim { color: var(--muted); }
 .drawer-head{align-items:center;padding:11px 18px}.drawer-head>div:first-child{display:flex;align-items:center;gap:12px;min-width:0}.drawer-head .eyebrow{margin:0;white-space:nowrap}.drawer-head h2{margin:0;font-size:19px}.drawer-head .drawer-chips{margin:0}.drawer-body .dsec:nth-child(1){display:flex;flex-direction:column;background:var(--green-soft);border-color:var(--accent-line)}.drawer-body .dsec:nth-child(1) .verdict{flex:1;display:flex;flex-direction:column;justify-content:center;border:0;background:transparent;padding:8px}.drawer-body .dsec:nth-child(1) .verdict p{font-size:14px;line-height:1.7}.drawer-body .dsec:nth-child(1) .dsec{background:transparent}
 .drawer-body .dsec:nth-child(7) .notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}.drawer-body .dsec:nth-child(7) .note{height:100%;box-sizing:border-box}
 @media (max-width:900px){.drawer-body{grid-template-columns:1fr;grid-template-areas:"verdict" "inventory" "trend" "projection" "calculation" "parameters" "marks"}.drawer-body .dsec:only-child{grid-column:auto}.drawer-body .tiles{grid-template-columns:1fr 1fr}.drawer-body .dsec:nth-child(7) .notes{grid-template-columns:1fr}}
+</style>
+<style>
+.drawer-body.fba-detail { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); grid-template-areas:"fba-metrics fba-metrics" "fba-routes fba-fields";align-items:start; }
+.drawer-body.fba-detail > .fba-metrics { grid-area:fba-metrics;background:var(--surface);border-color:var(--line-2); }
+.drawer-body.fba-detail > .fba-routes { grid-area:fba-routes; }
+.drawer-body.fba-detail > .fba-fields { grid-area:fba-fields; }
+.fba-metric-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px; }
+.fba-metric { padding:12px;border-radius:8px;background:var(--surface-2); }
+.fba-metric span { display:block;font-size:11px;color:var(--muted);margin-bottom:5px; }
+.fba-metric strong { font-size:21px;font-weight:650;font-variant-numeric:tabular-nums; }
+.fba-metric small { font-size:11px;color:var(--muted);margin-left:4px; }
+.fba-fields-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px; }
+.fba-field { padding:10px 0;border-bottom:1px solid var(--line-2);min-width:0; }
+.fba-field span { display:block;color:var(--muted);font-size:11px;margin-bottom:4px; }
+.fba-field strong { font-size:12px;font-weight:500;overflow-wrap:anywhere; }
+.fba-detail .shipping-reference { border:0;padding:0;margin:0;background:transparent; }
+.fba-detail .shipping-country { border:0;padding:0; }
+.shipping-decision { padding:12px;border-radius:8px;background:#f4f7f3;margin:10px 0 12px;border-left:3px solid #85a78a; }
+.shipping-decision p { font-size:12px;line-height:1.7; }
+.shipping-route-list { margin-top:12px;overflow:auto;max-height:420px;border:1px solid var(--line-2);border-radius:8px; }
+.shipping-route-list table { width:100%;border-collapse:collapse;font-size:11px; }
+.shipping-route-list th { position:sticky;top:0;background:var(--surface-2);padding:9px 10px;text-align:left;white-space:nowrap; }
+.shipping-route-list td { padding:8px 10px;border-top:1px solid var(--line-2);font-variant-numeric:tabular-nums; }
+.shipping-route-list th:nth-child(2),.shipping-route-list td:nth-child(2),.shipping-route-list th:nth-child(3),.shipping-route-list td:nth-child(3) { text-align:right;white-space:nowrap; }
+.shipping-route-list .sea-route { background:#f4f8f1; }
+.shipping-route-list .small-sample { color:var(--muted); }
+.route-kind { display:inline-block;border-radius:4px;background:var(--surface-2);padding:1px 5px;font-size:10px;white-space:nowrap; }
+.route-kind.sea { color:#34703f;background:#e4efe2; }.route-kind.fast { color:#946510;background:#fff2cb; }
+@media(max-width:1000px) { .drawer-body.fba-detail {grid-template-columns:1fr;grid-template-areas:"fba-metrics" "fba-routes" "fba-fields";} }
+@media(max-width:520px) { .fba-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.fba-fields-grid{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -1770,6 +1811,7 @@ td.dim { color: var(--muted); }
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A2.5 2.5 0 0 0 12.5 3h-6A2.5 2.5 0 0 0 4 5.5v6A2.5 2.5 0 0 0 6.5 14"/></svg>
             清货
         </button>
+        <button class="btn" id="dAddSea" type="button" hidden>添加海运</button>
         <button class="btn" id="dAddAB" type="button">添加 AB 品</button>
         <button class="btn primary" id="dAddNote" type="button">
             <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
@@ -1791,8 +1833,8 @@ td.dim { color: var(--muted); }
 <dialog class="dlg" id="legendDialog" aria-labelledby="legendTitle">
     <div class="dlg-head">
         <div>
-            <h3 id="legendTitle">表格颜色与标记</h3>
-            <p>沿用原 Excel 语义，底色换成可长时间阅读的柔和色；需要时可切回 Excel 原色。</p>
+            <h3 id="legendTitle">状态、SKU 与销量走势说明</h3>
+            <p>按当前智能补货表格说明状态标签、SKU 字体和销量走势颜色。</p>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
             <button class="chip" id="toneToggle" type="button" title="在柔和配色与 Excel 原色之间切换">柔和配色</button>
@@ -1801,18 +1843,22 @@ td.dim { color: var(--muted); }
             </button>
         </div>
     </div>
-    <p style="padding:0 20px;color:var(--muted);font-size:12px">智能补货主表改用 SKU 状态标签：断货（浅红）、低库存（浅橙）、待下单（浅绿）、清货（浅灰）。其余标签悬停查看；以下颜色规则用于其他工作表及明细。</p>
+    <p style="padding:0 20px;color:var(--muted);font-size:12px;line-height:1.7">商品标签统一展示在“状态”列，每行最多三个，超过后自动换行；点击表头漏斗可筛选状态。销量上涨、下降通过走势图颜色表示，不再单独显示标签。配色切换用于其他工作表的原始单元格标记。</p>
     <div class="legend-list">
-        <div class="legend-item"><span class="legend-swatch sw-danger">红底</span><div><strong>低库存风险</strong><span>可售天数低于安全线，相关天数列标红。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch sw-warn">黄底</span><div><strong>需关注</strong><span>半成品、逾期未到货、订单减量或低库存费。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch sw-ink">黑底</span><div><strong>新品 / 新到本地</strong><span>近 90 天新到本地，或销量下滑需谨慎下单。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch sw-mute">灰底</span><div><strong>清货</strong><span>SKU 已进入清货范围，整行降权显示。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch sw-blue">蓝底</span><div><strong>销量波动大</strong><span>K 值达到变异系数阈值。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch sw-orange">橙底</span><div><strong>近期起量</strong><span>近期销量达到起量条件。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch sw-green">绿底</span><div><strong>近期销量</strong><span>单元格带销量明细，可悬停查看。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch"><b class="t-danger">红字</b></span><div><strong>运营提醒</strong><span>仅本地库存、催货、销量上涨等优先状态。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch"><b class="t-ocean">蓝字</b></span><div><strong>海运 SKU</strong><span>处于海运管理范围。</span></div></div>
-        <div class="legend-item"><span class="legend-swatch"><i>斜体</i></span><div><strong>近期计划</strong><span>最近一天内有新的订货计划。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-danger">红色标签</span><div><strong>断货 / 低库存</strong><span>库存为零且有销量时显示断货；低于安全库存条件时显示低库存。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-green">绿色标签</span><div><strong>待下单</strong><span>当前订货量大于 0，且未标记为清货。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-warn">黄色标签</span><div><strong>需关注</strong><span>半成品、逾期未到货、订单减量、低库存费、海运在途。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-mute">灰色标签</span><div><strong>清货</strong><span>已登记为清货的商品，整行弱化显示。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-ink">黑色标签</span><div><strong>新品 / 新到本地</strong><span>标识新品或新到本地的商品。新品 SKU 同时以黑色粗体显示。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-blue">蓝色标签</span><div><strong>销量波动大 / 海运 SKU</strong><span>标识销量波动提醒或已纳入海运管理的商品。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-orange">橙色标签</span><div><strong>近期起量</strong><span>近期销量达到起量条件。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-green">绿色标签</span><div><strong>近期销量</strong><span>商品存在近期销量标记，可结合走势查看逐日销量。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-danger">红色标签</span><div><strong>运营提醒</strong><span>仅本地库存、催货等需优先关注的状态。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-mute">浅灰标签</span><div><strong>近期计划</strong><span>标识最近一天内有新订货计划的商品。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-blue">SKU</span><div><strong>SKU 字体</strong><span>海运 SKU 显示蓝字；新品显示黑色粗体；同时符合时显示蓝色粗体。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-danger">红色走势</span><div><strong>销量上涨</strong><span>上涨使用红色折线；无涨跌标记时，按区间末日与首日销量比较。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-green">绿色走势</span><div><strong>销量下降 / 持平</strong><span>下降或持平使用绿色折线；悬停图表可查看每日销量。</span></div></div>
+        <div class="legend-item"><span class="legend-swatch sw-warn">添加海运</span><div><strong>明细中的海运操作</strong><span>近30天日均销量超过20件且尚未加入有效海运名单时，明细显示“添加海运”。</span></div></div>
     </div>
 </dialog>
 
@@ -1853,6 +1899,8 @@ td.dim { color: var(--muted); }
 <script src="{{ url_for('static', filename='vendor/echarts/echarts.min.js') }}"></script>
 <script>
 const CONF = {
+    shippingReferenceUrl: {{ url_for('daily_replenishment_operation.shipping_reference')|tojson }},
+    preferencesUrl: {{ url_for('daily_replenishment_operation.table_preferences')|tojson }},
     dataUrl: {{ url_for('daily_replenishment_operation.data')|tojson }},
     refreshUrl: {{ url_for('daily_replenishment_operation.refresh')|tojson }},
     statusUrl: {{ '/api/ai/daily-replenishment-operation/refresh/'|tojson }},
@@ -1871,7 +1919,7 @@ const CONF = {
     initialData: {{ initial_data|tojson }}
 };
 
-(function () {
+(async function () {
     "use strict";
 
     const $ = sel => document.querySelector(sel);
@@ -1948,6 +1996,7 @@ const CONF = {
         filters: {},
         sort: {},
         hidden: {},
+        columnOrder: {},
         quick: "order",
         search: "",
         limit: 160,
@@ -1958,6 +2007,7 @@ const CONF = {
         seaRecommendations: [],
         seaView: false,
         seaSelected: new Set(),
+        seaAdding: false,
         purchaseItems: [],
         purchaseFilters: { selection: [], sku: [], store: [], purchaser: [], originalQuantity: [], quantity: [] },
     };
@@ -2213,7 +2263,7 @@ const CONF = {
                 </label>`).join("");
         }
         const hasSelected = state.seaSelected.size > 0;
-        el.seaRecommendationAdd.disabled = !CONF.canWrite || !hasSelected;
+        el.seaRecommendationAdd.disabled = !CONF.canWrite || !hasSelected || state.seaAdding;
         el.seaRecommendationAdd.textContent = CONF.canWrite ? "加入海运" : "只读权限";
         el.seaRecommendationSelectAll.hidden = !items.length;
         el.seaRecommendationSelectAll.textContent = items.length && state.seaSelected.size === items.length ? "取消全选" : "全选";
@@ -2229,9 +2279,25 @@ const CONF = {
         renderSeaRecommendations(snapshotSheet ? "" : "当前快照尚未包含推荐海运，请生成 / 刷新快照");
     }
 
-    async function addSelectedSeaShippingRecommendations() {
-        const skus = [...state.seaSelected];
-        if (!skus.length || !CONF.canWrite) return;
+    function updateDrawerSeaButton() {
+        const button = $("#dAddSea");
+        const selected = state.selected;
+        const row = selected?.sheet === MAIN_SHEET ? state.sheets[MAIN_SHEET]?.rows?.[selected.index] : null;
+        const columns = state.sheets[MAIN_SHEET]?.columns || [];
+        const sku = String(row?.[columns.indexOf("SKU")] || "").replace(/^@/, "").trim();
+        const recommendation = state.seaRecommendations.find(item => item.sku === sku);
+        button.hidden = !recommendation;
+        button.disabled = !CONF.canWrite || state.seaAdding;
+        button.dataset.sku = recommendation ? sku : "";
+        button.textContent = state.seaAdding ? "添加中…" : "添加海运";
+        button.title = recommendation ? `近30天日均销量 ${recommendation.avg_daily_sales} 件，符合海运推荐条件` : "";
+    }
+
+    async function addSelectedSeaShippingRecommendations(requestedSkus) {
+        const skus = Array.isArray(requestedSkus) ? requestedSkus : [...state.seaSelected];
+        if (!skus.length || !CONF.canWrite || state.seaAdding) return;
+        state.seaAdding = true;
+        updateDrawerSeaButton();
         el.seaRecommendationAdd.disabled = true;
         try {
             const response = await fetch(CONF.seaShippingRecommendationsUrl, {
@@ -2246,7 +2312,7 @@ const CONF = {
             if (state.sheets["推荐海运"]) {
                 state.sheets["推荐海运"].rows = state.sheets["推荐海运"].rows.filter(row => !selected.has(String(row[0] || "").replace(/^@/, "").trim()));
             }
-            state.seaSelected.clear();
+            state.seaSelected = new Set([...state.seaSelected].filter(sku => !selected.has(sku)));
             renderSeaRecommendations();
             const added = Number(data.added || 0);
             const skipped = Number(data.skipped || 0);
@@ -2254,6 +2320,10 @@ const CONF = {
         } catch (err) {
             renderSeaRecommendations();
             toast(err?.message || "加入海运计划失败", "warn");
+        } finally {
+            state.seaAdding = false;
+            renderSeaRecommendations();
+            updateDrawerSeaButton();
         }
     }
 
@@ -2306,6 +2376,13 @@ const CONF = {
             visible.splice(statusAt < 0 ? visible.length : statusAt, 0, -2);
             visible.splice(visible.indexOf(-2) + 1, 0, -1);
         }
+        const visibleBase = visible.slice();
+        const order = state.columnOrder[state.active] || [];
+        const key = i => columnKey(columns, i);
+        visible.sort((a, b) => {
+            const rank = i => { const n = order.indexOf(key(i)); return n < 0 ? order.length + visibleBase.indexOf(i) : n; };
+            return rank(a) - rank(b);
+        });
         return visible.filter(i => !hidden.has(i));
     }
 
@@ -2410,6 +2487,7 @@ const CONF = {
     }
 
     function renderHead() {
+        schedulePreferencesSave();
         disposeSalesCharts();
         el.grid.classList.toggle("label-view", state.active === MAIN_SHEET);
         const columns = sheet().columns || [];
@@ -2440,7 +2518,7 @@ const CONF = {
             }
             if (i === -1) return `<th class="spark-heading"><div class="th-top"><span class="th-name">近15天销量走势</span>${helpButton("近15天销量走势")}</div></th>`;
             const name = String(columns[i]);
-            const pinned = i < 4;
+            const pinned = i < 4 && visible.slice(0, visible.indexOf(i)).every(j => j >= 0 && j < 4);
             const pinIndex = pinned ? pin++ : -1;
             const sorted = sort.col === i && sort.dir !== 0;
             const f = filtersOf()[i];
@@ -2466,6 +2544,15 @@ const CONF = {
         el.grid.innerHTML = `<colgroup>${cols}</colgroup><thead><tr>${ths}</tr></thead><tbody></tbody>`;
         el.grid.style.minWidth = totalPx + "px";
         el.grid.style.width = totalPx + "px";
+        el.grid.querySelectorAll("thead th").forEach((th, index) => {
+            th.dataset.columnKey = columnKey(columns, visible[index]);
+            const handle = document.createElement("span");
+            handle.textContent = "⠿";
+            handle.title = "拖动调整列顺序";
+            handle.draggable = true;
+            handle.style.cssText = "cursor:grab;padding:0 5px;touch-action:none";
+            th.querySelector(".th-top").prepend(handle);
+        });
         syncPins();
     }
 
@@ -2628,7 +2715,7 @@ const CONF = {
                 const c = cellRender(name, row[i], index, row);
                 if (name === "站点") c.cls += " site-cell";
                 if (i >= 4) c.cls += " centered-data";
-                const pinned = i < 4;
+                const pinned = i < 4 && visible.slice(0, visible.indexOf(i)).every(j => j >= 0 && j < 4);
                 const pinIndex = pinned ? pin++ : -1;
                 const style = pinned ? `left:var(--p${pinIndex});` : "";
                 const pinCls = (pinned ? "pin" + (pinIndex === 3 ? " edge" : "") : "") + (i < 3 ? " identity-cell" : "");
@@ -2931,52 +3018,63 @@ const CONF = {
         return { tone: "ok", label: "库存健康", pill: "ok", need: 0, text: `含待到货可售 <b>${fmtInt(d.days)}</b> 天，高于 45 天覆盖线，本期无需下单。` };
     }
 
-    function projectionSvg(d) {
-        if (d.daily <= 0) {
-            return `<div class="proj-hint">区间内没有销量，无法推算库存消耗。可先确认该 SKU 是否仍在售。</div>`;
-        }
-        const W = 416, H = 176, padL = 8, padR = 8, padT = 14, padB = 24, days = 45;
-        const start = d.local + d.transit;
+    function projectionModel(d, now = new Date()) {
+        const daily = Math.max(0, d.daily), start = Math.max(0, d.local + d.transit);
+        const qty = Math.max(0, d.qty);
+        const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+        const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(d.arrive || "");
         let arrival = null;
-        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d.arrive || "");
-        if (m && d.qty > 0) {
-            const target = new Date(+m[1], +m[2] - 1, +m[3]);
-            const diff = Math.round((target - new Date()) / 86400000);
-            if (diff > 0 && diff <= days) arrival = diff;
+        if (match) {
+            const target = new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
+            if (target.getUTCFullYear() === +match[1] && target.getUTCMonth() === +match[2] - 1 && target.getUTCDate() === +match[3]) {
+                const diff = (target.getTime() - today) / 86400000;
+                if (diff >= 0 && qty > 0) arrival = diff;
+            }
         }
-        if (arrival === null && d.qty > 0) arrival = 25;
+        const inWindow = arrival !== null && arrival <= 45;
+        const stockAt = t => {
+            if (!inWindow || t < arrival) return Math.max(0, start - daily * t);
+            return Math.max(0, Math.max(0, start - daily * arrival) + qty - daily * (t - arrival));
+        };
+        const initialZero = daily > 0 ? start / daily : Infinity;
+        const zero = inWindow && arrival <= initialZero ? (start + qty) / daily : initialZero;
+        const arrivalText = !qty ? "未设置新增订货量，本图不计新增补货。"
+            : arrival === null ? `订货量 ${fmtInt(qty)} 件的到货日期缺失、已过期或无效，本图暂不计入这批补货；请先核对到货日期。`
+            : arrival > 45 ? `订货量 ${fmtInt(qty)} 件预计在第 ${arrival} 天到货，超出本图45天范围，暂不计入。`
+            : `假设订货量 ${fmtInt(qty)} 件在${arrival === 0 ? "今天" : `第 ${arrival} 天`}（${String(d.arrive).slice(0, 10)}）一次到货。`;
+        return {start, daily, qty, arrival, inWindow, stockAt, zero, arrivalText};
+    }
 
-        const max = Math.max(start, start + d.qty, 1) * 1.08;
-        const X = t => padL + (t / days) * (W - padL - padR);
-        const Y = v => H - padB - (Math.max(0, v) / max) * (H - padT - padB);
-        const stockAt = t => Math.max(0, start + (arrival !== null && t >= arrival ? d.qty : 0) - d.daily * t);
-
-        const pts = [];
-        for (let t = 0; t <= days; t++) pts.push([X(t), Y(stockAt(t))]);
-        const line = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-        const area = `${line} L${X(days)},${Y(0)} L${X(0)},${Y(0)} Z`;
-
-        const zeroDay = Math.max(0, Math.min(days, Math.ceil(start / d.daily)));
-        const safe = d.daily * 30;
-        const safeY = Y(safe);
-        const gradId = "pg" + Math.random().toString(36).slice(2, 7);
-
-        return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="库存消耗投影">
-            <defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#2f6b53" stop-opacity=".18"/>
-                <stop offset="100%" stop-color="#2f6b53" stop-opacity="0"/>
-            </linearGradient></defs>
-            ${[0.25, 0.5, 0.75].map(f => `<line x1="${padL}" y1="${(padT + f * (H - padT - padB)).toFixed(1)}" x2="${W - padR}" y2="${(padT + f * (H - padT - padB)).toFixed(1)}" stroke="#f0ece2" stroke-width="1"/>`).join("")}
-            <path d="${area}" fill="url(#${gradId})"/>
-            <path d="${line}" fill="none" stroke="#2f6b53" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
-            ${safe > 0 && safe < max ? `<line x1="${padL}" y1="${safeY.toFixed(1)}" x2="${W - padR}" y2="${safeY.toFixed(1)}" stroke="#c08a18" stroke-width="1.1" stroke-dasharray="3 3"/>
-                <text x="${padL + 2}" y="${(safeY - 4).toFixed(1)}" font-size="9" fill="#a07a2a">30 天安全库存</text>` : ""}
-            ${zeroDay <= days ? `<line x1="${X(zeroDay).toFixed(1)}" y1="${padT}" x2="${X(zeroDay).toFixed(1)}" y2="${H - padB}" stroke="#c0604f" stroke-width="1" stroke-dasharray="3 3"/>
-                <circle cx="${X(zeroDay).toFixed(1)}" cy="${Y(stockAt(zeroDay)).toFixed(1)}" r="2.6" fill="#c0604f"/>
-                <text x="${Math.min(W - 46, X(zeroDay) + 5).toFixed(1)}" y="${padT + 9}" font-size="9" fill="#a8453a">断货 D+${zeroDay}</text>` : ""}
-            ${[[0, "今天"], [15, "D+15"], [30, "D+30"], [45, "D+45"]].map(([t, label]) =>
-                `<text x="${X(t).toFixed(1)}" y="${H - 6}" font-size="9" fill="#a9a294" text-anchor="${t === 0 ? "start" : t === 45 ? "end" : "middle"}">${label}</text>`).join("")}
-        </svg>`;
+    function projectionSvg(d) {
+        if (d.daily <= 0) return '<div class="proj-hint">没有日均销量，暂时无法估算库存变化。</div>';
+        const model = projectionModel(d);
+        const {start, daily, qty, arrival, inWindow, stockAt, zero} = model;
+        const W = 480, H = 210, left = 48, right = 18, top = 28, bottom = 32;
+        const safe = daily * 30;
+        const maximum = Math.max(start + (inWindow ? qty : 0), safe, 1) * 1.15;
+        const X = t => left + t / 45 * (W - left - right);
+        const Y = value => H - bottom - Math.max(0, value) / maximum * (H - top - bottom);
+        const times = [...new Set([...Array.from({length:46}, (_, i) => i), ...(inWindow ? [arrival] : []), ...(zero >= 0 && zero <= 45 ? [zero] : [])])].sort((a,b) => a-b);
+        const points = [];
+        times.forEach(t => {
+            if (inWindow && t === arrival) points.push([X(t), Y(Math.max(0, start - daily * t))]);
+            points.push([X(t), Y(stockAt(t))]);
+        });
+        const line = points.map(([x,y],i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+        const depletion = zero <= 45;
+        const summary = depletion ? `预计第 ${Math.ceil(zero)} 天首次缺货${inWindow && arrival > zero ? "，早于补货到仓，存在断货空档" : ""}。` : "按当前假设，未来45天预计不会缺货。";
+        return `<div class="proj-hint" style="font-weight:600;color:var(--ink)">${summary} 第45天预计剩余 ${fmtInt(stockAt(45))} 件。</div>
+        <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="未来45天预计剩余库存，纵轴为件，横轴为从今天起的天数">
+            <text x="${left}" y="14" font-size="10" fill="#7c877f">预计剩余库存（件）</text>
+            ${[0, .5, 1].map(f => { const value = maximum * f; return `<line x1="${left}" y1="${Y(value)}" x2="${W-right}" y2="${Y(value)}" stroke="#edeae2"/><text x="${left-7}" y="${Y(value)+3}" text-anchor="end" font-size="9" fill="#8c918b">${fmtInt(value)}</text>`; }).join("")}
+            <path d="${line} L${X(45)},${Y(0)} L${X(0)},${Y(0)} Z" fill="rgba(47,107,83,.08)"/>
+            <path d="${line}" fill="none" stroke="#2f6b53" stroke-width="2"/>
+            <line x1="${left}" y1="${Y(safe)}" x2="${W-right}" y2="${Y(safe)}" stroke="#c08a18" stroke-dasharray="4 3"/>
+            <text x="${W-right}" y="${Y(safe)-5}" text-anchor="end" font-size="9" fill="#a07a2a">30天安全库存 · ${fmtInt(safe)}件</text>
+            ${inWindow ? `<circle cx="${X(arrival)}" cy="${Y(stockAt(arrival))}" r="3" fill="#1663a8"/><text x="${Math.min(W-right, Math.max(left+55, X(arrival)))}" y="${Math.max(top, Y(stockAt(arrival))-9)}" text-anchor="middle" font-size="9" fill="#1663a8">${arrival === 0 ? "今天" : `第${arrival}天`}到货 +${fmtInt(qty)}件</text>` : ""}
+            ${depletion ? `<line x1="${X(zero)}" y1="${top}" x2="${X(zero)}" y2="${Y(0)}" stroke="#c0604f" stroke-dasharray="3 3"/><circle cx="${X(zero)}" cy="${Y(0)}" r="3" fill="#c0604f"/>` : ""}
+            ${[0,15,30,45].map(t => `<text x="${X(t)}" y="${H-10}" text-anchor="${t === 0 ? "start" : t === 45 ? "end" : "middle"}" font-size="10" fill="#8c918b">${t === 0 ? "今天" : `第${t}天`}</text>`).join("")}
+        </svg><div class="proj-hint">${esc(model.arrivalText)}</div>`;
     }
 
     function dayText(v) {
@@ -2989,7 +3087,11 @@ const CONF = {
         const row = (s.rows || [])[index];
         if (!row) return;
         state.selected = { sheet: state.active, index };
-        el.dSku.textContent = String(row[0] ?? "—");
+        const isFba = state.active === "FBA发货";
+        el.dBody.classList.toggle("fba-detail", isFba);
+        const sku = String(row[(s.columns || []).indexOf("SKU")] || "");
+        const country = String(row[(s.columns || []).indexOf("国")] || "").trim();
+        el.dSku.textContent = isFba ? (sku || "—") : String(row[0] ?? "—");
         el.dChips.innerHTML = `<span class="pill">${esc(state.active)}</span><span class="pill line">第 ${index + 1} 行</span>`;
         const commentMap = (s.comments || {})[String(index)] || {};
         el.dBody.innerHTML = `
@@ -2997,6 +3099,18 @@ const CONF = {
                 <table class="kv">${(s.columns || []).map((c, i) => `<tr><td>${esc(String(c))}</td><td>${esc(row[i] ?? "")}</td></tr>`).join("")}</table>
             </section>
             ${Object.keys(commentMap).length ? `<section class="dsec"><h3>批注</h3><div class="notes">${Object.entries(commentMap).map(([c, t]) => `<div class="note"><b>${esc(String(s.columns[c] ?? ""))}</b>${esc(t)}</div>`).join("")}</div></section>` : ""}`;
+        if (isFba && sku) {
+            const get = name => row[(s.columns || []).indexOf(name)];
+            const valueText = (name, value) => value === null || value === undefined || value === "" ? "—" : typeof value === "number" ? (name === "K值" ? value.toFixed(2) : fmtDecimal(value)) : String(value);
+            const metrics = [["FBA库存", "件"], ["FBA在途", "件"], ["日均销量", "件/天"], ["FBA可售天数", "天"]];
+            const metricNames = new Set(metrics.map(([name]) => name));
+            el.dChips.innerHTML = `<span class="pill">FBA发货</span><span class="pill line">${esc(country)}</span><span class="pill line">店铺 ${esc(get("店") ?? "—")}</span>`;
+            el.dBody.innerHTML = `<section class="dsec fba-metrics"><h3>当前记录 <span>工作表快照指标</span></h3><div class="fba-metric-grid">${metrics.map(([name,unit]) => `<div class="fba-metric"><span>${esc(name)}</span><strong>${esc(valueText(name,get(name)))}</strong><small>${unit}</small></div>`).join("")}</div></section>
+                <section class="dsec fba-routes"><div class="shipping-reference" data-shipping-reference data-sku="${esc(sku)}" aria-live="polite"><span class="dim">正在读取${esc(country)}物流时效…</span></div></section>
+                <section class="dsec fba-fields"><h3>商品与发货信息</h3><div class="fba-fields-grid">${(s.columns || []).map((name,i) => metricNames.has(String(name)) ? "" : `<div class="fba-field"><span>${esc(name)}</span><strong>${esc(valueText(name,row[i]))}</strong></div>`).join("")}</div>${Object.keys(commentMap).length ? `<details style="margin-top:12px"><summary>查看批注</summary><div class="notes">${Object.entries(commentMap).map(([c,t]) => `<div class="note"><b>${esc(s.columns[c] ?? "")}</b>${esc(t)}</div>`).join("")}</div></details>` : ""}</section>`;
+            void loadShippingReference(sku, country);
+        }
+        $("#dAddSea").hidden = true;
         el.dAddNote.hidden = true;
         $("#dClearance").hidden = true;
         $("#dAddAB").hidden = true;
@@ -3008,10 +3122,12 @@ const CONF = {
 
     function openRow(index) {
         if (state.active !== MAIN_SHEET) { openGenericRow(index); return; }
+        el.dBody.classList.remove("fba-detail");
         const s = sheet();
         const row = (s.rows || [])[index];
         if (!row) return;
         state.selected = { sheet: state.active, index };
+        updateDrawerSeaButton();
         const d = rowInfo(row);
         const commentMap = (s.comments || {})[String(index)] || {};
         const v = verdictOf(d);
@@ -3093,10 +3209,12 @@ const CONF = {
                 <h3>库存消耗投影 <span>未来 45 天</span></h3>
                 <div class="proj">${projectionSvg(d)}</div>
                 <div class="proj-legend">
-                    <span class="l1"><i></i>库存消耗</span>
-                    <span class="l2"><i></i>断货 / 安全线</span>
+                    <span><i style="background:#2f6b53"></i>预计剩余库存</span>
+                    <span><i style="background:#c08a18"></i>30天安全库存</span>
+                    <span><i style="background:#c0604f"></i>首次缺货日</span>
                 </div>
-                <div class="proj-hint">按日均 ${fmtDecimal(d.daily)} 件线性消耗估算${d.qty ? `，假设 ${esc(d.arrive || "第 25 天")} 到仓 ${fmtInt(d.qty)} 件` : "，未计入还未创建的订货"}。</div>
+                <div class="proj-hint">按每天销售 ${fmtDecimal(d.daily)} 件估算。起始库存 ${fmtInt(d.local + d.transit)} 件（总库存 ${fmtInt(d.local)} + 待到货 ${fmtInt(d.transit)}）；待到货暂按可用量计入，未按实际到仓日拆分。此图用于粗略估算，实际到货延迟或销量变化会影响结果。</div>
+
             </section>
 
             <section class="dsec">
@@ -3122,6 +3240,61 @@ const CONF = {
         renderBody();
         el.dBody.scrollTop = 0;
         loadTrend(d.sku);
+
+    }
+
+    async function loadShippingReference(sku, country = "") {
+        const box = el.dBody.querySelector("[data-shipping-reference]");
+        if (!box || !sku) return;
+        try {
+            const url = new URL(CONF.shippingReferenceUrl, location.href);
+            url.searchParams.set("sku", sku);
+            const response = await fetch(url, {cache: "no-store"});
+            const data = await response.json();
+            if (!response.ok || !data.success) throw new Error(data.message || "读取失败");
+            if (!box.isConnected || box.dataset.sku !== data.sku) return;
+            if (country) {
+                const normalized = country === "澳洲" ? "澳大利亚" : country;
+                data.countries = (data.countries || []).filter(item => item.country === normalized);
+                data.bridge_total = data.countries.reduce((total, item) => total + item.bridge_qty, 0);
+            }
+            const dateLabel = value => value ? value.slice(5).replace("-", "/") : "—";
+            box.innerHTML = `<div class="shipping-reference-head"><strong>发货参考 · 优先海运</strong><small title="采用${esc(data.reference_date)}统计的国家、物流方式与P90；只用于此处参考，不修改订货量或发货计划。">P90 · ${esc(data.reference_date)}</small></div>` +
+                (data.countries || []).map(item => {
+                    const method = item.method;
+                    const sea = item.sea;
+                    const modeText = method ? `${esc(method.method)} P90 ${method.p90_days}天` : "";
+                    let suggestion = "";
+                    if (item.kind === "sea") suggestion = `${dateLabel(item.monday)} 周一海运 · P90 ${sea.p90_days}天 · 约 ${dateLabel(item.sea_arrival)} 签收`;
+                    else if (item.kind === "bridge") suggestion = `现在发${esc(method.method)}至少 <b>${fmtInt(item.bridge_qty)} 件</b>过渡；${dateLabel(item.monday)} 周一其余尽量海运`;
+                    else if (item.kind === "risk" && method) suggestion = `${modeText}，当前库存也可能撑不到；请核对在途并人工加急`;
+                    else if (item.kind === "express_only") suggestion = `${modeText}；该国暂无足够海运样本，不套用其他国家时效`;
+                    else suggestion = esc(item.message);
+                    const routeRank = r => r.samples < 5 ? 3 : r.method === "海运" ? 0 : method && r.method === method.method ? 1 : 2;
+                    const routes = (item.all_routes || item.routes || []).slice().sort((a,b) => routeRank(a)-routeRank(b) || a.p90_days-b.p90_days || b.samples-a.samples);
+                    const routeRows = routes.map(r => {
+                        const low = r.samples < 5;
+                        const isSea = r.method.includes("海运");
+                        const isChosen = method && r.method === method.method;
+                        const label = low ? "小样本 · 仅参考" : isSea ? "海运优先" : isChosen ? (item.kind === "risk" ? "最快参考" : "推荐快线") : "可参考";
+                        return `<tr class="${low ? "small-sample" : isSea ? "sea-route" : ""}"><td>${esc(r.method)}</td><td><b>${r.p90_days}</b> 天</td><td>${fmtInt(r.samples)}</td><td><span class="route-kind ${!low && isSea ? "sea" : !low && isChosen ? "fast" : ""}">${label}</span></td></tr>`;
+                    }).join("");
+                    return `<div class="shipping-country"><div class="shipping-country-header"><strong>${esc(item.country)} · 发货建议</strong><strong class="${esc(item.tone)}">${esc(item.message)}</strong></div>
+                        <div class="shipping-decision"><p>${suggestion}</p><p>${item.coverage_days === null ? "暂无有效日均销量" : `实时FBA可售约 <b>${fmtDecimal(item.coverage_days)}天</b>`}${sea ? ` · 等周一 ${item.monday_wait}天＋海运 ${sea.p90_days}天` : ""}</p>
+                        ${item.kind === "bridge" ? `<p>快线 P90 ${method.p90_days}天 · 海运约 ${dateLabel(item.sea_arrival)} 签收</p>` : ""}
+                        ${item.kind === "sea" && data.local_stock === 0 ? '<p style="color:#b3261e">本地暂无库存，需先备货。</p>' : ""}</div>
+                        <div class="shipping-reference-head"><strong>本站点全部物流时效</strong><small>${routes.length} 种方式 · P90</small></div>
+                        ${routes.length ? `<div class="shipping-route-list"><table aria-label="${esc(item.country)}物流P90时效"><thead><tr><th>物流方式</th><th>P90时效</th><th>样本/票</th><th>参考状态</th></tr></thead><tbody>${routeRows}</tbody></table></div>` : '<p class="shipping-reference-note">该站点暂无历史物流样本。</p>'}
+                        <details style="margin-top:10px"><summary>计算依据${item.latest_monday ? ` · 最晚 ${dateLabel(item.latest_monday)} 周一安排海运` : ""}</summary><div>实时FBA可售 ${fmtInt(item.sellable)} 件，该国日均 ${fmtDecimal(item.daily)} 件（${esc(data.sales_start || "—")}至${esc(data.sales_end || "—")}）。衔接余量 ${item.handoff_days} 天；未计未签收在途。此处为实时计算，可能与上方工作表快照不同。小于5票的线路仅展示，不参与推荐。</div></details></div>`;
+                }).join("") +
+                (!(data.countries || []).length ? '<p class="shipping-reference-note">未找到该 SKU 的站点库存或销量，暂不推荐。</p>' : "") +
+                (data.bridge_total > 0 ? `<p class="shipping-reference-note" style="${data.local_stock !== null && data.bridge_total > data.local_stock ? "color:#b3261e" : ""}">${country ? "该国过渡量" : "各国过渡量合计"} ${fmtInt(data.bridge_total)} 件${data.local_stock === null ? "，本地可发数量待核实" : ` · 本地共享库存 ${fmtInt(data.local_stock)} 件${data.bridge_total > data.local_stock ? "，不足，需先备货或人工分配" : "，需统筹分配"}`}。</p>` : "") +
+                '<p class="shipping-reference-note" title="按周一计划当天可出库计算，未计备货或计划到出库延迟。P90不保证不断货；签收不等于上架，额外1天仅为估算余量。未确认到货时间的FBA在途不计入覆盖天数。">参考测算：海运周一下计划，按当天出库估算；未计在途。P90至签收，上架时间另核。</p>';
+        } catch (_) {
+            if (!box.isConnected) return;
+            box.innerHTML = '<span class="dim">发货参考暂时无法读取</span> <button class="link-btn" type="button">重试</button>';
+            box.querySelector("button").onclick = () => { box.textContent = "正在读取…"; void loadShippingReference(sku, country); };
+        }
     }
 
     /* ------------------------------------------------------- 逐日销量走势图 */
@@ -3795,7 +3968,13 @@ const CONF = {
         renderSeaRecommendations();
     });
 
-    el.seaRecommendationAdd.addEventListener("click", addSelectedSeaShippingRecommendations);
+    el.seaRecommendationAdd.addEventListener("click", () => addSelectedSeaShippingRecommendations());
+    $("#dAddSea").addEventListener("click", () => {
+        const sku = $("#dAddSea").dataset.sku;
+        if (sku && state.seaRecommendations.some(item => item.sku === sku)) {
+            void addSelectedSeaShippingRecommendations([sku]);
+        }
+    });
 
     let searchTimer = null;
     el.search.addEventListener("input", () => {
@@ -3993,6 +4172,96 @@ const CONF = {
     $("#paramsClose").addEventListener("click", () => paramsDialog.close());
     $("#paramsSave").addEventListener("click", () => { paramsDialog.close(); toast("参数已保存，点击“生成 / 刷新”应用"); });
 
+    const columnKey = (columns, i) => i === -2 ? "@status" : i === -1 ? "@trend" : String(columns[i]).replace(/\d+[.\/-]\d+\s*-\s*\d+[.\/-]\d+/, "@period");
+    let preferencesSheets = {};
+    let preferencesReady = false, preferencesTimer, preferencesLast = "", preferencesSaving = false;
+    function capturePreferences() {
+        const sheets = {...preferencesSheets};
+        Object.entries(state.sheets).forEach(([name, data]) => {
+            const columns = data.columns || [];
+            sheets[name] = {
+                filters: Object.fromEntries(Array.from((state.filters[name] || []).entries()).map(([i, value]) => [i === columns.length ? "@status" : columnKey(columns, i), value]).filter(([,v]) => v && (!Array.isArray(v) || v.length))),
+                hidden: [...(state.hidden[name] || [])].map(i => columnKey(columns, i)),
+                order: state.columnOrder[name] || [],
+                sort: state.sort[name] ? {key: columnKey(columns, state.sort[name].col), dir: state.sort[name].dir} : null
+            };
+        });
+        return {version: 1, sheets, active: state.active, quick: state.quick, search: state.search};
+    }
+    function schedulePreferencesSave() {
+        if (!preferencesReady) return;
+        clearTimeout(preferencesTimer);
+        preferencesTimer = setTimeout(savePreferences, 350);
+    }
+    async function savePreferences() {
+        if (preferencesSaving) { schedulePreferencesSave(); return; }
+        const body = JSON.stringify(capturePreferences());
+        if (body === preferencesLast) return;
+        preferencesSaving = true;
+        try {
+            const response = await fetch(CONF.preferencesUrl, {method: "PUT", headers: {"Content-Type": "application/json"}, body, keepalive: true});
+            if (!response.ok) throw new Error();
+            preferencesLast = body;
+        } catch (_) { toast("表格设置保存失败，请检查网络后重试", "warn"); }
+        finally { preferencesSaving = false; }
+    }
+    let draggedColumn = null;
+    el.grid.addEventListener("dragstart", event => {
+        const handle = event.target.closest("[draggable]");
+        if (!handle) return;
+        draggedColumn = handle.closest("th").dataset.columnKey;
+        event.dataTransfer.setData("text/plain", draggedColumn);
+        event.dataTransfer.effectAllowed = "move";
+    });
+    el.grid.addEventListener("dragover", event => {
+        if (draggedColumn && event.target.closest("thead th")) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }
+    });
+    el.grid.addEventListener("drop", event => {
+        const target = event.target.closest("thead th");
+        if (!draggedColumn || !target) return;
+        event.preventDefault();
+        const columns = sheet().columns;
+        const order = visibleTableColumns(columns, new Set()).map(i => columnKey(columns, i));
+        const source = order.indexOf(draggedColumn), destination = order.indexOf(target.dataset.columnKey);
+        if (source >= 0 && destination >= 0 && source !== destination) {
+            order.splice(source, 1); order.splice(destination, 0, draggedColumn);
+            state.columnOrder[state.active] = order;
+            renderTable();
+        }
+        draggedColumn = null;
+    });
+    el.grid.addEventListener("dragend", () => { draggedColumn = null; });
+    document.addEventListener("visibilitychange", () => { if (document.hidden && preferencesReady) { clearTimeout(preferencesTimer); void savePreferences(); } });
+    async function restorePreferences() {
+        try {
+            const response = await fetch(CONF.preferencesUrl, {cache: "no-store"});
+            if (!response.ok) throw new Error();
+            const {preferences: saved} = await response.json();
+            if (saved && saved.version === 1) {
+                preferencesSheets = saved.sheets || {};
+                Object.entries(saved.sheets || {}).forEach(([name, settings]) => {
+                    const columns = state.sheets[name]?.columns;
+                    if (!columns) return;
+                    const index = key => key === "@status" ? -2 : key === "@trend" ? -1 : columns.findIndex((_, i) => columnKey(columns, i) === key);
+                    state.filters[name] = [];
+                    Object.entries(settings.filters || {}).forEach(([key, value]) => {
+                        const i = index(key); if (i >= 0 || key === "@status") state.filters[name][key === "@status" ? columns.length : i] = value;
+                    });
+                    state.hidden[name] = new Set((settings.hidden || []).filter(key => key === "@status" || key === "@trend" || index(key) >= 0).map(index));
+                    state.columnOrder[name] = settings.order || [];
+                    if (settings.sort && index(settings.sort.key) >= 0) state.sort[name] = {col: index(settings.sort.key), dir: settings.sort.dir};
+                });
+                if (state.sheets[saved.active]) state.active = saved.active;
+                state.quick = saved.quick || "all";
+                state.search = saved.search || "";
+                el.search.value = state.search;
+                renderAll();
+            }
+            preferencesLast = JSON.stringify(capturePreferences());
+            preferencesReady = true;
+        } catch (_) { toast("未能读取已保存的表格设置，请刷新重试", "warn"); }
+    }
+
     /* --------------------------------------------------------------- 启动 */
     const cached = readLocalCache();
     if (cached && cached.sheets) {
@@ -4001,8 +4270,9 @@ const CONF = {
     } else if (CONF.initialData && CONF.initialData.success) {
         apply(CONF.initialData);
     } else {
-        load();
+        await load();
     }
+    await restorePreferences();
 })();
 </script>
 </body>

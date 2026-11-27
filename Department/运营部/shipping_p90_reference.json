@@ -1,0 +1,181 @@
+{
+  "as_of": "2026-11-27",
+  "start": "2025-11-27",
+  "end": "2026-11-27",
+  "routes": [
+    {
+      "method": "韩国IP",
+      "country": "美国",
+      "samples": 10336,
+      "p90_days": 18
+    },
+    {
+      "method": "海运",
+      "country": "美国",
+      "samples": 3394,
+      "p90_days": 32
+    },
+    {
+      "method": "联邦-快",
+      "country": "美国",
+      "samples": 1140,
+      "p90_days": 13
+    },
+    {
+      "method": "联邦-快",
+      "country": "英国",
+      "samples": 975,
+      "p90_days": 10
+    },
+    {
+      "method": "韩国IP",
+      "country": "加拿大",
+      "samples": 729,
+      "p90_days": 12
+    },
+    {
+      "method": "空派",
+      "country": "美国",
+      "samples": 579,
+      "p90_days": 23
+    },
+    {
+      "method": "联邦-快",
+      "country": "加拿大",
+      "samples": 262,
+      "p90_days": 7
+    },
+    {
+      "method": "韩国DHL",
+      "country": "美国",
+      "samples": 165,
+      "p90_days": 18
+    },
+    {
+      "method": "海运",
+      "country": "加拿大",
+      "samples": 80,
+      "p90_days": 39
+    },
+    {
+      "method": "韩国IP",
+      "country": "英国",
+      "samples": 53,
+      "p90_days": 10
+    },
+    {
+      "method": "空派",
+      "country": "德国",
+      "samples": 47,
+      "p90_days": 20
+    },
+    {
+      "method": "空派",
+      "country": "澳大利亚",
+      "samples": 38,
+      "p90_days": 26
+    },
+    {
+      "method": "DHL",
+      "country": "美国",
+      "samples": 16,
+      "p90_days": 14
+    },
+    {
+      "method": "顺丰",
+      "country": "美国",
+      "samples": 10,
+      "p90_days": 19
+    },
+    {
+      "method": "我们自己的Fedex",
+      "country": "美国",
+      "samples": 4,
+      "p90_days": 28
+    },
+    {
+      "method": "联邦-快",
+      "country": "德国",
+      "samples": 2,
+      "p90_days": 32
+    },
+    {
+      "method": "我们自己的Fedex",
+      "country": "加拿大",
+      "samples": 2,
+      "p90_days": 14
+    },
+    {
+      "method": "联邦-慢",
+      "country": "美国",
+      "samples": 2,
+      "p90_days": 7
+    },
+    {
+      "method": "特殊渠道",
+      "country": "美国",
+      "samples": 2,
+      "p90_days": 15
+    },
+    {
+      "method": "海运-1",
+      "country": "美国",
+      "samples": 2,
+      "p90_days": 30
+    },
+    {
+      "method": "亚马逊自有物流",
+      "country": "美国",
+      "samples": 1,
+      "p90_days": 12
+    },
+    {
+      "method": "联邦-快",
+      "country": "澳大利亚",
+      "samples": 1,
+      "p90_days": 14
+    },
+    {
+      "method": "DHL",
+      "country": "德国",
+      "samples": 1,
+      "p90_days": 7
+    },
+    {
+      "method": "ups的联邦",
+      "country": "美国",
+      "samples": 1,
+      "p90_days": 11
+    },
+    {
+      "method": "UPS快",
+      "country": "美国",
+      "samples": 1,
+      "p90_days": 17
+    },
+    {
+      "method": "卡派",
+      "country": "美国",
+      "samples": 1,
+      "p90_days": 17
+    },
+    {
+      "method": "空派",
+      "country": "加拿大",
+      "samples": 1,
+      "p90_days": 15
+    },
+    {
+      "method": "空派",
+      "country": "日本",
+      "samples": 1,
+      "p90_days": 13
+    },
+    {
+      "method": "海运",
+      "country": "英国",
+      "samples": 1,
+      "p90_days": 7
+    }
+  ]
+}

@@ -26,6 +26,41 @@ class DailyReplenishmentOperationTests(unittest.TestCase):
             session["feishu_user_id"] = "dev_operation_test_user"
             session["feishu_user_name"] = "测试用户"
 
+    def test_table_preferences_persist_across_clients_and_are_user_scoped(self):
+        url = "/api/ai/daily-replenishment-operation/preferences"
+        payload = {"version": 1, "sheets": {"日常补货": {"order": ["SKU", "@status"], "filters": {"SKU": ["A"]}, "hidden": ["工厂"]}}, "quick": "order"}
+        self.assertEqual(200, self.request("PUT", url, json=payload).status_code)
+        # New browser/client instance reads the on-disk record.
+        self.client = app_module.app.test_client()
+        with self.client.session_transaction() as session:
+            session["feishu_user_id"] = "dev_operation_test_user"
+        self.assertEqual(payload, self.request("GET", url).get_json()["preferences"])
+        with self.client.session_transaction() as session:
+            session["feishu_user_id"] = "dev_another_user"
+            session["feishu_user_name"] = "另一用户"
+        self.assertIsNone(self.request("GET", url).get_json()["preferences"])
+        self.assertEqual(400, self.request("PUT", url, json={"version": 2}).status_code)
+        with self.client.session_transaction() as session:
+            session["feishu_user_id"] = "dev_operation_test_user"
+        self.assertEqual(payload, self.request("GET", url).get_json()["preferences"])
+
+    def test_shipping_reference_is_read_only_scoped_and_country_specific(self):
+        url = "/api/ai/daily-replenishment-operation/shipping-reference?sku=A"
+        def execute(sql):
+            if 'shipping_reference_local' in sql:
+                return [500]
+            return [("美国", 500, 10), ("英国", 120, 10)]
+        access = {"visible_skus": {"A"}, "read_stores": {"1"}, "write_stores": set(), "can_write": False}
+        with patch.object(app_module.permission_manager, "check_user_permission", return_value=(True, "test")), patch.object(operation, 'scoped_query_executor', return_value=(execute, access)):
+            response = self.client.get(url)
+            self.assertEqual(200, response.status_code)
+            body = response.get_json()
+            self.assertEqual(500, body['local_stock'])
+            self.assertEqual(['美国', '英国'], [r['country'] for r in body['countries']])
+            self.assertTrue(all(route['country'] == row['country'] for row in body['countries'] for route in row['routes']))
+            self.assertEqual(403, self.client.get(url.replace('sku=A', 'sku=B')).status_code)
+            self.assertEqual(405, self.client.post(url).status_code)
+
     def tearDown(self):
         if self.old_dir is None:
             app_module.app.config.pop("DAILY_REPLENISHMENT_OPERATION_OUTPUT_DIR", None)

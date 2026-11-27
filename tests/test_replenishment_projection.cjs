@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname, '../templates/运营部/daily_replenishment_operation.html'), 'utf8');
+const start = source.indexOf('    function projectionModel');
+const end = source.indexOf('    function projectionSvg', start);
+const projectionModel = new Function('fmtInt', source.slice(start, end) + '; return projectionModel;')(Math.round);
+const now=new Date(2026,10,27);const base={daily:10,local:300,transit:0,qty:200,arrive:'2026-12-17'};
+let p=projectionModel(base,now);assert.equal(p.arrival,20);assert.equal(p.zero,50);assert.equal(p.stockAt(45),50);
+p=projectionModel({...base,arrive:'2026-03-26'},now);assert.equal(p.arrival,null);assert.equal(p.zero,30);assert.equal(p.stockAt(45),0);
+p=projectionModel({...base,local:50,arrive:'2026-12-07'},now);assert.equal(p.zero,5);assert.equal(p.stockAt(10),200);assert.equal(p.stockAt(15),150);
+p=projectionModel({...base,arrive:'2026-11-27'},now);assert.equal(p.arrival,0);assert.equal(p.stockAt(0),500);
+p=projectionModel({...base,arrive:'2027-02-01'},now);assert.equal(p.inWindow,false);assert.equal(p.zero,30);
+p=projectionModel({...base,qty:0},now);assert.equal(p.zero,30);
+console.log('PASS: 6 projection cases (arrival, expired, gap, today, outside horizon, no order)');

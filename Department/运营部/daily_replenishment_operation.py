@@ -1752,3 +1752,80 @@ def purchase_plan():
     except Exception as exc:
         current_app.logger.exception("Failed to build daily replenishment purchase plan")
         return jsonify({"success": False, "message": f"生成采购计划失败：{exc}"}), 500
+
+
+@daily_replenishment_operation_bp.route("/api/ai/daily-replenishment-operation/preferences", methods=("GET", "PUT"))
+@require_permission(PERMISSION_NAME)
+def table_preferences():
+    """User preferences live beside persistent snapshots, never in image/code layers."""
+    import json
+    import sqlite3
+    from contextlib import closing
+    owner = str(session.get("feishu_user_id") or _current_user_name()).strip()
+    if not owner:
+        return jsonify(success=False, message="请先登录"), 401
+    path = get_output_dir(create=True) / "table_preferences.sqlite3"
+    with closing(sqlite3.connect(path, timeout=15)) as db:
+        db.execute("CREATE TABLE IF NOT EXISTS table_preferences (owner TEXT PRIMARY KEY, payload TEXT NOT NULL)")
+        if request.method == "PUT":
+            payload = request.get_json(silent=True)
+            if not isinstance(payload, dict) or payload.get("version") != 1:
+                return jsonify(success=False, message="表格设置格式无效"), 400
+            encoded = json.dumps(payload, ensure_ascii=False)
+            if len(encoded.encode("utf-8")) > 262144:
+                return jsonify(success=False, message="表格设置过大"), 400
+            db.execute("INSERT INTO table_preferences(owner,payload) VALUES (?,?) ON CONFLICT(owner) DO UPDATE SET payload=excluded.payload", (owner, encoded))
+            db.commit()
+        else:
+            row = db.execute("SELECT payload FROM table_preferences WHERE owner=?", (owner,)).fetchone()
+            payload = json.loads(row[0]) if row else None
+    response = jsonify(success=True, preferences=payload)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@daily_replenishment_operation_bp.get("/api/ai/daily-replenishment-operation/shipping-reference")
+@require_permission(PERMISSION_NAME)
+def shipping_reference():
+    """Read current stock and per-country sales; never create shipping plans."""
+    from .shipping_reference import REFERENCE, recommend
+    sku = str(request.args.get("sku") or "").strip()
+    if not sku or len(sku) > 150:
+        return jsonify(success=False, message="请提供有效 SKU"), 400
+    execute, access = scoped_query_executor(_current_user_name())
+    if sku not in (access.get("visible_skus") or set()):
+        return jsonify(success=False, message="该 SKU 不在当前账号的店铺权限范围内"), 403
+    safe_sku = escape_sql_literal(sku, escape_percent=False)
+    try:
+        settings = _settings()
+        start, end = settings['sales_start'], settings['sales_end']
+        period = (end - start).days + 1
+        rows = execute(f"""/* daily_replenishment:shipping_reference */
+WITH Stock AS (
+ SELECT CASE Cang WHEN N'美国仓' THEN N'美国' WHEN N'加拿大仓' THEN N'加拿大'
+        WHEN N'英国仓' THEN N'英国' WHEN N'日本仓' THEN N'日本'
+        WHEN N'澳洲仓' THEN N'澳大利亚' WHEN N'澳洲' THEN N'澳大利亚' ELSE Cang END Country,
+        SUM(CAST(ISNULL(KeShou,0) AS FLOAT)) Sellable
+ FROM v_KuCun2 WHERE SKU=N'{safe_sku}' GROUP BY Cang
+), Sales AS (
+ SELECT CASE Guo WHEN N'澳洲' THEN N'澳大利亚' ELSE Guo END Country,
+        SUM(CAST(ISNULL(HeSuanXiaoLiang,0) AS FLOAT)) Sales
+ FROM v_XiaoShouLiang WHERE SKU=N'{safe_sku}' AND RiQi BETWEEN '{start.isoformat()}' AND '{end.isoformat()}' GROUP BY Guo
+), Countries AS (SELECT Country FROM Stock UNION SELECT Country FROM Sales)
+SELECT c.Country,ISNULL((SELECT SUM(s.Sellable) FROM Stock s WHERE s.Country=c.Country),0),
+ ISNULL((SELECT SUM(s.Sales) FROM Sales s WHERE s.Country=c.Country),0)/{float(period)}
+FROM Countries c WHERE c.Country IS NOT NULL ORDER BY c.Country""") or []
+        local_rows = execute(f"""/* daily_replenishment:shipping_reference_local */
+SELECT SUM(CAST(ISNULL(ShuLiang,0) AS FLOAT)) FROM v_KuCun1 WHERE SKU=N'{safe_sku}'""") or []
+        raw_local = local_rows[0] if local_rows else None
+        raw_local = raw_local[0] if isinstance(raw_local, (tuple, list)) else raw_local
+        local_stock = max(0, float(raw_local)) if raw_local is not None else None
+        countries = [recommend(str(r[0]).strip(), r[1] or 0, r[2] or 0) for r in rows]
+        response = jsonify(success=True, sku=sku, countries=countries, local_stock=local_stock,
+                           bridge_total=sum(r['bridge_qty'] for r in countries),
+                           reference_date=REFERENCE['as_of'], sales_start=start.isoformat(), sales_end=end.isoformat())
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+    except Exception:
+        current_app.logger.exception("Failed to load shipping reference")
+        return jsonify(success=False, message="发货参考暂时无法读取，请稍后重试"), 500
