@@ -1683,6 +1683,13 @@ td.dim { color: var(--muted); }
 .annotation-extras .note { height:auto!important;margin-top:8px; }
 @media(max-width:700px) { .annotation-grid,.annotation-extras {grid-template-columns:1fr;} }
 </style>
+<style>
+body.auxiliary-sheet .topbar .head-actions, body.auxiliary-sheet #stats { display:none!important; }
+.grid.auxiliary-grid tbody td { height:38px;padding:7px 12px; }
+.grid.auxiliary-grid thead th { padding-top:11px;padding-bottom:11px; }
+.grid.auxiliary-grid .th-top {justify-content:center;}
+.grid.auxiliary-grid .th-top .th-filter {margin-left:0;}
+</style>
 </head>
 <body>
 
@@ -2274,6 +2281,7 @@ const CONF = {
     }
 
     function renderSeaView() {
+        document.body.classList.toggle("auxiliary-sheet", state.active !== MAIN_SHEET || state.seaView);
         $("#seaRecommendationView").hidden = !state.seaView;
         $("#replenishmentView").hidden = state.seaView;
         el.stats.hidden = state.seaView;
@@ -2526,6 +2534,7 @@ const CONF = {
         schedulePreferencesSave();
         disposeSalesCharts();
         el.grid.classList.toggle("label-view", state.active === MAIN_SHEET);
+        el.grid.classList.toggle("auxiliary-grid", state.active !== MAIN_SHEET);
         const columns = sheet().columns || [];
         const hidden = hiddenOf();
         const sort = sortOf();
@@ -2579,7 +2588,7 @@ const CONF = {
         }).join("");
         el.grid.innerHTML = `<colgroup>${cols}</colgroup><thead><tr>${ths}</tr></thead><tbody></tbody>`;
         el.grid.style.minWidth = totalPx + "px";
-        el.grid.style.width = totalPx + "px";
+        el.grid.style.width = state.active === MAIN_SHEET ? totalPx + "px" : "100%";
         el.grid.querySelectorAll("thead th").forEach((th, index) => {
             th.dataset.columnKey = columnKey(columns, visible[index]);
             const handle = document.createElement("span");
