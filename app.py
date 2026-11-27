@@ -4536,6 +4536,7 @@ def api_tk_customer_service_export():
         jsonify=jsonify,
         request=request,
         send_file=send_file,
+        sf_db=sf_db,
         timedelta=timedelta,
     )
 

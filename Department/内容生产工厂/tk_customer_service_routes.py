@@ -1085,6 +1085,61 @@ def _tk_customer_service_build_export_rows(
     return export_rows, error_rows
 
 
+
+MCF_HEADERS = [
+    '* External Order ID', '* Consumer Name', '* Contact Phone', '* E-mail',
+    '* Postcode', '* Region', '* State or Region', 'Distrct or County',
+    '* City', '* Address line 1', 'Address line 2', '* Goods ID', '* Goods quantity',
+]
+
+
+def _tk_customer_service_build_mcf_rows(items, *, build_export_rows, sf_db):
+    """Resolve inventory IDs and shop email without multiplying order rows."""
+    rows, errors = build_export_rows(items)
+    def text(value):
+        return '' if value is None else str(value).strip()
+    def key(value):
+        return text(value).casefold()
+    def lookup(table, column, values, fields):
+        result = []
+        values = sorted({text(v) for v in values if text(v)})
+        for offset in range(0, len(values), 400):
+            literals = ','.join("N'" + v.replace("'", "''").replace('%', '%%') + "'" for v in values[offset:offset + 400])
+            result.extend(sf_db(f"SELECT DISTINCT {fields} FROM {table} WHERE {column} IN ({literals})") or [])
+        return result
+    inventory = lookup('KuCun3', 'SKU', [i.get('SKU') for i in items], 'SKU, Dian, HuoPinID')
+    shops = lookup('PinPaiDianPu', 'Dian', [i.get('dian') for i in items], 'Dian, BangDingYouXiang')
+    exact, by_sku, emails = {}, {}, {}
+    for record in inventory:
+        sku, shop, goods = (record.get(c) for c in ('SKU', 'Dian', 'HuoPinID')) if isinstance(record, dict) else record
+        if text(goods):
+            exact.setdefault((key(sku), key(shop)), set()).add(text(goods))
+            by_sku.setdefault(key(sku), set()).add(text(goods))
+    for record in shops:
+        shop, email = (record.get(c) for c in ('Dian', 'BangDingYouXiang')) if isinstance(record, dict) else record
+        if text(email):
+            emails.setdefault(key(shop), set()).add(text(email))
+    result = []
+    for item, row in zip(items, rows):
+        goods = exact.get((key(item.get('SKU')), key(item.get('dian')))) or by_sku.get(key(item.get('SKU')), set())
+        email = emails.get(key(item.get('dian')), set())
+        issues = []
+        if len(goods) != 1:
+            issues.append('Goods ID 未匹配到或存在多个货品 ID')
+        if len(email) != 1:
+            issues.append('店铺绑定邮箱未找到或存在多个邮箱')
+        if issues:
+            errors.append({'订单号': item.get('FaYangDingDanHao', ''), 'SKU': item.get('SKU', ''),
+                           '店铺': item.get('dian', ''), '客服备注': item.get('kefubeizhu', ''),
+                           '网红地址原文': item.get('wanghongdizhi', ''), '错误原因': '；'.join(issues)})
+        values = [text(row['*订单号']), row['*收件人'], text(row['电话']),
+                  next(iter(email)) if len(email) == 1 else '', text(row['*邮编']),
+                  row['*国家二字码'], row['州/省'], row['区/县'], row['*城市'],
+                  row['*地址1'], row['地址2'], next(iter(goods)) if len(goods) == 1 else '', 1]
+        result.append(dict(zip(MCF_HEADERS, values)))
+    return result, errors
+
+
 def api_tk_customer_service_export(
     *,
     _tk_customer_service_build_export_rows,
@@ -1097,6 +1152,7 @@ def api_tk_customer_service_export(
     request,
     send_file,
     timedelta,
+    sf_db=None,
 ):
     try:
         default_day = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
@@ -1118,7 +1174,13 @@ def api_tk_customer_service_export(
             '*收件人', '*地址1', '地址2', '短地址', '*城市', '州/省', '区/县', '*国家二字码', '*邮编', '电话', '手机', '邮箱', '税号', '门牌号', '订单备注',
             '中文报关名', '英文报关名', '申报金额（USD）', '申报重量（g）', '材质', '用途', '海关编码', '报关属性', '业务员', '交易方式', '买方公司'
         ]
-        export_rows, error_rows = _tk_customer_service_build_export_rows(items)
+        is_mcf = request.args.get('format', '').lower() == 'mcf'
+        if is_mcf:
+            headers = MCF_HEADERS
+            export_rows, error_rows = _tk_customer_service_build_mcf_rows(
+                items, build_export_rows=_tk_customer_service_build_export_rows, sf_db=sf_db)
+        else:
+            export_rows, error_rows = _tk_customer_service_build_export_rows(items)
         import pandas as pd
         from io import BytesIO
         df = pd.DataFrame(export_rows, columns=headers)
@@ -1128,9 +1190,24 @@ def api_tk_customer_service_export(
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='全部数据')
             error_df.to_excel(writer, index=False, sheet_name='导出错误列表')
+            if is_mcf:
+                sheet = writer.sheets['全部数据']
+                from openpyxl.styles import Font, PatternFill
+                for cell in sheet[1]:
+                    cell.fill = PatternFill('solid', fgColor='212529')
+                    cell.font = Font(color='FFFFFF')
+                sheet.freeze_panes = 'A2'
+                sheet.auto_filter.ref = sheet.dimensions
+                for cells in sheet.iter_rows(min_row=2):
+                    for cell in cells[:-1]:
+                        cell.number_format = '@'
+                        if isinstance(cell.value, str):
+                            cell.data_type = 's'
+                for column in sheet.columns:
+                    sheet.column_dimensions[column[0].column_letter].width = 24
         output.seek(0)
         now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"TK客服导出_{start_date}_to_{end_date}_{now_str}.xlsx"
+        filename = f"TK客服{'MCF' if is_mcf else ''}导出_{start_date}_to_{end_date}_{now_str}.xlsx"
         return send_file(
             output,
             as_attachment=True,

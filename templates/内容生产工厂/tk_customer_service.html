@@ -134,6 +134,9 @@
                 <div class="col-md-1 d-flex align-items-end">
                     <button class="btn btn-outline-secondary action-btn w-100" onclick="exportExcel()">导出</button>
                 </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-primary action-btn w-100" onclick="exportExcel('mcf')">MCF导出</button>
+                </div>
             </div>
         </div>
 
@@ -462,7 +465,7 @@
             }
         }
 
-        function exportExcel() {
+        function exportExcel(format = '') {
             const filters = getFilters();
             const { startDate, endDate } = filters;
             if (!startDate || !endDate) {
@@ -474,6 +477,7 @@
                 return;
             }
             const params = buildFilterParams(filters);
+            if (format) params.set('format', format);
             const url = `/api/tk_customer_service/export?${params.toString()}`;
             window.location.href = url;
         }
