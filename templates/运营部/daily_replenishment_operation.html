@@ -1647,6 +1647,42 @@ td.dim { color: var(--muted); }
 @media(max-width:1000px) { .drawer-body.fba-detail {grid-template-columns:1fr;grid-template-areas:"fba-metrics" "fba-routes" "fba-fields";} }
 @media(max-width:520px) { .fba-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.fba-fields-grid{grid-template-columns:1fr;} }
 </style>
+<style>
+.annotation-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px; }
+.annotation-card { border:1px solid var(--line-2);border-radius:11px;padding:18px;min-width:0;background:var(--surface); }
+.annotation-title { display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:15px;font-size:13px;font-weight:600; }
+.annotation-title small { color:var(--muted);font-size:10px;font-weight:400; }
+.annotation-total { display:flex;align-items:baseline;gap:7px;margin:8px 0 15px; }
+.annotation-total b { font-size:32px;line-height:1.2;font-weight:650; }
+.annotation-total span,.annotation-subtle { color:var(--muted);font-size:11px; }
+.annotation-stock { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+.annotation-stock>div+div { border-left:1px solid var(--line);padding-left:18px; }
+.annotation-stock span,.annotation-sales span { display:block;color:var(--muted);font-size:11px;margin-bottom:7px; }
+.annotation-stock strong { font-size:21px;font-weight:600; }
+.annotation-pills { display:flex;gap:6px;flex-wrap:wrap;margin-top:15px; }
+.annotation-pills span { font-size:10px;border-radius:5px;background:var(--surface-2);padding:5px 8px;color:var(--ink-2); }
+.annotation-sales { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+.annotation-sales>div { background:var(--surface-2);border-radius:8px;padding:14px; }
+.annotation-sales strong { font-size:27px;font-weight:600; }
+.annotation-trend { color:var(--muted);font-size:11px;margin-top:15px;line-height:1.7; }
+.annotation-order { background:#fffdf2;border-color:#e9dda8; }
+.annotation-order p { font-size:11px;color:var(--ink-2);line-height:1.9;margin:8px 0; }
+.annotation-order-foot { border-top:1px solid #eee6c4;margin-top:14px;padding-top:12px;font-size:11px;color:var(--muted); }
+.annotation-history { overflow-x:auto; }
+.annotation-history table { width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap; }
+.annotation-history th { color:var(--muted);font-weight:400;text-align:right;padding:6px 6px 12px; }
+.annotation-history td { border-top:1px solid var(--line-2);text-align:right;padding:12px 6px; }
+.annotation-history th:first-child,.annotation-history td:first-child { text-align:left; }
+.annotation-history tbody tr:last-child { background:var(--surface-2); }
+.annotation-extras { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px;align-items:start; }
+.annotation-extras details { border:1px solid var(--line-2);border-radius:9px;padding:13px;min-width:0; }
+.annotation-extras summary { cursor:pointer;font-size:12px;font-weight:500; }
+.annotation-extras summary small { display:block;color:var(--muted);font-size:10px;line-height:1.7;font-weight:400;margin-top:5px; }
+.annotation-raw { font-size:11px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0 0;color:var(--ink-2);font-family:inherit; }
+.drawer-body .dsec:nth-child(7) .annotation-extras .notes { display:block; }
+.annotation-extras .note { height:auto!important;margin-top:8px; }
+@media(max-width:700px) { .annotation-grid,.annotation-extras {grid-template-columns:1fr;} }
+</style>
 </head>
 <body>
 
@@ -3120,6 +3156,42 @@ const CONF = {
         el.dBody.scrollTop = 0;
     }
 
+    function annotationData(columns, comments) {
+        const text = name => String(comments[String(columns.indexOf(name))] || "").replaceAll("\r", "");
+        const number = (source, label) => {
+            const found = source.match(new RegExp("(?:^|\\n)\\s*" + label + "[：:]\\s*(-?[0-9,]+(?:\\.[0-9]+)?)"));
+            return found ? Number(found[1].replaceAll(",", "")) : null;
+        };
+        const inventory = text("总库存"), fba = text("FBA可售量"), sales = text("日均销量"), order = text("订货量");
+        const suggested = order.match(/智能补货建议[：:]\s*([0-9,]+)\s*件/);
+        const delivery = order.match(/到货时效[：:]\s*([0-9.]+)天[，,]\s*(\d+)次/);
+        const basis = order.match(/销量口径[：:]([^\n]+)/);
+        const targets = [...new Set([...order.matchAll(/目标\s*([0-9.]+)/g)].map(m => Number(m[1])))];
+        const process = order.match(/计算过程[：:]([^\n]+)/);
+        const allocations = process ? [...process[1].matchAll(/([0-9,]+)[(（]([^()（）]+)[)）]/g)].map(m => ({qty:Number(m[1].replaceAll(",", "")),country:m[2]})) : [];
+        const history = text("含待到货量的可售天数").split("\n").map(line => {
+            const m = line.trim().match(/^(\d{1,2}[.\/-]\d{1,2})[：:]\s*(-?[0-9.]+)\s*\+\s*(-?[0-9.]+)[，,]\s*(-?[0-9.]+)[，,]\s*(-?[0-9.]+)[，,]\s*(-?[0-9.]+)$/);
+            return m ? {date:m[1],values:m.slice(2).map(Number)} : null;
+        }).filter(Boolean);
+        const payment = text("到FBA仓日期").match(/首次付款日期[：:]\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+        return {fba:number(inventory,"FBA"),local:number(inventory,"本地"),sellable:number(fba,"可售量"),pending:number(fba,"待调仓"),transferring:number(fba,"调仓中"),transit:number(fba,"在途量"),three:number(sales,"近3天日均"),seven:number(sales,"近7天日均"),suggested:suggested ? Number(suggested[1].replaceAll(",", "")) : null,delivery:delivery ? {days:Number(delivery[1]),count:Number(delivery[2])} : null,basis:basis ? basis[1] : "",targets,allocations,history,payment:payment ? payment[1] : "",order};
+    }
+
+    function annotationPanel(d, columns, comments, tags) {
+        const data = annotationData(columns, comments);
+        const format = value => value === null ? "—" : fmtDecimal(value);
+        const salesChange = data.three !== null && data.seven !== null && data.seven > 0 ? (data.three / data.seven - 1) * 100 : null;
+        const quantity = data.suggested === null ? d.qty : data.suggested;
+        const target = data.targets.length === 1 ? `${format(data.targets[0])} 天` : data.targets.length > 1 ? "按站点分别计算" : "见计算依据";
+        const original = Object.entries(comments).map(([col,text]) => `<div class="note"><b>${esc(columns[col] ?? "批注")}</b><div class="annotation-raw">${esc(text)}</div></div>`).join("");
+        return `${tags ? `<div class="taglist" style="margin-bottom:14px">${tags}</div>` : ""}<div class="annotation-grid">
+            <article class="annotation-card"><div class="annotation-title">库存构成 <small>当前快照</small></div><div class="annotation-total"><b>${fmtInt(d.local)}</b><span>件 · 总库存</span></div><div class="annotation-stock"><div><span>FBA 库存</span><strong>${format(data.fba)}</strong></div><div><span>本地库存</span><strong>${format(data.local)}</strong></div></div><div class="annotation-pills">${[["可售",data.sellable],["待调仓",data.pending],["调仓中",data.transferring],["在途",data.transit]].map(([label,value]) => `<span>${label} <b>${format(value)}</b></span>`).join("")}</div></article>
+            <article class="annotation-card"><div class="annotation-title">近期销量 <small>件 / 天</small></div><div class="annotation-sales"><div><span>近 3 天日均</span><strong>${format(data.three)}</strong></div><div><span>近 7 天日均</span><strong>${format(data.seven)}</strong></div></div><div class="annotation-trend">${salesChange === null ? "暂无完整的近期销量批注" : `近3天较近7天 <b>${salesChange >= 0 ? "+" : ""}${salesChange.toFixed(1)}%</b>${Math.abs(salesChange) < 5 ? " · 基本平稳" : ""}`}</div></article>
+            <article class="annotation-card annotation-order"><div class="annotation-title">补货建议 <small>${data.allocations.map(item => esc(item.country)).join(" / ") || "按补货规则计算"}</small></div><div class="annotation-total"><b>${fmtInt(quantity)}</b><span>件 · ${data.suggested === null ? "当前订货量" : "建议订货"}</span></div><p>销量口径 <b>${esc(data.basis || `表格日均 ${fmtDecimal(d.daily)} 件`)}</b><br>目标覆盖 <b>${target}</b>${data.allocations.length ? `<br>${data.allocations.map(item => `${esc(item.country)} <b>${fmtInt(item.qty)} 件</b>`).join(" · ")}` : ""}${data.suggested !== null && data.suggested !== d.qty ? `<br>当前订货量已调整为 <b>${fmtInt(d.qty)} 件</b>` : ""}</p><div class="annotation-order-foot">${data.delivery ? `历史到货平均 <b>${format(data.delivery.days)} 天</b> / ${fmtInt(data.delivery.count)} 次记录` : "暂无历史到货时效批注"}</div></article>
+            <article class="annotation-card"><div class="annotation-title">近期库存变化 <small>历史记录</small></div>${data.history.length ? `<div class="annotation-history"><table><thead><tr><th>日期</th><th>库存</th><th>待到货</th><th>日均销量</th><th>K 值</th><th>可售天数</th></tr></thead><tbody>${data.history.map(item => `<tr><td>${esc(item.date)}</td>${item.values.map((v,i) => `<td>${format(v)}${i === 4 ? " 天" : ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div><div class="annotation-trend">历史库存记录与当前快照分别展示。</div>` : '<p class="annotation-subtle">当前批注中暂无可解析的历史记录，可在原始批注中核对。</p>'}</article>
+        </div><div class="annotation-extras"><details><summary>日期记录<small>${data.payment ? `首次付款 ${esc(data.payment)}` : "暂无首次付款记录"}</small></summary><p class="annotation-raw">首次付款：${esc(data.payment || "—")}\n到FBA仓日期：${esc(d.arrive || "—")}</p></details><details><summary>计算依据<small>销量口径、目标天数与取整规则</small></summary><div class="annotation-raw">${esc(data.order || "暂无计算依据批注")}</div></details><details><summary>原始批注<small>保留完整记录，按需展开核对</small></summary>${original || '<p class="annotation-subtle">暂无原始批注</p>'}</details></div>`;
+    }
+
     function openRow(index) {
         if (state.active !== MAIN_SHEET) { openGenericRow(index); return; }
         el.dBody.classList.remove("fba-detail");
@@ -3159,9 +3231,6 @@ const CONF = {
             const meta = MARK_LABELS[t];
             return meta ? `<span class="mtag ${meta[1]}"><i></i>${meta[0]}</span>` : "";
         }).join("");
-
-        const notes = Object.entries(commentMap).map(([col, text]) =>
-            `<div class="note"><b>${esc(String(s.columns[col] ?? ""))}</b>${esc(text)}</div>`).join("");
 
         el.dBody.innerHTML = `
             <section class="dsec">
@@ -3230,8 +3299,7 @@ const CONF = {
 
             <section class="dsec">
                 <h3>标记与批注</h3>
-                <div class="taglist">${tags || `<span class="mtag"><i></i>无特殊标记</span>`}</div>
-                ${notes ? `<div class="notes">${notes}</div>` : ""}
+                ${annotationPanel(d, s.columns || [], commentMap, tags)}
             </section>`;
 
         el.drawer.hidden = false;
