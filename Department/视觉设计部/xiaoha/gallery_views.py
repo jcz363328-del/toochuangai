@@ -1364,6 +1364,8 @@ def render_zoomable_image_gallery(
         wrap.className = "zoom-thumb-wrap";
 
         const img = document.createElement("img");
+        img.loading = "lazy";
+        img.decoding = "async";
         img.src = item.src;
         img.className = "zoom-thumb";
         img.onclick = () => openFullscreen_{component_key}(item.full_src || item.src, index);

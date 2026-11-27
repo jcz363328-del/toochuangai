@@ -293,8 +293,11 @@ def render(api, feature: dict[str, Any]) -> None:
         ratio = _widget(st, state, "selectbox", "画面比例", "aspect_ratio", options=ASPECT_RATIOS)
     with count_col:
         count = _widget(st, state, "number_input", "结果张数", "output_count", min_value=1, max_value=4, value=1, step=1)
-    if st.button("生成底图", key="composer_generate", type="primary", use_container_width=True,
-                 disabled=busy or stale or not prompt.strip()):
+    from ..action_dock import generation_action_column
+    with generation_action_column(st, st.container(key="workbench_action_dock", border=True)):
+        generate = st.button("生成底图", key="composer_generate", type="primary", use_container_width=True,
+                             disabled=busy or stale or not prompt.strip())
+    if generate:
         api.submit_feature_job(feature, {
             "feature": dict(feature), "composer_action": "generate", "model": api.NANO_BANANA_MODEL,
             "prompt": prompt.strip(), "uploaded_files": [], "output_mode": "image", "aspect_ratio": ratio,

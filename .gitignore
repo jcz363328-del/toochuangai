@@ -93,4 +93,20 @@ Thumbs.db
 /outputs/qa-browser-deps/
 /outputs/download-e2e/deps/
 
+# Generated deployments, QA captures and caches (tracked history remains intact)
+/outputs/
+/business_analysis/dist/
+/business_analysis/.wrangler/
+
+# Legacy runtime directories; maintained source lives under Department/
+/VideoClaw/
+/ads_monitor_web/
+/图片/
+/无限画布/
+
+# One-off local browser QA entry points
+/qa-heading-alignment.mjs
+/qa-site.mjs
+/qa-sku-fit.mjs
+
 !static/templates/360价值评价导入模板.xlsx

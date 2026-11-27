@@ -91,7 +91,8 @@ def is_ark_seedream_model(
     *,
     ARK_SEEDREAM_5_PRO_MODEL,
 ) -> bool:
-    return str(model_name or "").strip() == ARK_SEEDREAM_5_PRO_MODEL
+    from .generation_settings import is_seedream_model
+    return is_seedream_model(model_name) or str(model_name or "").strip() == ARK_SEEDREAM_5_PRO_MODEL
 
 
 def is_nano_banana_model(

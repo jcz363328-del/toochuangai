@@ -6,11 +6,62 @@ import hashlib
 import io
 import html
 import json
+from uuid import uuid4
 from pathlib import Path
 import streamlit.components.v1 as components
 
 _FRAME_SCRIPT = Path(__file__).with_name("upload_frame_actions.js").read_text(encoding="utf-8-sig")
 from PIL import Image, ImageOps
+
+
+
+def _publish_asset(directory, filename, data):
+    target = directory / filename
+    if not target.exists():
+        temporary = directory / ("." + filename + "." + uuid4().hex + ".tmp")
+        try:
+            temporary.write_bytes(data)
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def _frame_sources(api, uploaded):
+    """Cache display assets; original downloads retain the exact uploaded bytes."""
+    normalized = api.normalize_uploaded_input(uploaded)
+    raw = normalized['data']
+    digest = hashlib.sha256(raw).hexdigest()
+    name = str(normalized.get('name') or 'image.png')
+    mime = normalized.get('type') or 'image/png'
+    base = getattr(api, 'get_jimeng_public_upload_base_url', lambda: '')().rstrip('/')
+    cache = api.st.session_state.setdefault('_upload_frame_assets', {})
+    cache_key = (digest, base, mime)
+    if cache_key in cache:
+        return (*cache[cache_key], name)
+    with Image.open(io.BytesIO(raw)) as source:
+        extension = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp",
+                     "GIF": ".gif", "TIFF": ".tif", "BMP": ".bmp"}.get(source.format, '.img')
+        image = ImageOps.exif_transpose(source)
+        image.thumbnail((900, 900))
+        buf = io.BytesIO()
+        image.save(buf, format='PNG', compress_level=1)
+    if base:
+        directory = api.ensure_jimeng_upload_dir() / 'frame_previews'
+        directory.mkdir(parents=True, exist_ok=True)
+        original_file = digest + extension
+        preview_file = digest + '.preview.png'
+        _publish_asset(directory, original_file, raw)
+        _publish_asset(directory, preview_file, buf.getvalue())
+        original = base + '/frame_previews/' + original_file
+        preview = base + '/frame_previews/' + preview_file
+    else:
+        original = 'data:' + mime + ';base64,' + base64.b64encode(raw).decode('ascii')
+        preview = 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
+    # Bound session metadata even when many different pages/materials are used.
+    while len(cache) >= 32:
+        cache.pop(next(iter(cache)))
+    cache[cache_key] = (preview, original)
+    return preview, original, name
 
 
 def render_file_frame(api, label, *, preview_files=None, frame_height=260, remove_button_key="", **kwargs):
@@ -27,16 +78,8 @@ def render_file_frame(api, label, *, preview_files=None, frame_height=260, remov
         shown = selected or list(preview_files or [])
         if shown:
             try:
-                raw = api.normalize_uploaded_input(shown[0])['data']
-                normalized = api.normalize_uploaded_input(shown[0])
-                mime = normalized.get('type') or 'image/png'
-                original_source = 'data:' + mime + ';base64,' + base64.b64encode(raw).decode('ascii')
-                original_name = str(normalized.get('name') or 'image.png')
-                image = ImageOps.exif_transpose(Image.open(io.BytesIO(raw)))
-                image.thumbnail((900, 900))
-                buf = io.BytesIO()
-                image.save(buf, format='PNG')
-                preview = 'url("data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode('ascii') + '")'
+                preview_source, original_source, original_name = _frame_sources(api, shown[0])
+                preview = 'url(' + json.dumps(preview_source) + ')'
             except (OSError, ValueError, KeyError):
                 pass
         has_preview = preview != 'none'

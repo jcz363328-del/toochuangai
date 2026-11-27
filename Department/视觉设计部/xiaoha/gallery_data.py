@@ -132,6 +132,7 @@ def build_gallery_item(
     is_managed_static_image_url,
     load_image_bytes_from_url,
     urllib,
+    build_history_download_public_url=None,
 ) -> dict[str, Any] | None:
     normalized_image_source = str(image_source or "").strip()
     normalized_full_src = str(full_image_source or "").strip()
@@ -188,11 +189,7 @@ def build_gallery_item(
     if include_full_src:
         normalized_full_src = str(full_image_source or "").strip()
         if normalized_full_src:
-            full_url = urllib.parse.urlsplit(normalized_full_src)
-            is_remote_original = full_url.scheme in {"http", "https"} and not is_managed_static_image_url(
-                normalized_full_src, (get_history_public_base_url(), get_jimeng_public_upload_base_url())
-            )
-            if (embed_full_src or is_remote_original) and not normalized_full_src.startswith("data:"):
+            if embed_full_src and not normalized_full_src.startswith("data:"):
                 try:
                     if normalized_full_src == normalized_image_source:
                         full_image_bytes, full_mime_type = image_bytes, mime_type
@@ -212,8 +209,18 @@ def build_gallery_item(
             )
             item["full_src"] = (
                 image_bytes_to_data_url(image_bytes, mime_type or "image/png")
-                if is_remote_original else original_full_src
+                if embed_full_src and is_remote_original else original_full_src
             )
         elif not compress_preview:
             item["full_src"] = preview_src
+    if include_full_src and not embed_full_src and build_history_download_public_url:
+        # Publish exact original bytes separately. Only the small preview and
+        # a URL travel in the page; the viewer requests the original on click.
+        original_source = item.get("full_src") or normalized_image_source
+        if original_source == normalized_image_source and normalized_image_source.startswith(("http://", "https://")):
+            if not is_managed_static_image_url(
+                normalized_image_source, (get_history_public_base_url(), get_jimeng_public_upload_base_url())
+            ):
+                original_source = image_bytes_to_data_url(image_bytes, mime_type or "image/png")
+        item["full_src"] = build_history_download_public_url(original_source)
     return item

@@ -481,85 +481,47 @@ class OmniaServiceTests(unittest.TestCase):
         self.assertEqual(self.ledger.snapshot()["percent"], 42.831)
         status.assert_called_once_with(KEYS[0], "original-failed-task", OMNIAKEY_API_BASE)
 
-    def test_unconfirmed_counter_drop_blocks_new_paid_call_until_refund_can_be_verified(self):
-        fingerprint = credential_fingerprint(KEYS[0])
-        self.ledger.begin_call("previous-failure", "failed-task", fingerprint, "model", "4K", 0)
-        self.ledger.finish_call("previous-failure", "uncertain", Decimal(".039"))
-        one_key = self.root / "one-key.json"
-        one_key.write_text(json.dumps([KEYS[0]]), encoding="utf-8")
-        submitted = []
+    def test_accounting_uncertainty_does_not_block_new_generation(self):
+        cases = (
+            ("status-unavailable", RuntimeError("temporary status failure"), Decimal(0)),
+            ("refund-pending", "failed", Decimal(".039")),
+            ("remote-running", None, Decimal(".039")),
+            ("usage-unavailable", "failed", RuntimeError("usage unavailable")),
+        )
+        for label, status, usage in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                from Department.视觉设计部.xiaoha.omnia_cost_ledger import CostLedger
+                ledger = CostLedger(Path(directory) / "costs.sqlite3")
+                fingerprint = credential_fingerprint(KEYS[0])
+                ledger.initialize_balance("42.86", {fingerprint: "0"}, baseline_id="test")
+                ledger.begin_call("previous", "original-task", fingerprint, "model", "4K", 0)
+                ledger.finish_call("previous", "uncertain", Decimal(".039"))
+                one_key = Path(directory) / "keys.json"
+                one_key.write_text(json.dumps([KEYS[0]]), encoding="utf-8")
+                submitted = []
 
-        @service.managed_omnia_call("image")
-        def generate(model="model"):
-            submitted.append(True)
-            return "must not submit"
+                @service.managed_omnia_call("image")
+                def generate(model="model", resolution="4K"):
+                    submitted.append(resolution)
+                    return "generated"
 
-        with patch.dict(os.environ, {"OMNIAKEY_API_KEYS_FILE": str(one_key)}), \
-                patch.object(service, "fetch_task_status", side_effect=RuntimeError("temporary status failure")), \
-                patch.object(service, "fetch_usage", return_value=Decimal(0)):
-            with self.assertRaisesRegex(RuntimeError, "本次尚未提交"):
-                generate()
-        self.assertEqual(submitted, [])
-        self.assertEqual(len(self.ledger.list_calls()), 1)
-        self.assertEqual(self.ledger.snapshot()["percent"], 42.821)
-        self.assertEqual(self.pool.snapshot(), {"active": 0, "retained": 0})
-        with self.pool.hold(KEYS, preferred_fingerprint=fingerprint) as credential:
-            repaired = service.reconcile_omnia_key(
-                self.ledger, credential, usage_fetcher=lambda key: Decimal(0),
-                task_status_fetcher=lambda key, task: "failed",
-            )
-        self.assertTrue(repaired["reconciled"])
-        self.assertEqual(len(self.ledger.list_calls()), 1)
-        self.assertEqual(self.ledger.snapshot()["percent"], 42.86)
-        self.assertTrue(self.ledger.list_calls()[0]["refunded"])
-
-    def test_known_failure_waits_for_refund_before_reusing_key(self):
-        fingerprint = credential_fingerprint(KEYS[0])
-        self.ledger.begin_call("previous-failure", "failed-task", fingerprint, "model", "4K", 0)
-        self.ledger.finish_call("previous-failure", "uncertain", Decimal(".039"))
-        one_key = self.root / "one-key.json"
-        one_key.write_text(json.dumps([KEYS[0]]), encoding="utf-8")
-        submitted = []
-
-        @service.managed_omnia_call("image")
-        def generate(model="model"):
-            submitted.append(True)
-
-        with patch.dict(os.environ, {"OMNIAKEY_API_KEYS_FILE": str(one_key)}), \
-                patch.object(service, "fetch_task_status", return_value="failed"), \
-                patch.object(service, "fetch_usage", return_value=Decimal(".039")):
-            with self.assertRaisesRegex(RuntimeError, "本次尚未提交"):
-                generate()
-        self.assertEqual(submitted, [])
-        self.assertEqual(len(self.ledger.list_calls()), 1)
-        self.assertEqual(self.ledger.list_calls()[0]["outcome"], "failed")
-        self.assertFalse(self.ledger.list_calls()[0]["refunded"])
-        with self.pool.hold(KEYS, preferred_fingerprint=fingerprint) as credential:
-            repaired = service.reconcile_omnia_key(
-                self.ledger, credential, usage_fetcher=lambda key: Decimal(0),
-                task_status_fetcher=lambda key, task: "failed",
-            )
-        self.assertFalse(repaired["blocked"])
-        self.assertTrue(self.ledger.list_calls()[0]["refunded"])
-
-    def test_remote_task_still_running_does_not_overlap_new_generation(self):
-        fingerprint = credential_fingerprint(KEYS[0])
-        self.ledger.begin_call("previous-unknown", "running-task", fingerprint, "model", "4K", 0)
-        self.ledger.finish_call("previous-unknown", "uncertain", Decimal(".039"))
-        one_key = self.root / "one-key.json"
-        one_key.write_text(json.dumps([KEYS[0]]), encoding="utf-8")
-
-        @service.managed_omnia_call("image")
-        def generate(model="model"):
-            self.fail("An existing remote task must not overlap a new paid request")
-
-        with patch.dict(os.environ, {"OMNIAKEY_API_KEYS_FILE": str(one_key)}), \
-                patch.object(service, "fetch_task_status", return_value=None), \
-                patch.object(service, "fetch_usage", return_value=Decimal(".039")):
-            with self.assertRaisesRegex(RuntimeError, "本次尚未提交"):
-                generate()
-        self.assertEqual(len(self.ledger.list_calls()), 1)
-        self.assertEqual(self.ledger.list_calls()[0]["outcome"], "uncertain")
+                status_args = ({"side_effect": status} if isinstance(status, Exception)
+                               else {"return_value": status})
+                usage_args = ({"side_effect": usage} if isinstance(usage, Exception)
+                              else {"return_value": usage})
+                with patch.dict(os.environ, {"OMNIAKEY_API_KEYS_FILE": str(one_key)}), \
+                        patch.object(service, "get_cost_ledger", return_value=ledger), \
+                        patch.object(service, "fetch_task_status", **status_args), \
+                        patch.object(service, "fetch_usage", **usage_args):
+                    self.assertEqual(generate(), "generated")
+                self.assertEqual(submitted, ["4K"])
+                rows = ledger.list_calls()
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows[0]["outcome"], "success")
+                self.assertEqual(rows[0]["status"], "pending")
+                self.assertIsNone(rows[0]["cost_percent"])
+                self.assertFalse(rows[1]["refunded"])
+                self.assertEqual(self.pool.snapshot(), {"active": 0, "retained": 0})
 
 
 if __name__ == "__main__":

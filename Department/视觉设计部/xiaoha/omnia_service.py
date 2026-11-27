@@ -355,11 +355,12 @@ def managed_omnia_context(*, primary_key, model, resolution="", task_id="", resu
             ledger.attach_task(call_id, task_id)
         if not resume:
             reconciliation = reconcile_omnia_key(ledger, credential, api_base=base)
-            before = reconciliation["usage"]
-            if reconciliation["blocked"] or (before is not None and not reconciliation["reconciled"]):
-                # Creating a later row would permanently erase the isolated
-                # accounting window needed to verify this possible refund.
-                raise RuntimeError("该通道的原任务、退款或用量正在核对，本次尚未提交，请稍后重试。")
+            # Accounting uncertainty must never reject a new generation.
+            # Without an isolated usage window, retain pending attribution;
+            # finish_call can still refresh aggregate usage conservatively.
+            before = (reconciliation["usage"]
+                      if reconciliation["reconciled"] and not reconciliation["blocked"]
+                      else None)
             ledger.begin_call(call_id, "", credential.fingerprint, str(model or "unknown"),
                               str(resolution or ""), before, account_context=account_context)
         state = _ManagedCall(ledger, credential.api_key, base, credential.fingerprint,

@@ -168,13 +168,14 @@ def _image_options(site, payload):
         resolution = "4K" if edge >= 3000 else "2K" if edge >= 1500 else "1K"
     else:
         size = ""
-        resolution = {"high": "4K", "medium": "2K", "low": "1K", "hd": "2K", "standard": "1K"}.get(str(payload.get("quality") or "").lower(), "")
+        resolution = {"high": "4K", "medium": "2K", "low": "1K", "hd": "2K", "standard": "1K"}.get(str(payload.get("quality") or "").lower(), "2K")
     return prompt, count, size, ratio, resolution
 
 
 def generate_canvas_images(site, endpoint, payload, files):
     model = str(payload.get("model") or "")
-    if model not in site.INFINITE_CANVAS_IMAGE_MODELS:
+    from .generation_settings import is_seedream_model
+    if model not in site.INFINITE_CANVAS_IMAGE_MODELS and not is_seedream_model(model):
         raise CanvasRequestError("画布不支持该图片模型")
     if payload.get("mask"):
         raise CanvasRequestError("OmniaKey 图片编辑暂不支持蒙版")
@@ -189,7 +190,9 @@ def generate_canvas_images(site, endpoint, payload, files):
     # canvas request must not reserve fifteen upstream slots or bypass the UI.
     for _ in range(count):
         try:
-            if site.resolve_omnia_image_model(model) == site.NANO_BANANA_MODEL:
+            if is_seedream_model(model):
+                result = site.call_seedream_official_image_api(prompt, files, ratio, resolution, size=size)
+            elif site.resolve_omnia_image_model(model) == site.NANO_BANANA_MODEL:
                 result = site.call_omnia_sync_image_api(model, prompt, files, ratio, resolution, size=size)
             else:
                 result = site.call_omnia_image_api(model, prompt, files, ratio, resolution)
@@ -208,7 +211,7 @@ def generate_canvas_images(site, endpoint, payload, files):
             warning = site.format_user_facing_error_message(exc)
             break
     if not images:
-        raise RuntimeError("OmniaKey 未返回图片")
+        raise RuntimeError("图片服务未返回图片")
     response = {"created": int(time.time()), "data": images}
     if warning:
         response["warning"] = warning

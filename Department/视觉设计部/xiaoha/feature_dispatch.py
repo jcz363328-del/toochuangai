@@ -223,6 +223,9 @@ def _run_feature_job_once(
     if job_id:
         set_task_progress(job_id, 5, "准备上传图片")
     feature_key = str((job_context.get("feature") or {}).get("key") or "")
+    if str((job_context.get("feature") or {}).get("mode") or "") == "seedream_tools":
+        from Department.视觉设计部.xiaoha.features.seedream_tools import run_job
+        return finalize_feature_job_result(job_context, run_job(capture_runtime(), job_context), job_id)
     if feature_key == "poster_fusion":
         from Department.视觉设计部.xiaoha.poster_fusion import run_job
         return finalize_feature_job_result(job_context, run_job(capture_runtime(), job_context), job_id)
@@ -490,7 +493,7 @@ def _run_feature_job_once(
                     aspect_ratio=request_aspect_ratio,
                     resolution=AMAZON_A_PLUS_NATIVE_IMAGE_SIZE,
                 )
-                result["channel"] = "Images API 原生 4K"
+                result["channel"] = f"{job_context['model']} · 原生 {job_context.get('resolution') or AMAZON_A_PLUS_NATIVE_IMAGE_SIZE}"
                 result["requested_aspect_ratio"] = request_aspect_ratio
                 result["layout_skill_id"] = str(job_context.get("a_plus_layout_skill_id") or "")
                 result["layout_skill_skeleton_used"] = skill_skeleton_used
@@ -528,7 +531,7 @@ def _run_feature_job_once(
                     resize_image_to_exact_size(image_url, int(target_size[0]), int(target_size[1]))
                     for image_url in (result.get("images") or [])
                 ]
-            elif feature_key not in {"hd_batch", JIMENG_HD_FEATURE_KEY, "background_cutout", "outpaint"}:
+            elif not job_context.get("generation_settings") and feature_key not in {"hd_batch", JIMENG_HD_FEATURE_KEY, "background_cutout", "outpaint"}:
                 result["images"] = [
                     upscale_image_to_min_edge(
                         image_url,
@@ -643,8 +646,16 @@ def submit_feature_job(
     job_context = dict(job_context)
     job_context["job_id"] = job_id
     feature_key = str(feature.get("key") or "").strip()
-    if feature_key == "hd_batch":
-        job_context["model"] = NANO_BANANA_MODEL
+    if str(job_context.get("output_mode") or "") == "image" and feature_key not in {"image_resize", JIMENG_HD_FEATURE_KEY}:
+        from .generation_settings import DEFAULT_IMAGE_MODEL, resolution_options
+        choice = dict(job_context.get("generation_settings") or (st.session_state.get("generation_choices") or {}).get(feature_key) or {})
+        model = choice.get("model") or job_context.get("model") or DEFAULT_IMAGE_MODEL
+        resolution = choice.get("resolution") or job_context.get("resolution") or "2K"
+        if resolution not in resolution_options(model):
+            raise ValueError("该模型不支持所选分辨率，请重新选择。")
+        job_context["model"] = model
+        job_context["resolution"] = resolution
+        job_context["generation_settings"] = {"model": model, "resolution": resolution}
     is_jimeng_hd_job = feature_key == JIMENG_HD_FEATURE_KEY
     queue_key = (
         JIMENG_HD_GLOBAL_QUEUE_KEY

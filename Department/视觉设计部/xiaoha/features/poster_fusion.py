@@ -1,6 +1,8 @@
 """Fuse one primary poster with one to three ordered visual references."""
 from __future__ import annotations
 
+from ..action_dock import generation_action_column
+
 FEATURE_KEY = "poster_fusion"
 RATIOS = ("4:3", "1:1", "16:9", "4:5", "3:4", "9:16")
 FUSION_RULES = (
@@ -104,7 +106,7 @@ def render(api, feature):
         missing.append("主体海报")
     if not reference_count:
         missing.append("至少1张风格参考图")
-    with st.container(key="workbench_action_dock", border=True):
+    with generation_action_column(st, st.container(key="workbench_action_dock", border=True)):
         st.caption(f"主体海报 {int(primary_present)} 张 · 风格参考 {reference_count} 张 · " + ("可以生成" if not missing else "待上传：" + "、".join(missing)))
         submitted = st.button("生成融合海报", key="poster_fusion_generate", type="primary", use_container_width=True, disabled=busy)
     if submitted:

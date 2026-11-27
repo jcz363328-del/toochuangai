@@ -1,6 +1,8 @@
 """Account-scoped persistent image conversations and their Streamlit view."""
 from __future__ import annotations
 
+from ..generation_settings import IMAGE_MODELS, resolution_options
+
 import hashlib
 import json
 import sqlite3
@@ -218,7 +220,7 @@ def run_chat_job(site, context, runner):
         raise
 
 
-def submit_turn(site, store, account, chat, prompt, references, model, count, ratio, prior_turns=None):
+def submit_turn(site, store, account, chat, prompt, references, model, count, ratio, prior_turns=None, resolution="2K"):
     turns = store.turns(account, chat) if prior_turns is None else prior_turns
     refs, request = build_context(turns, prompt, references)
     # Read references before creating a queued record, so a missing image cannot
@@ -231,6 +233,7 @@ def submit_turn(site, store, account, chat, prompt, references, model, count, ra
         feature["max_output_images"] = count
         job = site.submit_feature_job(feature, {
             "feature": feature, "model": model,
+            "generation_settings": {"model": model, "resolution": resolution},
             "prompt": site.build_prompt(feature, request, ratio, "只生成图片，严格执行本轮要求。"),
             "custom_prompt": prompt, "uploaded_files": inputs,
             "output_mode": "image", "max_output_images": count,
@@ -359,7 +362,10 @@ def render_conversation(site, store, account, chat, default_model, ratio):
                     st.caption(turn["model"])
                     retry_model = turn["model"]
                     if status == "error":
-                        retry_options = list(dict.fromkeys([turn["model"], *site.MODEL_OPTIONS]))
+                        retry_options = list(IMAGE_MODELS)
+                        retry_key = "qa_retry_model_" + turn["id"]
+                        if st.session_state.get(retry_key) not in retry_options:
+                            st.session_state[retry_key] = retry_options[0]
                         retry_model = st.selectbox("重试模型", retry_options, key="qa_retry_model_" + turn["id"],
                                                    format_func=site.get_model_display_name,
                                                    disabled=any(t["status"] in {"queued", "running"} for t in turns))
@@ -376,13 +382,21 @@ def render_conversation(site, store, account, chat, default_model, ratio):
 
         with st.container(key="qa_chat_composer"):
             input_slot = st.container()
-            controls = st.columns([2.4, 1])
-            options = list(site.MODEL_OPTIONS)
+            controls = st.columns([2.4, 1, 1])
+            options = list(IMAGE_MODELS)
             with controls[0]:
+                if st.session_state.get("qa_model_" + chat) not in options:
+                    st.session_state["qa_model_" + chat] = options[0]
                 model = st.selectbox("模型", options, index=options.index(default_model) if default_model in options else 0,
                                      key="qa_model_" + chat, disabled=busy, label_visibility="collapsed",
-                                     format_func=lambda name: "Nano Banana 2.1" if "nano-banana-2.1" in name else name)
+                                     format_func=IMAGE_MODELS.get)
             with controls[1]:
+                sizes = resolution_options(model)
+                size_key = "qa_resolution_" + chat
+                if st.session_state.get(size_key) not in sizes:
+                    st.session_state[size_key] = "2K"
+                resolution = st.selectbox("分辨率", sizes, key=size_key, disabled=busy, label_visibility="collapsed")
+            with controls[2]:
                 count = st.selectbox("生成张数", [1, 2, 3, 4], key="qa_count_" + chat, disabled=busy,
                                      label_visibility="collapsed", format_func=lambda n: f"{n} 张")
             with input_slot:
@@ -398,7 +412,7 @@ def render_conversation(site, store, account, chat, default_model, ratio):
                 else:
                     try:
                         refs = [store.save_image(site, account, site.uploaded_input_to_data_url(f)) for f in uploads]
-                        submit_turn(site, store, account, chat, prompt.strip(), refs, model, count, ratio)
+                        submit_turn(site, store, account, chat, prompt.strip(), refs, model, count, ratio, resolution=resolution)
                         st.rerun()
                     except Exception as exc:
                         st.error(str(exc))

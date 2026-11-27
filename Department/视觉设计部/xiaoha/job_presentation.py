@@ -28,6 +28,10 @@ def render_running_job_status(
     st,
     sync_background_jobs,
 ) -> None:
+    # A scheduled fragment from the previous page may arrive during navigation.
+    # It must not synchronize jobs or request a full-app rerun on the new page.
+    if st.session_state.get("selected_feature_key") != feature_key:
+        return
     sync_background_jobs()
     current_job = st.session_state.get("background_jobs", {}).get(feature_key) or {}
     status = str(current_job.get("status") or "").strip().lower()

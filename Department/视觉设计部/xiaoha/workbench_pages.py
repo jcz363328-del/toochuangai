@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .action_dock import generation_action_column
+
 
 def render_background_cutout_feature(
     feature,
@@ -29,7 +31,7 @@ def render_background_cutout_feature(
 
     st.markdown('<div class="workspace-panel">', unsafe_allow_html=True)
     render_image_workbench_header(feature, "AI 抠图转透明")
-    action_dock = st.container(key="workbench_action_dock", border=True)
+    action_dock = generation_action_column(st, st.container(key="workbench_action_dock", border=True))
     left_col, right_col = st.columns([0.86, 1.14], gap="medium")
     uploaded_file = None
     with left_col:
@@ -186,7 +188,7 @@ def render_a_plus_hero_style_reverse_feature(
         "提示词可直接修改，再批量生成同风格创意图，最后挑出最优方案做二次优化。"
     )
 
-    action_dock = st.container(key="workbench_action_dock", border=True)
+    action_dock = generation_action_column(st, st.container(key="workbench_action_dock", border=True))
     left_col, right_col = st.columns([0.92, 1.08], gap="medium")
 
     with left_col:

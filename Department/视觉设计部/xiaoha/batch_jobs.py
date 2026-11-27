@@ -147,9 +147,11 @@ def process_batch_group(
         if feature_key == JIMENG_HD_FEATURE_KEY:
             return call_jimeng_hd_upscale(uploaded_files=list(active_uploaded_group[:1]))
         if is_ark_seedream_model(str(job_context.get("model") or "")):
+            from .generation_settings import current_resolution
             return call_ark_seedream_images_api(
-                prompt=prompt_text,
+                prompt=prompt_text + (f"\n输出图片宽高比：{request_aspect_ratio}。" if request_aspect_ratio != DEFAULT_ASPECT_RATIO else ""),
                 uploaded_files=list(active_uploaded_group),
+                size=current_resolution(),
             )
         if is_jimeng_model(str(job_context.get("model") or "")):
             return call_jimeng_v40(

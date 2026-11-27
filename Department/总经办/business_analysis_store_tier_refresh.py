@@ -1,28 +1,15 @@
-"""Refresh CengJi with the same rules as the Excel `刷新等级` button."""
+"""Refresh CengJi using the built-in store scope and tier rules."""
 
 from __future__ import annotations
 
 import calendar
 import json
-import os
-import warnings
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
-import openpyxl
 import pytds
 
 from secret_settings import sql_server_config
-
-
-warnings.filterwarnings(
-    "ignore",
-    message="Conditional Formatting extension is not supported and will be removed",
-    module="openpyxl.worksheet._reader",
-)
-
-DEFAULT_TEMPLATE = Path(r"C:\Users\admin\Desktop\每日数据模板-8.xlsm")
 
 
 @dataclass(frozen=True)
@@ -34,48 +21,37 @@ class TierRule:
     tier_id: int
 
 
-def _template_path() -> Path:
-    return Path(os.environ.get("BUSINESS_ANALYSIS_TIER_TEMPLATE", str(DEFAULT_TEMPLATE)))
-
-
-def _load_template() -> tuple[list[TierRule], set[int]]:
-    path = _template_path()
-    if not path.is_file():
-        raise FileNotFoundError(f"店铺等级模板不存在: {path}")
-
-    # The workbook is read-only; its Excel-only formatting extensions stay untouched.
-    workbook = openpyxl.load_workbook(path, read_only=True, data_only=True, keep_vba=True)
-    try:
-        settings = workbook["设置"]
-        rules: list[TierRule] = []
-        for values in settings.iter_rows(min_row=2, min_col=1, max_col=5, values_only=True):
-            name, minimum, maximum, margin, tier_id = values
-            if not name:
-                break
-            rules.append(
-                TierRule(
-                    name=str(name).strip(),
-                    minimum=float(minimum or 0),
-                    maximum=float(maximum),
-                    margin=float(margin),
-                    tier_id=int(tier_id),
-                )
-            )
-
-        level_sheet = workbook["店铺等级"]
-        stores = {
-            int(value)
-            for (value,) in level_sheet.iter_rows(min_row=2, min_col=2, max_col=2, values_only=True)
-            if isinstance(value, (int, float))
-        }
-    finally:
-        workbook.close()
-
-    if not rules:
-        raise RuntimeError("模板“设置”页没有层级规则")
-    if not stores:
-        raise RuntimeError("模板“店铺等级”页没有店铺")
-    return rules, stores
+# Migrated from the verified production workbook on 2026-11-27. Preserve its
+# exact bounds and the existing half-open comparison in _level_for, so removing
+# the workbook dependency does not change historical classification behavior.
+TIER_RULES = (
+    TierRule("铜1", 0, 14999.99, 0.10, 1),
+    TierRule("铜2", 15000, 29999.99, 0.10, 2),
+    TierRule("铜3", 30000, 44999.99, 0.10, 3),
+    TierRule("银1", 45000, 59999.99, 0.20, 4),
+    TierRule("银2", 60000, 89999.99, 0.20, 5),
+    TierRule("银3", 90000, 119999.99, 0.20, 6),
+    TierRule("银4", 120000, 149999.99, 0.20, 7),
+    TierRule("金1", 150000, 189999.99, 0.24, 8),
+    TierRule("金2", 190000, 229999.99, 0.24, 9),
+    TierRule("金3", 230000, 269999.99, 0.24, 10),
+    TierRule("金4", 270000, 309999.99, 0.24, 11),
+    TierRule("金5", 310000, 349999.99, 0.24, 12),
+    TierRule("金6", 350000, 389999.99, 0.24, 13),
+    TierRule("金7", 390000, 429999.99, 0.24, 14),
+    TierRule("金8", 430000, 469999.99, 0.24, 15),
+    TierRule("金9", 470000, 509999.99, 0.24, 16),
+    TierRule("钻1", 510000, 549999.99, 0.24, 17),
+    TierRule("钻2", 550000, 589999.99, 0.24, 18),
+    TierRule("钻3", 590000, 629999.99, 0.24, 19),
+    TierRule("钻4", 630000, 669999.99, 0.24, 20),
+    TierRule("钻5", 670000, 9999999.99, 0.24, 21),
+)
+ELIGIBLE_STORES = frozenset({
+    2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 15, 16, 17, 18, 20, 21, 22,
+    23, 25, 26, 28, 31, 32, 33, 35, 36, 37, 38, 39, 40, 41, 42, 43,
+    50, 51, 52, 55,
+})
 
 
 def _fee_map(cursor, start: date, end: date) -> dict[int, float]:
@@ -192,7 +168,12 @@ def _missing_tier_dates(existing_dates: set[date], target_end: date) -> list[dat
 
 def refresh_store_tiers(today: date | None = None, dry_run: bool = False) -> dict:
     """Backfill through today-2; replace each date only after all rows are calculated."""
-    rules, stores = _load_template()
+    rules, stores = list(TIER_RULES), set(ELIGIBLE_STORES)
+    rule_metadata = {
+        "ruleSource": "built-in",
+        "ruleCount": len(rules),
+        "storeCount": len(stores),
+    }
     target_end = (today or date.today()) - timedelta(days=2)
     connection = pytds.connect(**sql_server_config(), timeout=180)
     try:
@@ -211,7 +192,7 @@ def refresh_store_tiers(today: date | None = None, dry_run: bool = False) -> dic
                 "status": "up-to-date",
                 "throughDate": latest.isoformat() if latest else None,
                 "rowCount": 0,
-                "templatePath": str(_template_path()),
+                **rule_metadata,
             }
 
         pending: list[tuple[date, list[tuple]]] = []
@@ -239,7 +220,7 @@ def refresh_store_tiers(today: date | None = None, dry_run: bool = False) -> dic
             "throughDate": pending[-1][0].isoformat(),
             "dateCount": len(pending),
             "rowCount": sum(len(rows) for _, rows in pending),
-            "templatePath": str(_template_path()),
+            **rule_metadata,
         }
     except Exception:
         connection.rollback()

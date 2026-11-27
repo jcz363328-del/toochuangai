@@ -37,6 +37,8 @@ APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+from Department.视觉设计部.xiaoha.generation_settings import apply_image_settings, with_job_image_settings, current_resolution
+
 import Department.视觉设计部.xiaoha.page as _xiaoha_page
 import Department.视觉设计部.xiaoha.history as _xiaoha_history
 import Department.视觉设计部.xiaoha.features.hero_style_reverse as _hero_style_reverse
@@ -152,11 +154,11 @@ NANO_BANANA_MODEL_ALIASES = (
 # 除 Seedream 外，所有可选生图模型都由 OmniaKey 提供。
 OMNIA_IMAGE_MODEL_LABELS = {
     NANO_BANANA_MODEL: "Nano Banana 2.1",
+    "gpt-image-2.6-sunburst": "GPT Image 2.6 Sunburst",
     "gpt-image-2.6-flare": "GPT Image 2.6 Flare",
     "gpt-image-2.5-flare": "GPT Image 2.5 Flare",
     "gpt-image-2": "GPT Image 2",
     "grok-imagine-image-quality": "Grok Imagine Image Quality",
-    "Dola-Seedream-5.0-pro": "Seedream 5.0 Pro",
 }
 OMNIA_IMAGE_MODELS = tuple(OMNIA_IMAGE_MODEL_LABELS)
 OMNIA_IMAGE_MODEL_ALIASES = {
@@ -164,7 +166,6 @@ OMNIA_IMAGE_MODEL_ALIASES = {
     "openai/gpt-5-image-mini": "gpt-image-2.5-flare",
     "openai/gpt-5-image": "gpt-image-2",
     "x-ai/grok-imagine-image-quality": "grok-imagine-image-quality",
-    "bytedance-seed/seedream-4.5": "Dola-Seedream-5.0-pro",
     "recraft/recraft-v4.1-utility-pro": "gpt-image-2.6-flare",
 }
 DEFAULT_ASPECT_RATIO = "自动"
@@ -175,7 +176,7 @@ HD_MODEL_REFERENCE_FILE = APP_DIR / "__pycache__" / "model_reference" / "模特�
 OUTPUTS_HD_REFERENCE_DIR = APP_DIR / "outputs" / "reference"
 OUTPUTS_HD_DEFAULT_REFERENCE_FILE = OUTPUTS_HD_REFERENCE_DIR / "参考1.png"
 SKIN_TEXTURE_REFERENCE_DIR = Path(relocate_storage_path(r"D:\tuchuangai\肌肤质感参考"))
-PORTRAIT_HD_DEFAULT_IMAGE_SIZE = "4K"
+PORTRAIT_HD_DEFAULT_IMAGE_SIZE = "2K"
 PORTRAIT_HD_SKIN_LOCK_RULES = (
     "肤色与肤质锁定是本次高清处理的最高优先级。"
     "必须严格保持第1张原图皮肤的明暗、冷暖、色相、白平衡、通透度、红润度、肤色不均和局部色差完全一致，禁止提亮、压暗、增白、变黄、变红或统一肤色。"
@@ -314,8 +315,8 @@ DB_HISTORY_THUMB_DIR_NAME = "_thumbs"
 DB_HISTORY_THUMB_MAX_EDGE = 640
 DB_HISTORY_THUMB_TARGET_BYTES = 140 * 1024
 DB_HISTORY_PATH_MAX_LENGTH = 50
-GALLERY_PREVIEW_MAX_EDGE = 1600
-GALLERY_PREVIEW_TARGET_BYTES = 220 * 1024
+GALLERY_PREVIEW_MAX_EDGE = 640
+GALLERY_PREVIEW_TARGET_BYTES = 80 * 1024
 UPLOAD_CACHE_DIR = Path(relocate_storage_path(r"D:\tuchuangai\图片上传缓存"))
 AUTH_QUERY_USER_KEY = "auth_user"
 AUTH_QUERY_TOKEN_KEY = "auth_token"
@@ -393,6 +394,7 @@ INFINITE_CANVAS_BUILD_DIR = Path(
 DEFAULT_LOGIN_ACCOUNTS = {}
 MODEL_OPTIONS = [
     JIMENG_MODEL_NAME,
+    ARK_SEEDREAM_5_PRO_MODEL,
     *OMNIA_IMAGE_MODELS,
 ]
 OUTPAINT_MODEL_OPTIONS = [
@@ -463,7 +465,7 @@ JIMENG_CONCURRENT_LIMIT_RETRY_DELAYS = (5, 10, 20, 30, 45, 60)
 JIMENG_RESULT_RETRY_DELAY_SECONDS = 5
 AMAZON_A_PLUS_MAX_EDGE = 10_000
 AMAZON_A_PLUS_MAX_PIXELS = 40_000_000
-AMAZON_A_PLUS_NATIVE_IMAGE_SIZE = "4K"
+AMAZON_A_PLUS_NATIVE_IMAGE_SIZE = "2K"
 AMAZON_A_PLUS_FEATURE_KEY = "amazon_a_plus"
 AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY = "amazon_to_walmart_a_plus"
 AMAZON_TO_WALMART_PAGE_COUNT = 4
@@ -810,6 +812,8 @@ def start_jimeng_static_server() -> dict[str, Any]:
             "error": f"端口 {static_port} 启动失败：{exc}",
         }
 
+
+from Department.视觉设计部.xiaoha.features.seedream_tools import feature_definitions as seedream_feature_definitions
 
 FEATURES = [
     {
@@ -1350,6 +1354,8 @@ FEATURES = [
         ),
     },
 ]
+
+FEATURES.extend(seedream_feature_definitions(ARK_SEEDREAM_5_PRO_MODEL))
 
 FEATURE_NAME_OVERRIDES = {
     "hd_batch": "批量高清",
@@ -4083,6 +4089,7 @@ def merge_feature_variant_results(variant_results: list[dict[str, Any]], variant
     )
 
 
+@with_job_image_settings
 def run_feature_job(job_context: dict[str, Any]) -> dict[str, Any]:
     return _feature_dispatch.run_feature_job(
         job_context,
@@ -4725,7 +4732,7 @@ def call_openrouter_portrait_hd(model: str, prompt: str, aspect_ratio: str, uplo
         uploaded_files,
         source_only,
         preserve_native_resolution,
-        PORTRAIT_HD_DEFAULT_IMAGE_SIZE=PORTRAIT_HD_DEFAULT_IMAGE_SIZE,
+        PORTRAIT_HD_DEFAULT_IMAGE_SIZE=current_resolution(),
         build_portrait_hd_prompt=build_portrait_hd_prompt,
         build_portrait_hd_size_instruction=build_portrait_hd_size_instruction,
         call_openrouter_images_api=call_openrouter_images_api,
@@ -4827,9 +4834,16 @@ class OmniaImageOutcomeUnknown(ImageOutcomeUnknown):
     """The synchronous provider may still be generating; never resubmit automatically."""
 
 
+@apply_image_settings
+def call_omnia_sync_image_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', *, size: str='') -> dict[str, Any]:
+    if is_ark_seedream_model(model):
+        return call_seedream_official_image_api(prompt, uploaded_files, aspect_ratio, resolution, size=size)
+    return _call_omnia_sync_image_api(model, prompt, uploaded_files, aspect_ratio, resolution, size=size)
+
+
 @limited_request("omnia_image")
 @managed_omnia_call(kind="image", resume=False)
-def call_omnia_sync_image_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', *, size: str='') -> dict[str, Any]:
+def _call_omnia_sync_image_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', *, size: str='') -> dict[str, Any]:
     return _provider_clients.call_omnia_sync_image_api(
         model,
         prompt,
@@ -4862,7 +4876,10 @@ def call_omnia_sync_image_api(model: str, prompt: str, uploaded_files: list[Any]
     )
 
 
+@apply_image_settings
 def call_omnia_image_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', max_attempts: int | None=None) -> dict[str, Any]:
+    if is_ark_seedream_model(model):
+        return call_seedream_official_image_api(prompt, uploaded_files, aspect_ratio, resolution)
     return _provider_clients.call_omnia_image_api(
         model,
         prompt,
@@ -4875,9 +4892,16 @@ def call_omnia_image_api(model: str, prompt: str, uploaded_files: list[Any] | No
     )
 
 
+@apply_image_settings
+def call_omnia_media_image_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', max_attempts: int | None=None) -> dict[str, Any]:
+    if is_ark_seedream_model(model):
+        return call_seedream_official_image_api(prompt, uploaded_files, aspect_ratio, resolution)
+    return _call_omnia_media_image_api(model, prompt, uploaded_files, aspect_ratio, resolution, max_attempts)
+
+
 @limited_request("omnia_image")
 @managed_omnia_call(kind="image", resume=False)
-def call_omnia_media_image_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', max_attempts: int | None=None) -> dict[str, Any]:
+def _call_omnia_media_image_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', max_attempts: int | None=None) -> dict[str, Any]:
     return _provider_clients.call_omnia_media_image_api(
         model,
         prompt,
@@ -4962,7 +4986,10 @@ def collect_omnia_image_task(task_id: str, create_data: dict[str, Any], api_key:
     )
 
 
+@apply_image_settings
 def call_openrouter_images_api(model: str, prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', max_attempts: int | None=None) -> dict[str, Any]:
+    if is_ark_seedream_model(model):
+        return call_seedream_official_image_api(prompt, uploaded_files, aspect_ratio, resolution)
     return _provider_clients.call_openrouter_images_api(
         model,
         prompt,
@@ -4975,12 +5002,26 @@ def call_openrouter_images_api(model: str, prompt: str, uploaded_files: list[Any
     )
 
 
+def call_seedream_official_image_api(prompt: str, uploaded_files: list[Any] | None=None, aspect_ratio: str=DEFAULT_ASPECT_RATIO, resolution: str='', *, size: str='') -> dict[str, Any]:
+    requested_size = size or resolution or current_resolution()
+    if aspect_ratio and aspect_ratio != DEFAULT_ASPECT_RATIO:
+        prompt = str(prompt) + f"\n输出图片宽高比：{aspect_ratio}。"
+    return call_ark_seedream_images_api(prompt, uploaded_files, size=requested_size)
+
+
 @limited_request("ark")
-def call_ark_seedream_images_api(prompt: str, uploaded_files: list[Any] | None=None, size: str=ARK_SEEDREAM_5_PRO_SIZE) -> dict[str, Any]:
+def call_ark_seedream_images_api(prompt: str, uploaded_files: list[Any] | None=None, size: str=ARK_SEEDREAM_5_PRO_SIZE, *, layer_decomposition: bool=False, output_format: str | None=None, response_format: str="url", watermark: bool=True, optimize_prompt_mode: str | None=None, background: str | None=None, interactive_edit: bool=False) -> dict[str, Any]:
     return _provider_clients.call_ark_seedream_images_api(
         prompt,
         uploaded_files,
         size,
+        layer_decomposition=layer_decomposition,
+        output_format=output_format,
+        response_format=response_format,
+        watermark=watermark,
+        optimize_prompt_mode=optimize_prompt_mode,
+        background=background,
+        interactive_edit=interactive_edit,
         ARK_IMAGES_CONNECT_TIMEOUT_SECONDS=ARK_IMAGES_CONNECT_TIMEOUT_SECONDS,
         ARK_IMAGES_MAX_ATTEMPTS=ARK_IMAGES_MAX_ATTEMPTS,
         ARK_IMAGES_READ_TIMEOUT_SECONDS=ARK_IMAGES_READ_TIMEOUT_SECONDS,
@@ -5432,6 +5473,7 @@ def build_gallery_item(image_source: str, compress_preview: bool=True, include_f
         is_managed_static_image_url=is_managed_static_image_url,
         load_image_bytes_from_url=load_image_bytes_from_url,
         urllib=urllib,
+        build_history_download_public_url=build_history_download_public_url,
     )
 
 
@@ -6473,6 +6515,9 @@ def render_prepress_check_feature(feature: dict[str, Any]) -> None:
 
 
 def render_openrouter_feature(feature: dict[str, Any], model: str, aspect_ratio: str) -> None:
+    if feature.get("mode") == "seedream_tools":
+        from Department.视觉设计部.xiaoha.features.seedream_tools import render
+        return render(SimpleNamespace(**globals()), feature)
     _feature_workbench.render_openrouter_feature(
         SimpleNamespace(**globals()), feature, model, aspect_ratio,
     )
@@ -6491,6 +6536,9 @@ SIDE_MENU_FEATURE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "图片处理",
         (
+            "seedream_layers",
+            "seedream_coordinate_edit",
+            "seedream_mark_edit",
             "hd_batch",
             JIMENG_HD_FEATURE_KEY,
             "image_resize",

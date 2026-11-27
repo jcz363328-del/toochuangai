@@ -613,7 +613,7 @@ def call_openrouter_portrait_hd(
     if preserve_native_resolution:
         hd_prompt = hd_prompt.replace(
             "最终画布的像素宽度和像素高度必须分别与第1张原图完全一致，只提升清晰度。",
-            "保持原图宽高比、完整构图和内容，以原生 4K 分辨率输出高清结果，不要缩回上传图尺寸。",
+            f"保持原图宽高比、完整构图和内容，以原生 {PORTRAIT_HD_DEFAULT_IMAGE_SIZE} 分辨率输出高清结果，不要缩回上传图尺寸。",
         )
     else:
         hd_prompt += "\n\n" + build_portrait_hd_size_instruction(source_input)
@@ -627,7 +627,7 @@ def call_openrouter_portrait_hd(
         )
         if preserve_native_resolution:
             # Keep provider originals byte-for-byte; history and downloads save these sources.
-            result["channel"] = "Nano Banana 2.1 · 原生高清原图"
+            result["channel"] = f"{result.get('model') or model} · 原生 {PORTRAIT_HD_DEFAULT_IMAGE_SIZE} 原图"
         else:
             result = finalize_portrait_hd_result(result, source_input)
             result["channel"] = "Images API 高清增强 · 原图尺寸输出"
@@ -636,6 +636,6 @@ def call_openrouter_portrait_hd(
         if is_omnia_image_outcome_unknown(exc):
             raise
         raise RuntimeError(
-            "OmniaKey 原生 4K 调用失败。为避免画质降级，本次未使用聊天兼容通道或本地放大。"
+            f"OmniaKey 原生 {PORTRAIT_HD_DEFAULT_IMAGE_SIZE} 调用失败。为避免画质降级，本次未使用聊天兼容通道或本地放大。"
             f"原因：{exc}"
         ) from exc

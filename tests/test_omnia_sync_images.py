@@ -38,7 +38,7 @@ class OmniaSyncImageTests(unittest.TestCase):
                 self.assertTrue(post.call_args.args[0].endswith('/images/edits'))
                 self.assertNotIn('Content-Type', post.call_args.kwargs['headers'])
                 self.assertNotIn('json', post.call_args.kwargs)
-                self.assertEqual(post.call_args.kwargs['data']['size'], '1024x1024')
+                self.assertEqual(post.call_args.kwargs['data']['size'], '2048x2048')
                 refs = post.call_args.kwargs['files']
                 self.assertEqual(len(refs), count)
                 for field, (name, data, mime) in refs:
@@ -55,7 +55,7 @@ class OmniaSyncImageTests(unittest.TestCase):
             width, height = map(int, post.call_args.kwargs['data']['size'].split('x'))
             self.assertAlmostEqual(width / height, 1.5, places=2)
             site.call_omnia_sync_image_api(site.NANO_BANANA_MODEL, 'draw')
-            self.assertEqual(post.call_args.kwargs['json']['size'], '1024x1024')
+            self.assertEqual(post.call_args.kwargs['json']['size'], '2048x2048')
 
     def test_uncertain_submission_is_not_resubmitted_by_hd_retry(self):
         for failure in (site.requests.Timeout(), site.requests.ConnectionError()):
@@ -89,7 +89,7 @@ class OmniaSyncImageTests(unittest.TestCase):
 
     def test_other_models_keep_media_transport(self):
         with patch.object(site, 'call_omnia_media_image_api', return_value={'images': ['ok']}) as media, patch.object(site, 'call_omnia_sync_image_api') as sync:
-            site.call_omnia_image_api('Dola-Seedream-5.0-pro', 'test')
+            site.call_omnia_image_api('gpt-image-2.6-flare', 'test')
             media.assert_called_once()
             sync.assert_not_called()
 

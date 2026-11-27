@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import base64
+import io
+import re
 from typing import Any
+from PIL import Image
 
 
 def call_omnia_sync_image_api(
@@ -216,15 +220,12 @@ def call_omnia_media_image_api(
 
     prepared_files = prepare_omnia_media_request_inputs(list(uploaded_files or []))
     operation = "edit" if prepared_files else "generate"
-    parameters: dict[str, Any] = {}
+    from .generation_settings import media_image_parameters
     normalized_aspect_ratio = str(aspect_ratio or "").strip()
-    if omnia_model == NANO_BANANA_MODEL and normalized_aspect_ratio not in GEMINI_IMAGE_ASPECT_RATIOS:
+    if normalized_aspect_ratio not in GEMINI_IMAGE_ASPECT_RATIOS:
         normalized_aspect_ratio = get_uploaded_input_closest_aspect_ratio(prepared_files[0], "1:1") if prepared_files else "1:1"
-    if normalized_aspect_ratio in GEMINI_IMAGE_ASPECT_RATIOS:
-        parameters["aspect_ratio"] = normalized_aspect_ratio
-    normalized_resolution = str(resolution or "").strip().upper()
-    if normalized_resolution in GEMINI_IMAGE_SIZES:
-        parameters["image_size"] = normalized_resolution
+    normalized_resolution = str(resolution or "2K").strip().upper()
+    parameters = media_image_parameters(omnia_model, normalized_resolution, normalized_aspect_ratio)
 
     task_input: dict[str, Any] = {
         "prompt": enforce_global_no_distortion_rules(prompt),
@@ -515,6 +516,13 @@ def call_ark_seedream_images_api(
     uploaded_files,
     size,
     *,
+    layer_decomposition=False,
+    output_format=None,
+    response_format="url",
+    watermark=True,
+    optimize_prompt_mode=None,
+    background=None,
+    interactive_edit=False,
     ARK_IMAGES_CONNECT_TIMEOUT_SECONDS,
     ARK_IMAGES_MAX_ATTEMPTS,
     ARK_IMAGES_READ_TIMEOUT_SECONDS,
@@ -538,8 +546,8 @@ def call_ark_seedream_images_api(
         raise RuntimeError("即梦 5 Pro 未配置 ARK_API_KEY。")
 
     normalized_files = list(uploaded_files or [])
-    if not normalized_files:
-        raise RuntimeError("即梦 5 Pro 扩图失败：请先上传 1 张原图。")
+    if layer_decomposition and len(normalized_files) != 1:
+        raise ValueError("图层分离需要且仅支持 1 张原图。")
     if len(normalized_files) > 10:
         raise RuntimeError("即梦 5 Pro 单次最多支持 10 张参考图。")
 
@@ -549,12 +557,54 @@ def call_ark_seedream_images_api(
     ]
     payload: dict[str, Any] = {
         "model": ARK_SEEDREAM_5_PRO_MODEL,
-        "prompt": enforce_global_no_distortion_rules(prompt),
-        "image": image_inputs[0] if len(image_inputs) == 1 else image_inputs,
+        "prompt": str(prompt or "").strip() if layer_decomposition or interactive_edit else enforce_global_no_distortion_rules(prompt),
         "size": str(size or ARK_SEEDREAM_5_PRO_SIZE).strip() or ARK_SEEDREAM_5_PRO_SIZE,
-        "response_format": "url",
-        "watermark": True,
+        "response_format": response_format,
+        "watermark": bool(watermark),
     }
+    if not payload["prompt"] and not layer_decomposition:
+        raise ValueError("请填写编辑要求。")
+    if response_format not in {"url", "b64_json"}:
+        raise ValueError("返回格式必须为 url 或 b64_json。")
+    if output_format is not None:
+        if output_format not in {"png", "jpeg"}:
+            raise ValueError("输出格式必须为 PNG 或 JPEG。")
+        payload["output_format"] = output_format
+    if optimize_prompt_mode is not None:
+        if optimize_prompt_mode not in {"standard", "fast"}:
+            raise ValueError("生成模式必须为 standard 或 fast。")
+        payload["optimize_prompt_options"] = {"mode": optimize_prompt_mode}
+    if layer_decomposition:
+        if background is not None:
+            raise ValueError("图层分离不能同时设置透明背景参数。")
+        payload["layer_decomposition"] = True
+        raw_bytes = base64.b64decode(image_inputs[0].split(',', 1)[1])
+        with Image.open(io.BytesIO(raw_bytes)) as source:
+            w, h = source.size
+            if source.format not in {"PNG", "JPEG"} or not 262144 <= w * h <= 36000000 or not 1 / 16 <= w / h <= 16:
+                raise ValueError("图层分离原图需为 PNG/JPEG，像素总数在 512×512 至 6000×6000 之间，宽高比在 1:16 至 16:1 之间。")
+    if background is not None:
+        if background not in {"opaque", "transparent"}:
+            raise ValueError("背景模式必须为 opaque 或 transparent。")
+        if background == "transparent":
+            if output_format != "png" or len(normalized_files) != 1:
+                raise ValueError("透明背景编辑需要 1 张带透明通道的原图，并使用 PNG 输出。")
+            with Image.open(io.BytesIO(base64.b64decode(image_inputs[0].split(',', 1)[1]))) as source:
+                if source.mode not in {"RGBA", "LA"} and "transparency" not in source.info:
+                    raise ValueError("透明背景编辑的输入图必须带透明通道。")
+        payload["background"] = background
+    if image_inputs:
+        payload["image"] = image_inputs[0] if len(image_inputs) == 1 else image_inputs
+    requested_size = payload["size"]
+    if requested_size not in ({"1K", "1.5K", "2K", "auto"} if layer_decomposition else {"1K", "1.5K", "2K"}):
+        if layer_decomposition:
+            raise ValueError("图层分离支持 auto、1K、1.5K、2K 分辨率。")
+        dimensions = re.fullmatch(r"(\d+)x(\d+)", requested_size)
+        if not dimensions:
+            raise ValueError("Seedream 5 Pro 支持 1K、1.5K、2K 分辨率。")
+        width, height = map(int, dimensions.groups())
+        if min(width, height) <= 0 or not 921600 <= width * height <= 4624220 or not 1 / 16 <= width / height <= 16:
+            raise ValueError("Seedream 5 Pro 图片尺寸超出官方支持范围。")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -611,16 +661,23 @@ def call_ark_seedream_images_api(
         raise RuntimeError(f"即梦 5 Pro 请求失败（HTTP {response.status_code}）：{error_message}")
 
     images: list[str] = []
+    layers: list[dict[str, Any]] = []
     for item in list(data.get("data") or []) if isinstance(data, dict) else []:
         if not isinstance(item, dict):
             continue
+        if item.get("error"):
+            raise RuntimeError(f"Seedream 返回图片处理失败：{item['error']}")
         image_url = str(item.get("url") or "").strip()
         if image_url:
             images.append(image_url)
-            continue
-        encoded_image = str(item.get("b64_json") or "").strip()
-        if encoded_image:
-            images.append(f"data:image/png;base64,{encoded_image}")
+        else:
+            encoded_image = str(item.get("b64_json") or "").strip()
+            if not encoded_image:
+                continue
+            mime = "image/jpeg" if item.get("output_format", output_format) == "jpeg" else "image/png"
+            images.append(f"data:{mime};base64,{encoded_image}")
+        if layer_decomposition:
+            layers.append({key: item[key] for key in ("z_index", "bounding_box", "name", "description", "size", "output_format") if key in item} | {"source": images[-1]})
     if not images:
         raise RuntimeError("即梦 5 Pro 没有返回可用图片。")
     return {
@@ -629,6 +686,10 @@ def call_ark_seedream_images_api(
         "raw": data,
         "channel": "即梦 5 Pro · 火山方舟",
         "requested_resolution": payload["size"],
+        "layers": layers,
+        "usage": dict(data.get("usage") or {}),
+        "model": ARK_SEEDREAM_5_PRO_MODEL,
+        "request_id": str(response.headers.get("x-request-id") or ""),
     }
 
 

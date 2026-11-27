@@ -107,7 +107,7 @@ class ProviderLimitTests(unittest.TestCase):
 
         with patch.object(site.requests, 'post', side_effect=post), patch.object(site.requests, 'get', side_effect=get), \
                 patch.object(site, 'OMNIAKEY_TASK_POLL_INTERVAL_SECONDS', 0), ThreadPoolExecutor(max_workers=2) as executor:
-            media = executor.submit(site.call_omnia_media_image_api, 'Dola-Seedream-5.0-pro', 'draw')
+            media = executor.submit(site.call_omnia_media_image_api, 'gpt-image-2.6-flare', 'draw')
             try:
                 self.assertTrue(polling.wait(2))
                 nano = executor.submit(site.call_omnia_image_api, site.NANO_BANANA_MODEL, 'draw')
@@ -134,7 +134,7 @@ class ProviderLimitTests(unittest.TestCase):
                 patch.object(site.time, 'sleep'):
             with self.assertRaises(site.OmniaImageOutcomeUnknown):
                 site.run_hd_batch_generate_with_retry(
-                    lambda prompt: site.call_omnia_media_image_api('Dola-Seedream-5.0-pro', prompt), 'draw')
+                    lambda prompt: site.call_omnia_media_image_api('gpt-image-2.6-flare', prompt), 'draw')
         self.assertEqual(post.call_count, site.OMNIAKEY_MEDIA_MAX_ATTEMPTS)
         keys = {call.kwargs['headers']['Idempotency-Key'] for call in post.call_args_list}
         self.assertEqual(len(keys), 1)
@@ -142,7 +142,7 @@ class ProviderLimitTests(unittest.TestCase):
     def test_incomplete_post_responses_never_trigger_a_second_paid_request(self):
         operations = {
             "sync": lambda prompt: site.call_omnia_sync_image_api(site.NANO_BANANA_MODEL, prompt),
-            "media": lambda prompt: site.call_omnia_media_image_api("Dola-Seedream-5.0-pro", prompt),
+            "media": lambda prompt: site.call_omnia_media_image_api("gpt-image-2.6-flare", prompt),
             "ark": lambda prompt: site.call_ark_seedream_images_api(prompt, [self.upload]),
         }
         for name, operation in operations.items():
@@ -198,7 +198,7 @@ class ProviderLimitTests(unittest.TestCase):
                 patch.object(site.requests, "get", return_value=failed) as get, \
                 patch.object(site, "OMNIAKEY_TASK_POLL_INTERVAL_SECONDS", 0):
             with self.assertRaisesRegex(site.OmniaImageOutcomeUnknown, "already-paid-task"):
-                site.call_omnia_media_image_api("Dola-Seedream-5.0-pro", "draw")
+                site.call_omnia_media_image_api("gpt-image-2.6-flare", "draw")
         self.assertEqual(post.call_count, 1)
         self.assertEqual(get.call_count, 4)
         self.assertEqual(self.limiter.snapshot()["retained"], 1)
@@ -211,7 +211,7 @@ class ProviderLimitTests(unittest.TestCase):
                 patch.object(site.requests, "get") as get, \
                 patch.object(site, "OMNIAKEY_TASK_TIMEOUT_SECONDS", -1):
             with self.assertRaisesRegex(site.OmniaImageOutcomeUnknown, "already-paid-task"):
-                site.call_omnia_media_image_api("Dola-Seedream-5.0-pro", "draw")
+                site.call_omnia_media_image_api("gpt-image-2.6-flare", "draw")
         self.assertEqual(post.call_count, 1)
         get.assert_not_called()
         self.assertEqual(self.limiter.snapshot()["retained"], 1)
@@ -248,7 +248,7 @@ class ProviderLimitTests(unittest.TestCase):
         with patch.object(site.requests, "post", side_effect=[rejected, completed]) as post, \
                 patch.object(site.requests, "get", return_value=image), patch.object(site.time, "sleep"), \
                 patch.object(self.limiter, "cooldown") as cooldown:
-            site.call_omnia_media_image_api("Dola-Seedream-5.0-pro", "draw")
+            site.call_omnia_media_image_api("gpt-image-2.6-flare", "draw")
         self.assertEqual(post.call_count, 2)
         self.assertEqual(len({call.kwargs["headers"]["Idempotency-Key"] for call in post.call_args_list}), 1)
         cooldown.assert_called_once_with("omnia_image", seconds=site.OMNIAKEY_MEDIA_RETRY_DELAYS[0])

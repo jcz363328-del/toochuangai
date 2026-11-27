@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .action_dock import generation_action_column
+
 from types import SimpleNamespace
 from typing import Any
 
@@ -317,7 +319,7 @@ def render_openrouter_feature(
         meta_items.append(f'<span class="meta-pill">最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张参考图</span>')
         meta_items.append('<span class="meta-pill">4 种模式 · 支持指定元素替换</span>')
         meta_items.append('<span class="meta-pill">3 种规格 · 套版跟随模板</span>')
-        meta_items.append('<span class="meta-pill">原生 4K · 文字不截断</span>')
+        meta_items.append('<span class="meta-pill">可选分辨率 · 文字不截断</span>')
         meta_items.append('<span class="meta-pill">成品文字可二次编辑</span>')
     elif supports_amazon_a_plus:
         meta_items.append(f'<span class="meta-pill">最多 {MAIN_IMAGE_A_PLUS_MAX_FILES} 张参考图</span>')
@@ -328,7 +330,7 @@ def render_openrouter_feature(
         meta_items.append('<span class="meta-pill">上传 1 张完整亚马逊 A+</span>')
         meta_items.append('<span class="meta-pill">固定输出 4 张 1920×1080</span>')
         meta_items.append('<span class="meta-pill">单页独立 · 四页连续</span>')
-        meta_items.append('<span class="meta-pill">原生 4K 重构 · 非拉伸裁切</span>')
+        meta_items.append('<span class="meta-pill">原生分辨率重构 · 非拉伸裁切</span>')
     elif supports_a_plus_first_screen_selling_points:
         meta_items.append('<span class="meta-pill">首屏 1464×600–1200 自适应</span>')
         meta_items.append('<span class="meta-pill">A+ 总高度 2400 / 3000 / 3600</span>')
@@ -402,7 +404,7 @@ def render_openrouter_feature(
 
     shared_action_dock = None
     if not supports_a_plus_first_screen_selling_points:
-        shared_action_dock = st.container(key="workbench_action_dock", border=True)
+        shared_action_dock = generation_action_column(st, st.container(key="workbench_action_dock", border=True))
     column_ratio = [1.85, 1] if supports_a_plus_first_screen_selling_points else [1, 1]
     left_col, right_col = st.columns(column_ratio, gap="medium")
     with left_col:
@@ -642,16 +644,13 @@ def render_openrouter_feature(
             amazon_source_files = list(hero_source_files) + list(selling_point_files)
             with st.container(key="fusion_settings", border=True):
                 st.markdown('<div class="result-block-title">生成设置</div>', unsafe_allow_html=True)
-                count_col, model_col, height_col = st.columns([1, 1.6, 1.4], gap="small")
+                count_col, height_col = st.columns([1, 1.4], gap="small")
                 with count_col:
                     selected_output_count = int(st.number_input(
                         "生成数量", min_value=FEATURE_OUTPUT_COUNT_MIN, max_value=FEATURE_OUTPUT_COUNT_MAX,
                         value=default_output_count, step=1, disabled=bool(fixed_output_count),
                         key=f"output_count_{feature['key']}",
                     ))
-                with model_col:
-                    active_model = model_options_for_feature[0]
-                    st.text_input("当前模型", value=get_model_display_name(active_model), disabled=True, key="fusion_current_model")
                 with height_col:
                     st.number_input(
                         "填充起始高度（px，0 为自动识别）", min_value=0, max_value=30000,
@@ -1578,7 +1577,7 @@ def render_openrouter_feature(
             settings_parent = primary_action_slot.container() if primary_action_slot is not None else st.container()
             with settings_parent, st.container(key="workbench_settings", border=True):
                 st.markdown('<div class="result-block-title">生成设置</div>', unsafe_allow_html=True)
-                count_col, model_col = st.columns([1, 2], gap="small")
+                count_col = st.container()
                 with count_col:
                     if str(feature.get("output_mode") or "") == "image" and not supports_image_resize and not supports_a_plus_reference_lab:
                         selected_output_count = int(st.number_input(
@@ -1588,35 +1587,18 @@ def render_openrouter_feature(
                         ))
                     else:
                         st.caption(f"结果数量：{selected_output_count}" if selected_output_count else "分析结果")
-                with model_col:
-                    if len(model_options_for_feature) == 1:
-                        active_model = model_options_for_feature[0]
-                        st.text_input("当前模型", value=get_model_display_name(active_model), disabled=True, key=f"workbench_model_{feature['key']}")
-                    else:
-                        active_model = st.selectbox(
-                            "生成方式" if supports_outpaint else "当前模型", model_options_for_feature,
-                            index=model_options_for_feature.index(default_model_for_feature),
-                            format_func=get_model_display_name, key=f"model_select_{feature['key']}",
-                        )
             with shared_action_dock:
                 if supports_outpaint:
-                    status_col, clear_col, action_col = st.columns([2, 0.5, 1], vertical_alignment="center")
-                    with clear_col:
-                        upload_key = f"batch_uploader_{feature['key']}"
-                        if st.button("清空上传", key=f"clear_upload_{upload_key}", type="secondary", use_container_width=True):
-                            clear_upload_cache(upload_key)
-                            reset_upload_widget(upload_key)
-                            st.rerun()
-                else:
-                    status_col, action_col = st.columns([2, 1], vertical_alignment="center")
-                with status_col:
-                    st.caption(f"{feature['name']} · {'任务处理中，可继续加入队列' if has_active_job else '设置完成后开始处理'}")
-                with action_col:
-                    submitted = st.button(
-                        f"开始生成 {selected_output_count} 张" if supports_a_plus_reference_lab else process_button_label,
-                        key=f"process_{feature['key']}", type="primary", use_container_width=True,
-                        disabled=process_button_disabled,
-                    )
+                    upload_key = f"batch_uploader_{feature['key']}"
+                    if st.button("清空上传", key=f"clear_upload_{upload_key}", type="secondary", use_container_width=True):
+                        clear_upload_cache(upload_key)
+                        reset_upload_widget(upload_key)
+                        st.rerun()
+                submitted = st.button(
+                    f"开始生成 {selected_output_count} 张" if supports_a_plus_reference_lab else process_button_label,
+                    key=f"process_{feature['key']}", type="primary", use_container_width=True,
+                    disabled=process_button_disabled,
+                )
     with right_col:
         if not supports_a_plus_first_screen_selling_points:
             st.markdown('<div class="workbench-right-marker" style="display:none"></div>', unsafe_allow_html=True)
@@ -1988,16 +1970,12 @@ def render_openrouter_feature(
                         st.rerun()
 
     if supports_a_plus_first_screen_selling_points:
-        with st.container(key="fusion_action_dock", border=True):
-            status_col, submit_col = st.columns([2, 1])
+        with generation_action_column(st, st.container(key="fusion_action_dock", border=True)):
             ready = bool(hero_source_files and selling_point_files)
-            with status_col:
-                st.markdown(f"{'✓' if ready else '○'} 底稿 {len(hero_source_files)} 张 · 卖点素材 {len(selling_point_files)} 张 · {'已就绪' if ready else '请补充素材'}")
-            with submit_col:
-                submitted = st.button(
-                    process_button_label, key=f"process_{feature['key']}", type="primary",
-                    use_container_width=True, disabled=not ready,
-                )
+            submitted = st.button(
+                process_button_label, key=f"process_{feature['key']}", type="primary",
+                use_container_width=True, disabled=not ready,
+            )
 
     if job_info.get("status") == "completed":
         if feature.get("output_mode") == "image" and not (result.get("images") or []):

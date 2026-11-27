@@ -24,7 +24,7 @@ CMD ["python", "-m", "streamlit", "run", "Department/视觉设计部/xiaoha/open
 FROM web_image AS video-backend
 WORKDIR /app/backend
 COPY Department/流程与AI部/VideoClaw/video-claw/video-claw/backend/ ./
-RUN pip install --no-cache-dir --upgrade -r requirements.txt && pip check
+RUN pip install --no-cache-dir --upgrade -r requirements.txt 'Pillow<13' && pip check
 RUN apt-get update && apt-get install -y --no-install-recommends libatomic1 && python -m playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
 CMD ["python", "/app/docker/videoclaw_entrypoint.py"]
 
