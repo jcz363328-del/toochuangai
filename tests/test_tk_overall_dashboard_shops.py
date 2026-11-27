@@ -5,7 +5,7 @@ from pathlib import Path
 class TkOverallDashboardShopTests(unittest.TestCase):
     def setUp(self):
         root = Path(__file__).resolve().parents[1]
-        self.backend = (root / "tk_total_dashboard.py").read_text(encoding="utf-8")
+        self.backend = (root / "Department" / "内容生产工厂" / "tk_total_dashboard.py").read_text(encoding="utf-8")
 
     def test_shop_source_unions_settlement_and_order_data(self):
         helper = self.backend.split(

@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 from PIL import Image, ImageDraw
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 def image_data_url(image: Image.Image) -> str:
@@ -45,13 +45,13 @@ def passed_quality_review(score: float = 9.0) -> dict[str, object]:
 
 
 class MainImageAPlusTests(unittest.TestCase):
-    def test_main_image_uploads_support_drag_priority_reordering(self) -> None:
-        page_source = inspect.getsource(site.render_openrouter_feature)
-        uploader_source = inspect.getsource(site.render_multi_image_uploader)
-        sorter_source = inspect.getsource(site.inject_upload_reorder_support)
+    def test_main_image_uploads_support_priority_reordering(self) -> None:
+        page_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
+        uploader_source = inspect.getsource(site._upload_views.render_multi_image_uploader)
+        sorter_source = inspect.getsource(site._workbench_assets.inject_upload_reorder_support)
 
         self.assertIn("allow_reorder=True", page_source)
-        self.assertIn("按住图片左上角", uploader_source)
+        self.assertIn("allow_reorder=allow_reorder", uploader_source)
         self.assertIn("upload_priority_sort.js", sorter_source)
         self.assertIn("UPLOAD_REORDER_QUERY_KEY", sorter_source)
 
@@ -151,9 +151,9 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertEqual(five_screen["section_heights"], (450,) * 5)
 
     def test_a_plus_crop_options_are_hidden_until_opened_and_enabled_for_history(self) -> None:
-        crop_source = inspect.getsource(site.render_main_image_a_plus_crop_downloads)
-        history_source = inspect.getsource(site.render_history_gallery)
-        page_source = inspect.getsource(site.render_openrouter_feature)
+        crop_source = inspect.getsource(site._main_image_a_plus_image_tools.render_main_image_a_plus_crop_downloads)
+        history_source = inspect.getsource(site._xiaoha_history.render_history_gallery)
+        page_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
 
         self.assertIn("options_visible", crop_source)
         self.assertIn("if not is_visible", crop_source)
@@ -171,11 +171,11 @@ class MainImageAPlusTests(unittest.TestCase):
         self.assertIn("人物或商品严重截断的结果仍会阻断", page_source)
 
     def test_layout_keeps_primary_and_dynamic_actions_in_reserved_slots(self) -> None:
-        render_source = inspect.getsource(site.render_openrouter_feature)
-        style_source = inspect.getsource(site.inject_app_styles)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
+        style_source = inspect.getsource(site._workbench_assets.inject_app_styles)
 
         self.assertIn("primary_action_slot = st.empty()", render_source)
-        self.assertIn("main-action-dock-marker", render_source)
+        self.assertIn('st.container(key="workbench_action_dock"', render_source)
         self.assertIn("a-plus-analysis-card-marker", render_source)
         self.assertIn("a-plus-auto-fill-card-marker", render_source)
         self.assertIn("disabled=True", render_source)
@@ -1858,7 +1858,7 @@ class MainImageAPlusTests(unittest.TestCase):
             self.assertEqual(result.getpixel((300, 1799)), (0, 0, 255))
             self.assertEqual(result.getpixel((0, 900)), (0, 128, 0))
             self.assertEqual(result.getpixel((599, 900)), (0, 128, 0))
-        run_source = inspect.getsource(site.run_main_image_a_plus_mobile_adaptation_job)
+        run_source = inspect.getsource(site._main_image_a_plus_jobs.run_main_image_a_plus_mobile_adaptation_job)
         self.assertIn("resize_main_image_a_plus_mobile_single_layer", run_source)
         self.assertNotIn("expand_main_image_a_plus_mobile_whole_canvas", run_source)
         self.assertNotIn("expand_main_image_a_plus_mobile_candidate_sections", run_source)

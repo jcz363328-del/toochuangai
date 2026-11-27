@@ -5,7 +5,7 @@ from unittest.mock import patch
 from PIL import Image
 from streamlit.testing.v1 import AppTest
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class FirstScreenWorkbenchUITests(unittest.TestCase):
@@ -32,7 +32,7 @@ class FirstScreenWorkbenchUITests(unittest.TestCase):
 
     def app(self):
         return AppTest.from_string('''
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 site.ensure_state()
 feature = site.get_feature_by_key(site.A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY)
 site.render_openrouter_feature(feature, site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)

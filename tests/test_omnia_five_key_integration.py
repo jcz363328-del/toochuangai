@@ -11,9 +11,9 @@ import unittest
 from unittest.mock import Mock, patch
 
 from PIL import Image
-from 图片 import openrouter_image_site as site
-from 图片 import omnia_service as service
-from 图片.omnia_key_pool import credential_fingerprint
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import omnia_service as service
+from Department.视觉设计部.xiaoha.omnia_key_pool import credential_fingerprint
 
 
 class FiveKeyApplicationIntegrationTests(unittest.TestCase):
@@ -63,8 +63,8 @@ class FiveKeyApplicationIntegrationTests(unittest.TestCase):
             with patch.dict(os.environ, env), patch.object(service.requests, "get", side_effect=read_usage), \
                     patch.object(site.requests, "post", side_effect=generate) as post:
                 # Do not reuse an application limiter cached before the isolated environment.
-                from 图片.request_limits import _cached_limiter
-                from 图片.omnia_key_pool import _cached_pool
+                from Department.视觉设计部.xiaoha.request_limits import _cached_limiter
+                from Department.视觉设计部.xiaoha.omnia_key_pool import _cached_pool
                 _cached_limiter.cache_clear()
                 _cached_pool.cache_clear()
                 try:

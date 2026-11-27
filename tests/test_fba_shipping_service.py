@@ -88,6 +88,9 @@ class FbaShippingServiceTests(unittest.TestCase):
 
 class FbaShippingApiTests(unittest.TestCase):
     def setUp(self):
+        from functools import partial
+        from Department.运营部 import department_pages
+
         source = (Path(__file__).resolve().parents[1] / 'app.py').read_text(encoding='utf-8-sig')
         names = ['api_operation_fba_shipping_methods', 'api_operation_fba_shipping_method_shops',
                  'export_operation_fba_shipping_methods']
@@ -95,14 +98,15 @@ class FbaShippingApiTests(unittest.TestCase):
         for function in functions:
             self.assertTrue(any(isinstance(d, ast.Call) and isinstance(d.func, ast.Name)
                                 and d.func.id == 'require_permission' for d in function.decorator_list))
-            function.decorator_list = []
         self.app = Flask(__name__)
         self.allowed = False
         scope = dict(app=self.app, jsonify=jsonify, request=request, sf_db=Mock(),
                      _operation_dept_has_access=lambda: self.allowed)
-        exec(compile(ast.Module(body=functions, type_ignores=[]), '<fba-api>', 'exec'), scope)
         for name, path in zip(names, ['/data', '/shops', '/export']):
-            self.app.add_url_rule(path, view_func=scope[name])
+            dependencies = dict(scope)
+            if name == 'api_operation_fba_shipping_method_shops':
+                dependencies.pop('request')
+            self.app.add_url_rule(path, name, partial(getattr(department_pages, name), **dependencies))
         self.client = self.app.test_client()
         self.snapshot = dict(records=[], columns=[], available_fields=[], loaded_at='now', shops=[], shipping_methods=[])
 

@@ -3,12 +3,12 @@ import io
 import unittest
 from unittest.mock import Mock, patch
 from PIL import Image
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 class OmniaInputTests(unittest.TestCase):
     def setUp(self):
         limiter = self.enterContext(patch.object(site, 'get_request_limiter')).return_value
-        self.enterContext(patch('图片.request_limits.get_request_limiter', return_value=limiter))
+        self.enterContext(patch('Department.视觉设计部.xiaoha.request_limits.get_request_limiter', return_value=limiter))
 
     def image(self):
         out = io.BytesIO()

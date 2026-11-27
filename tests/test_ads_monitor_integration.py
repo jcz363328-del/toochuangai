@@ -3,13 +3,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WEB_ROOT = ROOT / "ads_monitor_web" / "ads-monitor-web-full-source" / "ads-monitor-web"
+WEB_ROOT = ROOT / "Department" / "流程与AI部" / "ads_monitor_web" / "ads-monitor-web-full-source" / "ads-monitor-web"
 ADS_MONITOR_ROOT = WEB_ROOT.parent
 
 
 class AdsMonitorIntegrationTests(unittest.TestCase):
     def test_ai_department_has_ads_monitor_card(self):
-        page = (ROOT / "templates" / "ai_modules.html").read_text(encoding="utf-8")
+        page = (ROOT / "templates" / "流程与AI部/ai_modules.html").read_text(encoding="utf-8")
         self.assertIn("MAGIC AD 广告监控", page)
         self.assertIn("url_for('ads_monitor')", page)
 

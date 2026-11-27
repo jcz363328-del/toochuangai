@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class FinanceAllocationCountryTests(unittest.TestCase):
     def test_allocation_import_requires_and_persists_country(self):
-        source = (ROOT / "app.py").read_text(encoding="utf-8")
+        source = (ROOT / "Department" / "财务部" / "routes.py").read_text(encoding="utf-8")
         route = source.split("def import_allocation_ratio():", 1)[1].split(
             "def import_wage_rent():", 1
         )[0]
@@ -20,7 +20,7 @@ class FinanceAllocationCountryTests(unittest.TestCase):
         self.assertIn("(年, 月, 国, 地区, 项目, 店铺, 比例)", route)
 
     def test_allocation_import_ui_documents_country_column(self):
-        template = (ROOT / "templates" / "finance_modules.html").read_text(
+        template = (ROOT / "templates" / "财务部/finance_modules.html").read_text(
             encoding="utf-8"
         )
 

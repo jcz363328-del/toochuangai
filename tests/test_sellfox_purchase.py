@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-import sellfox_purchase as service
+from integrations.sellfox import sellfox_purchase as service
 
 class SellfoxPurchaseTests(unittest.TestCase):
     def test_repeat_returns_original(self):

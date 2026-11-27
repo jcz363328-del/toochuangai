@@ -7,7 +7,7 @@ import unittest
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class ImageResizeFeatureTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class ImageResizeFeatureTests(unittest.TestCase):
             self.assertEqual(resized.size, (320, 180))
 
     def test_page_exposes_fixed_size_controls(self) -> None:
-        source = inspect.getsource(site.render_openrouter_feature)
+        source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
 
         self.assertIn('"锁定原比例"', source)
         self.assertIn('"目标宽度"', source)

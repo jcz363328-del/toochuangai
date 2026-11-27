@@ -6,7 +6,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class BackgroundTaskProgressTests(unittest.TestCase):
@@ -201,9 +201,9 @@ class BackgroundTaskProgressTests(unittest.TestCase):
                 "submitted_at": "2026-07-20 12:00:00",
             }
         )
-        render_source = inspect.getsource(site.render_openrouter_feature)
-        cutout_source = inspect.getsource(site.render_background_cutout_feature)
-        canvas_source = inspect.getsource(site.render_infinite_canvas_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
+        cutout_source = inspect.getsource(site._workbench_pages.render_background_cutout_feature)
+        canvas_source = inspect.getsource(site._workbench_pages.render_infinite_canvas_feature)
 
         self.assertIn("已加入任务队列", queued_html)
         self.assertIn("前面还有 2 个任务", queued_html)
@@ -243,7 +243,7 @@ class BackgroundTaskProgressTests(unittest.TestCase):
         self.assertEqual(site.calculate_finishing_progress(20, 30), 100)
 
         render_source = inspect.getsource(site.render_running_job_status)
-        sync_source = inspect.getsource(site.sync_background_jobs)
+        sync_source = inspect.getsource(site._job_status_views.sync_background_jobs)
         self.assertIn('run_every="1s"', render_source)
         self.assertIn("completion_pending", sync_source)
 
@@ -273,7 +273,7 @@ class BackgroundTaskProgressTests(unittest.TestCase):
         analyze.assert_called_once()
         self.assertEqual(progress.call_args_list[-1].args, ("manual-job", 100, "补漏识别完成"))
 
-        render_source = inspect.getsource(site.render_openrouter_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
         self.assertIn("submit_main_image_a_plus_manual_element_job", render_source)
         self.assertNotIn(
             "new_element = analyze_main_image_a_plus_element_at_point",

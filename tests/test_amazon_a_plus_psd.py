@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 
-MODULE_DIR = Path(__file__).resolve().parents[1] / "图片"
+MODULE_DIR = Path(__file__).resolve().parents[1] / "Department/视觉设计部/xiaoha"
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
 

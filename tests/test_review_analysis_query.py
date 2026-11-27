@@ -11,7 +11,7 @@ import review_analysis as review_module
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REVIEW_TEMPLATE_SOURCE = (ROOT / "templates" / "review_analysis.html").read_text(
+REVIEW_TEMPLATE_SOURCE = (ROOT / "templates" / "技术部/review_analysis.html").read_text(
     encoding="utf-8"
 )
 

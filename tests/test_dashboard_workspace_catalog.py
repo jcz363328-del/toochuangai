@@ -1,9 +1,9 @@
-import ast
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from dashboard_workspace import extract_features, template_catalog_context, feature_anchor
+from core.utils.dashboard_workspace import extract_features, template_catalog_context, feature_anchor
+from core.workspace_routes import dashboard_workspace_catalog
 
 from flask import Flask, jsonify, session
 from jinja2 import Environment, FileSystemLoader
@@ -13,9 +13,6 @@ class WorkspaceCatalogTests(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
         self.app.secret_key = 'test'
-        source = Path(__file__).resolve().parents[1].joinpath('app.py').read_text(encoding='utf-8-sig')
-        function = next(node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef) and node.name == 'dashboard_workspace_catalog')
-        function.decorator_list = []
         self.rendered = []
 
         def render(template, **context):
@@ -26,13 +23,13 @@ class WorkspaceCatalogTests(unittest.TestCase):
                      '_can_access_ai_workspace': lambda: True,
                      'permission_manager': SimpleNamespace(get_user_accessible_functions=lambda user: [{'function_name': 'tk_dashboard_88'}], get_permission_records=lambda: {'tk_dashboard_88': {}}),
                      '_permission_debug_effective_state': lambda: {},
-                     '_current_user_has_permission': lambda key, user: key == 'tk_dashboard_88',
                      '_OPERATION_DEPT_FUNCTIONS': {'operation_dept_1', 'operation_dept_6'},
                      '_normalize_dashboard_functions': lambda items: [], 'render_template': render,
                      'url_for': lambda endpoint, **values: '/' + endpoint}
-        exec(compile(ast.Module(body=[function], type_ignores=[]), '<catalog>', 'exec'), namespace)
-        self.catalog = namespace['dashboard_workspace_catalog']
         self.namespace = namespace
+
+    def catalog(self, accessible=None):
+        return dashboard_workspace_catalog(accessible, **self.namespace)
 
     def test_login_required(self):
         with self.app.test_request_context():
@@ -69,7 +66,7 @@ class WorkspaceCatalogTests(unittest.TestCase):
         environment = Environment(loader=FileSystemLoader(Path(__file__).resolve().parents[1] / 'templates'))
         environment.globals['url_for'] = lambda endpoint, **values: '/' + endpoint
         flags = {name: True for name in ['can_ai_dept', 'can_ai_full', 'can_daily_replenishment', 'can_daily_replenishment_operation', 'can_group_performance', 'can_business_analysis', 'can_ads_monitor', 'can_video_claw', 'can_value_evaluation', 'can_value_evaluation_admin', 'can_historical_sales']}
-        html = environment.get_template('ai_modules.html').render(**flags)
+        html = environment.get_template('流程与AI部/ai_modules.html').render(**flags)
         names = {item['menu'] for item in extract_features(html, '/ai_modules')}
         self.assertTrue({'日常补货', '组别经营数据', '版本更新通知', '创新项目删除', '权限身份切换（测试）', 'Listing 生成工作台 V2', 'ABA 排名导入与分析'}.issubset(names))
 
@@ -149,7 +146,7 @@ class WorkspaceCatalogTests(unittest.TestCase):
 
     def test_operations_detail_pages_show_business_analysis_only_when_granted(self):
         self.configure_full_catalog()
-        template = self.app.jinja_env.get_template('operation_dept.html')
+        template = self.app.jinja_env.get_template('主站/operation_dept.html')
         for dept in ('operation_dept_1', 'operation_dept_2', 'operation_dept_3', 'operation_dept_6', 'operation_dept_7'):
             for granted in (False, True):
                 with self.subTest(department=dept, granted=granted):

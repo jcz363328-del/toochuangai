@@ -5,14 +5,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from xiaotu_report_memory import (
+from shared_modules.reports.xiaotu_report_memory import (
     ReportMemoryError,
     build_report_memory_path,
     render_report_memory_context,
     sanitize_report_memory_filename,
     update_report_memory_file,
 )
-from backfill_xiaotu_report_memory_local import build_local_snapshot
+from shared_modules.reports.backfill_xiaotu_report_memory_local import build_local_snapshot
 
 
 class XiaotuReportMemoryTests(unittest.TestCase):
@@ -194,11 +194,12 @@ class XiaotuReportMemoryTests(unittest.TestCase):
             self.assertIn("项目B", context)
 
     def test_report_submit_starts_independent_memory_worker(self) -> None:
-        app_source = (Path(__file__).resolve().parents[1] / "app.py").read_text(encoding="utf-8")
-        self.assertIn("def _xiaotu_report_memory_background_worker(payload):", app_source)
-        self.assertIn("_xiaotu_update_report_memory(", app_source)
-        self.assertIn("dbo.baogao_zhenghe", app_source)
-        self.assertIn('"report_date_text": report_date_text', app_source)
+        source = (Path(__file__).resolve().parents[1] / "shared_modules/reports/submission.py").read_text(encoding="utf-8")
+        self.assertIn("def _xiaotu_report_memory_background_worker(payload):", source)
+        self.assertIn("_xiaotu_update_report_memory(", source)
+        self.assertIn("dbo.baogao_zhenghe", (Path(__file__).resolve().parents[1] / "shared_modules/reports/persistence.py").read_text(encoding="utf-8"))
+        self.assertIn('"report_date_text": report_date_text', source)
+
 
     def test_local_backfill_extracts_history_without_ai(self) -> None:
         snapshot = build_local_snapshot(

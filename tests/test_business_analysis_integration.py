@@ -8,17 +8,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class BusinessAnalysisIntegrationTests(unittest.TestCase):
     def test_main_dashboard_has_business_analysis_card(self):
-        page = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8")
-        ai_page = (ROOT / "templates" / "ai_modules.html").read_text(encoding="utf-8")
+        page = (ROOT / "templates" / "主站/dashboard.html").read_text(encoding="utf-8")
+        ai_page = (ROOT / "templates" / "流程与AI部/ai_modules.html").read_text(encoding="utf-8")
 
-        self.assertIn("<h3>经营分析</h3>", page)
+        self.assertIn("fname == 'business_analysis'", page)
         self.assertIn("url_for('business_analysis')", page)
         self.assertNotIn("<h3>经营分析</h3>", ai_page)
 
     def test_flask_bundle_and_protected_routes_are_wired(self):
         app_source = (ROOT / "app.py").read_text(encoding="utf-8")
-        package = (ROOT / "business_analysis" / "package.json").read_text(encoding="utf-8")
-        flask_entry = (ROOT / "business_analysis" / "flask" / "index.html").read_text(encoding="utf-8")
+        route_source = (ROOT / "Department" / "总经办" / "business_analysis_routes.py").read_text(encoding="utf-8")
+        package = (ROOT / "Department" / "总经办" / "business_analysis" / "package.json").read_text(encoding="utf-8")
+        flask_entry = (ROOT / "Department" / "总经办" / "business_analysis" / "flask" / "index.html").read_text(encoding="utf-8")
 
         self.assertIn("@app.route('/ai/business-analysis')", app_source)
         self.assertIn("@app.route('/ai/business-analysis/assets/<path:filename>')", app_source)
@@ -27,24 +28,25 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
         self.assertIn("'/api/ai/business-analysis/fiscal-overview'", app_source)
         self.assertIn("@app.route('/api/ai/business-analysis/key-tasks'", app_source)
         self.assertGreaterEqual(app_source.count("@_require_business_analysis_access"), 4)
-        self.assertIn("force_business_analysis_query_params", app_source)
-        self.assertIn("prepare_business_analysis_payload", app_source)
-        self.assertIn("X-Business-Analysis-Source", app_source)
-        self.assertIn("_BUSINESS_ANALYSIS_DASHBOARD_SNAPSHOT_PATH", app_source)
-        self.assertIn("'daily-snapshot'", app_source)
-        self.assertIn("'business_owner':", app_source)
+        self.assertIn("force_business_analysis_query_params", route_source)
+        self.assertIn("prepare_business_analysis_payload", route_source)
+        self.assertIn("X-Business-Analysis-Source", route_source)
+        self.assertIn("_BUSINESS_ANALYSIS_DASHBOARD_SNAPSHOT_PATH", route_source)
+        self.assertIn("'daily-snapshot'", route_source)
+        identity_source = (ROOT / "integrations" / "feishu" / "session_identity.py").read_text(encoding="utf-8")
+        self.assertIn("'business_owner':", identity_source)
         self.assertIn('"build:flask"', package)
         self.assertIn('data-dashboard-api="/api/ai/business-analysis/dashboard"', flask_entry)
         self.assertIn('data-scope-api="/api/ai/business-analysis/scope"', flask_entry)
         self.assertIn('data-key-tasks-api="/api/ai/business-analysis/key-tasks"', flask_entry)
 
-        flask_main = (ROOT / "business_analysis" / "flask" / "main.tsx").read_text(encoding="utf-8")
+        flask_main = (ROOT / "Department" / "总经办" / "business_analysis" / "flask" / "main.tsx").read_text(encoding="utf-8")
         self.assertIn("emptyWorkbookData", flask_main)
         self.assertNotIn("workbook-data.json", flask_main)
 
     def test_daily_dashboard_snapshot_caches_current_and_previous_month(self):
         refresh_script = (
-            ROOT / "business_analysis" / "scripts" / "refresh-dashboard-snapshot.mjs"
+            ROOT / "Department" / "总经办" / "business_analysis" / "scripts" / "refresh-dashboard-snapshot.mjs"
         ).read_text(encoding="utf-8")
 
         self.assertIn("const cachedPeriods = [period, previousPeriod];", refresh_script)
@@ -52,7 +54,7 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
         self.assertIn("periods[selectedPeriod]", refresh_script)
 
     def test_key_tasks_use_json_without_node_date(self):
-        dashboard = (ROOT / "business_analysis" / "app" / "components" / "KeyTasksBoard.tsx").read_text(
+        dashboard = (ROOT / "Department" / "总经办" / "business_analysis" / "app" / "components" / "KeyTasksBoard.tsx").read_text(
             encoding="utf-8"
         )
         storage = json.loads(
@@ -64,10 +66,10 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
         self.assertEqual(storage, {"version": 1, "updatedAt": None, "tasks": []})
 
     def test_key_task_matrix_avoids_nested_desktop_scrollbars(self):
-        dashboard = (ROOT / "business_analysis" / "app" / "components" / "KeyTasksBoard.tsx").read_text(
+        dashboard = (ROOT / "Department" / "总经办" / "business_analysis" / "app" / "components" / "KeyTasksBoard.tsx").read_text(
             encoding="utf-8"
         )
-        styles = (ROOT / "business_analysis" / "app" / "globals.css").read_text(encoding="utf-8")
+        styles = (ROOT / "Department" / "总经办" / "business_analysis" / "app" / "globals.css").read_text(encoding="utf-8")
 
         self.assertIn("150px repeat(${data.meta.projects.length}, minmax(0, 1fr))", dashboard)
         self.assertIn("overflow: clip;", styles)
@@ -77,7 +79,7 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
 
     def test_fiscal_home_prioritizes_annual_goal_and_progress_comparison(self):
         overview = (
-            ROOT / "business_analysis" / "app" / "components" / "FiscalOverview.tsx"
+            ROOT / "Department" / "总经办" / "business_analysis" / "app" / "components" / "FiscalOverview.tsx"
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("整体达成率", overview)
@@ -98,7 +100,7 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
         self.assertIn('const rankingRateLabel = isMonthView ? "完成率"', overview)
         self.assertIn('className="fiscal-progress-row is-time"', overview)
         self.assertIn('className="fiscal-progress-row is-target"', overview)
-        self.assertIn("两条进度线采用相同的 0–100% 刻度", overview)
+        self.assertIn("两条进度线采用相同的 0.00–100.00% 刻度", overview)
         self.assertIn("店铺完整明细表", overview)
         self.assertIn("const storeRows = data.stores ?? [];", overview)
         self.assertIn("<StoreRankingGrid rows={storeRows}", overview)
@@ -106,7 +108,7 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
 
     def test_category_yoy_displays_last_year_same_month_baseline(self):
         dashboard = (
-            ROOT / "business_analysis" / "app" / "DashboardClient.tsx"
+            ROOT / "Department" / "总经办" / "business_analysis" / "app" / "DashboardClient.tsx"
         ).read_text(encoding="utf-8")
 
         self.assertIn("yearAgoLabel={yearAgoPeriod?.label", dashboard)
@@ -114,14 +116,12 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
         self.assertIn("同比基期", dashboard)
         self.assertIn("row.yearAgoShare", dashboard)
         self.assertIn("去年同月日均销售", dashboard)
-        self.assertIn("总体销售额", dashboard)
-        self.assertIn("日均销售额", dashboard)
-        self.assertIn("{currentLabel}总体销售额", dashboard)
-        self.assertIn("{currentLabel}日均销售额", dashboard)
+        self.assertIn("{currentLabel}总体结算销售额", dashboard)
+        self.assertIn("{currentLabel}日均结算销售额", dashboard)
 
     def test_all_dashboard_tabs_are_visible_for_restricted_users(self):
         dashboard = (
-            ROOT / "business_analysis" / "app" / "DashboardClient.tsx"
+            ROOT / "Department" / "总经办" / "business_analysis" / "app" / "DashboardClient.tsx"
         ).read_text(encoding="utf-8")
 
         self.assertIn("const visibleTab: DashboardTab = activeTab;", dashboard)
@@ -140,7 +140,7 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
 
     def test_category_snapshot_contains_paired_and_cluster_segments(self):
         snapshot = json.loads(
-            (ROOT / "business_analysis" / "app" / "data" / "workbook-data.json").read_text(
+            (ROOT / "Department" / "总经办" / "business_analysis" / "app" / "data" / "workbook-data.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -172,7 +172,7 @@ class BusinessAnalysisIntegrationTests(unittest.TestCase):
 
     def test_fiscal_company_rate_supports_older_api_payloads(self):
         fiscal_overview = (
-            ROOT / "business_analysis" / "app" / "components" / "FiscalOverview.tsx"
+            ROOT / "Department" / "总经办" / "business_analysis" / "app" / "components" / "FiscalOverview.tsx"
         ).read_text(encoding="utf-8")
 
         self.assertIn(

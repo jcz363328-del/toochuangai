@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class OmniaTaskRecoveryTests(unittest.TestCase):
@@ -19,7 +19,7 @@ class OmniaTaskRecoveryTests(unittest.TestCase):
 
     def setUp(self) -> None:
         limiter = self.enterContext(patch.object(site, 'get_request_limiter')).return_value
-        self.enterContext(patch('图片.request_limits.get_request_limiter', return_value=limiter))
+        self.enterContext(patch('Department.视觉设计部.xiaoha.request_limits.get_request_limiter', return_value=limiter))
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         folder = self.stack.enter_context(tempfile.TemporaryDirectory())

@@ -4,13 +4,13 @@ from threading import Event
 from unittest.mock import patch
 
 from streamlit.testing.v1 import AppTest
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 APP = '''
 import streamlit as st
 from unittest.mock import patch
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 page = st.radio('Page', ['reverse', 'other'], key='page')
 if page == 'reverse':
     with patch.object(site, 'render_single_image_uploader', return_value={'data':b'test', 'name':'test.png'}), \\

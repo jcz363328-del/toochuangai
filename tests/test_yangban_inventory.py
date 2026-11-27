@@ -27,7 +27,7 @@ class YangbanInventoryTests(unittest.TestCase):
         template = (
             Path(__file__).resolve().parents[1]
             / "templates"
-            / "yangban_inventory.html"
+            / "采购部/yangban_inventory.html"
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("累计入库量", template)
@@ -120,7 +120,7 @@ class YangbanInventoryTests(unittest.TestCase):
         template = (
             Path(__file__).resolve().parents[1]
             / "templates"
-            / "yangban_inventory.html"
+            / "采购部/yangban_inventory.html"
         ).read_text(encoding="utf-8")
 
         self.assertIn("dashboardPageSize: 12", template)

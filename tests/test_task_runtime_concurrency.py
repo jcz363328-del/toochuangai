@@ -15,7 +15,7 @@ def load_runtime_class():
     # Exercise the actual scheduler without importing Streamlit or credentials.
     # A replacement source can be checked before it is applied to main.
     path = Path(os.environ.get("XIAOHA_TASK_RUNTIME_SOURCE") or
-                Path(__file__).resolve().parents[1] / "图片" / "openrouter_image_site.py")
+                Path(__file__).resolve().parents[1] / "Department" / "视觉设计部" / "xiaoha" / "task_runtime.py")
     module = ast.parse(path.read_text(encoding="utf-8-sig"))
     runtime = next(node for node in module.body
                    if isinstance(node, ast.ClassDef) and node.name == "TaskRuntime")

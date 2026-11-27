@@ -4,7 +4,7 @@ import inspect
 import unittest
 from unittest.mock import patch
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class FeatureOutputCountTests(unittest.TestCase):
@@ -79,8 +79,8 @@ class FeatureOutputCountTests(unittest.TestCase):
 
     def test_every_image_ui_path_contains_output_count_selector(self) -> None:
         for renderer in (
-            site.render_openrouter_feature,
-            site.render_background_cutout_feature,
+            site._feature_workbench.render_openrouter_feature,
+            site._workbench_pages.render_background_cutout_feature,
         ):
             source = inspect.getsource(renderer)
             self.assertIn("结果张数", source)

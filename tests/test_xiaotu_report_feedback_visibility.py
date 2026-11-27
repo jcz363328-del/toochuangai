@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import ast
+import inspect
 import unittest
 from pathlib import Path
+
+from shared_modules.reports.delivery_routes import api_xiaotu_report_feedback
+from shared_modules.reports.comment_pages import xiaotu_report_comment_page
 
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_PATH = ROOT / "app.py"
-HISTORY_TEMPLATE_PATH = ROOT / "templates" / "xiaotu_report_history.html"
+HISTORY_TEMPLATE_PATH = ROOT / "templates" / "日报与报告/xiaotu_report_history.html"
 
 
 def _app_function_source(function_name: str) -> str:
@@ -24,18 +28,13 @@ def _app_function_source(function_name: str) -> str:
 
 
 def _load_visibility_helper(namespace: dict):
-    source = APP_PATH.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    helper_node = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "_xiaotu_report_history_is_visible_to_user"
-    )
-    helper_module = ast.Module(body=[helper_node], type_ignores=[])
-    ast.fix_missing_locations(helper_module)
-    exec(compile(helper_module, str(APP_PATH), "exec"), namespace)
-    return namespace["_xiaotu_report_history_is_visible_to_user"]
+    from shared_modules.reports.persistence import _xiaotu_report_history_is_visible_to_user
+
+    def helper(wendangid, user_name):
+        return _xiaotu_report_history_is_visible_to_user(wendangid, user_name, **namespace)
+
+    return helper
+
 
 
 class XiaotuReportFeedbackVisibilityTests(unittest.TestCase):
@@ -52,12 +51,12 @@ class XiaotuReportFeedbackVisibilityTests(unittest.TestCase):
         )
 
     def test_feedback_endpoints_enforce_history_visibility(self) -> None:
-        api_source = _app_function_source("api_xiaotu_report_feedback")
+        api_source = inspect.getsource(api_xiaotu_report_feedback)
         page_source = _app_function_source("xiaotu_report_comment_page")
 
         guard = "_xiaotu_report_history_is_visible_to_user(wendangid, actor_name)"
         self.assertIn(guard, api_source)
-        self.assertIn(guard, page_source)
+        self.assertIn(guard, inspect.getsource(xiaotu_report_comment_page))
         self.assertIn("@require_permission('xiaotu_qa')", page_source)
 
     def test_visibility_helper_combines_uploaded_and_received_scope(self) -> None:

@@ -11,7 +11,7 @@ import unittest
 from contextlib import ExitStack
 from unittest.mock import Mock, patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "图片"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Department/视觉设计部/xiaoha"))
 import request_limits as limits
 
 

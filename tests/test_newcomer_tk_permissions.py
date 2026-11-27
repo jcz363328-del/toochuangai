@@ -81,7 +81,7 @@ class NewcomerTkPermissionTests(unittest.TestCase):
         environment.globals["url_for"] = (
             lambda endpoint, **values: f"/{endpoint}"
         )
-        template = environment.get_template("operation_dept.html")
+        template = environment.get_template("主站/operation_dept.html")
 
         html = template.render(
             user_name="新人",
@@ -96,9 +96,9 @@ class NewcomerTkPermissionTests(unittest.TestCase):
         self.assertNotIn("差评分析系统", html)
         self.assertNotIn("亚马逊站内信回复智能体", html)
         self.assertNotIn("90号店看板", html)
-        self.assertIn("模特排队", html)
         self.assertIn("客服", html)
-        self.assertIn("FBA货件运输方式", html)
+        self.assertIn("FBA追踪码/IEN查询", html)
+        self.assertIn("/operation_fba_shipping_methods_page", html)
 
     def test_newcomer_card_includes_fba_shipping(self):
         template_dir = Path(__file__).resolve().parents[1] / "templates"
@@ -106,7 +106,7 @@ class NewcomerTkPermissionTests(unittest.TestCase):
         environment.globals["url_for"] = (
             lambda endpoint, **values: f"/{endpoint}"
         )
-        template = environment.get_template("operation_dept.html")
+        template = environment.get_template("主站/operation_dept.html")
 
         html = template.render(
             user_name="新人",
@@ -118,7 +118,7 @@ class NewcomerTkPermissionTests(unittest.TestCase):
             can_view_amazon_reply=False,
         )
 
-        self.assertIn("FBA货件运输方式", html)
+        self.assertIn("FBA追踪码/IEN查询", html)
         self.assertIn("/operation_fba_shipping_methods_page", html)
 
 

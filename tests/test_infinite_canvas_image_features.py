@@ -4,12 +4,21 @@ import inspect
 import unittest
 from unittest.mock import patch
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class InfiniteCanvasImageFeatureTests(unittest.TestCase):
     def test_canvas_image_features_reuse_existing_xiaoha_features(self) -> None:
         expected = {
+            site.A_PLUS_REFERENCE_LAB_FEATURE_KEY,
+            site.A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY,
+            site.AMAZON_A_PLUS_FEATURE_KEY,
+            site.MAIN_IMAGE_A_PLUS_FEATURE_KEY,
+            site.A_PLUS_HERO_STYLE_REVERSE_FEATURE_KEY,
+            site.AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY,
+            site.A_PLUS_STYLE_MODEL_REPLACE_FEATURE_KEY,
+            "product_retouch",
+            "product_retouch_local",
             "background_cutout",
             site.JIMENG_HD_FEATURE_KEY,
             "remove_eyelashes",
@@ -31,6 +40,7 @@ class InfiniteCanvasImageFeatureTests(unittest.TestCase):
         self.assertEqual(
             site.INFINITE_CANVAS_IMAGE_FEATURE_REFERENCE_KEYS,
             {
+                "product_retouch",
                 "pose_change",
                 "scene_change",
                 "skin_tone",

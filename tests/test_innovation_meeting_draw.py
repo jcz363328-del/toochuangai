@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WEB_SOURCE = (ROOT / "innovation" / "web_app.py").read_text(encoding="utf-8")
 MANAGE_SOURCE = (ROOT / "innovation" / "templates" / "manage.html").read_text(encoding="utf-8")
-BLUEPRINT_SOURCE = (ROOT / "innovation_blueprint.py").read_text(encoding="utf-8")
+BLUEPRINT_SOURCE = (ROOT / "innovation" / "innovation_blueprint.py").read_text(encoding="utf-8")
 
 
 class InnovationMeetingDrawTests(unittest.TestCase):
@@ -31,7 +31,7 @@ class InnovationMeetingDrawTests(unittest.TestCase):
         self.assertIn("excluded.update(_innovation_meeting_latest_group_departments())", WEB_SOURCE)
 
     def test_management_page_contains_draw_controls(self):
-        self.assertIn('id="meeting-draw-tab"', MANAGE_SOURCE)
+        self.assertIn('id="meeting-draw" role="region"', MANAGE_SOURCE)
         self.assertIn("随机抽取两个部门", MANAGE_SOURCE)
         self.assertIn("开启新一轮", MANAGE_SOURCE)
         self.assertIn("取消该会议最近一次抽签", MANAGE_SOURCE)

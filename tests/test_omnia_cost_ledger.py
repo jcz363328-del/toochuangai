@@ -9,7 +9,7 @@ import threading
 import time
 import unittest
 
-from 图片.omnia_cost_ledger import CostLedger, KeyBusyError
+from Department.视觉设计部.xiaoha.omnia_cost_ledger import CostLedger, KeyBusyError
 
 
 KEYS = [str(index) * 64 for index in range(1, 6)]

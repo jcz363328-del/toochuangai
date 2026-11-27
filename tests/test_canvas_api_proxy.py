@@ -10,7 +10,7 @@ from threading import BoundedSemaphore
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from 图片 import canvas_api_proxy as proxy
+from Department.视觉设计部.xiaoha import canvas_api_proxy as proxy
 
 
 class QueueFull(RuntimeError):
@@ -75,8 +75,8 @@ class CanvasApiProxyTests(unittest.TestCase):
         self.limits = SimpleNamespace(RequestQueueFull=QueueFull, get_request_limiter=lambda: SimpleNamespace(slot=slot), admitted_job=nullcontext)
         service = SimpleNamespace(managed_omnia_context=lambda **kwargs: nullcontext(),
                                   record_omnia_provider_status=self.provider_statuses.append)
-        self.module_patch = patch.dict(sys.modules, {"图片.request_limits": self.limits,
-                                                    "图片.omnia_service": service})
+        self.module_patch = patch.dict(sys.modules, {"Department.视觉设计部.xiaoha.request_limits": self.limits,
+                                                    "Department.视觉设计部.xiaoha.omnia_service": service})
         self.module_patch.start()
         self.addCleanup(self.module_patch.stop)
 
@@ -119,7 +119,7 @@ class CanvasApiProxyTests(unittest.TestCase):
                     yield b"data: [DONE]\n\n"
 
                 upstream.iter_content.side_effect = chunks
-                with patch.dict(sys.modules, {"图片.omnia_service": SimpleNamespace(
+                with patch.dict(sys.modules, {"Department.视觉设计部.xiaoha.omnia_service": SimpleNamespace(
                         managed_omnia_context=managed, record_omnia_provider_status=self.provider_statuses.append)}), \
                      patch.object(proxy.requests, "post", return_value=upstream) as post:
                     proxy.serve_canvas_api(handler, site, "/responses")
@@ -147,7 +147,7 @@ class CanvasApiProxyTests(unittest.TestCase):
         upstream.__exit__ = Mock(return_value=False)
         body = b'{"error":{"message":"model not allowed"}}'
         upstream.iter_content.return_value = iter([body])
-        with patch.dict(sys.modules, {"图片.omnia_service": SimpleNamespace(
+        with patch.dict(sys.modules, {"Department.视觉设计部.xiaoha.omnia_service": SimpleNamespace(
                 managed_omnia_context=managed, record_omnia_provider_status=self.provider_statuses.append)}), \
              patch.object(proxy.requests, "post", return_value=upstream) as post:
             proxy.serve_canvas_api(handler, fake_site(), "/responses")
@@ -182,7 +182,7 @@ class CanvasApiProxyTests(unittest.TestCase):
             raise proxy.requests.ConnectionError("interrupted")
 
         upstream.iter_content.side_effect = chunks
-        with patch.dict(sys.modules, {"图片.omnia_service": SimpleNamespace(
+        with patch.dict(sys.modules, {"Department.视觉设计部.xiaoha.omnia_service": SimpleNamespace(
                 managed_omnia_context=managed, record_omnia_provider_status=self.provider_statuses.append)}), \
              patch.object(proxy.requests, "post", return_value=upstream) as post:
             proxy.serve_canvas_api(handler, fake_site(), "/responses")
@@ -454,7 +454,7 @@ class CanvasApiProxyTests(unittest.TestCase):
 
 class CanvasAdmissionIntegrationTests(unittest.TestCase):
     def test_entire_canvas_batch_survives_drain_but_new_requests_do_not(self):
-        limits = importlib.import_module("图片.request_limits")
+        limits = importlib.import_module("Department.视觉设计部.xiaoha.request_limits")
         with tempfile.TemporaryDirectory() as temp:
             limiter = limits.RequestLimiter(temp + "/limits.sqlite3", uncertain_cooldown=0)
             site = fake_site()
@@ -487,7 +487,7 @@ class CanvasAdmissionIntegrationTests(unittest.TestCase):
                 self.assertEqual(models.status, 200)
 
     def test_legacy_canvas_multistage_job_retains_admission_during_drain(self):
-        limits = importlib.import_module("图片.request_limits")
+        limits = importlib.import_module("Department.视觉设计部.xiaoha.request_limits")
         with tempfile.TemporaryDirectory() as temp:
             limiter = limits.RequestLimiter(temp + "/limits.sqlite3", uncertain_cooldown=0)
             site = fake_site()
@@ -514,7 +514,7 @@ class CanvasAdmissionIntegrationTests(unittest.TestCase):
 
 class CanvasBootstrapTests(unittest.TestCase):
     def test_bootstrap_replaces_browser_provider_key_with_local_authenticated_route(self):
-        from 图片 import openrouter_image_site as site
+        from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
         handler = site.JimengStaticRequestHandler.__new__(site.JimengStaticRequestHandler)
         handler.send_json = Mock()
@@ -528,7 +528,7 @@ class CanvasBootstrapTests(unittest.TestCase):
         self.assertIn("shared-queue", payload["config"]["configVersion"])
 
     def test_existing_static_handler_dispatches_both_api_methods(self):
-        from 图片 import openrouter_image_site as site
+        from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
         handler = site.JimengStaticRequestHandler.__new__(site.JimengStaticRequestHandler)
         for endpoint, method in (("/images/generations", "do_POST"), ("/models", "do_GET")):
@@ -539,7 +539,7 @@ class CanvasBootstrapTests(unittest.TestCase):
             self.assertIs(serve.call_args.args[0], handler)
 
     def test_legacy_model_routes_share_guard_without_double_wrapping_proxy(self):
-        from 图片 import openrouter_image_site as site
+        from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
         handler = site.JimengStaticRequestHandler.__new__(site.JimengStaticRequestHandler)
         for route, callback in (("model-hd", "serve_infinite_canvas_model_hd"), ("image-feature", "serve_infinite_canvas_image_feature"), ("detect-public-figures", "serve_infinite_canvas_detect_public_figures")):
@@ -554,7 +554,7 @@ class CanvasBootstrapTests(unittest.TestCase):
         modern.assert_called_once()
 
     def test_asset_download_uses_shared_slot_after_authentication(self):
-        from 图片 import openrouter_image_site as site
+        from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
         events = []
 

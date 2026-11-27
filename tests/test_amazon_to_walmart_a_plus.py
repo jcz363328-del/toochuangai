@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 def image_input(width: int, height: int, name: str = "amazon-a-plus.png") -> dict[str, object]:
@@ -37,7 +37,7 @@ class AmazonToWalmartAPlusTests(unittest.TestCase):
         self.assertEqual(feature["max_input_images"], 1)
         self.assertEqual(feature["fixed_output_count"], 4)
         self.assertEqual(feature["target_size"], (1920, 1080))
-        a_plus_group = next(keys for name, keys in site.SIDE_MENU_FEATURE_GROUPS if name == "A+ 电商设计")
+        a_plus_group = dict(site.SIDE_MENU_FEATURE_GROUPS)["A+"]
         self.assertIn(site.AMAZON_TO_WALMART_A_PLUS_FEATURE_KEY, a_plus_group)
 
     def test_long_amazon_canvas_is_split_into_four_ordered_sections(self) -> None:
@@ -65,11 +65,16 @@ class AmazonToWalmartAPlusTests(unittest.TestCase):
         self.assertEqual(len(result["captions"]), 4)
         self.assertEqual(generate.call_count, 4)
         self.assertEqual(len(generate.call_args_list[0].kwargs["uploaded_files"]), 2)
-        self.assertEqual(len(generate.call_args_list[1].kwargs["uploaded_files"]), 3)
+        first_page_inputs = generate.call_args_list[0].kwargs["uploaded_files"]
+        second_page_inputs = generate.call_args_list[1].kwargs["uploaded_files"]
+        self.assertEqual(len(second_page_inputs), 2)
+        self.assertNotEqual(first_page_inputs[1]["data"], second_page_inputs[0]["data"])
+        self.assertEqual(second_page_inputs[1]["name"], "walmart_a_plus_page_1.png")
+        self.assertIn("本页内容只能来自第 2 张图", generate.call_args_list[0].kwargs["prompt"])
         second_page_prompt = generate.call_args_list[1].kwargs["prompt"]
-        self.assertIn("文案去重依据", second_page_prompt)
-        self.assertIn("跨页重复文案数量为零", second_page_prompt)
-        self.assertIn("不能编造新句子填补", second_page_prompt)
+        self.assertIn("本页内容只能来自第 1 张图", second_page_prompt)
+        self.assertIn("若与前页重复则整条省略", second_page_prompt)
+        self.assertIn("不得编造新句填补", second_page_prompt)
         sizes = []
         for url in result["images"]:
             image_bytes, _mime_type = site.load_image_bytes_from_url(url)

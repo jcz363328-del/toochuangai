@@ -2,7 +2,7 @@ import unittest
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-import developer_product_sales as module
+from Department.流程与AI部 import developer_product_sales as module
 from app import app
 from pathlib import Path
 
@@ -20,7 +20,7 @@ class DeveloperProductSalesTests(unittest.TestCase):
                 module._parse_store(value)
 
     def test_page_has_no_default_store(self):
-        source = (Path(__file__).resolve().parents[1] / "templates" / "developer_product_sales.html").read_text(encoding="utf-8")
+        source = (Path(__file__).resolve().parents[1] / "templates" / "流程与AI部/developer_product_sales.html").read_text(encoding="utf-8")
         self.assertIn('placeholder="请输入店铺号"', source)
         self.assertNotIn('value="{{ default_store }}"', source)
         self.assertNotIn(";load();", source)

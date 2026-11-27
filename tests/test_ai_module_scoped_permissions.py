@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import app as app_module
 from department_permissions import PERMISSION_CONFIG
-from permission_seed_data import EXTRA_PERMISSION_ROWS, build_permission_seed_rows
+from core.permissions.permission_seed_data import EXTRA_PERMISSION_ROWS, build_permission_seed_rows
 
 
 class AiModuleScopedPermissionTests(unittest.TestCase):

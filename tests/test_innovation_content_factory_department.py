@@ -10,7 +10,7 @@ WEB_APP_SOURCE = (ROOT / "innovation" / "web_app.py").read_text(encoding="utf-8"
 CONFIG_SOURCE = (ROOT / "innovation" / "config.py").read_text(encoding="utf-8")
 MANAGE_SOURCE = (ROOT / "innovation" / "templates" / "manage.html").read_text(encoding="utf-8")
 MANAGE_DEMO_SOURCE = (ROOT / "innovation" / "templates" / "manage_demo.html").read_text(encoding="utf-8")
-APP_SOURCE = (ROOT / "app.py").read_text(encoding="utf-8")
+HR_ROUTES_SOURCE = (ROOT / "Department" / "人力资源与行政部" / "routes.py").read_text(encoding="utf-8")
 
 
 def _load_department_helpers():
@@ -58,9 +58,9 @@ class InnovationContentFactoryDepartmentTests(unittest.TestCase):
         )
 
     def test_hr_innovation_dashboard_uses_content_factory_display_name(self):
-        self.assertIn("CASE WHEN 部门 IN ('TK_离职','TK项目')", APP_SOURCE)
-        self.assertNotIn("THEN 'TK项目' ELSE 部门 END AS 部门", APP_SOURCE)
-        self.assertIn("THEN '内容生产工厂' ELSE 部门 END AS 部门", APP_SOURCE)
+        self.assertIn("CASE WHEN 部门 IN ('TK_离职','TK项目')", HR_ROUTES_SOURCE)
+        self.assertNotIn("THEN 'TK项目' ELSE 部门 END AS 部门", HR_ROUTES_SOURCE)
+        self.assertIn("THEN '内容生产工厂' ELSE 部门 END AS 部门", HR_ROUTES_SOURCE)
 
     def test_submit_filter_and_management_outputs_all_use_normalization(self):
         self.assertIn("_normalize_innovation_department(dept)", WEB_APP_SOURCE)

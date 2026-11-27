@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import unittest
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class BackgroundTextureFeatureTests(unittest.TestCase):
@@ -18,7 +18,7 @@ class BackgroundTextureFeatureTests(unittest.TestCase):
         })
         self.assertGreaterEqual(len(site.BACKGROUND_TEXTURE_PRESETS), 10)
 
-        render_source = inspect.getsource(site.render_openrouter_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
         self.assertIn("st.multiselect", render_source)
         self.assertIn("background_texture_prompt", render_source)
         self.assertIn("开始更换质感", render_source)

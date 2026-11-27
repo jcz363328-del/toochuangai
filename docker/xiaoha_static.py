@@ -1,9 +1,10 @@
 import sys
+from pathlib import Path
 from threading import Event
 
-sys.path.insert(0, "/app")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from 图片.openrouter_image_site import ensure_jimeng_static_server
+from Department.视觉设计部.xiaoha.openrouter_image_site import ensure_jimeng_static_server
 
 
 if __name__ == "__main__":

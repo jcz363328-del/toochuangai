@@ -5,15 +5,15 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from 图片 import openrouter_image_site as site
-from 图片.request_limits import RequestLimiter
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
+from Department.视觉设计部.xiaoha.request_limits import RequestLimiter
 
 
 class ManualElementQueueTests(unittest.TestCase):
     def setUp(self):
         folder = self.enterContext(tempfile.TemporaryDirectory())
         self.limiter = RequestLimiter(Path(folder) / "limits.sqlite3", poll_interval=.01)
-        self.enterContext(patch("图片.request_limits.get_request_limiter", return_value=self.limiter))
+        self.enterContext(patch("Department.视觉设计部.xiaoha.request_limits.get_request_limiter", return_value=self.limiter))
         self.enterContext(patch.object(site, "get_request_limiter", return_value=self.limiter))
         with patch.dict(os.environ, {"XIAOHA_JOB_WORKERS": "2", "XIAOHA_ACCOUNT_QUEUE_LIMIT": "8",
                                      "XIAOHA_ACCOUNT_CONCURRENCY": "1"}):

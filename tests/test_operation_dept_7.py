@@ -9,7 +9,7 @@ from department_permissions import FeishuPermissionManager, PERMISSION_CONFIG
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_SOURCE = (ROOT / "app.py").read_text(encoding="utf-8")
-DASHBOARD_SOURCE = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8")
+DASHBOARD_SOURCE = (ROOT / "templates" / "主站/dashboard.html").read_text(encoding="utf-8")
 
 
 class OperationDeptSevenTests(unittest.TestCase):
@@ -71,9 +71,10 @@ class OperationDeptSevenTests(unittest.TestCase):
         ast.parse(APP_SOURCE)
         self.assertIn("@app.route('/operation_dept_7')", APP_SOURCE)
         self.assertIn("@require_permission('operation_dept_7')", APP_SOURCE)
-        self.assertIn("url_for('operation_dept_7')", APP_SOURCE)
+        workspace_source = (ROOT / "core" / "workspace_routes.py").read_text(encoding="utf-8")
+        self.assertIn("url_for('operation_dept_7')", workspace_source)
         self.assertIn("fname == 'operation_dept_7'", DASHBOARD_SOURCE)
-        self.assertIn("'operation_dept_7', 'amazon_reply_agent'", DASHBOARD_SOURCE)
+        self.assertIn('data-department="operation_dept_7"', DASHBOARD_SOURCE)
 
     def test_operation_seven_page_reuses_common_operation_features(self):
         environment = Environment(
@@ -82,7 +83,7 @@ class OperationDeptSevenTests(unittest.TestCase):
         environment.globals["url_for"] = (
             lambda endpoint, **values: f"/{endpoint}"
         )
-        template = environment.get_template("operation_dept.html")
+        template = environment.get_template("主站/operation_dept.html")
         html = template.render(
             user_name="赵瑜",
             user_id="operation-seven-user",
@@ -94,9 +95,8 @@ class OperationDeptSevenTests(unittest.TestCase):
 
         self.assertIn("运营七部功能中心", html)
         self.assertIn("差评分析系统", html)
-        self.assertIn("模特排队", html)
         self.assertIn("客服", html)
-        self.assertIn("FBA货件运输方式", html)
+        self.assertIn("FBA追踪码/IEN查询", html)
         self.assertIn("亚马逊站内信回复智能体", html)
         self.assertIn("/operation_fba_shipping_methods_page", html)
 

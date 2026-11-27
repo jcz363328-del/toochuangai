@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import patch
 
 import app as app_module
-import ai_group_performance as module
+from Department.流程与AI部 import ai_group_performance as module
 from department_permissions import PERMISSION_CONFIG
-from permission_seed_data import build_permission_seed_rows
+from core.permissions.permission_seed_data import build_permission_seed_rows
 
 
 class AiGroupPerformanceTests(unittest.TestCase):

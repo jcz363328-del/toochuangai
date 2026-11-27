@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class APlusShopStyleSkillTests(unittest.TestCase):
@@ -84,7 +84,7 @@ class APlusShopStyleSkillTests(unittest.TestCase):
         self.assertEqual(mobile_context["store_key"], "15")
 
     def test_skill_builder_does_not_silently_select_the_first_store(self) -> None:
-        source = inspect.getsource(site.render_a_plus_layout_skill_builder)
+        source = inspect.getsource(site._main_image_a_plus_editor.render_a_plus_layout_skill_builder)
 
         self.assertIn('st.session_state[selection_key] = ""', source)
         self.assertNotIn('st.session_state[selection_key] = skill_options[1]', source)
@@ -96,8 +96,8 @@ class APlusShopStyleSkillTests(unittest.TestCase):
                     site.delete_a_plus_layout_skill("alice", "builtin-shop-15-desktop")
 
     def test_learning_uploader_is_removed_from_the_rendered_builder(self) -> None:
-        source = inspect.getsource(site.render_a_plus_layout_skill_builder)
-        style_source = inspect.getsource(site.inject_app_styles)
+        source = inspect.getsource(site._main_image_a_plus_editor.render_a_plus_layout_skill_builder)
+        style_source = inspect.getsource(site._workbench_assets.inject_app_styles)
 
         self.assertNotIn("优秀 A+ 案例学习", source)
         self.assertNotIn("a_plus_layout_skill_cases_", source)

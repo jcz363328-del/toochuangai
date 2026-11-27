@@ -8,8 +8,8 @@ from department_permissions import FeishuPermissionManager, PERMISSION_CONFIG
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_SOURCE = (ROOT / "app.py").read_text(encoding="utf-8")
-DASHBOARD_SOURCE = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8")
-REVIEW_TEMPLATE_SOURCE = (ROOT / "templates" / "review_analysis.html").read_text(encoding="utf-8")
+DASHBOARD_SOURCE = (ROOT / "templates" / "主站/dashboard.html").read_text(encoding="utf-8")
+REVIEW_TEMPLATE_SOURCE = (ROOT / "templates" / "技术部/review_analysis.html").read_text(encoding="utf-8")
 
 
 class RdReviewAnalysisPermissionTests(unittest.TestCase):
@@ -49,7 +49,8 @@ class RdReviewAnalysisPermissionTests(unittest.TestCase):
     def test_rd_card_links_to_department_page(self):
         self.assertIn("@app.route('/rd_dept')", APP_SOURCE)
         self.assertIn("@require_permission('rd_dept')", APP_SOURCE)
-        self.assertIn("url_for('rd_dept')", APP_SOURCE)
+        workspace_source = (ROOT / "core" / "workspace_routes.py").read_text(encoding="utf-8")
+        self.assertIn("url_for('rd_dept')", workspace_source)
         self.assertIn("fname == 'rd_dept'", DASHBOARD_SOURCE)
         self.assertIn("url_for('rd_dept')", DASHBOARD_SOURCE)
 
@@ -58,7 +59,7 @@ class RdReviewAnalysisPermissionTests(unittest.TestCase):
         environment.globals["url_for"] = (
             lambda endpoint, **values: f"/{endpoint}"
         )
-        template = environment.get_template("operation_dept.html")
+        template = environment.get_template("主站/operation_dept.html")
         html = template.render(
             user_name="研发测试用户",
             user_id="rd-user",

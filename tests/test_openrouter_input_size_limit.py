@@ -1,8 +1,9 @@
 import unittest
+import ast
 from pathlib import Path
 
 
-SOURCE = Path("图片/openrouter_image_site.py").read_text(encoding="utf-8-sig")
+SOURCE = Path("Department/视觉设计部/xiaoha/openrouter_image_site.py").read_text(encoding="utf-8-sig")
 
 
 class OpenRouterInputSizeLimitTests(unittest.TestCase):
@@ -21,10 +22,15 @@ class OpenRouterInputSizeLimitTests(unittest.TestCase):
         self.assertLess(encoded_length, 30_000_000)
 
     def test_early_return_uses_base64_safe_target(self):
-        function_start = SOURCE.index("def prepare_openrouter_uploaded_input")
-        function_end = SOURCE.index("\ndef prepare_ark_seedream_uploaded_input", function_start)
-        function_source = SOURCE[function_start:function_end]
-        self.assertIn("len(image_bytes) <= OPENROUTER_SAFE_INPUT_TARGET_BYTES", function_source)
+        entrypoint = next(
+            node for node in ast.parse(SOURCE).body
+            if isinstance(node, ast.FunctionDef) and node.name == "prepare_openrouter_uploaded_input"
+        )
+        self.assertEqual(ast.unparse(entrypoint.args.defaults[-1]), "OPENROUTER_SAFE_INPUT_TARGET_BYTES")
+        implementation = Path("Department/视觉设计部/xiaoha/image_inputs.py").read_text(encoding="utf-8")
+        function_source = implementation.split("def prepare_openrouter_uploaded_input(", 1)[1].split("\ndef ", 1)[0]
+        self.assertIn("limit = max(OPENROUTER_INPUT_MIN_BUDGET_BYTES, int(max_bytes or 0))", function_source)
+        self.assertIn("len(image_bytes) <= limit", function_source)
 
 
 if __name__ == "__main__":

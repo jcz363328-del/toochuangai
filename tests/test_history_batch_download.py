@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 def make_data_url(color: tuple[int, int, int], image_format: str = "PNG") -> tuple[str, bytes]:

@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 
@@ -57,7 +57,7 @@ try {
         Disable-ScheduledTask -TaskName $task.Name | Out-Null
         if ($task.Running) { Stop-ScheduledTask -TaskName $task.Name }
     }
-    $adsRoot = Join-Path $projectRoot 'ads_monitor_web\ads-monitor-web-full-source'
+    $adsRoot = Join-Path $projectRoot 'Department\流程与AI部\ads_monitor_web\ads-monitor-web-full-source'
     $oldCollectors = @(Get-CimInstance Win32_Process | Where-Object {
         $_.Name -match '^python(w)?\.exe$' -and $_.CommandLine -and $_.CommandLine.Contains($adsRoot) -and $_.CommandLine -match 'sellfox_ad_diagnostic_refresh\.py|sellfox_ads_monitor\.py'
     })

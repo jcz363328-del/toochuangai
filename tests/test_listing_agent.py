@@ -325,9 +325,9 @@ class ListingAgentBlueprintTests(unittest.TestCase):
 
     def test_aba_import_button_is_permission_driven(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
-        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
-        seed_data = (root / "permission_seed_data.py").read_text(encoding="utf-8")
+        page = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+        seed_data = (root / "core" / "permissions" / "permission_seed_data.py").read_text(encoding="utf-8")
         self.assertNotIn('id="importAbaRankingBtn"', page)
         self.assertNotIn('id="abaRankingFileInput"', page)
         self.assertNotIn("importAbaRankingFiles", script)
@@ -337,8 +337,8 @@ class ListingAgentBlueprintTests(unittest.TestCase):
 
     def test_image_recognition_supplement_remains_optional_when_no_facts_are_returned(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
-        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+        page = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
 
         self.assertIn("识别补充（可选）", page)
         self.assertNotIn('id="imageFacts" required', page)
@@ -430,8 +430,8 @@ class ListingAgentBlueprintTests(unittest.TestCase):
 
     def test_listing_page_has_selectable_builtin_skills_and_user_scoped_risk_state(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
-        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+        page = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
 
         self.assertIn("可先选择 Skill 和管理违禁词库", page)
         self.assertIn('id: "builtin-ranking-first"', script)
@@ -441,8 +441,8 @@ class ListingAgentBlueprintTests(unittest.TestCase):
 
     def test_listing_page_uses_a_single_primary_guided_workflow(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
-        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+        page = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
 
         self.assertIn('id="workflowRoot"', page)
         self.assertIn('class="workflow-sidebar"', page)
@@ -457,8 +457,8 @@ class ListingAgentBlueprintTests(unittest.TestCase):
 
     def test_listing_page_exposes_current_title_and_item_highlight_limits(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        page = (root / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
-        script = (root / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
+        page = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "index.html").read_text(encoding="utf-8")
+        script = (root / "Department" / "流程与AI部" / "listing_agent" / "code" / "app.js").read_text(encoding="utf-8")
 
         self.assertIn('id="titleScore">0/75', page)
         self.assertIn('id="itemHighlightScore">0/125', page)

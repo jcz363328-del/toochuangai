@@ -5,7 +5,7 @@ from unittest.mock import patch
 from PIL import Image
 from streamlit.testing.v1 import AppTest
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class SharedImageWorkbenchTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class SharedImageWorkbenchTests(unittest.TestCase):
 
     def app(self, key):
         return AppTest.from_string(f'''
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 site.ensure_state()
 feature=site.get_feature_by_key({key!r})
 site.render_openrouter_feature(feature,site.DEFAULT_MODEL,site.DEFAULT_ASPECT_RATIO)
@@ -37,6 +37,8 @@ site.render_openrouter_feature(feature,site.DEFAULT_MODEL,site.DEFAULT_ASPECT_RA
                 app = self.app(key)
                 self.assertFalse(list(app.exception), [e.message for e in app.exception])
                 history_key = "fusion_open_history" if key == site.A_PLUS_FIRST_SCREEN_SELLING_POINTS_FEATURE_KEY else f"workbench_history_{key}"
+                if key == site.MULTI_REFERENCE_COMPOSER_FEATURE_KEY:
+                    history_key = "workbench_history_a_plus_canvas"
                 self.assertEqual(app.button(key=history_key).label, "历史记录")
 
     def test_style_tool_submits_material_order_count_and_prompt(self):

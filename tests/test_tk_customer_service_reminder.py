@@ -68,7 +68,7 @@ class TkCustomerServiceReminderTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "from tk_customer_service_reminder import "
+            "from Department.内容生产工厂.tk_customer_service_reminder import "
             "tk_customer_service_tracking_reminder",
             app_source,
         )

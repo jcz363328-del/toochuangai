@@ -28,15 +28,15 @@ class XiaotuReportDateExportTests(unittest.TestCase):
         self.assertEqual((1, 0), (embedded, missing))
 
     def test_desktop_and_mobile_have_date_export_entry(self):
-        desktop = Path("templates/xiaotu_report_center.html").read_text(encoding="utf-8-sig")
-        mobile = Path("templates/xiaotu_report_center_mobile.html").read_text(encoding="utf-8-sig")
+        desktop = Path("templates/日报与报告/xiaotu_report_center.html").read_text(encoding="utf-8-sig")
+        mobile = Path("templates/日报与报告/xiaotu_report_center_mobile.html").read_text(encoding="utf-8-sig")
         self.assertIn("quickExportReportsBtn", desktop)
         self.assertIn("mobileExportReportsBtn", mobile)
         self.assertIn("report_history_download", desktop)
         self.assertIn("report_history_download", mobile)
 
     def test_history_page_has_obvious_date_export_button(self):
-        history = Path("templates/xiaotu_report_history.html").read_text(encoding="utf-8-sig")
+        history = Path("templates/日报与报告/xiaotu_report_history.html").read_text(encoding="utf-8-sig")
         self.assertIn("按日期导出日报", history)
         self.assertIn("原格式和上传图片会一并保留", history)
 

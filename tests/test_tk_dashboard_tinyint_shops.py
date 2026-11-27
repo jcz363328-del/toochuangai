@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BACKEND_PATH = ROOT / "tk_total_dashboard.py"
+BACKEND_PATH = ROOT / "Department" / "内容生产工厂" / "tk_total_dashboard.py"
 
 
 def load_tinyint_shop_helper():

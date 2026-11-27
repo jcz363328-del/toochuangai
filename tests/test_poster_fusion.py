@@ -4,12 +4,12 @@ from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-from 图片 import poster_fusion as fusion
+from Department.视觉设计部.xiaoha import poster_fusion as fusion
 
 
 class PosterFusionTests(unittest.TestCase):
     def test_all_upload_slots_restore_after_widget_cleanup_and_delete_independently(self):
-        from 图片 import openrouter_image_site as site
+        from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
         class RerunRequested(Exception):
             pass
@@ -27,7 +27,7 @@ class PosterFusionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, \
              patch.object(site, 'UPLOAD_CACHE_DIR', Path(folder)), \
              patch.object(site, 'ensure_history_storage'), \
-             patch('图片.upload_frames.render_file_frame') as frame:
+             patch('Department.视觉设计部.xiaoha.upload_frames.render_file_frame') as frame:
             for key, image in zip(keys, originals):
                 frame.return_value = image
                 with self.assertRaises(RerunRequested):
@@ -90,7 +90,7 @@ class PosterFusionTests(unittest.TestCase):
 
     def test_registered_feature_dispatches_to_fusion_and_history(self):
         from unittest.mock import patch
-        from 图片 import openrouter_image_site as site
+        from Department.视觉设计部.xiaoha import openrouter_image_site as site
         feature = site.get_feature_by_key(fusion.FEATURE_KEY)
         self.assertIsNotNone(feature)
         self.assertIn(feature, site.get_visible_features())
@@ -119,7 +119,7 @@ import streamlit as st
 from PIL import Image
 from types import SimpleNamespace
 from unittest.mock import patch
-from 图片.poster_fusion import render
+from Department.视觉设计部.xiaoha.poster_fusion import render
 st.session_state.setdefault('feature_results', {})
 st.session_state.setdefault('background_jobs', {})
 st.session_state.setdefault('upload_cache', {})

@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class HdBatchRetryTests(unittest.TestCase):
@@ -51,8 +51,8 @@ class HdBatchRetryTests(unittest.TestCase):
             site.run_hd_batch_generate_with_retry(generate_once, "enhance")
         self.assertEqual(len(calls), 1)
 
-    def test_hd_batch_uses_single_concurrency_for_dedicated_upscale(self) -> None:
-        self.assertEqual(site.HD_BATCH_MAX_API_CONCURRENCY, 1)
+    def test_hd_batch_caps_dedicated_upscale_concurrency(self) -> None:
+        self.assertEqual(site.HD_BATCH_MAX_API_CONCURRENCY, 5)
 
     def test_cpu_overload_message_is_not_reported_as_missing_channel(self) -> None:
         message = site.format_omnia_error_message(

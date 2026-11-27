@@ -6,8 +6,8 @@ from unittest.mock import Mock, patch
 
 from streamlit.testing.v1 import AppTest
 
-from 图片 import multi_reference_composer as composer
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import multi_reference_composer as composer
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 def analysis(prefix="a"):
@@ -125,8 +125,8 @@ class ComposerWorkerTests(unittest.TestCase):
 APP = '''
 import streamlit as st
 from unittest.mock import patch
-from 图片 import openrouter_image_site as site
-from 图片 import multi_reference_composer as composer
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import multi_reference_composer as composer
 site.ensure_state()
 page = st.radio('page', ['composer', 'other'], key='fixture_page')
 st.session_state.setdefault('fixture_files', [

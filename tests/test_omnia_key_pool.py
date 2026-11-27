@@ -10,7 +10,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from 图片 import omnia_key_pool as pool_module
+from Department.视觉设计部.xiaoha import omnia_key_pool as pool_module
 
 
 TEST_KEYS = tuple(f"test-only-key-{index}" for index in range(5))

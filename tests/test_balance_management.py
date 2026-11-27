@@ -5,7 +5,7 @@ import threading
 import unittest
 from unittest.mock import Mock
 
-from 图片.balance_management import BalanceCache
+from Department.视觉设计部.xiaoha.balance_management import BalanceCache
 
 
 class BalanceManagementTests(unittest.TestCase):

@@ -9,8 +9,8 @@ from pathlib import Path
 
 from PIL import Image
 
-from 图片 import a_plus_reference_lab as lab
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import a_plus_reference_lab as lab
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class APlusReferenceLabTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class APlusReferenceLabTests(unittest.TestCase):
         self.assertIn(lab.A_PLUS_REFERENCE_LAB_FEATURE_KEY, site.MAIN_IMAGE_A_PLUS_FEATURE_KEYS)
 
     def test_lab_ui_uses_stable_four_slot_workbench(self) -> None:
-        source = inspect.getsource(site.render_openrouter_feature)
+        source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
 
         self.assertIn("a-plus-lab-left-marker", source)
         self.assertIn("a-plus-lab-right-marker", source)

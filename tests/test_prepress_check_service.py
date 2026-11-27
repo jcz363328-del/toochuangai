@@ -84,7 +84,10 @@ class PrepressCheckServiceTests(unittest.TestCase):
         self.assertIn("2 个", evidence)
 
     def test_ai_native_scan_reports_linked_files(self):
-        from compression import zstd
+        try:
+            from compression import zstd
+        except ImportError:
+            from backports import zstd
 
         native = (
             "%AI5_BeginRaster\n%%BeginData: 4\nXI\n%AI5_EndRaster\n"

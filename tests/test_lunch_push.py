@@ -5,7 +5,6 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 from unittest.mock import Mock
-import ast
 from flask import Flask, abort, jsonify, render_template, request, send_file, url_for
 
 from lunch_push import GROUPS, LunchPush, TZ, is_due, next_trigger
@@ -41,7 +40,7 @@ class LunchPushTests(unittest.TestCase):
              patch.object(LunchPush, 'token', return_value='test'), \
              patch.object(LunchPush, 'send_card', side_effect=[RuntimeError('network'), 'm2', 'm3', 'm4', 'm1']) as send:
             service = LunchPush(folder)
-            with self.assertLogs('lunch_push', level='ERROR'):
+            with self.assertLogs(LunchPush.__module__, level='ERROR'):
                 self.assertEqual(service.run_once()[0]['status'], 'failed')
             second = service.run_once()
             self.assertEqual([r['status'] for r in second], ['sent', 'skipped', 'skipped', 'skipped'])
@@ -75,7 +74,7 @@ class LunchPushTests(unittest.TestCase):
         with TemporaryDirectory() as folder, patch.object(LunchPush, 'preview', return_value=entries()), \
              patch.object(LunchPush, 'token', return_value='test'), \
              patch.object(LunchPush, 'send_card', side_effect=RuntimeError('network')) as send:
-            with self.assertLogs('lunch_push', level='ERROR'):
+            with self.assertLogs(LunchPush.__module__, level='ERROR'):
                 for _ in range(6):
                     LunchPush(folder).run_once()
             self.assertEqual(send.call_count, 20)
@@ -96,10 +95,21 @@ class LunchPushPageTests(unittest.TestCase):
                          lunch_push=self.service, env=lambda k, d: d,
                          jsonify=jsonify, render_template=render_template, request=request,
                          url_for=url_for, send_file=send_file, abort=abort)
-        tree = ast.parse((root / 'app.py').read_text(encoding='utf-8'))
-        routes = [node for node in tree.body if isinstance(node, ast.FunctionDef)
-                  and node.name in ('lunch_push_page', 'lunch_push_api', 'lunch_push_image')]
-        exec(compile(ast.Module(body=routes, type_ignores=[]), 'lunch_routes', 'exec'), namespace)
+        from functools import partial
+        from inspect import Parameter, signature
+        from Department.人力资源与行政部 import lunch_push_routes
+
+        routes = (
+            ('/ai/lunch-push', lunch_push_routes.lunch_push_page, ['GET']),
+            ('/api/ai/lunch-push', lunch_push_routes.lunch_push_api, ['GET', 'POST']),
+            ('/api/ai/lunch-push/image/<filename>', lunch_push_routes.lunch_push_image, ['GET']),
+        )
+        for path, handler, methods in routes:
+            dependencies = {
+                key: namespace[key] for key, parameter in signature(handler).parameters.items()
+                if parameter.kind == Parameter.KEYWORD_ONLY
+            }
+            self.app.add_url_rule(path, handler.__name__, partial(handler, **dependencies), methods=methods)
         self.client = self.app.test_client()
 
     def test_ai_only_guard_covers_page_api_and_images(self):

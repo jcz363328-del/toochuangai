@@ -56,7 +56,7 @@ class ValueEvaluationTests(unittest.TestCase):
         self.assertEqual("1-01", result["detail_criteria"][0]["code"])
 
     def test_admin_page_contains_weight_and_score_sections(self):
-        template = (Path(app_module.app.root_path) / "templates" / "value_evaluation_admin.html").read_text(encoding="utf-8")
+        template = (Path(app_module.app.root_path) / "templates" / "人力资源与行政部/value_evaluation_admin.html").read_text(encoding="utf-8")
         self.assertIn("评价权重设置", template)
         self.assertIn("关系权重", template)
         self.assertIn("综合得分", template)
@@ -138,7 +138,7 @@ class ValueEvaluationTests(unittest.TestCase):
         connection.commit.assert_called_once()
 
     def test_score_control_is_a_dropdown(self):
-        template = (Path(app_module.app.root_path) / "templates" / "value_evaluation.html").read_text(encoding="utf-8")
+        template = (Path(app_module.app.root_path) / "templates" / "人力资源与行政部/value_evaluation.html").read_text(encoding="utf-8")
         self.assertIn('class="score-select"', template)
         self.assertIn("请选择分数", template)
         self.assertNotIn('type="radio"', template)

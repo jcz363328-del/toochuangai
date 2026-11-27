@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class PortraitHdSkinLockTests(unittest.TestCase):
@@ -69,7 +69,7 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         )
 
     def test_hd_page_uses_dedicated_upscale_without_reference_uploader(self) -> None:
-        render_source = inspect.getsource(site.render_openrouter_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
 
         self.assertNotIn("hd_skin_reference_", render_source)
         self.assertIn("Nano Banana 2.1 · 仅使用原图", render_source)
@@ -77,7 +77,7 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         self.assertNotIn("当前使用火山引擎即梦智能超清专用接口", render_source)
 
     def test_jimeng_upscale_page_is_separate_from_portrait_hd(self) -> None:
-        render_source = inspect.getsource(site.render_openrouter_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
 
         self.assertIn("JIMENG_HD_MODEL_NAME", render_source)
         self.assertIn("开始 8K 超清", render_source)
@@ -103,7 +103,7 @@ class PortraitHdSkinLockTests(unittest.TestCase):
         self.assertIsNone(site.get_feature_by_key("jimeng_v40"))
         self.assertNotIn("Agent文生图", {feature["name"] for feature in site.get_visible_features()})
 
-        render_source = inspect.getsource(site.render_openrouter_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
         self.assertNotIn("supports_jimeng_generation", render_source)
         self.assertNotIn("输入 Agent 的生图要求", render_source)
 

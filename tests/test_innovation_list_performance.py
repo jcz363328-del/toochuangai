@@ -33,7 +33,7 @@ class InnovationListPerformanceTests(unittest.TestCase):
     def test_page_load_has_no_artificial_initial_delay(self):
         initialization = MANAGE_SOURCE.split(
             "document.addEventListener('DOMContentLoaded', function()", 1
-        )[1].split("// 监听选项卡切换事件", 1)[0]
+        )[1].split("\n});", 1)[0]
         self.assertIn("loadInnovations(1);", initialization)
         self.assertNotIn("setTimeout", initialization)
 

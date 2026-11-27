@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from flask import Flask
 
-from innovation_blueprint import innovation_bp
+from innovation.innovation_blueprint import innovation_bp
 from innovation import web_app as innovation_module
 
 

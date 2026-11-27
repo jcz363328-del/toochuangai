@@ -5,8 +5,8 @@ from pathlib import Path
 class TkPartialDashboardSalesSourceTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(__file__).resolve().parents[1]
-        self.backend = (self.root / "tk_total_dashboard.py").read_text(encoding="utf-8")
-        self.template = (self.root / "templates" / "tk_total_dashboard.html").read_text(encoding="utf-8")
+        self.backend = (self.root / "Department" / "内容生产工厂" / "tk_total_dashboard.py").read_text(encoding="utf-8")
+        self.template = (self.root / "templates" / "内容生产工厂/tk_total_dashboard.html").read_text(encoding="utf-8")
 
     def test_partial_dashboard_uses_tk_dingdan_gmv(self):
         sales_query = self.backend.split(

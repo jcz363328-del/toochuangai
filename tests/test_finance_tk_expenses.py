@@ -4,7 +4,8 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from flask import Flask
-from finance_tk_expenses import parse_rows, register_tk_expenses, save_rows
+from Department.财务部 import tk_expenses
+from Department.财务部.tk_expenses import parse_rows, register_tk_expenses, save_rows
 
 
 class TKExpenseTests(unittest.TestCase):
@@ -16,7 +17,7 @@ class TKExpenseTests(unittest.TestCase):
         ])
         book = Mock(sheetnames=['费用导入'])
         book.__getitem__ = Mock(return_value=sheet)
-        with patch('finance_tk_expenses.load_workbook', return_value=book):
+        with patch.object(tk_expenses, 'load_workbook', return_value=book):
             rows = parse_rows(None, 'other')
         self.assertEqual(rows[0], (date(2026, 11, 1), 82, '英国', '售后', Decimal('-29.94'), '冲销'))
         book.close.assert_called_once()
@@ -25,7 +26,7 @@ class TKExpenseTests(unittest.TestCase):
         sheet = Mock(title='Sheet1')
         sheet.iter_rows.return_value = iter([(), ('2026-11-01', 82, '英国', 'NaN', '')])
         book = Mock(sheetnames=[], active=sheet)
-        with patch('finance_tk_expenses.load_workbook', return_value=book):
+        with patch.object(tk_expenses, 'load_workbook', return_value=book):
             with self.assertRaisesRegex(ValueError, '第2行'):
                 parse_rows(None, 'advertising')
 

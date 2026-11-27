@@ -1,6 +1,6 @@
 import unittest
 
-from permission_seed_data import CORE_USER_OVERRIDES, EXTRA_PERMISSION_ROWS
+from core.permissions.permission_seed_data import CORE_USER_OVERRIDES, EXTRA_PERMISSION_ROWS
 
 
 class OperationDept1FullAccessTests(unittest.TestCase):

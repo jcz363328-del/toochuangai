@@ -1,0 +1,2110 @@
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+from io import BytesIO
+import json
+import os
+import re
+import unicodedata
+import uuid
+
+import pandas as pd
+import pytds as sql
+from flask import Blueprint, jsonify, render_template, request, send_file, send_from_directory, session
+from PIL import Image, ImageOps
+
+from department_permissions import require_permission
+from secret_settings import relocate_storage_path, sql_server_config
+
+
+yangban_inventory_bp = Blueprint("yangban_inventory", __name__)
+
+_DB_CONFIG = sql_server_config()
+
+_SAMPLE_TABLE = "YangBan"
+_FLOW_TABLE = "YangBan_LiuShui"
+_TAG_TABLE = "YangBan_BiaoQian"
+_LOCATION_TABLE = "YangBan_KuWei"
+_VALID_FLOW_TYPES = {"RuKu", "ChuKu", "GuiHuan", "PanDian"}
+_SAMPLE_CATEGORIES = ("研发", "采购")
+_SAMPLE_STATUSES = {"ZhengChang", "TingYong"}
+_TAG_STATUSES = {"ZhengChang", "TingYong"}
+_LOCATION_TYPES = {"Gui", "Ceng", "Ge"}
+_LOCATION_STATUSES = {"ZhengChang", "TingYong"}
+_SAMPLE_IMAGE_DIR = relocate_storage_path(r"D:\tuchuangai\样板图")
+_SAMPLE_IMAGE_PREVIEW_DIR = os.path.join(_SAMPLE_IMAGE_DIR, "_previews")
+_SAMPLE_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
+_SAMPLE_IMAGE_PREVIEW_SIZES = {
+    "thumb": (720, 720),
+    "detail": (1800, 1800),
+}
+
+# 根据《两个表格电子版.pdf》逐格录入：每一页是一个完整柜体，页内数字是区域号。
+# 空字符串代表 PDF 中的空白格。
+_PDF_CABINET_AREAS = (
+    {
+        "area": "48",
+        "page": 1,
+        "rows": (
+            ("A1", "A2", "A4"),
+            ("A5", "A6", "A7"),
+            ("A8", "A9", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+        ),
+    },
+    {
+        "area": "52",
+        "page": 1,
+        "rows": (
+            ("A1", "A2", "A3"),
+            ("A4", "A5", "A6"),
+            ("A7", "A8", "A9"),
+            ("A10", "A11", "A12"),
+            ("A13", "A14", "A15"),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+        ),
+    },
+    {
+        "area": "40",
+        "page": 1,
+        "rows": tuple((f"A{index}", f"B{index}", f"C{index}") for index in range(1, 9)),
+    },
+    {
+        "area": "51",
+        "page": 1,
+        "rows": (
+            ("A1", "B1", "C1"),
+            ("A2", "B3", "C4"),
+            ("A3", "B4", "C5"),
+            ("A4", "B5", "C6"),
+            ("A5", "B6", "C7"),
+            ("A6", "B7", "C8"),
+            ("A7", "B8", ""),
+            ("A8", "", ""),
+        ),
+    },
+    {
+        "area": "32",
+        "page": 2,
+        "rows": (
+            ("10", "32", "75"),
+            ("10", "32", ""),
+            ("11", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+            ("", "32", ""),
+        ),
+    },
+    {
+        "area": "18",
+        "page": 2,
+        "rows": tuple((f"A{index}", f"A{index}") for index in range(0, 7)) + (("", ""),),
+    },
+    {
+        "area": "64",
+        "page": 2,
+        "rows": tuple((f"A{index}",) for index in range(0, 7)) + (("",),),
+    },
+    {
+        "area": "33",
+        "page": 2,
+        "rows": (("33",), ("33",), ("53",), ("",), ("",), ("",), ("",), ("",)),
+    },
+    {
+        "area": "05",
+        "page": 2,
+        "rows": (
+            ("05", "05"),
+            ("05", "05"),
+            ("05", "05"),
+            ("05", "05"),
+            ("05", "05"),
+            ("", ""),
+            ("", ""),
+            ("", ""),
+        ),
+    },
+    {
+        "area": "23",
+        "page": 2,
+        "rows": (
+            ("23A3", "23A2", "23A1"),
+            ("23A6", "23A5", "23A4"),
+            ("23A9", "23A8", "23A7"),
+            ("", "", "23"),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+            ("", "", ""),
+        ),
+    },
+)
+
+# 两张截图和 PDF 两页分别对应四个独立柜体。
+# 图1＝1号柜，图2＝2号柜，PDF 第1页＝3号柜，PDF 第2页＝4号柜。
+_PDF_PAGE_CABINET_NUMBERS = {1: "3", 2: "4"}
+
+# 两张补充截图中的柜位。每个单元格为（显示文字，占用基础列数）。
+_CABINET_IMAGE_BLOCKS = (
+    {
+        "cabinet": "1",
+        "title": "柜体布局",
+        "columns": 8,
+        "rows": (
+            (("", 2), ("", 2), ("", 2), ("13 A1", 2)),
+            (("08", 1), ("02", 1), ("25", 2), ("36", 2), ("13 A2", 2)),
+            (("21", 1), ("15", 1), ("26", 2), ("54", 2), ("13 A3", 2)),
+            (("14", 2), ("22", 2), ("", 2), ("13 A4", 2)),
+            (("", 2), ("", 2), ("", 2), ("13 A5", 2)),
+            (("", 2), ("", 2), ("30", 2), ("13 老款", 2)),
+        ),
+    },
+    {
+        "cabinet": "2",
+        "title": "上层",
+        "columns": 7,
+        "rows": (
+            (("56 低价工", 3), ("66 A1", 2), ("71", 2)),
+            (("03", 3), ("66 A2", 2), ("", 2)),
+            (("", 3), ("66 A3", 2), ("82", 2)),
+            (("20", 1), ("35", 1), ("73", 1), ("66 A4", 2), ("78", 2)),
+        ),
+    },
+)
+
+
+def _db_connect():
+    return sql.connect(**_DB_CONFIG)
+
+
+def _json_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, Decimal):
+        if value == value.to_integral_value():
+            return int(value)
+        return float(value)
+    if isinstance(value, (datetime, date)):
+        if isinstance(value, datetime):
+            return value.strftime("%Y-%m-%d %H:%M:%S")
+        return value.strftime("%Y-%m-%d")
+    return value
+
+
+def _rows_to_dicts(cursor, rows):
+    columns = [col[0] for col in (cursor.description or [])]
+    out = []
+    for row in rows or []:
+        item = {}
+        for idx, col in enumerate(columns):
+            item[col] = _json_value(row[idx] if idx < len(row) else None)
+        out.append(item)
+    return out
+
+
+def _select(sql_text, params=None):
+    conn = _db_connect()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql_text, tuple(params or ()))
+        rows = cursor.fetchall()
+        return _rows_to_dicts(cursor, rows)
+    finally:
+        conn.close()
+
+
+def _scalar(sql_text, params=None, default=0):
+    conn = _db_connect()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql_text, tuple(params or ()))
+        row = cursor.fetchone()
+        if not row:
+            return default
+        return _json_value(row[0])
+    finally:
+        conn.close()
+
+
+def _execute(sql_text, params=None):
+    conn = _db_connect()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql_text, tuple(params or ()))
+        conn.commit()
+        return cursor.rowcount
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _decimal(value, field_name="数量"):
+    try:
+        text = str(value if value is not None else "").strip()
+        if not text:
+            raise InvalidOperation()
+        return Decimal(text)
+    except Exception:
+        raise ValueError(f"{field_name}格式不正确")
+
+
+def _parse_positive_page(value, default=1, max_value=100000):
+    try:
+        number = int(value)
+    except Exception:
+        number = default
+    number = max(number, 1)
+    return min(number, max_value)
+
+
+def _clean_text(value, limit=200):
+    text = str(value or "").strip()
+    if limit and len(text) > limit:
+        text = text[:limit]
+    return text
+
+
+def _normalize_pdf_location(value):
+    text = unicodedata.normalize("NFKC", str(value or "")).upper().strip()
+    text = re.sub(r"(样品室|样板室|库位|位置|号柜|柜子|柜)", "", text)
+    return re.sub(r"[\s\-_/\\:：.]+", "", text)
+
+
+def _pdf_cell_aliases(area, label):
+    normalized = _normalize_pdf_location(label)
+    aliases = {normalized} if normalized else set()
+    area_key = _normalize_pdf_location(area)
+    if normalized.startswith(area_key) and normalized != area_key:
+        aliases.add(normalized[len(area_key):])
+    return aliases
+
+
+def _pdf_location_options():
+    options = []
+    seen = set()
+
+    for block in _CABINET_IMAGE_BLOCKS:
+        cabinet = block["cabinet"]
+        for row in block["rows"]:
+            for label, _span in row:
+                if not label:
+                    continue
+                position = _normalize_pdf_location(label)
+                code = f"{cabinet}-{position}"
+                if code in seen:
+                    continue
+                seen.add(code)
+                options.append(
+                    {
+                        "code": code,
+                        "label": f"{cabinet}号柜 · {label}",
+                        "cabinet": cabinet,
+                        "position": label,
+                    }
+                )
+
+    for layout in _PDF_CABINET_AREAS:
+        area = layout["area"]
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[layout["page"]]
+        for row in layout["rows"]:
+            for label in row:
+                if not label:
+                    continue
+                aliases = _pdf_cell_aliases(area, label)
+                short_label = next(
+                    (alias for alias in aliases if alias != _normalize_pdf_location(label)),
+                    _normalize_pdf_location(label),
+                )
+                code = f"{area}-{short_label}"
+                if code in seen:
+                    continue
+                seen.add(code)
+                options.append(
+                    {
+                        "code": code,
+                        "label": f"{cabinet}号柜 · {area}区 · {label}",
+                        "cabinet": cabinet,
+                        "page": layout["page"],
+                        "area": area,
+                        "position": label,
+                    }
+                )
+    return options
+
+
+def _resolve_pdf_location(value):
+    raw_value = _clean_text(value, 100)
+    token = _normalize_pdf_location(raw_value)
+    layouts_by_area = {layout["area"]: layout for layout in _PDF_CABINET_AREAS}
+    matched_pdf_cells = []
+    matched_image_cells = []
+    area_only = ""
+    cabinet_only = ""
+
+    coordinate_match = re.fullmatch(r"(\d{2})R(\d+)C(\d+)", token)
+    if coordinate_match and coordinate_match.group(1) in layouts_by_area:
+        area = coordinate_match.group(1)
+        row_index = int(coordinate_match.group(2)) - 1
+        column_index = int(coordinate_match.group(3)) - 1
+        layout = layouts_by_area[area]
+        if 0 <= row_index < len(layout["rows"]) and 0 <= column_index < len(layout["rows"][row_index]):
+            label = layout["rows"][row_index][column_index]
+            if label:
+                matched_pdf_cells.append((area, row_index, column_index))
+
+    if token and not matched_pdf_cells:
+        for area, layout in layouts_by_area.items():
+            area_key = _normalize_pdf_location(area)
+            if not token.startswith(area_key):
+                continue
+            suffix = token[len(area_key):]
+            if not suffix:
+                area_only = area
+                break
+            for row_index, row in enumerate(layout["rows"]):
+                for column_index, label in enumerate(row):
+                    if not label:
+                        continue
+                    aliases = _pdf_cell_aliases(area, label)
+                    if suffix in aliases:
+                        matched_pdf_cells.append((area, row_index, column_index))
+            break
+
+    if token and not matched_pdf_cells and not area_only:
+        for block_index, block in enumerate(_CABINET_IMAGE_BLOCKS):
+            cabinet = block["cabinet"]
+            cabinet_key = _normalize_pdf_location(cabinet)
+            if token == cabinet_key:
+                cabinet_only = cabinet
+                break
+            if not token.startswith(cabinet_key):
+                continue
+            suffix = token[len(cabinet_key):]
+            for row_index, row in enumerate(block["rows"]):
+                for cell_index, (label, _span) in enumerate(row):
+                    if label and suffix == _normalize_pdf_location(label):
+                        matched_image_cells.append((cabinet, block_index, row_index, cell_index))
+            if matched_image_cells:
+                break
+
+    if token and not matched_pdf_cells and not matched_image_cells and not area_only and not cabinet_only:
+        for area, layout in layouts_by_area.items():
+            for row_index, row in enumerate(layout["rows"]):
+                for column_index, label in enumerate(row):
+                    if label and token in _pdf_cell_aliases(area, label):
+                        matched_pdf_cells.append((area, row_index, column_index))
+        for block_index, block in enumerate(_CABINET_IMAGE_BLOCKS):
+            cabinet = block["cabinet"]
+            for row_index, row in enumerate(block["rows"]):
+                for cell_index, (label, _span) in enumerate(row):
+                    if label and token == _normalize_pdf_location(label):
+                        matched_image_cells.append((cabinet, block_index, row_index, cell_index))
+
+    pdf_target_set = set(matched_pdf_cells)
+    image_target_set = set(matched_image_cells)
+    matched_areas = []
+    for area, _, _ in matched_pdf_cells:
+        if area not in matched_areas:
+            matched_areas.append(area)
+
+    matched_cabinets = []
+    for area in matched_areas:
+        page = layouts_by_area[area]["page"]
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[page]
+        if cabinet not in matched_cabinets:
+            matched_cabinets.append(cabinet)
+    for cabinet, _, _, _ in matched_image_cells:
+        if cabinet not in matched_cabinets:
+            matched_cabinets.append(cabinet)
+    if area_only:
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[layouts_by_area[area_only]["page"]]
+        if cabinet not in matched_cabinets:
+            matched_cabinets.append(cabinet)
+    if cabinet_only and cabinet_only not in matched_cabinets:
+        matched_cabinets.append(cabinet_only)
+    matched_cabinets.sort(key=int)
+
+    rendered_layouts = []
+    for cabinet in matched_cabinets:
+        highlighted = 0
+        blocks = []
+
+        for block_index, block in enumerate(_CABINET_IMAGE_BLOCKS):
+            if block["cabinet"] != cabinet:
+                continue
+            rows = []
+            for row_index, row in enumerate(block["rows"]):
+                cells = []
+                start_column = 1
+                for cell_index, (label, span) in enumerate(row):
+                    is_target = (cabinet, block_index, row_index, cell_index) in image_target_set
+                    if is_target:
+                        highlighted += 1
+                    cells.append(
+                        {
+                            "label": label,
+                            "row": row_index + 1,
+                            "column": start_column,
+                            "span": span,
+                            "area": "",
+                            "target": is_target,
+                        }
+                    )
+                    start_column += span
+                rows.append(cells)
+            blocks.append(
+                {
+                    "kind": "image",
+                    "title": block["title"],
+                    "columns": block["columns"],
+                    "rows_count": len(rows),
+                    "rows": rows,
+                }
+            )
+
+        page = next(
+            (
+                page_number
+                for page_number, cabinet_number in _PDF_PAGE_CABINET_NUMBERS.items()
+                if cabinet_number == cabinet
+            ),
+            None,
+        )
+        if page:
+            page_areas = [layout for layout in _PDF_CABINET_AREAS if layout["page"] == page]
+            sections = []
+            for layout in page_areas:
+                area = layout["area"]
+                rows = []
+                for row_index, row in enumerate(layout["rows"]):
+                    cells = []
+                    for column_index, label in enumerate(row):
+                        is_target = (area, row_index, column_index) in pdf_target_set
+                        if is_target:
+                            highlighted += 1
+                        cells.append(
+                            {
+                                "label": label,
+                                "row": row_index + 1,
+                                "column": column_index + 1,
+                                "span": 1,
+                                "area": area,
+                                "target": is_target,
+                            }
+                        )
+                    rows.append(cells)
+                sections.append(
+                    {
+                        "area": area,
+                        "columns": max((len(row) for row in layout["rows"]), default=1),
+                        "rows": rows,
+                    }
+                )
+            blocks.append(
+                {
+                    "kind": "pdf",
+                    "title": "柜体布局",
+                    "page": page,
+                    "columns": sum(section["columns"] for section in sections),
+                    "rows_count": max((len(section["rows"]) for section in sections), default=0),
+                    "sections": sections,
+                }
+            )
+
+        rendered_layouts.append(
+            {
+                "cabinet_number": cabinet,
+                "cabinet_label": f"{cabinet}号柜",
+                "highlighted": highlighted,
+                "blocks": blocks,
+            }
+        )
+
+    highlight_count = len(matched_pdf_cells) + len(matched_image_cells)
+    if highlight_count:
+        ambiguous = len(matched_cabinets) > 1
+        if ambiguous:
+            message = f"库位“{raw_value}”未包含柜号，在 {len(matched_cabinets)} 个柜体中找到同名位置。"
+        elif matched_pdf_cells and len(matched_areas) == 1:
+            cabinet = matched_cabinets[0]
+            area = matched_areas[0]
+            count_text = f"，共 {highlight_count} 格" if highlight_count > 1 else ""
+            message = f"已定位到 {cabinet}号柜的 {area} 区域{count_text}。"
+        else:
+            cabinet = matched_cabinets[0]
+            count_text = f"，共 {highlight_count} 格" if highlight_count > 1 else ""
+            message = f"已定位到 {cabinet}号柜{count_text}。"
+        status = "matched"
+    elif area_only:
+        cabinet = _PDF_PAGE_CABINET_NUMBERS[layouts_by_area[area_only]["page"]]
+        message = f"已找到 {cabinet}号柜的 {area_only} 区域，但库位未包含具体格位。"
+        status = "area"
+        ambiguous = False
+    elif cabinet_only:
+        message = f"已找到 {cabinet_only}号柜，但库位未包含具体格位。"
+        status = "cabinet"
+        ambiguous = False
+    else:
+        message = (
+            f"库位“{raw_value or '未填写'}”未在柜位图中找到，"
+            "例如可填写 40-A3、1-13A1 或 2-66A1。"
+        )
+        status = "unmatched"
+        ambiguous = False
+
+    return {
+        "query": raw_value,
+        "normalized": token,
+        "status": status,
+        "matched": bool(highlight_count),
+        "ambiguous": ambiguous,
+        "message": message,
+        "highlight_count": highlight_count,
+        "available_cabinets": ["1", "2", "3", "4"],
+        "available_areas": [
+            {
+                "area": layout["area"],
+                "page": layout["page"],
+                "cabinet": _PDF_PAGE_CABINET_NUMBERS[layout["page"]],
+            }
+            for layout in _PDF_CABINET_AREAS
+        ],
+        "layouts": rendered_layouts,
+    }
+
+
+def _location_table_exists():
+    return bool(
+        _scalar(
+            "SELECT CASE WHEN OBJECT_ID(N'dbo.YangBan_KuWei', N'U') IS NULL THEN 0 ELSE 1 END",
+            default=0,
+        )
+    )
+
+
+def _clean_color(value):
+    text = str(value or "").strip()
+    if re.fullmatch(r"#[0-9a-fA-F]{6}", text):
+        return text.upper()
+    return "#1677FF"
+
+
+def _request_data():
+    if request.files or request.form:
+        return dict(request.form)
+    return request.get_json(silent=True) or {}
+
+
+def _sample_image_files():
+    files = []
+    for key in ("TuPian", "tupian", "photo", "image"):
+        for file in request.files.getlist(key):
+            if file and file.filename:
+                files.append(file)
+    return files
+
+
+def _sample_image_file():
+    files = _sample_image_files()
+    return files[0] if files else None
+
+
+def _save_sample_image(file_storage):
+    if not file_storage or not file_storage.filename:
+        return ""
+    ext = os.path.splitext(str(file_storage.filename or ""))[1].lower()
+    if ext not in _SAMPLE_IMAGE_EXTENSIONS:
+        raise ValueError("样板照片仅支持 jpg、jpeg、png、gif、webp、bmp 格式")
+    os.makedirs(_SAMPLE_IMAGE_DIR, exist_ok=True)
+    filename = f"yangban_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}{ext}"
+    full_path = os.path.join(_SAMPLE_IMAGE_DIR, filename)
+    file_storage.save(full_path)
+    return full_path
+
+
+def _save_sample_images(file_storages):
+    return [_save_sample_image(file_storage) for file_storage in (file_storages or [])]
+
+
+def _sample_image_filename_one(path_value):
+    text = relocate_storage_path(path_value)
+    if not text:
+        return ""
+    normalized_root = os.path.abspath(_SAMPLE_IMAGE_DIR)
+    if os.path.isabs(text):
+        normalized_path = os.path.abspath(text)
+    else:
+        normalized_path = os.path.abspath(os.path.join(_SAMPLE_IMAGE_DIR, text))
+    try:
+        common = os.path.commonpath([normalized_root, normalized_path])
+    except ValueError:
+        return ""
+    if common != normalized_root:
+        return ""
+    return os.path.basename(normalized_path)
+
+
+def _sample_image_filenames(path_value):
+    filenames = []
+    for one_path in str(path_value or "").split(";"):
+        filename = _sample_image_filename_one(one_path.strip())
+        if filename and filename not in filenames:
+            filenames.append(filename)
+    return filenames
+
+
+def _sample_image_filename(path_value):
+    filenames = _sample_image_filenames(path_value)
+    return filenames[0] if filenames else ""
+
+
+def _sample_image_url_sets(path_value):
+    image_names = _sample_image_filenames(path_value)
+    return {
+        "original": [
+            f"/procurement/yangban/image/{image_name}" for image_name in image_names
+        ],
+        "thumbnail": [
+            f"/procurement/yangban/image-preview/{image_name}?profile=thumb"
+            for image_name in image_names
+        ],
+        "display": [
+            f"/procurement/yangban/image-preview/{image_name}?profile=detail"
+            for image_name in image_names
+        ],
+    }
+
+
+def _sample_preview_path(filename, profile):
+    safe_name = os.path.basename(str(filename or ""))
+    selected_profile = profile if profile in _SAMPLE_IMAGE_PREVIEW_SIZES else "thumb"
+    if not safe_name:
+        raise FileNotFoundError("图片不存在")
+
+    source_path = os.path.abspath(os.path.join(_SAMPLE_IMAGE_DIR, safe_name))
+    root_path = os.path.abspath(_SAMPLE_IMAGE_DIR)
+    try:
+        if os.path.commonpath([root_path, source_path]) != root_path:
+            raise ValueError("图片路径无效")
+    except ValueError as exc:
+        raise ValueError("图片路径无效") from exc
+    if not os.path.exists(source_path):
+        raise FileNotFoundError("图片不存在")
+
+    os.makedirs(_SAMPLE_IMAGE_PREVIEW_DIR, exist_ok=True)
+    preview_name = f"{safe_name}.{selected_profile}.jpg"
+    preview_path = os.path.join(_SAMPLE_IMAGE_PREVIEW_DIR, preview_name)
+    if os.path.exists(preview_path) and os.path.getsize(preview_path) > 0:
+        return preview_name
+
+    temporary_path = f"{preview_path}.{uuid.uuid4().hex}.tmp"
+    try:
+        with Image.open(source_path) as source_image:
+            try:
+                source_image.seek(0)
+            except EOFError:
+                pass
+            image = ImageOps.exif_transpose(source_image)
+            if image.mode in {"RGBA", "LA"} or (
+                image.mode == "P" and "transparency" in image.info
+            ):
+                rgba = image.convert("RGBA")
+                rgb = Image.new("RGB", rgba.size, "white")
+                rgb.paste(rgba, mask=rgba.getchannel("A"))
+                image = rgb
+            else:
+                image = image.convert("RGB")
+            image.thumbnail(
+                _SAMPLE_IMAGE_PREVIEW_SIZES[selected_profile],
+                Image.Resampling.LANCZOS,
+            )
+            image.save(temporary_path, format="JPEG", quality=84, optimize=True)
+        os.replace(temporary_path, preview_path)
+    finally:
+        if os.path.exists(temporary_path):
+            try:
+                os.remove(temporary_path)
+            except OSError:
+                pass
+    return preview_name
+
+
+def _parse_tag_names(raw_value):
+    if raw_value is None:
+        return []
+    if isinstance(raw_value, list):
+        return [_clean_text(v, 80) for v in raw_value if _clean_text(v, 80)]
+    text = str(raw_value or "").strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+        if isinstance(data, list):
+            return [_clean_text(v, 80) for v in data if _clean_text(v, 80)]
+    except Exception:
+        pass
+    parts = re.split(r"[,，;；\s]+", text)
+    return [_clean_text(v, 80) for v in parts if _clean_text(v, 80)]
+
+
+def _unique_names(names):
+    seen = set()
+    out = []
+    for name in names or []:
+        text = _clean_text(name, 80)
+        if text and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
+
+
+def _tag_rows(include_disabled=True):
+    where_sql = "" if include_disabled else "WHERE ZhuangTai = N'ZhengChang'"
+    return _select(
+        f"""
+        SELECT Id, BiaoQianMingCheng, YanSe, ZhuangTai, BeiZhu, ChuangJianShiJian, GengXinShiJian
+        FROM {_TAG_TABLE}
+        {where_sql}
+        ORDER BY CASE WHEN ZhuangTai = N'ZhengChang' THEN 0 ELSE 1 END, BiaoQianMingCheng
+        """
+    )
+
+
+def _tag_map():
+    return {str(row.get("BiaoQianMingCheng") or ""): row for row in _tag_rows(True)}
+
+
+def _decorate_tags(tag_names, tag_lookup=None):
+    lookup = tag_lookup if tag_lookup is not None else _tag_map()
+    out = []
+    for name in _unique_names(tag_names):
+        row = lookup.get(name) or {}
+        out.append(
+            {
+                "name": name,
+                "color": row.get("YanSe") or "#64748B",
+                "status": row.get("ZhuangTai") or "",
+            }
+        )
+    return out
+
+
+def _sample_to_payload(row, tag_lookup=None):
+    item = dict(row or {})
+    tag_names = _parse_tag_names(item.get("BiaoQian"))
+    item["BiaoQianList"] = tag_names
+    item["BiaoQianItems"] = _decorate_tags(tag_names, tag_lookup)
+    image_urls = _sample_image_url_sets(item.get("TuPian") or item.get("tupian"))
+    item["TuPianOriginalUrls"] = image_urls["original"]
+    item["TuPianThumbnailUrls"] = image_urls["thumbnail"]
+    item["TuPianUrls"] = image_urls["display"]
+    item["TuPianUrl"] = (
+        item["TuPianThumbnailUrls"][0] if item["TuPianThumbnailUrls"] else ""
+    )
+    return item
+
+
+def _where_for_samples(args):
+    clauses = []
+    params = []
+    keyword = _clean_text(args.get("q") or args.get("keyword"), 120)
+    bianhao = _clean_text(args.get("bianhao"), 80)
+    mingcheng = _clean_text(args.get("mingcheng"), 120)
+    fenlei = _clean_text(args.get("fenlei"), 80)
+    biaoqian = _clean_text(args.get("biaoqian"), 80)
+    kuwei = _clean_text(args.get("kuwei"), 80)
+    zhuangtai = _clean_text(args.get("zhuangtai"), 40)
+    updated_start = _clean_text(args.get("updated_start") or args.get("start"), 20)
+    updated_end = _clean_text(args.get("updated_end") or args.get("end"), 20)
+
+    if keyword:
+        clauses.append(
+            "("
+            "CHARINDEX(%s, ISNULL(YangBanBianHao, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(YangBanMingCheng, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(FenLei, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(GongChang, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(FuZeRen, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(KuWei, N'')) > 0 OR "
+            "CHARINDEX(%s, ISNULL(BiaoQian, N'')) > 0"
+            ")"
+        )
+        params.extend([keyword, keyword, keyword, keyword, keyword, keyword, keyword])
+    if bianhao:
+        clauses.append("CHARINDEX(%s, ISNULL(YangBanBianHao, N'')) > 0")
+        params.append(bianhao)
+    if mingcheng:
+        clauses.append("CHARINDEX(%s, ISNULL(YangBanMingCheng, N'')) > 0")
+        params.append(mingcheng)
+    if fenlei:
+        clauses.append("ISNULL(FenLei, N'') = %s")
+        params.append(fenlei)
+    if biaoqian:
+        clauses.append("CHARINDEX(%s, ISNULL(BiaoQian, N'')) > 0")
+        params.append(f'"{biaoqian}"')
+    if kuwei:
+        clauses.append("ISNULL(KuWei, N'') = %s")
+        params.append(kuwei)
+    if zhuangtai:
+        clauses.append("ISNULL(ZhuangTai, N'') = %s")
+        params.append(zhuangtai)
+    if updated_start:
+        clauses.append("ISNULL(GengXinShiJian, ChuangJianShiJian) >= CONVERT(datetime, %s)")
+        params.append(updated_start)
+    if updated_end:
+        clauses.append("ISNULL(GengXinShiJian, ChuangJianShiJian) < DATEADD(day, 1, CONVERT(date, %s))")
+        params.append(updated_end)
+
+    where_sql = "WHERE " + " AND ".join(clauses) if clauses else ""
+    return where_sql, params
+
+
+def _flow_type_label(flow_type):
+    return {
+        "RuKu": "入库",
+        "ChuKu": "出库",
+        "GuiHuan": "归还",
+        "PanDian": "盘点",
+    }.get(str(flow_type or ""), str(flow_type or ""))
+
+
+def _status_label(status):
+    return {
+        "ZhengChang": "正常",
+        "TingYong": "停用",
+    }.get(str(status or ""), str(status or ""))
+
+
+def _location_type_label(location_type):
+    return {
+        "Gui": "柜",
+        "Ceng": "层",
+        "Ge": "格",
+    }.get(str(location_type or ""), str(location_type or ""))
+
+
+def _location_status_label(status):
+    return _status_label(status)
+
+
+def _location_rows():
+    if not _location_table_exists():
+        return []
+    return _select(
+        f"""
+        SELECT Id, KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
+               ChuangJianShiJian, GengXinShiJian, FuJiId, WeiZhiLeiXing,
+               PaiXuHao, ZuiDaRongLiang
+        FROM {_LOCATION_TABLE}
+        ORDER BY ISNULL(PaiXuHao, 999999), Id
+        """
+    )
+
+
+def _location_by_id(location_id):
+    if not _location_table_exists():
+        return None
+    rows = _select(
+        f"""
+        SELECT Id, KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
+               ChuangJianShiJian, GengXinShiJian, FuJiId, WeiZhiLeiXing,
+               PaiXuHao, ZuiDaRongLiang
+        FROM {_LOCATION_TABLE}
+        WHERE Id = %s
+        """,
+        [location_id],
+    )
+    return rows[0] if rows else None
+
+
+def _location_code_exists(code, exclude_id=None):
+    text = _clean_text(code, 80)
+    if not text:
+        return False
+    if not _location_table_exists():
+        return False
+    params = [text]
+    where_extra = ""
+    if exclude_id:
+        where_extra = " AND Id <> %s"
+        params.append(int(exclude_id))
+    count = _scalar(
+        f"SELECT COUNT(1) FROM {_LOCATION_TABLE} WHERE KuWeiBianHao = %s{where_extra}",
+        params,
+    )
+    return int(count or 0) > 0
+
+
+def _active_ge_location_exists(code):
+    text = _clean_text(code, 80)
+    if not text:
+        return False
+    if _resolve_pdf_location(text).get("matched"):
+        return True
+    if not _location_table_exists():
+        return False
+    count = _scalar(
+        f"""
+        SELECT COUNT(1)
+        FROM {_LOCATION_TABLE}
+        WHERE KuWeiBianHao = %s
+          AND WeiZhiLeiXing = N'Ge'
+          AND ZhuangTai = N'ZhengChang'
+        """,
+        [text],
+    )
+    return int(count or 0) > 0
+
+
+def _validate_sample_kuwei(kuwei, existing=None):
+    text = _clean_text(kuwei, 80)
+    if not text:
+        return ""
+    old_text = _clean_text((existing or {}).get("KuWei"), 80) if existing else ""
+    if old_text and text == old_text:
+        return text
+    if not _active_ge_location_exists(text):
+        raise ValueError("库位不在 PDF 柜位图中，请按“区域号-位置”填写，例如 40-A3")
+    return text
+
+
+def _occupied_location_counts():
+    rows = _select(
+        f"""
+        SELECT KuWei, COUNT(1) AS SampleCount
+        FROM {_SAMPLE_TABLE}
+        WHERE ISNULL(KuWei, N'') <> N''
+          AND ISNULL(DangQianKuCun, 0) > 0
+          AND ZhuangTai = N'ZhengChang'
+        GROUP BY KuWei
+        """
+    )
+    return {
+        str(row.get("KuWei") or "").strip(): int(row.get("SampleCount") or 0)
+        for row in rows
+        if str(row.get("KuWei") or "").strip()
+    }
+
+
+def _location_rate(occupied, total):
+    total_int = int(total or 0)
+    if total_int <= 0:
+        return 0
+    return round((int(occupied or 0) / total_int) * 100, 1)
+
+
+def _decorate_location_node(node, occupied_counts):
+    children = node.get("children") or []
+    location_type = str(node.get("WeiZhiLeiXing") or "")
+    if location_type == "Ge":
+        code = str(node.get("KuWeiBianHao") or "").strip()
+        sample_count = int(occupied_counts.get(code, 0) or 0)
+        max_capacity = int(Decimal(str(node.get("ZuiDaRongLiang") or 1)) or 1)
+        max_capacity = max(max_capacity, 1)
+        occupied = 1 if sample_count > 0 else 0
+        node["occupancy"] = {
+            "total_ge": 1,
+            "occupied_ge": occupied,
+            "free_ge": 0 if occupied else 1,
+            "rate": 100 if occupied else 0,
+            "sample_count": sample_count,
+            "max_capacity": max_capacity,
+            "is_occupied": bool(occupied),
+            "is_full": sample_count >= max_capacity if sample_count > 0 else False,
+        }
+        return node["occupancy"]
+
+    total = 0
+    occupied = 0
+    full = 0
+    for child in children:
+        child_occ = _decorate_location_node(child, occupied_counts)
+        total += int(child_occ.get("total_ge") or 0)
+        occupied += int(child_occ.get("occupied_ge") or 0)
+        full += 1 if child_occ.get("is_full") else 0
+    free = max(total - occupied, 0)
+    node["occupancy"] = {
+        "total_ge": total,
+        "occupied_ge": occupied,
+        "free_ge": free,
+        "rate": _location_rate(occupied, total),
+        "sample_count": 0,
+        "max_capacity": int(node.get("ZuiDaRongLiang") or 0),
+        "is_occupied": occupied > 0,
+        "is_full": bool(total and occupied >= total),
+        "full_child_count": full,
+    }
+    return node["occupancy"]
+
+
+def _build_location_tree(rows=None):
+    raw_rows = rows if rows is not None else _location_rows()
+    nodes = []
+    node_map = {}
+    for row in raw_rows or []:
+        node = dict(row)
+        node["children"] = []
+        node["WeiZhiLeiXingText"] = _location_type_label(node.get("WeiZhiLeiXing"))
+        node["ZhuangTaiText"] = _location_status_label(node.get("ZhuangTai"))
+        node_map[int(node.get("Id"))] = node
+        nodes.append(node)
+
+    roots = []
+    for node in nodes:
+        parent_id = node.get("FuJiId")
+        parent = node_map.get(int(parent_id)) if parent_id not in ("", None) else None
+        if parent:
+            parent["children"].append(node)
+        else:
+            roots.append(node)
+
+    def sort_children(item):
+        item["children"].sort(key=lambda x: (int(x.get("PaiXuHao") or 999999), int(x.get("Id") or 0)))
+        for child in item["children"]:
+            sort_children(child)
+
+    roots.sort(key=lambda x: (int(x.get("PaiXuHao") or 999999), int(x.get("Id") or 0)))
+    for root in roots:
+        sort_children(root)
+
+    occupied_counts = _occupied_location_counts()
+    for root in roots:
+        _decorate_location_node(root, occupied_counts)
+    return roots, nodes
+
+
+def _location_counts(nodes):
+    return {
+        "gui": sum(1 for n in nodes if n.get("WeiZhiLeiXing") == "Gui"),
+        "ceng": sum(1 for n in nodes if n.get("WeiZhiLeiXing") == "Ceng"),
+        "ge": sum(1 for n in nodes if n.get("WeiZhiLeiXing") == "Ge"),
+    }
+
+
+def _board_stats(roots):
+    total = sum(int((root.get("occupancy") or {}).get("total_ge") or 0) for root in roots)
+    occupied = sum(int((root.get("occupancy") or {}).get("occupied_ge") or 0) for root in roots)
+    free = max(total - occupied, 0)
+    return {
+        "total_ge": total,
+        "occupied_ge": occupied,
+        "free_ge": free,
+        "rate": _location_rate(occupied, total),
+    }
+
+
+def _location_node_matches_occupancy(node, occupancy_filter):
+    occ = node.get("occupancy") or {}
+    total = int(occ.get("total_ge") or 0)
+    occupied = int(occ.get("occupied_ge") or 0)
+    if not occupancy_filter:
+        return True
+    if occupancy_filter == "occupied":
+        return occupied > 0
+    if occupancy_filter == "free":
+        return total > occupied
+    if occupancy_filter == "full":
+        return bool(total and occupied >= total)
+    return True
+
+
+def _filter_board_roots(roots, args):
+    quyu = _clean_text(args.get("quyu"), 80)
+    gui_name = _clean_text(args.get("gui"), 120)
+    zhuangtai = _clean_text(args.get("zhuangtai"), 40)
+    occupancy = _clean_text(args.get("occupancy"), 40)
+    out = []
+    for root in roots:
+        if quyu and str(root.get("QuYu") or "") != quyu:
+            continue
+        if gui_name and gui_name not in str(root.get("KuWeiMingCheng") or "") and gui_name not in str(root.get("KuWeiBianHao") or ""):
+            continue
+        if zhuangtai and str(root.get("ZhuangTai") or "") != zhuangtai:
+            continue
+        if not _location_node_matches_occupancy(root, occupancy):
+            continue
+        out.append(root)
+    return out
+
+
+def _location_payload_from_request(data, location_type=None, parent_id=None, existing=None):
+    payload = data if isinstance(data, dict) else {}
+    loc_type = _clean_text(location_type or payload.get("WeiZhiLeiXing") or (existing or {}).get("WeiZhiLeiXing"), 20)
+    if loc_type not in _LOCATION_TYPES:
+        raise ValueError("位置类型不正确")
+
+    code = _clean_text(payload.get("KuWeiBianHao"), 80)
+    name = _clean_text(payload.get("KuWeiMingCheng"), 120)
+    if not code:
+        raise ValueError("请填写库位编号")
+    if not name:
+        raise ValueError("请填写库位名称")
+
+    existing_id = int((existing or {}).get("Id") or 0)
+    if _location_code_exists(code, existing_id or None):
+        raise ValueError("库位编号不能重复")
+
+    status = _clean_text(payload.get("ZhuangTai") or "ZhengChang", 40)
+    if status not in _LOCATION_STATUSES:
+        raise ValueError("位置状态不正确")
+
+    try:
+        sort_no = int(str(payload.get("PaiXuHao") or 0).strip() or 0)
+    except Exception:
+        raise ValueError("排序号必须是数字")
+
+    parent = None
+    if loc_type == "Gui":
+        final_parent_id = None
+    else:
+        final_parent_id = int(parent_id or payload.get("FuJiId") or (existing or {}).get("FuJiId") or 0)
+        parent = _location_by_id(final_parent_id)
+        if not parent:
+            raise ValueError("请选择父级位置")
+        expected_parent_type = "Gui" if loc_type == "Ceng" else "Ceng"
+        if parent.get("WeiZhiLeiXing") != expected_parent_type:
+            raise ValueError("父级位置类型不符合层级规则")
+
+    if loc_type == "Ge":
+        capacity_raw = payload.get("ZuiDaRongLiang")
+        capacity = int(str(capacity_raw if capacity_raw not in (None, "") else 1).strip() or 1)
+        if capacity <= 0:
+            raise ValueError("最大容量必须大于0")
+    else:
+        capacity = int(str(payload.get("ZuiDaRongLiang") or 0).strip() or 0)
+
+    area = _clean_text(payload.get("QuYu"), 80)
+    if loc_type != "Gui" and not area and parent:
+        area = _clean_text(parent.get("QuYu"), 80)
+
+    return {
+        "KuWeiBianHao": code,
+        "KuWeiMingCheng": name,
+        "QuYu": area,
+        "ZhuangTai": status,
+        "BeiZhu": _clean_text(payload.get("BeiZhu"), 500),
+        "FuJiId": final_parent_id,
+        "WeiZhiLeiXing": loc_type,
+        "PaiXuHao": sort_no,
+        "ZuiDaRongLiang": capacity,
+    }
+
+
+def _build_flow_query(args, export=False):
+    clauses = ["ISNULL(l.BianDongLeiXing, N'') <> N'ChuKu'"]
+    params = []
+    start = _clean_text(args.get("start"), 20)
+    end = _clean_text(args.get("end"), 20)
+    yangban_id = _clean_text(args.get("yangban_id"), 20)
+    flow_type = _clean_text(args.get("type"), 20)
+    operator = _clean_text(args.get("operator"), 80)
+
+    if start:
+        clauses.append("l.ChuangJianShiJian >= CONVERT(datetime, %s)")
+        params.append(start)
+    if end:
+        clauses.append("l.ChuangJianShiJian < DATEADD(day, 1, CONVERT(date, %s))")
+        params.append(end)
+    if yangban_id:
+        try:
+            params.append(int(yangban_id))
+            clauses.append("l.YangBanId = %s")
+        except Exception:
+            clauses.append("1 = 0")
+    if flow_type:
+        clauses.append("l.BianDongLeiXing = %s")
+        params.append(flow_type)
+    if operator:
+        clauses.append("CHARINDEX(%s, ISNULL(l.CaoZuoRen, N'')) > 0")
+        params.append(operator)
+
+    where_sql = "WHERE " + " AND ".join(clauses) if clauses else ""
+    page = _parse_positive_page(args.get("page"), 1)
+    page_size = _parse_positive_page(args.get("page_size"), 20, 500)
+    offset = (page - 1) * page_size
+
+    select_sql = f"""
+        SELECT
+            l.Id, l.YangBanId, y.YangBanBianHao, y.YangBanMingCheng,
+            y.FenLei, y.GongChang, y.FuZeRen, y.DanWei,
+            l.BianDongLeiXing, l.BianDongShuLiang, l.CaoZuoRen,
+            l.GuanLianDanHao, l.BeiZhu, l.ChuangJianShiJian
+        FROM {_FLOW_TABLE} l
+        LEFT JOIN {_SAMPLE_TABLE} y ON y.Id = l.YangBanId
+        {where_sql}
+        ORDER BY l.ChuangJianShiJian DESC, l.Id DESC
+    """
+    if not export:
+        select_sql += f" OFFSET {offset} ROWS FETCH NEXT {page_size} ROWS ONLY"
+    count_sql = f"SELECT COUNT(1) AS total FROM {_FLOW_TABLE} l LEFT JOIN {_SAMPLE_TABLE} y ON y.Id = l.YangBanId {where_sql}"
+    return select_sql, count_sql, params, page, page_size
+
+
+def _sample_payload_from_request(data, existing=None):
+    payload = data if isinstance(data, dict) else {}
+    bianhao = _clean_text(payload.get("YangBanBianHao"), 80)
+    mingcheng = _clean_text(payload.get("YangBanMingCheng"), 120)
+    if not bianhao:
+        raise ValueError("请填写样板编号")
+    if not mingcheng:
+        raise ValueError("请填写样板名称")
+
+    status = _clean_text(payload.get("ZhuangTai") or "ZhengChang", 40)
+    if status not in _SAMPLE_STATUSES:
+        raise ValueError("样板状态不正确")
+
+    category = _clean_text(payload.get("FenLei"), 80)
+    if category not in _SAMPLE_CATEGORIES:
+        raise ValueError("分类只能选择研发或采购")
+
+    tag_names = _unique_names(_parse_tag_names(payload.get("BiaoQianList") or payload.get("BiaoQian") or []))
+    active_names = {str(row.get("BiaoQianMingCheng") or "") for row in _tag_rows(False)}
+    if any(name not in active_names for name in tag_names):
+        if existing:
+            old_inactive = [name for name in _parse_tag_names(existing.get("BiaoQian")) if name not in active_names]
+            tag_names = _unique_names([name for name in tag_names if name in active_names] + old_inactive)
+        else:
+            raise ValueError("只能选择正常状态的标签")
+
+    return {
+        "YangBanBianHao": bianhao,
+        "YangBanMingCheng": mingcheng,
+        "FenLei": category,
+        "BiaoQian": json.dumps(tag_names, ensure_ascii=False),
+        "GongChang": _clean_text(payload.get("GongChang"), 120),
+        "DanWei": _clean_text(payload.get("DanWei"), 40),
+        "FuZeRen": _clean_text(payload.get("FuZeRen"), 80),
+        "KuWei": _validate_sample_kuwei(payload.get("KuWei"), existing),
+        "ZhuangTai": status,
+        "BeiZhu": _clean_text(payload.get("BeiZhu"), 0),
+    }
+
+
+def _get_sample(sample_id):
+    rows = _select(
+        f"""
+        SELECT Id, YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GongChang, DanWei,
+               [tupian] AS TuPian,
+               DangQianKuCun, FuZeRen, KuWei, ZhuangTai, BeiZhu,
+               ChuangJianShiJian, GengXinShiJian
+        FROM {_SAMPLE_TABLE}
+        WHERE Id = %s
+        """,
+        [sample_id],
+    )
+    if not rows:
+        return None
+    return _sample_to_payload(rows[0], _tag_map())
+
+
+@yangban_inventory_bp.route("/procurement/yangban_inventory")
+@require_permission("procurement_dept")
+def page():
+    return render_template(
+        "采购部/yangban_inventory.html",
+        user_name=session.get("feishu_user_name", "用户"),
+    )
+
+
+@yangban_inventory_bp.route("/procurement/yangban_locations")
+@require_permission("procurement_dept")
+def locations_page():
+    return render_template(
+        "采购部/yangban_location.html",
+        user_name=session.get("feishu_user_name", "用户"),
+    )
+
+
+@yangban_inventory_bp.route("/procurement/yangban/image/<path:filename>")
+@require_permission("procurement_dept")
+def sample_image(filename):
+    safe_name = os.path.basename(str(filename or ""))
+    if not safe_name:
+        return jsonify({"success": False, "message": "图片不存在"}), 404
+    full_path = os.path.abspath(os.path.join(_SAMPLE_IMAGE_DIR, safe_name))
+    root_path = os.path.abspath(_SAMPLE_IMAGE_DIR)
+    try:
+        if os.path.commonpath([root_path, full_path]) != root_path:
+            return jsonify({"success": False, "message": "图片路径无效"}), 400
+    except ValueError:
+        return jsonify({"success": False, "message": "图片路径无效"}), 400
+    if not os.path.exists(full_path):
+        return jsonify({"success": False, "message": "图片不存在"}), 404
+    return send_from_directory(_SAMPLE_IMAGE_DIR, safe_name)
+
+
+@yangban_inventory_bp.route("/procurement/yangban/image-preview/<path:filename>")
+@require_permission("procurement_dept")
+def sample_image_preview(filename):
+    try:
+        preview_name = _sample_preview_path(filename, request.args.get("profile"))
+        return send_from_directory(
+            _SAMPLE_IMAGE_PREVIEW_DIR,
+            preview_name,
+            mimetype="image/jpeg",
+            max_age=86400,
+        )
+    except FileNotFoundError:
+        return jsonify({"success": False, "message": "图片不存在"}), 404
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"图片预览生成失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/location-map")
+@require_permission("procurement_dept")
+def api_location_map():
+    try:
+        return jsonify(
+            {
+                "success": True,
+                "data": _resolve_pdf_location(request.args.get("kuwei")),
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载柜位图失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/locations/tree")
+@require_permission("procurement_dept")
+def api_location_tree():
+    try:
+        roots, nodes = _build_location_tree()
+        filtered_roots = _filter_board_roots(roots, request.args)
+        areas = sorted({str(node.get("QuYu") or "").strip() for node in nodes if str(node.get("QuYu") or "").strip()})
+        cabinets = [
+            {
+                "Id": node.get("Id"),
+                "KuWeiBianHao": node.get("KuWeiBianHao"),
+                "KuWeiMingCheng": node.get("KuWeiMingCheng"),
+                "QuYu": node.get("QuYu"),
+                "ZhuangTai": node.get("ZhuangTai"),
+            }
+            for node in nodes
+            if node.get("WeiZhiLeiXing") == "Gui"
+        ]
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "tree": roots,
+                    "board_tree": filtered_roots,
+                    "counts": _location_counts(nodes),
+                    "stats": _board_stats(filtered_roots),
+                    "areas": areas,
+                    "cabinets": cabinets,
+                },
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载位置结构失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/locations", methods=["POST"])
+@require_permission("procurement_dept")
+def api_create_location():
+    try:
+        data = request.get_json(silent=True) or {}
+        payload = _location_payload_from_request(data)
+        _execute(
+            f"""
+            INSERT INTO {_LOCATION_TABLE}
+                (KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
+                 ChuangJianShiJian, GengXinShiJian, FuJiId, WeiZhiLeiXing,
+                 PaiXuHao, ZuiDaRongLiang)
+            VALUES
+                (%s, %s, %s, %s, %s,
+                 GETDATE(), GETDATE(), %s, %s,
+                 %s, %s)
+            """,
+            [
+                payload["KuWeiBianHao"],
+                payload["KuWeiMingCheng"],
+                payload["QuYu"],
+                payload["ZhuangTai"],
+                payload["BeiZhu"],
+                payload["FuJiId"],
+                payload["WeiZhiLeiXing"],
+                payload["PaiXuHao"],
+                payload["ZuiDaRongLiang"],
+            ],
+        )
+        return jsonify({"success": True, "message": "位置已新增"})
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"新增位置失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/locations/<int:location_id>", methods=["PUT"])
+@require_permission("procurement_dept")
+def api_update_location(location_id):
+    try:
+        existing = _location_by_id(location_id)
+        if not existing:
+            return jsonify({"success": False, "message": "位置不存在"}), 404
+        data = request.get_json(silent=True) or {}
+        payload = _location_payload_from_request(data, existing=existing)
+        _execute(
+            f"""
+            UPDATE {_LOCATION_TABLE}
+               SET KuWeiBianHao = %s,
+                   KuWeiMingCheng = %s,
+                   QuYu = %s,
+                   ZhuangTai = %s,
+                   BeiZhu = %s,
+                   FuJiId = %s,
+                   WeiZhiLeiXing = %s,
+                   PaiXuHao = %s,
+                   ZuiDaRongLiang = %s,
+                   GengXinShiJian = GETDATE()
+             WHERE Id = %s
+            """,
+            [
+                payload["KuWeiBianHao"],
+                payload["KuWeiMingCheng"],
+                payload["QuYu"],
+                payload["ZhuangTai"],
+                payload["BeiZhu"],
+                payload["FuJiId"],
+                payload["WeiZhiLeiXing"],
+                payload["PaiXuHao"],
+                payload["ZuiDaRongLiang"],
+                location_id,
+            ],
+        )
+        return jsonify({"success": True, "message": "位置已保存"})
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"保存位置失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/locations/<int:location_id>/disable", methods=["POST"])
+@require_permission("procurement_dept")
+def api_disable_location(location_id):
+    try:
+        existing = _location_by_id(location_id)
+        if not existing:
+            return jsonify({"success": False, "message": "位置不存在"}), 404
+        _execute(
+            f"""
+            UPDATE {_LOCATION_TABLE}
+               SET ZhuangTai = N'TingYong',
+                   GengXinShiJian = GETDATE()
+             WHERE Id = %s
+            """,
+            [location_id],
+        )
+        return jsonify({"success": True, "message": "位置已停用"})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"停用位置失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/locations/<int:location_id>", methods=["DELETE"])
+@require_permission("procurement_dept")
+def api_delete_location(location_id):
+    try:
+        existing = _location_by_id(location_id)
+        if not existing:
+            return jsonify({"success": False, "message": "位置不存在"}), 404
+        children_count = _scalar(f"SELECT COUNT(1) FROM {_LOCATION_TABLE} WHERE FuJiId = %s", [location_id])
+        if int(children_count or 0) > 0:
+            return jsonify({"success": False, "message": "该位置存在下级节点，不能删除"}), 400
+        if existing.get("WeiZhiLeiXing") == "Ge":
+            used_count = _scalar(
+                f"SELECT COUNT(1) FROM {_SAMPLE_TABLE} WHERE KuWei = %s",
+                [existing.get("KuWeiBianHao")],
+            )
+            if int(used_count or 0) > 0:
+                return jsonify({"success": False, "message": "该格位已被样板使用，不能删除，只能停用"}), 400
+        _execute(f"DELETE FROM {_LOCATION_TABLE} WHERE Id = %s", [location_id])
+        return jsonify({"success": True, "message": "位置已删除"})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"删除位置失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/dashboard")
+@require_permission("procurement_dept")
+def api_dashboard():
+    try:
+        total_samples = _scalar(f"SELECT COUNT(1) FROM {_SAMPLE_TABLE}")
+        total_stock = _scalar(f"SELECT ISNULL(SUM(ISNULL(DangQianKuCun, 0)), 0) FROM {_SAMPLE_TABLE}")
+        today_in = _scalar(
+            f"""
+            SELECT ISNULL(SUM(BianDongShuLiang), 0)
+            FROM {_FLOW_TABLE}
+            WHERE BianDongLeiXing = N'RuKu'
+              AND CONVERT(date, ChuangJianShiJian) = CONVERT(date, GETDATE())
+            """
+        )
+        inbound_breakdown = _select(
+            f"""
+            SELECT
+                y.FenLei,
+                ISNULL(NULLIF(LTRIM(RTRIM(y.FuZeRen)), N''), N'未填写') AS FuZeRen,
+                ISNULL(NULLIF(LTRIM(RTRIM(y.DanWei)), N''), N'未填写') AS DanWei,
+                ISNULL(SUM(l.BianDongShuLiang), 0) AS RuKuShuLiang
+            FROM {_FLOW_TABLE} l
+            INNER JOIN {_SAMPLE_TABLE} y ON y.Id = l.YangBanId
+            WHERE l.BianDongLeiXing = N'RuKu'
+              AND y.FenLei IN (N'研发', N'采购')
+            GROUP BY
+                y.FenLei,
+                ISNULL(NULLIF(LTRIM(RTRIM(y.FuZeRen)), N''), N'未填写'),
+                ISNULL(NULLIF(LTRIM(RTRIM(y.DanWei)), N''), N'未填写')
+            ORDER BY
+                CASE WHEN y.FenLei = N'研发' THEN 0 ELSE 1 END,
+                FuZeRen,
+                DanWei
+            """
+        )
+        category_totals = {category: Decimal("0") for category in _SAMPLE_CATEGORIES}
+        for row in inbound_breakdown:
+            category = str(row.get("FenLei") or "")
+            if category in category_totals:
+                category_totals[category] += Decimal(str(row.get("RuKuShuLiang") or 0))
+        recent = _select(
+            f"""
+            SELECT TOP 12
+                l.Id, l.YangBanId, y.YangBanBianHao, y.YangBanMingCheng,
+                y.FenLei, y.GongChang, y.FuZeRen, y.DanWei,
+                y.[tupian] AS TuPian,
+                l.BianDongLeiXing, l.BianDongShuLiang, l.CaoZuoRen,
+                l.GuanLianDanHao, l.BeiZhu, l.ChuangJianShiJian
+            FROM {_FLOW_TABLE} l
+            LEFT JOIN {_SAMPLE_TABLE} y ON y.Id = l.YangBanId
+            WHERE l.BianDongLeiXing = N'RuKu'
+            ORDER BY l.ChuangJianShiJian DESC, l.Id DESC
+            """
+        )
+        for row in recent:
+            row["BianDongLeiXingText"] = _flow_type_label(row.get("BianDongLeiXing"))
+            image_names = _sample_image_filenames(row.get("TuPian") or row.get("tupian"))
+            row["TuPianUrls"] = [
+                f"/procurement/yangban/image/{image_name}" for image_name in image_names
+            ]
+            row["TuPianUrl"] = row["TuPianUrls"][0] if row["TuPianUrls"] else ""
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "total_samples": total_samples,
+                    "total_stock": total_stock,
+                    "today_in": today_in,
+                    "research_in": _json_value(category_totals["研发"]),
+                    "procurement_in": _json_value(category_totals["采购"]),
+                    "inbound_breakdown": inbound_breakdown,
+                    "recent_inbounds": recent,
+                },
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载看板失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/options")
+@require_permission("procurement_dept")
+def api_options():
+    try:
+        locations = _select(
+            f"""
+            SELECT DISTINCT KuWei AS value
+            FROM {_SAMPLE_TABLE}
+            WHERE ISNULL(KuWei, N'') <> N''
+            ORDER BY KuWei
+            """
+        )
+        statuses = _select(
+            f"""
+            SELECT DISTINCT ZhuangTai AS value
+            FROM {_SAMPLE_TABLE}
+            WHERE ISNULL(ZhuangTai, N'') <> N''
+            ORDER BY ZhuangTai
+            """
+        )
+        if _location_table_exists():
+            ge_locations = _select(
+                f"""
+                SELECT Id, KuWeiBianHao, KuWeiMingCheng, QuYu, ZhuangTai, BeiZhu,
+                       FuJiId, WeiZhiLeiXing, PaiXuHao, ZuiDaRongLiang
+                FROM {_LOCATION_TABLE}
+                WHERE WeiZhiLeiXing = N'Ge'
+                ORDER BY ISNULL(PaiXuHao, 999999), KuWeiBianHao
+                """
+            )
+        else:
+            ge_locations = []
+        active_ge_locations = [row for row in ge_locations if row.get("ZhuangTai") == "ZhengChang"]
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "categories": list(_SAMPLE_CATEGORIES),
+                    "locations": [row.get("value") for row in locations if row.get("value")],
+                    "statuses": [row.get("value") for row in statuses if row.get("value")],
+                    "tags": _tag_rows(True),
+                    "active_tags": _tag_rows(False),
+                    "ge_locations": ge_locations,
+                    "active_ge_locations": active_ge_locations,
+                    "pdf_locations": _pdf_location_options(),
+                },
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载筛选项失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/samples", methods=["GET", "POST"])
+@require_permission("procurement_dept")
+def api_samples():
+    if request.method == "POST":
+        try:
+            payload = _sample_payload_from_request(_request_data())
+            image_path = ";".join(_save_sample_images(_sample_image_files()))
+            _execute(
+                f"""
+                INSERT INTO {_SAMPLE_TABLE}
+                    (YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GongChang, DanWei,
+                     [tupian], DangQianKuCun, FuZeRen, KuWei, ZhuangTai, BeiZhu,
+                     ChuangJianShiJian, GengXinShiJian)
+                VALUES
+                    (%s, %s, %s, %s, %s, %s,
+                     %s, 0, %s, %s, %s, %s,
+                     GETDATE(), GETDATE())
+                """,
+                [
+                    payload["YangBanBianHao"],
+                    payload["YangBanMingCheng"],
+                    payload["FenLei"],
+                    payload["BiaoQian"],
+                    payload["GongChang"],
+                    payload["DanWei"],
+                    image_path,
+                    payload["FuZeRen"],
+                    payload["KuWei"],
+                    payload["ZhuangTai"],
+                    payload["BeiZhu"],
+                ],
+            )
+            return jsonify({"success": True, "message": "样板已新增"})
+        except ValueError as exc:
+            return jsonify({"success": False, "message": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"success": False, "message": f"新增样板失败：{exc}"}), 500
+
+    try:
+        page = _parse_positive_page(request.args.get("page"), 1)
+        page_size = _parse_positive_page(request.args.get("page_size"), 20, 500)
+        offset = (page - 1) * page_size
+        where_sql, params = _where_for_samples(request.args)
+        total = _scalar(f"SELECT COUNT(1) FROM {_SAMPLE_TABLE} {where_sql}", params)
+        rows = _select(
+            f"""
+            SELECT Id, YangBanBianHao, YangBanMingCheng, FenLei, BiaoQian, GongChang, DanWei,
+                   [tupian] AS TuPian,
+                   DangQianKuCun, FuZeRen, KuWei, ZhuangTai, BeiZhu,
+                   ChuangJianShiJian, GengXinShiJian
+            FROM {_SAMPLE_TABLE}
+            {where_sql}
+            ORDER BY ISNULL(GengXinShiJian, ChuangJianShiJian) DESC, Id DESC
+            OFFSET {offset} ROWS FETCH NEXT {page_size} ROWS ONLY
+            """,
+            params,
+        )
+        lookup = _tag_map()
+        items = [_sample_to_payload(row, lookup) for row in rows]
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "items": items,
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total,
+                    "total_pages": max((int(total or 0) + page_size - 1) // page_size, 1),
+                },
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载样板列表失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/samples/<int:sample_id>", methods=["GET", "PUT"])
+@require_permission("procurement_dept")
+def api_sample_detail(sample_id):
+    if request.method == "PUT":
+        try:
+            existing = _get_sample(sample_id)
+            if not existing:
+                return jsonify({"success": False, "message": "样板不存在"}), 404
+            payload = _sample_payload_from_request(_request_data(), existing)
+            new_image_paths = _save_sample_images(_sample_image_files())
+            existing_image_paths = str(
+                existing.get("TuPian") or existing.get("tupian") or ""
+            ).strip()
+            image_path = ";".join(
+                [path for path in [existing_image_paths, *new_image_paths] if path]
+            )
+            _execute(
+                f"""
+                UPDATE {_SAMPLE_TABLE}
+                   SET YangBanBianHao = %s,
+                       YangBanMingCheng = %s,
+                       FenLei = %s,
+                       BiaoQian = %s,
+                       GongChang = %s,
+                       DanWei = %s,
+                       [tupian] = %s,
+                       FuZeRen = %s,
+                       KuWei = %s,
+                       ZhuangTai = %s,
+                       BeiZhu = %s,
+                       GengXinShiJian = GETDATE()
+                 WHERE Id = %s
+                """,
+                [
+                    payload["YangBanBianHao"],
+                    payload["YangBanMingCheng"],
+                    payload["FenLei"],
+                    payload["BiaoQian"],
+                    payload["GongChang"],
+                    payload["DanWei"],
+                    image_path,
+                    payload["FuZeRen"],
+                    payload["KuWei"],
+                    payload["ZhuangTai"],
+                    payload["BeiZhu"],
+                    sample_id,
+                ],
+            )
+            return jsonify({"success": True, "message": "样板已保存"})
+        except ValueError as exc:
+            return jsonify({"success": False, "message": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"success": False, "message": f"保存样板失败：{exc}"}), 500
+
+    try:
+        sample = _get_sample(sample_id)
+        if not sample:
+            return jsonify({"success": False, "message": "样板不存在"}), 404
+        flows = _select(
+            f"""
+            SELECT TOP 200 Id, YangBanId, BianDongLeiXing, BianDongShuLiang,
+                   CaoZuoRen, GuanLianDanHao, BeiZhu, ChuangJianShiJian
+            FROM {_FLOW_TABLE}
+            WHERE YangBanId = %s
+              AND ISNULL(BianDongLeiXing, N'') <> N'ChuKu'
+            ORDER BY ChuangJianShiJian DESC, Id DESC
+            """,
+            [sample_id],
+        )
+        for row in flows:
+            row["BianDongLeiXingText"] = _flow_type_label(row.get("BianDongLeiXing"))
+        return jsonify({"success": True, "data": {"sample": sample, "flows": flows}})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载样板详情失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/samples/<int:sample_id>/disable", methods=["POST"])
+@require_permission("procurement_dept")
+def api_disable_sample(sample_id):
+    try:
+        exists = _scalar(f"SELECT COUNT(1) FROM {_SAMPLE_TABLE} WHERE Id = %s", [sample_id])
+        if int(exists or 0) <= 0:
+            return jsonify({"success": False, "message": "样板不存在"}), 404
+        _execute(
+            f"""
+            UPDATE {_SAMPLE_TABLE}
+               SET ZhuangTai = N'TingYong',
+                   GengXinShiJian = GETDATE()
+             WHERE Id = %s
+            """,
+            [sample_id],
+        )
+        return jsonify({"success": True, "message": "样板已停用"})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"停用样板失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/operations", methods=["POST"])
+@require_permission("procurement_dept")
+def api_inventory_operation():
+    payload = request.get_json(silent=True) or {}
+    conn = None
+    try:
+        sample_id = int(payload.get("YangBanId") or 0)
+        flow_type = _clean_text(payload.get("BianDongLeiXing"), 20)
+        if flow_type not in _VALID_FLOW_TYPES:
+            raise ValueError("库存操作类型不正确")
+        quantity = _decimal(payload.get("BianDongShuLiang"), "变动数量")
+        if quantity == 0:
+            raise ValueError("变动数量不能为0")
+
+        if flow_type in {"RuKu", "GuiHuan"}:
+            delta = abs(quantity)
+        elif flow_type == "ChuKu":
+            delta = -abs(quantity)
+        else:
+            delta = quantity
+
+        operator = _clean_text(payload.get("CaoZuoRen") or session.get("feishu_user_name"), 80)
+        if not operator:
+            raise ValueError("请填写操作人")
+        related_no = _clean_text(payload.get("GuanLianDanHao"), 120)
+        remark = _clean_text(payload.get("BeiZhu"), 500)
+
+        conn = _db_connect()
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT Id, YangBanMingCheng, DangQianKuCun, ZhuangTai
+            FROM {_SAMPLE_TABLE} WITH (UPDLOCK, ROWLOCK)
+            WHERE Id = %s
+            """,
+            (sample_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError("样板不存在")
+        current_stock = Decimal(str(row[2] or 0))
+        status = str(row[3] or "")
+        if status != "ZhengChang":
+            raise ValueError("样板已停用，不能进行库存操作")
+        new_stock = current_stock + delta
+        if new_stock < 0:
+            if flow_type == "ChuKu":
+                raise ValueError("出库后库存不能小于0")
+            raise ValueError("库存不能小于0")
+
+        cursor.execute(
+            f"""
+            UPDATE {_SAMPLE_TABLE}
+               SET DangQianKuCun = %s,
+                   GengXinShiJian = GETDATE()
+             WHERE Id = %s
+            """,
+            (new_stock, sample_id),
+        )
+        cursor.execute(
+            f"""
+            INSERT INTO {_FLOW_TABLE}
+                (YangBanId, BianDongLeiXing, BianDongShuLiang,
+                 CaoZuoRen, GuanLianDanHao, BeiZhu, ChuangJianShiJian)
+            VALUES
+                (%s, %s, %s, %s, %s, %s, GETDATE())
+            """,
+            (sample_id, flow_type, delta, operator, related_no, remark),
+        )
+        conn.commit()
+        return jsonify(
+            {
+                "success": True,
+                "message": "库存操作已完成",
+                "data": {
+                    "old_stock": _json_value(current_stock),
+                    "delta": _json_value(delta),
+                    "new_stock": _json_value(new_stock),
+                },
+            }
+        )
+    except ValueError as exc:
+        if conn:
+            conn.rollback()
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        if conn:
+            conn.rollback()
+        return jsonify({"success": False, "message": f"库存操作失败：{exc}"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/flows")
+@require_permission("procurement_dept")
+def api_flows():
+    try:
+        select_sql, count_sql, params, page, page_size = _build_flow_query(request.args)
+        total = _scalar(count_sql, params)
+        rows = _select(select_sql, params)
+        for row in rows:
+            row["BianDongLeiXingText"] = _flow_type_label(row.get("BianDongLeiXing"))
+        return jsonify(
+            {
+                "success": True,
+                "data": {
+                    "items": rows,
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total,
+                    "total_pages": max((int(total or 0) + page_size - 1) // page_size, 1),
+                },
+            }
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载库存流水失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/flows/export")
+@require_permission("procurement_dept")
+def api_flows_export():
+    try:
+        select_sql, _, params, _, _ = _build_flow_query(request.args, export=True)
+        rows = _select(select_sql, params)
+        data = []
+        for row in rows:
+            data.append(
+                {
+                    "样板编号": row.get("YangBanBianHao"),
+                    "样板名称": row.get("YangBanMingCheng"),
+                    "分类": row.get("FenLei"),
+                    "工厂": row.get("GongChang"),
+                    "负责人": row.get("FuZeRen"),
+                    "单位": row.get("DanWei"),
+                    "操作类型": _flow_type_label(row.get("BianDongLeiXing")),
+                    "变动数量": row.get("BianDongShuLiang"),
+                    "操作人": row.get("CaoZuoRen"),
+                    "关联单号": row.get("GuanLianDanHao"),
+                    "备注": row.get("BeiZhu"),
+                    "操作时间": row.get("ChuangJianShiJian"),
+                }
+            )
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            pd.DataFrame(data).to_excel(writer, index=False, sheet_name="库存流水")
+        output.seek(0)
+        filename = f"样板库存流水_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"导出库存流水失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/tags", methods=["GET", "POST"])
+@require_permission("procurement_dept")
+def api_tags():
+    if request.method == "POST":
+        try:
+            payload = request.get_json(silent=True) or {}
+            name = _clean_text(payload.get("BiaoQianMingCheng"), 80)
+            if not name:
+                raise ValueError("请填写标签名称")
+            exists = _scalar(
+                f"SELECT COUNT(1) FROM {_TAG_TABLE} WHERE BiaoQianMingCheng = %s",
+                [name],
+            )
+            if int(exists or 0) > 0:
+                raise ValueError("标签名称不能重复")
+            status = _clean_text(payload.get("ZhuangTai") or "ZhengChang", 40)
+            if status not in _TAG_STATUSES:
+                raise ValueError("标签状态不正确")
+            _execute(
+                f"""
+                INSERT INTO {_TAG_TABLE}
+                    (BiaoQianMingCheng, YanSe, ZhuangTai, BeiZhu, ChuangJianShiJian, GengXinShiJian)
+                VALUES
+                    (%s, %s, %s, %s, GETDATE(), GETDATE())
+                """,
+                [
+                    name,
+                    _clean_color(payload.get("YanSe")),
+                    status,
+                    _clean_text(payload.get("BeiZhu"), 500),
+                ],
+            )
+            return jsonify({"success": True, "message": "标签已新增"})
+        except ValueError as exc:
+            return jsonify({"success": False, "message": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"success": False, "message": f"新增标签失败：{exc}"}), 500
+
+    try:
+        return jsonify({"success": True, "data": {"items": _tag_rows(True)}})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"加载标签失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/tags/<int:tag_id>", methods=["PUT"])
+@require_permission("procurement_dept")
+def api_update_tag(tag_id):
+    try:
+        payload = request.get_json(silent=True) or {}
+        name = _clean_text(payload.get("BiaoQianMingCheng"), 80)
+        if not name:
+            raise ValueError("请填写标签名称")
+        tag_exists = _scalar(f"SELECT COUNT(1) FROM {_TAG_TABLE} WHERE Id = %s", [tag_id])
+        if int(tag_exists or 0) <= 0:
+            return jsonify({"success": False, "message": "标签不存在"}), 404
+        exists = _scalar(
+            f"SELECT COUNT(1) FROM {_TAG_TABLE} WHERE BiaoQianMingCheng = %s AND Id <> %s",
+            [name, tag_id],
+        )
+        if int(exists or 0) > 0:
+            raise ValueError("标签名称不能重复")
+        status = _clean_text(payload.get("ZhuangTai") or "ZhengChang", 40)
+        if status not in _TAG_STATUSES:
+            raise ValueError("标签状态不正确")
+        _execute(
+            f"""
+            UPDATE {_TAG_TABLE}
+               SET BiaoQianMingCheng = %s,
+                   YanSe = %s,
+                   ZhuangTai = %s,
+                   BeiZhu = %s,
+                   GengXinShiJian = GETDATE()
+             WHERE Id = %s
+            """,
+            [
+                name,
+                _clean_color(payload.get("YanSe")),
+                status,
+                _clean_text(payload.get("BeiZhu"), 500),
+                tag_id,
+            ],
+        )
+        return jsonify({"success": True, "message": "标签已保存"})
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"保存标签失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.route("/api/procurement/yangban/tags/<int:tag_id>/disable", methods=["POST"])
+@require_permission("procurement_dept")
+def api_disable_tag(tag_id):
+    try:
+        exists = _scalar(f"SELECT COUNT(1) FROM {_TAG_TABLE} WHERE Id = %s", [tag_id])
+        if int(exists or 0) <= 0:
+            return jsonify({"success": False, "message": "标签不存在"}), 404
+        _execute(
+            f"""
+            UPDATE {_TAG_TABLE}
+               SET ZhuangTai = N'TingYong',
+                   GengXinShiJian = GETDATE()
+             WHERE Id = %s
+            """,
+            [tag_id],
+        )
+        return jsonify({"success": True, "message": "标签已停用"})
+    except Exception as exc:
+        return jsonify({"success": False, "message": f"停用标签失败：{exc}"}), 500
+
+
+@yangban_inventory_bp.app_template_filter("yangban_status_label")
+def yangban_status_label(value):
+    return _status_label(value)

@@ -20,7 +20,6 @@ services:
       - "${DOCKER_BIND_ADDRESS:-127.0.0.1}:${DOCKER_ASSETS_PORT:-18502}:8502"
     volumes:
       - "${DOCKER_STORAGE_PATH:-./docker-data/storage}:/data"
-      - knowledge-base:/app/knowledge_base
       - listing-data:/app/listing_agent/data
       - sales-data:/app/business_analysis/data
       - exports:/app/static/exports
@@ -74,9 +73,9 @@ services:
         condition: service_started
     volumes: &xiaoha-volumes
       - "${DOCKER_STORAGE_PATH:-./docker-data/storage}:/data"
-      - xiaoha-history:/app/图片/history
-      - xiaoha-outputs:/app/图片/outputs
-      - runtime-logs:/app/图片/logs
+      - xiaoha-history:/app/Department/视觉设计部/xiaoha/history
+      - xiaoha-outputs:/app/Department/视觉设计部/xiaoha/outputs
+      - runtime-logs:/app/Department/视觉设计部/xiaoha/logs
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/lashforge/_stcore/health',timeout=5)"]
       interval: 30s
@@ -173,7 +172,6 @@ services:
     restart: unless-stopped
     init: true
 volumes:
-  knowledge-base:
   listing-data:
   sales-data:
   exports:

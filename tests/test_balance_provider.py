@@ -5,9 +5,9 @@ import threading
 import unittest
 from unittest.mock import Mock
 
-from 图片.balance_provider import BalanceProvider
-from 图片.omnia_cost_ledger import CostLedger
-from 图片.omnia_key_pool import OmniaKeyPool, credential_fingerprint
+from Department.视觉设计部.xiaoha.balance_provider import BalanceProvider
+from Department.视觉设计部.xiaoha.omnia_cost_ledger import CostLedger
+from Department.视觉设计部.xiaoha.omnia_key_pool import OmniaKeyPool, credential_fingerprint
 
 
 KEYS = ("test-credential-one", "test-credential-two", "test-credential-three",

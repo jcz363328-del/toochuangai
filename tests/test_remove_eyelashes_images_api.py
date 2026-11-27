@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class RemoveEyelashesImagesApiTests(unittest.TestCase):
@@ -92,19 +92,16 @@ class RemoveEyelashesImagesApiTests(unittest.TestCase):
         self.assertTrue(result["images"][0].startswith("data:image/png;base64,"))
 
     def test_images_api_failure_keeps_http_status_and_error_code(self) -> None:
-        failed_one = Mock(status_code=503)
+        failed_one = Mock(status_code=422)
         failed_one.json.return_value = {
             "error": {"message": "Provider unavailable", "code": "provider_error"}
         }
-        failed_two = Mock(status_code=503)
-        failed_two.json.return_value = failed_one.json.return_value
-
         with (
             patch.object(site, "load_omnia_api_key", return_value="test-key"),
-            patch.object(site.requests, "post", side_effect=[failed_one, failed_two]),
+            patch.object(site.requests, "post", return_value=failed_one),
             patch.object(site.time, "sleep"),
         ):
-            with self.assertRaisesRegex(RuntimeError, r"HTTP 503.*provider_error"):
+            with self.assertRaisesRegex(RuntimeError, r"HTTP 422.*provider_error"):
                 site.call_openrouter_images_api(
                     model="bytedance-seed/seedream-4.5",
                     prompt="remove eyelashes",

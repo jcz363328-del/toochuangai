@@ -4,7 +4,7 @@ from unittest.mock import patch
 import app as site
 import daily_replenishment_operation as operation
 from department_permissions import PERMISSION_CONFIG
-from permission_seed_data import build_permission_seed_rows
+from core.permissions.permission_seed_data import build_permission_seed_rows
 
 
 class ReplenishmentVbenTests(unittest.TestCase):

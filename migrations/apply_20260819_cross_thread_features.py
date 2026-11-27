@@ -57,7 +57,7 @@ def apply():
     permission_manager._ensure_permission_override_storage()
 
     # innovation_blueprint 会先配置 innovation 模块的兼容导入路径。
-    import innovation_blueprint  # noqa: F401
+    from innovation import innovation_blueprint  # noqa: F401
     from innovation import web_app as innovation_web_app
 
     innovation_web_app._ensure_chuangxinxing_proposal_storage()

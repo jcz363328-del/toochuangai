@@ -8,9 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 class TkDashboardPerformanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.backend = (ROOT / "tk_total_dashboard.py").read_text(encoding="utf-8")
+        cls.backend = (ROOT / "Department" / "内容生产工厂" / "tk_total_dashboard.py").read_text(encoding="utf-8")
         cls.template = (
-            ROOT / "templates" / "tk_total_dashboard.html"
+            ROOT / "templates" / "内容生产工厂/tk_total_dashboard.html"
         ).read_text(encoding="utf-8")
 
     def test_metric_computation_no_longer_calls_monolithic_procedure(self):

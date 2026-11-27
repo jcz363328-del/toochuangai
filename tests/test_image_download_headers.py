@@ -1,9 +1,11 @@
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from urllib.parse import quote, unquote
 
-from 图片.image_downloads import build_image_attachment_header, resolve_local_static_image_source
+from Department.视觉设计部.xiaoha.image_downloads import build_image_attachment_header, resolve_local_static_image_source
 
 
 class ImageDownloadHeaderTests(unittest.TestCase):
@@ -131,14 +133,24 @@ class LocalStaticImageSourceTests(unittest.TestCase):
         self.assertIsNone(self.resolve("/history_images/directory.png"))
 
     def test_symlink_cannot_escape_storage_root(self):
-        outside = self.root / "outside.png"
-        outside.write_bytes(b"outside")
-        link = self.history / "linked.png"
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "image.png").write_bytes(b"outside")
+        link = self.history / "linked"
         try:
-            link.symlink_to(outside)
+            link.symlink_to(outside, target_is_directory=True)
         except (OSError, NotImplementedError):
-            self.skipTest("Creating symlinks is unavailable on this host")
-        self.assertIsNone(self.resolve("/history_images/linked.png"))
+            if os.name != "nt":
+                self.skipTest("Creating symlinks is unavailable on this host")
+            # Directory junctions exercise the same containment check without
+            # requiring Windows Developer Mode or symlink privileges.
+            subprocess.run(
+                ["cmd.exe", "/d", "/c", "mklink", "/J", str(link), str(outside)],
+                check=True,
+                capture_output=True,
+            )
+        self.assertEqual((link / "image.png").read_bytes(), b"outside")
+        self.assertIsNone(self.resolve("/history_images/linked/image.png"))
 
 
 if __name__ == "__main__":

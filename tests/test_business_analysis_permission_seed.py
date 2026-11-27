@@ -1,6 +1,6 @@
 import unittest
 
-from permission_seed_data import EXTRA_PERMISSION_ROWS
+from core.permissions.permission_seed_data import EXTRA_PERMISSION_ROWS
 
 
 class BusinessAnalysisPermissionSeedTests(unittest.TestCase):
@@ -45,14 +45,16 @@ class BusinessAnalysisPermissionSeedTests(unittest.TestCase):
             self.assertIn("杨悦", users, function_name)
             self.assertNotIn("任真民", users, function_name)
 
-    def test_cai_jing_mirrors_every_seeded_zhou_juncheng_permission(self):
+    def test_cai_jing_mirrors_shared_administration_permissions(self):
         for row in EXTRA_PERMISSION_ROWS:
             users = {
                 item.strip()
                 for item in str(row.get("yonghu") or "").split("；")
                 if item.strip()
             }
-            if "周俊成" in users:
+            if row["gongneng"] == "historical_sales":
+                self.assertEqual(users, {"周俊成"})
+            elif "周俊成" in users:
                 self.assertIn("蔡晶", users, row["gongneng"])
 
 

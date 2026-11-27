@@ -10,8 +10,13 @@ import unittest
 from unittest.mock import Mock, patch
 
 from PIL import Image
-from 图片 import openrouter_image_site as site
-from 图片.request_limits import RequestLimiter
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
+from Department.视觉设计部.xiaoha.request_limits import RequestLimiter
+
+
+# Retain the production entry point before the offline runner installs its
+# fallback stub. This test supplies the provider responses itself.
+call_openrouter = site.call_openrouter
 
 
 class ProviderLimitTests(unittest.TestCase):
@@ -21,7 +26,7 @@ class ProviderLimitTests(unittest.TestCase):
         self.limiter = RequestLimiter(Path(folder) / 'limits.sqlite3', poll_interval=.01,
                                       queue_timeout=10, uncertain_cooldown=0,
                                       group_limits={"omnia_image": 1}, provider_limit=2)
-        self.stack.enter_context(patch('图片.request_limits.get_request_limiter', return_value=self.limiter))
+        self.stack.enter_context(patch('Department.视觉设计部.xiaoha.request_limits.get_request_limiter', return_value=self.limiter))
         self.stack.enter_context(patch.object(site, 'get_request_limiter', return_value=self.limiter))
         self.stack.enter_context(patch.object(site, 'load_omnia_api_key', return_value='test'))
         self.stack.enter_context(patch.object(site, 'load_ark_api_key', return_value='test'))
@@ -66,8 +71,8 @@ class ProviderLimitTests(unittest.TestCase):
                 ThreadPoolExecutor(max_workers=16) as executor:
             futures = []
             for _ in range(8):
-                futures.append(executor.submit(site.call_omnia_image_api, site.NANO_BANANA_MODEL, 'draw'))
-                futures.append(executor.submit(site.call_omnia_chat_api, site.OMNIAKEY_VISION_TEXT_MODEL, 'analyze', []))
+                futures.append(executor.submit(call_openrouter, site.NANO_BANANA_MODEL, 'draw', [], 'image'))
+                futures.append(executor.submit(call_openrouter, site.OMNIAKEY_VISION_TEXT_MODEL, 'analyze', [], 'text'))
             for future in futures:
                 future.result(timeout=10)
         self.assertEqual(len(calls), 16)

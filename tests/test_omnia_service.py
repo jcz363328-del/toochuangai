@@ -8,8 +8,8 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-from 图片 import omnia_service as service
-from 图片.omnia_key_pool import OmniaKeyPool, credential_fingerprint, current_omnia_credential
+from Department.视觉设计部.xiaoha import omnia_service as service
+from Department.视觉设计部.xiaoha.omnia_key_pool import OmniaKeyPool, credential_fingerprint, current_omnia_credential
 
 
 KEYS = tuple("test-service-credential-" + str(index) for index in range(5))

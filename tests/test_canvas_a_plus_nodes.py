@@ -4,8 +4,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from 图片 import canvas_a_plus as node_api
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import canvas_a_plus as node_api
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class CanvasAPlusNodeTests(unittest.TestCase):

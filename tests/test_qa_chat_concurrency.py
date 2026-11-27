@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from 图片.qa_chat import ChatStore, refresh_turn_status, submit_turn
+from Department.视觉设计部.xiaoha.qa_chat import ChatStore, refresh_turn_status, submit_turn
 
 
 class ChatConcurrencyTests(unittest.TestCase):

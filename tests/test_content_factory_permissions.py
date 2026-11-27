@@ -213,7 +213,7 @@ class ContentFactoryPermissionTests(unittest.TestCase):
                 lambda endpoint, **values: "/tk_project" if endpoint == "tk_project" else f"/{endpoint}"
             )
             environment.globals["get_flashed_messages"] = lambda **kwargs: []
-            dashboard_html = environment.get_template("dashboard.html").render(
+            dashboard_html = environment.get_template("主站/dashboard.html").render(
                 user_id="ou_ai_operator",
                 user_name="AI调试账号",
                 accessible_functions=functions,
@@ -231,7 +231,7 @@ class ContentFactoryPermissionTests(unittest.TestCase):
         template_dir = Path(__file__).resolve().parents[1] / "templates"
         environment = Environment(loader=FileSystemLoader(template_dir))
         environment.globals["url_for"] = lambda endpoint, **values: f"/{endpoint}"
-        template = environment.get_template("tk_project.html")
+        template = environment.get_template("内容生产工厂/tk_project.html")
 
         html = template.render(accessible_functions=[])
 

@@ -4,9 +4,9 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from PIL import Image
-from 图片 import canvas_reference as reference
-from 图片 import openrouter_image_site as site
-from 图片.multi_reference_composer import COMPONENTS
+from Department.视觉设计部.xiaoha import canvas_reference as reference
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
+from Department.视觉设计部.xiaoha.multi_reference_composer import COMPONENTS
 
 
 class CanvasReferenceTests(unittest.TestCase):
@@ -49,13 +49,13 @@ class CanvasReferenceTests(unittest.TestCase):
         self.assertEqual(history.call_args.args[0]['feature']['key'], site.MULTI_REFERENCE_COMPOSER_FEATURE_KEY)
 
     def test_reference_entry_opens_a_plus_canvas(self):
-        with patch('图片.a_plus_canvas.render') as render:
+        with patch('Department.视觉设计部.xiaoha.a_plus_canvas.render') as render:
             site.render_openrouter_feature(site.get_feature_by_key(site.MULTI_REFERENCE_COMPOSER_FEATURE_KEY), site.NANO_BANANA_MODEL, '4:3')
         self.assertEqual(render.call_args.args[1]['key'], 'a_plus_canvas')
         self.assertNotIn(site.MULTI_REFERENCE_COMPOSER_FEATURE_KEY, dict(site.SIDE_MENU_FEATURE_GROUPS)['A+'])
 
     def test_history_stays_available_from_canvas(self):
-        from 图片.a_plus_canvas import render
+        from Department.视觉设计部.xiaoha.a_plus_canvas import render
         api = SimpleNamespace(st=Mock(), get_feature_by_key=site.get_feature_by_key,
                               MULTI_REFERENCE_COMPOSER_FEATURE_KEY=site.MULTI_REFERENCE_COMPOSER_FEATURE_KEY,
                               render_fusion_history_dialog=Mock(), render_replacement_infinite_canvas_feature=Mock())

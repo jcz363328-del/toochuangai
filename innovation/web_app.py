@@ -4,8 +4,8 @@ from werkzeug.utils import secure_filename  # 用于安全处理上传文件名
 from bjc import sf_db, dui_db  # 导入数据库相关操作
 from datetime import datetime  # 处理日期和时间
 import pandas as pd  # 处理数据库中导出的相关数据
-from message_service import MessageService  # 导入统一消息发送服务
-from config import *  # 从配置文件中导入所有应用
+from innovation.message_service import MessageService  # 导入统一消息发送服务
+from innovation.config import APP_CONFIG, DEPARTMENTS
 from department_permissions import permission_manager
 from tools import escape_sql_literal as _escape_sql_literal_for_pytds
 from tools import is_mobile_user_agent, safe_print as _safe_print
@@ -756,7 +756,7 @@ def submit():
 @app.route('/dashboard')  # 定义路由，积分详情展示页面，已经停用，后续可能会加
 def dashboard():
     """仪表板页面"""
-    return render_template('dashboard.html')
+    return render_template('主站/dashboard.html')
 
 
 @app.route('/api/ai/version_update_notice', methods=['POST'])

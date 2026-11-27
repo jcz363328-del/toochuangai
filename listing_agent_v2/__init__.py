@@ -1,3 +1,7 @@
-from .blueprint import listing_agent_v2_bp
+"""Compatibility for the original listing_agent_v2 package import."""
 
-__all__ = ["listing_agent_v2_bp"]
+import sys
+
+from Department.流程与AI部.listing_agent_v2 import blueprint, listing_agent_v2_bp
+
+sys.modules[f"{__name__}.blueprint"] = blueprint

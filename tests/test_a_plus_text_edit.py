@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 def image_data_url(width: int = 120, height: int = 240) -> str:
@@ -106,8 +106,8 @@ class APlusTextEditTests(unittest.TestCase):
         mocked_finalize.assert_called_once()
 
     def test_current_result_and_history_expose_text_editor(self) -> None:
-        editor_source = inspect.getsource(site.render_main_image_a_plus_text_editor)
-        page_source = inspect.getsource(site.render_openrouter_feature)
+        editor_source = inspect.getsource(site._main_image_a_plus_editor.render_main_image_a_plus_text_editor)
+        page_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
         history_source = inspect.getsource(site.render_history_gallery)
 
         self.assertIn("编辑文字内容与字体", editor_source)

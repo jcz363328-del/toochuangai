@@ -13,7 +13,7 @@ except ImportError:
 @unittest.skipIf(sync_playwright is None, 'Playwright browser runtime required')
 class PriorityDragBrowserTests(unittest.TestCase):
     def test_real_pointer_drag_and_refreshed_indices(self):
-        script = Path(os.environ.get('UPLOAD_SORT_JS', str(Path(__file__).resolve().parents[1] / '图片' / 'upload_priority_sort.js'))).read_text(encoding='utf-8').replace('__UPLOAD_REORDER_QUERY_KEY__', 'reorder_upload')
+        script = Path(os.environ.get('UPLOAD_SORT_JS', str(Path(__file__).resolve().parents[1] / 'Department/视觉设计部/xiaoha' / 'upload_priority_sort.js'))).read_text(encoding='utf-8').replace('__UPLOAD_REORDER_QUERY_KEY__', 'reorder_upload')
         html = '''<style>.card{position:relative;display:inline-block;width:180px;height:200px;margin:10px;background:pink}.upload-sort-grip{position:absolute;top:5px;left:5px;padding:10px;cursor:grab}.upload-sort-drop-zone{position:fixed}</style>'''
         for i in range(3):
             html += f'<div class="card" data-testid="stVerticalBlock"><div class="upload-preview-root" data-upload-sortable="true" data-upload-widget="test" data-upload-index="{i}"></div><p>image {i}</p></div>'

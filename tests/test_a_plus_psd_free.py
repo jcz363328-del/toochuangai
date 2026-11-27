@@ -6,7 +6,7 @@ import unittest
 
 from PIL import Image, ImageDraw
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class FreeAPlusPsdTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class FreeAPlusPsdTests(unittest.TestCase):
             self.assertEqual(composite.convert("RGBA").getpixel((230, 310))[3], 255)
 
     def test_page_uses_presets_ten_references_and_psd_download(self) -> None:
-        render_source = inspect.getsource(site.render_openrouter_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
 
         self.assertIn("选择自由创作 PSD 规格", render_source)
         self.assertIn("max_files=MAIN_IMAGE_A_PLUS_MAX_FILES", render_source)

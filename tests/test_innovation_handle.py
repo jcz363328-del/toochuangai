@@ -1,6 +1,6 @@
 import importlib
 
-import innovation_blueprint  # noqa: F401 - prepares the innovation module path
+from innovation import innovation_blueprint  # noqa: F401 - prepares the innovation module path
 
 
 web_app = importlib.import_module('innovation.web_app')

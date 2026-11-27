@@ -9,15 +9,15 @@ from openpyxl import load_workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_SOURCE = (ROOT / "app.py").read_text(encoding="utf-8")
-TEMPLATE_SOURCE = (ROOT / "templates" / "hr_innovation_data.html").read_text(encoding="utf-8")
+APP_SOURCE = (ROOT / "Department" / "人力资源与行政部" / "routes.py").read_text(encoding="utf-8")
+TEMPLATE_SOURCE = (ROOT / "templates" / "人力资源与行政部/hr_innovation_data.html").read_text(encoding="utf-8")
 
 
 def _load_helper(name: str, initial_namespace: dict[str, object] | None = None):
     module = ast.parse(APP_SOURCE)
     helper = next(
         node
-        for node in module.body
+        for node in ast.walk(module)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name
     )
     namespace: dict[str, object] = dict(initial_namespace or {})

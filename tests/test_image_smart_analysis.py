@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class ImageSmartAnalysisTests(unittest.TestCase):
@@ -161,9 +161,9 @@ class ImageSmartAnalysisTests(unittest.TestCase):
         self.assertIn("真实色卡数据，不是模型估算", call_kwargs["prompt"])
 
     def test_page_has_dedicated_visual_board_and_png_download_ui(self) -> None:
-        page_source = inspect.getsource(site.render_openrouter_feature)
-        report_source = inspect.getsource(site.render_image_smart_analysis_report)
-        style_source = inspect.getsource(site.inject_app_styles)
+        page_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
+        report_source = inspect.getsource(site._image_smart_analysis.render_image_smart_analysis_report)
+        style_source = inspect.getsource(site._workbench_assets.inject_app_styles)
 
         self.assertIn("待分析主图（1 张）", page_source)
         self.assertIn("开始智能分析", page_source)
@@ -179,10 +179,10 @@ class ImageSmartAnalysisTests(unittest.TestCase):
         self.assertIn("色卡与 HEX 色号由系统直接读取原图像素生成", report_source)
         self.assertIn("image-smart-analysis-report-marker", report_source)
         self.assertIn("image-smart-analysis-report-marker", style_source)
-        self.assertIn(
-            'if feature.get("output_mode") == "image":\n        render_history_records(feature)',
-            page_source,
-        )
+        self.assertIn("render_image_workbench_header(feature)", page_source)
+        workbench_source = inspect.getsource(site._result_views.render_image_workbench_header)
+        self.assertIn('key=f"workbench_history_{feature[\'key\']}"', workbench_source)
+        self.assertIn("render_fusion_history_dialog(feature)", workbench_source)
 
     def test_analysis_model_has_clear_display_name(self) -> None:
         self.assertEqual(

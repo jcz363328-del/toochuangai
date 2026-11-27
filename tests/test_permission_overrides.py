@@ -59,8 +59,8 @@ class PermissionOverrideTests(unittest.TestCase):
 
     def test_management_template_contains_overview_and_reset_controls(self):
         root = Path(__file__).resolve().parents[1]
-        template = (root / "templates" / "permission_management.html").read_text(encoding="utf-8")
-        ai_page = (root / "templates" / "ai_modules.html").read_text(encoding="utf-8")
+        template = (root / "templates" / "主站/permission_management.html").read_text(encoding="utf-8")
+        ai_page = (root / "templates" / "流程与AI部/ai_modules.html").read_text(encoding="utf-8")
 
         self.assertIn("权限概览", template)
         self.assertIn("/api/admin/permission_overview", template)

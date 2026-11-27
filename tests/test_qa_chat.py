@@ -8,8 +8,8 @@ from unittest.mock import patch, Mock
 
 from streamlit.testing.v1 import AppTest
 from PIL import Image
-from 图片 import openrouter_image_site as site
-from 图片.qa_chat import ChatStore, build_context, submit_turn, run_chat_job
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
+from Department.视觉设计部.xiaoha.qa_chat import ChatStore, build_context, submit_turn, run_chat_job
 
 
 class ChatTests(unittest.TestCase):
@@ -23,7 +23,7 @@ class ChatTests(unittest.TestCase):
         namespace = dict(site.__dict__, __name__='__main__')
         render = types.FunctionType(site.render_openrouter_feature.__code__, namespace)
         with patch.dict(sys.modules, {'__main__': types.ModuleType('main')}), patch(
-                '图片.qa_chat.render') as render_chat:
+                'Department.视觉设计部.xiaoha.qa_chat.render') as render_chat:
             render(site.get_feature_by_key('ai_qa_image'), site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)
         runtime = render_chat.call_args.args[0]
         self.assertIs(runtime.load_image_bytes_from_url, site.load_image_bytes_from_url)
@@ -41,7 +41,7 @@ class ChatTests(unittest.TestCase):
         namespace = dict(site.__dict__, __name__='__main__')
         worker = types.FunctionType(site.run_queued_feature_job.__code__, namespace)
         with patch.dict(sys.modules, {'__main__': types.ModuleType('main')}), patch(
-                '图片.qa_chat.run_chat_job', return_value={'images': ['result']}) as run:
+                'Department.视觉设计部.xiaoha.qa_chat.run_chat_job', return_value={'images': ['result']}) as run:
             self.assertEqual(worker({'qa_turn_id': 'turn'}), {'images': ['result']})
         runtime = run.call_args.args[0]
         self.assertIs(runtime.load_image_bytes_from_url, site.load_image_bytes_from_url)
@@ -93,7 +93,7 @@ class ChatTests(unittest.TestCase):
         with patch.object(site, "HISTORY_DIR", Path(self.tmp.name)), patch.object(
                 site, "submit_feature_job", return_value={"job_id": "test-job"}) as submit:
             app = AppTest.from_string('''
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 site.ensure_state()
 site.st.session_state.auth_username = "alice"
 site.render_openrouter_feature(site.get_feature_by_key("ai_qa_image"), site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)
@@ -115,7 +115,7 @@ site.render_openrouter_feature(site.get_feature_by_key("ai_qa_image"), site.DEFA
         with patch.object(site, "HISTORY_DIR", Path(self.tmp.name)), patch.object(
                 site, "submit_feature_job", return_value={"job_id": "test-job"}) as submit:
             app = AppTest.from_string('''
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 site.ensure_state()
 site.st.session_state.auth_username = "alice"
 site.render_openrouter_feature(site.get_feature_by_key("ai_qa_image"), site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)
@@ -144,7 +144,7 @@ site.render_openrouter_feature(site.get_feature_by_key("ai_qa_image"), site.DEFA
         with patch.object(site, "HISTORY_DIR", Path(self.tmp.name)), patch.object(
                 site, "submit_feature_job", return_value={"job_id": "test-job"}) as submit:
             app = AppTest.from_string('''
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 site.ensure_state()
 site.st.session_state.auth_username = "alice"
 site.render_openrouter_feature(site.get_feature_by_key("ai_qa_image"), site.DEFAULT_MODEL, site.DEFAULT_ASPECT_RATIO)

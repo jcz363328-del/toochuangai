@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytds
 
 from department_permissions import PERMISSION_CONFIG
-from permission_seed_data import build_permission_seed_rows
+from core.permissions.permission_seed_data import build_permission_seed_rows
 from secret_settings import sql_server_config
 
 

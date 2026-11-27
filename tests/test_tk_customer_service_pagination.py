@@ -1,76 +1,50 @@
 from __future__ import annotations
 
-import ast
 import unittest
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 
 from flask import Flask, jsonify, request
 
+from Department.内容生产工厂 import tk_customer_service_routes as routes
+
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_PATH = ROOT / "app.py"
-TEMPLATE_PATH = ROOT / "templates" / "tk_customer_service.html"
+TEMPLATE_PATH = ROOT / "templates" / "内容生产工厂/tk_customer_service.html"
 
 
 def _load_query_helpers(fake_sf_db):
-    source = APP_PATH.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    helper_names = {
-        "_tk_customer_service_join_key",
-        "_tk_customer_service_fill_complete_tracking_numbers",
-        "_tk_customer_service_filter_sql",
-        "_tk_customer_service_query_total",
-        "_tk_customer_service_query_shops",
-        "_tk_customer_service_query_rows",
+    filter_sql = routes._tk_customer_service_filter_sql
+    fill_tracking = partial(
+        routes._tk_customer_service_fill_complete_tracking_numbers,
+        query_fn=fake_sf_db,
+        _tk_customer_service_join_key=routes._tk_customer_service_join_key,
+    )
+    return {
+        "_tk_customer_service_fill_complete_tracking_numbers": fill_tracking,
+        "_tk_customer_service_filter_sql": filter_sql,
+        "_tk_customer_service_query_rows": partial(
+            routes._tk_customer_service_query_rows,
+            _tk_customer_service_fill_complete_tracking_numbers=fill_tracking,
+            _tk_customer_service_filter_sql=filter_sql,
+            datetime=datetime,
+            sf_db=fake_sf_db,
+        ),
+        "_tk_customer_service_query_shops": partial(
+            routes._tk_customer_service_query_shops,
+            _tk_customer_service_filter_sql=filter_sql,
+            sf_db=fake_sf_db,
+        ),
     }
-    selected_nodes = []
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            if any(
-                isinstance(target, ast.Name)
-                and target.id == "_TK_CUSTOMER_SERVICE_PAGE_SIZE"
-                for target in node.targets
-            ):
-                selected_nodes.append(node)
-        elif isinstance(node, ast.FunctionDef) and node.name in helper_names:
-            selected_nodes.append(node)
-    module = ast.Module(body=selected_nodes, type_ignores=[])
-    ast.fix_missing_locations(module)
-    namespace = {"sf_db": fake_sf_db, "datetime": datetime}
-    exec(compile(module, str(APP_PATH), "exec"), namespace)
-    return namespace
 
 
 def _load_list_endpoint(namespace):
-    source = APP_PATH.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    endpoint_node = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "api_tk_customer_service_list"
-    )
-    endpoint_node.decorator_list = []
-    module = ast.Module(body=[endpoint_node], type_ignores=[])
-    ast.fix_missing_locations(module)
-    exec(compile(module, str(APP_PATH), "exec"), namespace)
-    return namespace["api_tk_customer_service_list"]
+    return partial(routes.api_tk_customer_service_list, **namespace)
 
 
 def _load_export_row_builder(namespace):
-    source = APP_PATH.read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    helper_node = next(
-        node
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "_tk_customer_service_build_export_rows"
-    )
-    module = ast.Module(body=[helper_node], type_ignores=[])
-    ast.fix_missing_locations(module)
-    exec(compile(module, str(APP_PATH), "exec"), namespace)
-    return namespace["_tk_customer_service_build_export_rows"]
+    return partial(routes._tk_customer_service_build_export_rows, **namespace)
 
 
 class TkCustomerServicePaginationTests(unittest.TestCase):

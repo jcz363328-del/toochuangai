@@ -6,7 +6,7 @@ from streamlit.testing.v1 import AppTest
 SCRIPT = '''
 from types import SimpleNamespace
 import streamlit as st
-from 图片.balance_view import render_balance_management
+from Department.视觉设计部.xiaoha.balance_view import render_balance_management
 
 def load_snapshot(force=False):
     st.session_state.setdefault("load_calls", []).append(force)

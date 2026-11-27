@@ -6,12 +6,11 @@ import sys
 if __name__ == "__main__":
     root = Path("/source")
     required = [
-        "knowledge_base",
         "listing_agent/data",
         "business_analysis/data",
         "static/exports",
-        "VideoClaw/video-claw/video-claw/backend/code/data",
-        "VideoClaw/video-claw/video-claw/backend/code/result",
+        "Department/流程与AI部/VideoClaw/video-claw/video-claw/backend/code/data",
+        "Department/流程与AI部/VideoClaw/video-claw/video-claw/backend/code/result",
         "ads_monitor_web/ads-monitor-web-full-source/data",
         "docker-data/production-videoclaw/config.yaml",
         "docker-data/production-ads/ads_monitor_config.json",

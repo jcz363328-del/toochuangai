@@ -10,9 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class DockerRuntimeTests(unittest.TestCase):
     def test_consolidated_and_legacy_paths_use_configured_root(self):
-        namespace = {"__file__": str(ROOT / "secret_settings.py")}
+        namespace = {"__file__": str(ROOT / "core" / "config" / "secret_settings.py")}
         with patch.dict(os.environ, {"TUCHUANGAI_STORAGE_ROOT": "/container-data"}):
-            exec(compile((ROOT / "secret_settings.py").read_text(encoding="utf-8"), "secret_settings.py", "exec"), namespace)
+            exec(compile((ROOT / "core" / "config" / "secret_settings.py").read_text(encoding="utf-8"), "secret_settings.py", "exec"), namespace)
         relocate = namespace["relocate_storage_path"]
         expected = str(Path("/container-data") / "模特视频" / "sample.mp4")
         self.assertEqual(relocate(r"D:\tuchuangai\模特视频\sample.mp4"), expected)
@@ -72,25 +72,22 @@ class DockerRuntimeTests(unittest.TestCase):
 
     def test_video_backend_proxy_streams_and_denies_non_ai_members(self):
         from flask import Flask, jsonify, request, stream_with_context
+        from Department.流程与AI部.proxy_routes import video_claw_backend
 
-        tree = ast.parse((ROOT / "app.py").read_text(encoding="utf-8"))
-        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "video_claw_backend")
-        function.decorator_list = []
         app = Flask(__name__)
         upstream = Mock(status_code=200, headers={"Content-Type": "text/event-stream"})
         upstream.iter_content.return_value = iter([b"data: first\n\n", b"data: second\n\n"])
         requests = Mock()
         requests.request.return_value = upstream
         namespace = {"app": app, "request": request, "jsonify": jsonify, "stream_with_context": stream_with_context, "requests": requests, "_VIDEOCLAW_BACKEND_URL": "http://127.0.0.1:18000", "_can_access_ai_workspace": Mock(return_value=True)}
-        exec(compile(ast.Module(body=[function], type_ignores=[]), "app.py", "exec"), namespace)
         with app.test_request_context("/ai/video-claw/backend/api/health"):
-            response = namespace["video_claw_backend"]("api/health")
+            response = video_claw_backend("api/health", **namespace)
             self.assertEqual("no", response.headers["X-Accel-Buffering"])
             self.assertEqual(b"data: first\n\ndata: second\n\n", response.get_data())
             self.assertTrue(requests.request.call_args.kwargs["stream"])
             namespace["_can_access_ai_workspace"].return_value = False
             requests.request.reset_mock()
-            denied = namespace["video_claw_backend"]("api/health")
+            denied = video_claw_backend("api/health", **namespace)
             self.assertEqual(403, denied[1])
             requests.request.assert_not_called()
 
@@ -117,15 +114,19 @@ class DockerRuntimeTests(unittest.TestCase):
 
     def test_single_port_xiaoha_urls_keep_gateway_port(self):
         import urllib.parse
+        from Department.视觉设计部.xiaoha.history_paths import (
+            build_history_static_base_url,
+            build_jimeng_static_base_url,
+        )
 
-        tree = ast.parse((ROOT / "图片/openrouter_image_site.py").read_text(encoding="utf-8"))
-        names = {"build_jimeng_static_base_url", "build_history_static_base_url"}
-        functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
-        namespace = {"os": os, "urllib": urllib, "DEFAULT_PUBLIC_APP_URL": "http://localhost:8000/lashforge", "JIMENG_UPLOAD_ROUTE_PREFIX": "/jimeng_uploads", "HISTORY_STATIC_ROUTE_PREFIX": "/history_images"}
-        exec(compile(ast.Module(body=functions, type_ignores=[]), "xiaoha", "exec"), namespace)
+        dependencies = {"os": os, "urllib": urllib, "DEFAULT_PUBLIC_APP_URL": "http://localhost:8000/lashforge"}
         with patch.dict(os.environ, {"TC_SINGLE_PORT": "1", "JIMENG_PUBLIC_PORT": ""}):
-            upload = namespace["build_jimeng_static_base_url"]("http://example.com:8000/lashforge", 8502)
-            history = namespace["build_history_static_base_url"]("http://example.com:8000/lashforge", 8502)
+            upload = build_jimeng_static_base_url(
+                "http://example.com:8000/lashforge", 8502, JIMENG_UPLOAD_ROUTE_PREFIX="/jimeng_uploads", **dependencies,
+            )
+            history = build_history_static_base_url(
+                "http://example.com:8000/lashforge", 8502, HISTORY_STATIC_ROUTE_PREFIX="/history_images", **dependencies,
+            )
         self.assertEqual("http://example.com:8000/jimeng_uploads", upload)
         self.assertEqual("http://example.com:8000/history_images", history)
 

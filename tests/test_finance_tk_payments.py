@@ -6,8 +6,8 @@ from unittest.mock import Mock
 from flask import Flask
 from PIL import Image
 
-from finance_tk_payments import payment_query, register_tk_payments
-from finance_tk_expenses import EXPENSE_QUERY
+from Department.财务部.tk_payments import payment_query, register_tk_payments
+from Department.财务部.tk_expenses import EXPENSE_QUERY
 
 
 class PaymentTests(unittest.TestCase):

@@ -1,0 +1,804 @@
+[
+  {
+    "source": "Department/内容生产工厂/influencer_management.py",
+    "routes": [
+      {
+        "endpoint": "influencer_management",
+        "path": "/influencer_management"
+      },
+      {
+        "endpoint": "get_influencer_data",
+        "path": "/get_influencer_data"
+      },
+      {
+        "endpoint": "save_custom_tag",
+        "path": "/api/save_custom_tag"
+      },
+      {
+        "endpoint": "get_custom_tags",
+        "path": "/api/get_custom_tags"
+      },
+      {
+        "endpoint": "manage_influencer",
+        "path": "/add_influencer"
+      },
+      {
+        "endpoint": "filter_influencer_data",
+        "path": "/filter_influencer_data"
+      },
+      {
+        "endpoint": "delete_influencer",
+        "path": "/delete_influencer"
+      },
+      {
+        "endpoint": "update_influencer",
+        "path": "/api/update_influencer"
+      },
+      {
+        "endpoint": "get_payment_options",
+        "path": "/get_payment_options"
+      },
+      {
+        "endpoint": "get_filter_options",
+        "path": "/get_filter_options"
+      },
+      {
+        "endpoint": "get_influencer_detail",
+        "path": "/get_influencer_detail/<bianhao>"
+      },
+      {
+        "endpoint": "tk_email_register",
+        "path": "/tk_email_register"
+      },
+      {
+        "endpoint": "tk_email_register_js",
+        "path": "/tk_email_register_js"
+      },
+      {
+        "endpoint": "get_email_data",
+        "path": "/get_email_data"
+      },
+      {
+        "endpoint": "get_email_data",
+        "path": "/tk_email_register_js/get_email_data"
+      },
+      {
+        "endpoint": "get_emails_by_date",
+        "path": "/get_emails_by_date"
+      },
+      {
+        "endpoint": "get_emails_by_date",
+        "path": "/tk_email_register_js/get_emails_by_date"
+      },
+      {
+        "endpoint": "add_email_register",
+        "path": "/add_email_register"
+      },
+      {
+        "endpoint": "add_email_register",
+        "path": "/tk_email_register_js/add_email_register"
+      },
+      {
+        "endpoint": "update_email_send_time",
+        "path": "/update_email_send_time"
+      },
+      {
+        "endpoint": "update_email_send_time",
+        "path": "/tk_email_register_js/update_email_send_time"
+      },
+      {
+        "endpoint": "update_email_specified_time",
+        "path": "/update_email_specified_time"
+      },
+      {
+        "endpoint": "update_email_specified_time",
+        "path": "/tk_email_register_js/update_email_specified_time"
+      },
+      {
+        "endpoint": "get_email_templates",
+        "path": "/get_email_templates"
+      },
+      {
+        "endpoint": "get_email_templates",
+        "path": "/tk_email_register_js/get_email_templates"
+      },
+      {
+        "endpoint": "get_sender_emails",
+        "path": "/get_sender_emails"
+      },
+      {
+        "endpoint": "get_sender_emails",
+        "path": "/tk_email_register_js/get_sender_emails"
+      },
+      {
+        "endpoint": "get_my_email_accounts",
+        "path": "/get_my_email_accounts"
+      },
+      {
+        "endpoint": "get_my_email_accounts",
+        "path": "/tk_email_register_js/get_my_email_accounts"
+      },
+      {
+        "endpoint": "update_my_email_accounts",
+        "path": "/update_my_email_accounts"
+      },
+      {
+        "endpoint": "update_my_email_accounts",
+        "path": "/tk_email_register_js/update_my_email_accounts"
+      },
+      {
+        "endpoint": "add_my_email_account",
+        "path": "/add_my_email_account"
+      },
+      {
+        "endpoint": "add_my_email_account",
+        "path": "/tk_email_register_js/add_my_email_account"
+      },
+      {
+        "endpoint": "get_template_image",
+        "path": "/get_template_image"
+      },
+      {
+        "endpoint": "get_template_image",
+        "path": "/tk_email_register_js/get_template_image"
+      },
+      {
+        "endpoint": "add_email_template",
+        "path": "/add_email_template"
+      },
+      {
+        "endpoint": "add_email_template",
+        "path": "/tk_email_register_js/add_email_template"
+      },
+      {
+        "endpoint": "update_email_template",
+        "path": "/update_email_template"
+      },
+      {
+        "endpoint": "update_email_template",
+        "path": "/tk_email_register_js/update_email_template"
+      },
+      {
+        "endpoint": "delete_email_template",
+        "path": "/delete_email_template"
+      },
+      {
+        "endpoint": "delete_email_template",
+        "path": "/tk_email_register_js/delete_email_template"
+      },
+      {
+        "endpoint": "batch_import_emails",
+        "path": "/batch_import_emails"
+      },
+      {
+        "endpoint": "batch_import_emails",
+        "path": "/tk_email_register_js/batch_import_emails"
+      },
+      {
+        "endpoint": "batch_mark_replied",
+        "path": "/batch_mark_replied"
+      },
+      {
+        "endpoint": "batch_mark_replied_js",
+        "path": "/tk_email_register_js/batch_mark_replied"
+      },
+      {
+        "endpoint": "upload_email_image",
+        "path": "/upload_email_image"
+      },
+      {
+        "endpoint": "upload_email_image",
+        "path": "/tk_email_register_js/upload_email_image"
+      }
+    ]
+  },
+  {
+    "source": "Department/内容生产工厂/model_management.py",
+    "routes": [
+      {
+        "endpoint": "library",
+        "path": "/model/library"
+      },
+      {
+        "endpoint": "queue",
+        "path": "/model/queue"
+      },
+      {
+        "endpoint": "serve_video",
+        "path": "/model/videos/<path:filename>"
+      },
+      {
+        "endpoint": "models",
+        "path": "/api/models"
+      },
+      {
+        "endpoint": "models_all",
+        "path": "/api/models_all"
+      },
+      {
+        "endpoint": "model_queue_overview",
+        "path": "/api/model_queue_overview"
+      },
+      {
+        "endpoint": "update_model",
+        "path": "/api/models/<int:model_id>"
+      },
+      {
+        "endpoint": "get_model_queue",
+        "path": "/api/model_queue/<int:model_id>"
+      },
+      {
+        "endpoint": "create_model_queue",
+        "path": "/api/model_queue"
+      },
+      {
+        "endpoint": "create_proxy_queue",
+        "path": "/api/model_queue/proxy"
+      },
+      {
+        "endpoint": "complete_my_queue",
+        "path": "/api/model_queue/<int:model_id>/complete_mine"
+      },
+      {
+        "endpoint": "complete_video",
+        "path": "/api/model_queue/<int:queue_id>/complete"
+      },
+      {
+        "endpoint": "cancel_queue",
+        "path": "/api/model_queue/<int:queue_id>/cancel"
+      },
+      {
+        "endpoint": "cancel_my_queue",
+        "path": "/api/model_queue/<int:model_id>/cancel_mine"
+      },
+      {
+        "endpoint": "pause_queue",
+        "path": "/api/models/<int:model_id>/pause"
+      },
+      {
+        "endpoint": "set_proxy_queue",
+        "path": "/api/models/<int:model_id>/proxy"
+      }
+    ]
+  },
+  {
+    "source": "Department/内容生产工厂/seedance_web.py",
+    "routes": []
+  },
+  {
+    "source": "Department/内容生产工厂/tk_bd_metrics.py",
+    "routes": [
+      {
+        "endpoint": "tk_bd_metrics_page",
+        "path": "/tk_bd_metrics"
+      },
+      {
+        "endpoint": "get_tk_bd_metrics",
+        "path": "/api/tk_bd_metrics"
+      },
+      {
+        "endpoint": "tk_bd_metrics_import_page",
+        "path": "/tk_bd_metrics_import"
+      },
+      {
+        "endpoint": "download_bd_metrics_template",
+        "path": "/api/tk_bd_metrics_import/template"
+      },
+      {
+        "endpoint": "upload_bd_metrics",
+        "path": "/api/tk_bd_metrics_import/upload"
+      }
+    ]
+  },
+  {
+    "source": "Department/内容生产工厂/tk_customer_service_reminder.py",
+    "routes": []
+  },
+  {
+    "source": "Department/财务部/database.py",
+    "routes": []
+  },
+  {
+    "source": "Department/财务部/routes.py",
+    "routes": [
+      {
+        "endpoint": "finance_sz_dashboard",
+        "path": "/finance_sz_dashboard"
+      },
+      {
+        "endpoint": "api_finance_sz_expenses",
+        "path": "/api/finance/sz_expenses"
+      },
+      {
+        "endpoint": "export_approval_amounts",
+        "path": "/api/export_approval_amounts"
+      },
+      {
+        "endpoint": "export_approval_amounts_finance",
+        "path": "/api/export_approval_amounts_finance"
+      },
+      {
+        "endpoint": "list_feishu_approvals",
+        "path": "/api/feishu/approvals"
+      },
+      {
+        "endpoint": "list_feishu_approvals_finance",
+        "path": "/api/feishu/approvals_finance"
+      },
+      {
+        "endpoint": "import_expense_sheet",
+        "path": "/api/finance/import_expense_sheet"
+      },
+      {
+        "endpoint": "export_expense_sheet",
+        "path": "/api/finance/export_expense_sheet"
+      },
+      {
+        "endpoint": "export_freight",
+        "path": "/api/finance/export_freight"
+      },
+      {
+        "endpoint": "import_allocation_ratio",
+        "path": "/api/finance/import_allocation_ratio"
+      },
+      {
+        "endpoint": "import_wage_rent",
+        "path": "/api/finance/import_wage_rent"
+      }
+    ]
+  },
+  {
+    "source": "Department/财务部/shenzhen_total.py",
+    "routes": []
+  },
+  {
+    "source": "Department/财务部/tk_expenses.py",
+    "routes": [
+      {
+        "endpoint": "finance_tk_expenses",
+        "path": "/finance/tk_expenses"
+      },
+      {
+        "endpoint": "api_finance_tk_expenses",
+        "path": "/api/finance/tk_expenses"
+      }
+    ]
+  },
+  {
+    "source": "Department/财务部/tk_payments.py",
+    "routes": [
+      {
+        "endpoint": "finance_tk_payments",
+        "path": "/finance/tk_payments"
+      },
+      {
+        "endpoint": "api_finance_tk_payments",
+        "path": "/api/finance/tk_payments"
+      },
+      {
+        "endpoint": "finance_tk_payment_screenshot",
+        "path": "/api/finance/tk_payments/<int:payment_id>/screenshot"
+      }
+    ]
+  },
+  {
+    "source": "Department/总经办/business_analysis_access.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_company_market.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_fiscal_overview.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_key_tasks.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_promotion_backfill.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_snapshot_refresh.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_store_tier_history_snapshot.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_store_tier_promotion.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_store_tier_refresh.py",
+    "routes": []
+  },
+  {
+    "source": "Department/总经办/business_analysis_usage.py",
+    "routes": []
+  },
+  {
+    "source": "Department/人力资源与行政部/lunch_feishu_cards.py",
+    "routes": []
+  },
+  {
+    "source": "Department/人力资源与行政部/lunch_push.py",
+    "routes": []
+  },
+  {
+    "source": "Department/人力资源与行政部/routes.py",
+    "routes": [
+      {
+        "endpoint": "hr_admin_modules",
+        "path": "/hr_admin_modules"
+      },
+      {
+        "endpoint": "hr_admin_innovation_data",
+        "path": "/hr_admin/innovation_data"
+      },
+      {
+        "endpoint": "api_hr_innovation_data",
+        "path": "/api/hr/innovation_data"
+      },
+      {
+        "endpoint": "export_hr_innovation_data",
+        "path": "/api/hr/innovation_data/export"
+      }
+    ]
+  },
+  {
+    "source": "Department/人力资源与行政部/value_evaluation.py",
+    "routes": []
+  },
+  {
+    "source": "Department/menu_routes.py",
+    "routes": [
+      {
+        "endpoint": "finance_modules",
+        "path": "/finance_modules"
+      }
+    ]
+  },
+  {
+    "source": "Department/运营部/amazon_reply_service.py",
+    "routes": []
+  },
+  {
+    "source": "Department/运营部/daily_replenishment_operation.py",
+    "routes": [
+      {
+        "endpoint": "sea_shipping_recommendations",
+        "path": "/api/ai/daily-replenishment-operation/sea-shipping-recommendations"
+      },
+      {
+        "endpoint": "purchase_plan",
+        "path": "/api/ai/daily-replenishment-operation/purchase-plan"
+      }
+    ]
+  },
+  {
+    "source": "Department/内容生产工厂/daily_replenishment_tiktok.py",
+    "routes": [
+      {
+        "endpoint": "purchase_plan",
+        "path": "/api/ai/daily-replenishment-tiktok/purchase-plan"
+      }
+    ]
+  },
+  {
+    "source": "Department/运营部/fba_shipping_service.py",
+    "routes": []
+  },
+  {
+    "source": "Department/运营部/historical_sales.py",
+    "routes": []
+  },
+  {
+    "source": "Department/内容生产工厂/tk_gmv_authorization.py",
+    "routes": [
+      {
+        "endpoint": "page",
+        "path": "/tk_gmv_authorization_notify"
+      },
+      {
+        "endpoint": "process_files",
+        "path": "/api/tk_gmv_authorization_notify/process"
+      }
+    ]
+  },
+  {
+    "source": "Department/内容生产工厂/tk_total_dashboard.py",
+    "routes": [
+      {
+        "endpoint": "tk_dashboard_page",
+        "path": "/tk/dashboard"
+      },
+      {
+        "endpoint": "tk_dashboard_project_page",
+        "path": "/tk/dashboard_project"
+      },
+      {
+        "endpoint": "tk_dashboard_sz_page",
+        "path": "/tk/dashboard_sz"
+      },
+      {
+        "endpoint": "tk_dashboard_82_page",
+        "path": "/tk/dashboard_82"
+      },
+      {
+        "endpoint": "tk_dashboard_88_page",
+        "path": "/tk/dashboard_88"
+      },
+      {
+        "endpoint": "tk_dashboard_90_page",
+        "path": "/tk/dashboard_90"
+      },
+      {
+        "endpoint": "tk_metrics_82",
+        "path": "/tk/metrics_82"
+      },
+      {
+        "endpoint": "tk_metrics_88",
+        "path": "/tk/metrics_88"
+      },
+      {
+        "endpoint": "tk_metrics_90",
+        "path": "/tk/metrics_90"
+      },
+      {
+        "endpoint": "tk_gmv_ratio_page",
+        "path": "/tk/gmv_ratio_card"
+      },
+      {
+        "endpoint": "tk_gmv_ratio_shops",
+        "path": "/api/tk/gmv_ratio/shops"
+      },
+      {
+        "endpoint": "tk_gmv_ratio_data",
+        "path": "/api/tk/gmv_ratio"
+      },
+      {
+        "endpoint": "tk_shops",
+        "path": "/tk/shops"
+      },
+      {
+        "endpoint": "tk_joint_shops",
+        "path": "/tk/joint_shops"
+      },
+      {
+        "endpoint": "tk_yesterday_order_sales",
+        "path": "/tk/yesterday_order_sales"
+      },
+      {
+        "endpoint": "tk_metrics",
+        "path": "/tk/metrics"
+      }
+    ]
+  },
+  {
+    "source": "Department/流程与AI部/ai_group_performance.py",
+    "routes": []
+  },
+  {
+    "source": "Department/流程与AI部/daily_replenishment.py",
+    "routes": []
+  },
+  {
+    "source": "Department/流程与AI部/developer_product_sales.py",
+    "routes": []
+  },
+  {
+    "source": "Department/流程与AI部/smart_replenishment.py",
+    "routes": []
+  },
+  {
+    "source": "Department/技术部/review_analysis.py",
+    "routes": [
+      {
+        "endpoint": "review_analysis",
+        "path": "/review_analysis"
+      },
+      {
+        "endpoint": "review_filter_options",
+        "path": "/api/review_analysis/filter_options"
+      },
+      {
+        "endpoint": "analyze_reviews",
+        "path": "/analyze_reviews"
+      },
+      {
+        "endpoint": "export_all_review_history",
+        "path": "/api/review_analysis/export_all_history"
+      },
+      {
+        "endpoint": "get_analysis_history_api",
+        "path": "/get_analysis_history"
+      },
+      {
+        "endpoint": "get_analysis_detail",
+        "path": "/get_analysis_detail"
+      },
+      {
+        "endpoint": "analyze_word_freq",
+        "path": "/analyze_word_freq"
+      }
+    ]
+  },
+  {
+    "source": "Department/视觉设计部/prepress_check_service.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/a_plus_canvas.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/a_plus_reference_lab.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/amazon_a_plus_psd.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/background_texture.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/canvas_a_plus.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/multi_reference_composer.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/poster_fusion.py",
+    "routes": []
+  },
+  {
+    "source": "Department/视觉设计部/xiaoha/features/qa_chat.py",
+    "routes": []
+  },
+  {
+    "source": "Department/采购部/yangban_inventory.py",
+    "routes": [
+      {
+        "endpoint": "page",
+        "path": "/procurement/yangban_inventory"
+      },
+      {
+        "endpoint": "locations_page",
+        "path": "/procurement/yangban_locations"
+      },
+      {
+        "endpoint": "sample_image",
+        "path": "/procurement/yangban/image/<path:filename>"
+      },
+      {
+        "endpoint": "sample_image_preview",
+        "path": "/procurement/yangban/image-preview/<path:filename>"
+      },
+      {
+        "endpoint": "api_location_map",
+        "path": "/api/procurement/yangban/location-map"
+      },
+      {
+        "endpoint": "api_location_tree",
+        "path": "/api/procurement/yangban/locations/tree"
+      },
+      {
+        "endpoint": "api_create_location",
+        "path": "/api/procurement/yangban/locations"
+      },
+      {
+        "endpoint": "api_update_location",
+        "path": "/api/procurement/yangban/locations/<int:location_id>"
+      },
+      {
+        "endpoint": "api_disable_location",
+        "path": "/api/procurement/yangban/locations/<int:location_id>/disable"
+      },
+      {
+        "endpoint": "api_delete_location",
+        "path": "/api/procurement/yangban/locations/<int:location_id>"
+      },
+      {
+        "endpoint": "api_dashboard",
+        "path": "/api/procurement/yangban/dashboard"
+      },
+      {
+        "endpoint": "api_options",
+        "path": "/api/procurement/yangban/options"
+      },
+      {
+        "endpoint": "api_samples",
+        "path": "/api/procurement/yangban/samples"
+      },
+      {
+        "endpoint": "api_sample_detail",
+        "path": "/api/procurement/yangban/samples/<int:sample_id>"
+      },
+      {
+        "endpoint": "api_disable_sample",
+        "path": "/api/procurement/yangban/samples/<int:sample_id>/disable"
+      },
+      {
+        "endpoint": "api_inventory_operation",
+        "path": "/api/procurement/yangban/operations"
+      },
+      {
+        "endpoint": "api_flows",
+        "path": "/api/procurement/yangban/flows"
+      },
+      {
+        "endpoint": "api_flows_export",
+        "path": "/api/procurement/yangban/flows/export"
+      },
+      {
+        "endpoint": "api_tags",
+        "path": "/api/procurement/yangban/tags"
+      },
+      {
+        "endpoint": "api_update_tag",
+        "path": "/api/procurement/yangban/tags/<int:tag_id>"
+      },
+      {
+        "endpoint": "api_disable_tag",
+        "path": "/api/procurement/yangban/tags/<int:tag_id>/disable"
+      }
+    ]
+  },
+  {
+    "source": "core/config/secret_settings.py",
+    "routes": []
+  },
+  {
+    "source": "core/database/bjc.py",
+    "routes": []
+  },
+  {
+    "source": "core/permissions/department_permissions.py",
+    "routes": []
+  },
+  {
+    "source": "core/permissions/permission_seed_data.py",
+    "routes": []
+  },
+  {
+    "source": "core/utils/dashboard_workspace.py",
+    "routes": []
+  },
+  {
+    "source": "core/utils/tools.py",
+    "routes": []
+  },
+  {
+    "source": "integrations/feishu/cloud_documents.py",
+    "routes": []
+  },
+  {
+    "source": "integrations/feishu/feishu_skill_bridge.py",
+    "routes": []
+  },
+  {
+    "source": "integrations/sellfox/sellfox_purchase.py",
+    "routes": []
+  },
+  {
+    "source": "shared_modules/reports/export_media.py",
+    "routes": []
+  },
+  {
+    "source": "shared_modules/reports/formatting.py",
+    "routes": []
+  },
+  {
+    "source": "shared_modules/reports/xiaotu_report_memory.py",
+    "routes": []
+  }
+]

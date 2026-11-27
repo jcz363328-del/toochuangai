@@ -28,7 +28,7 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
         environment = Environment(loader=FileSystemLoader(ROOT / "templates"))
         environment.globals["url_for"] = lambda endpoint, **values: f"/{endpoint}"
         environment.globals["get_flashed_messages"] = lambda **kwargs: []
-        template = environment.get_template("dashboard.html")
+        template = environment.get_template("主站/dashboard.html")
         context = {
             "user_id": "ou_real_operator",
             "user_name": "周俊成",
@@ -45,7 +45,7 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
         self.assertNotIn('id="identitySwitchTrigger"', denied_html)
 
     def test_default_favorites_can_be_removed_and_restored(self):
-        source = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8-sig")
+        source = (ROOT / "templates" / "主站/dashboard.html").read_text(encoding="utf-8-sig")
 
         self.assertIn("dashboard_hidden_default_favorites:${userKey}", source)
         self.assertIn("card.classList.toggle('favorite-hidden'", source)
@@ -54,7 +54,7 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
         self.assertNotIn("if (!menu || defaultMenus.has(menu)) return;", source)
 
     def test_secondary_favorites_are_rendered_on_dashboard(self):
-        source = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8-sig")
+        source = (ROOT / "templates" / "主站/dashboard.html").read_text(encoding="utf-8-sig")
 
         self.assertIn("dashboard_favorite_items:${userKey}", source)
         self.assertIn("secondaryItems.forEach(source =>", source)
@@ -62,27 +62,27 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
 
     def test_secondary_favorite_component_is_loaded_by_function_hubs(self):
         for template_name in (
-            "ai_modules.html",
-            "operation_dept.html",
-            "tk_project.html",
-            "finance_modules.html",
-            "hr_admin_modules.html",
+            "流程与AI部/ai_modules.html",
+            "主站/operation_dept.html",
+            "内容生产工厂/tk_project.html",
+            "财务部/finance_modules.html",
+            "人力资源与行政部/hr_admin_modules.html",
         ):
             source = (ROOT / "templates" / template_name).read_text(encoding="utf-8-sig")
             self.assertIn("dashboard_secondary_favorites.css", source, template_name)
             self.assertIn("dashboard_secondary_favorites.js", source, template_name)
 
     def test_secondary_favorites_carry_and_validate_permission_keys(self):
-        dashboard = (ROOT / "templates" / "dashboard.html").read_text(encoding="utf-8-sig")
+        dashboard = (ROOT / "templates" / "主站/dashboard.html").read_text(encoding="utf-8-sig")
         secondary = (ROOT / "static" / "js" / "dashboard_secondary_favorites.js").read_text(encoding="utf-8-sig")
-        ai_modules = (ROOT / "templates" / "ai_modules.html").read_text(encoding="utf-8-sig")
+        ai_modules = (ROOT / "templates" / "流程与AI部/ai_modules.html").read_text(encoding="utf-8-sig")
 
         self.assertIn("dashboard_allowed_functions", dashboard)
         self.assertIn("permissionByMenu", dashboard)
         self.assertIn("source.permission || permissionByMenu[source.menu]", dashboard)
         self.assertIn("!currentSource || !currentSource.allowed", dashboard)
         self.assertIn("dataset.permission", secondary)
-        self.assertIn('data-permission="daily_replenishment_operation"', ai_modules)
+        self.assertIn('data-permission="replenishment_vben"', ai_modules)
 
     def test_favorite_context_uses_current_identity(self):
         self._login("测试用户")
@@ -96,7 +96,7 @@ class DashboardIdentitySwitchTests(unittest.TestCase):
         environment = Environment(loader=FileSystemLoader(ROOT / "templates"))
         environment.globals["url_for"] = lambda endpoint, **values: f"/{endpoint}"
         environment.globals["get_flashed_messages"] = lambda **kwargs: []
-        template = environment.get_template("dashboard.html")
+        template = environment.get_template("主站/dashboard.html")
         html = template.render(
             user_id="ou_test",
             user_name="测试用户",

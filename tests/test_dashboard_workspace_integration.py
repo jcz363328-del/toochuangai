@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 from unittest.mock import patch
 
 import app as site
-from dashboard_workspace import template_catalog_context
+from core.utils.dashboard_workspace import template_catalog_context
 from department_permissions import PERMISSION_CONFIG
 
 
@@ -22,9 +22,9 @@ class WorkspaceIntegrationTests(unittest.TestCase):
         group = next(group for group in body['groups'] if group['key'] == 'ai_dept')
         self.assertEqual(group['errors'], [])
         with site.app.test_request_context():
-            source = site.app.jinja_env.loader.get_source(site.app.jinja_env, 'ai_modules.html')[0]
+            source = site.app.jinja_env.loader.get_source(site.app.jinja_env, '流程与AI部/ai_modules.html')[0]
             flags, _ = template_catalog_context(source)
-            rendered = site.render_template('ai_modules.html', **flags)
+            rendered = site.render_template('流程与AI部/ai_modules.html', **flags)
         titles = re.findall(r'<div\b[^>]*class="module-card"[^>]*>.*?<h3[^>]*>(.*?)</h3>', rendered, re.S)
         expected = {html.unescape(re.sub('<[^>]+>', '', title)).strip() for title in titles}
         self.assertGreaterEqual(len(expected), 20)
@@ -34,9 +34,9 @@ class WorkspaceIntegrationTests(unittest.TestCase):
         body = self.catalog([])
         group = next(group for group in body['groups'] if group['key'] == 'tk_project_group')
         with site.app.test_request_context():
-            source = site.app.jinja_env.loader.get_source(site.app.jinja_env, 'tk_project.html')[0]
+            source = site.app.jinja_env.loader.get_source(site.app.jinja_env, '内容生产工厂/tk_project.html')[0]
             flags, names = template_catalog_context(source)
-            rendered = site.render_template('tk_project.html', accessible_functions=[{'function_name': name} for name in names], **flags)
+            rendered = site.render_template('内容生产工厂/tk_project.html', accessible_functions=[{'function_name': name} for name in names], **flags)
         expected = {html.unescape(title) for title in re.findall(r'data-menu="([^"]+)"', rendered)}
         self.assertEqual(group['errors'], [])
         self.assertEqual(expected, {item['menu'] for item in group['items']})

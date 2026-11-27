@@ -5,7 +5,7 @@ import re
 import unittest
 from unittest.mock import patch
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 class APlusFirstScreenWorkflowTests(unittest.TestCase):
@@ -38,7 +38,7 @@ class APlusFirstScreenWorkflowTests(unittest.TestCase):
         self.assertNotIn('元素时除外', prompt)
 
     def test_completed_hero_is_saved_separately_from_latest_result(self) -> None:
-        source = inspect.getsource(site.store_completed_background_job_result)
+        source = inspect.getsource(site._feature_helpers.store_completed_background_job_result)
         self.assertIn('a_plus_first_screen_workflow_stage', source)
         self.assertIn('a_plus_first_screen_hero_results', source)
 

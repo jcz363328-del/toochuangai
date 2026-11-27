@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 from PIL import Image
 
-from 图片 import openrouter_image_site as site
+from Department.视觉设计部.xiaoha import openrouter_image_site as site
 
 
 def image_data_url(image: Image.Image) -> str:
@@ -499,8 +499,8 @@ class NaturalOutpaintTests(unittest.TestCase):
             self.assertEqual(image.size, (200, 100))
 
     def test_drag_selection_is_not_rounded_to_fifty_pixels(self) -> None:
-        consume_source = inspect.getsource(site.consume_pending_outpaint_drag)
-        preview_source = inspect.getsource(site.render_outpaint_extension_preview_card)
+        consume_source = inspect.getsource(site._workbench_state.consume_pending_outpaint_drag)
+        preview_source = inspect.getsource(site._gallery_views.render_outpaint_extension_preview_card)
 
         self.assertEqual(site.OUTPAINT_DRAG_STEP_PX, 1)
         self.assertIn("value / drag_step", consume_source)
@@ -508,7 +508,7 @@ class NaturalOutpaintTests(unittest.TestCase):
         self.assertIn('"step": OUTPAINT_DRAG_STEP_PX', preview_source)
 
     def test_outpaint_ui_uses_canvas_controls_and_docked_clear_button(self) -> None:
-        render_source = inspect.getsource(site.render_openrouter_feature)
+        render_source = inspect.getsource(site._feature_workbench.render_openrouter_feature)
 
         self.assertNotIn("最终输出尺寸（可直接输入）", render_source)
         self.assertNotIn("精确扩展像素（可直接输入）", render_source)

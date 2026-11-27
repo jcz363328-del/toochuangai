@@ -10,7 +10,7 @@ from flask import Flask
 os.environ.setdefault("TK_DASHBOARD_DISABLE_BACKGROUND_CACHE", "1")
 
 import tk_total_dashboard as dashboard_module
-from permission_seed_data import JOINT_SHOP_USERS
+from core.permissions.permission_seed_data import JOINT_SHOP_USERS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,13 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 class TkJointDashboardPermissionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.backend = (ROOT / "tk_total_dashboard.py").read_text(encoding="utf-8")
+        cls.backend = (ROOT / "Department" / "内容生产工厂" / "tk_total_dashboard.py").read_text(encoding="utf-8")
         cls.app = (ROOT / "app.py").read_text(encoding="utf-8")
         cls.dashboard_template = (
-            ROOT / "templates" / "tk_total_dashboard.html"
+            ROOT / "templates" / "内容生产工厂/tk_total_dashboard.html"
         ).read_text(encoding="utf-8")
         cls.project_template = (
-            ROOT / "templates" / "tk_project.html"
+            ROOT / "templates" / "内容生产工厂/tk_project.html"
         ).read_text(encoding="utf-8")
 
     def test_all_requested_shop_user_bindings_are_configured(self):
@@ -65,7 +65,8 @@ class TkJointDashboardPermissionTests(unittest.TestCase):
 
     def test_named_users_can_see_entry_without_total_dashboard_permission(self):
         self.assertIn("get_joint_dashboard_allowed_shops", self.app)
-        self.assertIn("can_view_joint_dashboard=bool(get_joint_dashboard_allowed_shops())", self.app)
+        pages = (ROOT / "Department" / "内容生产工厂" / "entry_pages.py").read_text(encoding="utf-8")
+        self.assertIn("can_view_joint_dashboard=bool(get_joint_dashboard_allowed_shops())", pages)
         self.assertIn("{% if can_view_joint_dashboard %}", self.project_template)
 
     def test_manual_refresh_uses_user_independent_shared_cache(self):
