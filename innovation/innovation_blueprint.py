@@ -9,7 +9,7 @@ if innovation_path not in sys.path:
 
 # 导入创新系统的所有函数
 from innovation.web_app import (
-    index, mobile_index, submit, dashboard, points, points_leaderboard, excellent_cases, manage, manage_demo, manage_mobile,
+    index, submit, dashboard, points, points_leaderboard, excellent_cases, manage, manage_demo,
     submit_innovation, get_innovations, transfer_innovation,
     request_help, get_flow_details, get_project_departments,
     handle_innovation, update_committee_score, submit_to_meeting, update_user_points_summary,
@@ -40,15 +40,11 @@ innovation_bp = Blueprint('innovation', __name__,
                          static_folder='static')
 
 # 将创新系统的所有路由添加到蓝图中
+@innovation_bp.route('/mobile')
 @innovation_bp.route('/')
 def innovation_index():
     """创新系统首页"""
     return index()
-
-@innovation_bp.route('/mobile')
-def innovation_mobile_index():
-    """创新系统移动端首页"""
-    return mobile_index()
 
 @innovation_bp.route('/submit')
 def innovation_submit():
@@ -75,6 +71,7 @@ def innovation_excellent_cases():
     """优秀案例页面"""
     return excellent_cases()
 
+@innovation_bp.route('/manage/mobile')
 @innovation_bp.route('/manage')
 def innovation_manage():
     """管理页面"""
@@ -85,12 +82,6 @@ def innovation_manage():
 def innovation_manage_demo():
     """创新管理新版界面预览。"""
     return manage_demo()
-
-
-@innovation_bp.route('/manage/mobile')
-def innovation_manage_mobile():
-    """管理页面 - 移动版"""
-    return manage_mobile()
 
 
 @innovation_bp.route('/specials')

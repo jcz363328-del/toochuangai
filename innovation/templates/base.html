@@ -67,7 +67,7 @@
                 {% for section, section_label, section_icon in management_sections %}
                 {% if (heading == '积分与激励' and section == 'rewards') or (heading == '提案管理' and section == 'innovations') or (heading == '会议管理' and section == 'meeting-draw') %}
                 <a class="innovation-nav-item{{ ' is-active' if current_endpoint == endpoint and selected_section == section else '' }}"
-                   href="{{ url_for(endpoint, section=section, desktop=1) }}"
+                   href="{{ url_for(endpoint, section=section) }}"
                    {% if current_endpoint == endpoint and selected_section == section %}aria-current="page"{% endif %}
                    onclick="return logMenuClickAndGo('{{ section_label }}', this.href);">
                     <i class="bi bi-{{ section_icon }}" aria-hidden="true"></i><span>{{ section_label }}</span>

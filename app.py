@@ -148,6 +148,7 @@ from Department.内容生产工厂.influencer_management import influencer_manag
 from Department.内容生产工厂.model_management import model_management_bp
 from innovation.innovation_proposals import innovation_proposals_bp
 from innovation.innovation_blueprint import innovation_bp
+from innovation.home_snapshots import start_home_snapshot_worker
 from innovation.config import APP_CONFIG as INNOVATION_APP_CONFIG
 from Department.内容生产工厂.tk_total_dashboard import tk_dashboard_bp, get_joint_dashboard_allowed_shops
 from Department.内容生产工厂.tk_bd_metrics import bd_metrics_bp
@@ -6016,6 +6017,7 @@ def reauth():
 
 
 if __name__ == '__main__':
+    start_home_snapshot_worker(app)
     local_superadmin = env('TC_LOCAL_SUPERADMIN', '0') == '1'
     app.config['LOCAL_SUPERADMIN_LOOPBACK_BOUND'] = local_superadmin
     debug_mode = str(os.environ.get("TC_FLASK_DEBUG", "")).strip().lower() in {"1", "true", "yes", "on"}

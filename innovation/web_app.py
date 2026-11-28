@@ -8,8 +8,9 @@ from innovation.message_service import MessageService  # 导入统一消息发�
 from innovation.config import APP_CONFIG, DEPARTMENTS
 from department_permissions import permission_manager
 from tools import escape_sql_literal as _escape_sql_literal_for_pytds
-from tools import is_mobile_user_agent, safe_print as _safe_print
+from tools import safe_print as _safe_print
 from innovation.special_support import ensure_special_storage, user_in_receiver_department
+from innovation.home_snapshots import read_snapshot
 import os
 from io import BytesIO  # 用于操作文件和目录
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory, \
@@ -524,9 +525,6 @@ def _ensure_nvarchar_max_column(table_name, column_name):
         return False
 
 
-def _is_mobile_request():
-    return is_mobile_user_agent(request.headers.get('User-Agent'))
-
 
 def _innovation_star_editor_context():
     """返回当前用户是否可添加创新星内容，以及用于页面展示的身份信息。"""
@@ -689,22 +687,7 @@ def _run_vector_update_async(project_id):
 @app.route('/')  # 运行到这立即渲染下方的导航栏网站
 def index():  # 定义首页处理函数
     """首页"""
-    force_desktop = str(request.args.get('desktop') or '').strip() in {'1', 'true', 'yes'}
-    if not force_desktop:
-        ua = (request.headers.get('User-Agent') or '').lower()
-        mobile_keywords = ['iphone', 'ipad', 'android', 'mobile', 'harmony', 'micromessenger']
-        if any(k in ua for k in mobile_keywords):
-            return redirect(url_for('innovation.innovation_mobile_index'))
     return render_template('index.html')  # 渲染index.html作为首页
-
-
-@app.route('/mobile', endpoint='innovation.innovation_mobile_index')
-def mobile_index():
-    """创新系统移动端首页"""
-    return render_template(
-        'mobile_index.html',
-        feishu_user_name=_get_current_feishu_user_name()
-    )
 
 
 @app.route('/submit', endpoint='innovation.innovation_submit')  # 定义路由,提交页面的路由
@@ -1165,10 +1148,6 @@ def edit_innovation_star_content(item_id):
 @app.route('/manage', endpoint='innovation.innovation_manage')
 def manage():
     """管理页面 - 所有用户可访问"""
-    force_desktop = str(request.args.get('desktop') or '').strip() in {'1', 'true', 'yes'}
-    if (not force_desktop) and _is_mobile_request():
-        return redirect(url_for('innovation.innovation_manage_mobile'))
-
     username = session.get('username', '')  # 获取会话中的用户名
 
     raw_name = session.get('feishu_user_name', '')
@@ -1310,14 +1289,6 @@ def manage_demo():
         feishu_user_name=feishu_user_name or '当前用户',
     )
 
-
-@app.route('/manage/mobile', endpoint='innovation.innovation_manage_mobile')
-def manage_mobile():
-    """创新承接管理移动端页面"""
-    raw_name = session.get('feishu_user_name', '')
-    name_parts = str(raw_name).split('（', 1) if raw_name else []
-    feishu_user_name = name_parts[0].strip() if name_parts else str(raw_name).strip()
-    return render_template('manage_mobile.html', feishu_user_name=feishu_user_name)
 
 # ===== 创新点赞/评论 API =====
 @app.route('/api/innovation/react', methods=['POST'])
@@ -4509,6 +4480,9 @@ ORDER BY 序号;
 @app.route('/api/get_statistics', methods=['GET'])
 def get_statistics():
     """获取统计数据API"""
+    snapshot = read_snapshot('statistics')
+    if snapshot is not None:
+        return jsonify(snapshot)
     try:
         # 获取各状态统计
         total_count = sf_db("SELECT COUNT(*) FROM chuangxin_tibao1", single=True)
@@ -4895,6 +4869,9 @@ def reward_image(filename):
 @app.route('/api/get_dashboard_data', methods=['GET'])
 def get_dashboard_data():
     """获取数字看板数据API"""
+    snapshot = read_snapshot('dashboard')
+    if snapshot is not None:
+        return jsonify(snapshot)
     try:
         # 获取查询参数
         start_date = request.args.get('start_date')

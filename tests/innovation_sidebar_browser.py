@@ -73,9 +73,9 @@ with sync_playwright() as runtime:
     assert not errors, errors
     page.set_viewport_size({'width': 1584, 'height': 1000})
     for section in ('innovations', 'rewards', 'meeting-draw'):
-        management_render = render.replace("'/innovation/'", repr('/innovation/manage?desktop=1&section=' + section)).replace("render_template('index.html')", "render_template('manage.html', is_committee_member=False, feishu_user_name='测试人员', feishu_user_id='test-user')")
+        management_render = render.replace("'/innovation/'", repr('/innovation/manage?section=' + section)).replace("render_template('index.html')", "render_template('manage.html', is_committee_member=False, feishu_user_name='测试人员', feishu_user_id='test-user')")
         html = subprocess.check_output(['/opt/web/bin/python', '-c', management_render]).decode()
-        page.goto('http://preview.local/innovation/manage?desktop=1&section=' + section, wait_until='networkidle', timeout=90000)
+        page.goto('http://preview.local/innovation/manage?section=' + section, wait_until='networkidle', timeout=90000)
         assert page.locator('#' + section).is_visible()
         assert page.locator('.tab-pane.active').count() == 1
         assert page.locator('#manageTabs').count() == 0
